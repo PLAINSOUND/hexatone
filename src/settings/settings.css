@@ -2125,6 +2125,10 @@ td.scale-color-col .color-input {
   font-variant-numeric: tabular-nums;
 }
 
+.sequencer-manual-arpeggiation-control--decay output {
+  width: 5.6em;
+}
+
 .sequencer-option-row > span:first-child {
   flex: 0 0 auto;
 }
@@ -2393,6 +2397,7 @@ td.scale-color-col .color-input {
   margin-top: 0.55em;
 }
 
+.sequencer-copy-block__range-label,
 .sequencer-copy-block__articulation-label {
   line-height: 1.5em;
 }

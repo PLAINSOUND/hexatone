@@ -69,8 +69,9 @@ describe("sequencer session persistence", () => {
         initialSpreadMs: 950,
         spreadVariation: 0.3,
         timingVariation: 0.27,
-        decayMs: 5000,
-        decayVariation: 0.75,
+        decayMode: "timed",
+        decayMs: 500,
+        decayVariation: 0.3,
         styleParameters: {},
       },
     });

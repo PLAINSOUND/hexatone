@@ -248,7 +248,7 @@ describe("Sequencer", () => {
     expect(screen.getAllByLabelText("snapshot 1 attack offset")[0].value).toBe("0.250");
     expect(screen.getAllByLabelText("snapshot 1 release offset")[0].value).toBe("0.750");
 
-    fireEvent.click(screen.getByRole("button", { name: "Reset Note Offsets in Place" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset Note Offsets" }));
 
     expect(screen.getAllByLabelText("snapshot 1 attack offset")[0].value).toBe("0.000");
     expect(screen.getAllByLabelText("snapshot 1 release offset")[0].value).toBe("1.000");
@@ -355,6 +355,7 @@ describe("Sequencer", () => {
           initialSpreadMs: 825,
           spreadVariation: 0.33,
           timingVariation: 0.18,
+          decayMode: "timed",
           decayMs: 4200,
           decayVariation: 0.22,
         }}
@@ -431,6 +432,14 @@ describe("Sequencer", () => {
       currentTarget: { value: "7500" },
       target: { value: "7500" },
     });
+    fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation decay" }), {
+      currentTarget: { value: "0" },
+      target: { value: "0" },
+    });
+    fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation decay" }), {
+      currentTarget: { value: "10100" },
+      target: { value: "10100" },
+    });
     fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation decay variation" }), {
       currentTarget: { value: "35" },
       target: { value: "35" },
@@ -438,8 +447,17 @@ describe("Sequencer", () => {
     expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(1, { initialSpreadMs: 1200 });
     expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(2, { timingVariation: 0.25 });
     expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(3, { spreadVariation: 0.4 });
-    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(4, { decayMs: 7500 });
-    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(5, { decayVariation: 0.35 });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(4, {
+      decayMode: "timed",
+      decayMs: 7500,
+    });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(5, {
+      decayMode: "immediate",
+    });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(6, {
+      decayMode: "sustain",
+    });
+    expect(onManualArpeggiationChange).toHaveBeenNthCalledWith(7, { decayVariation: 0.35 });
   });
 
   it("suggests the tempo at a chosen position and retains user-entered tempo values after adding", () => {

@@ -7,6 +7,13 @@ function finiteStart(note) {
   return Number.isFinite(start) ? start : 0;
 }
 
+function finitePitch(note) {
+  const pitch = Number(note?.midicents);
+  return Number.isFinite(pitch) ? pitch : null;
+}
+
+const MAX_TIMING_CURVATURE = 0.8;
+
 function variedDuration(centerMs, variation, random) {
   if (centerMs <= 0 || variation <= 0) return centerMs;
   const randomValue = Math.min(1, Math.max(0, Number(random()) || 0));
@@ -16,25 +23,19 @@ function variedDuration(centerMs, variation, random) {
 
 function variedOffsets(baseOffsets, spreadMs, variation, random) {
   if (baseOffsets.length <= 1 || spreadMs <= 0 || variation <= 0) return baseOffsets;
-  const gaps = baseOffsets.slice(1).map((offset, index) => (
-    Math.max(0, offset - baseOffsets[index])
-  ));
-  const variedGaps = gaps.map((gap) => {
-    if (gap <= 0) return 0;
-    const randomValue = Math.min(1, Math.max(0, Number(random()) || 0));
-    return gap * Math.max(0.001, 1 + ((randomValue * 2 - 1) * variation));
+  const randomUnit = () => Math.min(1, Math.max(0, Number(random()) || 0));
+  // A triangular distribution favours gentle arcs while still allowing the
+  // occasional strongly front- or back-weighted gesture.
+  const curvature = (randomUnit() + randomUnit() - 1) * MAX_TIMING_CURVATURE;
+  const finalIndex = baseOffsets.length - 1;
+  const offsets = baseOffsets.map((sourceOffset, index) => {
+    const rank = index / finalIndex;
+    const curvedRank = rank + (curvature * rank * (1 - rank));
+    const generatedOffset = curvedRank * spreadMs;
+    return (sourceOffset * (1 - variation)) + (generatedOffset * variation);
   });
-  const total = variedGaps.reduce((sum, gap) => sum + gap, 0);
-  if (total <= 0) return baseOffsets;
-
-  let elapsed = 0;
-  return [
-    0,
-    ...variedGaps.map((gap) => {
-      elapsed += gap;
-      return elapsed * spreadMs / total;
-    }),
-  ];
+  offsets[offsets.length - 1] = spreadMs;
+  return offsets;
 }
 
 export function planManualSnapshotFormation(notes, settings = {}, random = Math.random) {
@@ -46,16 +47,23 @@ export function planManualSnapshotFormation(notes, settings = {}, random = Math.
   );
   const variation = Math.min(1, Math.max(0, Number(settings.timingVariation) || 0));
   const ordered = source
-    .map((note, index) => ({ note, index, start: finiteStart(note) }))
-    .sort((a, b) => a.start - b.start || a.index - b.index);
+    .map((note, index) => ({
+      note,
+      index,
+      start: finiteStart(note),
+      pitch: finitePitch(note),
+    }))
+    .sort((a, b) => (
+      a.start - b.start
+      || (
+        a.pitch == null || b.pitch == null
+          ? a.index - b.index
+          : a.pitch - b.pitch || a.index - b.index
+      )
+    ));
 
   if (ordered.length === 0) return { durationMs: 0, events: [] };
   if (ordered.length === 1) {
-    const decayMs = Math.max(0, Number(settings.decayMs) || 0);
-    const decayVariation = Math.min(
-      1,
-      Math.max(0, Number(settings.decayVariation) || 0),
-    );
     const attack = {
       type: "attack",
       eventId: `note-${ordered[0].index}`,
@@ -63,12 +71,9 @@ export function planManualSnapshotFormation(notes, settings = {}, random = Math.
       note: ordered[0].note,
       noteId: ordered[0].note?.id ?? null,
     };
-    const releaseOffsetMs = variedDuration(decayMs, decayVariation, random);
     return {
-      durationMs: releaseOffsetMs,
-      events: decayMs > 0
-        ? [attack, { ...attack, type: "release", offsetMs: releaseOffsetMs }]
-        : [attack],
+      durationMs: 0,
+      events: [attack],
     };
   }
 
@@ -90,27 +95,36 @@ export function planManualSnapshotFormation(notes, settings = {}, random = Math.
       note: entry.note,
       noteId: entry.note?.id ?? null,
     }));
-  const decayMs = Math.max(0, Number(settings.decayMs) || 0);
-  const decayVariation = Math.min(
-    1,
-    Math.max(0, Number(settings.decayVariation) || 0),
-  );
-  const releaseEvents = decayMs <= 0
-    ? []
-    : attackEvents.map((attack) => ({
-      type: "release",
-      eventId: attack.eventId,
-      offsetMs: attack.offsetMs + variedDuration(decayMs, decayVariation, random),
-      note: attack.note,
-      noteId: attack.noteId,
-    }));
-  const events = [...attackEvents, ...releaseEvents].sort((a, b) => (
-    a.offsetMs - b.offsetMs
-    || (a.type === b.type ? 0 : (a.type === "attack" ? -1 : 1))
-  ));
+  return {
+    durationMs: attackEvents.at(-1)?.offsetMs ?? spreadMs,
+    events: attackEvents,
+  };
+}
+
+export function planManualSnapshotRelease(attackEvents, settings = {}, random = Math.random) {
+  const source = (Array.isArray(attackEvents) ? attackEvents : [])
+    .filter((event) => event?.type !== "release");
+  const decayMode = settings.decayMode === "immediate"
+    ? "immediate"
+    : (settings.decayMode === "sustain" ? "sustain" : "timed");
+  if (source.length === 0 || decayMode === "sustain") {
+    return { durationMs: 0, events: [] };
+  }
+
+  const decayMs = decayMode === "immediate"
+    ? 0
+    : Math.max(0, Number(settings.decayMs) || 0);
+  const decayVariation = decayMode === "timed"
+    ? Math.min(1, Math.max(0, Number(settings.decayVariation) || 0))
+    : 0;
+  const events = source.map((attack) => ({
+    ...attack,
+    type: "release",
+    offsetMs: variedDuration(decayMs, decayVariation, random),
+  })).sort((a, b) => a.offsetMs - b.offsetMs);
 
   return {
-    durationMs: events.at(-1)?.offsetMs ?? spreadMs,
+    durationMs: events.at(-1)?.offsetMs ?? 0,
     events,
   };
 }

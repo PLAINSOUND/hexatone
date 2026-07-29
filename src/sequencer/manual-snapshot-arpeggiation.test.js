@@ -27,8 +27,13 @@ describe("manual snapshot arpeggiation settings", () => {
       initialSpreadMs: 5000,
       spreadVariation: 1,
       timingVariation: 0,
-      decayMs: 20000,
+      decayMode: "timed",
+      decayMs: 10000,
       decayVariation: 0,
+    });
+    expect(normalizeManualArpeggiation({ decayMs: 0 })).toMatchObject({
+      decayMode: "sustain",
+      decayMs: 100,
     });
   });
 

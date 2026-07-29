@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import {
   MANUAL_ARPEGGIATION_MODES,
+  MAX_MANUAL_ARPEGGIATION_DECAY_MS,
   normalizeManualArpeggiation,
 } from "./manual-snapshot-arpeggiation.js";
 import {
@@ -323,6 +324,7 @@ const SequenceControls = ({
   onTimedTransportStop,
   terminalSequenceTarget,
 }) => {
+  const sustainDecaySliderValue = MAX_MANUAL_ARPEGGIATION_DECAY_MS + 100;
   const [playFromTarget, setPlayFromTarget] = useState(
     Number.isFinite(playhead?.markerIndex) ? "cue" : "snapshot",
   );
@@ -336,6 +338,16 @@ const SequenceControls = ({
   const decayVariationPercent = Math.round(
     normalizedManualArpeggiation.decayVariation * 100,
   );
+  const decaySliderValue = normalizedManualArpeggiation.decayMode === "immediate"
+    ? 0
+    : (normalizedManualArpeggiation.decayMode === "sustain"
+      ? sustainDecaySliderValue
+      : normalizedManualArpeggiation.decayMs);
+  const decayDisplayValue = normalizedManualArpeggiation.decayMode === "immediate"
+    ? "immediate"
+    : (normalizedManualArpeggiation.decayMode === "sustain"
+      ? "sustain"
+      : `${normalizedManualArpeggiation.decayMs} ms`);
   const snapshotBackAvailable = snapshotSelectValue === terminalSequenceTarget
     ? snapshots.length > 0
     : Number.isFinite(Number(snapshotSelectValue)) && Number(snapshotSelectValue) > 0;
@@ -567,23 +579,30 @@ const SequenceControls = ({
 
         <label class="sequencer-option-row sequencer-option-row--label-left">
           <span>Decay</span>
-          <span class="sequencer-manual-arpeggiation-control">
+          <span class="sequencer-manual-arpeggiation-control sequencer-manual-arpeggiation-control--decay">
             <input
               type="range"
               min="0"
-              max="20000"
+              max={sustainDecaySliderValue}
               step="100"
               aria-label="manual arpeggiation decay"
-              value={normalizedManualArpeggiation.decayMs}
-              onInput={(e) => onManualArpeggiationChange?.({
-                decayMs: Number(e.currentTarget.value),
-              })}
+              aria-valuetext={decayDisplayValue}
+              value={decaySliderValue}
+              onInput={(e) => {
+                const value = Number(e.currentTarget.value);
+                if (value === 0) {
+                  onManualArpeggiationChange?.({ decayMode: "immediate" });
+                } else if (value === sustainDecaySliderValue) {
+                  onManualArpeggiationChange?.({ decayMode: "sustain" });
+                } else {
+                  onManualArpeggiationChange?.({
+                    decayMode: "timed",
+                    decayMs: value,
+                  });
+                }
+              }}
             />
-            <output>
-              {normalizedManualArpeggiation.decayMs === 0
-                ? "sustain"
-                : `${normalizedManualArpeggiation.decayMs} ms`}
-            </output>
+            <output>{decayDisplayValue}</output>
           </span>
         </label>
 

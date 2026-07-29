@@ -87,8 +87,9 @@ describe("snapshot workspace runtime", () => {
         initialSpreadMs: 2000,
         spreadVariation: 0.3,
         timingVariation: 0.5,
-        decayMs: 5000,
-        decayVariation: 0.75,
+        decayMode: "timed",
+        decayMs: 500,
+        decayVariation: 0.3,
         styleParameters: {},
       },
     });

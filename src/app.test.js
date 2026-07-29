@@ -765,6 +765,12 @@ describe("App workspace tabs", () => {
           { id: "first", midicents: 60, start: 0, attackVelocity: 90 },
           { id: "second", midicents: 64, start: 0.5, attackVelocity: 90 },
         ],
+      }, {
+        id: 2,
+        length: 1,
+        notes: [
+          { id: "next", midicents: 67, start: 0, attackVelocity: 90 },
+        ],
       }],
       bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
       tempi: [],
@@ -774,7 +780,8 @@ describe("App workspace tabs", () => {
         initialSpreadMs: 1000,
         spreadVariation: 0,
         timingVariation: 0,
-        decayMs: 0,
+        decayMode: "immediate",
+        decayMs: 5000,
         decayVariation: 0,
       },
     }));
@@ -808,6 +815,13 @@ describe("App workspace tabs", () => {
     );
     expect(keys.attackSnapshotGestureNote).toHaveBeenCalledTimes(1);
     expect(keys.attackSnapshotGestureNote.mock.calls[0][1].id).toBe("first");
+
+    fireEvent.click(screen.getByLabelText("next sequence step"));
+
+    expect(keys.releaseSnapshotGestureNote).toHaveBeenCalledTimes(1);
+    expect(keys.stopSnapshotGesture).toHaveBeenCalledTimes(1);
+    expect(keys.attackSnapshotGestureNote).toHaveBeenCalledTimes(2);
+    expect(keys.attackSnapshotGestureNote.mock.calls[1][1].id).toBe("next");
 
     unmount();
     localStorage.removeItem("hexatone_persist_on_reload");

@@ -98,7 +98,10 @@ import {
   effectiveManualSnapshotArticulation,
   normalizeManualArpeggiation,
 } from "./sequencer/manual-snapshot-arpeggiation.js";
-import { planManualSnapshotFormation } from "./sequencer/manual-snapshot-gesture-planner.js";
+import {
+  planManualSnapshotFormation,
+  planManualSnapshotRelease,
+} from "./sequencer/manual-snapshot-gesture-planner.js";
 import { createManualSnapshotGestureRuntime } from "./sequencer/manual-snapshot-gesture-runtime.js";
 import {
   appendSnapshotToWorkspace,
@@ -1483,6 +1486,22 @@ const App = () => {
     for (const gestureId of gestureIds) runtime.cancel(gestureId);
   }, []);
 
+  const decayManualSnapshotGesturesForNextTrigger = useCallback((settings) => {
+    const runtime = manualGestureRuntimeRef.current;
+    if (settings?.mode === "off") {
+      cancelManualSnapshotGestures();
+      return;
+    }
+    if (settings?.decayMode === "sustain") return;
+    for (const gestureId of runtime.activeGestureIds()) {
+      const releasePlan = planManualSnapshotRelease(
+        runtime.attackEvents(gestureId),
+        settings,
+      );
+      runtime.release(gestureId, releasePlan);
+    }
+  }, [cancelManualSnapshotGestures]);
+
   const commitSequencePlaybackUi = useCallback(({
     safeStepIndex,
     safeMarkerIndex,
@@ -1755,9 +1774,10 @@ const App = () => {
         snap.manualTrigger,
       );
       const arpeggiate = articulation === "arpeggiate";
+      const snapshotArpeggiationEnabled = manualArpeggiation.mode !== "off";
+      decayManualSnapshotGesturesForNextTrigger(manualArpeggiation);
       if (!notes.length) {
-        cancelManualSnapshotGestures();
-        keysRef.current?.stopSnapshot();
+        if (!snapshotArpeggiationEnabled) keysRef.current?.stopSnapshot();
         commitSequencePlaybackUi({
           safeStepIndex: stepIndex,
           safeMarkerIndex,
@@ -1768,12 +1788,10 @@ const App = () => {
         });
         return;
       }
-      if (!arpeggiate) cancelManualSnapshotGestures();
       const plan = planManualSnapshotFormation(notes, {
         ...manualArpeggiation,
         initialSpreadMs: arpeggiate ? manualArpeggiation.initialSpreadMs : 0,
         timingVariation: arpeggiate ? manualArpeggiation.timingVariation : 0,
-        decayMs: arpeggiate ? manualArpeggiation.decayMs : 0,
       });
       const runtime = manualGestureRuntimeRef.current;
       runtime.start(plan, {
@@ -1785,7 +1803,7 @@ const App = () => {
           manualGestureEventVoicesRef.current.set(gestureId, new Map());
           setManualPlayingSnapshotIds([...manualSnapshotGesturesRef.current.keys()]);
           keysRef.current?.beginSnapshotGesture?.(gestureId, {
-            replace: !arpeggiate,
+            replace: !snapshotArpeggiationEnabled,
           });
         },
         onAttack: (event, gestureId) => {
@@ -1819,8 +1837,8 @@ const App = () => {
     },
     [
       barIndexForTime,
-      cancelManualSnapshotGestures,
       commitSequencePlaybackUi,
+      decayManualSnapshotGesturesForNextTrigger,
       manualArpeggiation,
       releaseManualSnapshotGesture,
       sequenceCueGroups,

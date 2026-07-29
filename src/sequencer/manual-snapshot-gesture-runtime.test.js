@@ -48,7 +48,7 @@ describe("manual snapshot gesture runtime", () => {
     vi.useRealTimers();
   });
 
-  it("dispatches releases and completes a finite-decay gesture", () => {
+  it("dispatches a release plan measured from a later trigger", () => {
     vi.useFakeTimers();
     const release = vi.fn();
     const complete = vi.fn();
@@ -56,7 +56,6 @@ describe("manual snapshot gesture runtime", () => {
     const gestureId = runtime.start({
       events: [
         { type: "attack", eventId: "note-0", offsetMs: 0 },
-        { type: "release", eventId: "note-0", offsetMs: 500 },
       ],
     }, {
       onRelease: release,
@@ -64,9 +63,41 @@ describe("manual snapshot gesture runtime", () => {
     });
 
     expect(runtime.activeGestureIds()).toEqual([gestureId]);
+    runtime.release(gestureId, {
+      events: [{ type: "release", eventId: "note-0", offsetMs: 500 }],
+    });
     vi.advanceTimersByTime(500);
     expect(release).toHaveBeenCalledOnce();
     expect(complete).toHaveBeenCalledWith(gestureId);
+    expect(runtime.activeGestureIds()).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it("suppresses pending attacks once their immediate release has fired", () => {
+    vi.useFakeTimers();
+    const attack = vi.fn();
+    const release = vi.fn();
+    const runtime = createManualSnapshotGestureRuntime();
+    const gestureId = runtime.start({
+      events: [
+        { type: "attack", eventId: "note-0", offsetMs: 100 },
+        { type: "attack", eventId: "note-1", offsetMs: 200 },
+      ],
+    }, {
+      onAttack: attack,
+      onRelease: release,
+    });
+
+    runtime.release(gestureId, {
+      events: [
+        { type: "release", eventId: "note-0", offsetMs: 0 },
+        { type: "release", eventId: "note-1", offsetMs: 0 },
+      ],
+    });
+    vi.runAllTimers();
+
+    expect(release).toHaveBeenCalledTimes(2);
+    expect(attack).not.toHaveBeenCalled();
     expect(runtime.activeGestureIds()).toEqual([]);
     vi.useRealTimers();
   });

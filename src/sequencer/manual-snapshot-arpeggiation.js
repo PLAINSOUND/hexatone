@@ -8,14 +8,17 @@ export const MANUAL_ARPEGGIATION_MODES = Object.freeze([
   { value: "all", label: "All Snapshots" },
 ]);
 
+export const MAX_MANUAL_ARPEGGIATION_DECAY_MS = 10000;
+
 export const DEFAULT_MANUAL_ARPEGGIATION = Object.freeze({
   mode: "off",
   styleId: "positional",
   initialSpreadMs: 2000,
   spreadVariation: 0.3,
   timingVariation: 0.5,
-  decayMs: 5000,
-  decayVariation: 0.75,
+  decayMode: "timed",
+  decayMs: 500,
+  decayVariation: 0.3,
   styleParameters: Object.freeze({}),
 });
 
@@ -27,6 +30,7 @@ export const DEFAULT_MANUAL_SNAPSHOT_TRIGGER = Object.freeze({
 
 const VALID_MODES = new Set(MANUAL_ARPEGGIATION_MODES.map(({ value }) => value));
 const VALID_ARTICULATIONS = new Set(["chord", "arpeggiate"]);
+const VALID_DECAY_MODES = new Set(["immediate", "timed", "sustain"]);
 
 function clamp(value, min, max, fallback) {
   const numeric = Number(value);
@@ -42,6 +46,10 @@ function cloneParameters(value, fallback) {
 export function normalizeManualArpeggiation(value = {}) {
   const source = value && typeof value === "object" ? value : {};
   const styleId = String(source.styleId ?? DEFAULT_MANUAL_ARPEGGIATION.styleId).trim();
+  const legacyDecayMs = Number(source.decayMs);
+  const decayMode = VALID_DECAY_MODES.has(source.decayMode)
+    ? source.decayMode
+    : (Number.isFinite(legacyDecayMs) && legacyDecayMs === 0 ? "sustain" : "timed");
   return {
     mode: VALID_MODES.has(source.mode) ? source.mode : DEFAULT_MANUAL_ARPEGGIATION.mode,
     styleId: styleId || DEFAULT_MANUAL_ARPEGGIATION.styleId,
@@ -60,8 +68,14 @@ export function normalizeManualArpeggiation(value = {}) {
       1,
       DEFAULT_MANUAL_ARPEGGIATION.timingVariation,
     ),
+    decayMode,
     decayMs: Math.round(
-      clamp(source.decayMs, 0, 20000, DEFAULT_MANUAL_ARPEGGIATION.decayMs),
+      clamp(
+        source.decayMs,
+        100,
+        MAX_MANUAL_ARPEGGIATION_DECAY_MS,
+        DEFAULT_MANUAL_ARPEGGIATION.decayMs,
+      ),
     ),
     decayVariation: clamp(
       source.decayVariation,

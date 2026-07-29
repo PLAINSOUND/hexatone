@@ -2329,17 +2329,16 @@ const Sequencer = ({
           </p>
         )}
         <fieldset class="sequencer-copy-block__range-operations">
-          <legend>
-            <b>Edit Selected Range</b>
-          </legend>
+          <legend>Edit Selected Range</legend>
           <div class="sequencer-copy-block__range-actions">
+            <span class="sequencer-copy-block__range-label">Positions</span>
             <button
               type="button"
               class="preset-action-btn"
               onClick={handleResetSnapshotRangeNoteOffsetsInPlace}
               disabled={!resolvedCopyRange?.valid}
             >
-              Reset Note Offsets in Place
+              Reset Note Offsets
             </button>
           </div>
           <div class="sequencer-copy-block__articulation-row">

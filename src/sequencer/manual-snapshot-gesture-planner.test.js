@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { planManualSnapshotFormation } from "./manual-snapshot-gesture-planner.js";
+import {
+  planManualSnapshotFormation,
+  planManualSnapshotRelease,
+} from "./manual-snapshot-gesture-planner.js";
 
 describe("manual snapshot gesture planner", () => {
   it("orders attacks by relative position and scales them to the total spread", () => {
@@ -28,6 +31,23 @@ describe("manual snapshot gesture planner", () => {
     expect(plan.events.map(({ offsetMs }) => offsetMs)).toEqual([0, 300, 600]);
   });
 
+  it("orders notes sharing a start position by rising pitch", () => {
+    const plan = planManualSnapshotFormation(
+      [
+        { id: "high", start: 0, midicents: 69 },
+        { id: "low", start: 0, midicents: 62 },
+        { id: "middle", start: 0, midicents: 65 },
+        { id: "later", start: 1, midicents: 48 },
+      ],
+      { initialSpreadMs: 600 },
+    );
+
+    expect(plan.events.map(({ noteId }) => noteId))
+      .toEqual(["low", "middle", "high", "later"]);
+    expect(plan.events.map(({ offsetMs }) => offsetMs))
+      .toEqual([0, 0, 0, 600]);
+  });
+
   it("varies gaps without changing order or the final offset", () => {
     const values = [0, 1];
     const plan = planManualSnapshotFormation(
@@ -40,6 +60,76 @@ describe("manual snapshot gesture planner", () => {
     expect(plan.events[0].offsetMs).toBe(0);
     expect(plan.events[1].offsetMs).toBeGreaterThan(0);
     expect(plan.events[2].offsetMs).toBe(1000);
+  });
+
+  it("separates tied source attacks as timing variation approaches 100%", () => {
+    const notes = [
+      { id: "first", start: 0 },
+      { id: "second", start: 0 },
+      { id: "third", start: 0 },
+      { id: "fourth", start: 0 },
+      { id: "last", start: 0.375 },
+    ];
+    const preserved = planManualSnapshotFormation(
+      notes,
+      { initialSpreadMs: 1000, timingVariation: 0 },
+      () => 0.5,
+    );
+    const redistributed = planManualSnapshotFormation(
+      notes,
+      { initialSpreadMs: 1000, timingVariation: 1 },
+      () => 0.5,
+    );
+
+    expect(preserved.events.map(({ offsetMs }) => offsetMs))
+      .toEqual([0, 0, 0, 0, 1000]);
+    expect(redistributed.events.map(({ offsetMs }) => offsetMs))
+      .toEqual([0, 250, 500, 750, 1000]);
+    expect(redistributed.events.map(({ noteId }) => noteId))
+      .toEqual(["first", "second", "third", "fourth", "last"]);
+  });
+
+  it("blends composed gaps with generated gaps at intermediate variation", () => {
+    const plan = planManualSnapshotFormation(
+      [
+        { id: "first", start: 0 },
+        { id: "second", start: 0 },
+        { id: "last", start: 1 },
+      ],
+      { initialSpreadMs: 1000, timingVariation: 0.5 },
+      () => 0.5,
+    );
+
+    expect(plan.events.map(({ offsetMs }) => offsetMs)).toEqual([0, 250, 1000]);
+  });
+
+  it("generates coherent beginning- and end-weighted timing arcs", () => {
+    const notes = [
+      { id: "a", start: 0 },
+      { id: "b", start: 0 },
+      { id: "c", start: 0 },
+      { id: "d", start: 0 },
+      { id: "e", start: 1 },
+    ];
+    const beginningValues = [0, 0];
+    const endValues = [1, 1];
+    const beginningWeighted = planManualSnapshotFormation(
+      notes,
+      { initialSpreadMs: 2000, timingVariation: 1 },
+      () => beginningValues.shift(),
+    );
+    const endWeighted = planManualSnapshotFormation(
+      notes,
+      { initialSpreadMs: 2000, timingVariation: 1 },
+      () => endValues.shift(),
+    );
+
+    [0, 200, 600, 1200, 2000].forEach((offset, index) => {
+      expect(beginningWeighted.events[index].offsetMs).toBeCloseTo(offset);
+    });
+    [0, 800, 1400, 1800, 2000].forEach((offset, index) => {
+      expect(endWeighted.events[index].offsetMs).toBeCloseTo(offset);
+    });
   });
 
   it("varies the total spread reciprocally around its center value", () => {
@@ -61,23 +151,42 @@ describe("manual snapshot gesture planner", () => {
     expect(upper.events.at(-1).offsetMs).toBeCloseTo(2000 * 4 / 3);
   });
 
-  it("plans independently varied per-note decays that can change release order", () => {
+  it("plans independently varied releases from the next trigger", () => {
     const randomValues = [1, 0];
-    const plan = planManualSnapshotFormation(
+    const formation = planManualSnapshotFormation(
       [{ id: "first", start: 0 }, { id: "second", start: 1 }],
       {
         initialSpreadMs: 100,
         timingVariation: 0,
+      },
+    );
+    const plan = planManualSnapshotRelease(
+      formation.events,
+      {
+        decayMode: "timed",
         decayMs: 1000,
         decayVariation: 1,
       },
       () => randomValues.shift(),
     );
-    const releases = plan.events.filter((event) => event.type === "release");
 
-    expect(releases.map((event) => event.noteId)).toEqual(["second", "first"]);
-    expect(releases[0].offsetMs).toBeCloseTo(600);
-    expect(releases[1].offsetMs).toBeCloseTo(2000);
+    expect(plan.events.map((event) => event.noteId)).toEqual(["second", "first"]);
+    expect(plan.events[0].offsetMs).toBeCloseTo(500);
+    expect(plan.events[1].offsetMs).toBeCloseTo(2000);
+  });
+
+  it("supports immediate and sustained release endpoints", () => {
+    const attacks = planManualSnapshotFormation(
+      [{ id: "first", start: 0 }, { id: "second", start: 1 }],
+      { initialSpreadMs: 100 },
+    ).events;
+
+    expect(planManualSnapshotRelease(attacks, { decayMode: "immediate" }).events)
+      .toEqual(attacks.map((event) => ({ ...event, type: "release", offsetMs: 0 })));
+    expect(planManualSnapshotRelease(attacks, { decayMode: "sustain" })).toEqual({
+      durationMs: 0,
+      events: [],
+    });
   });
 
   it("handles empty and one-note snapshots without delayed work", () => {
