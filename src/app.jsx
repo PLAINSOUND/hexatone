@@ -70,6 +70,7 @@ import {
 } from "./controllers/registry.js";
 import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
+import ManualSidebar from "./manual/manual-sidebar.jsx";
 import {
   addBarsBeforeSnapshots,
   addSequenceBarMarker,
@@ -159,7 +160,6 @@ import { buildDependencyToken } from "./sequencer/dependency-token.js";
 import { retuneActiveSnapshotHexes, retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
-const ManualSidebar = lazy(() => import("./manual/manual-sidebar.jsx"));
 const Sequencer = lazy(() => import("./sequencer/sequencer.jsx"));
 // Lazy controller imports keep optional hardware paths out of the initial app
 // shell until the relevant controller/runtime actually needs them.
