@@ -143,8 +143,8 @@ export const SNAPSHOT_LABEL_MODES = [
   { value: "frequency", label: "Frequencies (Hz)" },
   { value: "midicents", label: "MIDIcents" },
   { value: "interval_cents", label: "Chord Intervals from Lowest Note (¢)" },
-  { value: "proportion", label: "Chord Proportion" },
-  { value: "odd_proportion", label: "Odd Partial Proportion" },
+  { value: "proportion", label: "Chord Proportions" },
+  { value: "odd_proportion", label: "Odd Partial Proportions" },
 ];
 
 export function buildSnapshotDescription(notes = [], mode = "labels") {

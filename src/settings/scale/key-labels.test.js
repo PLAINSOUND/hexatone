@@ -620,7 +620,7 @@ describe("KeyLabels HEJI anchor handling", () => {
       "Scale Degrees",
       "Scale Data",
       "Octave-Reduced Scale Cents",
-      "Name",
+      "Names",
       "HEJI",
     ]);
   });

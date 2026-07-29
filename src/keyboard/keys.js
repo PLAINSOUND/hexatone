@@ -795,6 +795,8 @@ class Keys {
       cached.previewState === this._tuningPreviewState &&
       cached.scale === this.tuning.scale &&
       cached.equivInterval === this.tuning.equivInterval &&
+      cached.degreeIntervals === this.tuning.degreeIntervals &&
+      cached.equaveIdentity === this.tuning.equaveInterval &&
       cached.referenceDegree === (this.settings.reference_degree ?? 0) &&
       cached.effectiveFundamental === effectiveFundamental
     ) {
@@ -805,6 +807,8 @@ class Keys {
       previewState: this._tuningPreviewState,
       scale: this.tuning.scale,
       equivInterval: this.tuning.equivInterval,
+      degreeIntervals: this.tuning.degreeIntervals,
+      equaveIdentity: this.tuning.equaveInterval,
       referenceDegree: this.settings.reference_degree ?? 0,
       effectiveFundamental,
       runtime,
@@ -2902,6 +2906,8 @@ class Keys {
     return {
       scale: this.tuning.scale,
       equivInterval: this.tuning.equivInterval,
+      degreeIntervals: this.tuning.degreeIntervals,
+      equaveIdentity: this.tuning.equaveInterval,
       referenceDegree: this.settings.reference_degree ?? 0,
       fundamental: frame?.effectiveFundamental ?? this.settings.fundamental,
     };

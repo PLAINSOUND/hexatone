@@ -385,7 +385,7 @@ const KeyLabels = (props) => {
           <option value="enumerate">Scale Degrees</option>
           <option value="scala_names">Scale Data</option>
           <option value="cents">Octave-Reduced Scale Cents</option>
-          <option value="note_names">Name</option>
+          <option value="note_names">Names</option>
           <option value="heji">HEJI</option>
         </select>
       </label>

@@ -64,6 +64,49 @@ function labelForDegree(reducedDegree, options = {}) {
   return hejiNames[reducedDegree] ?? noteNames[reducedDegree] ?? "";
 }
 
+function displacedExactIdentity(steps, reducedDegree, runtime) {
+  const interval = runtime?.degreeIntervals?.[reducedDegree] ?? null;
+  const equave = runtime?.equaveIdentity ?? null;
+  const scaleCents = Number(runtime?.scale?.[reducedDegree]);
+  const equaveCents = Number(runtime?.equivInterval);
+  if (
+    !interval?.ratio?.toFraction
+    || !equave?.ratio?.pow
+    || !Number.isFinite(scaleCents)
+    || !Number.isFinite(equaveCents)
+    || Math.abs(Number(interval.cents) - scaleCents) > 0.001
+    || Math.abs(Number(equave.cents) - equaveCents) > 0.001
+  ) {
+    return null;
+  }
+
+  const scaleLength = runtime.scale.length;
+  const equavePower = Math.floor(steps / scaleLength);
+  const ratio = equavePower > 0
+    ? interval.ratio.mul(equave.ratio.pow(equavePower))
+    : equavePower < 0
+      ? interval.ratio.div(equave.ratio.pow(Math.abs(equavePower)))
+      : interval.ratio;
+  const ratioText = ratio.toFraction();
+  const intervalMonzo = Array.isArray(interval.monzo) ? interval.monzo : null;
+  const equaveMonzo = Array.isArray(equave.monzo) ? equave.monzo : null;
+  const monzo = intervalMonzo && equaveMonzo
+    ? Array.from(
+      { length: Math.max(intervalMonzo.length, equaveMonzo.length) },
+      (_, index) => (
+        (intervalMonzo[index] ?? 0) + equavePower * (equaveMonzo[index] ?? 0)
+      ),
+    )
+    : intervalMonzo
+      ? [...intervalMonzo]
+      : null;
+
+  return {
+    ratioText: ratioText.includes("/") ? ratioText : `${ratioText}/1`,
+    monzo,
+  };
+}
+
 export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
   const scale = Array.isArray(runtime?.scale) ? runtime.scale : [];
   const scaleLength = scale.length;
@@ -86,12 +129,20 @@ export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
   const nextMidicents = frequencyToMidicents(nextFrequency);
   if (!Number.isFinite(nextFrequency) || !Number.isFinite(nextMidicents)) return note;
   const reducedDegree = mod(nearest.steps, scaleLength);
+  const exactIdentity = displacedExactIdentity(nearest.steps, reducedDegree, runtime);
   return {
     ...note,
     midicents: nextMidicents,
     frequency: nextFrequency,
     displayLabel: labelForDegree(reducedDegree, options) || note?.displayLabel || "",
     displayLabelEdited: false,
+    ratioText: exactIdentity?.ratioText,
+    monzo: exactIdentity?.monzo,
+    // Source-frame modulation identities do not describe the newly snapped
+    // pitch. Capture should omit them unless a future mapper can derive the
+    // destination frame identity explicitly.
+    modulationRatioText: undefined,
+    modulationMonzo: undefined,
   };
 }
 

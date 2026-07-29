@@ -252,5 +252,9 @@ export function getEffectiveScaleRuntime(source, state) {
     equivSteps: scale.length,
     referenceDegree: getSourceReferenceDegree(source),
     fundamental: getEffectiveFundamentalHz(source, state),
+    degreeIntervals: Array.isArray(source?.degreeIntervals)
+      ? source.degreeIntervals
+      : null,
+    equaveIdentity: source?.equaveIdentity ?? null,
   };
 }

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { parseExactInterval } from "../tuning/interval.js";
+import { captureSnapshot } from "./snapshots.js";
 import { remapSequenceSnapshotsToRuntime } from "./runtime-pitch-map.js";
 
 describe("runtime-pitch-map", () => {
@@ -58,6 +60,87 @@ describe("runtime-pitch-map", () => {
       start: 0.25,
       end: 1.75,
       attackVelocity: 90,
+    });
+  });
+
+  it("recomputes exact destination identities for captured snapped notes", () => {
+    const destinationIntervals = [
+      parseExactInterval("1/1"),
+      parseExactInterval("5/4"),
+      parseExactInterval("3/2"),
+    ];
+    const equaveIdentity = parseExactInterval("2/1");
+    const snapshots = [{
+      id: 1,
+      length: 1,
+      notes: [{
+        id: "a",
+        midicents: 72.8,
+        displayLabel: "source",
+        ratioText: "9/8",
+        monzo: parseExactInterval("9/8").monzo,
+        modulationRatioText: "81/80",
+        modulationMonzo: parseExactInterval("81/80").monzo,
+        attackVelocity: 96,
+      }],
+    }];
+    const runtime = {
+      scale: destinationIntervals.map((interval) => interval.cents),
+      equivInterval: equaveIdentity.cents,
+      referenceDegree: 0,
+      fundamental: 440,
+      degreeIntervals: destinationIntervals,
+      equaveIdentity,
+    };
+
+    const remapped = remapSequenceSnapshotsToRuntime(snapshots, runtime, {
+      noteNames: ["A", "C♯", "E"],
+    });
+    const snappedNote = remapped[0].notes[0];
+    const captured = captureSnapshot({
+      settings: { midi_velocity: 72 },
+      state: { sustainedNotes: [] },
+      _allActiveHexes: () => [],
+      _snapshotNotes: [snappedNote],
+      _snapshotHexes: [],
+    });
+
+    expect(snappedNote).toMatchObject({
+      displayLabel: "C♯",
+      ratioText: "5/4",
+      monzo: destinationIntervals[1].monzo,
+      modulationRatioText: undefined,
+      modulationMonzo: undefined,
+    });
+    expect(captured[0]).toMatchObject({
+      midicents: expect.closeTo(69 + Math.log2(5 / 4) * 12, 8),
+      displayLabel: "C♯",
+      ratioText: "5/4",
+      monzo: destinationIntervals[1].monzo,
+      attackVelocity: 96,
+    });
+    expect(captured[0]).not.toHaveProperty("modulationRatioText");
+    expect(captured[0]).not.toHaveProperty("modulationMonzo");
+  });
+
+  it("removes stale exact identities when the destination degree is not exact", () => {
+    const remapped = remapSequenceSnapshotsToRuntime([{
+      id: 1,
+      notes: [{
+        midicents: 70,
+        ratioText: "9/8",
+        monzo: parseExactInterval("9/8").monzo,
+      }],
+    }], {
+      scale: [0, 100, 200],
+      equivInterval: 1200,
+      referenceDegree: 0,
+      fundamental: 440,
+    });
+
+    expect(remapped[0].notes[0]).toMatchObject({
+      ratioText: undefined,
+      monzo: undefined,
     });
   });
 });
