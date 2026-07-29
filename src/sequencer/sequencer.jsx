@@ -230,6 +230,9 @@ const Sequencer = ({
   const navigationAutoscrollIntentRef = useRef(null);
   const cueStepViewportRequestedRef = useRef(false);
   const cueViewportGenerationRef = useRef(0);
+  const editPlayLayoutReanchorRef = useRef(null);
+  const editPlayLayoutReanchorGenerationRef = useRef(0);
+  const editPlayLayoutReanchorCallbacksRef = useRef(null);
   const autoScrollEnabledRef = useRef(autoScrollEnabled);
   autoScrollEnabledRef.current = autoScrollEnabled;
   const timedTransportFieldValuesRef = useRef({
@@ -1118,18 +1121,21 @@ const Sequencer = ({
     return true;
   }, []);
   const stepSequenceWithAutoscroll = useCallback((direction) => {
+    transportScrollTargetRef.current = "snapshot";
     armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
     onStepSequence?.(direction);
-  }, [activeSnapshotId, armNavigationAutoscrollIntent, onStepSequence]);
+  }, [activeSnapshotId, armNavigationAutoscrollIntent, onStepSequence, transportScrollTargetRef]);
   const jumpSequenceSnapshotWithAutoscroll = useCallback((snapshotIndex) => {
+    transportScrollTargetRef.current = "snapshot";
     armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
     onJumpSequenceSnapshot?.(snapshotIndex);
-  }, [activeSnapshotId, armNavigationAutoscrollIntent, onJumpSequenceSnapshot]);
+  }, [activeSnapshotId, armNavigationAutoscrollIntent, onJumpSequenceSnapshot, transportScrollTargetRef]);
   // CUE selection has already prepared its viewport. Triggering that queued
   // cue leaves activeCueIndex unchanged, so the intent below deliberately
   // produces no scroll. Later arrow presses change the cue index and prepare
   // the newly reached cue through the layout effect.
   const stepSequenceMarkerWithAutoscroll = useCallback((direction) => {
+    transportScrollTargetRef.current = "cue";
     const triggersPreparedCue = (
       direction > 0
       && playhead?.stopped === true
@@ -1152,11 +1158,13 @@ const Sequencer = ({
     onStepSequenceMarker,
     pendingTransportSelection?.cueIndex,
     playhead?.stopped,
+    transportScrollTargetRef,
   ]);
   const jumpSequenceCueWithAutoscroll = useCallback((cueIndex) => {
+    transportScrollTargetRef.current = "cue";
     cueStepViewportRequestedRef.current = true;
     onJumpSequenceCue?.(cueIndex);
-  }, [onJumpSequenceCue]);
+  }, [onJumpSequenceCue, transportScrollTargetRef]);
 
   useLayoutEffect(() => {
     if (timedPlaybackOwnsViewport) return;
@@ -1216,6 +1224,37 @@ const Sequencer = ({
     showAllEvents,
     timedPlaybackOwnsViewport,
   ]);
+
+  editPlayLayoutReanchorCallbacksRef.current = {
+    prepareBarViewport,
+    prepareSnapshotViewport,
+    startCueViewportTransaction,
+  };
+
+  useLayoutEffect(() => {
+    const request = editPlayLayoutReanchorRef.current;
+    if (request == null) return undefined;
+    let settleFrame = null;
+    const layoutFrame = window.requestAnimationFrame(() => {
+      settleFrame = window.requestAnimationFrame(() => {
+        if (editPlayLayoutReanchorRef.current?.generation !== request.generation) return;
+        editPlayLayoutReanchorRef.current = null;
+        if (timedPlaybackOwnsViewport || !autoScrollEnabledRef.current) return;
+        const callbacks = editPlayLayoutReanchorCallbacksRef.current;
+        if (request.target === "cue") {
+          callbacks?.startCueViewportTransaction(request.index);
+        } else if (request.target === "bar") {
+          callbacks?.prepareBarViewport(request.index);
+        } else {
+          callbacks?.prepareSnapshotViewport(request.index);
+        }
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(layoutFrame);
+      if (settleFrame != null) window.cancelAnimationFrame(settleFrame);
+    };
+  }, [showAllEvents, timedPlaybackOwnsViewport, virtualSequenceLayout]);
 
   useLayoutEffect(() => {
     if (timedPlaybackOwnsViewport) return;
@@ -1508,6 +1547,48 @@ const Sequencer = ({
   const toggleExpanded = (id) => {
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
   };
+
+  const toggleEditPlayLayout = useCallback(() => {
+    const target = transportScrollTargetRef.current;
+    let index = null;
+    if (target === "cue") {
+      index = Number.isFinite(pendingTransportSelection?.cueIndex)
+        ? Number(pendingTransportSelection.cueIndex)
+        : Number.isFinite(activeCueIndex)
+          ? Number(activeCueIndex) - 1
+          : Number(cueSelectValue);
+    } else if (target === "bar") {
+      index = Number(selectedBarIndex);
+    } else {
+      const activeRenderedIndex = renderedSnapshotIndexById.get(activeSnapshotId);
+      index = Number.isFinite(pendingTransportSelection?.snapshotIndex)
+        ? Number(pendingTransportSelection.snapshotIndex)
+        : Number.isInteger(activeRenderedIndex)
+          ? activeRenderedIndex
+          : Number(snapshotSelectValue);
+    }
+    if (Number.isInteger(index) && index >= 0) {
+      editPlayLayoutReanchorGenerationRef.current += 1;
+      editPlayLayoutReanchorRef.current = {
+        generation: editPlayLayoutReanchorGenerationRef.current,
+        target,
+        index,
+      };
+    } else {
+      editPlayLayoutReanchorRef.current = null;
+    }
+    setShowAllEvents((value) => !value);
+  }, [
+    activeCueIndex,
+    activeSnapshotId,
+    cueSelectValue,
+    pendingTransportSelection?.cueIndex,
+    pendingTransportSelection?.snapshotIndex,
+    renderedSnapshotIndexById,
+    selectedBarIndex,
+    snapshotSelectValue,
+    transportScrollTargetRef,
+  ]);
 
   const handleSnapshotRowClick = useCallback((snapshotId, isSelected) => {
     onSelectSnapshot?.(snapshotId);
@@ -2441,7 +2522,7 @@ const Sequencer = ({
             title={showAllEvents ? "Collapse to snapshot view" : "Expand to sequence view"}
             onClick={(e) => {
               e.stopPropagation();
-              setShowAllEvents((value) => !value);
+              toggleEditPlayLayout();
             }}
           >
             <span

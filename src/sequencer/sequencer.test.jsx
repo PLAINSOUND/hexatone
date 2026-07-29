@@ -2214,7 +2214,7 @@ describe("Sequencer", () => {
     HTMLElement.prototype.getBoundingClientRect = originalElementRect;
   }, 30000);
 
-  it("top-aligns snapshot dropdown selection and snapshot stepping identically", () => {
+  it("top-aligns snapshot selection, stepping, and Edit & Play layout changes identically", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -2327,6 +2327,11 @@ describe("Sequencer", () => {
 
     scrollTopValue = 300;
     fireEvent.click(screen.getByLabelText("next sequence step"));
+
+    expect(scrollTopValue).toBe(414);
+
+    scrollTopValue = 300;
+    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
 
     expect(scrollTopValue).toBe(414);
 
