@@ -389,6 +389,84 @@ export function resetSnapshotRangeNoteOffsetsInWorkspace({
   };
 }
 
+export function setSnapshotRangeArticulationInWorkspace({
+  snapshots = [],
+  bars = [],
+  startPosition = 1,
+  endPosition = 1,
+  includeBars = false,
+  articulation = "chord",
+} = {}) {
+  const range = resolveSnapshotCopyRange({
+    snapshots,
+    bars,
+    startPosition,
+    endPosition,
+    includeBars,
+  });
+  if (!range.valid) {
+    return {
+      snapshots,
+      range,
+      changed: false,
+      error: "empty-range",
+    };
+  }
+
+  const normalizedArticulation = articulation === "arpeggiate" ? "arpeggiate" : "chord";
+  const startIndex = range.startPosition - 1;
+  const endIndex = range.endPosition - 1;
+  const nextSnapshots = (snapshots ?? []).map((snapshot, index) => {
+    if (index < startIndex || index > endIndex) return snapshot;
+    return {
+      ...snapshot,
+      manualTrigger: {
+        ...normalizeManualSnapshotTrigger(snapshot.manualTrigger),
+        articulation: normalizedArticulation,
+      },
+    };
+  });
+
+  return {
+    snapshots: nextSnapshots,
+    range,
+    changed: true,
+    error: null,
+  };
+}
+
+export function restoreSnapshotsInWorkspace({
+  snapshots = [],
+  replacements = [],
+} = {}) {
+  const replacementById = new Map(
+    (replacements ?? [])
+      .filter((snapshot) => snapshot?.id != null)
+      .map((snapshot) => [snapshot.id, snapshot]),
+  );
+  if (replacementById.size === 0) {
+    return {
+      snapshots,
+      changed: false,
+      error: "empty-replacements",
+    };
+  }
+
+  let changed = false;
+  const nextSnapshots = (snapshots ?? []).map((snapshot) => {
+    const replacement = replacementById.get(snapshot?.id);
+    if (!replacement) return snapshot;
+    changed = true;
+    return clone(replacement);
+  });
+
+  return {
+    snapshots: changed ? nextSnapshots : snapshots,
+    changed,
+    error: changed ? null : "snapshots-not-found",
+  };
+}
+
 export function deleteSnapshotRangeFromWorkspace({
   snapshots = [],
   bars = [],

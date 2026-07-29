@@ -110,6 +110,8 @@ import {
   moveSnapshotInWorkspace,
   resetSnapshotRangeNoteOffsetsInWorkspace,
   resetSnapshotDescriptionInWorkspace,
+  restoreSnapshotsInWorkspace,
+  setSnapshotRangeArticulationInWorkspace,
   updateSnapshotInWorkspace,
 } from "./sequencer/snapshot-workspace-runtime.js";
 import {
@@ -2698,6 +2700,90 @@ const App = () => {
     workspaceTab,
   ]);
 
+  const onSetSnapshotRangeArticulation = useCallback((selection, articulation) => {
+    const result = setSnapshotRangeArticulationInWorkspace({
+      snapshots: snapshotsRef.current,
+      bars: sequenceBarsRef.current,
+      startPosition: selection?.startPosition,
+      endPosition: selection?.endPosition,
+      includeBars: selection?.includeBars === true,
+      articulation,
+    });
+    if (result.error) return result.error;
+    snapshotsRef.current = result.snapshots;
+    saveSequenceWorkspaceToSession({
+      snapshots: result.snapshots,
+      bars: sequenceBarsRef.current,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      snapshotLabelMode,
+      activeSequenceSource,
+      activeSequenceBuiltInName,
+      activeSequenceName,
+      activeSequenceSavedName,
+      activeSequenceDescription,
+      sequenceLegato,
+      snapSequenceToCurrentTuning,
+      sequenceAutoCreateBars,
+      manualArpeggiation,
+    });
+    setSnapshots(result.snapshots);
+    return result;
+  }, [
+    activeSequenceBuiltInName,
+    activeSequenceDescription,
+    activeSequenceName,
+    activeSequenceSavedName,
+    activeSequenceSource,
+    sequenceAutoCreateBars,
+    sequenceLegato,
+    manualArpeggiation,
+    sequenceRepeats,
+    sequenceTempi,
+    snapSequenceToCurrentTuning,
+    snapshotLabelMode,
+  ]);
+
+  const onRestoreSnapshotRangeChanges = useCallback((replacements) => {
+    const result = restoreSnapshotsInWorkspace({
+      snapshots: snapshotsRef.current,
+      replacements,
+    });
+    if (result.error) return result.error;
+    snapshotsRef.current = result.snapshots;
+    saveSequenceWorkspaceToSession({
+      snapshots: result.snapshots,
+      bars: sequenceBarsRef.current,
+      tempi: sequenceTempi,
+      repeats: sequenceRepeats,
+      snapshotLabelMode,
+      activeSequenceSource,
+      activeSequenceBuiltInName,
+      activeSequenceName,
+      activeSequenceSavedName,
+      activeSequenceDescription,
+      sequenceLegato,
+      snapSequenceToCurrentTuning,
+      sequenceAutoCreateBars,
+      manualArpeggiation,
+    });
+    setSnapshots(result.snapshots);
+    return result;
+  }, [
+    activeSequenceBuiltInName,
+    activeSequenceDescription,
+    activeSequenceName,
+    activeSequenceSavedName,
+    activeSequenceSource,
+    sequenceAutoCreateBars,
+    sequenceLegato,
+    manualArpeggiation,
+    sequenceRepeats,
+    sequenceTempi,
+    snapSequenceToCurrentTuning,
+    snapshotLabelMode,
+  ]);
+
   const onDeleteSnapshotRange = useCallback((selection) => {
     appendPersistedSequencerCrashDiagnostic({
       type: "snapshot-range-delete-requested",
@@ -4800,6 +4886,8 @@ const App = () => {
               onDuplicateSnapshot={onDuplicateSnapshot}
               onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
               onResetSnapshotRangeNoteOffsetsInPlace={onResetSnapshotRangeNoteOffsetsInPlace}
+              onSetSnapshotRangeArticulation={onSetSnapshotRangeArticulation}
+              onRestoreSnapshotRangeChanges={onRestoreSnapshotRangeChanges}
               onDeleteSnapshotRange={onDeleteSnapshotRange}
               onUpdateSnapshot={onUpdateSnapshot}
               onResetSnapshotDescription={onResetSnapshotDescription}

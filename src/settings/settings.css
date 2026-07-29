@@ -2298,12 +2298,6 @@ td.scale-color-col .color-input {
   line-height: 1.5em;
 }
 
-.sequencer-copy-block__option-text {
-  color: inherit;
-  font-style: normal;
-  line-height: 1.5em;
-}
-
 .sequencer-copy-block__include-option--repeats {
   margin-right: 1em;
 }
@@ -2334,6 +2328,11 @@ td.scale-color-col .color-input {
   min-width: 0;
   gap: 0.55em;
   margin-top: 0.35em;
+}
+
+.sequencer-copy-block__copy-row--actions-only {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .sequencer-copy-block__summary-text {
@@ -2371,6 +2370,43 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-copy-block__range-actions {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.55em;
+  width: 100%;
+  margin: 0;
+}
+
+#sidebar .sequencer-copy-block__range-operations {
+  width: 100%;
+  margin: 0.55em 0 0;
+  padding: 0.5em 0.55em 0.55em;
+}
+
+.sequencer-copy-block__articulation-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.55em;
+  width: 100%;
+  margin-top: 0.55em;
+}
+
+.sequencer-copy-block__articulation-label {
+  line-height: 1.5em;
+}
+
+.sequencer-copy-block__articulation-actions {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.55em;
+  margin-left: auto;
+}
+
+.sequencer-copy-block__range-final-actions {
   display: flex;
   align-items: baseline;
   justify-content: space-between;

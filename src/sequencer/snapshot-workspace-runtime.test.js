@@ -12,6 +12,8 @@ import {
   resetSnapshotRangeNoteOffsetsInWorkspace,
   resolveSnapshotCopyRange,
   resetSnapshotDescriptionInWorkspace,
+  restoreSnapshotsInWorkspace,
+  setSnapshotRangeArticulationInWorkspace,
   updateSnapshotInWorkspace,
 } from "./snapshot-workspace-runtime.js";
 
@@ -199,6 +201,59 @@ describe("snapshot workspace runtime", () => {
     expect(block?.bars.map((bar) => bar.position)).toEqual([1, 3]);
     expect(block?.tempi.map((tempo) => tempo.position)).toEqual([2.5]);
     expect(block?.repeats.map((repeat) => repeat.position)).toEqual([3]);
+  });
+
+  it("sets articulation across a selected snapshot range while preserving trigger styles", () => {
+    const snapshots = [
+      { id: 1, manualTrigger: { articulation: "chord", styleId: "one", styleParameters: { a: 1 } } },
+      { id: 2, manualTrigger: { articulation: "chord", styleId: "two", styleParameters: { b: 2 } } },
+      { id: 3, manualTrigger: { articulation: "chord", styleId: "three", styleParameters: null } },
+    ];
+
+    const result = setSnapshotRangeArticulationInWorkspace({
+      snapshots,
+      startPosition: 1,
+      endPosition: 2,
+      articulation: "arpeggiate",
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.snapshots[0].manualTrigger).toEqual({
+      articulation: "arpeggiate",
+      styleId: "one",
+      styleParameters: { a: 1 },
+    });
+    expect(result.snapshots[1].manualTrigger).toEqual({
+      articulation: "arpeggiate",
+      styleId: "two",
+      styleParameters: { b: 2 },
+    });
+    expect(result.snapshots[2]).toBe(snapshots[2]);
+  });
+
+  it("restores snapshots by identity without disturbing the rest of the workspace", () => {
+    const original = {
+      id: 2,
+      notes: [{ id: "n2", start: 0.25, end: 0.75 }],
+      manualTrigger: { articulation: "chord", styleId: "positional" },
+    };
+    const result = restoreSnapshotsInWorkspace({
+      snapshots: [
+        { id: 1, notes: [] },
+        {
+          id: 2,
+          notes: [{ id: "n2", start: 0, end: 1 }],
+          manualTrigger: { articulation: "arpeggiate", styleId: "positional" },
+        },
+        { id: 3, notes: [] },
+      ],
+      replacements: [original],
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.snapshots[1]).toEqual(original);
+    expect(result.snapshots[1]).not.toBe(original);
+    expect(result.snapshots.map(({ id }) => id)).toEqual([1, 2, 3]);
   });
 
   it("inserts a snapshot-only copied block and shifts later markers by its length", () => {

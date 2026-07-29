@@ -359,17 +359,31 @@ yarn osc-bridge
 This feature also supports a fully local workflow: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 
 ## Sequencer Tab
-
 - open the `Sequencer` tab
-- click on the toggle beside "Sequence" to collapse/expand all snapshots
-- work with one snapshot: edit note timing, pitch, and expression values
+- load a built-in sequence, for example "FALL"
+- scroll down to Edit & Play
+- click on the toggle to collapse/expand all snapshots in the event list
+- in collapsed mode, notice the different types of events at the sequence start
+  - repeat start
+  - tempo
+  - bar
+  - snapshot
+- each event is assigned a global position relative to the collection of snapshots; bars are restricted to psoitions between snapshots, other events can be positioned anywhere
+- to work with one snapshot click on it twice to open a list of individual notes
+  - edit note timing, pitch, and expression values (use the right/left arrow to move to additional data fields)
+  - note events can be positioned before or after the snapshot anchor, automatically creating `Cues`; note ons always precede and agree with their related note offs when shared data is edited
+  - change the snapshot name if desired; use the reset button to reload the default style chosen under `Snapshot Labels``
+  - trigger the snapshot with the play/stop controls
+  - try arpeggiation
 - add bars and tempo changes
-- choose a `BAR`, `SNAPSHOT`, or `CUE` and step through events
-- save, reopen, export, and continue editing user sequences
+- in the `PLAY FROM` transport select a playhead location by `BAR`, `SNAPSHOT`, or `CUE` and step through events manually using the arrows, notice how `Auto-Scroll` works to find bara, snapshots, and cues, and highlight notes as they are played
+- try `TIMED PLAYBACK` to automate the sequence
+- adjust playback `SPEED` and `PITCH`
+- try `Snap Sequence to Current Hexatone Tuning` to compare stored snapshot tunings in different scale; recapture different versions if desired
 
-### User Sequences
+### Sequences
 
-Sequences may be exported, loaded from disc, and stored in local browser storage, accessed through the User Sequences menu. Add a `Name` and `Description` to keep user sequences identifiable. Saved sequence data includes snapshots, note-event edits, bars, tempo markers, repeat markers, snapshot label mode, name, description, and the auto-create-bars preference.
+Sequences may be saved in a user library, loaded from disc, saved as copies, accessed, and exported through the User Sequences menu. Add a `Name` and `Description`. Saved sequence data includes snapshots, note-event edits, bars, tempo markers, repeat markers, snapshot label mode, name, description, the auto-create-bars preference, and arpeggiation settings. Legato and tuning-snap are workspace/session settings.
 
 The User Sequences menu distinguishes three states:
 

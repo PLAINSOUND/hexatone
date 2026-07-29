@@ -514,8 +514,10 @@ describe("Sequencer", () => {
     expect(bpmInput.value).toBe("88");
   });
 
-  it("copies a snapshot range and inserts the copied block through the app callback", () => {
+  it("applies articulation to a snapshot range and inserts its copied block", () => {
     const onInsertSnapshotCopyBlock = vi.fn(() => null);
+    const onSetSnapshotRangeArticulation = vi.fn(() => null);
+    const onRestoreSnapshotRangeChanges = vi.fn(() => null);
 
     render(
       <Sequencer
@@ -576,6 +578,8 @@ describe("Sequencer", () => {
         onMoveSnapshot={vi.fn()}
         onDuplicateSnapshot={vi.fn()}
         onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
+        onSetSnapshotRangeArticulation={onSetSnapshotRangeArticulation}
+        onRestoreSnapshotRangeChanges={onRestoreSnapshotRangeChanges}
         onUpdateSnapshot={vi.fn()}
         onResetSnapshotDescription={vi.fn()}
       />,
@@ -594,6 +598,24 @@ describe("Sequencer", () => {
       target: { value: "4" },
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Set to arp" }));
+    expect(onSetSnapshotRangeArticulation).toHaveBeenCalledWith({
+      startPosition: "1",
+      endPosition: "2",
+      includeBars: false,
+    }, "arpeggiate");
+    fireEvent.click(screen.getByRole("button", { name: "Revert changes" }));
+    expect(onRestoreSnapshotRangeChanges).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 1 }),
+      expect.objectContaining({ id: 2 }),
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Set to chord" }));
+    expect(onSetSnapshotRangeArticulation).toHaveBeenLastCalledWith({
+      startPosition: "1",
+      endPosition: "2",
+      includeBars: false,
+    }, "chord");
+
     fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
     fireEvent.click(screen.getByRole("button", { name: "Insert Copied Block" }));
 
@@ -608,6 +630,8 @@ describe("Sequencer", () => {
       }),
       4,
     );
+    expect(screen.getByLabelText("copy snapshot range start").value).toBe("4");
+    expect(screen.getByLabelText("copy snapshot range end").value).toBe("5");
     expect(screen.getByText("Inserted 2 snapshots at slot 4.")).toBeTruthy();
   });
 

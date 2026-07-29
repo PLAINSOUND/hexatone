@@ -162,6 +162,8 @@ const Sequencer = ({
   onDuplicateSnapshot,
   onInsertSnapshotCopyBlock,
   onResetSnapshotRangeNoteOffsetsInPlace,
+  onSetSnapshotRangeArticulation,
+  onRestoreSnapshotRangeChanges,
   onDeleteSnapshotRange,
   onUpdateSnapshot,
   onResetSnapshotDescription,
@@ -213,9 +215,9 @@ const Sequencer = ({
   const [copyIncludeBars, setCopyIncludeBars] = useState(false);
   const [copyIncludeTempi, setCopyIncludeTempi] = useState(false);
   const [copyIncludeRepeats, setCopyIncludeRepeats] = useState(false);
-  const [copyResetNoteOffsets, setCopyResetNoteOffsets] = useState(false);
   const [copiedSnapshotBlock, setCopiedSnapshotBlock] = useState(null);
   const [copyInsertStatus, setCopyInsertStatus] = useState("");
+  const [rangeEditUndo, setRangeEditUndo] = useState(null);
   const dragIdRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
@@ -514,6 +516,21 @@ const Sequencer = ({
     includeBars: copyIncludeBars,
   }), [bars, copyIncludeBars, copyRangeEnd, copyRangeStart, snapshots]);
 
+  const resolvedCopyRangeSnapshotIds = useMemo(() => (
+    resolvedCopyRange?.valid
+      ? snapshots
+        .slice(resolvedCopyRange.startPosition - 1, resolvedCopyRange.endPosition)
+        .map((snapshot) => snapshot.id)
+      : []
+  ), [resolvedCopyRange, snapshots]);
+
+  useEffect(() => {
+    if (!rangeEditUndo) return;
+    const sameRange = rangeEditUndo.snapshotIds.length === resolvedCopyRangeSnapshotIds.length
+      && rangeEditUndo.snapshotIds.every((id, index) => id === resolvedCopyRangeSnapshotIds[index]);
+    if (!sameRange) setRangeEditUndo(null);
+  }, [rangeEditUndo, resolvedCopyRangeSnapshotIds]);
+
   const copyInsertAtBarBoundary = useMemo(() => {
     const position = Math.round(Number(copyInsertPosition) || 0);
     if (position === 1 || position === snapshots.length + 1) return true;
@@ -582,7 +599,6 @@ const Sequencer = ({
       includeBars: copyIncludeBars,
       includeTempi: copyIncludeTempi,
       includeRepeats: copyIncludeRepeats,
-      resetNoteOffsets: copyResetNoteOffsets,
     });
     if (!block) {
       setCopiedSnapshotBlock(null);
@@ -603,7 +619,6 @@ const Sequencer = ({
     copyIncludeTempi,
     copyRangeEnd,
     copyRangeStart,
-    copyResetNoteOffsets,
     repeats,
     snapshots,
     tempi,
@@ -628,6 +643,9 @@ const Sequencer = ({
       setCopyInsertStatus("Unable to insert the copied snapshot block.");
       return;
     }
+    setCopyRangeStart(String(position));
+    setCopyRangeEnd(String(position + copiedSnapshotBlock.length - 1));
+    setRangeEditUndo(null);
     setCopyInsertStatus(
       `Inserted ${copiedSnapshotBlock.length} snapshot${copiedSnapshotBlock.length === 1 ? "" : "s"} at slot ${position}.`,
     );
@@ -1557,6 +1575,10 @@ const Sequencer = ({
       setCopyInsertStatus("Choose a valid snapshot range first.");
       return;
     }
+    const undoSnapshots = snapshots.slice(
+      resolvedCopyRange.startPosition - 1,
+      resolvedCopyRange.endPosition,
+    );
     resetDraftEditingState();
     const result = onResetSnapshotRangeNoteOffsetsInPlace?.({
       startPosition: copyRangeStart,
@@ -1567,6 +1589,10 @@ const Sequencer = ({
       setCopyInsertStatus("Unable to reset note offsets for the selected range.");
       return;
     }
+    setRangeEditUndo({
+      snapshots: undoSnapshots,
+      snapshotIds: undoSnapshots.map((snapshot) => snapshot.id),
+    });
     setCopyInsertStatus(
       `Reset note offsets in ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}.`,
     );
@@ -1577,6 +1603,7 @@ const Sequencer = ({
     onResetSnapshotRangeNoteOffsetsInPlace,
     resetDraftEditingState,
     resolvedCopyRange,
+    snapshots,
   ]);
 
   const handleDeleteSnapshotRange = useCallback(() => {
@@ -1597,6 +1624,7 @@ const Sequencer = ({
       return;
     }
     setCopiedSnapshotBlock(null);
+    setRangeEditUndo(null);
     setCopyInsertStatus(
       `Deleted ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}`
       + `${copyIncludeBars ? " with bars" : ""}`
@@ -1613,6 +1641,55 @@ const Sequencer = ({
     resetDraftEditingState,
     resolvedCopyRange,
   ]);
+
+  const handleSetSnapshotRangeArticulation = useCallback((articulation) => {
+    if (!resolvedCopyRange?.valid) {
+      setCopyInsertStatus("Choose a valid snapshot range first.");
+      return;
+    }
+    const undoSnapshots = snapshots.slice(
+      resolvedCopyRange.startPosition - 1,
+      resolvedCopyRange.endPosition,
+    );
+    const result = onSetSnapshotRangeArticulation?.({
+      startPosition: copyRangeStart,
+      endPosition: copyRangeEnd,
+      includeBars: copyIncludeBars,
+    }, articulation);
+    if (typeof result === "string" && result) {
+      setCopyInsertStatus("Unable to set arpeggiation for the selected range.");
+      return;
+    }
+    setRangeEditUndo({
+      snapshots: undoSnapshots,
+      snapshotIds: undoSnapshots.map((snapshot) => snapshot.id),
+    });
+    setCopyInsertStatus(
+      `Set ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}`
+      + ` to ${articulation === "arpeggiate" ? "arp" : "chord"}.`,
+    );
+  }, [
+    copyIncludeBars,
+    copyRangeEnd,
+    copyRangeStart,
+    onSetSnapshotRangeArticulation,
+    resolvedCopyRange,
+    snapshots,
+  ]);
+
+  const handleRevertSnapshotRangeChanges = useCallback(() => {
+    if (!rangeEditUndo) return;
+    const result = onRestoreSnapshotRangeChanges?.(rangeEditUndo.snapshots);
+    if (typeof result === "string" && result) {
+      setCopyInsertStatus("Unable to revert changes for the selected range.");
+      return;
+    }
+    const restoredCount = rangeEditUndo.snapshots.length;
+    setRangeEditUndo(null);
+    setCopyInsertStatus(
+      `Reverted changes in ${restoredCount} snapshot${restoredCount === 1 ? "" : "s"}.`,
+    );
+  }, [onRestoreSnapshotRangeChanges, rangeEditUndo]);
 
   // Local mutation adapters passed down into row components.
   const updateEventField = useCallback((snapshot, noteRef, field, rawValue) => {
@@ -2223,15 +2300,7 @@ const Sequencer = ({
             </label>
           </div>
         </div>
-        <div class="sequencer-copy-block__copy-row">
-          <label class="settings-form__checkbox-row settings-form__reload-checkbox">
-            <input
-              type="checkbox"
-              checked={copyResetNoteOffsets}
-              onInput={(e) => setCopyResetNoteOffsets(e.currentTarget.checked)}
-            />
-            <span class="sequencer-copy-block__option-text">Reset Note Offsets</span>
-          </label>
+        <div class="sequencer-copy-block__copy-row sequencer-copy-block__copy-row--actions-only">
           <span class="sequencer-copy-block__copy-actions">
             {copySummaryText && (
               <span class="controller-inline-row controller-status-row sequencer-copy-block__summary">
@@ -2243,24 +2312,6 @@ const Sequencer = ({
             </button>
           </span>
         </div>
-        <div class="sequencer-copy-block__range-actions">
-          <button
-            type="button"
-            class="preset-action-btn"
-            onClick={handleResetSnapshotRangeNoteOffsetsInPlace}
-            disabled={!resolvedCopyRange?.valid}
-          >
-            Reset Note Offsets in Place
-          </button>
-          <button
-            type="button"
-            class="preset-utility-btn sequencer-copy-block__delete-range-btn"
-            onClick={handleDeleteSnapshotRange}
-            disabled={!resolvedCopyRange?.valid}
-          >
-            Delete Selected Range
-          </button>
-        </div>
         {copyInsertStatus && (
           <p class="sequencer-copy-block__status">
             <span class="sequencer-copy-block__summary-text">
@@ -2268,6 +2319,60 @@ const Sequencer = ({
             </span>
           </p>
         )}
+        <fieldset class="sequencer-copy-block__range-operations">
+          <legend>
+            <b>Edit Selected Range</b>
+          </legend>
+          <div class="sequencer-copy-block__range-actions">
+            <button
+              type="button"
+              class="preset-action-btn"
+              onClick={handleResetSnapshotRangeNoteOffsetsInPlace}
+              disabled={!resolvedCopyRange?.valid}
+            >
+              Reset Note Offsets in Place
+            </button>
+          </div>
+          <div class="sequencer-copy-block__articulation-row">
+            <span class="sequencer-copy-block__articulation-label">Arpeggiation</span>
+            <span class="sequencer-copy-block__articulation-actions">
+              <button
+                type="button"
+                class="preset-action-btn"
+                onClick={() => handleSetSnapshotRangeArticulation("chord")}
+                disabled={!resolvedCopyRange?.valid}
+              >
+                Set to chord
+              </button>
+              <button
+                type="button"
+                class="preset-action-btn"
+                onClick={() => handleSetSnapshotRangeArticulation("arpeggiate")}
+                disabled={!resolvedCopyRange?.valid}
+              >
+                Set to arp
+              </button>
+            </span>
+          </div>
+          <div class="sequencer-copy-block__range-final-actions">
+            <button
+              type="button"
+              class="preset-utility-btn"
+              onClick={handleRevertSnapshotRangeChanges}
+              disabled={!rangeEditUndo}
+            >
+              Revert changes
+            </button>
+            <button
+              type="button"
+              class="preset-utility-btn sequencer-copy-block__delete-range-btn"
+              onClick={handleDeleteSnapshotRange}
+              disabled={!resolvedCopyRange?.valid}
+            >
+              Delete Selected Range
+            </button>
+          </div>
+        </fieldset>
         <div class="settings-form__action-row settings-form__action-row--top sequencer-copy-block__insert-row">
           <span class="sequencer-copy-block__insert-label">Insert at</span>
           <span class="sequencer-copy-block__insert-controls">
