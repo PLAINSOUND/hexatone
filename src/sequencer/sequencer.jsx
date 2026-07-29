@@ -1663,7 +1663,11 @@ const Sequencer = ({
     setRangeEditUndo({
       snapshots: undoSnapshots,
       snapshotIds: undoSnapshots.map((snapshot) => snapshot.id),
+      manualArpeggiationMode: normalizedManualArpeggiation.mode,
     });
+    if (normalizedManualArpeggiation.mode !== "per-snapshot") {
+      onManualArpeggiationChange?.({ mode: "per-snapshot" });
+    }
     setCopyInsertStatus(
       `Set ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}`
       + ` to ${articulation === "arpeggiate" ? "arp" : "chord"}.`,
@@ -1672,6 +1676,8 @@ const Sequencer = ({
     copyIncludeBars,
     copyRangeEnd,
     copyRangeStart,
+    normalizedManualArpeggiation.mode,
+    onManualArpeggiationChange,
     onSetSnapshotRangeArticulation,
     resolvedCopyRange,
     snapshots,
@@ -1684,12 +1690,15 @@ const Sequencer = ({
       setCopyInsertStatus("Unable to revert changes for the selected range.");
       return;
     }
+    if (rangeEditUndo.manualArpeggiationMode) {
+      onManualArpeggiationChange?.({ mode: rangeEditUndo.manualArpeggiationMode });
+    }
     const restoredCount = rangeEditUndo.snapshots.length;
     setRangeEditUndo(null);
     setCopyInsertStatus(
       `Reverted changes in ${restoredCount} snapshot${restoredCount === 1 ? "" : "s"}.`,
     );
-  }, [onRestoreSnapshotRangeChanges, rangeEditUndo]);
+  }, [onManualArpeggiationChange, onRestoreSnapshotRangeChanges, rangeEditUndo]);
 
   // Local mutation adapters passed down into row components.
   const updateEventField = useCallback((snapshot, noteRef, field, rawValue) => {

@@ -518,6 +518,7 @@ describe("Sequencer", () => {
     const onInsertSnapshotCopyBlock = vi.fn(() => null);
     const onSetSnapshotRangeArticulation = vi.fn(() => null);
     const onRestoreSnapshotRangeChanges = vi.fn(() => null);
+    const onManualArpeggiationChange = vi.fn();
 
     render(
       <Sequencer
@@ -543,6 +544,7 @@ describe("Sequencer", () => {
         onSequencePlaybackPitchOffsetChange={vi.fn()}
         onSnapSequenceToCurrentTuningChange={vi.fn()}
         onSequenceAutoCreateBarsChange={vi.fn()}
+        onManualArpeggiationChange={onManualArpeggiationChange}
         onSetSnapshotLabelMode={vi.fn()}
         onSelectSnapshot={vi.fn()}
         onSelectMarker={vi.fn()}
@@ -604,11 +606,13 @@ describe("Sequencer", () => {
       endPosition: "2",
       includeBars: false,
     }, "arpeggiate");
+    expect(onManualArpeggiationChange).toHaveBeenCalledWith({ mode: "per-snapshot" });
     fireEvent.click(screen.getByRole("button", { name: "Revert changes" }));
     expect(onRestoreSnapshotRangeChanges).toHaveBeenCalledWith([
       expect.objectContaining({ id: 1 }),
       expect.objectContaining({ id: 2 }),
     ]);
+    expect(onManualArpeggiationChange).toHaveBeenLastCalledWith({ mode: "off" });
     fireEvent.click(screen.getByRole("button", { name: "Set to chord" }));
     expect(onSetSnapshotRangeArticulation).toHaveBeenLastCalledWith({
       startPosition: "1",

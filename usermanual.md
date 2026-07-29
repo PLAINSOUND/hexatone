@@ -371,7 +371,7 @@ This feature also supports a fully local workflow: run Hexatone on `localhost:51
 - each event is assigned a global position relative to the collection of snapshots; bars are restricted to psoitions between snapshots, other events can be positioned anywhere
 - to work with one snapshot click on it twice to open a list of individual notes
   - edit note timing, pitch, and expression values (use the right/left arrow to move to additional data fields)
-  - note events can be positioned before or after the snapshot anchor, automatically creating `Cues`; note ons always precede and agree with their related note offs when shared data is edited
+  - note events can be positioned before or after the snapshot anchor, automatically creating `Cues`; note ons always precede and agree with their related note offs when shared data is edited; by changing `Snap` notes may be moved to other snapshots if desired; option-drag duplicates a note
   - change the snapshot name if desired; use the reset button to reload the default style chosen under `Snapshot Labels``
   - trigger the snapshot with the play/stop controls
   - try arpeggiation
@@ -381,7 +381,7 @@ This feature also supports a fully local workflow: run Hexatone on `localhost:51
 - adjust playback `SPEED` and `PITCH`
 - try `Snap Sequence to Current Hexatone Tuning` to compare stored snapshot tunings in different scale; recapture different versions if desired
 
-### Sequences
+### User Sequences
 
 Sequences may be saved in a user library, loaded from disc, saved as copies, accessed, and exported through the User Sequences menu. Add a `Name` and `Description`. Saved sequence data includes snapshots, note-event edits, bars, tempo markers, repeat markers, snapshot label mode, name, description, the auto-create-bars preference, and arpeggiation settings. Legato and tuning-snap are workspace/session settings.
 
@@ -393,7 +393,24 @@ The User Sequences menu distinguishes three states:
 
 If the workspace is dirty and a different saved sequence is chosen, Hexatone asks once whether to discard the unsaved sequence before loading the chosen one.
 
+### Snapshots
+
+- buttons to `Capture`, `Append Empty Snapshot`, `Clear All``
+- an empty snapshot allows for a bar rest or timed sustain
+
+### Copy & Insert
+- select a range of snapshots, optionally include bars, repeats, tempi
+- reset positions, globally set arpeggiation, or delete in-place
+- copy, insert
+- after insertion, copied range is automatically selected for further edits if needed
+
 ### Sequence Settings
+
+ Fix the grammatical error in Snapshot Labels.
+  - Say Auto-Create Bars places bars at snapshot boundaries.
+  - Explain Legato’s treatment of shared notes when snapshots overlap.
+  - Add a concise introduction to Snapshot Arpeggiation, reserving its detailed
+    controls for the following batch.
 
 `Snapshot Labels` may be `Note Names`, `Frequencies (Hz)`, `MIDIcents`, `Chord Intervals from Lowest Note (¢)`, `Chord Proportion` or `Odd Partial Proportion`. The summary text for each snapshot can be changed independently of the underlying note data and that these labels are saved with the user sequence. The reset button reloads the automatically generated label.
 
