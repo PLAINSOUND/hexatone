@@ -2138,10 +2138,11 @@ const Sequencer = ({
     setNewBarMeterIsSuggested(true);
   };
 
-  const loadSnapshotBeforeStructuralPosition = useCallback(
+  const loadSnapshotAtStructuralPosition = useCallback(
     (position) => {
       if (snapshots.length === 0) return;
-      const snapshotIndex = Math.max(0, Math.min(snapshots.length - 1, barDisplayBucket(position)));
+      const snapshotNumber = Math.max(1, Math.floor(Number(position) || 1));
+      const snapshotIndex = Math.min(snapshots.length - 1, snapshotNumber - 1);
       armVirtualizedPendingSnapshot(snapshotIndex);
     },
     [armVirtualizedPendingSnapshot, snapshots.length],
@@ -2155,7 +2156,7 @@ const Sequencer = ({
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
     const normalizedPosition = Math.round(position * 1000000) / 1000000;
     onAddTempo?.(normalizedPosition, bpm, "immediate", beatNumerator, beatDenominator);
-    loadSnapshotBeforeStructuralPosition(normalizedPosition);
+    loadSnapshotAtStructuralPosition(normalizedPosition);
   };
 
   const addTempoTransitionAtRequestedPosition = () => {
@@ -2166,7 +2167,7 @@ const Sequencer = ({
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
     const normalizedPosition = Math.round(position * 1000000) / 1000000;
     onAddTempo?.(normalizedPosition, bpm, "gradual", beatNumerator, beatDenominator);
-    loadSnapshotBeforeStructuralPosition(normalizedPosition);
+    loadSnapshotAtStructuralPosition(normalizedPosition);
   };
 
   const updateNewTempoBeatFractionField = (field, rawValue) => {
@@ -2222,7 +2223,7 @@ const Sequencer = ({
     const normalizedPosition = Math.round(position * 1000000) / 1000000;
     if (kind === "end" && normalizedPosition <= 1) return;
     onAddRepeat?.(normalizedPosition, kind);
-    loadSnapshotBeforeStructuralPosition(normalizedPosition);
+    loadSnapshotAtStructuralPosition(normalizedPosition);
     setNewRepeatPosition("1.000000");
   };
 

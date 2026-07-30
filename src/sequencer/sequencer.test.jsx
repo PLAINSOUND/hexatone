@@ -574,7 +574,7 @@ describe("Sequencer", () => {
     expect(bpmInput.value).toBe("88");
   });
 
-  it("loads newly added bars and anchors new tempo and repeat markers to the preceding snapshot", async () => {
+  it("loads new bars and cues floor(position) for new tempo and repeat markers", async () => {
     const onSelectSequenceBar = vi.fn();
     const onCueSequenceSnapshot = vi.fn();
     const onAddTempo = vi.fn();
@@ -657,12 +657,19 @@ describe("Sequencer", () => {
     expect(onAddTempo).toHaveBeenCalledWith(2.5, 60, "immediate", 1, 4);
     expect(onCueSequenceSnapshot).toHaveBeenLastCalledWith(1);
 
+    onCueSequenceSnapshot.mockClear();
+    fireEvent.input(screen.getByLabelText("new tempo position"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Tempo" }));
+    expect(onCueSequenceSnapshot).toHaveBeenCalledWith(1);
+
     fireEvent.input(screen.getByLabelText("new repeat position"), {
       target: { value: "3" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Start Marker" }));
     expect(onAddRepeat).toHaveBeenCalledWith(3, "start");
-    expect(onCueSequenceSnapshot).toHaveBeenLastCalledWith(1);
+    expect(onCueSequenceSnapshot).toHaveBeenLastCalledWith(2);
 
     onCueSequenceSnapshot.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Append Empty Snapshot" }));
