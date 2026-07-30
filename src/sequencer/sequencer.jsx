@@ -2229,6 +2229,12 @@ const Sequencer = ({
   const updateNewBarPosition = (rawValue, isSuggested = false) => {
     setNewBarPosition(rawValue);
     setNewBarPositionIsSuggested(Boolean(isSuggested));
+    if (!newBarMeterIsSuggested || String(rawValue).trim() === "") return;
+    const position = Number(rawValue);
+    if (!Number.isFinite(position)) return;
+    const previousBar = [...sortedBars].filter((bar) => Number(bar.position) < position).at(-1);
+    setNewBarNumerator(String(previousBar?.numerator ?? 4));
+    setNewBarDenominator(String(previousBar?.denominator ?? 4));
   };
 
   const updateNewBarMeterField = (field, rawValue) => {

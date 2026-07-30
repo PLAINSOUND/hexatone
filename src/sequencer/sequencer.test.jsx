@@ -420,7 +420,7 @@ describe("Sequencer", () => {
     );
 
     expect(screen.getByRole("button", { name: "Add Tempo" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add Target Tempo" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add Target" })).toBeTruthy();
     expect(screen.getByLabelText("sequence playback speed")).toBeTruthy();
     expect(screen.getByLabelText("sequence playback pitch")).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback speed slider" })).toBeTruthy();
@@ -568,7 +568,7 @@ describe("Sequencer", () => {
     expect(positionInput.value).toBe("2");
     expect(bpmInput.value).toBe("88");
 
-    fireEvent.click(screen.getByRole("button", { name: "Add Target Tempo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Target" }));
     expect(onAddTempo).toHaveBeenLastCalledWith(2, 88, "gradual", 3, 8);
     expect(positionInput.value).toBe("2");
     expect(bpmInput.value).toBe("88");
@@ -6178,7 +6178,10 @@ describe("Sequencer", () => {
           { id: 2, length: 1, description: "B", notes: [] },
           { id: 3, length: 1, description: "C", notes: [] },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 3, denominator: 2 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 3, denominator: 2 },
+          { id: 2, position: 3, numerator: 7, denominator: 8 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={1}
         selectedMarker={null}
@@ -6213,8 +6216,25 @@ describe("Sequencer", () => {
     );
 
     expect(screen.getByLabelText("new bar position").value).toBe("4");
-    expect(screen.getByLabelText("new bar numerator").value).toBe("3");
-    expect(screen.getByLabelText("new bar denominator").value).toBe("2");
+    const positionInput = screen.getByLabelText("new bar position");
+    const numeratorInput = screen.getByLabelText("new bar numerator");
+    const denominatorInput = screen.getByLabelText("new bar denominator");
+    expect(numeratorInput.value).toBe("7");
+    expect(denominatorInput.value).toBe("8");
+    expect(numeratorInput.className).toContain("sequencer-bars-add__position--hint");
+    expect(denominatorInput.className).toContain("sequencer-bars-add__position--hint");
+
+    fireEvent.input(positionInput, { target: { value: "2" } });
+    expect(numeratorInput.value).toBe("3");
+    expect(denominatorInput.value).toBe("2");
+
+    fireEvent.input(numeratorInput, { target: { value: "5" } });
+    fireEvent.input(denominatorInput, { target: { value: "16" } });
+    fireEvent.input(positionInput, { target: { value: "4" } });
+    expect(numeratorInput.value).toBe("5");
+    expect(denominatorInput.value).toBe("16");
+    expect(numeratorInput.className).not.toContain("sequencer-bars-add__position--hint");
+    expect(denominatorInput.className).not.toContain("sequencer-bars-add__position--hint");
   });
 
   it("advances the next bar defaults after an explicit last bar beyond the snapshot end", () => {
