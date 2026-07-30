@@ -147,7 +147,6 @@ const Layout = (props) => {
               defaultValue={props.settings.rotation}
               min="-360"
               max="360"
-              {...buildAutoSelectInputProps()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
               }}
