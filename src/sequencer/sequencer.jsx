@@ -1128,6 +1128,62 @@ const Sequencer = ({
       timedPlaybackOwnsViewport,
     ],
   );
+  const pendingStructuralViewportRef = useRef(null);
+  const queueStructuralViewport = useCallback(
+    (position) => {
+      const numericPosition = Number(position);
+      if (!Number.isFinite(numericPosition)) return;
+      pendingStructuralViewportRef.current = {
+        position: numericPosition,
+        markerCount: structuralScrollKeysAtPosition(numericPosition).length,
+      };
+    },
+    [structuralScrollKeysAtPosition],
+  );
+  const prepareStructuralPositionViewport = useCallback(
+    (position) => {
+      const time = Number(position);
+      if (timedPlaybackOwnsViewport || !autoScrollEnabledRef.current || !Number.isFinite(time)) {
+        return false;
+      }
+      const snapshotIndex = Math.max(
+        0,
+        Math.min(renderedSnapshots.length - 1, Math.floor(time) - 1),
+      );
+      if (renderedSnapshots.length === 0) return false;
+      const structuralKeys = structuralScrollKeysAtPosition(time);
+      if (structuralKeys.length === 0) return false;
+      const materializedIndexes = materializeVirtualViewport(snapshotIndex);
+      releaseVirtualSequenceAnchor();
+      return scrollVirtualSequenceIndexIntoView(snapshotIndex, {
+        align: "start",
+        topOffset: 6,
+        targetIndexes: [snapshotIndex],
+        materializedIndexes,
+        retainedIndexes: materializedIndexes,
+        preferredStructuralKey: structuralKeys[0],
+        targetStructuralKeys: structuralKeys,
+        requireMeasuredLayout: true,
+        applyOnce: true,
+      });
+    },
+    [
+      materializeVirtualViewport,
+      releaseVirtualSequenceAnchor,
+      renderedSnapshots.length,
+      scrollVirtualSequenceIndexIntoView,
+      structuralScrollKeysAtPosition,
+      timedPlaybackOwnsViewport,
+    ],
+  );
+  useLayoutEffect(() => {
+    const pendingStructuralViewport = pendingStructuralViewportRef.current;
+    if (pendingStructuralViewport == null) return;
+    const structuralKeys = structuralScrollKeysAtPosition(pendingStructuralViewport.position);
+    if (structuralKeys.length <= pendingStructuralViewport.markerCount) return;
+    pendingStructuralViewportRef.current = null;
+    prepareStructuralPositionViewport(pendingStructuralViewport.position);
+  }, [prepareStructuralPositionViewport, structuralScrollKeysAtPosition]);
   const selectSequenceBarWithViewport = useCallback(
     (barIndex) => {
       prepareBarViewport(barIndex);
@@ -2130,6 +2186,7 @@ const Sequencer = ({
     if (!Number.isFinite(numeric)) return;
     const position = Math.max(1, Math.round(numeric));
     pendingAddedBarPositionRef.current = position;
+    queueStructuralViewport(position);
     onAddBar?.(position, numerator, denominator);
     setNewBarPosition(suggestedBarPosition);
     setNewBarNumerator(suggestedBarMeter.numerator);
@@ -2141,16 +2198,19 @@ const Sequencer = ({
   const loadSnapshotAtStructuralPosition = useCallback(
     (position) => {
       if (snapshots.length === 0) return;
-      const snapshotNumber = Math.max(1, Math.floor(Number(position) || 1));
+      const numericPosition = Number(position);
+      if (!Number.isFinite(numericPosition)) return;
+      queueStructuralViewport(numericPosition);
+      const snapshotNumber = Math.max(1, Math.floor(numericPosition));
       const snapshotIndex = Math.min(snapshots.length - 1, snapshotNumber - 1);
       armVirtualizedPendingSnapshot(snapshotIndex);
     },
-    [armVirtualizedPendingSnapshot, snapshots.length],
+    [armVirtualizedPendingSnapshot, queueStructuralViewport, snapshots.length],
   );
 
   const addTempoAtRequestedPosition = () => {
     const position = Number(newTempoPosition);
-    const bpm = Number(newTempoBpm);
+    const bpm = Math.round(Number(newTempoBpm));
     const beatNumerator = Math.max(1, Math.round(Number(newTempoBeatNumerator) || 1));
     const beatDenominator = Math.max(1, Math.round(Number(newTempoBeatDenominator) || 1));
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
@@ -2161,7 +2221,7 @@ const Sequencer = ({
 
   const addTempoTransitionAtRequestedPosition = () => {
     const position = Number(newTempoPosition);
-    const bpm = Number(newTempoBpm);
+    const bpm = Math.round(Number(newTempoBpm));
     const beatNumerator = Math.max(1, Math.round(Number(newTempoBeatNumerator) || 1));
     const beatDenominator = Math.max(1, Math.round(Number(newTempoBeatDenominator) || 1));
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
@@ -2195,7 +2255,7 @@ const Sequencer = ({
       if (newTempoBpmIsSuggested) {
         const inheritedBpm = Number(tempo.bpm);
         if (Number.isFinite(inheritedBpm) && inheritedBpm > 0) {
-          setNewTempoBpm(String(Math.round(inheritedBpm * 1000000) / 1000000));
+          setNewTempoBpm(String(Math.round(inheritedBpm)));
         }
       }
       if (newTempoBeatFractionIsSuggested) {
@@ -2966,6 +3026,7 @@ const Sequencer = ({
           onSnapSequenceToCurrentTuningChange={onSnapSequenceToCurrentTuningChange}
           playbackRowRef={playbackRowRef}
           playhead={playhead}
+          selectedBarIndex={selectedBarIndex}
           timedBarSelectValue={timedTransportUiState.running ? timedTransportFieldValues.bar : null}
           sortedBars={sortedBars}
           transportScrollTargetRef={transportScrollTargetRef}

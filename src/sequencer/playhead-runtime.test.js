@@ -96,6 +96,41 @@ describe("sequencer playhead runtime", () => {
     expect(state.impliedPendingCueIndex).toBe("2");
   });
 
+  it("aligns an armed snapshot with its preceding bar", () => {
+    const state = derivePlayheadNavigationState({
+      playhead: { stepIndex: 3, markerIndex: null, barIndex: 0, stopped: true },
+      sortedBars: [
+        { id: "bar-1", position: 1 },
+        { id: "bar-2", position: 3 },
+        { id: "bar-3", position: 5 },
+      ],
+      sequenceCueGroups: [{ snapshotIndex: 3, time: 4.5 }],
+      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }],
+      pendingTransportSelection: { snapshotIndex: 3, cueIndex: 0 },
+    });
+
+    expect(state.selectedBarIndex).toBe(1);
+  });
+
+  it("aligns an armed cue with the bar containing that cue", () => {
+    const state = derivePlayheadNavigationState({
+      playhead: { stepIndex: 3, markerIndex: 1, barIndex: 0, stopped: true },
+      sortedBars: [
+        { id: "bar-1", position: 1 },
+        { id: "bar-2", position: 3 },
+        { id: "bar-3", position: 5 },
+      ],
+      sequenceCueGroups: [
+        { snapshotIndex: 0, time: 1 },
+        { snapshotIndex: 3, time: 5.25 },
+      ],
+      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }],
+      pendingTransportSelection: { snapshotIndex: 0, cueIndex: 1 },
+    });
+
+    expect(state.selectedBarIndex).toBe(2);
+  });
+
   it("keeps the containing snapshot bracketed when a cue is armed", () => {
     const state = derivePlayheadNavigationState({
       playhead: { stepIndex: 1, markerIndex: 5, barIndex: 1, stopped: true },

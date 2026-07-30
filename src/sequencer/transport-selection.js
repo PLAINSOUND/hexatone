@@ -77,6 +77,16 @@ export function armPendingCueSelection(cueIndex, snapshotIndex = null) {
   };
 }
 
+function findBarIndexAtOrBeforeTime(sortedBars = [], time) {
+  if (sortedBars.length === 0 || !Number.isFinite(time)) return null;
+  let barIndex = 0;
+  for (let index = 0; index < sortedBars.length; index += 1) {
+    if ((Number(sortedBars[index]?.position) || 0) <= time) barIndex = index;
+    else break;
+  }
+  return barIndex;
+}
+
 export function deriveTransportSelectionState({
   playhead,
   sortedBars = [],
@@ -112,10 +122,21 @@ export function deriveTransportSelectionState({
     ? pendingTransportSelection.cueIndex
     : null;
 
-  const selectedBarIndex =
+  const playheadBarIndex =
     sortedBars.length === 0
       ? 0
       : Math.max(0, Math.min(sortedBars.length - 1, Number(playhead?.barIndex) || 0));
+  const armedCueIsPlayheadTarget =
+    armedCueIndex != null && Number(playhead?.markerIndex) === armedCueIndex;
+  const armedCueTime = armedCueIsPlayheadTarget
+    ? Number(sequenceCueGroups[armedCueIndex]?.time)
+    : NaN;
+  const armedSnapshotTime = armedSnapshotIndex == null ? null : armedSnapshotIndex + 1;
+  const armedTransportTime = Number.isFinite(armedCueTime)
+    ? armedCueTime
+    : armedSnapshotTime;
+  const selectedBarIndex =
+    findBarIndexAtOrBeforeTime(sortedBars, armedTransportTime) ?? playheadBarIndex;
   const selectedBarTime =
     sortedBars.length === 0 ? 1 : Number(sortedBars[selectedBarIndex]?.position) || 1;
   const nextCueIndexFromBar = sequenceCueGroups.findIndex((group) => group.time >= selectedBarTime);

@@ -2451,6 +2451,11 @@ td.scale-color-col .color-input {
   flex-basis: 2.7em;
 }
 
+.sequencer-bars-add--tempo-position .sequencer-bars-add__meter {
+  position: relative;
+  z-index: 1;
+}
+
 .sequencer-bars-add--bar {
   grid-template-columns: 9.8em minmax(0, 1fr) 7.8em;
 }
@@ -2537,6 +2542,12 @@ td.scale-color-col .color-input {
   min-width: 5.4em;
   flex: 0 0 5.4em;
   text-align: center;
+}
+
+#sidebar input[type="number"].sequencer-bars-add__bpm {
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border-ui);
+  border-radius: 3px;
 }
 
 #sidebar .sequencer-bars-add__position:focus {

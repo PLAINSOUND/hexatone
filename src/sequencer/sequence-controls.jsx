@@ -296,6 +296,7 @@ const SequenceControls = ({
   onSnapSequenceToCurrentTuningChange,
   playbackRowRef,
   playhead,
+  selectedBarIndex,
   timedBarSelectValue,
   sortedBars,
   transportScrollTargetRef,
@@ -396,7 +397,9 @@ const SequenceControls = ({
                 </span>
                 <span class="sequencer-bars-add__tempo">
                   <input
-                    type="text"
+                    type="number"
+                    min="1"
+                    step="1"
                     class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpmIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
                     aria-label="new tempo bpm"
                     value={newTempoBpm}
@@ -709,7 +712,7 @@ const SequenceControls = ({
             <select
               class="sidebar-input sequencer-playback-select"
               data-timed-transport-field="bar"
-              value={timedBarSelectValue ?? playhead?.barIndex ?? 0}
+              value={timedBarSelectValue ?? selectedBarIndex ?? playhead?.barIndex ?? 0}
               onChange={(e) => {
                 const selectedBarIndex = Number(e.currentTarget.value);
                 setPlayFromTarget("cue");

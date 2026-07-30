@@ -494,7 +494,14 @@ describe("Sequencer", () => {
         bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
         tempi={[
           { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
-          { id: 2, position: 3, bpm: 120, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75 },
+          {
+            id: 2,
+            position: 3,
+            bpm: 120.5,
+            beatNumerator: 3,
+            beatDenominator: 16,
+            beatLength: 0.75,
+          },
         ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={null}
@@ -540,7 +547,9 @@ describe("Sequencer", () => {
     const beatDenominatorInput = screen.getByLabelText("new tempo beat denominator");
 
     fireEvent.input(positionInput, { target: { value: "3" } });
-    expect(bpmInput.value).toBe("120");
+    expect(bpmInput.type).toBe("number");
+    expect(bpmInput.step).toBe("1");
+    expect(bpmInput.value).toBe("121");
     expect(beatNumeratorInput.value).toBe("3");
     expect(beatDenominatorInput.value).toBe("16");
     expect(bpmInput.classList.contains("sequencer-bars-add__position--hint")).toBe(true);
