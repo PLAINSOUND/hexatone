@@ -558,6 +558,18 @@ describe("Sequencer", () => {
       true,
     );
 
+    fireEvent.input(bpmInput, { target: { value: "" } });
+    fireEvent.input(beatNumeratorInput, { target: { value: "" } });
+    expect(bpmInput.value).toBe("121");
+    expect(beatNumeratorInput.value).toBe("3");
+    expect(beatDenominatorInput.value).toBe("16");
+
+    fireEvent.input(positionInput, { target: { value: "" } });
+    expect(positionInput.value).toBe("1.000000");
+    expect(bpmInput.value).toBe("60");
+    expect(beatNumeratorInput.value).toBe("1");
+    expect(beatDenominatorInput.value).toBe("4");
+
     fireEvent.input(bpmInput, { target: { value: "88" } });
     fireEvent.input(beatNumeratorInput, { target: { value: "3" } });
     fireEvent.input(beatDenominatorInput, { target: { value: "8" } });

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
 import SequenceControls from "./sequence-controls.jsx";
-import SidebarTopAction from "../sidebar-top-action.jsx";
 import SnapshotSequenceItem from "./snapshot-sequence-item.jsx";
 import BarRow from "./bar-row.jsx";
 import TempoRow from "./tempo-row.jsx";
@@ -306,6 +305,16 @@ const Sequencer = ({
       denominator: String(previousBar?.denominator ?? 4),
     };
   }, [sortedBars, suggestedBarPosition]);
+  const suggestedNewBarMeter = useMemo(() => {
+    const targetPosition = Math.max(1, Number(newBarPosition) || Number(suggestedBarPosition) || 1);
+    const previousBar = [...sortedBars]
+      .filter((bar) => Number(bar.position) < targetPosition)
+      .at(-1);
+    return {
+      numerator: String(previousBar?.numerator ?? 4),
+      denominator: String(previousBar?.denominator ?? 4),
+    };
+  }, [newBarPosition, sortedBars, suggestedBarPosition]);
   const sortedTempi = sequenceRuntime.sortedTempi;
   const sequenceEvents = sequenceRuntime.sequenceEvents;
   const sequenceCueGroups = sequenceRuntime.sequenceCueGroups;
@@ -2231,6 +2240,20 @@ const Sequencer = ({
   };
 
   const updateNewTempoBeatFractionField = (field, rawValue) => {
+    if (String(rawValue).trim() === "") {
+      const tempo = deriveTempoAtSequencePosition(
+        Number(newTempoPosition),
+        sortedTempi,
+        sortedBars,
+        terminalBarlinePosition,
+      );
+      setNewTempoBeatNumerator(String(tempo?.beatNumerator ?? 1));
+      setNewTempoBeatDenominator(String(tempo?.beatDenominator ?? 4));
+      setNewTempoBeatFractionIsSuggested(true);
+      return String(
+        field === "numerator" ? (tempo?.beatNumerator ?? 1) : (tempo?.beatDenominator ?? 4),
+      );
+    }
     setNewTempoBeatFractionIsSuggested(false);
     if (field === "numerator") {
       setNewTempoBeatNumerator(rawValue);
@@ -2241,9 +2264,9 @@ const Sequencer = ({
 
   const updateNewTempoPosition = useCallback(
     (rawValue) => {
-      setNewTempoPosition(rawValue);
-      if (String(rawValue).trim() === "") return;
-      const position = Number(rawValue);
+      const nextValue = String(rawValue).trim() === "" ? "1.000000" : rawValue;
+      setNewTempoPosition(nextValue);
+      const position = Number(nextValue);
       if (!Number.isFinite(position)) return;
       const tempo = deriveTempoAtSequencePosition(
         position,
@@ -2262,6 +2285,7 @@ const Sequencer = ({
         setNewTempoBeatNumerator(String(tempo.beatNumerator));
         setNewTempoBeatDenominator(String(tempo.beatDenominator));
       }
+      return String(rawValue).trim() === "" ? "1.000000" : undefined;
     },
     [
       newTempoBeatFractionIsSuggested,
@@ -2272,10 +2296,24 @@ const Sequencer = ({
     ],
   );
 
-  const updateNewTempoBpm = useCallback((rawValue) => {
-    setNewTempoBpm(rawValue);
-    setNewTempoBpmIsSuggested(false);
-  }, []);
+  const updateNewTempoBpm = useCallback(
+    (rawValue) => {
+      if (String(rawValue).trim() === "") {
+        const tempo = deriveTempoAtSequencePosition(
+          Number(newTempoPosition),
+          sortedTempi,
+          sortedBars,
+          terminalBarlinePosition,
+        );
+        setNewTempoBpm(String(Math.round(Number(tempo?.bpm) || 60)));
+        setNewTempoBpmIsSuggested(true);
+        return String(Math.round(Number(tempo?.bpm) || 60));
+      }
+      setNewTempoBpm(rawValue);
+      setNewTempoBpmIsSuggested(false);
+    },
+    [newTempoPosition, sortedBars, sortedTempi, terminalBarlinePosition],
+  );
 
   const addRepeatAtRequestedPosition = (kind) => {
     const position = Number(newRepeatPosition);
@@ -2288,9 +2326,14 @@ const Sequencer = ({
   };
 
   const updateNewBarPosition = (rawValue, isSuggested = false) => {
+    if (String(rawValue).trim() === "") {
+      setNewBarPosition(suggestedBarPosition);
+      setNewBarPositionIsSuggested(true);
+      return suggestedBarPosition;
+    }
     setNewBarPosition(rawValue);
     setNewBarPositionIsSuggested(Boolean(isSuggested));
-    if (!newBarMeterIsSuggested || String(rawValue).trim() === "") return;
+    if (!newBarMeterIsSuggested) return;
     const position = Number(rawValue);
     if (!Number.isFinite(position)) return;
     const previousBar = [...sortedBars].filter((bar) => Number(bar.position) < position).at(-1);
@@ -2299,13 +2342,16 @@ const Sequencer = ({
   };
 
   const updateNewBarMeterField = (field, rawValue) => {
-    setNewBarMeterIsSuggested(false);
     const digitsOnly = String(rawValue ?? "").replace(/[^\d]/g, "");
     if (digitsOnly === "") {
-      if (field === "numerator") setNewBarNumerator("");
-      else setNewBarDenominator("");
-      return;
+      setNewBarNumerator(suggestedNewBarMeter.numerator);
+      setNewBarDenominator(suggestedNewBarMeter.denominator);
+      setNewBarMeterIsSuggested(true);
+      return field === "numerator"
+        ? suggestedNewBarMeter.numerator
+        : suggestedNewBarMeter.denominator;
     }
+    setNewBarMeterIsSuggested(false);
     const parsed = Math.round(Number(digitsOnly) || 0);
     if (field === "numerator") {
       setNewBarNumerator(String(Math.max(1, parsed)));
@@ -2321,9 +2367,9 @@ const Sequencer = ({
 
   useEffect(() => {
     if (!newBarMeterIsSuggested) return;
-    setNewBarNumerator(suggestedBarMeter.numerator);
-    setNewBarDenominator(suggestedBarMeter.denominator);
-  }, [newBarMeterIsSuggested, suggestedBarMeter]);
+    setNewBarNumerator(suggestedNewBarMeter.numerator);
+    setNewBarDenominator(suggestedNewBarMeter.denominator);
+  }, [newBarMeterIsSuggested, suggestedNewBarMeter]);
 
   const handleEnterCommit = useCallback(
     (e, commit) => {
@@ -3137,7 +3183,6 @@ const Sequencer = ({
             </div>
           )}
 
-          <SidebarTopAction scrollTargetRef={scrollPanelRef} threshold={48} />
         </div>
 
         {!topSequenceSaveVisible &&

@@ -2065,9 +2065,9 @@ td.scale-color-col .color-input {
   }
 
   #sidebar .sequencer-playback-row--modifiers .sequencer-playback-input {
-    width: 5.1em !important;
-    max-width: 5.1em !important;
-    flex-basis: 5.1em;
+    width: 4.5em !important;
+    max-width: 4.5em !important;
+    flex-basis: 4.5em;
   }
 }
 
@@ -2154,6 +2154,63 @@ td.scale-color-col .color-input {
   align-items: baseline;
   justify-content: space-between;
   gap: 1em;
+}
+
+@media (max-width: 480px) and (orientation: portrait) {
+  #sidebar .sequencer-option-row.sequencer-option-row--tempo-position-inline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #sidebar .sequencer-option-row.sequencer-option-row--tempo-position-inline,
+  #sidebar .sequencer-option-row.sequencer-option-row--bar-position,
+  #sidebar .sequencer-option-row.sequencer-option-row--repeat-position,
+  #sidebar .sequencer-option-row.sequencer-option-row--snapshot-labels,
+  #sidebar .sequencer-option-row.sequencer-option-row--snapshot-arpeggiation,
+  #sidebar .sequencer-manual-arpeggiation-controls .sequencer-option-row {
+    gap: 0;
+  }
+
+  #sidebar .sequencer-option-row.sequencer-option-row--tempo-position-inline > span:first-child,
+  #sidebar .sequencer-option-row.sequencer-option-row--bar-position > span:first-child,
+  #sidebar .sequencer-option-row.sequencer-option-row--repeat-position > span:first-child {
+    line-height: 1.5em;
+  }
+
+  #sidebar .sequencer-bars-add--tempo-position,
+  #sidebar .sequencer-bars-add--bar {
+    grid-template-columns: 7.6em 6.25em minmax(0, 1fr);
+  }
+
+  #sidebar .sequencer-option-row.sequencer-option-row--tempo-transition-action {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  #sidebar
+    .sequencer-option-row.sequencer-option-row--tempo-transition-action
+    > .sequencer-bars-add__tempo-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+
+  #sidebar .sequencer-option-row.sequencer-option-row--tempo-position-inline
+    > .sequencer-bars-add--tempo-position {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .sequencer-copy-block__range-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35em;
+  }
+
+  .sequencer-copy-block__range-label {
+    margin-right: 0;
+  }
 }
 
 .sequencer-copy-block__range-label {
@@ -2591,6 +2648,12 @@ td.scale-color-col .color-input {
   left: -0.3em;
   color: #6f5f5f;
   line-height: 1;
+}
+
+@media (max-width: 480px), (max-height: 480px) and (orientation: landscape) and (pointer: coarse) {
+  .sequencer-bars-add__meter-separator {
+    left: 0;
+  }
 }
 
 .sequencer-bars-add__equals {

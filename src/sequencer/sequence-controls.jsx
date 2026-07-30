@@ -362,7 +362,10 @@ const SequenceControls = ({
                 aria-label="new tempo position"
                 value={newTempoPosition}
                 onFocus={selectControlValue}
-                onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
+                onInput={(e) => {
+                  const restoredValue = setNewTempoPosition(e.currentTarget.value);
+                  if (restoredValue != null) e.currentTarget.value = restoredValue;
+                }}
               />
               <span class="sequencer-bars-add__meter">
                 <input
@@ -373,9 +376,13 @@ const SequenceControls = ({
                   aria-label="new tempo beat numerator"
                   value={newTempoBeatNumerator}
                   onFocus={selectControlValue}
-                  onInput={(e) =>
-                    updateNewTempoBeatFractionField("numerator", e.currentTarget.value)
-                  }
+                  onInput={(e) => {
+                    const restoredValue = updateNewTempoBeatFractionField(
+                      "numerator",
+                      e.currentTarget.value,
+                    );
+                    if (restoredValue != null) e.currentTarget.value = restoredValue;
+                  }}
                 />
                 <span class="sequencer-bars-add__meter-separator">/</span>
                 <input
@@ -386,9 +393,13 @@ const SequenceControls = ({
                   aria-label="new tempo beat denominator"
                   value={newTempoBeatDenominator}
                   onFocus={selectControlValue}
-                  onInput={(e) =>
-                    updateNewTempoBeatFractionField("denominator", e.currentTarget.value)
-                  }
+                  onInput={(e) => {
+                    const restoredValue = updateNewTempoBeatFractionField(
+                      "denominator",
+                      e.currentTarget.value,
+                    );
+                    if (restoredValue != null) e.currentTarget.value = restoredValue;
+                  }}
                 />
               </span>
               <span class="sequencer-bars-add__tempo-equation">
@@ -404,7 +415,10 @@ const SequenceControls = ({
                     aria-label="new tempo bpm"
                     value={newTempoBpm}
                     onFocus={selectControlValue}
-                    onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+                    onInput={(e) => {
+                      const restoredValue = setNewTempoBpm(e.currentTarget.value);
+                      if (restoredValue != null) e.currentTarget.value = restoredValue;
+                    }}
                   />
                   <span class="sequencer-bars-add__suffix">bpm</span>
                 </span>
@@ -431,7 +445,7 @@ const SequenceControls = ({
             </span>
           </div>
 
-          <div class="sequencer-option-row">
+          <div class="sequencer-option-row sequencer-option-row--bar-position">
             <span>Choose Bar Position</span>
             <span class="sequencer-bars-add sequencer-bars-add--bar">
               <input
@@ -443,7 +457,8 @@ const SequenceControls = ({
                 onInput={(e) => {
                   const rawValue = String(e.currentTarget.value ?? "").trim();
                   const integerPortion = rawValue.split(/[.,]/, 1)[0]?.replace(/[^\d]/g, "") ?? "";
-                  setNewBarPosition(integerPortion, false);
+                  const restoredValue = setNewBarPosition(integerPortion, false);
+                  if (restoredValue != null) e.currentTarget.value = restoredValue;
                 }}
               />
               <span class="sequencer-bars-add__meter">
@@ -455,7 +470,13 @@ const SequenceControls = ({
                   aria-label="new bar numerator"
                   value={newBarNumerator}
                   onFocus={selectControlValue}
-                  onInput={(e) => updateNewBarMeterField("numerator", e.currentTarget.value)}
+                  onInput={(e) => {
+                    const restoredValue = updateNewBarMeterField(
+                      "numerator",
+                      e.currentTarget.value,
+                    );
+                    if (restoredValue != null) e.currentTarget.value = restoredValue;
+                  }}
                 />
                 <span class="sequencer-bars-add__meter-separator">/</span>
                 <input
@@ -466,7 +487,13 @@ const SequenceControls = ({
                   aria-label="new bar denominator"
                   value={newBarDenominator}
                   onFocus={selectControlValue}
-                  onInput={(e) => updateNewBarMeterField("denominator", e.currentTarget.value)}
+                  onInput={(e) => {
+                    const restoredValue = updateNewBarMeterField(
+                      "denominator",
+                      e.currentTarget.value,
+                    );
+                    if (restoredValue != null) e.currentTarget.value = restoredValue;
+                  }}
                 />
               </span>
               <button
@@ -497,7 +524,7 @@ const SequenceControls = ({
             </span>
           </label>
 
-          <div class="sequencer-option-row">
+          <div class="sequencer-option-row sequencer-option-row--repeat-position">
             <span>Choose Repeat Position</span>
             <span class="sequencer-bars-add sequencer-bars-add--tempo">
               <input
@@ -527,7 +554,7 @@ const SequenceControls = ({
         </>
       ) : null}
 
-      <label class="sequencer-option-row sequencer-option-row--label-left">
+      <label class="sequencer-option-row sequencer-option-row--label-left sequencer-option-row--snapshot-labels">
         <span>Snapshot Labels</span>
         <select
           class="sidebar-input"
@@ -542,7 +569,7 @@ const SequenceControls = ({
         </select>
       </label>
 
-      <label class="sequencer-option-row sequencer-option-row--label-left">
+      <label class="sequencer-option-row sequencer-option-row--label-left sequencer-option-row--snapshot-arpeggiation">
         <span>Snapshot Arpeggiation</span>
         <select
           class="sidebar-input"

@@ -284,6 +284,13 @@ describe("MidiOutputs FluidSynth independence", () => {
       expect(sessionStorage.getItem(key)).toBe(String(value));
       expect(slider.getAttribute("aria-valuenow")).toBe(String(value));
     }
+
+    expect(mpeOutput.send.mock.calls).toEqual([
+      [[0xbf, 13, 65]],
+      [[0xbf, 83, 66]],
+      [[0xbf, 26, 67]],
+      [[0xbf, 18, 68]],
+    ]);
   });
 
   it("defaults Eagan Matrix controls to 64 and sends them when Auto-Generate is enabled", () => {
