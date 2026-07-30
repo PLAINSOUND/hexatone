@@ -294,6 +294,7 @@ const EventRow = ({
           defaultValue={formatMidicents(event.midicents)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} midicents`}
           {...stopProps}
+          onPointerDown={buildSelectAllOnFirstPointerDown({ stop: true })}
           onFocus={buildSelectOnFocus({
             stop: true,
             clearCommitted: true,
@@ -321,6 +322,7 @@ const EventRow = ({
           defaultValue={formatFrequency(event.frequency)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} frequency`}
           {...stopProps}
+          onPointerDown={buildSelectAllOnFirstPointerDown({ stop: true })}
           onFocus={buildSelectOnFocus({
             stop: true,
             clearCommitted: true,

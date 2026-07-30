@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 import { resolveBulkDumpName, sanitizeBulkDumpName } from "../../tuning/mts-format.js";
 import {
   clampMidiCc,
@@ -307,6 +308,7 @@ const MidiOutputs = (props) => {
                   class="sidebar-input"
                   key={settings.tuning_map_number ?? 0}
                   defaultValue={settings.tuning_map_number ?? 0}
+                  {...buildAutoSelectInputProps()}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") e.target.blur();
                   }}
@@ -582,6 +584,7 @@ const MidiOutputs = (props) => {
                   class="sidebar-input"
                   key={settings.mts_bulk_device_id ?? 127}
                   defaultValue={settings.mts_bulk_device_id ?? 127}
+                  {...buildAutoSelectInputProps()}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") e.target.blur();
                   }}
@@ -603,6 +606,7 @@ const MidiOutputs = (props) => {
                   class="sidebar-input"
                   key={settings.mts_bulk_tuning_map_number ?? 0}
                   defaultValue={settings.mts_bulk_tuning_map_number ?? 0}
+                  {...buildAutoSelectInputProps()}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") e.target.blur();
                   }}
@@ -755,6 +759,7 @@ const MidiOutputs = (props) => {
                       class="sidebar-input"
                       key={settings.mpe_pitchbend_range}
                       defaultValue={visibleMpePitchbendRange}
+                      {...buildAutoSelectInputProps()}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.target.blur();
                       }}

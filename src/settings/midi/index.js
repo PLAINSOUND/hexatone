@@ -21,6 +21,7 @@ import LinnstrumentSettings from "./controllers/linnstrument-settings.js";
 import LumatoneSettings from "./controllers/lumatone-settings.js";
 import ExquisSettings from "./controllers/exquis-settings.js";
 import HakenContinuumSettings from "./controllers/haken-continuum-settings.js";
+import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 
 const MANUAL_CONTROLLER_OPTIONS = [
   { id: "axis49",          label: "AXIS-49" },
@@ -511,6 +512,7 @@ const MIDIio = (props) => {
                           key={`anchor-channel-${anchorChannel}`}
                           defaultValue={anchorChannel}
                           disabled={tonalPlexus205Mode}
+                          {...buildAutoSelectInputProps()}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") e.target.blur();
                           }}
@@ -567,6 +569,7 @@ const MIDIio = (props) => {
                         key={`anchor-note-${controllerAnchorNote}`}
                         defaultValue={controllerAnchorNote}
                         disabled={tonalPlexus205Mode}
+                        {...buildAutoSelectInputProps()}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") e.target.blur();
                         }}
@@ -592,6 +595,7 @@ const MIDIio = (props) => {
                         class="settings-form__compact-input settings-form__compact-input--grow"
                         key={`central-degree-${props.settings.midiin_anchor_note}`}
                         defaultValue={centralNote}
+                        {...buildAutoSelectInputProps()}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") e.target.blur();
                         }}
@@ -727,6 +731,7 @@ const MIDIio = (props) => {
                         class="settings-form__compact-input settings-form__compact-input--channel"
                         key={`seq-anchor-channel-${seqAnchorChannel}`}
                         defaultValue={seqAnchorChannel}
+                        {...buildAutoSelectInputProps()}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") e.target.blur();
                         }}
@@ -748,6 +753,7 @@ const MIDIio = (props) => {
                       class="settings-form__compact-input settings-form__compact-input--grow"
                       key={`seq-central-degree-${props.settings.midiin_anchor_note}`}
                       defaultValue={centralNote}
+                      {...buildAutoSelectInputProps()}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") e.target.blur();
                       }}
@@ -832,6 +838,7 @@ const MIDIio = (props) => {
                     class="sidebar-input"
                     key={`steps-per-channel-${props.settings.midiin_steps_per_channel ?? ""}`}
                     defaultValue={props.settings.midiin_steps_per_channel ?? ""}
+                    {...buildAutoSelectInputProps()}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") e.target.blur();
                     }}
@@ -955,6 +962,7 @@ const MIDIio = (props) => {
                   max="24"
                   class="settings-form__sidebar-input--short"
                   value={props.settings.midi_wheel_semitones ?? 2}
+                  {...buildAutoSelectInputProps()}
                   onChange={(e) => {
                     const parsed = parseInt(e.target.value);
                     const v = Math.max(0, Math.min(24, isNaN(parsed) ? 2 : parsed));

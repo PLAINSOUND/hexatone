@@ -3,6 +3,10 @@
 // frequency values back to the parent table on commit.
 
 import { useEffect, useMemo, useState } from "preact/hooks";
+import {
+  buildSelectAllOnFirstPointerDown,
+  replaceAndSelectInputValue,
+} from "../../../ui/input-selection.js";
 
 export const formatFrequencyHz = (value) => {
   if (!Number.isFinite(value)) return "";
@@ -47,11 +51,12 @@ const FrequencyInput = ({
       value={draft}
       aria-label={ariaLabel}
       style={color ? { color, WebkitTextFillColor: color, fontStyle } : undefined}
+      onPointerDown={disabled ? undefined : buildSelectAllOnFirstPointerDown()}
       onFocus={(e) => {
         if (disabled) return;
         setEditing(true);
         setDraft(editableDisplay);
-        e.currentTarget.select?.();
+        replaceAndSelectInputValue(e, editableDisplay);
       }}
       onInput={(e) => {
         setDraft(e.currentTarget.value);

@@ -42,6 +42,17 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByText("Output Routing")).not.toBeNull();
   });
 
+  it("selects the complete tuning map number on first pointer focus", () => {
+    render(<MidiOutputs {...makeProps({ midi_device: "main-1" })} />);
+    const input = screen.getByLabelText("Tuning Map Number");
+
+    fireEvent.pointerDown(input);
+
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(input.value.length);
+  });
+
   it("shows 127 as the default FluidSynth volume when no preference is stored", () => {
     localStorage.removeItem("fluidsynth_volume_pref");
 

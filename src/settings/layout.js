@@ -1,5 +1,6 @@
 import { useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 
 const Layout = (props) => {
   const [collapsed, setCollapsed] = useState(
@@ -44,6 +45,7 @@ const Layout = (props) => {
           step="1"
           min="0"
           max={maxDegree}
+          {...buildAutoSelectInputProps()}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.target.blur();
           }}
@@ -70,6 +72,7 @@ const Layout = (props) => {
               defaultValue={props.settings.rSteps}
               min="-1220"
               max="1220"
+              {...buildAutoSelectInputProps()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
               }}
@@ -94,6 +97,7 @@ const Layout = (props) => {
               defaultValue={props.settings.drSteps}
               min="-1220"
               max="1220"
+              {...buildAutoSelectInputProps()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
               }}
@@ -118,6 +122,7 @@ const Layout = (props) => {
               defaultValue={props.settings.hexSize}
               min="20"
               max="1000"
+              {...buildAutoSelectInputProps()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
               }}
@@ -142,6 +147,7 @@ const Layout = (props) => {
               defaultValue={props.settings.rotation}
               min="-360"
               max="360"
+              {...buildAutoSelectInputProps()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
               }}

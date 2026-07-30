@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 
 // This module owns the explicit Generic Keyboard controller-geometry section
 // inside MIDI Input. It renders the generic controller description, the
@@ -34,6 +35,7 @@ const GenericKeyboardSettings = ({
             class="settings-form__compact-input settings-form__compact-input--channel"
             key={`generic-anchor-channel-${anchorChannel}`}
             defaultValue={anchorChannel}
+            {...buildAutoSelectInputProps()}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.target.blur();
             }}
@@ -55,6 +57,7 @@ const GenericKeyboardSettings = ({
           class="settings-form__compact-input settings-form__compact-input--grow"
           key={`generic-central-degree-${centralDegreeSetting}`}
           defaultValue={centralNote}
+          {...buildAutoSelectInputProps()}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.target.blur();
           }}

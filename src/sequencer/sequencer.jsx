@@ -79,6 +79,7 @@ import {
   updateEventFieldInSnapshot,
 } from "./sequence-mutations.js";
 import { normalizeManualArpeggiation } from "./manual-snapshot-arpeggiation.js";
+import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 
 /**
  * Sequencer — sidebar workspace for building, editing, and auditioning
@@ -2430,6 +2431,7 @@ const Sequencer = ({
                 step="1"
                 aria-label="copy snapshot range start"
                 value={copyRangeStart}
+                {...buildAutoSelectInputProps()}
                 onInput={(e) => handleCopyRangeStartInput(e.currentTarget.value)}
               />
             </label>
@@ -2441,6 +2443,7 @@ const Sequencer = ({
                 step="1"
                 aria-label="copy snapshot range end"
                 value={copyRangeEnd}
+                {...buildAutoSelectInputProps()}
                 onInput={(e) => handleCopyRangeEndInput(e.currentTarget.value)}
               />
             </label>
@@ -2558,6 +2561,7 @@ const Sequencer = ({
                 step="1"
                 aria-label="copy snapshot insert global position"
                 value={copyInsertPosition}
+                {...buildAutoSelectInputProps()}
                 onInput={(e) => setCopyInsertPosition(e.currentTarget.value)}
                 onBlur={(e) => {
                   if (copyIncludeBars) snapInsertPositionToBar(e.currentTarget.value);
@@ -2573,6 +2577,7 @@ const Sequencer = ({
                 step={insertIsInsideBar ? undefined : "1"}
                 aria-label="copy snapshot insert bar number"
                 value={copyInsertBarNumber}
+                {...buildAutoSelectInputProps()}
                 onInput={(e) => {
                   const nextValue = e.currentTarget.value;
                   setCopyInsertBarNumber(nextValue);

@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 
 // This module owns the extra MIDI Input controls that appear only in
 // "MIDI to Nearest Scale Degree" mode. It is intentionally small and pure:
@@ -14,6 +15,7 @@ const ScaleInputSettings = ({ settings, onChange }) => (
         class="sidebar-input"
         key={settings.midiin_scale_tolerance ?? 25}
         defaultValue={settings.midiin_scale_tolerance ?? 25}
+        {...buildAutoSelectInputProps()}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.target.blur();
         }}

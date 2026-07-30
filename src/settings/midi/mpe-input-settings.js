@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 
 // This module owns the compact MPE input zone controls used by MIDI Input for
 // unknown controllers and controller-specific MPE-capable paths. It only
@@ -96,6 +97,7 @@ const MpeInputSettings = ({
         class="sidebar-input settings-form__sidebar-input--short"
         key={visibleBendRange}
         defaultValue={visibleBendRange}
+        {...buildAutoSelectInputProps()}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.target.blur();
         }}

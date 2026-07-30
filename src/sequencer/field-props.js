@@ -2,6 +2,13 @@
 // It keeps the many row editors consistent about focus selection, blur
 // commits, and Enter-key commits without repeating inline handlers.
 
+import {
+  buildSelectAllOnFirstPointerDown,
+  replaceAndSelectInputValue,
+} from "../ui/input-selection.js";
+
+export { buildSelectAllOnFirstPointerDown };
+
 export function stopPropagation(event) {
   event.stopPropagation();
 }
@@ -23,18 +30,10 @@ export function buildSelectOnFocus({
     if (clearCommitted) delete event.currentTarget.dataset.lastCommittedValue;
     if (typeof setValue === "function") {
       const nextValue = setValue(event);
-      if (nextValue != null) event.currentTarget.value = nextValue;
+      replaceAndSelectInputValue(event, nextValue);
+      return;
     }
-    event.currentTarget.select();
-  };
-}
-
-export function buildSelectAllOnFirstPointerDown({ stop = false } = {}) {
-  return (event) => {
-    if (stop) event.stopPropagation();
-    if (event.currentTarget.ownerDocument?.activeElement === event.currentTarget) return;
-    event.preventDefault();
-    event.currentTarget.focus();
+    replaceAndSelectInputValue(event);
   };
 }
 

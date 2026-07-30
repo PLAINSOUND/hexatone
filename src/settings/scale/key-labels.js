@@ -23,6 +23,10 @@ import {
 import { buildPitchFrame, resolveStructurePitch } from "../../notation/pitch-frame.js";
 import { createScaleWorkspace } from "../../tuning/workspace.js";
 import { formatEditableFrequencyHz, formatFrequencyHz } from "./scale-table/frequency-input.js";
+import {
+  buildSelectAllOnFirstPointerDown,
+  replaceAndSelectInputValue,
+} from "../../ui/input-selection.js";
 
 const HEJI_PALETTE_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 const HEJI_BASE_SYMBOLS_BY_ID = Object.fromEntries(BASE_SYMBOLS.map((symbol) => [symbol.id, symbol]));
@@ -517,11 +521,12 @@ const KeyLabels = (props) => {
                 inputMode="decimal"
                 value={anchorFrequencyDraft}
                 disabled={hejiDisabled}
+                onPointerDown={hejiDisabled ? undefined : buildSelectAllOnFirstPointerDown()}
                 onFocus={(e) => {
                   if (hejiDisabled) return;
                   setEditingAnchorFrequency(true);
                   setAnchorFrequencyDraft(editableAnchorFrequency);
-                  e.currentTarget.select?.();
+                  replaceAndSelectInputValue(e, editableAnchorFrequency);
                 }}
                 onInput={(e) => setAnchorFrequencyDraft(e.target.value)}
                 onKeyDown={(e) => {

@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 import ScalaInput from "../../scale/scala-input.js";
 import CustomRangeSlider from "../../shared/range-slider.jsx";
 import OutputPortPicker from "../output-port-picker.js";
@@ -303,6 +304,7 @@ const LinnstrumentSettings = ({
                 max="48"
                 class="settings-form__sidebar-input--short"
                 value={settings.midi_wheel_semitones ?? 2}
+                {...buildAutoSelectInputProps()}
                 onChange={(e) => {
                   const parsed = parseInt(e.target.value, 10);
                   const v = Math.max(0, Math.min(48, Number.isNaN(parsed) ? 2 : parsed));

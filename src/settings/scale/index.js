@@ -13,6 +13,7 @@ import { settingsToAbletonScala, parseScalaInterval } from "./parse-scale";
 import ScalaInput from "./scala-input.js";
 import FundamentalTuneCell from "./fundamental-tune-cell.js";
 import FrequencyInput from "./scale-table/frequency-input.js";
+import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 import {
   clearAllTuningPreviews,
   getEffectiveDegreeCents,
@@ -173,6 +174,7 @@ const Scale = (props) => {
           step="1"
           min="0"
           max={effectiveEquivSteps - 1}
+          {...buildAutoSelectInputProps()}
           onBlur={(e) => {
             const val = parseInt(e.target.value);
             const max = effectiveEquivSteps - 1;
@@ -205,6 +207,7 @@ const Scale = (props) => {
           step="1"
           min="1"
           max="2048"
+          {...buildAutoSelectInputProps()}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import "./retune.css";
 import CustomRangeSlider from "../settings/shared/range-slider.jsx";
+import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 import {
   BASE_SYMBOLS,
   EXTRA_MODIFIERS,
@@ -447,6 +448,7 @@ function Editor({ note, annotation, selectionCount, onChange }) {
           <input
             type="number"
             value={annotation.octave}
+            {...buildAutoSelectInputProps()}
             onInput={(e) => onChange({ octave: Number(e.target.value) })}
           />
           <input value={glyphStringForSelection(annotation.baseId, annotation.extraIds)} readOnly />

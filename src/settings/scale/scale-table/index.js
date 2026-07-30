@@ -47,6 +47,7 @@ import {
 } from "../auto-colors.js";
 import { getPrimeFamilyColorMap } from "../monzo-color.js";
 import { resolveTypedHejiLabel } from "../../../notation/heji-frame.js";
+import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 
 // ScaleTable is the UI workspace for rationalisation. It derives committed row
 // state from ScaleWorkspace, lets TuneCell create transient previews, then
@@ -820,6 +821,7 @@ const ScaleTable = (props) => {
                 type="text"
                 inputMode="numeric"
                 value={searchPrefs.centsTolerance}
+                {...buildAutoSelectInputProps()}
                 onInput={(e) =>
                   setSearchPrefs((prev) => ({
                     ...prev,
@@ -835,6 +837,7 @@ const ScaleTable = (props) => {
                 type="text"
                 inputMode="numeric"
                 value={searchPrefs.contextTolerance}
+                {...buildAutoSelectInputProps()}
                 onInput={(e) =>
                   setSearchPrefs((prev) => ({
                     ...prev,
@@ -850,6 +853,7 @@ const ScaleTable = (props) => {
                 type="text"
                 inputMode="numeric"
                 value={searchPrefs.primeLimit}
+                {...buildAutoSelectInputProps()}
                 onInput={(e) => {
                   const raw = e.target.value;
                   const newLimit = parseOptionalPositiveInt(raw);
@@ -893,6 +897,7 @@ const ScaleTable = (props) => {
                 type="text"
                 inputMode="numeric"
                 value={searchPrefs.oddLimit}
+                {...buildAutoSelectInputProps()}
                 onInput={(e) =>
                   setSearchPrefs((prev) => ({
                     ...prev,
@@ -929,6 +934,7 @@ const ScaleTable = (props) => {
                             inputMode="numeric"
                             value={aboveLimit ? "0" : (searchPrefs.primeBoundsUt[prime] ?? "1")}
                             disabled={aboveLimit}
+                            {...buildAutoSelectInputProps()}
                             onInput={(e) =>
                               setSearchPrefs((prev) => ({
                                 ...prev,
@@ -943,6 +949,7 @@ const ScaleTable = (props) => {
                             inputMode="numeric"
                             value={aboveLimit ? "0" : (searchPrefs.primeBounds[prime] ?? "1")}
                             disabled={aboveLimit}
+                            {...buildAutoSelectInputProps()}
                             onInput={(e) =>
                               setSearchPrefs((prev) => ({
                                 ...prev,
@@ -960,6 +967,7 @@ const ScaleTable = (props) => {
                           inputMode="numeric"
                           value={aboveLimit ? "0" : (searchPrefs.primeBounds[prime] ?? "1")}
                           disabled={aboveLimit}
+                          {...buildAutoSelectInputProps()}
                           onInput={(e) => {
                             const val = e.target.value;
                             setSearchPrefs((prev) => {

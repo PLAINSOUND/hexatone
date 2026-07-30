@@ -435,6 +435,37 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(input.value).toBe("293.333333");
   });
 
+  it("selects the complete expanded spelling frequency on first pointer focus", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="A"
+        settings={{
+          key_labels: "heji",
+          scale: ["3/2", "2/1"],
+          reference_degree: 1,
+          fundamental: 440,
+          heji_anchor_ratio: "",
+          heji_anchor_label: "",
+          heji_anchor_frequency: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+          pitch_frame: pitchFrameFor(),
+        }}
+      />,
+    );
+
+    const input = screen.getByLabelText("Spelling Frequency");
+    fireEvent.pointerDown(input);
+
+    expect(input.value).toBe("293.333333");
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(input.value.length);
+  });
+
   it("commits spelling frequency by retuning the reference frequency", () => {
     const onAtomicChange = vi.fn();
 
