@@ -15,10 +15,22 @@ const keysState = vi.hoisted(() => ({
 
 vi.mock("./keys.js", () => {
   class MockKeys {
-    constructor(canvas, settings) {
+    constructor(
+      canvas,
+      settings,
+      _synth,
+      _typing,
+      _onLatchChange,
+      _onModulationArmChange,
+      onTakeSnapshot,
+    ) {
       this.initialSettings = settings;
+      this.onTakeSnapshot = onTakeSnapshot;
       this.updateInputRuntime = vi.fn();
       this.updateLiveOutputState = vi.fn();
+      this.updateTakeSnapshotHandler = vi.fn((handler) => {
+        this.onTakeSnapshot = handler;
+      });
       this.updateColors = vi.fn();
       this.scheduleImmediateGridRedraw = vi.fn();
       this.updateLabels = vi.fn();
@@ -91,6 +103,22 @@ describe("Keyboard settings-impact boundary", () => {
       { bendRange: "9/8", wheelSemitones: 12 },
       { midiin_device: "OFF", midiin_bend_range: "9/8" },
     );
+  });
+
+  it("updates snapshot capture without reconstructing Keys", () => {
+    const initialCapture = vi.fn();
+    const loadedSequenceCapture = vi.fn();
+    const { rerender } = render(<Keyboard {...baseProps} onTakeSnapshot={initialCapture} />);
+    const keys = keysState.instances[0];
+
+    rerender(<Keyboard {...baseProps} onTakeSnapshot={loadedSequenceCapture} />);
+
+    expect(keysState.instances).toHaveLength(1);
+    expect(keys.updateTakeSnapshotHandler).toHaveBeenLastCalledWith(loadedSequenceCapture);
+
+    keys.onTakeSnapshot();
+    expect(initialCapture).not.toHaveBeenCalled();
+    expect(loadedSequenceCapture).toHaveBeenCalledTimes(1);
   });
 
   it("reconstructs Keys only when reconstructionKey changes", () => {

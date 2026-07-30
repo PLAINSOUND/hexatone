@@ -91,6 +91,12 @@ const Keyboard = (props) => {
   }, [props.liveMidiInputPort]);
 
   useEffect(() => {
+    if (keysRef.current?.updateTakeSnapshotHandler) {
+      keysRef.current.updateTakeSnapshotHandler(props.onTakeSnapshot);
+    }
+  }, [props.onTakeSnapshot]);
+
+  useEffect(() => {
     if (!keysRef.current?.ensureMidiInputBinding || typeof window === "undefined") return undefined;
     const refresh = () => keysRef.current?.ensureMidiInputBinding({ force: true });
     const onVisibilityChange = () => {
@@ -220,6 +226,7 @@ Keyboard.propTypes = {
   }),
   onModulationArmChange: PropTypes.func,
   onModulationStateChange: PropTypes.func,
+  onTakeSnapshot: PropTypes.func,
   midiLearnActive: PropTypes.bool,
   onAnchorLearn: PropTypes.func,
   hakenPedalLearnActive: PropTypes.bool,

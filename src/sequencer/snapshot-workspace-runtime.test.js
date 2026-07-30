@@ -42,6 +42,30 @@ describe("snapshot workspace runtime", () => {
     expect(result.ids).toEqual({ snapshotId: 2, barId: 2 });
   });
 
+  it("appends a snapshot without creating a bar when automatic bars are disabled", () => {
+    const existingBars = [{ id: 1, position: 1, numerator: 3, denominator: 4 }];
+    const result = appendSnapshotToWorkspace({
+      snapshots: [
+        {
+          id: 1,
+          length: 1,
+          description: "a",
+          descriptionManual: false,
+          notes: [],
+        },
+      ],
+      notes: [{ midicents: 6900 }],
+      sequenceAutoCreateBars: false,
+      sequenceBars: existingBars,
+      nextSnapshotId: 2,
+      nextBarId: 1,
+    });
+
+    expect(result.snapshots).toHaveLength(2);
+    expect(result.bars).toBe(existingBars);
+    expect(result.ids).toEqual({ snapshotId: 2, barId: 1 });
+  });
+
   it("deletes a snapshot and shifts structural markers", () => {
     const result = deleteSnapshotFromWorkspace({
       snapshots: [{ id: 1 }, { id: 2 }, { id: 3 }],

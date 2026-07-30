@@ -1847,6 +1847,15 @@ class Keys {
     return KeysLabels.updateLabels.call(this, labels);
   };
 
+  /**
+   * Keep Shift+Enter snapshot capture connected to the latest App callback.
+   * The Keys instance survives sequence loads, while that callback closes over
+   * sequence-local preferences such as automatic bar creation.
+   */
+  updateTakeSnapshotHandler = (handler) => {
+    this.onTakeSnapshot = typeof handler === "function" ? handler : null;
+  };
+
   updateLiveOutputState = (nextSettings, synth) => {
     // Live output/runtime architecture update only. This is the boundary used
     // for output-family toggles and routing changes that should not reconstruct
