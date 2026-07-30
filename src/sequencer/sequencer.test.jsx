@@ -639,6 +639,8 @@ describe("Sequencer", () => {
     }, "chord");
 
     fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
+    expect(screen.getByText("Snapshots 1-2 copied.")).toBeTruthy();
+    expect(screen.queryByText("Copied 2 snapshots.")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Insert Copied Block" }));
 
     expect(onInsertSnapshotCopyBlock).toHaveBeenCalledWith(
@@ -2899,7 +2901,11 @@ describe("Sequencer", () => {
     const Harness = () => {
       const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
       return (
-        <Sequencer
+        <>
+          <button type="button" onClick={() => setSelectedSnapshotId(10)}>
+            Select snapshot after action
+          </button>
+          <Sequencer
           snapshots={snapshots}
           bars={[{ id: 1, position: 1 }]}
           snapshotLabelMode="labels"
@@ -2938,7 +2944,8 @@ describe("Sequencer", () => {
           activeSequenceName=""
           activeSequenceDescription=""
           sequenceLegato
-        />
+          />
+        </>
       );
     };
 
@@ -2957,6 +2964,12 @@ describe("Sequencer", () => {
 
     expect(rangeStart.value).toBe("2");
     expect(rangeEnd.value).toBe("2");
+
+    fireEvent.input(rangeStart, { target: { value: "1" } });
+    fireEvent.input(rangeEnd, { target: { value: "2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Select snapshot after action" }));
+    expect(rangeStart.value).toBe("1");
+    expect(rangeEnd.value).toBe("1");
   });
 
   it("keeps the standard two event panes in phone portrait mode", () => {

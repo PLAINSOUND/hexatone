@@ -216,6 +216,7 @@ const Sequencer = ({
   const [copyIncludeTempi, setCopyIncludeTempi] = useState(false);
   const [copyIncludeRepeats, setCopyIncludeRepeats] = useState(false);
   const [copiedSnapshotBlock, setCopiedSnapshotBlock] = useState(null);
+  const [copiedSelectionSignature, setCopiedSelectionSignature] = useState(null);
   const [copyInsertStatus, setCopyInsertStatus] = useState("");
   const [rangeEditUndo, setRangeEditUndo] = useState(null);
   const dragIdRef = useRef(null);
@@ -229,6 +230,7 @@ const Sequencer = ({
   const timedVisualNotificationFrameRef = useRef(null);
   const navigationAutoscrollIntentRef = useRef(null);
   const workspaceMutationViewportRef = useRef(null);
+  const copyRangeSelectionKeyRef = useRef(null);
   const cueStepViewportRequestedRef = useRef(false);
   const cueViewportGenerationRef = useRef(0);
   const editPlayLayoutReanchorRef = useRef(null);
@@ -456,6 +458,7 @@ const Sequencer = ({
       setCopyInsertPosition("1");
       setCopyInsertBarNumber("1");
       setCopiedSnapshotBlock(null);
+      setCopiedSelectionSignature(null);
       setCopyInsertStatus("");
       return;
     }
@@ -475,6 +478,19 @@ const Sequencer = ({
       return String(snapshots.length + 1);
     });
   }, [selectedSnapshotPosition, snapshots.length]);
+
+  useEffect(() => {
+    const selectedIndex = snapshots.findIndex((snapshot) => snapshot.id === selectedSnapshotId);
+    const selectionKey = selectedIndex < 0
+      ? null
+      : JSON.stringify([selectedSnapshotId, selectedIndex]);
+    if (selectionKey === copyRangeSelectionKeyRef.current) return;
+    copyRangeSelectionKeyRef.current = selectionKey;
+    if (selectedIndex < 0) return;
+    const position = String(selectedIndex + 1);
+    setCopyRangeStart(position);
+    setCopyRangeEnd(position);
+  }, [selectedSnapshotId, snapshots]);
 
   const handleCopyRangeStartInput = useCallback((rawValue) => {
     const nextValue = rawValue;
@@ -528,6 +544,22 @@ const Sequencer = ({
       : []
   ), [resolvedCopyRange, snapshots]);
 
+  const currentCopySelectionSignature = useMemo(() => JSON.stringify({
+    snapshotIds: resolvedCopyRangeSnapshotIds,
+    startPosition: resolvedCopyRange?.startPosition ?? null,
+    endPosition: resolvedCopyRange?.endPosition ?? null,
+    includeBars: copyIncludeBars,
+    includeTempi: copyIncludeTempi,
+    includeRepeats: copyIncludeRepeats,
+  }), [
+    copyIncludeBars,
+    copyIncludeRepeats,
+    copyIncludeTempi,
+    resolvedCopyRange?.endPosition,
+    resolvedCopyRange?.startPosition,
+    resolvedCopyRangeSnapshotIds,
+  ]);
+
   useEffect(() => {
     if (!rangeEditUndo) return;
     const sameRange = rangeEditUndo.snapshotIds.length === resolvedCopyRangeSnapshotIds.length
@@ -545,10 +577,13 @@ const Sequencer = ({
     if (!resolvedCopyRange?.valid) {
       return "";
     }
+    const action = copiedSelectionSignature === currentCopySelectionSignature
+      ? "copied"
+      : "selected";
     return (
       (resolvedCopyRange.startPosition === resolvedCopyRange.endPosition
-        ? `Snapshot ${resolvedCopyRange.startPosition} selected`
-        : `Snapshots ${resolvedCopyRange.startPosition}-${resolvedCopyRange.endPosition} selected`)
+        ? `Snapshot ${resolvedCopyRange.startPosition} ${action}`
+        : `Snapshots ${resolvedCopyRange.startPosition}-${resolvedCopyRange.endPosition} ${action}`)
       + (
         copyIncludeBars
         && (
@@ -566,6 +601,8 @@ const Sequencer = ({
     copyIncludeBars,
     copyInsertAtBarBoundary,
     copiedSnapshotBlock?.includeBars,
+    copiedSelectionSignature,
+    currentCopySelectionSignature,
     resolvedCopyRange,
   ]);
 
@@ -606,16 +643,13 @@ const Sequencer = ({
     });
     if (!block) {
       setCopiedSnapshotBlock(null);
+      setCopiedSelectionSignature(null);
       setCopyInsertStatus("No snapshots available to copy.");
       return;
     }
     setCopiedSnapshotBlock(block);
-    setCopyInsertStatus(
-      `Copied ${block.length} snapshot${block.length === 1 ? "" : "s"}`
-      + `${block.includeBars ? " with bars" : ""}`
-      + `${block.includeTempi ? ", tempi" : ""}`
-      + `${block.includeRepeats ? ", repeats" : ""}.`,
-    );
+    setCopiedSelectionSignature(currentCopySelectionSignature);
+    setCopyInsertStatus("");
   }, [
     bars,
     copyIncludeBars,
@@ -623,6 +657,7 @@ const Sequencer = ({
     copyIncludeTempi,
     copyRangeEnd,
     copyRangeStart,
+    currentCopySelectionSignature,
     repeats,
     snapshots,
     tempi,
@@ -648,6 +683,12 @@ const Sequencer = ({
       return;
     }
     workspaceMutationViewportRef.current = result?.focus ?? null;
+    if (result?.focus?.kind === "snapshot") {
+      copyRangeSelectionKeyRef.current = JSON.stringify([
+        result.focus.snapshotId,
+        result.focus.snapshotIndex,
+      ]);
+    }
     setCopyRangeStart(String(position));
     setCopyRangeEnd(String(position + copiedSnapshotBlock.length - 1));
     setRangeEditUndo(null);
