@@ -113,6 +113,137 @@ describe("osc_synth pooled slot allocation", () => {
     expect(nodeIds[3]).toBeLessThan(900000);
   });
 
+  it("rejects SuperCollider note onsets outside 20–16000 Hz before slot allocation", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-frequency-range",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+    await Promise.resolve();
+
+    const centsForFrequency = (frequency) => 1200 * Math.log2(frequency / 261.6255653);
+    const poolNoteOn = vi.spyOn(
+      synth.makeHex({ x: -1, y: -1 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1)._pool,
+      "noteOn",
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    [
+      { frequency: 19.999, coords: { x: 0, y: 0 } },
+      { frequency: 16000.001, coords: { x: 1, y: 0 } },
+      { frequency: Infinity, coords: { x: 2, y: 0 } },
+    ].forEach(({ frequency, coords }) => {
+      const cents = Number.isFinite(frequency) ? centsForFrequency(frequency) : Infinity;
+      synth.makeHex(coords, cents, 0, 0, 1, 0, 0, undefined, 72, 1, 1).noteOn();
+    });
+
+    const sent = MockWebSocket.instances[0].sent.filter((msg) => msg.address === "/s_new");
+    expect(sent).toHaveLength(0);
+    expect(poolNoteOn).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledTimes(3);
+    warn.mockRestore();
+  });
+
+  it("accepts SuperCollider note onsets at the inclusive 20 Hz and 16000 Hz boundaries", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-frequency-boundaries",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+    await Promise.resolve();
+
+    const centsForFrequency = (frequency) => 1200 * Math.log2(frequency / 261.6255653);
+    const low = synth.makeHex(
+      { x: 0, y: 0 },
+      centsForFrequency(20),
+      0,
+      0,
+      1,
+      0,
+      0,
+      undefined,
+      72,
+      1,
+      1,
+    );
+    const high = synth.makeHex(
+      { x: 1, y: 0 },
+      centsForFrequency(16000),
+      0,
+      0,
+      1,
+      0,
+      0,
+      undefined,
+      72,
+      1,
+      1,
+    );
+    low.noteOn();
+    high.noteOn();
+
+    const sent = MockWebSocket.instances[0].sent.filter((msg) => msg.address === "/s_new");
+    expect(sent).toHaveLength(8);
+    const frequencies = sent.map(
+      (message) =>
+        message.args.find((arg, index, args) => args[index - 1]?.value === "freq")?.value,
+    );
+    expect(frequencies.slice(0, 4)).toEqual(
+      expect.arrayContaining(Array.from({ length: 4 }, () => expect.closeTo(20, 5))),
+    );
+    expect(frequencies.slice(4)).toEqual(
+      expect.arrayContaining(Array.from({ length: 4 }, () => expect.closeTo(16000, 5))),
+    );
+  });
+
+  it("does not send an active voice an out-of-range retune or pitch bend", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-frequency-update-range",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+    await Promise.resolve();
+
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+    const ws = MockWebSocket.instances[0];
+    ws.sent.length = 0;
+
+    hex.retune(1200 * Math.log2(16000.001 / 261.6255653));
+    hex.pitchbend(100);
+
+    const frequencyUpdates = ws.sent.filter(
+      (message) =>
+        message.address === "/n_set" &&
+        (message.args[1]?.value === "freq" || message.args[1]?.value === "bend"),
+    );
+    expect(frequencyUpdates).toHaveLength(0);
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
+  });
+
   it("applies live layer volume changes to active note nodes and node 1 default state", async () => {
     const synth = await create_osc_synth(
       "ws://test-osc-live-volume",
@@ -139,11 +270,7 @@ describe("osc_synth pooled slot allocation", () => {
     const activeNodeId = sNew[0].args[1].value;
 
     const volSets = ws.sent.filter((msg) => {
-      return (
-        msg.address === "/n_set" &&
-        msg.port === 57101 &&
-        msg.args[1]?.value === "vol"
-      );
+      return msg.address === "/n_set" && msg.port === 57101 && msg.args[1]?.value === "vol";
     });
 
     expect(volSets).toEqual(
@@ -188,16 +315,11 @@ describe("osc_synth pooled slot allocation", () => {
 
     const ws = MockWebSocket.instances[0];
     const modSets = ws.sent.filter((msg) => {
-      return (
-        msg.address === "/n_set" &&
-        msg.args[1]?.value === "mod"
-      );
+      return msg.address === "/n_set" && msg.args[1]?.value === "mod";
     });
     const filterSets = ws.sent.filter((msg) => {
       return (
-        msg.address === "/n_set" &&
-        msg.args[1]?.value === "filter" &&
-        msg.args[0]?.value !== 1
+        msg.address === "/n_set" && msg.args[1]?.value === "filter" && msg.args[0]?.value !== 1
       );
     });
 
@@ -234,7 +356,7 @@ describe("osc_synth pooled slot allocation", () => {
     const lastLayerStart = sNews.at(-1);
     const modIndex = lastLayerStart.args.findIndex((arg) => arg?.value === "mod");
     expect(modIndex).toBeGreaterThan(-1);
-    expect(lastLayerStart.args[modIndex + 1]?.value).toBeCloseTo(1 + (100 / 127), 6);
+    expect(lastLayerStart.args[modIndex + 1]?.value).toBeCloseTo(1 + 100 / 127, 6);
   });
 
   it("applies stored timbre when cue playback reuses a sustaining note", async () => {
@@ -254,20 +376,23 @@ describe("osc_synth pooled slot allocation", () => {
     await Promise.resolve();
 
     const runtime = makeSnapshotRuntime(synth);
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 69, attackVelocity: 100, releaseVelocity: 30, timbre: 20 },
-    ], { legato: true });
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 69, attackVelocity: 100, releaseVelocity: 30, timbre: 100 },
-    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [{ midicents: 69, attackVelocity: 100, releaseVelocity: 30, timbre: 20 }],
+      { legato: true },
+    );
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [{ midicents: 69, attackVelocity: 100, releaseVelocity: 30, timbre: 100 }],
+      { legato: true },
+    );
 
     const ws = MockWebSocket.instances.at(-1);
-    const modSets = ws.sent.filter((msg) => (
-      msg.address === "/n_set" &&
-      msg.args[1]?.value === "mod"
-    ));
+    const modSets = ws.sent.filter(
+      (msg) => msg.address === "/n_set" && msg.args[1]?.value === "mod",
+    );
     expect(modSets.length).toBeGreaterThan(0);
-    expect(modSets.at(-1)?.args[2]?.value).toBeCloseTo(1 + (100 / 127), 6);
+    expect(modSets.at(-1)?.args[2]?.value).toBeCloseTo(1 + 100 / 127, 6);
   });
 
   it("uses a pre-note-on retune for the /s_new onset frequency", async () => {
@@ -318,9 +443,9 @@ describe("osc_synth pooled slot allocation", () => {
 
     hex.sequenceRetune(1200);
 
-    const updates = ws.sent.filter((message) => (
-      message.address === "/n_set" && message.args[1]?.value === "freq"
-    ));
+    const updates = ws.sent.filter(
+      (message) => message.address === "/n_set" && message.args[1]?.value === "freq",
+    );
     expect(updates).toHaveLength(4);
     updates.forEach((message) => {
       expect(message.args[2]?.value).toBeCloseTo(523.2511306, 3);
@@ -406,7 +531,9 @@ describe("osc_synth pooled slot allocation", () => {
     hex.noteOn();
     synth.allSoundOff();
 
-    const groupFrees = MockWebSocket.instances[0].sent.filter((msg) => msg.address === "/g_freeAll");
+    const groupFrees = MockWebSocket.instances[0].sent.filter(
+      (msg) => msg.address === "/g_freeAll",
+    );
     expect(groupFrees).toHaveLength(4);
     expect(groupFrees.map((msg) => msg.port)).toEqual([57101, 57102, 57103, 57104]);
     expect(groupFrees.map((msg) => msg.args[0]?.value)).toEqual([7, 7, 7, 7]);
@@ -469,10 +596,12 @@ describe("osc_synth pooled slot allocation", () => {
     synth.setQuickReleaseTime(0.08);
 
     const ws = MockWebSocket.instances[0];
-    const quickReleaseSets = ws.sent.filter((msg) =>
-      msg.address === "/n_set" && msg.args[1]?.value === "quick_release");
-    const quickReleaseTimeSets = ws.sent.filter((msg) =>
-      msg.address === "/n_set" && msg.args[1]?.value === "quick_release_time");
+    const quickReleaseSets = ws.sent.filter(
+      (msg) => msg.address === "/n_set" && msg.args[1]?.value === "quick_release",
+    );
+    const quickReleaseTimeSets = ws.sent.filter(
+      (msg) => msg.address === "/n_set" && msg.args[1]?.value === "quick_release_time",
+    );
 
     expect(quickReleaseSets.length).toBeGreaterThan(0);
     expect(quickReleaseTimeSets.length).toBeGreaterThan(0);
@@ -482,7 +611,9 @@ describe("osc_synth pooled slot allocation", () => {
 
     const latestSNew = ws.sent.filter((msg) => msg.address === "/s_new").at(-1);
     const quickReleaseArgIndex = latestSNew.args.findIndex((arg) => arg.value === "quick_release");
-    const quickReleaseTimeArgIndex = latestSNew.args.findIndex((arg) => arg.value === "quick_release_time");
+    const quickReleaseTimeArgIndex = latestSNew.args.findIndex(
+      (arg) => arg.value === "quick_release_time",
+    );
 
     expect(latestSNew.args[quickReleaseArgIndex + 1].value).toBeCloseTo(0.75, 5);
     expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(0.08, 5);

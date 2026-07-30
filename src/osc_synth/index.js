@@ -25,7 +25,18 @@ const SC_DISPATCH_PORT = 57100;
 const OSC_LAYER_PORTS = [57101, 57102, 57103, 57104];
 const NODE_ID_BASES = [100000, 300000, 500000, 700000];
 const MAX_NOTE_SLOTS = 128;
+const SC_MIN_NOTE_HZ = 20;
+const SC_MAX_NOTE_HZ = 16000;
 const midiCcToScParam = (value) => 1 + value / 127;
+
+const isPlayableScFrequency = (value) =>
+  Number.isFinite(value) && value >= SC_MIN_NOTE_HZ && value <= SC_MAX_NOTE_HZ;
+
+const isPlayableScPitch = (frequency, bend = 1) =>
+  isPlayableScFrequency(frequency) &&
+  Number.isFinite(bend) &&
+  bend > 0 &&
+  isPlayableScFrequency(frequency * bend);
 
 const _nextLayerNodeIds = NODE_ID_BASES.map((base) => base);
 const nextNodeId = (layerIndex) => {
@@ -282,7 +293,9 @@ export const create_osc_synth = async (
 
   const slotQuickReleaseValue = (slot) =>
     _quickReleaseRasterOnly.value
-      ? (slot?.quickReleaseEnabled ? _quickRelease.value : 0)
+      ? slot?.quickReleaseEnabled
+        ? _quickRelease.value
+        : 0
       : _quickRelease.value;
 
   const setLayerVolume = (index, value) => {
@@ -548,6 +561,18 @@ function OscHex(
 
 OscHex.prototype.noteOn = function () {
   if (this.release) return;
+  if (!isPlayableScPitch(this._freq, this._bend)) {
+    warnLog("[osc_synth] Ignoring out-of-range SuperCollider note", {
+      coords: this.coords,
+      cents: this.cents,
+      frequency: this._freq,
+      bend: this._bend,
+      effectiveFrequency: this._freq * this._bend,
+      supportedRangeHz: [SC_MIN_NOTE_HZ, SC_MAX_NOTE_HZ],
+    });
+    this.release = true;
+    return;
+  }
   const { slot } = this._pool.noteOn(this.coords, this._targetMidiFloat());
   this._slot = slot;
   this._nodeIds = this._synthNames.map((_, i) => nextNodeId(i));
@@ -659,6 +684,17 @@ OscHex.prototype.retune = function (newCents) {
   if (this.release) return;
   this.cents = newCents;
   this._freq = this._centsToHz(newCents);
+  if (!isPlayableScPitch(this._freq, this._bend)) {
+    warnLog("[osc_synth] Ignoring out-of-range SuperCollider retune", {
+      coords: this.coords,
+      cents: this.cents,
+      frequency: this._freq,
+      bend: this._bend,
+      effectiveFrequency: this._freq * this._bend,
+      supportedRangeHz: [SC_MIN_NOTE_HZ, SC_MAX_NOTE_HZ],
+    });
+    return;
+  }
   this._sendJitter?.("retune", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
     const nodeId = this._nodeIds[i];
@@ -681,11 +717,8 @@ OscHex.prototype.sequenceRetune = function (newCents) {
 
 OscHex.prototype.aftertouch = function (value, value14 = null) {
   if (this.release) return;
-  const filter = 1 + (
-    Number.isFinite(value14)
-      ? Math.max(0, Math.min(16256, value14)) / 16256
-      : value / 127
-  );
+  const filter =
+    1 + (Number.isFinite(value14) ? Math.max(0, Math.min(16256, value14)) / 16256 : value / 127);
   this._filter = filter;
   this._sendJitter?.("aftertouch", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
@@ -710,6 +743,16 @@ OscHex.prototype.pressure = function (value, value14 = null) {
 
 OscHex.prototype.pitchbend = function (value) {
   if (this.release) return;
+  if (!isPlayableScPitch(this._freq, value)) {
+    warnLog("[osc_synth] Ignoring out-of-range SuperCollider pitch bend", {
+      coords: this.coords,
+      frequency: this._freq,
+      bend: value,
+      effectiveFrequency: this._freq * value,
+      supportedRangeHz: [SC_MIN_NOTE_HZ, SC_MAX_NOTE_HZ],
+    });
+    return;
+  }
   this._bend = value;
   this._sendJitter?.("pitchbend", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
@@ -731,11 +774,8 @@ OscHex.prototype.pitchbend = function (value) {
 // CC74 / timbre → mod on individual nodes
 OscHex.prototype.cc74 = function (value, value14 = null) {
   if (this.release) return;
-  const mod = 1 + (
-    Number.isFinite(value14)
-      ? Math.max(0, Math.min(16256, value14)) / 16256
-      : value / 127
-  );
+  const mod =
+    1 + (Number.isFinite(value14) ? Math.max(0, Math.min(16256, value14)) / 16256 : value / 127);
   this._modRef.value = mod;
   this._sendJitter?.("cc74", this._notePlayed ?? this._slot ?? -1);
   for (let i = 0; i < this._synthNames.length; i++) {
