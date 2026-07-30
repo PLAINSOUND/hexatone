@@ -246,6 +246,10 @@ class Keys {
       }
       this.resizeHandler();
     };
+    this.orientationChangeHandler = () => {
+      this.resizeHandler();
+      this.scheduleViewportResizeSettlement();
+    };
     // Called once on the first touch — within the iOS gesture window — so the
     // AudioContext can be resumed and samples decoded without hanging.
     this._onFirstInteraction = onFirstInteraction || null;
@@ -311,6 +315,8 @@ class Keys {
     this._retuneGlideLastTime = 0;
     this._gridRedrawRaf = null;
     this._gridRedrawTimer = null;
+    this._viewportResizeSettleFrame = null;
+    this._viewportResizeSettleTimer = null;
     this._lastSoundActivityTime = 0;
     this._lastResizeSignature = null;
     this._visibleGridCoords = [];
@@ -415,7 +421,7 @@ class Keys {
 
     // Set up resize handler
     window.addEventListener("resize", this.resizeHandler, false);
-    window.addEventListener("orientationchange", this.resizeHandler, false);
+    window.addEventListener("orientationchange", this.orientationChangeHandler, false);
     // visualViewport fires when browser chrome (toolbars) appear/disappear,
     // which window.resize misses — catches Brave's toolbar toggling.
     if (window.visualViewport) {
@@ -2260,7 +2266,7 @@ class Keys {
     this.linnstrumentLEDs = null;
 
     window.removeEventListener("resize", this.resizeHandler, false);
-    window.removeEventListener("orientationchange", this.resizeHandler, false);
+    window.removeEventListener("orientationchange", this.orientationChangeHandler, false);
     if (window.visualViewport) {
       window.visualViewport.removeEventListener("resize", this.visualViewportResizeHandler, false);
     }
@@ -2281,6 +2287,14 @@ class Keys {
     if (this._gridRedrawTimer != null) {
       clearTimeout(this._gridRedrawTimer);
       this._gridRedrawTimer = null;
+    }
+    if (this._viewportResizeSettleFrame != null) {
+      cancelAnimationFrame(this._viewportResizeSettleFrame);
+      this._viewportResizeSettleFrame = null;
+    }
+    if (this._viewportResizeSettleTimer != null) {
+      clearTimeout(this._viewportResizeSettleTimer);
+      this._viewportResizeSettleTimer = null;
     }
 
     InputMidiListeners.teardownMidiInput.call(this);
@@ -2540,11 +2554,15 @@ class Keys {
     const newHeight = Math.max(1, Math.round(viewport?.height ?? window.innerHeight));
     const offsetLeft = Math.round(viewport?.offsetLeft ?? 0);
     const offsetTop = Math.round(viewport?.offsetTop ?? 0);
+    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
+    const backingWidth = Math.max(1, Math.round(newWidth * pixelRatio));
+    const backingHeight = Math.max(1, Math.round(newHeight * pixelRatio));
     const nextSignature = [
       newWidth,
       newHeight,
       offsetLeft,
       offsetTop,
+      pixelRatio,
       this.settings.rotation,
       this.settings.hexSize,
       this.settings.hexWidth,
@@ -2554,7 +2572,9 @@ class Keys {
       this.settings.runtime_display_offset_x ?? 0,
       this.settings.runtime_display_offset_y ?? 0,
     ].join(":");
-    if (nextSignature === this._lastResizeSignature) return;
+    const backingStoreMatches =
+      this.state.canvas.width === backingWidth && this.state.canvas.height === backingHeight;
+    if (nextSignature === this._lastResizeSignature && backingStoreMatches) return;
     this._lastResizeSignature = nextSignature;
 
     this.state.canvas.style.width = newWidth + "px";
@@ -2564,13 +2584,12 @@ class Keys {
     this.state.canvas.style.marginLeft = "";
     this.state.canvas.style.marginTop = "";
 
-    const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
     this.state.pixelRatio = pixelRatio;
     this.state.viewportWidth = newWidth;
     this.state.viewportHeight = newHeight;
 
-    this.state.canvas.width = Math.max(1, Math.round(newWidth * pixelRatio));
-    this.state.canvas.height = Math.max(1, Math.round(newHeight * pixelRatio));
+    this.state.canvas.width = backingWidth;
+    this.state.canvas.height = backingHeight;
 
     // Find new centerpoint
 
@@ -2610,6 +2629,23 @@ class Keys {
     // Rebuild the steps→coords lookup table now that centerpoint and grid range
     // are up to date. Must come after drawGrid() so centerpoint is already set.
     this.coordResolver.buildStepsTable();
+  };
+
+  scheduleViewportResizeSettlement = () => {
+    if (this._viewportResizeSettleFrame != null) {
+      cancelAnimationFrame(this._viewportResizeSettleFrame);
+    }
+    if (this._viewportResizeSettleTimer != null) {
+      clearTimeout(this._viewportResizeSettleTimer);
+    }
+    this._viewportResizeSettleFrame = requestAnimationFrame(() => {
+      this._viewportResizeSettleFrame = null;
+      this.resizeHandler();
+      this._viewportResizeSettleTimer = setTimeout(() => {
+        this._viewportResizeSettleTimer = null;
+        this.resizeHandler();
+      }, 120);
+    });
   };
 
   inputIsFocused = () => {

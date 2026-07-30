@@ -213,6 +213,29 @@ describe("Keys MIDI input integration", () => {
     input.remove();
   });
 
+  it("repairs the DPR backing store even when the viewport dimensions are unchanged", () => {
+    vi.stubGlobal("visualViewport", {
+      width: 800,
+      height: 600,
+      offsetLeft: 0,
+      offsetTop: 0,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+    vi.stubGlobal("devicePixelRatio", 2);
+
+    const keys = createKeys();
+    expect(keys.state.canvas.width).toBe(1600);
+    expect(keys.state.canvas.height).toBe(1200);
+
+    keys.state.canvas.width = 1;
+    keys.state.canvas.height = 1;
+    keys.resizeHandler();
+
+    expect(keys.state.canvas.width).toBe(1600);
+    expect(keys.state.canvas.height).toBe(1200);
+  });
+
   it("ignores height-only visualViewport changes while a text input is focused", () => {
     vi.stubGlobal("visualViewport", {
       width: 800,
