@@ -2022,9 +2022,21 @@ const App = () => {
     setSequenceBars((prev) => prev.filter((bar) => bar.id !== id));
   }, []);
 
-  const onAddSequenceTempo = useCallback((position = null, bpm = 60, mode = "immediate") => {
-    setSequenceTempi((prev) => addSequenceTempoMarker({ tempi: prev, position, bpm, mode }));
-  }, []);
+  const onAddSequenceTempo = useCallback(
+    (position = null, bpm = 60, mode = "immediate", beatNumerator = 1, beatDenominator = 4) => {
+      setSequenceTempi((prev) =>
+        addSequenceTempoMarker({
+          tempi: prev,
+          position,
+          bpm,
+          mode,
+          beatNumerator,
+          beatDenominator,
+        }),
+      );
+    },
+    [],
+  );
 
   const onDeleteSequenceTempo = useCallback((id) => {
     setSequenceTempi((prev) => prev.filter((tempo) => tempo.id !== id));

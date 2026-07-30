@@ -324,6 +324,8 @@ export function addSequenceTempoMarker({
   tempi = [],
   position = null,
   bpm = 60,
+  beatNumerator = 1,
+  beatDenominator = 4,
   mode = "immediate",
 } = {}) {
   const id =
@@ -337,9 +339,8 @@ export function addSequenceTempoMarker({
         id,
         position,
         bpm,
-        beatNumerator: 1,
-        beatDenominator: 4,
-        beatLength: 1,
+        beatNumerator,
+        beatDenominator,
         mode,
       },
     ],

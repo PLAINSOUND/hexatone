@@ -189,7 +189,10 @@ const Sequencer = ({
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
   const [newRepeatPosition, setNewRepeatPosition] = useState("1.000000");
   const [newTempoBpm, setNewTempoBpm] = useState("60");
+  const [newTempoBeatNumerator, setNewTempoBeatNumerator] = useState("1");
+  const [newTempoBeatDenominator, setNewTempoBeatDenominator] = useState("4");
   const [newTempoBpmIsSuggested, setNewTempoBpmIsSuggested] = useState(true);
+  const [newTempoBeatFractionIsSuggested, setNewTempoBeatFractionIsSuggested] = useState(true);
   const [newBarNumerator, setNewBarNumerator] = useState("4");
   const [newBarDenominator, setNewBarDenominator] = useState("4");
   const [newBarPositionIsSuggested, setNewBarPositionIsSuggested] = useState(true);
@@ -227,6 +230,7 @@ const Sequencer = ({
   const timedVisualNotificationFrameRef = useRef(null);
   const navigationAutoscrollIntentRef = useRef(null);
   const workspaceMutationViewportRef = useRef(null);
+  const previousSnapshotIdsRef = useRef(new Set(snapshots.map((snapshot) => snapshot.id)));
   const copyRangeSelectionKeyRef = useRef(null);
   const cueStepViewportRequestedRef = useRef(false);
   const cueViewportGenerationRef = useRef(0);
@@ -1131,6 +1135,18 @@ const Sequencer = ({
     },
     [onSelectSequenceBar, prepareBarViewport],
   );
+  const pendingAddedBarPositionRef = useRef(null);
+  useLayoutEffect(() => {
+    const pendingPosition = pendingAddedBarPositionRef.current;
+    if (!Number.isFinite(pendingPosition)) return;
+    const addedBarIndex = sortedBars.findIndex(
+      (bar) => Math.abs(Number(bar?.position) - pendingPosition) < 1e-9,
+    );
+    if (addedBarIndex < 0) return;
+    pendingAddedBarPositionRef.current = null;
+    transportScrollTargetRef.current = "bar";
+    selectSequenceBarWithViewport(addedBarIndex);
+  }, [selectSequenceBarWithViewport, sortedBars, transportScrollTargetRef]);
   const armVirtualizedPendingSnapshot = useCallback(
     (snapshotIndex) => {
       prepareSnapshotViewport(snapshotIndex);
@@ -1138,6 +1154,18 @@ const Sequencer = ({
     },
     [armPendingSnapshot, prepareSnapshotViewport],
   );
+  useLayoutEffect(() => {
+    const previousSnapshotIds = previousSnapshotIdsRef.current;
+    const nextSnapshotIds = new Set(snapshots.map((snapshot) => snapshot.id));
+    previousSnapshotIdsRef.current = nextSnapshotIds;
+    if (nextSnapshotIds.size <= previousSnapshotIds.size) return;
+    if (workspaceMutationViewportRef.current != null) return;
+    const selectedIndex = snapshots.findIndex(
+      (snapshot) => snapshot.id === selectedSnapshotId && !previousSnapshotIds.has(snapshot.id),
+    );
+    if (selectedIndex < 0) return;
+    armVirtualizedPendingSnapshot(selectedIndex);
+  }, [armVirtualizedPendingSnapshot, selectedSnapshotId, snapshots]);
   const prepareCueViewport = useCallback(
     (cueIndex, { onApplied = null } = {}) => {
       const numericCueIndex = Number(cueIndex);
@@ -2100,7 +2128,9 @@ const Sequencer = ({
     const numerator = Math.max(1, Math.round(Number(newBarNumerator) || 1));
     const denominator = Math.max(1, Math.round(Number(newBarDenominator) || 1));
     if (!Number.isFinite(numeric)) return;
-    onAddBar?.(Math.max(1, Math.round(numeric)), numerator, denominator);
+    const position = Math.max(1, Math.round(numeric));
+    pendingAddedBarPositionRef.current = position;
+    onAddBar?.(position, numerator, denominator);
     setNewBarPosition(suggestedBarPosition);
     setNewBarNumerator(suggestedBarMeter.numerator);
     setNewBarDenominator(suggestedBarMeter.denominator);
@@ -2108,24 +2138,50 @@ const Sequencer = ({
     setNewBarMeterIsSuggested(true);
   };
 
+  const loadSnapshotBeforeStructuralPosition = useCallback(
+    (position) => {
+      if (snapshots.length === 0) return;
+      const snapshotIndex = Math.max(0, Math.min(snapshots.length - 1, barDisplayBucket(position)));
+      armVirtualizedPendingSnapshot(snapshotIndex);
+    },
+    [armVirtualizedPendingSnapshot, snapshots.length],
+  );
+
   const addTempoAtRequestedPosition = () => {
     const position = Number(newTempoPosition);
     const bpm = Number(newTempoBpm);
+    const beatNumerator = Math.max(1, Math.round(Number(newTempoBeatNumerator) || 1));
+    const beatDenominator = Math.max(1, Math.round(Number(newTempoBeatDenominator) || 1));
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
-    onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "immediate");
+    const normalizedPosition = Math.round(position * 1000000) / 1000000;
+    onAddTempo?.(normalizedPosition, bpm, "immediate", beatNumerator, beatDenominator);
+    loadSnapshotBeforeStructuralPosition(normalizedPosition);
   };
 
   const addTempoTransitionAtRequestedPosition = () => {
     const position = Number(newTempoPosition);
     const bpm = Number(newTempoBpm);
+    const beatNumerator = Math.max(1, Math.round(Number(newTempoBeatNumerator) || 1));
+    const beatDenominator = Math.max(1, Math.round(Number(newTempoBeatDenominator) || 1));
     if (!Number.isFinite(position) || !Number.isFinite(bpm) || bpm <= 0) return;
-    onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "gradual");
+    const normalizedPosition = Math.round(position * 1000000) / 1000000;
+    onAddTempo?.(normalizedPosition, bpm, "gradual", beatNumerator, beatDenominator);
+    loadSnapshotBeforeStructuralPosition(normalizedPosition);
+  };
+
+  const updateNewTempoBeatFractionField = (field, rawValue) => {
+    setNewTempoBeatFractionIsSuggested(false);
+    if (field === "numerator") {
+      setNewTempoBeatNumerator(rawValue);
+      return;
+    }
+    setNewTempoBeatDenominator(rawValue);
   };
 
   const updateNewTempoPosition = useCallback(
     (rawValue) => {
       setNewTempoPosition(rawValue);
-      if (!newTempoBpmIsSuggested || String(rawValue).trim() === "") return;
+      if (String(rawValue).trim() === "") return;
       const position = Number(rawValue);
       if (!Number.isFinite(position)) return;
       const tempo = deriveTempoAtSequencePosition(
@@ -2134,11 +2190,25 @@ const Sequencer = ({
         sortedBars,
         terminalBarlinePosition,
       );
-      const quarterNoteBpm = Number(tempo?.wholeNotesPerMinute) * 4;
-      if (!Number.isFinite(quarterNoteBpm) || quarterNoteBpm <= 0) return;
-      setNewTempoBpm(String(Math.round(quarterNoteBpm * 1000000) / 1000000));
+      if (!tempo) return;
+      if (newTempoBpmIsSuggested) {
+        const inheritedBpm = Number(tempo.bpm);
+        if (Number.isFinite(inheritedBpm) && inheritedBpm > 0) {
+          setNewTempoBpm(String(Math.round(inheritedBpm * 1000000) / 1000000));
+        }
+      }
+      if (newTempoBeatFractionIsSuggested) {
+        setNewTempoBeatNumerator(String(tempo.beatNumerator));
+        setNewTempoBeatDenominator(String(tempo.beatDenominator));
+      }
     },
-    [newTempoBpmIsSuggested, sortedBars, sortedTempi, terminalBarlinePosition],
+    [
+      newTempoBeatFractionIsSuggested,
+      newTempoBpmIsSuggested,
+      sortedBars,
+      sortedTempi,
+      terminalBarlinePosition,
+    ],
   );
 
   const updateNewTempoBpm = useCallback((rawValue) => {
@@ -2149,7 +2219,10 @@ const Sequencer = ({
   const addRepeatAtRequestedPosition = (kind) => {
     const position = Number(newRepeatPosition);
     if (!Number.isFinite(position)) return;
-    onAddRepeat?.(Math.round(position * 1000000) / 1000000, kind);
+    const normalizedPosition = Math.round(position * 1000000) / 1000000;
+    if (kind === "end" && normalizedPosition <= 1) return;
+    onAddRepeat?.(normalizedPosition, kind);
+    loadSnapshotBeforeStructuralPosition(normalizedPosition);
     setNewRepeatPosition("1.000000");
   };
 
@@ -2846,6 +2919,10 @@ const Sequencer = ({
           newTempoBpm={newTempoBpm}
           newTempoBpmIsSuggested={newTempoBpmIsSuggested}
           setNewTempoBpm={updateNewTempoBpm}
+          newTempoBeatNumerator={newTempoBeatNumerator}
+          newTempoBeatDenominator={newTempoBeatDenominator}
+          newTempoBeatFractionIsSuggested={newTempoBeatFractionIsSuggested}
+          updateNewTempoBeatFractionField={updateNewTempoBeatFractionField}
           addTempoAtRequestedPosition={addTempoAtRequestedPosition}
           addTempoTransitionAtRequestedPosition={addTempoTransitionAtRequestedPosition}
           newBarPosition={newBarPosition}

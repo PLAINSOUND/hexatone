@@ -536,26 +536,137 @@ describe("Sequencer", () => {
 
     const positionInput = screen.getByLabelText("new tempo position");
     const bpmInput = screen.getByLabelText("new tempo bpm");
+    const beatNumeratorInput = screen.getByLabelText("new tempo beat numerator");
+    const beatDenominatorInput = screen.getByLabelText("new tempo beat denominator");
 
     fireEvent.input(positionInput, { target: { value: "3" } });
-    expect(bpmInput.value).toBe("90");
+    expect(bpmInput.value).toBe("120");
+    expect(beatNumeratorInput.value).toBe("3");
+    expect(beatDenominatorInput.value).toBe("16");
     expect(bpmInput.classList.contains("sequencer-bars-add__position--hint")).toBe(true);
+    expect(beatNumeratorInput.classList.contains("sequencer-bars-add__position--hint")).toBe(true);
+    expect(beatDenominatorInput.classList.contains("sequencer-bars-add__position--hint")).toBe(
+      true,
+    );
 
     fireEvent.input(bpmInput, { target: { value: "88" } });
+    fireEvent.input(beatNumeratorInput, { target: { value: "3" } });
+    fireEvent.input(beatDenominatorInput, { target: { value: "8" } });
     fireEvent.input(positionInput, { target: { value: "2" } });
     expect(bpmInput.value).toBe("88");
+    expect(beatNumeratorInput.value).toBe("3");
+    expect(beatDenominatorInput.value).toBe("8");
     expect(bpmInput.classList.contains("sequencer-bars-add__position--hint")).toBe(false);
+    expect(beatNumeratorInput.classList.contains("sequencer-bars-add__position--hint")).toBe(false);
+    expect(beatDenominatorInput.classList.contains("sequencer-bars-add__position--hint")).toBe(
+      false,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Add Tempo" }));
 
-    expect(onAddTempo).toHaveBeenCalledWith(2, 88, "immediate");
+    expect(onAddTempo).toHaveBeenCalledWith(2, 88, "immediate", 3, 8);
     expect(positionInput.value).toBe("2");
     expect(bpmInput.value).toBe("88");
 
     fireEvent.click(screen.getByRole("button", { name: "Add Target Tempo" }));
-    expect(onAddTempo).toHaveBeenLastCalledWith(2, 88, "gradual");
+    expect(onAddTempo).toHaveBeenLastCalledWith(2, 88, "gradual", 3, 8);
     expect(positionInput.value).toBe("2");
     expect(bpmInput.value).toBe("88");
+  });
+
+  it("loads newly added bars and anchors new tempo and repeat markers to the preceding snapshot", async () => {
+    const onSelectSequenceBar = vi.fn();
+    const onCueSequenceSnapshot = vi.fn();
+    const onAddTempo = vi.fn();
+    const onAddRepeat = vi.fn();
+
+    function StructuralInsertionHarness() {
+      const [bars, setBars] = useState([{ id: 1, position: 1, numerator: 4, denominator: 4 }]);
+      const [snapshots, setSnapshots] = useState([
+        { id: 1, length: 1, description: "A", notes: [] },
+        { id: 2, length: 1, description: "B", notes: [] },
+        { id: 3, length: 1, description: "C", notes: [] },
+      ]);
+      const [selectedSnapshotId, setSelectedSnapshotId] = useState(1);
+      return (
+        <Sequencer
+          snapshots={snapshots}
+          bars={bars}
+          tempi={[{ id: 1, position: 1, bpm: 60, beatLength: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={selectedSnapshotId}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true }}
+          onTakeSnapshot={vi.fn()}
+          onAddEmptySnapshot={() => {
+            const snapshot = { id: 4, length: 1, description: "D", notes: [] };
+            setSnapshots((current) => [...current, snapshot]);
+            setSelectedSnapshotId(snapshot.id);
+          }}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={onSelectSequenceBar}
+          onCueSequenceSnapshot={onCueSequenceSnapshot}
+          onCueSequenceCue={vi.fn()}
+          onStepSequence={vi.fn()}
+          onStepSequenceMarker={vi.fn()}
+          onJumpSequenceSnapshot={vi.fn()}
+          onJumpSequenceCue={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={(position, numerator, denominator) =>
+            setBars((current) => [...current, { id: 2, position, numerator, denominator }])
+          }
+          onAddTempo={onAddTempo}
+          onAddRepeat={onAddRepeat}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onDeleteRepeat={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onUpdateRepeat={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+          getTimedTransportClockSeconds={() => 0}
+        />
+      );
+    }
+
+    render(<StructuralInsertionHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Bar" }));
+    await waitFor(() => expect(onSelectSequenceBar).toHaveBeenCalledWith(1));
+
+    fireEvent.input(screen.getByLabelText("new tempo position"), {
+      target: { value: "2.5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add Tempo" }));
+    expect(onAddTempo).toHaveBeenCalledWith(2.5, 60, "immediate", 1, 4);
+    expect(onCueSequenceSnapshot).toHaveBeenLastCalledWith(1);
+
+    fireEvent.input(screen.getByLabelText("new repeat position"), {
+      target: { value: "3" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Start Marker" }));
+    expect(onAddRepeat).toHaveBeenCalledWith(3, "start");
+    expect(onCueSequenceSnapshot).toHaveBeenLastCalledWith(1);
+
+    onCueSequenceSnapshot.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Append Empty Snapshot" }));
+    await waitFor(() => expect(onCueSequenceSnapshot).toHaveBeenCalledWith(3));
   });
 
   it("applies articulation to a snapshot range and inserts its copied block", () => {

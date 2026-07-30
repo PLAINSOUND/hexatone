@@ -256,6 +256,10 @@ const SequenceControls = ({
   newTempoBpm,
   newTempoBpmIsSuggested,
   setNewTempoBpm,
+  newTempoBeatNumerator,
+  newTempoBeatDenominator,
+  newTempoBeatFractionIsSuggested,
+  updateNewTempoBeatFractionField,
   addTempoAtRequestedPosition,
   addTempoTransitionAtRequestedPosition,
   newBarPosition,
@@ -348,9 +352,9 @@ const SequenceControls = ({
     <>
       {showAllEvents ? (
         <>
-          <div class="sequencer-option-row">
+          <div class="sequencer-option-row sequencer-option-row--tempo-position-inline">
             <span>Choose Tempo Position</span>
-            <span class="sequencer-bars-add sequencer-bars-add--tempo">
+            <span class="sequencer-bars-add sequencer-bars-add--tempo-position">
               <input
                 type="text"
                 class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
@@ -359,35 +363,67 @@ const SequenceControls = ({
                 onFocus={selectControlValue}
                 onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
               />
-              <span class="sequencer-bars-add__tempo">
+              <span class="sequencer-bars-add__meter">
                 <input
-                  type="text"
-                  class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpmIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
-                  aria-label="new tempo bpm"
-                  value={newTempoBpm}
+                  type="number"
+                  step="1"
+                  min="1"
+                  class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input sequencer-bars-add__meter-input--numerator${newTempoBeatFractionIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
+                  aria-label="new tempo beat numerator"
+                  value={newTempoBeatNumerator}
                   onFocus={selectControlValue}
-                  onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+                  onInput={(e) =>
+                    updateNewTempoBeatFractionField("numerator", e.currentTarget.value)
+                  }
                 />
-                <span class="sequencer-bars-add__suffix">bpm</span>
+                <span class="sequencer-bars-add__meter-separator">/</span>
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newTempoBeatFractionIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
+                  aria-label="new tempo beat denominator"
+                  value={newTempoBeatDenominator}
+                  onFocus={selectControlValue}
+                  onInput={(e) =>
+                    updateNewTempoBeatFractionField("denominator", e.currentTarget.value)
+                  }
+                />
               </span>
-              <button
-                type="button"
-                class="preset-action-btn sequencer-bars-add__button"
-                onClick={addTempoAtRequestedPosition}
-              >
-                Add Tempo
-              </button>
+              <span class="sequencer-bars-add__tempo-equation">
+                <span class="sequencer-bars-add__equals" aria-hidden="true">
+                  =
+                </span>
+                <span class="sequencer-bars-add__tempo">
+                  <input
+                    type="text"
+                    class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpmIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
+                    aria-label="new tempo bpm"
+                    value={newTempoBpm}
+                    onFocus={selectControlValue}
+                    onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+                  />
+                  <span class="sequencer-bars-add__suffix">bpm</span>
+                </span>
+              </span>
             </span>
           </div>
           <div class="sequencer-option-row sequencer-option-row--tempo-transition-action sequencer-option-row--mobile-inline">
-            <span>Make Gradual Transition</span>
-            <span class="sequencer-bars-add__stacked-button-slot">
+            <span>Gradual/Immediate Transition</span>
+            <span class="sequencer-bars-add__tempo-actions">
               <button
                 type="button"
                 class="preset-action-btn sequencer-bars-add__button sequencer-bars-add__button--stacked"
                 onClick={addTempoTransitionAtRequestedPosition}
               >
-                Add Target Tempo
+                Add Target
+              </button>
+              <button
+                type="button"
+                class="preset-action-btn sequencer-bars-add__button sequencer-bars-add__button--stacked"
+                onClick={addTempoAtRequestedPosition}
+              >
+                Add Tempo
               </button>
             </span>
           </div>

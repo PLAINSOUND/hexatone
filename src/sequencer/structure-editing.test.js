@@ -148,6 +148,8 @@ describe("structure editing", () => {
       ],
       position: 2,
       bpm: 72,
+      beatNumerator: 3,
+      beatDenominator: 8,
       mode: "gradual",
     });
 
@@ -155,8 +157,8 @@ describe("structure editing", () => {
       id: 2,
       position: 2,
       bpm: 72,
-      beatNumerator: 1,
-      beatDenominator: 4,
+      beatNumerator: 3,
+      beatDenominator: 8,
       mode: "gradual",
     });
   });
