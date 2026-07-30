@@ -362,6 +362,14 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
       currentTime: () => sharedAudioContext?.currentTime ?? null,
 
+      // CC1 is a zone-wide control. Apply it once at synth level so every
+      // current voice follows the wheel without routing through every
+      // composite note (which duplicates external MPE/OSC traffic).
+      applyZoneModwheel: (value) => {
+        lastModWheel = value;
+        for (const hex of activeHexes) hex.cc74(value);
+      },
+
       rememberControllerState: (state = {}) => {
         controllerState = {
           ...controllerState,

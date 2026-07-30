@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/preact";
+import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { beforeEach } from "vitest";
 import { EAGAN_BRIGHTNESS_EVENT } from "../../mpe_synth/eagan-matrix.js";
 import MidiOutputs from "./midioutputs.js";
@@ -326,7 +326,7 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(onChange).toHaveBeenCalledWith("mpe_auto_generate_yz", true);
   });
 
-  it("enables Mod Wheel to Brightness and follows incoming CC1 values", () => {
+  it("enables Mod Wheel to Brightness and follows incoming CC1 values", async () => {
     const onChange = vi.fn();
     render(
       <MidiOutputs
@@ -345,9 +345,11 @@ describe("MidiOutputs FluidSynth independence", () => {
 
     fireEvent(window, new CustomEvent(EAGAN_BRIGHTNESS_EVENT, { detail: { value: 103 } }));
 
-    expect(screen.getByRole("slider", { name: "Brightness" }).getAttribute("aria-valuenow")).toBe(
-      "103",
-    );
-    expect(onChange).toHaveBeenCalledWith("mpe_eagan_brightness", 103);
+    await waitFor(() => {
+      expect(screen.getByRole("slider", { name: "Brightness" }).getAttribute("aria-valuenow")).toBe(
+        "103",
+      );
+    });
+    expect(onChange).not.toHaveBeenCalledWith("mpe_eagan_brightness", 103);
   });
 });

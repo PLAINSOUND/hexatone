@@ -2368,8 +2368,8 @@ class Keys {
     return KeysMidiInput.applyChannelOffset.call(this, baseCoords, channel);
   }
 
-  _acceptsMpeInputChannel(channel) {
-    return KeysMidiInput.acceptsMpeInputChannel.call(this, channel);
+  _acceptsMpeInputChannel(channel, options) {
+    return KeysMidiInput.acceptsMpeInputChannel.call(this, channel, options);
   }
 
   _normalizeInputAddress(channel, note) {

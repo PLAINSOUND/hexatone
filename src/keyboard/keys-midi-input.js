@@ -294,11 +294,14 @@ function releaseContinuumRasterHex(keys, channel, hex, releaseVelocity, notePlay
   hex.noteOff = originalNoteOff;
 }
 
-export function acceptsMpeInputChannel(channel) {
+export function acceptsMpeInputChannel(channel, { includeManager = false } = {}) {
   if (!this.inputRuntime.mpeInput) return true;
   const lo = this.settings.midiin_mpe_lo_ch ?? 2;
   const hi = this.settings.midiin_mpe_hi_ch ?? 15;
-  return channel >= lo && channel <= hi;
+  if (channel >= lo && channel <= hi) return true;
+  if (!includeManager) return false;
+  const manager = parseInt(this.settings.midiin_mpe_manager_ch, 10) || 1;
+  return channel === manager;
 }
 
 function ensureActiveMidiChannelEntry(channel) {

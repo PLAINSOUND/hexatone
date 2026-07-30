@@ -143,6 +143,10 @@ export const create_composite_synth = (synths) => ({
     synths.forEach((s) => s.setMod && s.setMod(value));
   },
 
+  applyZoneModwheel(value) {
+    synths.forEach((s) => s.applyZoneModwheel?.(value));
+  },
+
   rememberControllerState(state) {
     synths.forEach((s) => s.rememberControllerState && s.rememberControllerState(state));
   },

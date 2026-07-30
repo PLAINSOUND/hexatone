@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";
 import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
@@ -104,6 +104,8 @@ const MidiOutputs = (props) => {
     mpe_eagan_pre_level: readEaganCc("mpe_eagan_pre_level", settings.mpe_eagan_pre_level ?? 64),
     mpe_eagan_post_level: readEaganCc("mpe_eagan_post_level", settings.mpe_eagan_post_level ?? 64),
   }));
+  const pendingBrightnessRef = useRef(null);
+  const brightnessFrameRef = useRef(null);
   const masterCh = settings.midiin_mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
@@ -163,13 +165,28 @@ const MidiOutputs = (props) => {
 
   useEffect(() => {
     const handleBrightness = (event) => {
-      const next = clampMidiCc(event.detail?.value);
-      setEaganCcDrafts((prev) => ({ ...prev, mpe_eagan_brightness: next }));
-      onChange("mpe_eagan_brightness", next);
+      pendingBrightnessRef.current = clampMidiCc(event.detail?.value);
+      if (brightnessFrameRef.current != null) return;
+      if (typeof requestAnimationFrame !== "function") {
+        const next = pendingBrightnessRef.current;
+        setEaganCcDrafts((prev) => ({ ...prev, mpe_eagan_brightness: next }));
+        return;
+      }
+      brightnessFrameRef.current = requestAnimationFrame(() => {
+        brightnessFrameRef.current = null;
+        const next = pendingBrightnessRef.current;
+        setEaganCcDrafts((prev) => ({ ...prev, mpe_eagan_brightness: next }));
+      });
     };
     window.addEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
-    return () => window.removeEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
-  }, [onChange]);
+    return () => {
+      window.removeEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
+      if (brightnessFrameRef.current != null && typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(brightnessFrameRef.current);
+      }
+      brightnessFrameRef.current = null;
+    };
+  }, []);
 
   const sendEaganMatrixCc = (cc, value) => {
     const output =

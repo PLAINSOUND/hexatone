@@ -57,6 +57,20 @@ describe("composite_synth controller-state replay", () => {
     expect(b.applyControllerState).toHaveBeenCalledWith(state);
   });
 
+  it("fans out a zone-wide Mod Wheel update once per capable child synth", () => {
+    const sample = { applyZoneModwheel: vi.fn() };
+    const osc = { applyZoneModwheel: vi.fn() };
+    const mpe = {};
+    const synth = create_composite_synth([sample, osc, mpe]);
+
+    synth.applyZoneModwheel(91);
+
+    expect(sample.applyZoneModwheel).toHaveBeenCalledOnce();
+    expect(sample.applyZoneModwheel).toHaveBeenCalledWith(91);
+    expect(osc.applyZoneModwheel).toHaveBeenCalledOnce();
+    expect(osc.applyZoneModwheel).toHaveBeenCalledWith(91);
+  });
+
   it("routes polyphonic timbre only to non-MTS child outputs", () => {
     const mpeHex = {
       coords: { x: 0, y: 0 },

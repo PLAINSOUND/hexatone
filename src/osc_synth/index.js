@@ -445,6 +445,23 @@ export const create_osc_synth = async (
       _mod.value = value;
     },
 
+    applyZoneModwheel(value) {
+      const mod = midiCcToScParam(value);
+      _mod.value = mod;
+      sendJitter("modwheel");
+      for (const port of OSC_LAYER_PORTS) {
+        socket.send(
+          "/n_set",
+          [
+            { type: "i", value: 1 },
+            { type: "s", value: "mod" },
+            { type: "f", value: mod },
+          ],
+          port,
+        );
+      }
+    },
+
     rememberControllerState(state) {
       const mod = state?.ccValues?.[1];
       if (Number.isFinite(mod)) _mod.value = midiCcToScParam(mod);

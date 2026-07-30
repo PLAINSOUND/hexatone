@@ -359,6 +359,43 @@ describe("osc_synth pooled slot allocation", () => {
     expect(lastLayerStart.args[modIndex + 1]?.value).toBeCloseTo(1 + 100 / 127, 6);
   });
 
+  it("broadcasts one group update per layer for each synth-level Mod Wheel event", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-modwheel-broadcast",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+
+    await Promise.resolve();
+
+    const first = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    first.noteOn();
+
+    // Per-note timbre may share the same numeric value, but it must not
+    // suppress the first genuinely global Mod Wheel broadcast.
+    first.cc74(96);
+    synth.applyZoneModwheel(96);
+
+    const ws = MockWebSocket.instances.at(-1);
+    const groupModSets = () =>
+      ws.sent.filter(
+        (msg) =>
+          msg.address === "/n_set" && msg.args[0]?.value === 1 && msg.args[1]?.value === "mod",
+      );
+
+    expect(groupModSets()).toHaveLength(4);
+
+    synth.applyZoneModwheel(96);
+    expect(groupModSets()).toHaveLength(8);
+  });
+
   it("applies stored timbre when cue playback reuses a sustaining note", async () => {
     const synth = await create_osc_synth(
       "ws://test-osc-cue-legato-timbre",

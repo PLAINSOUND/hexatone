@@ -6106,7 +6106,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys._wheelBend).not.toBe(0);
   });
 
-  it("routes LinnStrument bypass single-channel CC1 as timbre, with poly aftertouch and pitch bend as generic input", () => {
+  it("routes LinnStrument bypass CC1 zone-wide, with poly aftertouch and pitch bend as generic input", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
@@ -6118,12 +6118,14 @@ describe("Keys MIDI input integration", () => {
     vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
 
     const modwheel = vi.fn();
+    const applyZoneModwheel = vi.fn();
     const cc74 = vi.fn();
     const aftertouch = vi.fn();
     const standardWheelRetune = vi.fn(function standardWheelRetune(newCents) {
       this.cents = newCents;
     });
     const synth = {
+      applyZoneModwheel,
       makeHex: vi.fn((coords, cents) => ({
         coords,
         cents,
@@ -6165,11 +6167,61 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.controller?.id).toBe("linnstrument");
     expect(keys.controllerMap).toBeNull();
+    expect(applyZoneModwheel).toHaveBeenCalledWith(64);
     expect(modwheel).not.toHaveBeenCalled();
-    expect(cc74).toHaveBeenCalledWith(64);
+    expect(cc74).not.toHaveBeenCalled();
     expect(aftertouch).toHaveBeenCalledWith(80);
     expect(standardWheelRetune).toHaveBeenCalledTimes(1);
     expect(standardWheelRetune.mock.calls[0][0]).toBeCloseTo(baseCents + 1200, 0);
+  });
+
+  it("dispatches MPE zone-wide CC1 once instead of once per active note", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Generic MPE Controller",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+
+    const noteModwheel = vi.fn();
+    const applyZoneModwheel = vi.fn();
+    const synth = {
+      applyZoneModwheel,
+      makeHex: vi.fn((coords, cents) => ({
+        coords,
+        cents,
+        _baseCents: cents,
+        noteOn: vi.fn(),
+        noteOff: vi.fn(),
+        release: false,
+        modwheel: noteModwheel,
+      })),
+      rememberControllerState: vi.fn(),
+    };
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_mpe_manager_ch: 1,
+        midiin_mpe_lo_ch: 2,
+        midiin_mpe_hi_ch: 16,
+      },
+      { layoutMode: "sequential", mpeInput: true },
+      synth,
+    );
+    const passthroughSpy = vi.spyOn(keys, "_passthroughCC");
+
+    listeners.noteon(makeMidiEvent(60, 2));
+    listeners.noteon(makeMidiEvent(64, 3));
+    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 96] } });
+
+    expect(passthroughSpy).toHaveBeenCalledTimes(1);
+    expect(passthroughSpy).toHaveBeenCalledWith(1, 96);
+    expect(applyZoneModwheel).toHaveBeenCalledTimes(1);
+    expect(applyZoneModwheel).toHaveBeenCalledWith(96);
+    expect(noteModwheel).not.toHaveBeenCalled();
   });
 
   it("ignores Continuum note input on reserved non-member channels outside the selected MPE zone", () => {

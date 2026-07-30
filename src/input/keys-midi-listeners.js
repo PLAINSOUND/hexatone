@@ -828,7 +828,10 @@ export function setupMidiInput() {
               this._setHakenPedalGlideFlip?.(value >= 64);
               return;
             }
-            if (this.inputRuntime.mpeInput && !this._acceptsMpeInputChannel(e.message.channel))
+            if (
+              this.inputRuntime.mpeInput &&
+              !this._acceptsMpeInputChannel(e.message.channel, { includeManager: true })
+            )
               return;
             debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
 
@@ -904,25 +907,16 @@ export function setupMidiInput() {
               // Reset All Controllers
               this.sustainOff();
             } else if (cc === 1) {
-              // CC1 is treated as timbre for non-MPE controllers (for example
-              // Lumatone/generic single-channel input), while MPE input keeps it
-              // as a zone-wide mod-wheel control.
+              // Mod Wheel is zone-wide for every controller. Optional Eagan
+              // Brightness mirroring is handled independently by passthroughCC.
               if (this.settings.midiin_device && this.settings.midiin_device !== "OFF") {
                 sessionStorage.setItem("midiin_modwheel_value", String(value));
                 sessionStorage.setItem("midiin_modwheel_source", this.settings.midiin_device);
               }
-              if (this.inputRuntime.mpeInput) {
-                for (const hex of this._allActiveHexes()) {
-                  if (hex.modwheel) hex.modwheel(value);
-                }
-              } else if (this.inputRuntime.perChannelExpression) {
-                for (const hex of this._activeHexesForInputChannel(e.message.channel)) {
-                  this._applyTimbreCC74(hex, value);
-                }
-              } else {
-                const front = this.recencyStack.front;
-                this._applyTimbreCC74(front, value);
-              }
+              // External MIDI/MPE outputs received CC1 once through
+              // _passthroughCC above. Local synthesis receives one synth-level
+              // update, never one update per sounding note.
+              this.synth?.applyZoneModwheel?.(value);
             } else if (cc === 11) {
               // Expression — broadcast to all active hexes (zone-wide)
               for (const hex of this._allActiveHexes()) {

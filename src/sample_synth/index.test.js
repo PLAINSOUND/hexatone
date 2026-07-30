@@ -125,6 +125,21 @@ describe("sample_synth modwheel", () => {
     );
   });
 
+  it("applies one zone-wide CC1 dispatch to every active sample voice", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    await synth.prepare();
+
+    const first = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    const second = synth.makeHex(null, 100, 0, 0, 12, null, null, 61, 96, 0, 1);
+    first.noteOn();
+    second.noteOn();
+
+    synth.applyZoneModwheel(100);
+
+    expect(first.filterNode.frequency.setTargetAtTime).toHaveBeenCalledOnce();
+    expect(second.filterNode.frequency.setTargetAtTime).toHaveBeenCalledOnce();
+  });
+
   it("retunes the active voice playback rate for standard wheel bend", async () => {
     const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
     await synth.prepare();
