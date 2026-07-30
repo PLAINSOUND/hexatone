@@ -29,6 +29,15 @@ export function buildSelectOnFocus({
   };
 }
 
+export function buildSelectAllOnFirstPointerDown({ stop = false } = {}) {
+  return (event) => {
+    if (stop) event.stopPropagation();
+    if (event.currentTarget.ownerDocument?.activeElement === event.currentTarget) return;
+    event.preventDefault();
+    event.currentTarget.focus();
+  };
+}
+
 export function buildEnterCommit(editing, onCommit) {
   return (event) => editing.handleEnterCommit(event, onCommit);
 }

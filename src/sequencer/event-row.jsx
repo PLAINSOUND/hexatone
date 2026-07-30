@@ -10,6 +10,7 @@ import {
   buildBlurCommit,
   buildDraftEnterCommit,
   buildEnterCommit,
+  buildSelectAllOnFirstPointerDown,
   buildSelectOnFocus,
   buildStopPropagationProps,
 } from "./field-props.js";
@@ -253,6 +254,7 @@ const EventRow = ({
           defaultValue={formatDisplaySequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} offset`}
           {...stopProps}
+          onPointerDown={buildSelectAllOnFirstPointerDown({ stop: true })}
           onFocus={buildSelectOnFocus({
             stop: true,
             setValue: () => formatSequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime),
