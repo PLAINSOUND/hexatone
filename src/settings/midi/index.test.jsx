@@ -8,7 +8,12 @@ vi.mock("../../input/controller-anchor.js", () => ({
 
 vi.mock("../../controllers/linnstrument-user-firmware.js", () => ({
   deactivateLinnstrumentUserFirmware: vi.fn(),
-  isLinnstrumentUserFirmwareEligible: ({ controllerId, scaleMode, midiPassthrough, midiinDevice }) =>
+  isLinnstrumentUserFirmwareEligible: ({
+    controllerId,
+    scaleMode,
+    midiPassthrough,
+    midiinDevice,
+  }) =>
     controllerId === "linnstrument" &&
     !scaleMode &&
     !midiPassthrough &&
@@ -116,7 +121,9 @@ describe("MIDIio LinnStrument controller selection", () => {
     render(<MIDIio {...props} />);
 
     expect(screen.getByText("Roger Linn Design LinnStrument")).toBeTruthy();
-    expect(screen.getByText(/Hexatone activates User Firmware Mode to colour pads and assign geometry/)).toBeTruthy();
+    expect(
+      screen.getByText(/Hexatone activates User Firmware Mode to colour pads and assign geometry/),
+    ).toBeTruthy();
     expect(screen.queryByText("Detected: Roger Linn Design LinnStrument")).toBeNull();
   });
 
@@ -144,7 +151,9 @@ describe("MIDIio LinnStrument controller selection", () => {
     render(<MIDIio {...props} />);
 
     expect(screen.getByText("Roger Linn Design LinnStrument")).toBeTruthy();
-    expect(screen.getByText(/Hexatone activates User Firmware Mode to colour pads and assign geometry/)).toBeTruthy();
+    expect(
+      screen.getByText(/Hexatone activates User Firmware Mode to colour pads and assign geometry/),
+    ).toBeTruthy();
   });
 
   it("constrains Haken Continuum MPE member-channel selectors to 2-14", () => {
@@ -377,7 +386,9 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     render(<MIDIio {...props} />);
 
-    expect(screen.queryByTitle("MIDI channel of anchor note (other channels shift by stepsPerChannel)")).toBeNull();
+    expect(
+      screen.queryByTitle("MIDI channel of anchor note (other channels shift by stepsPerChannel)"),
+    ).toBeNull();
   });
 
   it("reseeds unknown-controller MPE defaults to member channels 2-8 when enabling from the generic 2-15 session default", () => {
@@ -539,7 +550,9 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     render(<MIDIio {...props} />);
 
-    expect(screen.getByText(/User may choose Exquis Layout and MPE\/Polytouch mode manually/)).toBeTruthy();
+    expect(
+      screen.getByText(/User may choose Exquis Layout and MPE\/Polytouch mode manually/),
+    ).toBeTruthy();
     expect(screen.queryByText(/Hexatone maps layout, colours, and toggles MPE mode/)).toBeNull();
   });
 
@@ -557,7 +570,9 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     render(<MIDIio {...props} />);
 
-    expect(screen.getByText(/User may choose Exquis Layout and MPE\/Polytouch mode manually/)).toBeTruthy();
+    expect(
+      screen.getByText(/User may choose Exquis Layout and MPE\/Polytouch mode manually/),
+    ).toBeTruthy();
     expect(screen.queryByText(/Hexatone maps layout, colours, and toggles MPE mode/)).toBeNull();
   });
 });

@@ -14,7 +14,7 @@ function clamp(value, min, max) {
 function snapToStep(value, min, step) {
   if (!Number.isFinite(step) || step <= 0) return value;
   const steps = Math.round((value - min) / step);
-  return min + (steps * step);
+  return min + steps * step;
 }
 
 export default function CustomRangeSlider({
@@ -41,11 +41,7 @@ export default function CustomRangeSlider({
   );
 
   const commitNumericValue = (nextValue, commit = false) => {
-    const snappedValue = clamp(
-      snapToStep(Number(nextValue), safeMin, safeStep),
-      safeMin,
-      safeMax,
-    );
+    const snappedValue = clamp(snapToStep(Number(nextValue), safeMin, safeStep), safeMin, safeMax);
     onInputValue?.(snappedValue);
     if (commit) onCommitValue?.(snappedValue);
     return snappedValue;
@@ -55,7 +51,7 @@ export default function CustomRangeSlider({
     const rect = trackRef.current?.getBoundingClientRect?.();
     if (!rect || rect.width <= 0) return clampedValue;
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return safeMin + (ratio * (safeMax - safeMin));
+    return safeMin + ratio * (safeMax - safeMin);
   };
 
   const beginDrag = (event) => {

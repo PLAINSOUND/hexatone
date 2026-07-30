@@ -59,7 +59,11 @@ const WebMIDISettings = ({
           }}
         />
       </label>
-      {midiAccessError && <p class="settings-form__stacked-helper"><em>{midiAccessError}</em></p>}
+      {midiAccessError && (
+        <p class="settings-form__stacked-helper">
+          <em>{midiAccessError}</em>
+        </p>
+      )}
     </fieldset>
   );
 };

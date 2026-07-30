@@ -6,13 +6,7 @@
  * identify devices without forcing the full Haken helper module into main.
  */
 
-const HAKEN_DEVICE_PATTERNS = [
-  "continuum",
-  "haken",
-  "eaganmatrix",
-  "um-one",
-  "um one",
-];
+const HAKEN_DEVICE_PATTERNS = ["continuum", "haken", "eaganmatrix", "um-one", "um one"];
 
 export function detectHakenDeviceName(name = "") {
   const lower = name.toLowerCase();

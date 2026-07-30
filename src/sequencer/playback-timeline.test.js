@@ -74,13 +74,17 @@ describe("playback timeline", () => {
       jumpToSequenceTime: 1,
       remainingRepeatsAfterJump: 0,
     });
-    expect(timeline.playbackBursts[1].events.some((event) => event.repeatCleanup === true)).toBe(true);
+    expect(timeline.playbackBursts[1].events.some((event) => event.repeatCleanup === true)).toBe(
+      true,
+    );
     expect(timeline.playbackBursts[1].soundingAfter).toEqual([]);
     expect(timeline.playbackBursts[1].repeatSkip).toMatchObject({
       nextPlaybackIndex: 4,
       soundingAfter: expect.any(Array),
     });
-    expect(timeline.playbackBursts[1].repeatSkip.events.some((event) => event.repeatCleanup === true)).toBe(false);
+    expect(
+      timeline.playbackBursts[1].repeatSkip.events.some((event) => event.repeatCleanup === true),
+    ).toBe(false);
     expect(timeline.playbackBursts[3].repeatJump).toBeNull();
   });
 
@@ -116,7 +120,9 @@ describe("playback timeline", () => {
       },
     });
 
-    const firstNoteEvent = timeline.playbackBursts[0].events.find((event) => event.type === "note" && event.kind === "attack");
+    const firstNoteEvent = timeline.playbackBursts[0].events.find(
+      (event) => event.type === "note" && event.kind === "attack",
+    );
     expect(firstNoteEvent?.midicents).toBe(69);
     expect(firstNoteEvent?.frequency).toBe(440);
     expect(firstNoteEvent?.displayLabel).toBe("A");
@@ -139,7 +145,10 @@ describe("playback timeline", () => {
 
     const sequenceEvents = deriveSequenceEvents(snapshots, [], [], repeats);
     const cueBursts = deriveBurstSoundingState(buildCueBursts(sequenceEvents));
-    const repeatSections = deriveRepeatSections(deriveSequenceCueGroups(snapshots, [], [], repeats), repeats);
+    const repeatSections = deriveRepeatSections(
+      deriveSequenceCueGroups(snapshots, [], [], repeats),
+      repeats,
+    );
     const playbackBursts = buildPlaybackBursts(cueBursts, repeatSections, {
       barTimingSegments: [
         {
@@ -161,7 +170,9 @@ describe("playback timeline", () => {
       ],
     });
 
-    expect(cueBursts.find((burst) => burst.time === 2)?.soundingBefore.map((note) => note.noteKey)).toEqual(["held"]);
+    expect(
+      cueBursts.find((burst) => burst.time === 2)?.soundingBefore.map((note) => note.noteKey),
+    ).toEqual(["held"]);
     expect(playbackBursts.find((burst) => burst.sequenceTime === 2)?.soundingAfter).toEqual([]);
   });
 
@@ -170,16 +181,22 @@ describe("playback timeline", () => {
       {
         id: "s1",
         length: 1,
-        notes: [{ id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 }],
+        notes: [
+          { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 },
+        ],
       },
       {
         id: "s2",
         length: 1,
-        notes: [{ id: "n2", midicents: 72, attackVelocity: 70, releaseVelocity: 35, start: 0, end: 0.5 }],
+        notes: [
+          { id: "n2", midicents: 72, attackVelocity: 70, releaseVelocity: 35, start: 0, end: 0.5 },
+        ],
       },
     ];
     const bars = [{ id: "bar-1", position: 1, numerator: 1, denominator: 1 }];
-    const tempi = [{ id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }];
+    const tempi = [
+      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+    ];
 
     const timeline = buildPlaybackTimeline({ snapshots, bars, tempi });
 
@@ -192,22 +209,49 @@ describe("playback timeline", () => {
         id: "s1",
         length: 1,
         notes: [
-          { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.333333 },
-          { id: "n2", midicents: 72, attackVelocity: 75, releaseVelocity: 35, start: 0.333333, end: 0.666667 },
-          { id: "n3", midicents: 76, attackVelocity: 70, releaseVelocity: 30, start: 0.666667, end: 1 },
+          {
+            id: "n1",
+            midicents: 69,
+            attackVelocity: 80,
+            releaseVelocity: 40,
+            start: 0,
+            end: 0.333333,
+          },
+          {
+            id: "n2",
+            midicents: 72,
+            attackVelocity: 75,
+            releaseVelocity: 35,
+            start: 0.333333,
+            end: 0.666667,
+          },
+          {
+            id: "n3",
+            midicents: 76,
+            attackVelocity: 70,
+            releaseVelocity: 30,
+            start: 0.666667,
+            end: 1,
+          },
         ],
       },
     ];
     const bars = [{ id: "bar-1", position: 1, numerator: 3, denominator: 2 }];
-    const tempi = [{ id: "tempo-1", position: 1, bpm: 72, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75 }];
+    const tempi = [
+      {
+        id: "tempo-1",
+        position: 1,
+        bpm: 72,
+        beatNumerator: 3,
+        beatDenominator: 16,
+        beatLength: 0.75,
+      },
+    ];
 
     const timeline = buildPlaybackTimeline({ snapshots, bars, tempi });
 
     expect(timeline.playbackBursts.map((burst) => burst.sequenceTime)).toEqual([
-      1,
-      1.333333,
-      1.666667,
-      2,
+      1, 1.333333, 1.666667, 2,
     ]);
     const elapsed = timeline.playbackBursts.map((burst) => burst.elapsedSeconds);
     expect(elapsed[0]).toBeCloseTo(0, 6);
@@ -235,19 +279,53 @@ describe("playback timeline", () => {
     ];
     const bars = [{ id: "bar-1", position: 1, numerator: 1, denominator: 1 }];
     const immediateTempi = [
-      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+      {
+        id: "tempo-1",
+        position: 1,
+        bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "immediate",
+      },
+      {
+        id: "tempo-2",
+        position: 3,
+        bpm: 120,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "immediate",
+      },
     ];
     const transitionTempi = [
-      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "gradual" },
+      {
+        id: "tempo-1",
+        position: 1,
+        bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "immediate",
+      },
+      {
+        id: "tempo-2",
+        position: 3,
+        bpm: 120,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "gradual",
+      },
     ];
 
     const immediateTimeline = buildPlaybackTimeline({ snapshots, bars, tempi: immediateTempi });
     const transitionTimeline = buildPlaybackTimeline({ snapshots, bars, tempi: transitionTempi });
 
     const immediateElapsed = immediateTimeline.playbackBursts.map((burst) => burst.elapsedSeconds);
-    const transitionElapsed = transitionTimeline.playbackBursts.map((burst) => burst.elapsedSeconds);
+    const transitionElapsed = transitionTimeline.playbackBursts.map(
+      (burst) => burst.elapsedSeconds,
+    );
 
     expect(immediateElapsed).toEqual([0, 1, 2, 3, 4]);
     expect(transitionElapsed[0]).toBe(0);
@@ -264,8 +342,24 @@ describe("playback timeline", () => {
   it("derives the live tempo at a transport position inside a gradual transition", () => {
     const bars = [{ id: "bar-1", position: 1, numerator: 1, denominator: 1 }];
     const tempi = [
-      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "gradual" },
+      {
+        id: "tempo-1",
+        position: 1,
+        bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "immediate",
+      },
+      {
+        id: "tempo-2",
+        position: 3,
+        bpm: 120,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "gradual",
+      },
     ];
 
     expect(deriveTempoAtSequencePosition(1, tempi, bars, 3)).toEqual({
@@ -288,9 +382,30 @@ describe("playback timeline", () => {
       { id: "bar-2", position: 3, numerator: 4, denominator: 4 },
     ];
     const tempi = [
-      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
-      { id: "tempo-old", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, mode: "gradual" },
-      { id: "tempo-new", position: 3, bpm: 90, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
+      {
+        id: "tempo-1",
+        position: 1,
+        bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        mode: "immediate",
+      },
+      {
+        id: "tempo-old",
+        position: 3,
+        bpm: 120,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        mode: "gradual",
+      },
+      {
+        id: "tempo-new",
+        position: 3,
+        bpm: 90,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        mode: "immediate",
+      },
     ];
 
     expect(deriveTempoAtSequencePosition(2, tempi, bars, 4)?.bpm).toBe(60);
@@ -301,14 +416,16 @@ describe("playback timeline", () => {
     const snapshots = Array.from({ length: 5 }, (_, index) => ({
       id: `s${index + 1}`,
       length: 1,
-      notes: [{
-        id: `n${index + 1}`,
-        midicents: 69 + index,
-        attackVelocity: 80,
-        releaseVelocity: 40,
-        start: 0,
-        end: 1,
-      }],
+      notes: [
+        {
+          id: `n${index + 1}`,
+          midicents: 69 + index,
+          attackVelocity: 80,
+          releaseVelocity: 40,
+          start: 0,
+          end: 1,
+        },
+      ],
     }));
     const bars = Array.from({ length: 6 }, (_, index) => ({
       id: `bar-${index + 1}`,
@@ -317,9 +434,30 @@ describe("playback timeline", () => {
       denominator: 4,
     }));
     const tempi = [
-      { id: "tempo-1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
-      { id: "tempo-2", position: 3, bpm: 120, beatNumerator: 1, beatDenominator: 4, mode: "gradual" },
-      { id: "tempo-3", position: 4, bpm: 30, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
+      {
+        id: "tempo-1",
+        position: 1,
+        bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        mode: "immediate",
+      },
+      {
+        id: "tempo-2",
+        position: 3,
+        bpm: 120,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        mode: "gradual",
+      },
+      {
+        id: "tempo-3",
+        position: 4,
+        bpm: 30,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        mode: "immediate",
+      },
     ];
 
     const timeline = buildPlaybackTimeline({ snapshots, bars, tempi });

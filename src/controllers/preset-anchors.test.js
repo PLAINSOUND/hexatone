@@ -8,34 +8,40 @@ import {
 
 describe("controller preset anchors", () => {
   it("omits an unchanged active controller default", () => {
-    expect(deriveControllerPresetAnchorFields({
-      midiin_controller_override: "lumatone",
-      midi_passthrough: false,
-      midiin_anchor_note: 26,
-      midiin_anchor_channel: 3,
-    })).toEqual({});
+    expect(
+      deriveControllerPresetAnchorFields({
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+        midiin_anchor_note: 26,
+        midiin_anchor_channel: 3,
+      }),
+    ).toEqual({});
   });
 
   it("derives changed Lumatone note and channel values", () => {
-    expect(deriveControllerPresetAnchorFields({
-      midiin_controller_override: "lumatone",
-      midi_passthrough: false,
-      midiin_anchor_note: 41,
-      midiin_anchor_channel: 2,
-    })).toEqual({
+    expect(
+      deriveControllerPresetAnchorFields({
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+        midiin_anchor_note: 41,
+        midiin_anchor_channel: 2,
+      }),
+    ).toEqual({
       lumatone_anchor_note: 41,
       lumatone_anchor_channel: 2,
     });
   });
 
   it("preserves other preset anchors while deriving the active controller", () => {
-    expect(deriveControllerPresetAnchorFields({
-      midiin_controller_override: "exquis",
-      midi_passthrough: false,
-      midiin_anchor_note: 27,
-      lumatone_anchor_note: 41,
-      lumatone_anchor_channel: 2,
-    })).toEqual({
+    expect(
+      deriveControllerPresetAnchorFields({
+        midiin_controller_override: "exquis",
+        midi_passthrough: false,
+        midiin_anchor_note: 27,
+        lumatone_anchor_note: 41,
+        lumatone_anchor_channel: 2,
+      }),
+    ).toEqual({
       lumatone_anchor_note: 41,
       lumatone_anchor_channel: 2,
       exquis_anchor_note: 27,
@@ -59,10 +65,12 @@ describe("controller preset anchors", () => {
       linnstrument_anchor_channel: 6,
     };
     expect(hasControllerPresetAnchor(settings, "linnstrument")).toBe(true);
-    expect(applyControllerPresetAnchor(settings, "linnstrument", {
-      midiin_anchor_note: 9,
-      midiin_anchor_channel: 4,
-    })).toEqual({
+    expect(
+      applyControllerPresetAnchor(settings, "linnstrument", {
+        midiin_anchor_note: 9,
+        midiin_anchor_channel: 4,
+      }),
+    ).toEqual({
       midiin_anchor_note: 12,
       midiin_anchor_channel: 6,
     });

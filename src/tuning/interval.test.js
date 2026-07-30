@@ -10,7 +10,9 @@ import {
 describe("tuning/interval", () => {
   it("uses the 23-limit default basis and 47-limit canonical basis", () => {
     expect(DEFAULT_MONZO_BASIS).toEqual([2, 3, 5, 7, 11, 13, 17, 19, 23]);
-    expect(EXTENDED_MONZO_BASIS).toEqual([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]);
+    expect(EXTENDED_MONZO_BASIS).toEqual([
+      2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59,
+    ]);
     expect(CANONICAL_MONZO_BASIS).toEqual(EXTENDED_MONZO_BASIS);
   });
 

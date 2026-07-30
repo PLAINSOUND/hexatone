@@ -802,7 +802,14 @@ export default function RetuneApp() {
         />
         <label className="meta">
           Zoom{" "}
-          <span style={{ display: "inline-flex", width: "12rem", marginLeft: "0.4rem", verticalAlign: "middle" }}>
+          <span
+            style={{
+              display: "inline-flex",
+              width: "12rem",
+              marginLeft: "0.4rem",
+              verticalAlign: "middle",
+            }}
+          >
             <CustomRangeSlider
               ariaLabel="Retune zoom"
               min={zoomBounds.min}

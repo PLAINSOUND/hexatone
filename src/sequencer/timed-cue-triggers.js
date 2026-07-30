@@ -25,18 +25,18 @@ function cloneTimedNote(note, { reattack = false } = {}) {
 }
 
 function sortByDescendingPitch(notes = []) {
-  return [...notes].sort((left, right) => (
-    Number(right?.midicents ?? -Infinity) - Number(left?.midicents ?? -Infinity)
-  ));
+  return [...notes].sort(
+    (left, right) => Number(right?.midicents ?? -Infinity) - Number(left?.midicents ?? -Infinity),
+  );
 }
 
 function serializeNotes(soundingAfter = [], newlyAttacked = [], legato = true) {
   const reattackSet = new Set(Array.isArray(newlyAttacked) ? newlyAttacked : []);
-  return sortByDescendingPitch(soundingAfter).map((note) => (
+  return sortByDescendingPitch(soundingAfter).map((note) =>
     cloneTimedNote(note, {
       reattack: legato ? reattackSet.has(note.instanceKey) : false,
-    })
-  ));
+    }),
+  );
 }
 
 export function deriveTimedCueTriggers(playbackTimeline, { legato = true } = {}) {
@@ -50,7 +50,9 @@ export function deriveTimedCueTriggers(playbackTimeline, { legato = true } = {})
       cueIndex: Number(burst.sourceCueIndex),
       sequenceTime: Number(burst.sequenceTime),
       absoluteSeconds: Number(burst.elapsedSeconds ?? 0),
-      snapshotIndexes: Array.isArray(burst.sourceSnapshotIndexes) ? [...burst.sourceSnapshotIndexes] : [],
+      snapshotIndexes: Array.isArray(burst.sourceSnapshotIndexes)
+        ? [...burst.sourceSnapshotIndexes]
+        : [],
       structuralEvents: (burst.events ?? [])
         .filter((event) => event?.type && event.type !== "note")
         .map((event) => ({ ...event })),

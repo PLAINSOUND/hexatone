@@ -11,7 +11,14 @@ describe("timed cue triggers", () => {
           id: "s1",
           length: 1,
           notes: [
-            { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 },
+            {
+              id: "n1",
+              midicents: 69,
+              attackVelocity: 80,
+              releaseVelocity: 40,
+              start: 0,
+              end: 0.5,
+            },
           ],
         },
       ],
@@ -19,11 +26,13 @@ describe("timed cue triggers", () => {
 
     const triggers = deriveTimedCueTriggers(timeline);
 
-    expect(triggers.map((trigger) => ({
-      cueIndex: trigger.cueIndex,
-      sequenceTime: trigger.sequenceTime,
-      absoluteSeconds: trigger.absoluteSeconds,
-    }))).toEqual([
+    expect(
+      triggers.map((trigger) => ({
+        cueIndex: trigger.cueIndex,
+        sequenceTime: trigger.sequenceTime,
+        absoluteSeconds: trigger.absoluteSeconds,
+      })),
+    ).toEqual([
       { cueIndex: 1, sequenceTime: 1, absoluteSeconds: 0 },
       { cueIndex: 2, sequenceTime: 1.5, absoluteSeconds: 2 },
     ]);
@@ -94,7 +103,14 @@ describe("timed cue triggers", () => {
           id: "s1",
           length: 2,
           notes: [
-            { id: "held", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 2 },
+            {
+              id: "held",
+              midicents: 69,
+              attackVelocity: 80,
+              releaseVelocity: 40,
+              start: 0,
+              end: 2,
+            },
           ],
         },
       ],
@@ -106,7 +122,13 @@ describe("timed cue triggers", () => {
 
     const triggers = deriveTimedCueTriggers(timeline);
 
-    expect(triggers[0].structuralEvents.map((event) => event.type)).toEqual(["repeat-start", "bar"]);
-    expect(triggers[1].structuralEvents.map((event) => event.type)).toEqual(["repeat-start", "bar"]);
+    expect(triggers[0].structuralEvents.map((event) => event.type)).toEqual([
+      "repeat-start",
+      "bar",
+    ]);
+    expect(triggers[1].structuralEvents.map((event) => event.type)).toEqual([
+      "repeat-start",
+      "bar",
+    ]);
   });
 });

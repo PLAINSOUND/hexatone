@@ -24,7 +24,7 @@ vi.mock("../hexatone/preset-tunings/index.js", () => ({
     },
   ],
   defaultTuningRecord: {},
-  findPresetTuningByName: vi.fn((name) => (
+  findPresetTuningByName: vi.fn((name) =>
     name === "Preset A"
       ? {
           name: "Preset A",
@@ -35,8 +35,8 @@ vi.mock("../hexatone/preset-tunings/index.js", () => ({
           fundamental: 440,
           reference_degree: 0,
         }
-      : null
-  )),
+      : null,
+  ),
 }));
 vi.mock("../hexatone/user-tunings.js", () => ({
   loadUserTunings: vi.fn(() => []),
@@ -620,9 +620,9 @@ describe("usePresets refresh ordering", () => {
       const hook = usePresets(
         liveSettings,
         (updater) => {
-          setLiveSettings((previous) => (
-            typeof updater === "function" ? updater(previous) : updater
-          ));
+          setLiveSettings((previous) =>
+            typeof updater === "function" ? updater(previous) : updater,
+          );
         },
         {
           synthRef: { current: null },
@@ -888,9 +888,9 @@ describe("usePresets refresh ordering", () => {
       const hook = usePresets(
         liveSettings,
         (updater) => {
-          setLiveSettings((previous) => (
-            typeof updater === "function" ? updater(previous) : updater
-          ));
+          setLiveSettings((previous) =>
+            typeof updater === "function" ? updater(previous) : updater,
+          );
         },
         {
           synthRef: { current: null },
@@ -956,9 +956,9 @@ describe("usePresets refresh ordering", () => {
       const hook = usePresets(
         liveSettings,
         (updater) => {
-          setLiveSettings((previous) => (
-            typeof updater === "function" ? updater(previous) : updater
-          ));
+          setLiveSettings((previous) =>
+            typeof updater === "function" ? updater(previous) : updater,
+          );
         },
         {
           synthRef: { current: null },

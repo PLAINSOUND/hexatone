@@ -188,12 +188,14 @@ const fetchRawSampleBuffers = async (fileName) => {
       fetch(`sounds/${fileName}220.mp3`).then((r) => r.arrayBuffer()),
       fetch(`sounds/${fileName}440.mp3`).then((r) => r.arrayBuffer()),
       fetch(`sounds/${fileName}880.mp3`).then((r) => r.arrayBuffer()),
-    ]).then((buffers) => {
-      rawSampleBufferCache[fileName] = buffers;
-      return buffers;
-    }).finally(() => {
-      delete rawSampleBufferPromises[fileName];
-    });
+    ])
+      .then((buffers) => {
+        rawSampleBufferCache[fileName] = buffers;
+        return buffers;
+      })
+      .finally(() => {
+        delete rawSampleBufferPromises[fileName];
+      });
   }
   return rawSampleBufferPromises[fileName];
 };
@@ -254,72 +256,72 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     const activeHexes = new Set();
 
     const prepareSynth = async () => {
-        if (preparePromise) return preparePromise;
-        preparePromise = (async () => {
-          if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
-            try {
-              await sharedAudioContext.close();
-            } catch (e) {
-              warnLog("iOS: Failed to close stale AudioContext:", e.message);
-            }
-            sharedAudioContext = null;
-            clearKeepAliveNode();
-            masterGain = null;
-            decodedBuffers = null;
+      if (preparePromise) return preparePromise;
+      preparePromise = (async () => {
+        if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
+          try {
+            await sharedAudioContext.close();
+          } catch (e) {
+            warnLog("iOS: Failed to close stale AudioContext:", e.message);
           }
-
-          if (!sharedAudioContext || sharedAudioContext.state === "closed") {
-            sharedAudioContext = createSharedAudioContext();
-            masterGain = null;
-          }
-
-          // iOS: Always try to resume on prepare (might be suspended after backgrounding)
-          if (
-            sharedAudioContext.state === "suspended" ||
-            sharedAudioContext.state === "interrupted"
-          ) {
-            try {
-              await sharedAudioContext.resume();
-              debugLog("audio", "AudioContext resumed, state:", sharedAudioContext.state);
-            } catch (e) {
-              warnLog("AudioContext autoplay blocked:", e.message);
-              if (isIOS) {
-                warnLog("iOS: Please tap somewhere to enable audio");
-              }
-            }
-          }
-
-          if (isIOS && sharedAudioContext.state !== "running") {
-            iosForceRecreateOnPrepare = true;
-          }
-
-          if (!masterGain) {
-            masterGain = sharedAudioContext.createGain();
-            masterGain.gain.value = 0;
-            masterGain.connect(sharedAudioContext.destination);
-            masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.015);
-          }
-          ensureKeepAliveNode();
-          if (decodedBufferCacheContext !== sharedAudioContext) {
-            decodedBufferCache = {};
-            decodedBufferCacheContext = sharedAudioContext;
-          }
-          if (decodedBufferCache[fileName]) {
-            decodedBuffers = decodedBufferCache[fileName];
-          } else {
-            const rawBuffers = await fetchRawSampleBuffers(fileName);
-            decodedBuffers = await Promise.all(
-              rawBuffers.map((buf) => sharedAudioContext.decodeAudioData(buf.slice(0))),
-            );
-            decodedBufferCache[fileName] = decodedBuffers;
-          }
-        })();
-        try {
-          await preparePromise;
-        } finally {
-          preparePromise = null;
+          sharedAudioContext = null;
+          clearKeepAliveNode();
+          masterGain = null;
+          decodedBuffers = null;
         }
-      };
+
+        if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+          sharedAudioContext = createSharedAudioContext();
+          masterGain = null;
+        }
+
+        // iOS: Always try to resume on prepare (might be suspended after backgrounding)
+        if (
+          sharedAudioContext.state === "suspended" ||
+          sharedAudioContext.state === "interrupted"
+        ) {
+          try {
+            await sharedAudioContext.resume();
+            debugLog("audio", "AudioContext resumed, state:", sharedAudioContext.state);
+          } catch (e) {
+            warnLog("AudioContext autoplay blocked:", e.message);
+            if (isIOS) {
+              warnLog("iOS: Please tap somewhere to enable audio");
+            }
+          }
+        }
+
+        if (isIOS && sharedAudioContext.state !== "running") {
+          iosForceRecreateOnPrepare = true;
+        }
+
+        if (!masterGain) {
+          masterGain = sharedAudioContext.createGain();
+          masterGain.gain.value = 0;
+          masterGain.connect(sharedAudioContext.destination);
+          masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.015);
+        }
+        ensureKeepAliveNode();
+        if (decodedBufferCacheContext !== sharedAudioContext) {
+          decodedBufferCache = {};
+          decodedBufferCacheContext = sharedAudioContext;
+        }
+        if (decodedBufferCache[fileName]) {
+          decodedBuffers = decodedBufferCache[fileName];
+        } else {
+          const rawBuffers = await fetchRawSampleBuffers(fileName);
+          decodedBuffers = await Promise.all(
+            rawBuffers.map((buf) => sharedAudioContext.decodeAudioData(buf.slice(0))),
+          );
+          decodedBufferCache[fileName] = decodedBuffers;
+        }
+      })();
+      try {
+        await preparePromise;
+      } finally {
+        preparePromise = null;
+      }
+    };
 
     return {
       family: "sample",
@@ -499,10 +501,8 @@ ActiveHex.prototype.noteOn = function () {
   if (!this.sampleBuffer || !this.audioContext) return;
 
   const freq = this.fundamental * Math.pow(2, (this.cents - this.centsToReference) / 1200);
-  const sourceSelectionFreq = this.fundamental * Math.pow(
-    2,
-    (this.playbackSourceCents - this.centsToReference) / 1200,
-  );
+  const sourceSelectionFreq =
+    this.fundamental * Math.pow(2, (this.playbackSourceCents - this.centsToReference) / 1200);
   const vol = this.velocity_response
     ? this.velocity_floor +
       (1 - this.velocity_floor) * (this.velocity_played / 127) ** this.velocity_exp

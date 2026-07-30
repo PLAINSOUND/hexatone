@@ -19,20 +19,7 @@
   "short_description": "12-JI-3L_Pythag",
   "built_in_group": "12 Note Scales",
   "key_labels": "note_names",
-  "note_names": [
-    "C",
-    "D",
-    "D",
-    "E",
-    "E",
-    "F",
-    "F",
-    "G",
-    "A",
-    "A",
-    "B",
-    "B"
-  ],
+  "note_names": ["C", "D", "D", "E", "E", "F", "F", "G", "A", "A", "B", "B"],
   "note_colors": [
     "#ffcbcb",
     "#d0d0d7",

@@ -117,19 +117,13 @@ export const create_composite_synth = (synths) => ({
 
   ensureAwake() {
     const wakeables = synths.filter((s) => s.ensureAwake || s.prepare);
-    return Promise.all(
-      wakeables.map((s) => (
-        s.ensureAwake ? s.ensureAwake() : s.prepare()
-      )),
-    );
+    return Promise.all(wakeables.map((s) => (s.ensureAwake ? s.ensureAwake() : s.prepare())));
   },
 
   forceAudioRebuild() {
     const rebuildables = synths.filter((s) => s.forceAudioRebuild || s.prepare);
     return Promise.all(
-      rebuildables.map((s) => (
-        s.forceAudioRebuild ? s.forceAudioRebuild() : s.prepare()
-      )),
+      rebuildables.map((s) => (s.forceAudioRebuild ? s.forceAudioRebuild() : s.prepare())),
     );
   },
 

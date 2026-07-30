@@ -17,10 +17,12 @@ describe("sequencer autoscroll preference", () => {
     saveSequencerAutoScrollPreference(false, { setItem });
     expect(setItem).toHaveBeenCalledWith(AUTO_SCROLL_STORAGE_KEY, "false");
 
-    expect(() => saveSequencerAutoScrollPreference(true, {
-      setItem() {
-        throw new Error("blocked");
-      },
-    })).not.toThrow();
+    expect(() =>
+      saveSequencerAutoScrollPreference(true, {
+        setItem() {
+          throw new Error("blocked");
+        },
+      }),
+    ).not.toThrow();
   });
 });

@@ -55,9 +55,7 @@ const LinnstrumentSettings = ({
   showPitchBlock,
 }) => (
   <>
-    {showStatusBlock && !userFirmwareEligible && (
-      <LinnUserFirmwareStatus active={false} />
-    )}
+    {showStatusBlock && !userFirmwareEligible && <LinnUserFirmwareStatus active={false} />}
 
     {showModeBlock && !scaleMode && !userFirmwareActiveUi && (
       <>
@@ -177,13 +175,9 @@ const LinnstrumentSettings = ({
                 const parsed = parseInt(nextValue, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 50 : parsed));
                 onChange("linnstrument_pitch_bend_shape", v);
-                saveControllerPref(
-                  ctrl,
-                  "linnstrument_pitch_bend_shape",
-                  v,
-                  settings,
-                  { linnstrument_pitch_bend_shape: v },
-                );
+                saveControllerPref(ctrl, "linnstrument_pitch_bend_shape", v, settings, {
+                  linnstrument_pitch_bend_shape: v,
+                });
               }}
             />
             <span class="settings-form__range-value settings-form__range-value--short">
@@ -209,13 +203,9 @@ const LinnstrumentSettings = ({
                 const parsed = parseInt(nextValue, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 50 : parsed));
                 onChange("linnstrument_x_spike_reduction", v);
-                saveControllerPref(
-                  ctrl,
-                  "linnstrument_x_spike_reduction",
-                  v,
-                  settings,
-                  { linnstrument_x_spike_reduction: v },
-                );
+                saveControllerPref(ctrl, "linnstrument_x_spike_reduction", v, settings, {
+                  linnstrument_x_spike_reduction: v,
+                });
               }}
             />
             <span class="settings-form__range-value settings-form__range-value--short">
@@ -241,13 +231,9 @@ const LinnstrumentSettings = ({
                 const parsed = parseInt(nextValue, 10);
                 const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
                 onChange("linnstrument_x_input_smoothing", v);
-                saveControllerPref(
-                  ctrl,
-                  "linnstrument_x_input_smoothing",
-                  v,
-                  settings,
-                  { linnstrument_x_input_smoothing: v },
-                );
+                saveControllerPref(ctrl, "linnstrument_x_input_smoothing", v, settings, {
+                  linnstrument_x_input_smoothing: v,
+                });
               }}
             />
             <span class="settings-form__range-value settings-form__range-value--short">
@@ -276,44 +262,46 @@ const LinnstrumentSettings = ({
               inputClass="settings-form__scala-input settings-form__scala-input--right"
             />
           </label>
+        ) : channelAllocation !== "channel_per_note" ? (
+          <label
+            title={
+              channelAllocation === "channel_per_row"
+                ? "Channel-per-row LinnStrument pitch bending interval. The chosen Scala interval or cents span is spread across the full signed bend range for each active row channel."
+                : "Single-channel LinnStrument pitch bending interval. The chosen Scala interval or cents span is spread across the full signed bend range. Polyphonic playing will share that bend stream, so the musical result depends on the user's sound design."
+            }
+          >
+            Pitch Bending Interval (Scala)
+            <ScalaInput
+              context="interval"
+              value={settings.midiin_bend_range ?? "28/27"}
+              allowNegative
+              onChange={(str) => {
+                onChange("midiin_bend_range", str);
+                saveControllerPref(null, "midiin_bend_range", str);
+              }}
+              showCanonicalOnCommit
+              wrapperClass="sidebar-input"
+              inputClass="settings-form__scala-input settings-form__scala-input--right"
+            />
+          </label>
         ) : (
-          channelAllocation !== "channel_per_note" ? (
-            <label title={channelAllocation === "channel_per_row"
-              ? "Channel-per-row LinnStrument pitch bending interval. The chosen Scala interval or cents span is spread across the full signed bend range for each active row channel."
-              : "Single-channel LinnStrument pitch bending interval. The chosen Scala interval or cents span is spread across the full signed bend range. Polyphonic playing will share that bend stream, so the musical result depends on the user's sound design."}>
-              Pitch Bending Interval (Scala)
-              <ScalaInput
-                context="interval"
-                value={settings.midiin_bend_range ?? "28/27"}
-                allowNegative
-                onChange={(str) => {
-                  onChange("midiin_bend_range", str);
-                  saveControllerPref(null, "midiin_bend_range", str);
-                }}
-                showCanonicalOnCommit
-                wrapperClass="sidebar-input"
-                inputClass="settings-form__scala-input settings-form__scala-input--right"
-              />
-            </label>
-          ) : (
-            <label title="Standard pitch wheel range in semitones. With LinnStrument User Firmware off, Hexatone treats bend as generic passthrough behavior and relies on the user's hardware setup. This is most useful with monophonic synth response.">
-              Pitch Wheel Range (Semitones)
-              <input
-                type="number"
-                min="0"
-                max="48"
-                class="settings-form__sidebar-input--short"
-                value={settings.midi_wheel_semitones ?? 2}
-                {...buildAutoSelectInputProps()}
-                onChange={(e) => {
-                  const parsed = parseInt(e.target.value, 10);
-                  const v = Math.max(0, Math.min(48, Number.isNaN(parsed) ? 2 : parsed));
-                  onChange("midi_wheel_semitones", v);
-                  sessionStorage.setItem("midi_wheel_semitones", v);
-                }}
-              />
-            </label>
-          )
+          <label title="Standard pitch wheel range in semitones. With LinnStrument User Firmware off, Hexatone treats bend as generic passthrough behavior and relies on the user's hardware setup. This is most useful with monophonic synth response.">
+            Pitch Wheel Range (Semitones)
+            <input
+              type="number"
+              min="0"
+              max="48"
+              class="settings-form__sidebar-input--short"
+              value={settings.midi_wheel_semitones ?? 2}
+              {...buildAutoSelectInputProps()}
+              onChange={(e) => {
+                const parsed = parseInt(e.target.value, 10);
+                const v = Math.max(0, Math.min(48, Number.isNaN(parsed) ? 2 : parsed));
+                onChange("midi_wheel_semitones", v);
+                sessionStorage.setItem("midi_wheel_semitones", v);
+              }}
+            />
+          </label>
         )}
       </>
     )}

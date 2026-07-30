@@ -4,7 +4,10 @@ import { updateLabels } from "./keys-labels.js";
 describe("keys-labels updateLabels", () => {
   it("refreshes cached display labels for active and sustained notes before redraw", () => {
     const activeHex = { coords: { x: 1, y: 2 }, _noteContext: { displayLabel: "old-active" } };
-    const sustainedHex = { coords: { x: 3, y: 4 }, _noteContext: { displayLabel: "old-sustained" } };
+    const sustainedHex = {
+      coords: { x: 3, y: 4 },
+      _noteContext: { displayLabel: "old-sustained" },
+    };
     const ctx = {
       settings: {
         degree: false,

@@ -43,9 +43,10 @@ function scaleIdentityForDegree(keys, degree) {
   const ratioText = ratio.toFraction();
   const baseMonzo = cloneMonzo(interval?.monzo);
   const equaveMonzo = cloneMonzo(keys.tuning.equaveInterval?.monzo);
-  const monzo = baseMonzo && equaveMonzo
-    ? baseMonzo.map((value, index) => value + equavePower * (equaveMonzo[index] ?? 0))
-    : baseMonzo;
+  const monzo =
+    baseMonzo && equaveMonzo
+      ? baseMonzo.map((value, index) => value + equavePower * (equaveMonzo[index] ?? 0))
+      : baseMonzo;
   return {
     ratioText: ratioText.includes("/") ? ratioText : `${ratioText}/1`,
     monzo,
@@ -108,9 +109,10 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   if (!velocity_played) velocity_played = keys.settings.midi_velocity;
   if (!velocity_played) velocity_played = 72;
 
-  const pitchAtCoords = typeof keys.hexCoordsToLiveCents === "function"
-    ? keys.hexCoordsToLiveCents(coords)
-    : keys.hexCoordsToCents(coords);
+  const pitchAtCoords =
+    typeof keys.hexCoordsToLiveCents === "function"
+      ? keys.hexCoordsToLiveCents(coords)
+      : keys.hexCoordsToCents(coords);
   const [cents, pressed_interval, steps, equaves, equivSteps, cents_prev, cents_next] =
     pitchAtCoords;
   keys._lastPlayedDegree = pressed_interval ?? keys._lastPlayedDegree;
@@ -168,21 +170,27 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   ) {
     const bend14 = keys._mpeInputBendByChannel.get(inputChannel);
     const bend21 = keys._hakenMpeBend21ByChannel.get(inputChannel);
-    if (
-      keys.inputRuntime.mpeInput &&
-      keys.inputRuntime.target === "scale" &&
-      bend14 != null
-    ) {
+    if (keys.inputRuntime.mpeInput && keys.inputRuntime.target === "scale" && bend14 != null) {
       hex._scaleModeBendAnchor14 = keys._normalizePitchBend14(bend14);
       hex._scaleModeBendAnchor21 = bend21 ?? null;
-      hex._mpePrimedBeforeNoteOn = { channel: inputChannel, bend14, bend21: bend21 ?? null, bentCents: cents };
+      hex._mpePrimedBeforeNoteOn = {
+        channel: inputChannel,
+        bend14,
+        bend21: bend21 ?? null,
+        bentCents: cents,
+      };
       mpePrimedBeforeNoteOn = true;
     } else if (bend14 != null && bend14 !== 8192 && hex.retune) {
       let norm = (keys._normalizePitchBend14(bend14) - 8192) / 8192;
       if (keys.inputRuntime.bendFlip) norm = -norm;
       const bentCents = cents + norm * scalaToCents(keys.inputRuntime.bendRange ?? "9/8");
       hex.retune(bentCents, true);
-      hex._mpePrimedBeforeNoteOn = { channel: inputChannel, bend14, bend21: bend21 ?? null, bentCents };
+      hex._mpePrimedBeforeNoteOn = {
+        channel: inputChannel,
+        bend14,
+        bend21: bend21 ?? null,
+        bentCents,
+      };
       mpePrimedBeforeNoteOn = true;
     }
   }
@@ -200,7 +208,11 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   }
   if (wheelPrimedBeforeNoteOn) hex._wheelPrimedBeforeNoteOn = true;
   hex.noteOn();
-  hex._onsetFrameId = noteContext?.frameId ?? frameForNewNotes(keys._modulationState)?.id ?? keys._harmonicFrame?.id ?? null;
+  hex._onsetFrameId =
+    noteContext?.frameId ??
+    frameForNewNotes(keys._modulationState)?.id ??
+    keys._harmonicFrame?.id ??
+    null;
   hex.cents_prev = cents_prev;
   hex.cents_next = cents_next;
   keys.recencyStack.push(hex);

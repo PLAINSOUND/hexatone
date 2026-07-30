@@ -39,7 +39,7 @@ function candidateHejiLabel(candidate, settings, hejiAnchorLabelEff, hejiAnchorR
     const anchorCents = parseExactInterval(anchorRatioText)?.cents ?? 0;
     const centsFromAnchor = modulo((candidate?.cents ?? 0) - anchorCents, 1200);
     return spelledHejiLabel(frame, candidate?.ratioText ?? null, centsFromAnchor, {
-      suppressDeviation: true
+      suppressDeviation: true,
     });
   } catch {
     return null;
@@ -324,7 +324,9 @@ const TuneCell = ({
           onClick={onCompare}
           title="A/B compare with original"
         >
-          <span class="refresh-glyph tune-btn-compare" aria-hidden="true">⟳</span>
+          <span class="refresh-glyph tune-btn-compare" aria-hidden="true">
+            ⟳
+          </span>
         </button>
       )}
       {isDirty && (
@@ -363,13 +365,13 @@ const TuneCell = ({
             // For overtonal region: any negative non-2 exponent in the monzo means the
             // ratio has an undertonal component (e.g. 21/20 = [−2, −1, 1, 1] — has −1 for 5).
             // For undertonal region: any positive non-2 exponent is out of bounds.
-            const outsideRegion = Array.isArray(candidate.monzo) && (
-              region === "overtonal"
+            const outsideRegion =
+              Array.isArray(candidate.monzo) &&
+              (region === "overtonal"
                 ? candidate.monzo.slice(1).some((e) => e < 0)
                 : region === "undertonal"
                   ? candidate.monzo.slice(1).some((e) => e > 0)
-                  : false
-            );
+                  : false);
             const isOutOfBounds = outsideTolerance || outsidePrimeLimit || outsideRegion;
             const isCommitted = !!candidate.isCommitted;
             return (
@@ -380,7 +382,9 @@ const TuneCell = ({
                   "rationalise-candidate",
                   isCommitted ? "rationalise-candidate--committed" : "",
                   isOutOfBounds ? "rationalise-candidate--out-of-bounds" : "",
-                ].filter(Boolean).join(" ")}
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 onClick={() => {
                   const parsed = parseExactInterval(candidate.ratioText);
                   onPreviewChangeRef.current?.((prevState) =>
@@ -398,8 +402,13 @@ const TuneCell = ({
                 aria-label={`rational candidate ${candidate.ratioText}`}
               >
                 <div class="rationalise-candidate__row1">
-                  <span class="rationalise-candidate__ratio">{formatRatioText(candidate.ratioText)}</span>
-                  <span class="rationalise-candidate__meta">{candidate.deviation >= 0 ? "+" : ""}{candidate.deviation.toFixed(2)}c</span>
+                  <span class="rationalise-candidate__ratio">
+                    {formatRatioText(candidate.ratioText)}
+                  </span>
+                  <span class="rationalise-candidate__meta">
+                    {candidate.deviation >= 0 ? "+" : ""}
+                    {candidate.deviation.toFixed(2)}c
+                  </span>
                   {hejiLabel && (
                     <span class="rationalise-candidate__meta rationalise-candidate__heji">
                       {hejiLabel}
@@ -407,9 +416,15 @@ const TuneCell = ({
                   )}
                 </div>
                 <div class="rationalise-candidate__row2">
-                  <span class="rationalise-candidate__meta">{formatPrimeLimits(candidate.monzo)}</span>
-                  <span class="rationalise-candidate__meta">hr {candidate.harmonicRadius.toFixed(2)}</span>
-                  <span class="rationalise-candidate__meta">s_ctx {(candidate.contextualConsonance ?? 0).toFixed(2)}</span>
+                  <span class="rationalise-candidate__meta">
+                    {formatPrimeLimits(candidate.monzo)}
+                  </span>
+                  <span class="rationalise-candidate__meta">
+                    hr {candidate.harmonicRadius.toFixed(2)}
+                  </span>
+                  <span class="rationalise-candidate__meta">
+                    s_ctx {(candidate.contextualConsonance ?? 0).toFixed(2)}
+                  </span>
                 </div>
               </button>
             );

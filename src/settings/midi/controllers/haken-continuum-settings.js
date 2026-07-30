@@ -63,10 +63,13 @@ const HakenContinuumSettings = ({
   const glideFlipCc = Number.isFinite(settings.hakenaudio_glide_flip_cc)
     ? Math.trunc(settings.hakenaudio_glide_flip_cc)
     : 67;
-  const updateHakenPref = useCallback((key, value, extra = null) => {
-    onChange(key, value);
-    saveControllerPref(ctrl, key, value, settings, extra ?? { [key]: value });
-  }, [ctrl, onChange, saveControllerPref, settings]);
+  const updateHakenPref = useCallback(
+    (key, value, extra = null) => {
+      onChange(key, value);
+      saveControllerPref(ctrl, key, value, settings, extra ?? { [key]: value });
+    },
+    [ctrl, onChange, saveControllerPref, settings],
+  );
   useEffect(() => {
     setDraftFilter(settings.hakenaudio_raster_filter ?? "");
   }, [settings.hakenaudio_raster_filter]);
@@ -103,17 +106,16 @@ const HakenContinuumSettings = ({
       tuningRuntime,
     ],
   );
-  const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
-    snapshots,
-    filterRuntime,
-  ).map((entry) => ({
-    ...entry,
-    filter: formatContinuumRasterFilter(entry.degrees),
-  })), [
-    filterRuntime,
-    showSnapshotFilters,
-    snapshots,
-  ]);
+  const snapshotFilters = useMemo(
+    () =>
+      !showSnapshotFilters
+        ? []
+        : deriveSnapshotFilterEntries(snapshots, filterRuntime).map((entry) => ({
+            ...entry,
+            filter: formatContinuumRasterFilter(entry.degrees),
+          })),
+    [filterRuntime, showSnapshotFilters, snapshots],
+  );
   const matchingGeneratedFilter = useMemo(
     () => snapshotFilters.find((entry) => entry.filter === activeFilter) ?? null,
     [activeFilter, snapshotFilters],
@@ -180,8 +182,9 @@ const HakenContinuumSettings = ({
       return;
     }
     if (value === CONTINUUM_RASTER_FILTER_CUSTOM) return;
-    const entry = snapshotFilters.find((filter) => filter.id === value)
-      ?? savedFilters.find((filter) => filter.name === value);
+    const entry =
+      snapshotFilters.find((filter) => filter.id === value) ??
+      savedFilters.find((filter) => filter.name === value);
     if (!entry) return;
     setSelectedSavedName(entry.name);
     applyFilter(entry.filter, entry.name);
@@ -199,7 +202,10 @@ const HakenContinuumSettings = ({
       return;
     }
     const normalizedFilter = formatContinuumRasterFilter(parsed);
-    const nextName = window.prompt("Save Continuum raster filter as:", selectedSavedFilter?.name ?? "");
+    const nextName = window.prompt(
+      "Save Continuum raster filter as:",
+      selectedSavedFilter?.name ?? "",
+    );
     if (nextName == null) return;
     const trimmedName = nextName.trim();
     if (!trimmedName) return;
@@ -351,7 +357,9 @@ const HakenContinuumSettings = ({
           >
             <option value={CONTINUUM_RASTER_FILTER_ALL}>All Degrees</option>
             {snapshotFilters.length > 0 && (
-              <option value="__snapshot_separator__" disabled>──────── Snapshots ────────</option>
+              <option value="__snapshot_separator__" disabled>
+                ──────── Snapshots ────────
+              </option>
             )}
             {snapshotFilters.map((entry) => (
               <option key={entry.id} value={entry.id}>
@@ -359,7 +367,9 @@ const HakenContinuumSettings = ({
               </option>
             ))}
             {savedFilters.length > 0 && (
-              <option value="__separator__" disabled>──────── User Filters ────────</option>
+              <option value="__separator__" disabled>
+                ──────── User Filters ────────
+              </option>
             )}
             {filterActive && selectedValue === CONTINUUM_RASTER_FILTER_CUSTOM && (
               <option value={CONTINUUM_RASTER_FILTER_CUSTOM}>Current Custom Filter</option>
@@ -491,9 +501,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span class="settings-form__range-value">
-            {xGlideShaping}
-          </span>
+          <span class="settings-form__range-value">{xGlideShaping}</span>
         </span>
       </label>
 
@@ -514,9 +522,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span class="settings-form__range-value">
-            {pressureVelocity}
-          </span>
+          <span class="settings-form__range-value">{pressureVelocity}</span>
         </span>
       </label>
 
@@ -537,9 +543,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span class="settings-form__range-value">
-            {noteOffDelay} ms
-          </span>
+          <span class="settings-form__range-value">{noteOffDelay} ms</span>
         </span>
       </label>
 
@@ -560,9 +564,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span class="settings-form__range-value">
-            {rasterThrottleMs} ms
-          </span>
+          <span class="settings-form__range-value">{rasterThrottleMs} ms</span>
         </span>
       </label>
 
@@ -583,9 +585,7 @@ const HakenContinuumSettings = ({
               });
             }}
           />
-          <span class="settings-form__range-value">
-            {rasterStability}
-          </span>
+          <span class="settings-form__range-value">{rasterStability}</span>
         </span>
       </label>
     </>

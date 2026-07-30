@@ -36,9 +36,12 @@ function OutputPortPicker({
             ref={(element) => element && setTimeout(() => element.focus(), 0)}
           >
             <option value="__auto__">Auto detect</option>
-            {outputs && Array.from(outputs.values()).map((output) => (
-              <option key={output.id} value={output.id}>{output.name}</option>
-            ))}
+            {outputs &&
+              Array.from(outputs.values()).map((output) => (
+                <option key={output.id} value={output.id}>
+                  {output.name}
+                </option>
+              ))}
           </select>
         </span>
       );
@@ -58,9 +61,12 @@ function OutputPortPicker({
           ref={(el) => el && setTimeout(() => el.focus(), 0)}
         >
           <option value="__auto__">Auto detect</option>
-          {outputs && Array.from(outputs.values()).map((o) => (
-            <option key={o.id} value={o.id}>{o.name}</option>
-          ))}
+          {outputs &&
+            Array.from(outputs.values()).map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
         </select>
       </label>
     );
@@ -81,9 +87,7 @@ function OutputPortPicker({
               : "settings-form__status-value--missing"
           }`}
         >
-          {connected
-            ? `${isOverride ? "▸ " : ""}${portName}`
-            : "Not found — click to choose"}
+          {connected ? `${isOverride ? "▸ " : ""}${portName}` : "Not found — click to choose"}
         </span>
       </span>
     );
@@ -103,9 +107,7 @@ function OutputPortPicker({
             : "settings-form__status-value--missing"
         }`}
       >
-        {connected
-          ? `${isOverride ? "▸ " : ""}${portName}`
-          : "Not found — click to choose"}
+        {connected ? `${isOverride ? "▸ " : ""}${portName}` : "Not found — click to choose"}
       </span>
     </label>
   );

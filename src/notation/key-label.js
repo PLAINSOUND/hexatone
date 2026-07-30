@@ -27,26 +27,26 @@ import { spellPitchClassFromReferenceFrame } from "./reference-frame.js";
 // a tempered approximation is immediately distinguishable from a proper HEJI
 // spelling.  The cents deviation suffix (+N / -N) makes the approximation
 // quantitatively explicit.
-const GLYPH_FLAT    = "\uE2F1"; // tempered flat
+const GLYPH_FLAT = "\uE2F1"; // tempered flat
 const GLYPH_NATURAL = "\uE2F2"; // tempered natural
-const GLYPH_SHARP   = "\uE2F3"; // tempered sharp
+const GLYPH_SHARP = "\uE2F3"; // tempered sharp
 
 // 12-EDO chromatic pitches from C, in semitones, with preferred spelling.
 // Each entry: { letter, accidental } using Plainsound font glyphs.
 // This table is used only for the tempered fallback.
 const CHROMATIC_12 = [
-  { letter: "C", accidental: GLYPH_NATURAL },   // 0
-  { letter: "C", accidental: GLYPH_SHARP   },   // 1
-  { letter: "D", accidental: GLYPH_NATURAL },   // 2
-  { letter: "E", accidental: GLYPH_FLAT    },   // 3
-  { letter: "E", accidental: GLYPH_NATURAL },   // 4
-  { letter: "F", accidental: GLYPH_NATURAL },   // 5
-  { letter: "F", accidental: GLYPH_SHARP   },   // 6
-  { letter: "G", accidental: GLYPH_NATURAL },   // 7
-  { letter: "G", accidental: GLYPH_SHARP   },   // 8
-  { letter: "A", accidental: GLYPH_NATURAL },   // 9
-  { letter: "B", accidental: GLYPH_FLAT    },   // 10
-  { letter: "B", accidental: GLYPH_NATURAL },   // 11
+  { letter: "C", accidental: GLYPH_NATURAL }, // 0
+  { letter: "C", accidental: GLYPH_SHARP }, // 1
+  { letter: "D", accidental: GLYPH_NATURAL }, // 2
+  { letter: "E", accidental: GLYPH_FLAT }, // 3
+  { letter: "E", accidental: GLYPH_NATURAL }, // 4
+  { letter: "F", accidental: GLYPH_NATURAL }, // 5
+  { letter: "F", accidental: GLYPH_SHARP }, // 6
+  { letter: "G", accidental: GLYPH_NATURAL }, // 7
+  { letter: "G", accidental: GLYPH_SHARP }, // 8
+  { letter: "A", accidental: GLYPH_NATURAL }, // 9
+  { letter: "B", accidental: GLYPH_FLAT }, // 10
+  { letter: "B", accidental: GLYPH_NATURAL }, // 11
 ];
 
 // Semitone offset from C for each letter name.
@@ -55,7 +55,13 @@ const LETTER_TO_SEMITONE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 // Chromatic offset in semitones for flat / natural / sharp (3/5-limit only).
 // Used to determine the 12-EDO reference semitone implied by any HEJI spelling
 // (letter + chromatic accidental), ignoring higher-prime arrows.
-const CHROMATIC_TO_SEMITONE_DELTA = { doubleflat: -2, flat: -1, natural: 0, sharp: 1, doublesharp: 2 };
+const CHROMATIC_TO_SEMITONE_DELTA = {
+  doubleflat: -2,
+  flat: -1,
+  natural: 0,
+  sharp: 1,
+  doublesharp: 2,
+};
 
 /**
  * Return the 12-EDO semitone (0–11, relative to C) implied by a letter and
@@ -69,7 +75,7 @@ const CHROMATIC_TO_SEMITONE_DELTA = { doubleflat: -2, flat: -1, natural: 0, shar
 function chromaticSemitone(letter, chromatic) {
   const base = LETTER_TO_SEMITONE[letter.toUpperCase()] ?? 9;
   const delta = CHROMATIC_TO_SEMITONE_DELTA[chromatic] ?? 0;
-  return ((base + delta) % 12 + 12) % 12;
+  return (((base + delta) % 12) + 12) % 12;
 }
 
 /**
@@ -90,14 +96,14 @@ function chromaticSemitone(letter, chromatic) {
 function chromaticDeviation(centsFromAnchor, letter, chromatic, anchorLetter, anchorChromatic) {
   const pc = ((centsFromAnchor % 1200) + 1200) % 1200;
   // 12-EDO semitones from C for this note and the anchor.
-  const thisSemitone   = chromaticSemitone(letter, chromatic);
+  const thisSemitone = chromaticSemitone(letter, chromatic);
   const anchorSemitone = chromaticSemitone(anchorLetter, anchorChromatic);
   // Expected 12-EDO cents from anchor for this spelling.
-  const expected = ((thisSemitone - anchorSemitone) * 100 % 1200 + 1200) % 1200;
+  const expected = ((((thisSemitone - anchorSemitone) * 100) % 1200) + 1200) % 1200;
   // Round to integer so labels like "+0" don't appear.
   const raw = Math.round(pc - expected);
   // Fold to (−600, 600) — should always be within ±50 for valid HEJI spellings.
-  return ((raw + 600) % 1200 + 1200) % 1200 - 600;
+  return ((((raw + 600) % 1200) + 1200) % 1200) - 600;
 }
 
 /**
@@ -120,14 +126,19 @@ function deviationStr(deviation, options = {}) {
  * @param {string} [anchorChromatic] - "flat"|"natural"|"sharp" of anchor (default "natural").
  * @returns {string}               - E.g. "♭E+18", "♮A", "♯G−6"
  */
-export function temperedLabel(centsFromAnchor, anchorLetter, anchorChromatic = "natural", options = {}) {
+export function temperedLabel(
+  centsFromAnchor,
+  anchorLetter,
+  anchorChromatic = "natural",
+  options = {},
+) {
   const { forceZeroDeviation = false } = options;
   // Normalise to [0, 1200).
   const pc = ((centsFromAnchor % 1200) + 1200) % 1200;
 
   // Nearest 12-EDO semitone from C for this pitch class.
   const anchorSemitone = chromaticSemitone(anchorLetter, anchorChromatic);
-  const absPc = ((pc + anchorSemitone * 100) % 1200 + 1200) % 1200;
+  const absPc = (((pc + anchorSemitone * 100) % 1200) + 1200) % 1200;
   const semitoneFloat = absPc / 100;
   const semitoneNearest = Math.round(semitoneFloat) % 12;
 
@@ -136,9 +147,10 @@ export function temperedLabel(centsFromAnchor, anchorLetter, anchorChromatic = "
   // Deviation from that 12-EDO position, folded to (−600, 600).
   // Without the fold, pitches near the top of the octave (e.g. 127/64 ≈ 1186¢)
   // would produce a raw difference of ~1186 instead of ~−14.
-  const expectedCentsFromAnchor = ((semitoneNearest - anchorSemitone) * 100 % 1200 + 1200) % 1200;
+  const expectedCentsFromAnchor =
+    ((((semitoneNearest - anchorSemitone) * 100) % 1200) + 1200) % 1200;
   const raw = Math.round(pc - expectedCentsFromAnchor);
-  const deviation = ((raw + 600) % 1200 + 1200) % 1200 - 600;
+  const deviation = ((((raw + 600) % 1200) + 1200) % 1200) - 600;
 
   return `${accidental}${letter}${deviationStr(deviation, { forceZero: forceZeroDeviation })}`;
 }
@@ -181,7 +193,7 @@ export function spelledHejiLabel(frame, ratioText, centsFromAnchor, options = {}
         // Derive the 12-EDO reference from the letter + chromatic accidental
         // of the spelled note, ignoring all higher-prime arrows.
         // `spelled` is the monzoToHeji result: letter and baseId are top-level.
-        const baseLetter    = spelled.letter ?? frame.anchor?.letter ?? "A";
+        const baseLetter = spelled.letter ?? frame.anchor?.letter ?? "A";
         const baseChromatic = BASE_BY_ID[spelled.baseId]?.chromatic ?? "natural";
         const anchorChromatic = BASE_BY_ID[frame.anchor?.baseId]?.chromatic ?? "natural";
         const dev = chromaticDeviation(
@@ -217,7 +229,5 @@ export function spelledHejiLabel(frame, ratioText, centsFromAnchor, options = {}
  * @returns {string[]}       - One label per degree.
  */
 export function spellScaleAsHejiLabels(degrees, frame, options = {}) {
-  return degrees.map(({ ratioText, cents }) =>
-    spelledHejiLabel(frame, ratioText, cents, options),
-  );
+  return degrees.map(({ ratioText, cents }) => spelledHejiLabel(frame, ratioText, cents, options));
 }

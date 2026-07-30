@@ -7,19 +7,21 @@ import { CANONICAL_MONZO_BASIS } from "../../../tuning/interval.js";
 // All non-2 primes in the canonical basis — used to build the full prime grid.
 export const PRIME_BOUND_KEYS = CANONICAL_MONZO_BASIS.filter((p) => p !== 2);
 // Split into two rows: common primes (3–19) and extended primes (23+).
-export const PRIME_BOUND_KEYS_LOW  = PRIME_BOUND_KEYS.filter((p) => p <= 19);
+export const PRIME_BOUND_KEYS_LOW = PRIME_BOUND_KEYS.filter((p) => p <= 19);
 export const PRIME_BOUND_KEYS_HIGH = PRIME_BOUND_KEYS.filter((p) => p > 19);
 
-export const DEFAULT_PRIME_BOUNDS = Object.fromEntries(PRIME_BOUND_KEYS.map((p) => {
-  if (p === 3)  return [p, "8"];
-  if (p === 5)  return [p, "3"];
-  if (p === 7)  return [p, "2"];
-  if (p === 11) return [p, "2"];
-  if (p === 13) return [p, "2"];
-  if (p === 17) return [p, "1"];
-  if (p === 19) return [p, "1"];
-  return [p, "0"];
-}));
+export const DEFAULT_PRIME_BOUNDS = Object.fromEntries(
+  PRIME_BOUND_KEYS.map((p) => {
+    if (p === 3) return [p, "8"];
+    if (p === 5) return [p, "3"];
+    if (p === 7) return [p, "2"];
+    if (p === 11) return [p, "2"];
+    if (p === 13) return [p, "2"];
+    if (p === 17) return [p, "1"];
+    if (p === 19) return [p, "1"];
+    return [p, "0"];
+  }),
+);
 
 export const DEFAULT_SEARCH_PREFS = {
   region: "symmetric",

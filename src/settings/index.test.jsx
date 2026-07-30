@@ -8,7 +8,8 @@ vi.mock("../hexatone/preset-tunings/index.js", () => ({
 vi.mock("../hexatone/tuning-library.jsx", () => ({
   default: (props) => (
     <div>
-      {props.showActivateAudioContext && (props.activateAudioContext || props.activatePendingPreset) ? (
+      {props.showActivateAudioContext &&
+      (props.activateAudioContext || props.activatePendingPreset) ? (
         <button
           type="button"
           onClick={() => void (props.activateAudioContext || props.activatePendingPreset)()}

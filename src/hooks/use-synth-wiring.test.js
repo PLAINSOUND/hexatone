@@ -214,10 +214,18 @@ describe("use-synth-wiring octave shortcuts", () => {
   it("ignores octave shortcuts while typing or using modified/browser shortcuts", () => {
     expect(resolveOctaveShortcutAction({ code: "ArrowUp", shiftKey: true }, true)).toBeNull();
     expect(resolveOctaveShortcutAction({ code: "ArrowUp" }, false)).toBeNull();
-    expect(resolveOctaveShortcutAction({ code: "ArrowUp", shiftKey: true, ctrlKey: true }, false)).toBeNull();
-    expect(resolveOctaveShortcutAction({ code: "ArrowRight", shiftKey: true, metaKey: true }, false)).toBeNull();
-    expect(resolveOctaveShortcutAction({ code: "ArrowLeft", shiftKey: true, altKey: true }, false)).toBeNull();
-    expect(resolveOctaveShortcutAction({ code: "ArrowDown", shiftKey: true, repeat: true }, false)).toBeNull();
+    expect(
+      resolveOctaveShortcutAction({ code: "ArrowUp", shiftKey: true, ctrlKey: true }, false),
+    ).toBeNull();
+    expect(
+      resolveOctaveShortcutAction({ code: "ArrowRight", shiftKey: true, metaKey: true }, false),
+    ).toBeNull();
+    expect(
+      resolveOctaveShortcutAction({ code: "ArrowLeft", shiftKey: true, altKey: true }, false),
+    ).toBeNull();
+    expect(
+      resolveOctaveShortcutAction({ code: "ArrowDown", shiftKey: true, repeat: true }, false),
+    ).toBeNull();
   });
 
   it("ignores unrelated keys", () => {
@@ -243,11 +251,11 @@ describe("use-synth-wiring live OSC activation", () => {
     };
     expect(shouldFlushSoundingNotesForFreshOscActivation(silentKeys, true, null)).toBe(false);
     expect(shouldFlushSoundingNotesForFreshOscActivation(silentKeys, false, null)).toBe(false);
-    expect(shouldFlushSoundingNotesForFreshOscActivation(
-      { hasSoundingNotes: () => true },
-      true,
-      { family: "osc" },
-    )).toBe(false);
+    expect(
+      shouldFlushSoundingNotesForFreshOscActivation({ hasSoundingNotes: () => true }, true, {
+        family: "osc",
+      }),
+    ).toBe(false);
   });
 });
 
@@ -359,9 +367,7 @@ describe("use-synth-wiring controller resolution", () => {
       ["midi-function", { id: "midi-function", name: "MIDI Function" }],
     ]);
 
-    expect(
-      resolveLumatoneOutputPort(outputs, { name: "MIDI Function" })?.id,
-    ).toBe("midi-function");
+    expect(resolveLumatoneOutputPort(outputs, { name: "MIDI Function" })?.id).toBe("midi-function");
   });
 
   it("honors a manual Lumatone output override before MIDI Function preference", () => {
@@ -370,9 +376,9 @@ describe("use-synth-wiring controller resolution", () => {
       ["midi-function", { id: "midi-function", name: "MIDI Function" }],
     ]);
 
-    expect(
-      resolveLumatoneOutputPort(outputs, { name: "MIDI Function" }, "lumatone-main")?.id,
-    ).toBe("lumatone-main");
+    expect(resolveLumatoneOutputPort(outputs, { name: "MIDI Function" }, "lumatone-main")?.id).toBe(
+      "lumatone-main",
+    );
   });
 
   it("prefers the Exquis output with the closest name to the selected input", () => {

@@ -8,10 +8,7 @@ import BarlineRow from "./barline-row.jsx";
 import TempoRow from "./tempo-row.jsx";
 import RepeatRow from "./repeat-row.jsx";
 import EventRow from "./event-row.jsx";
-import {
-  structuralEventInstanceKey,
-  structuralEventRenderKey,
-} from "./value-runtime.js";
+import { structuralEventInstanceKey, structuralEventRenderKey } from "./value-runtime.js";
 import {
   effectiveManualSnapshotArticulation,
   normalizeManualSnapshotTrigger,
@@ -32,9 +29,7 @@ const SnapshotSequenceItem = ({
   actions,
   virtualMeasure,
 }) => {
-  const isPlaying =
-    snapshot.id === playingSnapshotId
-    || playingSnapshotIds.includes(snapshot.id);
+  const isPlaying = snapshot.id === playingSnapshotId || playingSnapshotIds.includes(snapshot.id);
   const isSelected = snapshot.id === selectedSnapshotId;
   const isExpanded = showAllEvents || expandedIds.has(snapshot.id);
   const isDragOver = dragState.dragOverId === snapshot.id;
@@ -47,7 +42,13 @@ const SnapshotSequenceItem = ({
   const snapshotEvents = structure.snapshotEventsById.get(snapshot.id) ?? [];
   const snapshotStructuralKeys = new Set(
     snapshotEvents
-      .filter((event) => event.type === "bar" || event.type === "tempo" || event.type === "repeat-start" || event.type === "repeat-end")
+      .filter(
+        (event) =>
+          event.type === "bar" ||
+          event.type === "tempo" ||
+          event.type === "repeat-start" ||
+          event.type === "repeat-end",
+      )
       .map((event) => structuralEventRenderKey(event)),
   );
 
@@ -122,7 +123,8 @@ const SnapshotSequenceItem = ({
           dragState.setDraggedId(null);
           const side = actions.resolveDropSide(e);
           if (dragState.dragIdRef.current !== null && dragState.dragIdRef.current !== snapshot.id) {
-            if (e.altKey) actions.onDuplicateSnapshot?.(dragState.dragIdRef.current, snapshot.id, side);
+            if (e.altKey)
+              actions.onDuplicateSnapshot?.(dragState.dragIdRef.current, snapshot.id, side);
             else actions.onMoveSnapshot(dragState.dragIdRef.current, snapshot.id, side);
           }
           dragState.dragIdRef.current = null;
@@ -185,17 +187,17 @@ const SnapshotSequenceItem = ({
             aria-label={`${manualArticulation === "arpeggiate" ? "arpeggiate" : "chord"} snapshot ${index + 1}`}
             aria-pressed={manualArticulation === "arpeggiate"}
             disabled={!manualArticulationEditable}
-            title={manualArticulationEditable
-              ? "Choose whether this snapshot is triggered as a chord or arpeggio"
-              : `Controlled by the ${manualArpeggiationMode === "all" ? "All Snapshots" : "Off"} arpeggiation mode`}
+            title={
+              manualArticulationEditable
+                ? "Choose whether this snapshot is triggered as a chord or arpeggio"
+                : `Controlled by the ${manualArpeggiationMode === "all" ? "All Snapshots" : "Off"} arpeggiation mode`
+            }
             onClick={(e) => {
               e.stopPropagation();
               actions.onUpdateSnapshot(snapshot.id, {
                 manualTrigger: {
                   ...manualTrigger,
-                  articulation: manualArticulation === "arpeggiate"
-                    ? "chord"
-                    : "arpeggiate",
+                  articulation: manualArticulation === "arpeggiate" ? "chord" : "arpeggiate",
                 },
               });
             }}
@@ -213,7 +215,8 @@ const SnapshotSequenceItem = ({
               actions.ensureExpanded(snapshot.id);
             }}
             onInput={(e) =>
-              actions.onUpdateSnapshot(snapshot.id, { description: e.currentTarget.value })}
+              actions.onUpdateSnapshot(snapshot.id, { description: e.currentTarget.value })
+            }
           />
           <button
             type="button"
@@ -240,10 +243,7 @@ const SnapshotSequenceItem = ({
                 actions.onPlaySnapshot(snapshot.id);
               }}
             >
-              <span
-                className="snapshot-play-glyph snapshot-play-glyph--play"
-                aria-hidden="true"
-              />
+              <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -272,56 +272,75 @@ const SnapshotSequenceItem = ({
             >
               <EventsGridHeader eventPane={rows.eventPane} onTogglePane={rows.setEventPane} />
               <div class="sequencer-events-grid__body">
-                {snapshotEvents.map((event) => (
-                  event.type === "bar" || event.type === "tempo" || event.type === "barline" || event.type === "repeat-start" || event.type === "repeat-end"
-                    ? (
-                      <div
-                        key={event.type === "barline" ? event.eventId : structuralEventInstanceKey(event)}
-                        ref={(node) => {
-                          const structuralKey = structuralEventRenderKey(event);
-                          if (event.type === "bar") {
-                            if (node) structure.barRowRefs.current.set(event.barId ?? event.id, node);
-                            else structure.barRowRefs.current.delete(event.barId ?? event.id);
-                          }
-                          if (structuralKey != null) {
-                            if (node) structure.barRowRefs.current.set(structuralKey, node);
-                            else structure.barRowRefs.current.delete(structuralKey);
-                          }
-                        }}
-                        class="sequencer-item sequencer-item--bar"
-                        data-sequence-structural-key={structuralEventRenderKey(event)}
-                      >
-                        {event.type === "bar" ? (
-                          <BarRow bar={event} barNumberById={structure.barNumberById} dnd={rows.barRowDnd} editing={rows.barRowEditing} />
-                        ) : event.type === "repeat-start" || event.type === "repeat-end" ? (
-                          <RepeatRow repeat={event} timing={rows.repeatRowTiming} editing={rows.repeatRowEditing} />
-                        ) : event.type === "barline" ? (
-                          <BarlineRow />
-                        ) : (
-                          <TempoRow tempo={event} timing={rows.tempoRowTiming} editing={rows.tempoRowEditing} />
-                        )}
-                      </div>
-                    )
-                    : (
-                      <EventRow
-                        snapshot={snapshot}
-                        snapshotIndex={index}
-                        event={event}
-                        view={rows.eventRowView}
-                        drafts={rows.eventRowDrafts}
-                        drag={rows.eventRowDrag}
-                        editing={rows.eventRowEditing}
-                        transport={rows.eventRowTransport}
-                      />
-                    )
-                ))}
+                {snapshotEvents.map((event) =>
+                  event.type === "bar" ||
+                  event.type === "tempo" ||
+                  event.type === "barline" ||
+                  event.type === "repeat-start" ||
+                  event.type === "repeat-end" ? (
+                    <div
+                      key={
+                        event.type === "barline" ? event.eventId : structuralEventInstanceKey(event)
+                      }
+                      ref={(node) => {
+                        const structuralKey = structuralEventRenderKey(event);
+                        if (event.type === "bar") {
+                          if (node) structure.barRowRefs.current.set(event.barId ?? event.id, node);
+                          else structure.barRowRefs.current.delete(event.barId ?? event.id);
+                        }
+                        if (structuralKey != null) {
+                          if (node) structure.barRowRefs.current.set(structuralKey, node);
+                          else structure.barRowRefs.current.delete(structuralKey);
+                        }
+                      }}
+                      class="sequencer-item sequencer-item--bar"
+                      data-sequence-structural-key={structuralEventRenderKey(event)}
+                    >
+                      {event.type === "bar" ? (
+                        <BarRow
+                          bar={event}
+                          barNumberById={structure.barNumberById}
+                          dnd={rows.barRowDnd}
+                          editing={rows.barRowEditing}
+                        />
+                      ) : event.type === "repeat-start" || event.type === "repeat-end" ? (
+                        <RepeatRow
+                          repeat={event}
+                          timing={rows.repeatRowTiming}
+                          editing={rows.repeatRowEditing}
+                        />
+                      ) : event.type === "barline" ? (
+                        <BarlineRow />
+                      ) : (
+                        <TempoRow
+                          tempo={event}
+                          timing={rows.tempoRowTiming}
+                          editing={rows.tempoRowEditing}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <EventRow
+                      snapshot={snapshot}
+                      snapshotIndex={index}
+                      event={event}
+                      view={rows.eventRowView}
+                      drafts={rows.eventRowDrafts}
+                      drag={rows.eventRowDrag}
+                      editing={rows.eventRowEditing}
+                      transport={rows.eventRowTransport}
+                    />
+                  ),
+                )}
               </div>
             </div>
           </div>
         )}
       </div>
       {(structure.structuralMarkersByDisplayBucket.get(index) ?? [])
-        .filter((marker) => !isExpanded || !snapshotStructuralKeys.has(structuralEventRenderKey(marker)))
+        .filter(
+          (marker) => !isExpanded || !snapshotStructuralKeys.has(structuralEventRenderKey(marker)),
+        )
         .map((marker) => (
           <div
             key={structuralEventInstanceKey(marker)}
@@ -340,11 +359,25 @@ const SnapshotSequenceItem = ({
             data-sequence-structural-key={structuralEventRenderKey(marker)}
           >
             {marker.structuralType === "bar" ? (
-              <BarRow bar={marker} barNumberById={structure.barNumberById} dnd={rows.barRowDnd} editing={rows.barRowEditing} />
-            ) : marker.structuralType === "repeat-start" || marker.structuralType === "repeat-end" ? (
-              <RepeatRow repeat={marker} timing={rows.repeatRowTiming} editing={rows.repeatRowEditing} />
+              <BarRow
+                bar={marker}
+                barNumberById={structure.barNumberById}
+                dnd={rows.barRowDnd}
+                editing={rows.barRowEditing}
+              />
+            ) : marker.structuralType === "repeat-start" ||
+              marker.structuralType === "repeat-end" ? (
+              <RepeatRow
+                repeat={marker}
+                timing={rows.repeatRowTiming}
+                editing={rows.repeatRowEditing}
+              />
             ) : (
-              <TempoRow tempo={marker} timing={rows.tempoRowTiming} editing={rows.tempoRowEditing} />
+              <TempoRow
+                tempo={marker}
+                timing={rows.tempoRowTiming}
+                editing={rows.tempoRowEditing}
+              />
             )}
           </div>
         ))}

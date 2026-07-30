@@ -43,9 +43,11 @@ describe("degreeFilterSetFromSettings", () => {
   });
 
   it("returns a Set of active degrees when filtering is enabled", () => {
-    expect([...degreeFilterSetFromSettings({
-      lumatone_degree_filter_mode: "filter",
-      lumatone_degree_filter: "0,4,7",
-    })]).toEqual([0, 4, 7]);
+    expect([
+      ...degreeFilterSetFromSettings({
+        lumatone_degree_filter_mode: "filter",
+        lumatone_degree_filter: "0,4,7",
+      }),
+    ]).toEqual([0, 4, 7]);
   });
 });

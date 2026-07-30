@@ -4,13 +4,15 @@
 // redraw, or mutate history by itself. Callers decide how to apply the
 // returned decision and side effects.
 
-import {
-  cancelModulation,
-  setModulationSource,
-} from "../tuning/modulation-runtime.js";
+import { cancelModulation, setModulationSource } from "../tuning/modulation-runtime.js";
 import { geometryDeltaFromCoords } from "../tuning/modulation-geometry-runtime.js";
 
-export function setAwaitingModulationSource(keys, sourceHex = null, sourceDegree = null, sourceCoords = null) {
+export function setAwaitingModulationSource(
+  keys,
+  sourceHex = null,
+  sourceDegree = null,
+  sourceCoords = null,
+) {
   if (keys._modulationState.mode !== "awaiting_target") return keys._modulationState;
   return setModulationSource(keys._modulationState, {
     sourceHex,
@@ -73,9 +75,10 @@ export function derivePendingModulationCommit(keys, coords) {
     transpositionSteps,
     transpositionCents,
     geometryShiftRSteps:
-      (activeFrame?.geometryShiftRSteps ?? 0) + (isFixedDo ? geometryDelta?.deltaRSteps ?? 0 : 0),
+      (activeFrame?.geometryShiftRSteps ?? 0) + (isFixedDo ? (geometryDelta?.deltaRSteps ?? 0) : 0),
     geometryShiftDrSteps:
-      (activeFrame?.geometryShiftDrSteps ?? 0) + (isFixedDo ? geometryDelta?.deltaDrSteps ?? 0 : 0),
+      (activeFrame?.geometryShiftDrSteps ?? 0) +
+      (isFixedDo ? (geometryDelta?.deltaDrSteps ?? 0) : 0),
     effectiveFundamental,
   });
 

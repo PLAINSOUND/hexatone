@@ -33,15 +33,18 @@ export function deriveGeometryShiftForHistory(history = [], fixedDoEnabled = fal
     return { deltaRSteps: 0, deltaDrSteps: 0 };
   }
 
-  return history.reduce((sum, entry) => {
-    const count = intOrZero(entry?.count);
-    if (count === 0) return sum;
-    const delta = normalizeGeometryDelta(entry);
-    return {
-      deltaRSteps: sum.deltaRSteps + count * delta.deltaRSteps,
-      deltaDrSteps: sum.deltaDrSteps + count * delta.deltaDrSteps,
-    };
-  }, { deltaRSteps: 0, deltaDrSteps: 0 });
+  return history.reduce(
+    (sum, entry) => {
+      const count = intOrZero(entry?.count);
+      if (count === 0) return sum;
+      const delta = normalizeGeometryDelta(entry);
+      return {
+        deltaRSteps: sum.deltaRSteps + count * delta.deltaRSteps,
+        deltaDrSteps: sum.deltaDrSteps + count * delta.deltaDrSteps,
+      };
+    },
+    { deltaRSteps: 0, deltaDrSteps: 0 },
+  );
 }
 
 export function applyGeometryShiftToCoords(coords, frame = null) {

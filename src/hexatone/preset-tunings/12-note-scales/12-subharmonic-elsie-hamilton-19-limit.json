@@ -19,20 +19,7 @@
   "short_description": "12-HamiltonModes",
   "built_in_group": "12 Note Scales",
   "key_labels": "note_names",
-  "note_names": [
-    "B",
-    "C",
-    "C",
-    "D",
-    "D",
-    "E",
-    "F",
-    "F",
-    "G",
-    "G",
-    "A",
-    "B"
-  ],
+  "note_names": ["B", "C", "C", "D", "D", "E", "F", "F", "G", "G", "A", "B"],
   "note_colors": [
     "#ff8f8f",
     "#b6e8a1",

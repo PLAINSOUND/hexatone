@@ -97,10 +97,7 @@ describe("tuning/rationalise", () => {
       centsTolerance: 12,
       maxCandidates: 1,
     });
-    expect(results.map((candidate) => candidate.ratioText)).toEqual([
-      "729/512",
-      "1024/729",
-    ]);
+    expect(results.map((candidate) => candidate.ratioText)).toEqual(["729/512", "1024/729"]);
   });
 
   it("prefers the smaller unreduced ratio when otonality also ties", () => {

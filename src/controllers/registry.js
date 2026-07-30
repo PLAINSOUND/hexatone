@@ -588,17 +588,18 @@ export function normalizeTonalPlexus41InputWithSettings(channel, note, settings 
  */
 export function buildLinnstrumentUserFirmwareMap(anchorCol = 9, anchorRow = 4, cols = 16) {
   const ROWS = 8;
-  const anchorRowFromBottom = anchorRow - 1;  // convert to 0-indexed
+  const anchorRowFromBottom = anchorRow - 1; // convert to 0-indexed
 
   const entries = [];
   for (let rowFromBottom = 0; rowFromBottom < ROWS; rowFromBottom++) {
-    const ch = rowFromBottom + 1;             // ch 1 = bottom row
+    const ch = rowFromBottom + 1; // ch 1 = bottom row
     const dr = rowFromBottom - anchorRowFromBottom;
-    for (let col = 1; col <= cols; col++) {   // col 0 = switches, skip
+    for (let col = 1; col <= cols; col++) {
+      // col 0 = switches, skip
       entries.push({
         ch,
         note: col,
-        x: (col - anchorCol) + dr,
+        x: col - anchorCol + dr,
         y: dr === 0 ? 0 : -dr,
       });
     }
@@ -718,8 +719,7 @@ export const CONTROLLER_REGISTRY = [
     id: "hakenaudio",
     name: "Haken Audio Continuum",
     detect: detectHakenDeviceName,
-    description:
-      "Haken Audio Continuum MPE+ expressive surface.",
+    description: "Haken Audio Continuum MPE+ expressive surface.",
     multiChannel: false,
     mpeInputPolicy: "always",
     // Continuum voice-channel layouts are hardware/profile dependent, so keep
@@ -895,13 +895,13 @@ export const CONTROLLER_REGISTRY = [
     sequentialLegacyDefault: false,
     // Anchor in native UF coordinates: col (1-indexed) + channel/row (1-indexed).
     // Default col 9, row 4 = near centre of the 16-col grid.
-    anchorDefault: 9,           // default anchor column
-    anchorChannelDefault: 4,    // default anchor row/channel
-    defaultCols: 16,            // LinnStrument 128; set to 25 for LinnStrument 200
+    anchorDefault: 9, // default anchor column
+    anchorChannelDefault: 4, // default anchor row/channel
+    defaultCols: 16, // LinnStrument 128; set to 25 for LinnStrument 200
     supportsVirtualAnchor: true,
     learnConstraints: {
-      noteRange:   { min: 1, max: 25 },   // col 1-25 (25 for 200-note model)
-      channelRange: { min: 1, max: 8 },   // row 1-8
+      noteRange: { min: 1, max: 25 }, // col 1-25 (25 for 200-note model)
+      channelRange: { min: 1, max: 8 }, // row 1-8
     },
     defaultMode: "userfw",
     modes: {

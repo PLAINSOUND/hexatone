@@ -32,7 +32,9 @@ export function findPlaybackStartIndex(playbackBursts = [], selector = {}) {
 
   if (Number.isFinite(Number(selector.snapshotIndex))) {
     const target = Number(selector.snapshotIndex);
-    const index = playbackBursts.findIndex((burst) => (burst?.sourceSnapshotIndexes ?? []).some((value) => value >= target));
+    const index = playbackBursts.findIndex((burst) =>
+      (burst?.sourceSnapshotIndexes ?? []).some((value) => value >= target),
+    );
     return index >= 0 ? index : playbackBursts.length - 1;
   }
 
@@ -54,9 +56,9 @@ export function createTimedTransportState(playbackBursts = [], { speedMultiplier
 function transportElapsedSeconds(state, clockSeconds) {
   return Math.max(
     0,
-    Number(state.pausedElapsedSeconds ?? 0)
-      + (Number(clockSeconds) - Number(state.anchorClockSeconds))
-        * clampSequencePlaybackSpeed(state?.speedMultiplier ?? 1),
+    Number(state.pausedElapsedSeconds ?? 0) +
+      (Number(clockSeconds) - Number(state.anchorClockSeconds)) *
+        clampSequencePlaybackSpeed(state?.speedMultiplier ?? 1),
   );
 }
 
@@ -107,7 +109,11 @@ export function stopTimedTransport(playbackBursts = [], { speedMultiplier = 1 } 
   return createTimedTransportState(playbackBursts, { speedMultiplier });
 }
 
-export function seekTimedTransport(state, playbackBursts = [], { playbackIndex = 0, clockSeconds = null } = {}) {
+export function seekTimedTransport(
+  state,
+  playbackBursts = [],
+  { playbackIndex = 0, clockSeconds = null } = {},
+) {
   if (!Array.isArray(playbackBursts) || playbackBursts.length === 0) {
     return createTimedTransportState([], { speedMultiplier: state?.speedMultiplier ?? 1 });
   }
@@ -146,7 +152,11 @@ export function updateTimedTransportSpeed(state, clockSeconds = 0, speedMultipli
 }
 
 export function advanceTimedTransport(state, playbackBursts = [], clockSeconds = 0) {
-  if (state?.status !== "running" || !Array.isArray(playbackBursts) || playbackBursts.length === 0) {
+  if (
+    state?.status !== "running" ||
+    !Array.isArray(playbackBursts) ||
+    playbackBursts.length === 0
+  ) {
     return { state, dueBursts: [] };
   }
 
@@ -171,9 +181,8 @@ export function advanceTimedTransport(state, playbackBursts = [], clockSeconds =
       // diagnostics and consumers do not fall back to the start offset.
       pausedElapsedSeconds: finished ? elapsedSeconds : state.pausedElapsedSeconds,
       nextPlaybackIndex: finished ? -1 : nextPlaybackIndex,
-      lastDispatchedPlaybackIndex: dueBursts.length > 0
-        ? dueBursts.at(-1).playbackIndex
-        : state.lastDispatchedPlaybackIndex,
+      lastDispatchedPlaybackIndex:
+        dueBursts.length > 0 ? dueBursts.at(-1).playbackIndex : state.lastDispatchedPlaybackIndex,
     },
     dueBursts,
   };
@@ -186,10 +195,10 @@ export function applyLiveRepeatDecision(
   { playRepeats = true, clockSeconds = 0 } = {},
 ) {
   if (playRepeats) return { state, dueBursts };
-  const repeatIndex = dueBursts.findIndex((burst) => (
-    burst?.repeatJump != null
-    && Number.isInteger(Number(burst?.repeatSkip?.nextPlaybackIndex))
-  ));
+  const repeatIndex = dueBursts.findIndex(
+    (burst) =>
+      burst?.repeatJump != null && Number.isInteger(Number(burst?.repeatSkip?.nextPlaybackIndex)),
+  );
   if (repeatIndex < 0) return { state, dueBursts };
 
   const repeatBurst = dueBursts[repeatIndex];

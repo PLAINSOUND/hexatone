@@ -72,33 +72,28 @@ describe("timed playback highlight presenter", () => {
 
 describe("timed playback autoscroll presenter", () => {
   it("takes exclusive viewport ownership only while timed playback is running", () => {
-    expect(resolveSequencerViewportOwner({ timedPlaybackRunning: false }))
-      .toBe(SEQUENCER_VIEWPORT_OWNER_NAVIGATION);
-    expect(resolveSequencerViewportOwner({ timedPlaybackRunning: true }))
-      .toBe(SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK);
+    expect(resolveSequencerViewportOwner({ timedPlaybackRunning: false })).toBe(
+      SEQUENCER_VIEWPORT_OWNER_NAVIGATION,
+    );
+    expect(resolveSequencerViewportOwner({ timedPlaybackRunning: true })).toBe(
+      SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK,
+    );
   });
 
   it("follows only newly attacked rows while sustained earlier notes remain highlighted", () => {
-    expect(deriveTimedPageFollowPosition({
-      burst: {
-        newlyAttacked: ["new"],
-        soundingAfter: [
-          { instanceKey: "held", eventId: "event-held", snapshotIndex: 0 },
-          { instanceKey: "new", eventId: "event-new", snapshotIndex: 4 },
-        ],
-      },
-      sequenceEvents: [
-        { eventId: "event-held" },
-        { eventId: "event-new" },
-      ],
-      snapshots: [
-        { id: 1 },
-        { id: 2 },
-        { id: 3 },
-        { id: 4 },
-        { id: 5 },
-      ],
-    })).toEqual({
+    expect(
+      deriveTimedPageFollowPosition({
+        burst: {
+          newlyAttacked: ["new"],
+          soundingAfter: [
+            { instanceKey: "held", eventId: "event-held", snapshotIndex: 0 },
+            { instanceKey: "new", eventId: "event-new", snapshotIndex: 4 },
+          ],
+        },
+        sequenceEvents: [{ eventId: "event-held" }, { eventId: "event-new" }],
+        snapshots: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }],
+      }),
+    ).toEqual({
       scrollSnapshotId: 5,
       scrollSnapshotEndId: 5,
       scrollSnapshotIndex: 4,
@@ -107,18 +102,18 @@ describe("timed playback autoscroll presenter", () => {
   });
 
   it("follows the current snapshot for a release-only cue without targeting an old note", () => {
-    expect(deriveTimedPageFollowPosition({
-      burst: {
-        newlyAttacked: [],
-        soundingAfter: [
-          { instanceKey: "held", eventId: "event-held", snapshotIndex: 0 },
-        ],
-      },
-      sequenceEvents: [{ eventId: "event-held" }],
-      snapshots: [{ id: 1 }, { id: 2 }],
-      fallbackSnapshotIndex: 1,
-      fallbackSnapshotId: 2,
-    })).toEqual({
+    expect(
+      deriveTimedPageFollowPosition({
+        burst: {
+          newlyAttacked: [],
+          soundingAfter: [{ instanceKey: "held", eventId: "event-held", snapshotIndex: 0 }],
+        },
+        sequenceEvents: [{ eventId: "event-held" }],
+        snapshots: [{ id: 1 }, { id: 2 }],
+        fallbackSnapshotIndex: 1,
+        fallbackSnapshotId: 2,
+      }),
+    ).toEqual({
       scrollSnapshotId: 2,
       scrollSnapshotEndId: 2,
       scrollSnapshotIndex: 1,
@@ -221,9 +216,7 @@ describe("timed playback autoscroll presenter", () => {
     const scrollSnapshotRows = vi.fn();
     const presenter = createTimedPlaybackAutoscrollPresenter({
       resolveSnapshotRow: () => snapshotRow,
-      resolveEventRow: (id) => (
-        id === "early" ? earlyEvent : id === "latest" ? latestEvent : null
-      ),
+      resolveEventRow: (id) => (id === "early" ? earlyEvent : id === "latest" ? latestEvent : null),
       scrollSnapshotRows,
       requestFrame: frames.requestFrame,
       cancelFrame: frames.cancelFrame,

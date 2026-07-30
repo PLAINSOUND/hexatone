@@ -12,26 +12,26 @@ Hexatone currently exposes three kinds of debug controls:
 These are controlled by the storage key:
 
 ```js
-localStorage.setItem("hexatone_debug", "midi")
+localStorage.setItem("hexatone_debug", "midi");
 ```
 
 You can enable multiple categories with commas:
 
 ```js
-localStorage.setItem("hexatone_debug", "midi,MIDImonitoring,osc")
+localStorage.setItem("hexatone_debug", "midi,MIDImonitoring,osc");
 ```
 
 Or everything:
 
 ```js
-localStorage.setItem("hexatone_debug", "all")
+localStorage.setItem("hexatone_debug", "all");
 ```
 
 To clear:
 
 ```js
-localStorage.removeItem("hexatone_debug")
-sessionStorage.removeItem("hexatone_debug")
+localStorage.removeItem("hexatone_debug");
+sessionStorage.removeItem("hexatone_debug");
 ```
 
 ### Available categories
@@ -65,7 +65,7 @@ sessionStorage.removeItem("hexatone_debug")
 Enable with either:
 
 ```js
-localStorage.setItem("hexatone_debug_timed_transport", "true")
+localStorage.setItem("hexatone_debug_timed_transport", "true");
 ```
 
 or URL:
@@ -83,15 +83,15 @@ hexatone_timed_transport_diagnostics
 ### Console global
 
 ```js
-globalThis.__hexatoneTimedTransportDiagnostics
+globalThis.__hexatoneTimedTransportDiagnostics;
 ```
 
 Available methods:
 
 ```js
-globalThis.__hexatoneTimedTransportDiagnostics?.get()
-globalThis.__hexatoneTimedTransportDiagnostics?.getPersisted()
-globalThis.__hexatoneTimedTransportDiagnostics?.reset()
+globalThis.__hexatoneTimedTransportDiagnostics?.get();
+globalThis.__hexatoneTimedTransportDiagnostics?.getPersisted();
+globalThis.__hexatoneTimedTransportDiagnostics?.reset();
 ```
 
 Notes:
@@ -122,7 +122,7 @@ Notes:
 Enable with either:
 
 ```js
-localStorage.setItem("hexatone_debug_midi_restore", "true")
+localStorage.setItem("hexatone_debug_midi_restore", "true");
 ```
 
 or URL:
@@ -140,14 +140,14 @@ hexatone_midi_restore_diagnostics
 ### Console global
 
 ```js
-globalThis.__hexatoneMidiRestoreDiagnostics
+globalThis.__hexatoneMidiRestoreDiagnostics;
 ```
 
 Available methods:
 
 ```js
-globalThis.__hexatoneMidiRestoreDiagnostics?.getPersisted()
-globalThis.__hexatoneMidiRestoreDiagnostics?.reset()
+globalThis.__hexatoneMidiRestoreDiagnostics?.getPersisted();
+globalThis.__hexatoneMidiRestoreDiagnostics?.reset();
 ```
 
 Notes:
@@ -161,7 +161,7 @@ Notes:
 Enable with either:
 
 ```js
-localStorage.setItem("hexatone_debug_sequence_runtime", "true")
+localStorage.setItem("hexatone_debug_sequence_runtime", "true");
 ```
 
 or URL:
@@ -179,15 +179,15 @@ hexatone_sequence_runtime_diagnostics
 ### Console global
 
 ```js
-globalThis.__hexatoneSequenceRuntimeDiagnostics
+globalThis.__hexatoneSequenceRuntimeDiagnostics;
 ```
 
 Available methods:
 
 ```js
-globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted()
-globalThis.__hexatoneSequenceRuntimeDiagnostics?.getRebuildReport()
-globalThis.__hexatoneSequenceRuntimeDiagnostics?.reset()
+globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted();
+globalThis.__hexatoneSequenceRuntimeDiagnostics?.getRebuildReport();
+globalThis.__hexatoneSequenceRuntimeDiagnostics?.reset();
 ```
 
 Notes:
@@ -203,37 +203,37 @@ Notes:
 Enable MIDI input tracing:
 
 ```js
-localStorage.setItem("hexatone_debug", "midi,MIDImonitoring")
+localStorage.setItem("hexatone_debug", "midi,MIDImonitoring");
 ```
 
 Enable transport timing diagnostics:
 
 ```js
-localStorage.setItem("hexatone_debug_timed_transport", "true")
+localStorage.setItem("hexatone_debug_timed_transport", "true");
 ```
 
 Read the last persisted timed-transport summary:
 
 ```js
-globalThis.__hexatoneTimedTransportDiagnostics?.getPersisted()
+globalThis.__hexatoneTimedTransportDiagnostics?.getPersisted();
 ```
 
 Enable sequencer runtime profiling:
 
 ```js
-localStorage.setItem("hexatone_debug_sequence_runtime", "true")
+localStorage.setItem("hexatone_debug_sequence_runtime", "true");
 ```
 
 Enable MIDI restore diagnostics:
 
 ```js
-localStorage.setItem("hexatone_debug_midi_restore", "true")
+localStorage.setItem("hexatone_debug_midi_restore", "true");
 ```
 
 Read the persisted sequence-runtime summary:
 
 ```js
-globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted()
+globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted();
 ```
 
 ## 5. Sequencer Crash Diagnostics
@@ -241,7 +241,7 @@ globalThis.__hexatoneSequenceRuntimeDiagnostics?.getPersisted()
 Enable with either:
 
 ```js
-localStorage.setItem("hexatone_debug_sequencer_crash", "true")
+localStorage.setItem("hexatone_debug_sequencer_crash", "true");
 ```
 
 or URL:
@@ -261,27 +261,27 @@ hexatone_sequencer_crash_diagnostics
 ### Console global
 
 ```js
-globalThis.__hexatoneSequencerCrashDiagnostics
+globalThis.__hexatoneSequencerCrashDiagnostics;
 ```
 
 Available methods:
 
 ```js
-globalThis.__hexatoneSequencerCrashDiagnostics?.getPersisted()
-globalThis.__hexatoneSequencerCrashDiagnostics?.reset()
+globalThis.__hexatoneSequencerCrashDiagnostics?.getPersisted();
+globalThis.__hexatoneSequencerCrashDiagnostics?.reset();
 ```
 
 Typical workflow:
 
 ```js
-localStorage.setItem("hexatone_debug_sequencer_crash", "true")
-location.reload()
+localStorage.setItem("hexatone_debug_sequencer_crash", "true");
+location.reload();
 ```
 
 After an `Aw, Snap` or reload, inspect:
 
 ```js
-globalThis.__hexatoneSequencerCrashDiagnostics?.getPersisted()
+globalThis.__hexatoneSequencerCrashDiagnostics?.getPersisted();
 ```
 
 Notes:

@@ -125,7 +125,12 @@ describe("Keyboard settings-impact boundary", () => {
     const { rerender } = render(<Keyboard {...baseProps} />);
     const first = keysState.instances[0];
 
-    rerender(<Keyboard {...baseProps} colorSettings={{ ...baseProps.colorSettings, fundamental_color: "#000000" }} />);
+    rerender(
+      <Keyboard
+        {...baseProps}
+        colorSettings={{ ...baseProps.colorSettings, fundamental_color: "#000000" }}
+      />,
+    );
     expect(keysState.instances).toHaveLength(1);
     expect(first.updateColors).toHaveBeenLastCalledWith({
       note_colors: ["#ffffff"],

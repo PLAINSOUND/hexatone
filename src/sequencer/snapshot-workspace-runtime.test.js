@@ -129,7 +129,10 @@ describe("snapshot workspace runtime", () => {
     expect(moved.map((snapshot) => snapshot.id)).toEqual([2, 3, 1]);
 
     const duplicated = duplicateSnapshotInWorkspace({
-      snapshots: [{ id: 1, length: 1, notes: [] }, { id: 2, length: 1, notes: [] }],
+      snapshots: [
+        { id: 1, length: 1, notes: [] },
+        { id: 2, length: 1, notes: [] },
+      ],
       bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
       tempi: [{ id: 1, position: 2, bpm: 60 }],
       repeats: [{ id: 1, position: 2, kind: "end", repeatCount: 2 }],
@@ -146,13 +149,15 @@ describe("snapshot workspace runtime", () => {
   });
 
   it("updates and resets derived descriptions", () => {
-    const snapshots = [{
-      id: 1,
-      length: 1,
-      description: "old",
-      descriptionManual: false,
-      notes: [{ midicents: 6900 }],
-    }];
+    const snapshots = [
+      {
+        id: 1,
+        length: 1,
+        description: "old",
+        descriptionManual: false,
+        notes: [{ midicents: 6900 }],
+      },
+    ];
     const updated = updateSnapshotInWorkspace({
       snapshots,
       snapshotId: 1,
@@ -196,8 +201,34 @@ describe("snapshot workspace runtime", () => {
   it("builds a copied block with expanded bars, optional markers, and reset note offsets", () => {
     const block = buildSnapshotCopyBlock({
       snapshots: [
-        { id: 1, length: 1, description: "a", notes: [{ id: "n1", start: 0.25, end: 0.75, startFractionDenominator: 4, endFractionDenominator: 4 }] },
-        { id: 2, length: 1, description: "b", notes: [{ id: "n2", start: 0.5, end: 0.9, startFractionDenominator: 6, endFractionDenominator: 6 }] },
+        {
+          id: 1,
+          length: 1,
+          description: "a",
+          notes: [
+            {
+              id: "n1",
+              start: 0.25,
+              end: 0.75,
+              startFractionDenominator: 4,
+              endFractionDenominator: 4,
+            },
+          ],
+        },
+        {
+          id: 2,
+          length: 1,
+          description: "b",
+          notes: [
+            {
+              id: "n2",
+              start: 0.5,
+              end: 0.9,
+              startFractionDenominator: 6,
+              endFractionDenominator: 6,
+            },
+          ],
+        },
         { id: 3, length: 1, description: "c", notes: [] },
         { id: 4, length: 1, description: "d", notes: [] },
       ],
@@ -230,8 +261,14 @@ describe("snapshot workspace runtime", () => {
 
   it("sets articulation across a selected snapshot range while preserving trigger styles", () => {
     const snapshots = [
-      { id: 1, manualTrigger: { articulation: "chord", styleId: "one", styleParameters: { a: 1 } } },
-      { id: 2, manualTrigger: { articulation: "chord", styleId: "two", styleParameters: { b: 2 } } },
+      {
+        id: 1,
+        manualTrigger: { articulation: "chord", styleId: "one", styleParameters: { a: 1 } },
+      },
+      {
+        id: 2,
+        manualTrigger: { articulation: "chord", styleId: "two", styleParameters: { b: 2 } },
+      },
       { id: 3, manualTrigger: { articulation: "chord", styleId: "three", styleParameters: null } },
     ];
 
@@ -347,7 +384,9 @@ describe("snapshot workspace runtime", () => {
     });
 
     expect(result.error).toBeNull();
-    expect(result.snapshots.map((snapshot) => snapshot.id)).toEqual([10, 11, 20, 21, 22, 23, 12, 13]);
+    expect(result.snapshots.map((snapshot) => snapshot.id)).toEqual([
+      10, 11, 20, 21, 22, 23, 12, 13,
+    ]);
     expect(result.bars.map((bar) => ({ id: bar.id, position: bar.position }))).toEqual([
       { id: 1, position: 1 },
       { id: 3, position: 3 },
@@ -423,7 +462,10 @@ describe("snapshot workspace runtime", () => {
 
     const result = insertSnapshotCopyBlock({
       snapshots: [{ id: 10 }, { id: 11 }, { id: 12 }],
-      bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 3, numerator: 3, denominator: 2 }],
+      bars: [
+        { id: 1, position: 1, numerator: 4, denominator: 4 },
+        { id: 2, position: 3, numerator: 3, denominator: 2 },
+      ],
       block,
       insertionPosition: 2,
       nextSnapshotId: 20,
@@ -437,9 +479,36 @@ describe("snapshot workspace runtime", () => {
   it("resets note offsets in place across the resolved selection range", () => {
     const result = resetSnapshotRangeNoteOffsetsInWorkspace({
       snapshots: [
-        { id: 1, notes: [{ id: "a", start: 0.25, end: 0.75, startFractionDenominator: 4, endFractionDenominator: 4 }] },
-        { id: 2, notes: [{ id: "b", start: 0.5, end: 0.9, startFractionDenominator: 6, endFractionDenominator: 6 }] },
-        { id: 3, notes: [{ id: "c", start: 0.1, end: 1, startFractionDenominator: 8, endFractionDenominator: 1 }] },
+        {
+          id: 1,
+          notes: [
+            {
+              id: "a",
+              start: 0.25,
+              end: 0.75,
+              startFractionDenominator: 4,
+              endFractionDenominator: 4,
+            },
+          ],
+        },
+        {
+          id: 2,
+          notes: [
+            {
+              id: "b",
+              start: 0.5,
+              end: 0.9,
+              startFractionDenominator: 6,
+              endFractionDenominator: 6,
+            },
+          ],
+        },
+        {
+          id: 3,
+          notes: [
+            { id: "c", start: 0.1, end: 1, startFractionDenominator: 8, endFractionDenominator: 1 },
+          ],
+        },
       ],
       bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
       startPosition: 2,
@@ -448,8 +517,18 @@ describe("snapshot workspace runtime", () => {
 
     expect(result.error).toBeNull();
     expect(result.snapshots[0].notes[0]).toMatchObject({ start: 0.25, end: 0.75 });
-    expect(result.snapshots[1].notes[0]).toMatchObject({ start: 0, end: 1, startFractionDenominator: 1, endFractionDenominator: 1 });
-    expect(result.snapshots[2].notes[0]).toMatchObject({ start: 0, end: 1, startFractionDenominator: 1, endFractionDenominator: 1 });
+    expect(result.snapshots[1].notes[0]).toMatchObject({
+      start: 0,
+      end: 1,
+      startFractionDenominator: 1,
+      endFractionDenominator: 1,
+    });
+    expect(result.snapshots[2].notes[0]).toMatchObject({
+      start: 0,
+      end: 1,
+      startFractionDenominator: 1,
+      endFractionDenominator: 1,
+    });
   });
 
   it("deletes a selected snapshot range and optionally removes structural markers in that range", () => {

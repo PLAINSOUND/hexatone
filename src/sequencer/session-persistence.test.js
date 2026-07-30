@@ -14,14 +14,26 @@ describe("sequencer session persistence", () => {
 
   it("round-trips the active sequencer workspace through sessionStorage", () => {
     saveSequenceWorkspaceToSession({
-      snapshots: [{
-        id: 1,
-        length: 1,
-        notes: [],
-        manualTrigger: { articulation: "arpeggiate" },
-      }],
+      snapshots: [
+        {
+          id: 1,
+          length: 1,
+          notes: [],
+          manualTrigger: { articulation: "arpeggiate" },
+        },
+      ],
       bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }],
+      tempi: [
+        {
+          id: 1,
+          position: 1,
+          bpm: 60,
+          beatNumerator: 1,
+          beatDenominator: 4,
+          beatLength: 1,
+          mode: "immediate",
+        },
+      ],
       repeats: [{ id: "r1", position: 2, kind: "end", repeatCount: 3 }],
       snapshotLabelMode: "proportion",
       activeSequenceSource: "builtin",
@@ -41,18 +53,30 @@ describe("sequencer session persistence", () => {
 
     expect(loadSequenceWorkspaceFromSession()).toEqual({
       version: 2,
-      snapshots: [{
-        id: 1,
-        length: 1,
-        notes: [],
-        manualTrigger: {
-          articulation: "arpeggiate",
-          styleId: null,
-          styleParameters: null,
+      snapshots: [
+        {
+          id: 1,
+          length: 1,
+          notes: [],
+          manualTrigger: {
+            articulation: "arpeggiate",
+            styleId: null,
+            styleParameters: null,
+          },
         },
-      }],
+      ],
       bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }],
+      tempi: [
+        {
+          id: 1,
+          position: 1,
+          bpm: 60,
+          beatNumerator: 1,
+          beatDenominator: 4,
+          beatLength: 1,
+          mode: "immediate",
+        },
+      ],
       repeats: [{ id: "r1", position: 2, kind: "end", repeatCount: 3 }],
       snapshotLabelMode: "proportion",
       activeSequenceSource: "builtin",

@@ -48,9 +48,10 @@ function buildBarTimingSegments(bars = [], terminalPosition = null) {
       : Number.isFinite(resolvedTerminalPosition) && resolvedTerminalPosition > startPosition + 1e-9
         ? resolvedTerminalPosition
         : Infinity;
-    const barLength = Number.isFinite(endPosition) && endPosition > startPosition + 1e-9
-      ? endPosition - startPosition
-      : 1;
+    const barLength =
+      Number.isFinite(endPosition) && endPosition > startPosition + 1e-9
+        ? endPosition - startPosition
+        : 1;
     const beatsPerBar = Math.max(0, Math.round(Number(bar.numerator) || 0));
     const beatUnit = Math.max(1, Math.round(Number(bar.denominator) || 4));
     const quarterNotesPerBar = beatsPerBar === 0 ? 0 : beatsPerBar * (4 / beatUnit);
@@ -86,8 +87,8 @@ function sequencePositionToQuarterNotes(position, segments = []) {
   const segment = findBarTimingSegment(position, segments);
   if (!segment) return null;
   return normalizeQuarterNotes(
-    segment.startQuarterNotes
-      + Math.max(0, Number(position) - segment.startPosition) * segment.quarterNotesPerUnit,
+    segment.startQuarterNotes +
+      Math.max(0, Number(position) - segment.startPosition) * segment.quarterNotesPerUnit,
   );
 }
 
@@ -118,9 +119,10 @@ function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = nul
     if (Number.isFinite(quarterNotesSpan)) {
       if (nextMarker && nextMode === "gradual" && quarterNotesSpan > 1e-9) {
         const slope = (nextWholeNotesPerMinute - wholeNotesPerMinute) / quarterNotesSpan;
-        integratedSeconds = Math.abs(slope) <= 1e-12
-          ? quarterNotesSpan * (15 / wholeNotesPerMinute)
-          : (15 / slope) * Math.log(nextWholeNotesPerMinute / wholeNotesPerMinute);
+        integratedSeconds =
+          Math.abs(slope) <= 1e-12
+            ? quarterNotesSpan * (15 / wholeNotesPerMinute)
+            : (15 / slope) * Math.log(nextWholeNotesPerMinute / wholeNotesPerMinute);
       } else {
         integratedSeconds = quarterNotesSpan * secondsPerQuarter;
       }
@@ -136,9 +138,8 @@ function buildMusicalTempoSegments(tempi = [], bars = [], terminalPosition = nul
       wholeNotesPerMinute,
       beatNumerator: Math.max(1, Math.round(Number(marker?.beatNumerator) || 1)),
       beatDenominator: Math.max(1, Math.round(Number(marker?.beatDenominator) || 4)),
-      endWholeNotesPerMinute: nextMarker && nextMode === "gradual"
-        ? nextWholeNotesPerMinute
-        : wholeNotesPerMinute,
+      endWholeNotesPerMinute:
+        nextMarker && nextMode === "gradual" ? nextWholeNotesPerMinute : wholeNotesPerMinute,
       transitionMode: nextMode,
     });
 
@@ -173,21 +174,21 @@ function sequencePositionToTimedSeconds(position, timingModel) {
   let elapsedWithinSegment = quarterNoteOffset * segment.secondsPerQuarter;
 
   if (
-    segment.transitionMode === "gradual"
-    && Math.abs(segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) > 1e-12
+    segment.transitionMode === "gradual" &&
+    Math.abs(segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) > 1e-12
   ) {
     const quarterNotesSpan = Math.max(0, segment.endQuarterNotes - segment.startQuarterNotes);
-    const slope = quarterNotesSpan > 1e-9
-      ? (segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) / quarterNotesSpan
-      : 0;
+    const slope =
+      quarterNotesSpan > 1e-9
+        ? (segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) / quarterNotesSpan
+        : 0;
     if (Math.abs(slope) > 1e-12 && quarterNoteOffset > 0) {
       const currentWholeNotesPerMinute = segment.wholeNotesPerMinute + slope * quarterNoteOffset;
-      elapsedWithinSegment = (15 / slope) * Math.log(currentWholeNotesPerMinute / segment.wholeNotesPerMinute);
+      elapsedWithinSegment =
+        (15 / slope) * Math.log(currentWholeNotesPerMinute / segment.wholeNotesPerMinute);
     }
   }
-  return normalizeSeconds(
-    segment.startSeconds + elapsedWithinSegment,
-  );
+  return normalizeSeconds(segment.startSeconds + elapsedWithinSegment);
 }
 
 function sequenceSpanToTimedSeconds(startPosition, endPosition, timingModel) {
@@ -204,13 +205,14 @@ function wholeNotesPerMinuteAtPosition(position, timingModel) {
   if (!segment) return null;
   const quarterNoteOffset = Math.max(0, quarterNotes - segment.startQuarterNotes);
   if (
-    segment.transitionMode === "gradual"
-    && Math.abs(segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) > 1e-12
+    segment.transitionMode === "gradual" &&
+    Math.abs(segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) > 1e-12
   ) {
     const quarterNotesSpan = Math.max(0, segment.endQuarterNotes - segment.startQuarterNotes);
-    const slope = quarterNotesSpan > 1e-9
-      ? (segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) / quarterNotesSpan
-      : 0;
+    const slope =
+      quarterNotesSpan > 1e-9
+        ? (segment.endWholeNotesPerMinute - segment.wholeNotesPerMinute) / quarterNotesSpan
+        : 0;
     if (Math.abs(slope) > 1e-12) {
       return normalizeSeconds(segment.wholeNotesPerMinute + slope * quarterNoteOffset);
     }
@@ -218,7 +220,12 @@ function wholeNotesPerMinuteAtPosition(position, timingModel) {
   return normalizeSeconds(segment.wholeNotesPerMinute);
 }
 
-export function deriveTempoAtSequencePosition(position, tempi = [], bars = [], terminalPosition = null) {
+export function deriveTempoAtSequencePosition(
+  position,
+  tempi = [],
+  bars = [],
+  terminalPosition = null,
+) {
   const timingModel = buildMusicalTempoSegments(tempi, bars, terminalPosition);
   const segment = findTempoSegmentForPosition(position, timingModel.tempoSegments);
   if (!segment) return null;
@@ -269,11 +276,11 @@ function sourceCueIndexForBurst(events) {
 }
 
 function sourceSnapshotIndexesForBurst(events) {
-  return [...new Set(
-    events
-      .map((event) => event?.snapshotIndex)
-      .filter((index) => Number.isFinite(index)),
-  )].sort((left, right) => left - right);
+  return [
+    ...new Set(
+      events.map((event) => event?.snapshotIndex).filter((index) => Number.isFinite(index)),
+    ),
+  ].sort((left, right) => left - right);
 }
 
 function applyEventsToActiveNotes(events, activeNotes) {
@@ -327,7 +334,11 @@ function buildSyntheticRepeatCleanupEvents(activeNotes, burst) {
 }
 
 function firstRepeatEndEvent(events, repeatSectionsById) {
-  return events.find((event) => event?.type === "repeat-end" && repeatSectionsById.has(event.repeatId)) ?? null;
+  return (
+    events.find(
+      (event) => event?.type === "repeat-end" && repeatSectionsById.has(event.repeatId),
+    ) ?? null
+  );
 }
 
 function repeatJumpForEvent(repeatEndEvent, repeatSection, repeatPlaybackState) {
@@ -426,7 +437,9 @@ export function buildPlaybackBursts(cueBursts = [], repeatSections = [], timingM
 
     let executedEvents = burst.events;
     if (repeatJump && repeatEndEvent) {
-      const repeatEndIndex = burst.events.findIndex((event) => event.eventId === repeatEndEvent.eventId);
+      const repeatEndIndex = burst.events.findIndex(
+        (event) => event.eventId === repeatEndEvent.eventId,
+      );
       executedEvents = burst.events.slice(0, repeatEndIndex + 1);
     }
 
@@ -437,7 +450,10 @@ export function buildPlaybackBursts(cueBursts = [], repeatSections = [], timingM
     if (repeatJump) {
       cleanupEvents = buildSyntheticRepeatCleanupEvents(activeNotes, burst);
       if (cleanupEvents.length > 0) {
-        releasedAfterCleanup = [...released, ...cleanupEvents.map((event) => noteInstanceKey(event))];
+        releasedAfterCleanup = [
+          ...released,
+          ...cleanupEvents.map((event) => noteInstanceKey(event)),
+        ];
       }
       activeNotes.clear();
       repeatPlaybackState[repeatSection.repeatId] = repeatJump.remainingRepeatsAfterJump;
@@ -481,7 +497,8 @@ export function buildPlaybackBursts(cueBursts = [], repeatSections = [], timingM
     if (repeatJump) {
       nextBurstIndex = burstsByTime.get(normalizeTime(repeatJump.jumpToSequenceTime)) ?? -1;
     } else if (nextBurstIndex < cueBursts.length) {
-      nextElapsedSeconds += sequenceSpanToTimedSeconds(burst.time, cueBursts[nextBurstIndex].time, timingModel) ?? 0;
+      nextElapsedSeconds +=
+        sequenceSpanToTimedSeconds(burst.time, cueBursts[nextBurstIndex].time, timingModel) ?? 0;
     } else {
       nextBurstIndex = -1;
     }
@@ -503,12 +520,13 @@ export function buildPlaybackTimeline({
   sequenceEvents: precomputedSequenceEvents = null,
   sequenceCueGroups: precomputedSequenceCueGroups = null,
 } = {}) {
-  const effectiveSnapshots = runtimePitchMode === "snapped" && runtimePitchContext
-    ? remapSequenceSnapshotsToRuntime(snapshots, runtimePitchContext, {
-      hejiNames: runtimePitchContext.hejiNames,
-      noteNames: runtimePitchContext.noteNames,
-    })
-    : snapshots;
+  const effectiveSnapshots =
+    runtimePitchMode === "snapped" && runtimePitchContext
+      ? remapSequenceSnapshotsToRuntime(snapshots, runtimePitchContext, {
+          hejiNames: runtimePitchContext.hejiNames,
+          noteNames: runtimePitchContext.noteNames,
+        })
+      : snapshots;
 
   const sequenceEvents = Array.isArray(precomputedSequenceEvents)
     ? precomputedSequenceEvents

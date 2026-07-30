@@ -19,20 +19,7 @@
   "short_description": "12-JI-7L-blues",
   "built_in_group": "12 Note Scales",
   "key_labels": "note_names",
-  "note_names": [
-    "C",
-    "D",
-    "D",
-    "E",
-    "E",
-    "F",
-    "G",
-    "G",
-    "A",
-    "A",
-    "B",
-    "B"
-  ],
+  "note_names": ["C", "D", "D", "E", "E", "F", "G", "G", "A", "A", "B", "B"],
   "note_colors": [
     "#ff9b9b",
     "#f8c9c9",

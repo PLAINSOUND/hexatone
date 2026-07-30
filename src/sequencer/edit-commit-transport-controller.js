@@ -4,9 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
-export default function useEditCommitTransportController({
-  snapshots,
-} = {}) {
+export default function useEditCommitTransportController({ snapshots } = {}) {
   const [editCommitTick, setEditCommitTick] = useState(0);
   const pendingTransportActionRef = useRef(null);
   const editCommitPendingRef = useRef(false);
@@ -33,10 +31,7 @@ export default function useEditCommitTransportController({
       return;
     }
     const active = document.activeElement;
-    if (
-      active instanceof HTMLElement &&
-      active.matches?.(".sequencer-event__input")
-    ) {
+    if (active instanceof HTMLElement && active.matches?.(".sequencer-event__input")) {
       editCommitPendingRef.current = true;
       pendingTransportActionRef.current = action;
       active.blur();

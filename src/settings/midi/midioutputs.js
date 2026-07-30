@@ -73,10 +73,7 @@ const sendMpePitchBendRange = (
 
   sendMpeZonePitchBendRange(output, {
     managerChannel0: masterChNum ?? -1,
-    memberChannels0: Array.from(
-      { length: hiCh - loCh + 1 },
-      (_, index) => loCh - 1 + index,
-    ),
+    memberChannels0: Array.from({ length: hiCh - loCh + 1 }, (_, index) => loCh - 1 + index),
     memberBendRange: actualBendRange,
     managerBendRange,
   });
@@ -102,19 +99,10 @@ const MidiOutputs = (props) => {
     readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25),
   );
   const [eaganCcDrafts, setEaganCcDrafts] = useState(() => ({
-    mpe_eagan_brightness: readEaganCc(
-      "mpe_eagan_brightness",
-      settings.mpe_eagan_brightness ?? 64,
-    ),
+    mpe_eagan_brightness: readEaganCc("mpe_eagan_brightness", settings.mpe_eagan_brightness ?? 64),
     mpe_eagan_tilt_eq: readEaganCc("mpe_eagan_tilt_eq", settings.mpe_eagan_tilt_eq ?? 64),
-    mpe_eagan_pre_level: readEaganCc(
-      "mpe_eagan_pre_level",
-      settings.mpe_eagan_pre_level ?? 64,
-    ),
-    mpe_eagan_post_level: readEaganCc(
-      "mpe_eagan_post_level",
-      settings.mpe_eagan_post_level ?? 64,
-    ),
+    mpe_eagan_pre_level: readEaganCc("mpe_eagan_pre_level", settings.mpe_eagan_pre_level ?? 64),
+    mpe_eagan_post_level: readEaganCc("mpe_eagan_post_level", settings.mpe_eagan_post_level ?? 64),
   }));
   const masterCh = settings.midiin_mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
@@ -125,7 +113,8 @@ const MidiOutputs = (props) => {
 
   const outputs = midi ? Array.from(midi.outputs.values()) : [];
   const hakenContinuumActive = settings.midiin_controller_override === "hakenaudio";
-  const visibleMpeMode = settings.mpe_mode ?? (hakenContinuumActive ? "standard" : "Ableton_workaround");
+  const visibleMpeMode =
+    settings.mpe_mode ?? (hakenContinuumActive ? "standard" : "Ableton_workaround");
   const visibleMpePitchbendRange = settings.mpe_pitchbend_range ?? (hakenContinuumActive ? 96 : 48);
   const bulkTuningMapName = resolveBulkDumpName(
     settings.mts_bulk_tuning_map_name,
@@ -364,8 +353,15 @@ const MidiOutputs = (props) => {
                 />
                 <button
                   type="button"
-                  class={fsConnected ? "preset-action-btn settings-form__state-btn--connected" : "preset-action-btn"}
-                  disabled={(!fluidsynthFound && !fsConnected) || (!!fluidsynthFound && mtsPortIsFluidsynth && !fsConnected)}
+                  class={
+                    fsConnected
+                      ? "preset-action-btn settings-form__state-btn--connected"
+                      : "preset-action-btn"
+                  }
+                  disabled={
+                    (!fluidsynthFound && !fsConnected) ||
+                    (!!fluidsynthFound && mtsPortIsFluidsynth && !fsConnected)
+                  }
                   onClick={() => {
                     if (fsConnected) {
                       save("fluidsynth_device", "", onChange);
@@ -416,7 +412,9 @@ const MidiOutputs = (props) => {
                         const ch = parseInt(e.target.value);
                         localStorage.setItem("fluidsynth_channel_pref", ch);
                         save(e.target.name, ch, onChange);
-                        const vol = parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "127");
+                        const vol = parseInt(
+                          localStorage.getItem("fluidsynth_volume_pref") ?? "127",
+                        );
                         if (fluidsynthOutput && ch >= 0) {
                           fluidsynthOutput.send([0xb0 | ch, 7, vol]);
                         }
@@ -426,7 +424,7 @@ const MidiOutputs = (props) => {
                         <option key={i} value={i}>
                           {i + 1}
                         </option>
-                        ))}
+                      ))}
                     </select>
                   </label>
                   <div class="settings-form__status-caption">
@@ -885,7 +883,9 @@ const MidiOutputs = (props) => {
 
       <p class="settings-form__intro-copy">
         <em>
-          Sends notes directly to SuperCollider via a local WebSocket→OSC bridge. Run "yarn osc-bridge" in a locally cloned repo and use the Synths/SuperCollider-OSC folder to initialise the synths and servers.
+          Sends notes directly to SuperCollider via a local WebSocket→OSC bridge. Run "yarn
+          osc-bridge" in a locally cloned repo and use the Synths/SuperCollider-OSC folder to
+          initialise the synths and servers.
           {/*/<br />
         Run </em> (&nbsp;<code>yarn osc-bridge</code>&nbsp;) <em> locally and load SC patch with
         OSCResponders.scd.*/}
@@ -962,9 +962,7 @@ const MidiOutputs = (props) => {
                   onChange("osc_quick_release", next);
                 }}
               />
-              <span class="settings-form__range-value">
-                {oscQuickRelease.toFixed(2)}
-              </span>
+              <span class="settings-form__range-value">{oscQuickRelease.toFixed(2)}</span>
             </span>
           </label>
           <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">

@@ -27,16 +27,14 @@ describe("withMidiJitterInput", () => {
   it("keeps the input context alive until async work settles", async () => {
     const { withMidiJitterInput, traceMidiOutput } = await import("./midi-jitter.js");
 
-    await withMidiJitterInput(
-      "noteOnIn",
-      { channel: 1, note: 60, value: 100 },
-      async () => {
-        await Promise.resolve();
-        traceMidiOutput("noteOnOut", { family: "sample", channel: 1, note: 60 });
-      },
-    );
+    await withMidiJitterInput("noteOnIn", { channel: 1, note: 60, value: 100 }, async () => {
+      await Promise.resolve();
+      traceMidiOutput("noteOnOut", { family: "sample", channel: 1, note: 60 });
+    });
 
     const logs = console.log.mock.calls.map((call) => call[0]);
-    expect(logs.some((line) => line.includes("[midijitter:out]") && line.includes("sourceSeq=1"))).toBe(true);
+    expect(
+      logs.some((line) => line.includes("[midijitter:out]") && line.includes("sourceSeq=1")),
+    ).toBe(true);
   });
 });

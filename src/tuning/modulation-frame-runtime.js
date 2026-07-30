@@ -77,11 +77,12 @@ function ratioAdjustedToCentsText(ratio, ratioCents, deltaCents, tuningWorkspace
     return ratio?.toFraction ? ratio.toFraction() : null;
   }
   const equavePower = Math.round((deltaCents - ratioCents) / equaveCents);
-  const displaced = equavePower > 0
-    ? ratio.mul(equaveRatio.pow(equavePower))
-    : equavePower < 0
-      ? ratio.div(equaveRatio.pow(Math.abs(equavePower)))
-      : ratio;
+  const displaced =
+    equavePower > 0
+      ? ratio.mul(equaveRatio.pow(equavePower))
+      : equavePower < 0
+        ? ratio.div(equaveRatio.pow(Math.abs(equavePower)))
+        : ratio;
   const text = displaced?.toFraction ? displaced.toFraction() : null;
   return text && !text.includes("/") ? `${text}/1` : text;
 }
@@ -100,9 +101,7 @@ export function routeTranspositionRatioText(entry, tuningWorkspace) {
   if (!sourceRatio || !targetRatio) return null;
   const ratio = sourceRatio.div(targetRatio);
   const ratioCents =
-    Number.isFinite(sourceCents) && Number.isFinite(targetCents)
-      ? sourceCents - targetCents
-      : null;
+    Number.isFinite(sourceCents) && Number.isFinite(targetCents) ? sourceCents - targetCents : null;
   return ratioAdjustedToCentsText(ratio, ratioCents, deltaCents, tuningWorkspace);
 }
 
@@ -259,18 +258,20 @@ export function deriveModulationIdentityForHistory(history = []) {
 export function modulationHistoryKey(history = []) {
   if (!Array.isArray(history) || history.length === 0) return "";
   return history
-    .map((entry) => [
-      entry?.sourceDegree ?? "",
-      entry?.targetDegree ?? "",
-      entry?.strategy ?? "",
-      Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0,
-      Number.isFinite(Number(entry?.transpositionDeltaCents))
-        ? Number(entry.transpositionDeltaCents)
-        : "",
-      entry?.transpositionRatioText ?? "",
-      Number.isFinite(Number(entry?.deltaRSteps)) ? Math.trunc(entry.deltaRSteps) : "",
-      Number.isFinite(Number(entry?.deltaDrSteps)) ? Math.trunc(entry.deltaDrSteps) : "",
-    ].join(":"))
+    .map((entry) =>
+      [
+        entry?.sourceDegree ?? "",
+        entry?.targetDegree ?? "",
+        entry?.strategy ?? "",
+        Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0,
+        Number.isFinite(Number(entry?.transpositionDeltaCents))
+          ? Number(entry.transpositionDeltaCents)
+          : "",
+        entry?.transpositionRatioText ?? "",
+        Number.isFinite(Number(entry?.deltaRSteps)) ? Math.trunc(entry.deltaRSteps) : "",
+        Number.isFinite(Number(entry?.deltaDrSteps)) ? Math.trunc(entry.deltaDrSteps) : "",
+      ].join(":"),
+    )
     .join("|");
 }
 
@@ -329,10 +330,10 @@ export function deriveModulationSummaryText(modulationState, degreeLabel, tuning
   const route =
     modulationState.mode === "awaiting_target"
       ? {
-        sourceDegree: modulationState.sourceDegree,
-        targetDegree: null,
-      }
-      : modulationState.currentRoute ?? null;
+          sourceDegree: modulationState.sourceDegree,
+          targetDegree: null,
+        }
+      : (modulationState.currentRoute ?? null);
   if (!route) return "";
   const { sourceLabel: sourceText, targetLabel } = modulationRouteLabelPair(
     route,

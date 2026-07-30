@@ -55,20 +55,24 @@ describe("sequencer value runtime", () => {
   it("builds stable structural render and instance keys", () => {
     expect(structuralEventRenderKey({ structuralType: "bar", id: "b1" })).toBe("bar:b1");
     expect(structuralEventRenderKey({ structuralType: "tempo", id: "t1" })).toBe("tempo:t1");
-    expect(structuralEventInstanceKey({
-      structuralType: "bar",
-      id: "b1",
-      position: 2,
-      numerator: 3,
-      denominator: 4,
-    })).toBe("bar:b1:2.000000:3:4");
-    expect(structuralEventInstanceKey({
-      structuralType: "tempo",
-      id: "t1",
-      position: 2,
-      bpm: 58,
-      beatNumerator: 1,
-      beatDenominator: 4,
-    })).toBe("tempo:t1:2.000000:58:1:4");
+    expect(
+      structuralEventInstanceKey({
+        structuralType: "bar",
+        id: "b1",
+        position: 2,
+        numerator: 3,
+        denominator: 4,
+      }),
+    ).toBe("bar:b1:2.000000:3:4");
+    expect(
+      structuralEventInstanceKey({
+        structuralType: "tempo",
+        id: "t1",
+        position: 2,
+        bpm: 58,
+        beatNumerator: 1,
+        beatDenominator: 4,
+      }),
+    ).toBe("tempo:t1:2.000000:58:1:4");
   });
 });

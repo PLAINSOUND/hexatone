@@ -47,18 +47,13 @@ import {
   ExtractBool,
   ExtractJoinedString,
 } from "./hooks/use-query";
-import usePresets, {
-  SCALE_KEYS_TO_CLEAR,
-} from "./hooks/use-presets.js";
+import usePresets, { SCALE_KEYS_TO_CLEAR } from "./hooks/use-presets.js";
 import {
   buildQuerySpec,
   buildRegistryDefaults,
   PRESET_SKIP_KEYS,
 } from "./persistence/settings-registry.js";
-import {
-  settingsImpactKey,
-  settingsImpactSnapshot,
-} from "./settings/settings-impact-registry.js";
+import { settingsImpactKey, settingsImpactSnapshot } from "./settings/settings-impact-registry.js";
 import useImport from "./hooks/use-import.js";
 import useSettingsChange from "./hooks/use-settings-change.js";
 import sessionDefaults from "./settings/session-defaults.js";
@@ -81,8 +76,7 @@ import {
   updateSequenceRepeatMarker,
   updateSequenceTempoMarker,
 } from "./sequencer/structure-editing.js";
-import {
-} from "./sequencer/transport.js";
+import {} from "./sequencer/transport.js";
 import {
   SEQUENCE_WORKSPACE_STORAGE_KEY,
   loadSequenceWorkspaceFromSession,
@@ -131,20 +125,14 @@ import {
   loadPersistedSequencerCrashDiagnostics,
 } from "./debug/sequencer-crash-diagnostics.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
-import {
-  sequenceNotesAtCueIndex,
-} from "./sequencer/trigger-groups.js";
+import { sequenceNotesAtCueIndex } from "./sequencer/trigger-groups.js";
 import {
   remapSequenceNoteToRuntime,
   remapSequenceSnapshotsToRuntime,
 } from "./sequencer/runtime-pitch-map.js";
 import { buildSequenceRuntimeModel } from "./sequencer/runtime-model.js";
-import {
-  buildCueExpandedSnapshotIdsAt,
-} from "./sequencer/view-runtime.js";
-import {
-  clearPendingTransportSelection,
-} from "./sequencer/transport-selection.js";
+import { buildCueExpandedSnapshotIdsAt } from "./sequencer/view-runtime.js";
+import { clearPendingTransportSelection } from "./sequencer/transport-selection.js";
 import {
   buildCommittedSequencePlaybackState,
   buildStoppedSequenceTransportState,
@@ -159,9 +147,7 @@ import {
   clampSequencePlaybackSpeed,
   shouldRetuneSequencePlaybackInPlace,
 } from "./sequencer/playback-modifiers-runtime.js";
-import {
-  advanceCueIndexWithRepeats,
-} from "./sequencer/repeat-playback-runtime.js";
+import { advanceCueIndexWithRepeats } from "./sequencer/repeat-playback-runtime.js";
 import { buildDependencyToken } from "./sequencer/dependency-token.js";
 import { retuneActiveSnapshotHexes, retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
@@ -217,7 +203,6 @@ export function applyReloadPersistencePolicy({
 applyReloadPersistencePolicy();
 
 export const Loading = () => <LoadingIcon />;
-
 
 function SidebarLoadingFallback() {
   return (
@@ -290,18 +275,16 @@ function modulationSnapshotKey(snapshot) {
     modulationHistoryKey(snapshot.history ?? []),
     currentRoute
       ? [
-        currentRoute.sourceDegree ?? "",
-        currentRoute.targetDegree ?? "",
-        currentRoute.count ?? 0,
-        currentRoute.transpositionDeltaCents ?? "",
-      ].join(":")
+          currentRoute.sourceDegree ?? "",
+          currentRoute.targetDegree ?? "",
+          currentRoute.count ?? 0,
+          currentRoute.transpositionDeltaCents ?? "",
+        ].join(":")
       : "",
     lastDecision
-      ? [
-        lastDecision.type ?? "",
-        lastDecision.reason ?? "",
-        lastDecision.articulation ?? "",
-      ].join(":")
+      ? [lastDecision.type ?? "", lastDecision.reason ?? "", lastDecision.articulation ?? ""].join(
+          ":",
+        )
       : "",
   ].join("|");
 }
@@ -327,16 +310,22 @@ function committedScaleTextForSlot(slot, frame, workspace) {
     let ratio = slotRatio.div(anchorRatio);
     const rawDeltaCents = slotCents - anchorCents;
     const equavePower = Math.round((normalizedCents - rawDeltaCents) / equaveCents);
-    ratio = equavePower >= 0
-      ? ratio.mul(equaveRatio.pow(equavePower))
-      : ratio.div(equaveRatio.pow(Math.abs(equavePower)));
+    ratio =
+      equavePower >= 0
+        ? ratio.mul(equaveRatio.pow(equavePower))
+        : ratio.div(equaveRatio.pow(Math.abs(equavePower)));
     return formatCommittedRatio(ratio);
   }
 
   return formatCommittedCents(normalizedCents);
 }
 
-export function commitModulationHistoryToPreset(settings, tuningWorkspace, history = [], options = {}) {
+export function commitModulationHistoryToPreset(
+  settings,
+  tuningWorkspace,
+  history = [],
+  options = {},
+) {
   const activeHistory = Array.isArray(history)
     ? history.filter((entry) => {
         const count = Number.isFinite(entry?.count) ? Math.trunc(entry.count) : 0;
@@ -376,9 +365,12 @@ export function commitModulationHistoryToPreset(settings, tuningWorkspace, histo
     tuningWorkspace.lookup?.byDegree?.get(frame?.anchorDegree)?.cents ??
     0;
 
-  const labelsByDegree = settings.key_labels === "heji"
-    ? spelled.labelsByDegree
-    : (Array.isArray(settings.note_names) ? settings.note_names : []);
+  const labelsByDegree =
+    settings.key_labels === "heji"
+      ? spelled.labelsByDegree
+      : Array.isArray(settings.note_names)
+        ? settings.note_names
+        : [];
 
   const orderedSlots = (tuningWorkspace.slots ?? [])
     .map((slot) => ({
@@ -449,8 +441,7 @@ function getDefaultModulationPalettePos() {
     typeof window.matchMedia === "function"
       ? window.matchMedia("(orientation: landscape)").matches
       : window.innerWidth > window.innerHeight;
-  const isPhoneLandscape =
-    window.innerHeight <= 500 && isLandscape;
+  const isPhoneLandscape = window.innerHeight <= 500 && isLandscape;
   if (isPhoneLandscape) {
     const rightInset = readCssPxVar("--safe-area-right");
     const topInset = readCssPxVar("--safe-area-top");
@@ -462,8 +453,7 @@ function getDefaultModulationPalettePos() {
   if (window.innerWidth >= 480) {
     const sidebar = document.getElementById("sidebar");
     const sidebarRect = sidebar?.getBoundingClientRect();
-    const sidebarVisibleRight =
-      sidebarRect && sidebarRect.right > 80 ? sidebarRect.right : 0;
+    const sidebarVisibleRight = sidebarRect && sidebarRect.right > 80 ? sidebarRect.right : 0;
     if (sidebarVisibleRight > 0) {
       const gap = 16;
       const fallbackX = 18;
@@ -504,11 +494,7 @@ export {
 const ua = navigator.userAgent;
 const isFirefoxIOS = /FxiOS/.test(ua);
 const isChromiumToken = /Chrome|Chromium|CriOS|EdgiOS|EdgA|Edg\/|OPiOS/.test(ua);
-const isSafariOnly =
-  /Safari/.test(ua) &&
-  !isChromiumToken &&
-  !/Firefox/.test(ua) &&
-  !isFirefoxIOS; // Firefox on iOS uses FxiOS token, not "Firefox"
+const isSafariOnly = /Safari/.test(ua) && !isChromiumToken && !/Firefox/.test(ua) && !isFirefoxIOS; // Firefox on iOS uses FxiOS token, not "Firefox"
 const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.maxTouchPoints > 1 && /Mac/.test(ua)); // iPadOS 13+ desktop mode
 const isMIDIWeb = /MIDIWeb/.test(ua);
 // Banner messages rendered in JSX (not alert()) so links are clickable.
@@ -571,17 +557,14 @@ const App = () => {
   const [ready, setReady] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState("hexatone");
   const [inlineManualView, setInlineManualView] = useState(null);
-  const [manualSectionTitles, setManualSectionTitles] = useState(
-    MANUAL_VIEW_DEFAULT_SECTIONS,
-  );
+  const [manualSectionTitles, setManualSectionTitles] = useState(MANUAL_VIEW_DEFAULT_SECTIONS);
   const sidebarRef = useRef(null);
   const manualScrollPositionsRef = useRef({
     main: 0,
     hexatone: 0,
     sequencer: 0,
   });
-  const activeManualView =
-    workspaceTab === "manual" ? "main" : inlineManualView;
+  const activeManualView = workspaceTab === "manual" ? "main" : inlineManualView;
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [showRotationDebug, setShowRotationDebug] = useState(getRotationDebugDefault);
   const [rotationDebugEvents, setRotationDebugEvents] = useState([]);
@@ -603,31 +586,40 @@ const App = () => {
     const sidebar = sidebarRef.current;
     if (sidebar) manualScrollPositionsRef.current[activeManualView] = sidebar.scrollTop;
   }, [activeManualView]);
-  const switchWorkspaceTab = useCallback((nextTab) => {
-    rememberManualScrollPosition();
-    setInlineManualView(null);
-    setWorkspaceTab(nextTab);
-  }, [rememberManualScrollPosition]);
+  const switchWorkspaceTab = useCallback(
+    (nextTab) => {
+      rememberManualScrollPosition();
+      setInlineManualView(null);
+      setWorkspaceTab(nextTab);
+    },
+    [rememberManualScrollPosition],
+  );
   const openManualWorkspace = useCallback(() => {
     rememberManualScrollPosition();
     setInlineManualView(null);
     setWorkspaceTab("manual");
   }, [rememberManualScrollPosition]);
-  const openInlineManual = useCallback((nextManualView) => {
-    rememberManualScrollPosition();
-    setInlineManualView(nextManualView);
-  }, [rememberManualScrollPosition]);
+  const openInlineManual = useCallback(
+    (nextManualView) => {
+      rememberManualScrollPosition();
+      setInlineManualView(nextManualView);
+    },
+    [rememberManualScrollPosition],
+  );
   const closeInlineManual = useCallback(() => {
     rememberManualScrollPosition();
     setInlineManualView(null);
   }, [rememberManualScrollPosition]);
-  const rememberManualSection = useCallback((sectionTitle) => {
-    if (!activeManualView) return;
-    setManualSectionTitles((current) => ({
-      ...current,
-      [activeManualView]: sectionTitle,
-    }));
-  }, [activeManualView]);
+  const rememberManualSection = useCallback(
+    (sectionTitle) => {
+      if (!activeManualView) return;
+      setManualSectionTitles((current) => ({
+        ...current,
+        [activeManualView]: sectionTitle,
+      }));
+    },
+    [activeManualView],
+  );
   const primeAudioFromUserInteraction = useCallback(async () => {
     const needsInitialPrepare = !userHasInteracted;
     const needsHardRefresh = audioNeedsHardRefreshRef.current;
@@ -657,7 +649,8 @@ const App = () => {
   }, [userHasInteracted]);
 
   useEffect(() => {
-    if (!isIOS || typeof document === "undefined" || typeof window === "undefined") return undefined;
+    if (!isIOS || typeof document === "undefined" || typeof window === "undefined")
+      return undefined;
 
     const markAudioStale = () => {
       audioNeedsHardRefreshRef.current = true;
@@ -696,26 +689,36 @@ const App = () => {
     };
   }, []);
 
-  const noteRotationEvent = useCallback((source) => {
-    if (!isIOS) return;
-    setRotationSettleRevision((revision) => revision + 1);
-    if (!showRotationDebug) return;
-    const viewport = window.visualViewport;
-    const canvas = keysRef.current?.state?.canvas ?? null;
-    const event = {
-      at: new Date().toLocaleTimeString("en-GB", { hour12: false }) + `.${String(Date.now() % 1000).padStart(3, "0")}`,
-      source,
-      inner: `${window.innerWidth}x${window.innerHeight}`,
-      viewport: viewport
-        ? `${Math.round(viewport.width)}x${Math.round(viewport.height)} @ ${Math.round(viewport.offsetLeft)},${Math.round(viewport.offsetTop)}`
-        : "none",
-      canvas: canvas ? `${canvas.width}x${canvas.height}` : "none",
-      orientation: window.matchMedia("(orientation: landscape)").matches ? "landscape" : "portrait",
-      sidebarMode: window.matchMedia("(max-width: 480px)").matches ? "phone" : "desktop",
-      shortLandscape: window.matchMedia("(max-height: 500px) and (orientation: landscape)").matches ? "short" : "normal",
-    };
-    setRotationDebugEvents((events) => [...events.slice(-11), event]);
-  }, [showRotationDebug]);
+  const noteRotationEvent = useCallback(
+    (source) => {
+      if (!isIOS) return;
+      setRotationSettleRevision((revision) => revision + 1);
+      if (!showRotationDebug) return;
+      const viewport = window.visualViewport;
+      const canvas = keysRef.current?.state?.canvas ?? null;
+      const event = {
+        at:
+          new Date().toLocaleTimeString("en-GB", { hour12: false }) +
+          `.${String(Date.now() % 1000).padStart(3, "0")}`,
+        source,
+        inner: `${window.innerWidth}x${window.innerHeight}`,
+        viewport: viewport
+          ? `${Math.round(viewport.width)}x${Math.round(viewport.height)} @ ${Math.round(viewport.offsetLeft)},${Math.round(viewport.offsetTop)}`
+          : "none",
+        canvas: canvas ? `${canvas.width}x${canvas.height}` : "none",
+        orientation: window.matchMedia("(orientation: landscape)").matches
+          ? "landscape"
+          : "portrait",
+        sidebarMode: window.matchMedia("(max-width: 480px)").matches ? "phone" : "desktop",
+        shortLandscape: window.matchMedia("(max-height: 500px) and (orientation: landscape)")
+          .matches
+          ? "short"
+          : "normal",
+      };
+      setRotationDebugEvents((events) => [...events.slice(-11), event]);
+    },
+    [showRotationDebug],
+  );
 
   const hideBannerForSession = useCallback((bannerKey) => {
     sessionStorage.setItem(getBannerSessionKey(bannerKey), "true");
@@ -896,8 +899,7 @@ const App = () => {
     synthRef,
     onUserInteraction: primeAudioFromUserInteraction,
     bumpImportCount,
-    bumpPresetRuntimeReset: () =>
-      setPresetRuntimeResetRevision((revision) => revision + 1),
+    bumpPresetRuntimeReset: () => setPresetRuntimeResetRevision((revision) => revision + 1),
     currentModulationLibrary: modulationState?.history ?? presetModulationLibrary,
     setPresetModulationLibrary,
     onPresetModulationLibraryLoaded: (library) => {
@@ -980,9 +982,7 @@ const App = () => {
   const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState(0);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
-  const [manualArpeggiation, setManualArpeggiation] = useState(
-    () => normalizeManualArpeggiation(),
-  );
+  const [manualArpeggiation, setManualArpeggiation] = useState(() => normalizeManualArpeggiation());
   const [sequenceBars, setSequenceBars] = useState(defaultSequenceBars);
   const [sequenceTempi, setSequenceTempi] = useState(defaultSequenceTempi);
   const [sequenceRepeats, setSequenceRepeats] = useState([]);
@@ -1033,41 +1033,44 @@ const App = () => {
     sequenceBarsRef.current = sequenceBars;
   }, [sequenceBars]);
 
-  const appendSequenceSnapshot = useCallback((notes = []) => {
-    const snapshotCountBefore = snapshotsRef.current.length;
-    const nextSnapshotId = snapshotIdRef.current + 1;
-    const result = appendSnapshotToWorkspace({
-      snapshots: snapshotsRef.current,
-      notes,
-      snapshotLabelMode,
-      sequenceAutoCreateBars,
-      sequenceBars: sequenceBarsRef.current,
-      nextSnapshotId,
-      nextBarId: sequenceBarIdRef.current,
-    });
-    appendPersistedSequencerCrashDiagnostic({
-      type: "snapshot-capture-appended",
-      detail: "Appended snapshot to workspace",
-      context: {
-        source: "snapshot-capture",
-        captureStage: "append",
-        captureNoteCount: Array.isArray(notes) ? notes.length : 0,
-        snapshotCountBefore,
-        snapshotCountAfter: result.snapshots.length,
-        snapshotId: result.selectedSnapshotId,
-        selectedSnapshotId: result.selectedSnapshotId,
-        workspaceTab,
-      },
-    });
-    snapshotIdRef.current = result.ids.snapshotId;
-    sequenceBarIdRef.current = result.ids.barId;
-    snapshotsRef.current = result.snapshots;
-    sequenceBarsRef.current = result.bars;
-    setSnapshots(result.snapshots);
-    setSequenceBars(result.bars);
-    setSelectedSnapshotId(result.selectedSnapshotId);
-    setSelectedSnapshotMarker(result.selectedSnapshotMarker);
-  }, [sequenceAutoCreateBars, snapshotLabelMode, workspaceTab]);
+  const appendSequenceSnapshot = useCallback(
+    (notes = []) => {
+      const snapshotCountBefore = snapshotsRef.current.length;
+      const nextSnapshotId = snapshotIdRef.current + 1;
+      const result = appendSnapshotToWorkspace({
+        snapshots: snapshotsRef.current,
+        notes,
+        snapshotLabelMode,
+        sequenceAutoCreateBars,
+        sequenceBars: sequenceBarsRef.current,
+        nextSnapshotId,
+        nextBarId: sequenceBarIdRef.current,
+      });
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-capture-appended",
+        detail: "Appended snapshot to workspace",
+        context: {
+          source: "snapshot-capture",
+          captureStage: "append",
+          captureNoteCount: Array.isArray(notes) ? notes.length : 0,
+          snapshotCountBefore,
+          snapshotCountAfter: result.snapshots.length,
+          snapshotId: result.selectedSnapshotId,
+          selectedSnapshotId: result.selectedSnapshotId,
+          workspaceTab,
+        },
+      });
+      snapshotIdRef.current = result.ids.snapshotId;
+      sequenceBarIdRef.current = result.ids.barId;
+      snapshotsRef.current = result.snapshots;
+      sequenceBarsRef.current = result.bars;
+      setSnapshots(result.snapshots);
+      setSequenceBars(result.bars);
+      setSelectedSnapshotId(result.selectedSnapshotId);
+      setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+    },
+    [sequenceAutoCreateBars, snapshotLabelMode, workspaceTab],
+  );
 
   const onTakeSnapshot = useCallback(() => {
     appendPersistedSequencerCrashDiagnostic({
@@ -1228,40 +1231,43 @@ const App = () => {
     sequenceBarIdRef.current = workspace.ids.barId;
   }, []);
 
-  const persistSequenceWorkspace = useCallback((overrides = {}) => {
-    saveSequenceWorkspaceToSession({
-      snapshots,
-      bars: sequenceBars,
-      tempi: sequenceTempi,
-      repeats: sequenceRepeats,
-      snapshotLabelMode,
-      activeSequenceSource,
+  const persistSequenceWorkspace = useCallback(
+    (overrides = {}) => {
+      saveSequenceWorkspaceToSession({
+        snapshots,
+        bars: sequenceBars,
+        tempi: sequenceTempi,
+        repeats: sequenceRepeats,
+        snapshotLabelMode,
+        activeSequenceSource,
+        activeSequenceBuiltInName,
+        activeSequenceName,
+        activeSequenceSavedName,
+        activeSequenceDescription,
+        sequenceLegato,
+        snapSequenceToCurrentTuning,
+        sequenceAutoCreateBars,
+        manualArpeggiation,
+        ...overrides,
+      });
+    },
+    [
+      activeSequenceDescription,
       activeSequenceBuiltInName,
       activeSequenceName,
+      activeSequenceSource,
       activeSequenceSavedName,
-      activeSequenceDescription,
-      sequenceLegato,
-      snapSequenceToCurrentTuning,
       sequenceAutoCreateBars,
+      sequenceBars,
+      sequenceLegato,
       manualArpeggiation,
-      ...overrides,
-    });
-  }, [
-    activeSequenceDescription,
-    activeSequenceBuiltInName,
-    activeSequenceName,
-    activeSequenceSource,
-    activeSequenceSavedName,
-    sequenceAutoCreateBars,
-    sequenceBars,
-    sequenceLegato,
-    manualArpeggiation,
-    sequenceRepeats,
-    sequenceTempi,
-    snapSequenceToCurrentTuning,
-    snapshotLabelMode,
-    snapshots,
-  ]);
+      sequenceRepeats,
+      sequenceTempi,
+      snapSequenceToCurrentTuning,
+      snapshotLabelMode,
+      snapshots,
+    ],
+  );
 
   // State changes are persisted here; mutation handlers also call the same
   // helper with their freshly computed results so a reload between the event
@@ -1275,9 +1281,7 @@ const App = () => {
     const keys = keysRef.current;
     const frame = keys?._activeFrame?.();
     const liveRuntime = keys?._effectiveScaleRuntimeForFrame?.(frame);
-    return Array.isArray(liveRuntime?.scale) && liveRuntime.scale.length > 0
-      ? liveRuntime
-      : null;
+    return Array.isArray(liveRuntime?.scale) && liveRuntime.scale.length > 0 ? liveRuntime : null;
   })();
   const sequencePlaybackSnapshots = useMemo(() => {
     const keys = keysRef.current;
@@ -1288,64 +1292,64 @@ const App = () => {
       noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
       hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
     });
-  }, [
-    currentSequenceSnapRuntime,
-    snapSequenceToCurrentTuning,
-    snapshots,
-  ]);
+  }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshots]);
   const sequenceDisplaySnapshots = useMemo(() => {
     const keys = keysRef.current;
-    const displayedSnapshots = (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime)
-      ? snapshots
-      : remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
-        noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
-        hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
-      });
-    return displayedSnapshots.map((snapshot) => (
+    const displayedSnapshots =
+      !snapSequenceToCurrentTuning || !currentSequenceSnapRuntime
+        ? snapshots
+        : remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
+            noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
+            hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
+          });
+    return displayedSnapshots.map((snapshot) =>
       snapshot?.descriptionManual
         ? snapshot
         : {
-          ...snapshot,
-          description: buildSnapshotDescription(snapshot?.notes ?? [], snapshotLabelMode),
-        }
-    ));
+            ...snapshot,
+            description: buildSnapshotDescription(snapshot?.notes ?? [], snapshotLabelMode),
+          },
+    );
   }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshotLabelMode, snapshots]);
-  const sequencePlaybackRuntimeToken = useMemo(() => buildDependencyToken([
-    // Tuning snap changes pitch mapping, not timed-transport structure.
-    // Keep the transport token tied to the stored sequence so live remapping
-    // can update sounding and future notes without stopping the clock.
-    snapshots,
-    sequenceBars,
-    sequenceTempi,
-    sequenceRepeats,
-  ]), [
-    sequenceBars,
-    sequenceRepeats,
-    sequenceTempi,
-    snapshots,
-  ]);
-  const sequenceTimedTriggerToken = useMemo(() => buildDependencyToken([
-    sequencePlaybackRuntimeToken,
-    sequenceLegato,
-  ]), [sequenceLegato, sequencePlaybackRuntimeToken]);
-  const sequenceRuntimeModel = useMemo(() => buildSequenceRuntimeModel({
-    snapshots,
-    displaySnapshots: sequenceDisplaySnapshots,
-    playbackSnapshots: sequencePlaybackSnapshots,
-    bars: sequenceBars,
-    tempi: sequenceTempi,
-    repeats: sequenceRepeats,
-    sequenceLegato,
-    source: "app",
-  }), [
-    sequenceBars,
-    sequenceDisplaySnapshots,
-    sequenceLegato,
-    sequencePlaybackSnapshots,
-    sequenceRepeats,
-    sequenceTempi,
-    snapshots,
-  ]);
+  const sequencePlaybackRuntimeToken = useMemo(
+    () =>
+      buildDependencyToken([
+        // Tuning snap changes pitch mapping, not timed-transport structure.
+        // Keep the transport token tied to the stored sequence so live remapping
+        // can update sounding and future notes without stopping the clock.
+        snapshots,
+        sequenceBars,
+        sequenceTempi,
+        sequenceRepeats,
+      ]),
+    [sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
+  );
+  const sequenceTimedTriggerToken = useMemo(
+    () => buildDependencyToken([sequencePlaybackRuntimeToken, sequenceLegato]),
+    [sequenceLegato, sequencePlaybackRuntimeToken],
+  );
+  const sequenceRuntimeModel = useMemo(
+    () =>
+      buildSequenceRuntimeModel({
+        snapshots,
+        displaySnapshots: sequenceDisplaySnapshots,
+        playbackSnapshots: sequencePlaybackSnapshots,
+        bars: sequenceBars,
+        tempi: sequenceTempi,
+        repeats: sequenceRepeats,
+        sequenceLegato,
+        source: "app",
+      }),
+    [
+      sequenceBars,
+      sequenceDisplaySnapshots,
+      sequenceLegato,
+      sequencePlaybackSnapshots,
+      sequenceRepeats,
+      sequenceTempi,
+      snapshots,
+    ],
+  );
   const previousSequenceRuntimeDepsRef = useRef(null);
   useEffect(() => {
     if (!isSequenceRuntimeDiagnosticsEnabled()) return;
@@ -1359,9 +1363,10 @@ const App = () => {
       sequenceLegato,
     };
     const previousDeps = previousSequenceRuntimeDepsRef.current;
-    const changedKeys = previousDeps == null
-      ? ["initial-build"]
-      : Object.keys(nextDeps).filter((key) => previousDeps[key] !== nextDeps[key]);
+    const changedKeys =
+      previousDeps == null
+        ? ["initial-build"]
+        : Object.keys(nextDeps).filter((key) => previousDeps[key] !== nextDeps[key]);
     appendPersistedSequenceRuntimeDiagnostic({
       type: "rebuild-cause",
       step: "build-sequence-runtime-model",
@@ -1396,8 +1401,8 @@ const App = () => {
     const lastEntry = persisted?.state?.entries?.at?.(-1) ?? null;
     if (!lastEntry) return;
     if (
-      lastEntry.type !== "snapshot-update-applied"
-      && lastEntry.type !== "event-bar-relative-update-dispatched"
+      lastEntry.type !== "snapshot-update-applied" &&
+      lastEntry.type !== "event-bar-relative-update-dispatched"
     ) {
       return;
     }
@@ -1419,42 +1424,55 @@ const App = () => {
   const sequenceRepeatSections = sequenceRuntimeModel.sequenceRepeatSections;
   const sortedSequenceBars = sequenceRuntimeModel.sortedBars;
 
-  const barIndexForTime = useCallback((absoluteTime) => {
-    const time = Number(absoluteTime);
-    if (!Number.isFinite(time) || sortedSequenceBars.length === 0) return 0;
-    let index = 0;
-    for (let i = 0; i < sortedSequenceBars.length; i += 1) {
-      if (Number(sortedSequenceBars[i].position) <= time) index = i;
-      else break;
-    }
-    return index;
-  }, [sortedSequenceBars]);
+  const barIndexForTime = useCallback(
+    (absoluteTime) => {
+      const time = Number(absoluteTime);
+      if (!Number.isFinite(time) || sortedSequenceBars.length === 0) return 0;
+      let index = 0;
+      for (let i = 0; i < sortedSequenceBars.length; i += 1) {
+        if (Number(sortedSequenceBars[i].position) <= time) index = i;
+        else break;
+      }
+      return index;
+    },
+    [sortedSequenceBars],
+  );
 
-  const barTimeForIndex = useCallback((barIndex) => {
-    if (!sortedSequenceBars.length) return 1;
-    const safeIndex = Math.max(0, Math.min(sortedSequenceBars.length - 1, Number(barIndex) || 0));
-    return Number(sortedSequenceBars[safeIndex]?.position) || 1;
-  }, [sortedSequenceBars]);
+  const barTimeForIndex = useCallback(
+    (barIndex) => {
+      if (!sortedSequenceBars.length) return 1;
+      const safeIndex = Math.max(0, Math.min(sortedSequenceBars.length - 1, Number(barIndex) || 0));
+      return Number(sortedSequenceBars[safeIndex]?.position) || 1;
+    },
+    [sortedSequenceBars],
+  );
 
-  const snapshotIndexNearBar = useCallback((barIndex, direction) => {
-    const anchorTime = barTimeForIndex(barIndex);
-    const cueGroup = direction > 0
-      ? sequenceCueGroups.find((group) => group.time >= anchorTime)
-      : sequenceCueGroups.findLast((group) => group.time < anchorTime);
-    if (cueGroup) return cueGroup.snapshotIndex;
-    if (direction > 0) {
-      const nextIndex = snapshots.findIndex((_, index) => index + 1 >= anchorTime);
-      return nextIndex >= 0 ? nextIndex : snapshots.length;
-    }
-    return snapshots.findLastIndex((_, index) => index + 1 < anchorTime);
-  }, [barTimeForIndex, sequenceCueGroups, snapshots]);
+  const snapshotIndexNearBar = useCallback(
+    (barIndex, direction) => {
+      const anchorTime = barTimeForIndex(barIndex);
+      const cueGroup =
+        direction > 0
+          ? sequenceCueGroups.find((group) => group.time >= anchorTime)
+          : sequenceCueGroups.findLast((group) => group.time < anchorTime);
+      if (cueGroup) return cueGroup.snapshotIndex;
+      if (direction > 0) {
+        const nextIndex = snapshots.findIndex((_, index) => index + 1 >= anchorTime);
+        return nextIndex >= 0 ? nextIndex : snapshots.length;
+      }
+      return snapshots.findLastIndex((_, index) => index + 1 < anchorTime);
+    },
+    [barTimeForIndex, sequenceCueGroups, snapshots],
+  );
 
-  const cueIndexNearBar = useCallback((barIndex, direction) => {
-    const anchorTime = barTimeForIndex(barIndex);
-    return direction > 0
-      ? sequenceCueGroups.findIndex((group) => group.time >= anchorTime)
-      : sequenceCueGroups.findLastIndex((group) => group.time < anchorTime);
-  }, [barTimeForIndex, sequenceCueGroups]);
+  const cueIndexNearBar = useCallback(
+    (barIndex, direction) => {
+      const anchorTime = barTimeForIndex(barIndex);
+      return direction > 0
+        ? sequenceCueGroups.findIndex((group) => group.time >= anchorTime)
+        : sequenceCueGroups.findLastIndex((group) => group.time < anchorTime);
+    },
+    [barTimeForIndex, sequenceCueGroups],
+  );
 
   const applyStoppedSequenceTransportState = useCallback((nextState = {}) => {
     const resolvedState = buildStoppedSequenceTransportState(nextState);
@@ -1480,9 +1498,9 @@ const App = () => {
     }
     const activeSnapshotIds = [...manualSnapshotGesturesRef.current.keys()];
     setManualPlayingSnapshotIds(activeSnapshotIds);
-    setPlayingSnapshotId((current) => (
-      current === snapshotId ? (activeSnapshotIds.at(-1) ?? null) : current
-    ));
+    setPlayingSnapshotId((current) =>
+      current === snapshotId ? (activeSnapshotIds.at(-1) ?? null) : current,
+    );
     if (activeSnapshotIds.length === 0) {
       setSequencePlayhead((current) => ({ ...current, stopped: true }));
     }
@@ -1490,144 +1508,143 @@ const App = () => {
 
   const cancelManualSnapshotGestures = useCallback((snapshotId = null) => {
     const runtime = manualGestureRuntimeRef.current;
-    const gestureIds = snapshotId == null
-      ? runtime.activeGestureIds()
-      : [...(manualSnapshotGesturesRef.current.get(snapshotId) ?? [])];
+    const gestureIds =
+      snapshotId == null
+        ? runtime.activeGestureIds()
+        : [...(manualSnapshotGesturesRef.current.get(snapshotId) ?? [])];
     for (const gestureId of gestureIds) runtime.cancel(gestureId);
   }, []);
 
-  const decayManualSnapshotGesturesForNextTrigger = useCallback((settings) => {
-    const runtime = manualGestureRuntimeRef.current;
-    if (settings?.mode === "off") {
-      cancelManualSnapshotGestures();
-      return;
-    }
-    if (settings?.decayMode === "sustain") return;
-    for (const gestureId of runtime.activeGestureIds()) {
-      const releasePlan = planManualSnapshotRelease(
-        runtime.attackEvents(gestureId),
-        settings,
-      );
-      runtime.release(gestureId, releasePlan);
-    }
-  }, [cancelManualSnapshotGestures]);
+  const decayManualSnapshotGesturesForNextTrigger = useCallback(
+    (settings) => {
+      const runtime = manualGestureRuntimeRef.current;
+      if (settings?.mode === "off") {
+        cancelManualSnapshotGestures();
+        return;
+      }
+      if (settings?.decayMode === "sustain") return;
+      for (const gestureId of runtime.activeGestureIds()) {
+        const releasePlan = planManualSnapshotRelease(runtime.attackEvents(gestureId), settings);
+        runtime.release(gestureId, releasePlan);
+      }
+    },
+    [cancelManualSnapshotGestures],
+  );
 
-  const commitSequencePlaybackUi = useCallback(({
-    safeStepIndex,
-    safeMarkerIndex,
-    snapshot,
-    cueGroup,
-    normalizedNotes,
-    barIndex,
-  }) => {
-    const nextState = buildCommittedSequencePlaybackState({
-      safeStepIndex,
-      safeMarkerIndex,
-      snapshot,
-      cueGroup,
-      normalizedNotes,
-      barIndex,
-      snapshots,
-    });
-    pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
-    setPlayingSnapshotId(nextState.playingSnapshotId);
-    setSelectedSnapshotId(nextState.selectedSnapshotId);
-    setSelectedSnapshotMarker(nextState.selectedSnapshotMarker);
-    setSequencePlayhead(nextState.playhead);
-  }, [snapshots]);
-
-  const applySequencePlayback = useCallback((stepIndex, markerIndex = null, notes = [], options = {}) => {
-    cancelManualSnapshotGestures();
-    const playbackStartMs = performance.now();
-    const hardRestart = options?.hardRestart === true;
-    const updateUi = options?.updateUi !== false;
-    const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
-    const snapshot = snapshots[safeStepIndex];
-    if (!snapshot) return;
-    const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
-      ? null
-      : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-    const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
-    const normalizedNotes = Array.isArray(notes) ? notes : [];
-    const useLegato = sequenceLegato && safeMarkerIndex != null;
-    const playheadTime = cueGroup?.time ?? (safeStepIndex + 1);
-    const barIndex = barIndexForTime(playheadTime);
-
-    if (hardRestart) keysRef.current?.stopSnapshot();
-    if (normalizedNotes.length > 0) {
-      keysRef.current?.playSnapshot(normalizedNotes, {
-        legato: hardRestart ? false : useLegato,
-        pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
-      });
-    } else {
-      keysRef.current?.stopSnapshot();
-    }
-    if (updateUi) {
-      commitSequencePlaybackUi({
+  const commitSequencePlaybackUi = useCallback(
+    ({ safeStepIndex, safeMarkerIndex, snapshot, cueGroup, normalizedNotes, barIndex }) => {
+      const nextState = buildCommittedSequencePlaybackState({
         safeStepIndex,
         safeMarkerIndex,
         snapshot,
         cueGroup,
         normalizedNotes,
         barIndex,
+        snapshots,
       });
-    }
-    const durationMs = performance.now() - playbackStartMs;
-    if (isTimedTransportDiagnosticsEnabled() && durationMs > 8) {
-      appendPersistedTimedTransportDiagnostic({
-        type: "apply-playback",
-        clockSeconds: performance.now() / 1000,
-        cueIndex: safeMarkerIndex == null ? null : safeMarkerIndex + 1,
-        playbackIndex: safeMarkerIndex,
-        durationMs,
-        noteCount: normalizedNotes.length,
-        detail: `${hardRestart ? "hard restart" : "playback apply"}${updateUi ? "" : " (audio only)"}`,
-      });
-    }
-  }, [
-    barIndexForTime,
-    cancelManualSnapshotGestures,
-    commitSequencePlaybackUi,
-    sequenceCueGroups,
-    sequenceLegato,
-    snapshots,
-  ]);
+      pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+      setPlayingSnapshotId(nextState.playingSnapshotId);
+      setSelectedSnapshotId(nextState.selectedSnapshotId);
+      setSelectedSnapshotMarker(nextState.selectedSnapshotMarker);
+      setSequencePlayhead(nextState.playhead);
+    },
+    [snapshots],
+  );
 
-  const sequencePlaybackNotesAtPosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
-    if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= snapshots.length) return [];
-    const keys = keysRef.current;
-    const noteNameOptions = {
-      noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
-      hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
-    };
-    const pitchOffset = clampSequencePlaybackPitchCents(
-      options?.pitchOffset ?? liveSequencePlaybackPitchOffsetRef.current,
-    );
-    const transformNotes = (notes) => {
-      let nextNotes = Array.isArray(notes) ? notes : [];
-      if (snapSequenceToCurrentTuning && currentSequenceSnapRuntime) {
-        nextNotes = nextNotes.map((note) => (
-          remapSequenceNoteToRuntime(note, currentSequenceSnapRuntime, noteNameOptions)
-        ));
+  const applySequencePlayback = useCallback(
+    (stepIndex, markerIndex = null, notes = [], options = {}) => {
+      cancelManualSnapshotGestures();
+      const playbackStartMs = performance.now();
+      const hardRestart = options?.hardRestart === true;
+      const updateUi = options?.updateUi !== false;
+      const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
+      const snapshot = snapshots[safeStepIndex];
+      if (!snapshot) return;
+      const safeMarkerIndex =
+        markerIndex == null || sequenceCueGroups.length === 0
+          ? null
+          : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+      const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
+      const normalizedNotes = Array.isArray(notes) ? notes : [];
+      const useLegato = sequenceLegato && safeMarkerIndex != null;
+      const playheadTime = cueGroup?.time ?? safeStepIndex + 1;
+      const barIndex = barIndexForTime(playheadTime);
+
+      if (hardRestart) keysRef.current?.stopSnapshot();
+      if (normalizedNotes.length > 0) {
+        keysRef.current?.playSnapshot(normalizedNotes, {
+          legato: hardRestart ? false : useLegato,
+          pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
+        });
+      } else {
+        keysRef.current?.stopSnapshot();
       }
-      // PITCH is a global translation. Resolve any tuning snap first, then add
-      // the exact same cents value to every resulting note.
-      if (Math.abs(pitchOffset) > 1e-9) {
-        nextNotes = applyPlaybackPitchOffsetToNotes(nextNotes, pitchOffset);
+      if (updateUi) {
+        commitSequencePlaybackUi({
+          safeStepIndex,
+          safeMarkerIndex,
+          snapshot,
+          cueGroup,
+          normalizedNotes,
+          barIndex,
+        });
       }
-      return nextNotes;
-    };
-    if (markerIndex == null || sequenceCueGroups.length === 0) {
-      return transformNotes(snapshots[stepIndex]?.notes ?? []);
-    }
-    const safeMarkerIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-    return transformNotes(sequenceNotesAtCueIndex(snapshots, safeMarkerIndex));
-  }, [
-    currentSequenceSnapRuntime,
-    sequenceCueGroups,
-    snapSequenceToCurrentTuning,
-    snapshots,
-  ]);
+      const durationMs = performance.now() - playbackStartMs;
+      if (isTimedTransportDiagnosticsEnabled() && durationMs > 8) {
+        appendPersistedTimedTransportDiagnostic({
+          type: "apply-playback",
+          clockSeconds: performance.now() / 1000,
+          cueIndex: safeMarkerIndex == null ? null : safeMarkerIndex + 1,
+          playbackIndex: safeMarkerIndex,
+          durationMs,
+          noteCount: normalizedNotes.length,
+          detail: `${hardRestart ? "hard restart" : "playback apply"}${updateUi ? "" : " (audio only)"}`,
+        });
+      }
+    },
+    [
+      barIndexForTime,
+      cancelManualSnapshotGestures,
+      commitSequencePlaybackUi,
+      sequenceCueGroups,
+      sequenceLegato,
+      snapshots,
+    ],
+  );
+
+  const sequencePlaybackNotesAtPosition = useCallback(
+    (stepIndex, markerIndex = null, options = {}) => {
+      if (!Number.isFinite(stepIndex) || stepIndex < 0 || stepIndex >= snapshots.length) return [];
+      const keys = keysRef.current;
+      const noteNameOptions = {
+        noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
+        hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
+      };
+      const pitchOffset = clampSequencePlaybackPitchCents(
+        options?.pitchOffset ?? liveSequencePlaybackPitchOffsetRef.current,
+      );
+      const transformNotes = (notes) => {
+        let nextNotes = Array.isArray(notes) ? notes : [];
+        if (snapSequenceToCurrentTuning && currentSequenceSnapRuntime) {
+          nextNotes = nextNotes.map((note) =>
+            remapSequenceNoteToRuntime(note, currentSequenceSnapRuntime, noteNameOptions),
+          );
+        }
+        // PITCH is a global translation. Resolve any tuning snap first, then add
+        // the exact same cents value to every resulting note.
+        if (Math.abs(pitchOffset) > 1e-9) {
+          nextNotes = applyPlaybackPitchOffsetToNotes(nextNotes, pitchOffset);
+        }
+        return nextNotes;
+      };
+      if (markerIndex == null || sequenceCueGroups.length === 0) {
+        return transformNotes(snapshots[stepIndex]?.notes ?? []);
+      }
+      const safeMarkerIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+      return transformNotes(sequenceNotesAtCueIndex(snapshots, safeMarkerIndex));
+    },
+    [currentSequenceSnapRuntime, sequenceCueGroups, snapSequenceToCurrentTuning, snapshots],
+  );
 
   const previewSequencePlaybackPitchOffset = useCallback((value) => {
     const nextPitchOffset = clampSequencePlaybackPitchCents(value);
@@ -1652,73 +1669,75 @@ const App = () => {
     setSequencePlaybackPitchOffset(nextPitchOffset);
   }, []);
 
-  const playSequencePosition = useCallback((stepIndex, markerIndex = null, options = {}) => {
-    const hardRestart = options?.hardRestart === true;
-    if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
-      pendingTransportSelectionRef.current = clearPendingTransportSelection();
-      cancelManualSnapshotGestures();
-      keysRef.current?.stopSnapshot();
-      sequenceRepeatPlaybackStateRef.current = {};
-      resetTimedPlaybackUi();
-      applyStoppedSequenceTransportState();
-      return;
-    }
+  const playSequencePosition = useCallback(
+    (stepIndex, markerIndex = null, options = {}) => {
+      const hardRestart = options?.hardRestart === true;
+      if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
+        pendingTransportSelectionRef.current = clearPendingTransportSelection();
+        cancelManualSnapshotGestures();
+        keysRef.current?.stopSnapshot();
+        sequenceRepeatPlaybackStateRef.current = {};
+        resetTimedPlaybackUi();
+        applyStoppedSequenceTransportState();
+        return;
+      }
 
-    if (stepIndex >= snapshots.length) {
-      pendingTransportSelectionRef.current = clearPendingTransportSelection();
-      const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
-        ? null
-        : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-      cancelManualSnapshotGestures();
-      keysRef.current?.stopSnapshot();
-      sequenceRepeatPlaybackStateRef.current = {};
-      resetTimedPlaybackUi({
-        stepIndex: snapshots.length,
-        markerIndex: safeMarkerIndex,
-        barIndex: 0,
-      });
-      applyStoppedSequenceTransportState({
-        barIndex: 0,
-        stepIndex: snapshots.length,
-        markerIndex: safeMarkerIndex,
-      });
-      return;
-    }
+      if (stepIndex >= snapshots.length) {
+        pendingTransportSelectionRef.current = clearPendingTransportSelection();
+        const safeMarkerIndex =
+          markerIndex == null || sequenceCueGroups.length === 0
+            ? null
+            : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+        cancelManualSnapshotGestures();
+        keysRef.current?.stopSnapshot();
+        sequenceRepeatPlaybackStateRef.current = {};
+        resetTimedPlaybackUi({
+          stepIndex: snapshots.length,
+          markerIndex: safeMarkerIndex,
+          barIndex: 0,
+        });
+        applyStoppedSequenceTransportState({
+          barIndex: 0,
+          stepIndex: snapshots.length,
+          markerIndex: safeMarkerIndex,
+        });
+        return;
+      }
 
-    const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
-    const snapshot = snapshots[safeStepIndex];
-    if (!snapshot) return;
-    const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
-      ? null
-      : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-    const notes = sequencePlaybackNotesAtPosition(safeStepIndex, safeMarkerIndex);
-    applySequencePlayback(safeStepIndex, safeMarkerIndex, notes, { hardRestart });
-  }, [
-    applySequencePlayback,
-    applyStoppedSequenceTransportState,
-    cancelManualSnapshotGestures,
-    resetTimedPlaybackUi,
-    sequenceCueGroups,
-    sequencePlaybackNotesAtPosition,
-    snapshots,
-  ]);
+      const safeStepIndex = Math.max(0, Math.min(snapshots.length - 1, stepIndex));
+      const snapshot = snapshots[safeStepIndex];
+      if (!snapshot) return;
+      const safeMarkerIndex =
+        markerIndex == null || sequenceCueGroups.length === 0
+          ? null
+          : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+      const notes = sequencePlaybackNotesAtPosition(safeStepIndex, safeMarkerIndex);
+      applySequencePlayback(safeStepIndex, safeMarkerIndex, notes, { hardRestart });
+    },
+    [
+      applySequencePlayback,
+      applyStoppedSequenceTransportState,
+      cancelManualSnapshotGestures,
+      resetTimedPlaybackUi,
+      sequenceCueGroups,
+      sequencePlaybackNotesAtPosition,
+      snapshots,
+    ],
+  );
 
   useEffect(() => {
     const previousSnap = previousSnapSequenceToCurrentTuningRef.current;
     const previousPitch = previousSequencePlaybackPitchOffsetRef.current;
-    const pitchAlreadyApplied = Math.abs(
-      appliedSequencePlaybackPitchOffsetRef.current - sequencePlaybackPitchOffset,
-    ) < 1e-9;
+    const pitchAlreadyApplied =
+      Math.abs(appliedSequencePlaybackPitchOffsetRef.current - sequencePlaybackPitchOffset) < 1e-9;
     previousSnapSequenceToCurrentTuningRef.current = snapSequenceToCurrentTuning;
     previousSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
     liveSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
     if (
-      previousSnap === snapSequenceToCurrentTuning
-      && (
-        previousPitch === sequencePlaybackPitchOffset
-        || pitchAlreadyApplied
-      )
-    ) return;
+      previousSnap === snapSequenceToCurrentTuning &&
+      (previousPitch === sequencePlaybackPitchOffset || pitchAlreadyApplied)
+    )
+      return;
     if (sequencePlayhead?.stopped) return;
     if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
     const currentNotes = sequencePlaybackNotesAtPosition(
@@ -1726,10 +1745,12 @@ const App = () => {
       sequencePlayhead.markerIndex,
     );
     if (currentNotes.length > 0) {
-      if (shouldRetuneSequencePlaybackInPlace({
-        sequenceLegato,
-        snapSequenceToCurrentTuning,
-      })) {
+      if (
+        shouldRetuneSequencePlaybackInPlace({
+          sequenceLegato,
+          snapSequenceToCurrentTuning,
+        })
+      ) {
         const retunedHexes = retuneSnapshotHexes(keysRef.current, currentNotes, {
           bendOnly: true,
           sequencePitch: true,
@@ -1774,9 +1795,10 @@ const App = () => {
       const snap = snapshots[stepIndex];
       if (!snap) return;
       const id = snap.id;
-      const safeMarkerIndex = markerIndex == null || sequenceCueGroups.length === 0
-        ? null
-        : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
+      const safeMarkerIndex =
+        markerIndex == null || sequenceCueGroups.length === 0
+          ? null
+          : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
       const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
       const notes = sequencePlaybackNotesAtPosition(stepIndex, safeMarkerIndex);
       const articulation = effectiveManualSnapshotArticulation(
@@ -1794,7 +1816,7 @@ const App = () => {
           snapshot: snap,
           cueGroup,
           normalizedNotes: [],
-          barIndex: barIndexForTime(cueGroup?.time ?? (stepIndex + 1)),
+          barIndex: barIndexForTime(cueGroup?.time ?? stepIndex + 1),
         });
         return;
       }
@@ -1842,7 +1864,7 @@ const App = () => {
         snapshot: snap,
         cueGroup,
         normalizedNotes,
-        barIndex: barIndexForTime(cueGroup?.time ?? (stepIndex + 1)),
+        barIndex: barIndexForTime(cueGroup?.time ?? stepIndex + 1),
       });
     },
     [
@@ -1858,17 +1880,21 @@ const App = () => {
     ],
   );
 
-  const onPlaySnapshot = useCallback((id) => {
-    const stepIndex = snapshots.findIndex((snapshot) => snapshot.id === id);
-    if (stepIndex < 0) return;
-    playManualSnapshotAtIndex(stepIndex);
-  }, [playManualSnapshotAtIndex, snapshots]);
+  const onPlaySnapshot = useCallback(
+    (id) => {
+      const stepIndex = snapshots.findIndex((snapshot) => snapshot.id === id);
+      if (stepIndex < 0) return;
+      playManualSnapshotAtIndex(stepIndex);
+    },
+    [playManualSnapshotAtIndex, snapshots],
+  );
 
   const onStopSnapshot = useCallback(
     (id = null) => {
-      const hasManualGesture = id == null
-        ? manualGestureRuntimeRef.current.activeGestureIds().length > 0
-        : manualSnapshotGesturesRef.current.has(id);
+      const hasManualGesture =
+        id == null
+          ? manualGestureRuntimeRef.current.activeGestureIds().length > 0
+          : manualSnapshotGesturesRef.current.has(id);
       if (hasManualGesture) {
         cancelManualSnapshotGestures(id);
         if (id != null) return;
@@ -1895,55 +1921,73 @@ const App = () => {
     keysRef.current?.panic?.();
   }, [guardianPanic, onStopSnapshot, workspaceTab]);
 
-  const onSelectSequenceBar = useCallback((barIndex) => {
-    manualGestureRuntimeRef.current.cancelAll();
-    keysRef.current?.stopSnapshot();
-    sequenceRepeatPlaybackStateRef.current = {};
-    pendingTransportSelectionRef.current = clearPendingTransportSelection();
-    applyStoppedSequenceTransportState({
-      barIndex,
-      stepIndex: -1,
-    });
-  }, [applyStoppedSequenceTransportState]);
+  const onSelectSequenceBar = useCallback(
+    (barIndex) => {
+      manualGestureRuntimeRef.current.cancelAll();
+      keysRef.current?.stopSnapshot();
+      sequenceRepeatPlaybackStateRef.current = {};
+      pendingTransportSelectionRef.current = clearPendingTransportSelection();
+      applyStoppedSequenceTransportState({
+        barIndex,
+        stepIndex: -1,
+      });
+    },
+    [applyStoppedSequenceTransportState],
+  );
 
-  const onCueSequenceSnapshot = useCallback((targetIndex) => {
-    const nextState = resolvePendingSnapshotTransportState({
-      targetIndex,
-      snapshots,
-      sequenceCueGroups,
+  const onCueSequenceSnapshot = useCallback(
+    (targetIndex) => {
+      const nextState = resolvePendingSnapshotTransportState({
+        targetIndex,
+        snapshots,
+        sequenceCueGroups,
+        barIndexForTime,
+      });
+      if (!nextState) return;
+      manualGestureRuntimeRef.current.cancelAll();
+      keysRef.current?.stopSnapshot();
+      sequenceRepeatPlaybackStateRef.current = {};
+      pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+      applyStoppedSequenceTransportState(nextState);
+    },
+    [applyStoppedSequenceTransportState, barIndexForTime, sequenceCueGroups, snapshots],
+  );
+
+  const onCueSequenceCue = useCallback(
+    (targetCueIndex) => {
+      const previewExpandedIds = buildCueExpandedSnapshotIdsAt(
+        targetCueIndex,
+        sequenceRuntimeModel.renderedSnapshots,
+        sortedSequenceBars,
+        sequenceRuntimeModel.sortedTempi,
+        sequenceRuntimeModel.sequenceEvents,
+      );
+      const nextState = resolvePendingCueTransportState({
+        targetCueIndex,
+        sequenceCueGroups,
+        sequenceEvents: sequenceRuntimeModel.sequenceEvents,
+        snapshots,
+        previewExpandedIds,
+        barIndexForTime,
+      });
+      if (!nextState) return;
+      manualGestureRuntimeRef.current.cancelAll();
+      keysRef.current?.stopSnapshot();
+      sequenceRepeatPlaybackStateRef.current = {};
+      pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+      applyStoppedSequenceTransportState(nextState);
+    },
+    [
+      applyStoppedSequenceTransportState,
       barIndexForTime,
-    });
-    if (!nextState) return;
-    manualGestureRuntimeRef.current.cancelAll();
-    keysRef.current?.stopSnapshot();
-    sequenceRepeatPlaybackStateRef.current = {};
-    pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
-    applyStoppedSequenceTransportState(nextState);
-  }, [applyStoppedSequenceTransportState, barIndexForTime, sequenceCueGroups, snapshots]);
-
-  const onCueSequenceCue = useCallback((targetCueIndex) => {
-    const previewExpandedIds = buildCueExpandedSnapshotIdsAt(
-      targetCueIndex,
+      sequenceCueGroups,
       sequenceRuntimeModel.renderedSnapshots,
-      sortedSequenceBars,
-      sequenceRuntimeModel.sortedTempi,
       sequenceRuntimeModel.sequenceEvents,
-    );
-    const nextState = resolvePendingCueTransportState({
-      targetCueIndex,
-      sequenceCueGroups,
-      sequenceEvents: sequenceRuntimeModel.sequenceEvents,
+      sequenceRuntimeModel.sortedTempi,
       snapshots,
-      previewExpandedIds,
-      barIndexForTime,
-    });
-    if (!nextState) return;
-    manualGestureRuntimeRef.current.cancelAll();
-    keysRef.current?.stopSnapshot();
-    sequenceRepeatPlaybackStateRef.current = {};
-    pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
-    applyStoppedSequenceTransportState(nextState);
-  }, [applyStoppedSequenceTransportState, barIndexForTime, sequenceCueGroups, sequenceRuntimeModel.renderedSnapshots, sequenceRuntimeModel.sequenceEvents, sequenceRuntimeModel.sortedTempi, snapshots, sortedSequenceBars]);
+      sortedSequenceBars,
+    ],
+  );
 
   const onAddSequenceBar = useCallback((position = null, numerator = 4, denominator = 4) => {
     setSequenceBars((prev) => {
@@ -1954,7 +1998,8 @@ const App = () => {
         position,
         numerator,
         denominator,
-        confirmReplace: () => window.confirm("There already is a bar at the specified position. Replace?"),
+        confirmReplace: () =>
+          window.confirm("There already is a bar at the specified position. Replace?"),
       });
       sequenceBarIdRef.current = result.nextBarId;
       return result.bars;
@@ -1994,48 +2039,63 @@ const App = () => {
   }, []);
 
   const onUpdateSequenceRepeat = useCallback((id, updates) => {
-    setSequenceRepeats((prev) => updateSequenceRepeatMarker({ repeats: prev, repeatId: id, updates }));
+    setSequenceRepeats((prev) =>
+      updateSequenceRepeatMarker({ repeats: prev, repeatId: id, updates }),
+    );
   }, []);
 
   const onUpdateSequenceTempo = useCallback((id, updates) => {
     setSequenceTempi((prev) => updateSequenceTempoMarker({ tempi: prev, tempoId: id, updates }));
   }, []);
 
-  const onUpdateSequenceBar = useCallback((id, updates) => {
-    setSequenceBars((prev) => {
-      const result = updateSequenceBarMarker({
-        bars: prev,
-        snapshots,
-        barId: id,
-        updates,
-        nextBarId: sequenceBarIdRef.current,
-        confirmReplace: () => window.confirm("There already is a bar at the specified position. Replace?"),
+  const onUpdateSequenceBar = useCallback(
+    (id, updates) => {
+      setSequenceBars((prev) => {
+        const result = updateSequenceBarMarker({
+          bars: prev,
+          snapshots,
+          barId: id,
+          updates,
+          nextBarId: sequenceBarIdRef.current,
+          confirmReplace: () =>
+            window.confirm("There already is a bar at the specified position. Replace?"),
+        });
+        sequenceBarIdRef.current = result.nextBarId;
+        return result.bars;
       });
-      sequenceBarIdRef.current = result.nextBarId;
-      return result.bars;
-    });
-  }, [snapshots]);
+    },
+    [snapshots],
+  );
 
-  const onMoveSequenceBar = useCallback((fromId, position) => {
-    setSequenceBars((prev) => {
-      const result = moveSequenceBarMarker({
-        bars: prev,
-        snapshots,
-        barId: fromId,
-        position,
-        nextBarId: sequenceBarIdRef.current,
-        confirmReplace: () => window.confirm("There already is a bar at the specified position. Replace?"),
+  const onMoveSequenceBar = useCallback(
+    (fromId, position) => {
+      setSequenceBars((prev) => {
+        const result = moveSequenceBarMarker({
+          bars: prev,
+          snapshots,
+          barId: fromId,
+          position,
+          nextBarId: sequenceBarIdRef.current,
+          confirmReplace: () =>
+            window.confirm("There already is a bar at the specified position. Replace?"),
+        });
+        sequenceBarIdRef.current = result.nextBarId;
+        return result.bars;
       });
-      sequenceBarIdRef.current = result.nextBarId;
-      return result.bars;
-    });
-  }, [snapshots]);
+    },
+    [snapshots],
+  );
 
-  const onStepSequence = useCallback((direction) => {
-    sequenceRepeatPlaybackStateRef.current = {};
-    if (!snapshots.length) return;
+  const onStepSequence = useCallback(
+    (direction) => {
+      sequenceRepeatPlaybackStateRef.current = {};
+      if (!snapshots.length) return;
       const pendingSnapshotIndex = pendingTransportSelectionRef.current.snapshotIndex;
-      if (sequencePlayhead.stopped === true && Number.isFinite(pendingSnapshotIndex) && pendingSnapshotIndex >= 0) {
+      if (
+        sequencePlayhead.stopped === true &&
+        Number.isFinite(pendingSnapshotIndex) &&
+        pendingSnapshotIndex >= 0
+      ) {
         if (direction > 0) {
           playManualSnapshotAtIndex(pendingSnapshotIndex);
           return;
@@ -2044,164 +2104,161 @@ const App = () => {
         if (previousIndex >= 0) playManualSnapshotAtIndex(previousIndex);
         else playSequencePosition(-1, null);
         return;
-    }
-    const current = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
-    if (current < 0) {
-      const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
-      if (target < 0) {
-        playSequencePosition(-1, null);
-        return;
       }
-      if (target >= snapshots.length) {
-        playSequencePosition(snapshots.length, null);
-        return;
-      }
-      playManualSnapshotAtIndex(target);
-      return;
-    }
-    const next = Math.max(-1, Math.min(snapshots.length, current + direction));
-    if (next >= 0 && next < snapshots.length) playManualSnapshotAtIndex(next);
-    else playSequencePosition(next, null);
-  }, [
-    playManualSnapshotAtIndex,
-    playSequencePosition,
-    sequencePlayhead.barIndex,
-    sequencePlayhead.stepIndex,
-    sequencePlayhead.stopped,
-    snapshotIndexNearBar,
-    snapshots.length,
-  ]);
-
-  const onStepSequenceMarker = useCallback((direction) => {
-    const currentCueIndex = Number.isFinite(sequencePlayhead.markerIndex) ? sequencePlayhead.markerIndex : null;
-    const playheadStepIndex = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : null;
-    const playheadBarIndex = Number.isFinite(sequencePlayhead.barIndex) ? sequencePlayhead.barIndex : null;
-    const recordCueNavigation = (type, detail, extraContext = {}, error = null) => {
-      appendPersistedSequencerCrashDiagnostic({
-        type,
-        detail,
-        context: {
-          source: "cue-navigation",
-          navigationDirection: direction,
-          currentCueIndex,
-          playheadStepIndex,
-          playheadBarIndex,
-          snapshotCountBefore: snapshots.length,
-          workspaceTab,
-          ...extraContext,
-        },
-        error,
-      });
-    };
-
-    recordCueNavigation(
-      "cue-navigation-requested",
-      direction < 0 ? "Requested previous cue" : "Requested next cue",
-      { navigationStage: "requested" },
-    );
-
-    try {
-      if (!snapshots.length) {
-        recordCueNavigation(
-          "cue-navigation-resolved",
-          "Ignored cue navigation because the sequence is empty",
-          { navigationStage: "resolved", nextCueIndex: null },
-        );
-        return;
-      }
-
-      const cueCount = sequenceCueGroups.length;
-      if (cueCount === 0) {
-        const currentStep = playheadStepIndex ?? -1;
-        if (currentStep < 0) {
-          const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
-          if (target < 0) {
-            recordCueNavigation(
-              "cue-navigation-resolved",
-              "Resolved cue navigation to sequence start",
-              { navigationStage: "resolved", nextCueIndex: -1 },
-            );
-            playSequencePosition(-1, null);
-            return;
-          }
-          if (target >= snapshots.length) {
-            recordCueNavigation(
-              "cue-navigation-resolved",
-              "Resolved cue navigation to sequence end",
-              { navigationStage: "resolved", nextCueIndex: cueCount },
-            );
-            playSequencePosition(snapshots.length, null);
-            return;
-          }
-          recordCueNavigation(
-            "cue-navigation-resolved",
-            "Resolved cue navigation to snapshot playhead",
-            {
-              navigationStage: "resolved",
-              nextCueIndex: null,
-              snapshotId: snapshots[target]?.id ?? null,
-            },
-          );
-          playSequencePosition(target, null);
-          return;
-        }
-
-        const nextStep = Math.max(-1, Math.min(snapshots.length, currentStep + direction));
-        recordCueNavigation(
-          "cue-navigation-resolved",
-          "Resolved cue navigation without cue markers",
-          {
-            navigationStage: "resolved",
-            nextCueIndex: null,
-            snapshotId: snapshots[nextStep]?.id ?? null,
-          },
-        );
-        playSequencePosition(nextStep, null);
-        return;
-      }
-
-      const atOff = playheadStepIndex == null || playheadStepIndex < 0;
-      const atEnd = playheadStepIndex != null && playheadStepIndex >= snapshots.length;
-      let nextCue = currentCueIndex;
-      const queuedCueIndex = pendingTransportSelectionRef.current.cueIndex;
-
-      if (sequencePlayhead.stopped === true && queuedCueIndex != null) {
-        if (direction > 0) {
-          const queuedCueGroup = sequenceCueGroups[queuedCueIndex];
-          if (!queuedCueGroup) {
-            recordCueNavigation(
-              "cue-navigation-error",
-              "Resolved queued cue playback without a cue group",
-              { navigationStage: "error", nextCueIndex: queuedCueIndex },
-            );
-            return;
-          }
-          recordCueNavigation(
-            "cue-navigation-resolved",
-            "Resolved next cue navigation to the queued cue",
-            {
-              navigationStage: "resolved",
-              nextCueIndex: queuedCueIndex,
-              snapshotId: snapshots[queuedCueGroup.snapshotIndex]?.id ?? null,
-            },
-          );
-          playSequencePosition(queuedCueGroup.snapshotIndex, queuedCueIndex);
-          return;
-        }
-        nextCue = queuedCueIndex - 1;
-        if (nextCue < 0) {
-          recordCueNavigation(
-            "cue-navigation-resolved",
-            "Resolved previous cue navigation to off state",
-            { navigationStage: "resolved", nextCueIndex: -1 },
-          );
+      const current = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
+      if (current < 0) {
+        const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
+        if (target < 0) {
           playSequencePosition(-1, null);
           return;
         }
-      } else if (atOff) {
-        nextCue = cueIndexNearBar(sequencePlayhead.barIndex, direction);
-        if (nextCue < 0) {
-          if (direction < 0) {
+        if (target >= snapshots.length) {
+          playSequencePosition(snapshots.length, null);
+          return;
+        }
+        playManualSnapshotAtIndex(target);
+        return;
+      }
+      const next = Math.max(-1, Math.min(snapshots.length, current + direction));
+      if (next >= 0 && next < snapshots.length) playManualSnapshotAtIndex(next);
+      else playSequencePosition(next, null);
+    },
+    [
+      playManualSnapshotAtIndex,
+      playSequencePosition,
+      sequencePlayhead.barIndex,
+      sequencePlayhead.stepIndex,
+      sequencePlayhead.stopped,
+      snapshotIndexNearBar,
+      snapshots.length,
+    ],
+  );
+
+  const onStepSequenceMarker = useCallback(
+    (direction) => {
+      const currentCueIndex = Number.isFinite(sequencePlayhead.markerIndex)
+        ? sequencePlayhead.markerIndex
+        : null;
+      const playheadStepIndex = Number.isFinite(sequencePlayhead.stepIndex)
+        ? sequencePlayhead.stepIndex
+        : null;
+      const playheadBarIndex = Number.isFinite(sequencePlayhead.barIndex)
+        ? sequencePlayhead.barIndex
+        : null;
+      const recordCueNavigation = (type, detail, extraContext = {}, error = null) => {
+        appendPersistedSequencerCrashDiagnostic({
+          type,
+          detail,
+          context: {
+            source: "cue-navigation",
+            navigationDirection: direction,
+            currentCueIndex,
+            playheadStepIndex,
+            playheadBarIndex,
+            snapshotCountBefore: snapshots.length,
+            workspaceTab,
+            ...extraContext,
+          },
+          error,
+        });
+      };
+
+      recordCueNavigation(
+        "cue-navigation-requested",
+        direction < 0 ? "Requested previous cue" : "Requested next cue",
+        { navigationStage: "requested" },
+      );
+
+      try {
+        if (!snapshots.length) {
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            "Ignored cue navigation because the sequence is empty",
+            { navigationStage: "resolved", nextCueIndex: null },
+          );
+          return;
+        }
+
+        const cueCount = sequenceCueGroups.length;
+        if (cueCount === 0) {
+          const currentStep = playheadStepIndex ?? -1;
+          if (currentStep < 0) {
+            const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
+            if (target < 0) {
+              recordCueNavigation(
+                "cue-navigation-resolved",
+                "Resolved cue navigation to sequence start",
+                { navigationStage: "resolved", nextCueIndex: -1 },
+              );
+              playSequencePosition(-1, null);
+              return;
+            }
+            if (target >= snapshots.length) {
+              recordCueNavigation(
+                "cue-navigation-resolved",
+                "Resolved cue navigation to sequence end",
+                { navigationStage: "resolved", nextCueIndex: cueCount },
+              );
+              playSequencePosition(snapshots.length, null);
+              return;
+            }
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved cue navigation to snapshot playhead",
+              {
+                navigationStage: "resolved",
+                nextCueIndex: null,
+                snapshotId: snapshots[target]?.id ?? null,
+              },
+            );
+            playSequencePosition(target, null);
+            return;
+          }
+
+          const nextStep = Math.max(-1, Math.min(snapshots.length, currentStep + direction));
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            "Resolved cue navigation without cue markers",
+            {
+              navigationStage: "resolved",
+              nextCueIndex: null,
+              snapshotId: snapshots[nextStep]?.id ?? null,
+            },
+          );
+          playSequencePosition(nextStep, null);
+          return;
+        }
+
+        const atOff = playheadStepIndex == null || playheadStepIndex < 0;
+        const atEnd = playheadStepIndex != null && playheadStepIndex >= snapshots.length;
+        let nextCue = currentCueIndex;
+        const queuedCueIndex = pendingTransportSelectionRef.current.cueIndex;
+
+        if (sequencePlayhead.stopped === true && queuedCueIndex != null) {
+          if (direction > 0) {
+            const queuedCueGroup = sequenceCueGroups[queuedCueIndex];
+            if (!queuedCueGroup) {
+              recordCueNavigation(
+                "cue-navigation-error",
+                "Resolved queued cue playback without a cue group",
+                { navigationStage: "error", nextCueIndex: queuedCueIndex },
+              );
+              return;
+            }
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved next cue navigation to the queued cue",
+              {
+                navigationStage: "resolved",
+                nextCueIndex: queuedCueIndex,
+                snapshotId: snapshots[queuedCueGroup.snapshotIndex]?.id ?? null,
+              },
+            );
+            playSequencePosition(queuedCueGroup.snapshotIndex, queuedCueIndex);
+            return;
+          }
+          nextCue = queuedCueIndex - 1;
+          if (nextCue < 0) {
             recordCueNavigation(
               "cue-navigation-resolved",
               "Resolved previous cue navigation to off state",
@@ -2210,165 +2267,185 @@ const App = () => {
             playSequencePosition(-1, null);
             return;
           }
-          recordCueNavigation(
-            "cue-navigation-resolved",
-            "Resolved next cue navigation to sequence end",
-            { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
-          );
-          playSequencePosition(snapshots.length, cueCount - 1);
-          return;
-        }
-      } else if (atEnd) {
-        if (direction >= 0) {
-          recordCueNavigation(
-            "cue-navigation-resolved",
-            "Resolved next cue navigation to stay at sequence end",
-            { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
-          );
-          return;
-        }
-        nextCue = currentCueIndex == null ? cueCount - 1 : Math.max(0, currentCueIndex - 1);
-      } else if (currentCueIndex == null) {
-        const currentTime = Number(sequencePlayhead.stepIndex) + 1;
-        nextCue = direction > 0
-          ? sequenceCueGroups.findIndex((group) => group.time > currentTime)
-          : sequenceCueGroups.findLastIndex((group) => group.time < currentTime);
-        if (nextCue < 0) {
-          recordCueNavigation(
-            "cue-navigation-resolved",
+        } else if (atOff) {
+          nextCue = cueIndexNearBar(sequencePlayhead.barIndex, direction);
+          if (nextCue < 0) {
+            if (direction < 0) {
+              recordCueNavigation(
+                "cue-navigation-resolved",
+                "Resolved previous cue navigation to off state",
+                { navigationStage: "resolved", nextCueIndex: -1 },
+              );
+              playSequencePosition(-1, null);
+              return;
+            }
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved next cue navigation to sequence end",
+              { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
+            );
+            playSequencePosition(snapshots.length, cueCount - 1);
+            return;
+          }
+        } else if (atEnd) {
+          if (direction >= 0) {
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved next cue navigation to stay at sequence end",
+              { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
+            );
+            return;
+          }
+          nextCue = currentCueIndex == null ? cueCount - 1 : Math.max(0, currentCueIndex - 1);
+        } else if (currentCueIndex == null) {
+          const currentTime = Number(sequencePlayhead.stepIndex) + 1;
+          nextCue =
             direction > 0
-              ? "Resolved next cue navigation to sequence end"
-              : "Resolved previous cue navigation to off state",
-            { navigationStage: "resolved", nextCueIndex: direction > 0 ? cueCount - 1 : -1 },
-          );
-          playSequencePosition(direction > 0 ? snapshots.length : -1, null);
-          return;
-        }
-      } else if (direction > 0) {
-        const repeatAdvance = advanceCueIndexWithRepeats({
-          currentCueIndex,
-          cueCount,
-          cueGroups: sequenceCueGroups,
-          repeatSections: sequenceRepeatSections,
-          repeatPlaybackState: sequenceRepeatPlaybackStateRef.current,
-          playRepeats: sequencePlayRepeats,
-        });
-        sequenceRepeatPlaybackStateRef.current = repeatAdvance.nextRepeatPlaybackState;
-        nextCue = repeatAdvance.nextCueIndex;
-        if (nextCue >= cueCount) {
+              ? sequenceCueGroups.findIndex((group) => group.time > currentTime)
+              : sequenceCueGroups.findLastIndex((group) => group.time < currentTime);
+          if (nextCue < 0) {
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              direction > 0
+                ? "Resolved next cue navigation to sequence end"
+                : "Resolved previous cue navigation to off state",
+              { navigationStage: "resolved", nextCueIndex: direction > 0 ? cueCount - 1 : -1 },
+            );
+            playSequencePosition(direction > 0 ? snapshots.length : -1, null);
+            return;
+          }
+        } else if (direction > 0) {
+          const repeatAdvance = advanceCueIndexWithRepeats({
+            currentCueIndex,
+            cueCount,
+            cueGroups: sequenceCueGroups,
+            repeatSections: sequenceRepeatSections,
+            repeatPlaybackState: sequenceRepeatPlaybackStateRef.current,
+            playRepeats: sequencePlayRepeats,
+          });
+          sequenceRepeatPlaybackStateRef.current = repeatAdvance.nextRepeatPlaybackState;
+          nextCue = repeatAdvance.nextCueIndex;
+          if (nextCue >= cueCount) {
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved next cue navigation beyond final cue",
+              { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
+            );
+            playSequencePosition(snapshots.length, cueCount - 1);
+            return;
+          }
+          const nextCueGroup = sequenceCueGroups[nextCue];
+          if (!nextCueGroup) {
+            recordCueNavigation(
+              "cue-navigation-error",
+              "Resolved next cue index without a cue group",
+              { navigationStage: "error", nextCueIndex: nextCue },
+            );
+            return;
+          }
           recordCueNavigation(
             "cue-navigation-resolved",
-            "Resolved next cue navigation beyond final cue",
-            { navigationStage: "resolved", nextCueIndex: cueCount - 1 },
+            repeatAdvance.didLoop
+              ? "Resolved next cue navigation with repeat loop"
+              : "Resolved next cue navigation",
+            {
+              navigationStage: "resolved",
+              nextCueIndex: nextCue,
+              snapshotId: snapshots[nextCueGroup.snapshotIndex]?.id ?? null,
+            },
           );
-          playSequencePosition(snapshots.length, cueCount - 1);
+          playSequencePosition(nextCueGroup.snapshotIndex, nextCue, {
+            hardRestart: repeatAdvance.didLoop,
+          });
           return;
+        } else {
+          sequenceRepeatPlaybackStateRef.current = {};
+          nextCue = Math.max(-1, Math.min(cueCount, currentCueIndex + direction));
+          if (nextCue < 0) {
+            recordCueNavigation(
+              "cue-navigation-resolved",
+              "Resolved previous cue navigation to off state",
+              { navigationStage: "resolved", nextCueIndex: -1 },
+            );
+            playSequencePosition(-1, null);
+            return;
+          }
         }
-        const nextCueGroup = sequenceCueGroups[nextCue];
-        if (!nextCueGroup) {
-          recordCueNavigation(
-            "cue-navigation-error",
-            "Resolved next cue index without a cue group",
-            { navigationStage: "error", nextCueIndex: nextCue },
-          );
+
+        const cueGroup = sequenceCueGroups[nextCue];
+        if (!cueGroup) {
+          recordCueNavigation("cue-navigation-error", "Resolved cue index without a cue group", {
+            navigationStage: "error",
+            nextCueIndex: nextCue,
+          });
           return;
         }
         recordCueNavigation(
           "cue-navigation-resolved",
-          repeatAdvance.didLoop
-            ? "Resolved next cue navigation with repeat loop"
-            : "Resolved next cue navigation",
+          direction < 0 ? "Resolved previous cue navigation" : "Resolved next cue navigation",
           {
             navigationStage: "resolved",
             nextCueIndex: nextCue,
-            snapshotId: snapshots[nextCueGroup.snapshotIndex]?.id ?? null,
+            snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? null,
           },
         );
-        playSequencePosition(nextCueGroup.snapshotIndex, nextCue, {
-          hardRestart: repeatAdvance.didLoop,
-        });
-        return;
-      } else {
-        sequenceRepeatPlaybackStateRef.current = {};
-        nextCue = Math.max(-1, Math.min(cueCount, currentCueIndex + direction));
-        if (nextCue < 0) {
-          recordCueNavigation(
-            "cue-navigation-resolved",
-            "Resolved previous cue navigation to off state",
-            { navigationStage: "resolved", nextCueIndex: -1 },
-          );
-          playSequencePosition(-1, null);
-          return;
-        }
-      }
-
-      const cueGroup = sequenceCueGroups[nextCue];
-      if (!cueGroup) {
+        playSequencePosition(cueGroup.snapshotIndex, nextCue);
+      } catch (error) {
         recordCueNavigation(
           "cue-navigation-error",
-          "Resolved cue index without a cue group",
-          { navigationStage: "error", nextCueIndex: nextCue },
+          direction < 0
+            ? "Previous cue navigation threw an error"
+            : "Next cue navigation threw an error",
+          { navigationStage: "error" },
+          error,
         );
+        throw error;
+      }
+    },
+    [
+      sequenceRepeatSections,
+      cueIndexNearBar,
+      playSequencePosition,
+      sequenceCueGroups,
+      sequencePlayRepeats,
+      sequencePlayhead.barIndex,
+      sequencePlayhead.markerIndex,
+      sequencePlayhead.stepIndex,
+      sequencePlayhead.stopped,
+      snapshotIndexNearBar,
+      snapshots,
+      workspaceTab,
+    ],
+  );
+
+  const onJumpSequenceSnapshot = useCallback(
+    (targetIndex) => {
+      sequenceRepeatPlaybackStateRef.current = {};
+      pendingTransportSelectionRef.current = clearPendingTransportSelection();
+      const nextIndex = Number(targetIndex);
+      if (!Number.isFinite(nextIndex)) return;
+      if (nextIndex >= 0 && nextIndex < snapshots.length) {
+        playManualSnapshotAtIndex(nextIndex);
         return;
       }
-      recordCueNavigation(
-        "cue-navigation-resolved",
-        direction < 0 ? "Resolved previous cue navigation" : "Resolved next cue navigation",
-        {
-          navigationStage: "resolved",
-          nextCueIndex: nextCue,
-          snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? null,
-        },
-      );
-      playSequencePosition(cueGroup.snapshotIndex, nextCue);
-    } catch (error) {
-      recordCueNavigation(
-        "cue-navigation-error",
-        direction < 0
-          ? "Previous cue navigation threw an error"
-          : "Next cue navigation threw an error",
-        { navigationStage: "error" },
-        error,
-      );
-      throw error;
-    }
-  }, [
-    sequenceRepeatSections,
-    cueIndexNearBar,
-    playSequencePosition,
-    sequenceCueGroups,
-    sequencePlayRepeats,
-    sequencePlayhead.barIndex,
-    sequencePlayhead.markerIndex,
-    sequencePlayhead.stepIndex,
-    sequencePlayhead.stopped,
-    snapshotIndexNearBar,
-    snapshots,
-    workspaceTab,
-  ]);
+      playSequencePosition(nextIndex, null);
+    },
+    [playManualSnapshotAtIndex, playSequencePosition, snapshots.length],
+  );
 
-  const onJumpSequenceSnapshot = useCallback((targetIndex) => {
-    sequenceRepeatPlaybackStateRef.current = {};
-    pendingTransportSelectionRef.current = clearPendingTransportSelection();
-    const nextIndex = Number(targetIndex);
-    if (!Number.isFinite(nextIndex)) return;
-    if (nextIndex >= 0 && nextIndex < snapshots.length) {
-      playManualSnapshotAtIndex(nextIndex);
-      return;
-    }
-    playSequencePosition(nextIndex, null);
-  }, [playManualSnapshotAtIndex, playSequencePosition, snapshots.length]);
-
-  const onJumpSequenceCue = useCallback((targetCueIndex) => {
-    sequenceRepeatPlaybackStateRef.current = {};
-    pendingTransportSelectionRef.current = clearPendingTransportSelection();
-    const nextCueIndex = Number(targetCueIndex);
-    if (!Number.isFinite(nextCueIndex) || sequenceCueGroups.length === 0) return;
-    const safeCueIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, nextCueIndex));
-    const cueGroup = sequenceCueGroups[safeCueIndex];
-    if (!cueGroup) return;
-    playSequencePosition(cueGroup.snapshotIndex, safeCueIndex);
-  }, [playSequencePosition, sequenceCueGroups]);
+  const onJumpSequenceCue = useCallback(
+    (targetCueIndex) => {
+      sequenceRepeatPlaybackStateRef.current = {};
+      pendingTransportSelectionRef.current = clearPendingTransportSelection();
+      const nextCueIndex = Number(targetCueIndex);
+      if (!Number.isFinite(nextCueIndex) || sequenceCueGroups.length === 0) return;
+      const safeCueIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, nextCueIndex));
+      const cueGroup = sequenceCueGroups[safeCueIndex];
+      if (!cueGroup) return;
+      playSequencePosition(cueGroup.snapshotIndex, safeCueIndex);
+    },
+    [playSequencePosition, sequenceCueGroups],
+  );
 
   const onPlaySequence = useCallback(() => {
     if (!snapshots.length) return;
@@ -2392,10 +2469,7 @@ const App = () => {
       playSequencePosition(sequencePlayhead.stepIndex ?? -1, null);
       return;
     }
-    playManualSnapshotAtIndex(
-      sequencePlayhead.stepIndex ?? 0,
-      sequencePlayhead.markerIndex,
-    );
+    playManualSnapshotAtIndex(sequencePlayhead.stepIndex ?? 0, sequencePlayhead.markerIndex);
   }, [
     playManualSnapshotAtIndex,
     playSequencePosition,
@@ -2430,7 +2504,13 @@ const App = () => {
       markerIndex: lastCueIndex,
       barIndex: lastBarIndex,
     });
-  }, [applyStoppedSequenceTransportState, resetTimedPlaybackUi, sequenceCueGroups.length, snapshots.length, sortedSequenceBars.length]);
+  }, [
+    applyStoppedSequenceTransportState,
+    resetTimedPlaybackUi,
+    sequenceCueGroups.length,
+    snapshots.length,
+    sortedSequenceBars.length,
+  ]);
 
   const getTimedTransportClockSeconds = useCallback(() => {
     const synthClock = keysRef.current?.synth?.currentTime?.();
@@ -2438,63 +2518,70 @@ const App = () => {
     return performance.now() / 1000;
   }, []);
 
-  const onPlaySequenceCue = useCallback((cueIndex) => {
-    sequenceRepeatPlaybackStateRef.current = {};
-    const index = Number(cueIndex);
-    if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
-    const cueGroup = sequenceCueGroups[index];
-    if (!cueGroup) return;
-    playSequencePosition(cueGroup.snapshotIndex, index);
-  }, [playSequencePosition, sequenceCueGroups]);
+  const onPlaySequenceCue = useCallback(
+    (cueIndex) => {
+      sequenceRepeatPlaybackStateRef.current = {};
+      const index = Number(cueIndex);
+      if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
+      const cueGroup = sequenceCueGroups[index];
+      if (!cueGroup) return;
+      playSequencePosition(cueGroup.snapshotIndex, index);
+    },
+    [playSequencePosition, sequenceCueGroups],
+  );
 
-  const onPlayTimedSequenceCue = useCallback((cueIndex, timedCueTrigger, options = {}) => {
-    const index = Number(cueIndex);
-    if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
-    const cueGroup = sequenceCueGroups[index];
-    if (!cueGroup) return;
-    const clockSeconds = getTimedTransportClockSeconds();
-    const barIndex = barIndexForTime(cueGroup.time);
-    const hardRestart = options?.hardRestart === true || timedCueTrigger?.repeatJump != null;
-    const notes = sequencePlaybackNotesAtPosition(cueGroup.snapshotIndex, index);
-    applySequencePlayback(cueGroup.snapshotIndex, index, notes, {
-      hardRestart,
-      updateUi: false,
-    });
-    timedPlaybackUiRef.current = {
-      clockSeconds,
-      stepIndex: cueGroup.snapshotIndex,
-      markerIndex: index,
-      barIndex,
-    };
-  }, [
-    applySequencePlayback,
-    barIndexForTime,
-    getTimedTransportClockSeconds,
-    sequenceCueGroups,
-    sequencePlaybackNotesAtPosition,
-  ]);
+  const onPlayTimedSequenceCue = useCallback(
+    (cueIndex, timedCueTrigger, options = {}) => {
+      const index = Number(cueIndex);
+      if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
+      const cueGroup = sequenceCueGroups[index];
+      if (!cueGroup) return;
+      const clockSeconds = getTimedTransportClockSeconds();
+      const barIndex = barIndexForTime(cueGroup.time);
+      const hardRestart = options?.hardRestart === true || timedCueTrigger?.repeatJump != null;
+      const notes = sequencePlaybackNotesAtPosition(cueGroup.snapshotIndex, index);
+      applySequencePlayback(cueGroup.snapshotIndex, index, notes, {
+        hardRestart,
+        updateUi: false,
+      });
+      timedPlaybackUiRef.current = {
+        clockSeconds,
+        stepIndex: cueGroup.snapshotIndex,
+        markerIndex: index,
+        barIndex,
+      };
+    },
+    [
+      applySequencePlayback,
+      barIndexForTime,
+      getTimedTransportClockSeconds,
+      sequenceCueGroups,
+      sequencePlaybackNotesAtPosition,
+    ],
+  );
 
-  const applySequenceWorkspaceMutationFocus = useCallback((result) => {
-    const nextState = resolveWorkspaceMutationTransportState({
-      focus: result?.focus,
-      snapshots: result?.snapshots,
-      bars: result?.bars,
-    });
-    if (!nextState) return;
-    manualGestureRuntimeRef.current.cancelAll();
-    keysRef.current?.stopSnapshot();
-    sequenceRepeatPlaybackStateRef.current = {};
-    pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
-    resetTimedPlaybackUi(nextState.timedPlaybackUi);
-    applyStoppedSequenceTransportState(nextState);
-    setManualPlayingSnapshotIds([]);
-  }, [applyStoppedSequenceTransportState, resetTimedPlaybackUi]);
+  const applySequenceWorkspaceMutationFocus = useCallback(
+    (result) => {
+      const nextState = resolveWorkspaceMutationTransportState({
+        focus: result?.focus,
+        snapshots: result?.snapshots,
+        bars: result?.bars,
+      });
+      if (!nextState) return;
+      manualGestureRuntimeRef.current.cancelAll();
+      keysRef.current?.stopSnapshot();
+      sequenceRepeatPlaybackStateRef.current = {};
+      pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+      resetTimedPlaybackUi(nextState.timedPlaybackUi);
+      applyStoppedSequenceTransportState(nextState);
+      setManualPlayingSnapshotIds([]);
+    },
+    [applyStoppedSequenceTransportState, resetTimedPlaybackUi],
+  );
 
   const onDeleteSnapshot = useCallback(
     (id) => {
-      const manualGestureIds = [
-        ...(manualSnapshotGesturesRef.current.get(id) ?? []),
-      ];
+      const manualGestureIds = [...(manualSnapshotGesturesRef.current.get(id) ?? [])];
       for (const gestureId of manualGestureIds) {
         manualGestureRuntimeRef.current.cancel(gestureId);
       }
@@ -2522,7 +2609,16 @@ const App = () => {
       applySequenceWorkspaceMutationFocus(result);
       return result;
     },
-    [applySequenceWorkspaceMutationFocus, playingSnapshotId, selectedSnapshotId, selectedSnapshotMarker, sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
+    [
+      applySequenceWorkspaceMutationFocus,
+      playingSnapshotId,
+      selectedSnapshotId,
+      selectedSnapshotMarker,
+      sequenceBars,
+      sequenceRepeats,
+      sequenceTempi,
+      snapshots,
+    ],
   );
 
   const onDeleteAllSnapshots = useCallback(() => {
@@ -2584,92 +2680,81 @@ const App = () => {
     setActiveSequenceSavedName(nextName);
   }, []);
 
-  const onMoveSnapshot = useCallback((fromId, toId, side = "before") => {
-    setSnapshots(moveSnapshotInWorkspace({ snapshots, fromId, toId, side }));
-  }, [snapshots]);
+  const onMoveSnapshot = useCallback(
+    (fromId, toId, side = "before") => {
+      setSnapshots(moveSnapshotInWorkspace({ snapshots, fromId, toId, side }));
+    },
+    [snapshots],
+  );
 
-  const onDuplicateSnapshot = useCallback((fromId, toId, side = "before") => {
-    const result = duplicateSnapshotInWorkspace({
-      snapshots,
-      bars: sequenceBars,
-      tempi: sequenceTempi,
-      repeats: sequenceRepeats,
-      fromId,
-      toId,
-      side,
-      nextSnapshotId: snapshotIdRef.current + 1,
-    });
-    snapshotIdRef.current = result.ids.snapshotId;
-    setSnapshots(result.snapshots);
-    setSequenceBars(result.bars);
-    setSequenceTempi(result.tempi);
-    setSequenceRepeats(result.repeats);
-  }, [sequenceBars, sequenceRepeats, sequenceTempi, snapshots]);
+  const onDuplicateSnapshot = useCallback(
+    (fromId, toId, side = "before") => {
+      const result = duplicateSnapshotInWorkspace({
+        snapshots,
+        bars: sequenceBars,
+        tempi: sequenceTempi,
+        repeats: sequenceRepeats,
+        fromId,
+        toId,
+        side,
+        nextSnapshotId: snapshotIdRef.current + 1,
+      });
+      snapshotIdRef.current = result.ids.snapshotId;
+      setSnapshots(result.snapshots);
+      setSequenceBars(result.bars);
+      setSequenceTempi(result.tempi);
+      setSequenceRepeats(result.repeats);
+    },
+    [sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
+  );
 
-  const onInsertSnapshotCopyBlock = useCallback((block, insertionPosition) => {
-    const result = insertSnapshotCopyBlock({
-      snapshots: snapshotsRef.current,
-      bars: sequenceBars,
-      tempi: sequenceTempi,
-      repeats: sequenceRepeats,
-      block,
-      insertionPosition,
-      nextSnapshotId: snapshotIdRef.current + 1,
-      nextBarId: sequenceBarIdRef.current,
-    });
-    if (result.error) return result.error;
-    snapshotIdRef.current = result.ids.snapshotId;
-    sequenceBarIdRef.current = result.ids.barId;
-    snapshotsRef.current = result.snapshots;
-    sequenceBarsRef.current = result.bars;
-    persistSequenceWorkspace({
-      snapshots: result.snapshots,
-      bars: result.bars,
-      tempi: result.tempi,
-      repeats: result.repeats,
-    });
-    setSnapshots(result.snapshots);
-    setSequenceBars(result.bars);
-    setSequenceTempi(result.tempi);
-    setSequenceRepeats(result.repeats);
-    setSelectedSnapshotId(result.selectedSnapshotId);
-    setSelectedSnapshotMarker(result.selectedSnapshotMarker);
-    applySequenceWorkspaceMutationFocus(result);
-    return result;
-  }, [
-    applySequenceWorkspaceMutationFocus,
-    persistSequenceWorkspace,
-    sequenceBars,
-    sequenceRepeats,
-    sequenceTempi,
-  ]);
+  const onInsertSnapshotCopyBlock = useCallback(
+    (block, insertionPosition) => {
+      const result = insertSnapshotCopyBlock({
+        snapshots: snapshotsRef.current,
+        bars: sequenceBars,
+        tempi: sequenceTempi,
+        repeats: sequenceRepeats,
+        block,
+        insertionPosition,
+        nextSnapshotId: snapshotIdRef.current + 1,
+        nextBarId: sequenceBarIdRef.current,
+      });
+      if (result.error) return result.error;
+      snapshotIdRef.current = result.ids.snapshotId;
+      sequenceBarIdRef.current = result.ids.barId;
+      snapshotsRef.current = result.snapshots;
+      sequenceBarsRef.current = result.bars;
+      persistSequenceWorkspace({
+        snapshots: result.snapshots,
+        bars: result.bars,
+        tempi: result.tempi,
+        repeats: result.repeats,
+      });
+      setSnapshots(result.snapshots);
+      setSequenceBars(result.bars);
+      setSequenceTempi(result.tempi);
+      setSequenceRepeats(result.repeats);
+      setSelectedSnapshotId(result.selectedSnapshotId);
+      setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+      applySequenceWorkspaceMutationFocus(result);
+      return result;
+    },
+    [
+      applySequenceWorkspaceMutationFocus,
+      persistSequenceWorkspace,
+      sequenceBars,
+      sequenceRepeats,
+      sequenceTempi,
+    ],
+  );
 
-  const onResetSnapshotRangeNoteOffsetsInPlace = useCallback((selection) => {
-    const snapshotCountBefore = snapshotsRef.current.length;
-    appendPersistedSequencerCrashDiagnostic({
-      type: "snapshot-range-reset-requested",
-      detail: "Requested in-place reset of note offsets for snapshot range",
-      context: {
-        source: "sequencer",
-        startPosition: selection?.startPosition ?? null,
-        endPosition: selection?.endPosition ?? null,
-        includeBars: selection?.includeBars === true,
-        snapshotCountBefore: snapshotsRef.current.length,
-        selectedSnapshotId,
-        workspaceTab,
-      },
-    });
-    const result = resetSnapshotRangeNoteOffsetsInWorkspace({
-      snapshots: snapshotsRef.current,
-      bars: sequenceBarsRef.current,
-      startPosition: selection?.startPosition,
-      endPosition: selection?.endPosition,
-      includeBars: selection?.includeBars === true,
-    });
-    if (result.error) {
+  const onResetSnapshotRangeNoteOffsetsInPlace = useCallback(
+    (selection) => {
+      const snapshotCountBefore = snapshotsRef.current.length;
       appendPersistedSequencerCrashDiagnostic({
-        type: "snapshot-range-reset-failed",
-        detail: "Failed to reset note offsets for snapshot range",
+        type: "snapshot-range-reset-requested",
+        detail: "Requested in-place reset of note offsets for snapshot range",
         context: {
           source: "sequencer",
           startPosition: selection?.startPosition ?? null,
@@ -2680,102 +2765,99 @@ const App = () => {
           workspaceTab,
         },
       });
-      return result.error;
-    }
-    snapshotsRef.current = result.snapshots;
-    persistSequenceWorkspace({
-      snapshots: result.snapshots,
-      bars: sequenceBarsRef.current,
-    });
-    setSnapshots(result.snapshots);
-    appendPersistedSequencerCrashDiagnostic({
-      type: "snapshot-range-reset-applied",
-      detail: "Applied in-place reset of note offsets for snapshot range",
-      context: {
-        source: "sequencer",
-        startPosition: result.range?.startPosition ?? null,
-        endPosition: result.range?.endPosition ?? null,
-        includeBars: result.range?.includeBars === true,
-        snapshotCountBefore,
-        snapshotCountAfter: result.snapshots.length,
-        selectedSnapshotId,
-        workspaceTab,
-      },
-    });
-    return result;
-  }, [
-    persistSequenceWorkspace,
-    selectedSnapshotId,
-    workspaceTab,
-  ]);
-
-  const onSetSnapshotRangeArticulation = useCallback((selection, articulation) => {
-    const result = setSnapshotRangeArticulationInWorkspace({
-      snapshots: snapshotsRef.current,
-      bars: sequenceBarsRef.current,
-      startPosition: selection?.startPosition,
-      endPosition: selection?.endPosition,
-      includeBars: selection?.includeBars === true,
-      articulation,
-    });
-    if (result.error) return result.error;
-    snapshotsRef.current = result.snapshots;
-    persistSequenceWorkspace({
-      snapshots: result.snapshots,
-      bars: sequenceBarsRef.current,
-    });
-    setSnapshots(result.snapshots);
-    return result;
-  }, [persistSequenceWorkspace]);
-
-  const onRestoreSnapshotRangeChanges = useCallback((replacements) => {
-    const result = restoreSnapshotsInWorkspace({
-      snapshots: snapshotsRef.current,
-      replacements,
-    });
-    if (result.error) return result.error;
-    snapshotsRef.current = result.snapshots;
-    persistSequenceWorkspace({
-      snapshots: result.snapshots,
-      bars: sequenceBarsRef.current,
-    });
-    setSnapshots(result.snapshots);
-    return result;
-  }, [persistSequenceWorkspace]);
-
-  const onDeleteSnapshotRange = useCallback((selection) => {
-    appendPersistedSequencerCrashDiagnostic({
-      type: "snapshot-range-delete-requested",
-      detail: "Requested deletion of snapshot range",
-      context: {
-        source: "sequencer",
-        startPosition: selection?.startPosition ?? null,
-        endPosition: selection?.endPosition ?? null,
+      const result = resetSnapshotRangeNoteOffsetsInWorkspace({
+        snapshots: snapshotsRef.current,
+        bars: sequenceBarsRef.current,
+        startPosition: selection?.startPosition,
+        endPosition: selection?.endPosition,
         includeBars: selection?.includeBars === true,
-        includeTempi: selection?.includeTempi === true,
-        includeRepeats: selection?.includeRepeats === true,
-        snapshotCountBefore: snapshotsRef.current.length,
-        selectedSnapshotId,
-        workspaceTab,
-      },
-    });
-    const result = deleteSnapshotRangeFromWorkspace({
-      snapshots: snapshotsRef.current,
-      bars: sequenceBarsRef.current,
-      tempi: sequenceTempi,
-      repeats: sequenceRepeats,
-      startPosition: selection?.startPosition,
-      endPosition: selection?.endPosition,
-      includeBars: selection?.includeBars === true,
-      includeTempi: selection?.includeTempi === true,
-      includeRepeats: selection?.includeRepeats === true,
-      selectedSnapshotId,
-      selectedSnapshotMarker,
-    });
-    if (result.error) {
+      });
+      if (result.error) {
+        appendPersistedSequencerCrashDiagnostic({
+          type: "snapshot-range-reset-failed",
+          detail: "Failed to reset note offsets for snapshot range",
+          context: {
+            source: "sequencer",
+            startPosition: selection?.startPosition ?? null,
+            endPosition: selection?.endPosition ?? null,
+            includeBars: selection?.includeBars === true,
+            snapshotCountBefore: snapshotsRef.current.length,
+            selectedSnapshotId,
+            workspaceTab,
+          },
+        });
+        return result.error;
+      }
+      snapshotsRef.current = result.snapshots;
+      persistSequenceWorkspace({
+        snapshots: result.snapshots,
+        bars: sequenceBarsRef.current,
+      });
+      setSnapshots(result.snapshots);
       appendPersistedSequencerCrashDiagnostic({
-        type: "snapshot-range-delete-failed",
-        detail: "Failed to delete snapshot range",
+        type: "snapshot-range-reset-applied",
+        detail: "Applied in-place reset of note offsets for snapshot range",
+        context: {
+          source: "sequencer",
+          startPosition: result.range?.startPosition ?? null,
+          endPosition: result.range?.endPosition ?? null,
+          includeBars: result.range?.includeBars === true,
+          snapshotCountBefore,
+          snapshotCountAfter: result.snapshots.length,
+          selectedSnapshotId,
+          workspaceTab,
+        },
+      });
+      return result;
+    },
+    [persistSequenceWorkspace, selectedSnapshotId, workspaceTab],
+  );
+
+  const onSetSnapshotRangeArticulation = useCallback(
+    (selection, articulation) => {
+      const result = setSnapshotRangeArticulationInWorkspace({
+        snapshots: snapshotsRef.current,
+        bars: sequenceBarsRef.current,
+        startPosition: selection?.startPosition,
+        endPosition: selection?.endPosition,
+        includeBars: selection?.includeBars === true,
+        articulation,
+      });
+      if (result.error) return result.error;
+      snapshotsRef.current = result.snapshots;
+      persistSequenceWorkspace({
+        snapshots: result.snapshots,
+        bars: sequenceBarsRef.current,
+      });
+      setSnapshots(result.snapshots);
+      return result;
+    },
+    [persistSequenceWorkspace],
+  );
+
+  const onRestoreSnapshotRangeChanges = useCallback(
+    (replacements) => {
+      const result = restoreSnapshotsInWorkspace({
+        snapshots: snapshotsRef.current,
+        replacements,
+      });
+      if (result.error) return result.error;
+      snapshotsRef.current = result.snapshots;
+      persistSequenceWorkspace({
+        snapshots: result.snapshots,
+        bars: sequenceBarsRef.current,
+      });
+      setSnapshots(result.snapshots);
+      return result;
+    },
+    [persistSequenceWorkspace],
+  );
+
+  const onDeleteSnapshotRange = useCallback(
+    (selection) => {
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-range-delete-requested",
+        detail: "Requested deletion of snapshot range",
         context: {
           source: "sequencer",
           startPosition: selection?.startPosition ?? null,
@@ -2788,106 +2870,143 @@ const App = () => {
           workspaceTab,
         },
       });
-      return result.error;
-    }
-    const snapshotCountBefore = snapshotsRef.current.length;
-    snapshotsRef.current = result.snapshots;
-    sequenceBarsRef.current = result.bars;
-    persistSequenceWorkspace({
-      snapshots: result.snapshots,
-      bars: result.bars,
-      tempi: result.tempi,
-      repeats: result.repeats,
-    });
-    setSnapshots(result.snapshots);
-    setSequenceBars(result.bars);
-    setSequenceTempi(result.tempi);
-    setSequenceRepeats(result.repeats);
-    setSelectedSnapshotId(result.selectedSnapshotId);
-    setSelectedSnapshotMarker(result.selectedSnapshotMarker);
-    applySequenceWorkspaceMutationFocus(result);
-    appendPersistedSequencerCrashDiagnostic({
-      type: "snapshot-range-delete-applied",
-      detail: "Applied deletion of snapshot range",
-      context: {
-        source: "sequencer",
-        startPosition: result.range?.startPosition ?? null,
-        endPosition: result.range?.endPosition ?? null,
+      const result = deleteSnapshotRangeFromWorkspace({
+        snapshots: snapshotsRef.current,
+        bars: sequenceBarsRef.current,
+        tempi: sequenceTempi,
+        repeats: sequenceRepeats,
+        startPosition: selection?.startPosition,
+        endPosition: selection?.endPosition,
         includeBars: selection?.includeBars === true,
         includeTempi: selection?.includeTempi === true,
         includeRepeats: selection?.includeRepeats === true,
-        snapshotCountBefore,
-        snapshotCountAfter: result.snapshots.length,
-        selectedSnapshotId: result.selectedSnapshotId,
-        workspaceTab,
-      },
-    });
-    return result;
-  }, [
-    applySequenceWorkspaceMutationFocus,
-    persistSequenceWorkspace,
-    selectedSnapshotId,
-    selectedSnapshotMarker,
-    sequenceRepeats,
-    sequenceTempi,
-    workspaceTab,
-  ]);
-
-  const onUpdateSnapshot = useCallback((id, updates) => {
-    appendPersistedSequencerCrashDiagnostic({
-      type: "snapshot-update-requested",
-      detail: "Requested snapshot workspace update",
-      context: {
-        source: "sequencer",
-        snapshotId: id,
         selectedSnapshotId,
-        snapshotCountBefore: snapshotsRef.current.length,
-        updateKeys: Object.keys(updates ?? {}),
-        noteCountBefore: snapshotsRef.current.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
-        noteCountAfter: Array.isArray(updates?.notes) ? updates.notes.length : null,
-        workspaceTab,
-      },
-    });
-    const nextSnapshots = updateSnapshotInWorkspace({
-      snapshots: snapshotsRef.current,
-      snapshotId: id,
-      updates,
-      snapshotLabelMode,
-    });
-    appendPersistedSequencerCrashDiagnostic({
-      type: "snapshot-update-applied",
-      detail: "Applied snapshot workspace update",
-      context: {
-        source: "sequencer",
-        snapshotId: id,
-        selectedSnapshotId,
-        snapshotCountBefore: snapshotsRef.current.length,
-        snapshotCountAfter: nextSnapshots.length,
-        updateKeys: Object.keys(updates ?? {}),
-        noteCountBefore: snapshotsRef.current.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
-        noteCountAfter: nextSnapshots.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
-        workspaceTab,
-      },
-    });
-    snapshotsRef.current = nextSnapshots;
-    persistSequenceWorkspace({
-      snapshots: nextSnapshots,
-    });
-    setSnapshots(nextSnapshots);
-  }, [
-    persistSequenceWorkspace,
-    selectedSnapshotId,
-    snapshotLabelMode,
-    workspaceTab,
-  ]);
+        selectedSnapshotMarker,
+      });
+      if (result.error) {
+        appendPersistedSequencerCrashDiagnostic({
+          type: "snapshot-range-delete-failed",
+          detail: "Failed to delete snapshot range",
+          context: {
+            source: "sequencer",
+            startPosition: selection?.startPosition ?? null,
+            endPosition: selection?.endPosition ?? null,
+            includeBars: selection?.includeBars === true,
+            includeTempi: selection?.includeTempi === true,
+            includeRepeats: selection?.includeRepeats === true,
+            snapshotCountBefore: snapshotsRef.current.length,
+            selectedSnapshotId,
+            workspaceTab,
+          },
+        });
+        return result.error;
+      }
+      const snapshotCountBefore = snapshotsRef.current.length;
+      snapshotsRef.current = result.snapshots;
+      sequenceBarsRef.current = result.bars;
+      persistSequenceWorkspace({
+        snapshots: result.snapshots,
+        bars: result.bars,
+        tempi: result.tempi,
+        repeats: result.repeats,
+      });
+      setSnapshots(result.snapshots);
+      setSequenceBars(result.bars);
+      setSequenceTempi(result.tempi);
+      setSequenceRepeats(result.repeats);
+      setSelectedSnapshotId(result.selectedSnapshotId);
+      setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+      applySequenceWorkspaceMutationFocus(result);
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-range-delete-applied",
+        detail: "Applied deletion of snapshot range",
+        context: {
+          source: "sequencer",
+          startPosition: result.range?.startPosition ?? null,
+          endPosition: result.range?.endPosition ?? null,
+          includeBars: selection?.includeBars === true,
+          includeTempi: selection?.includeTempi === true,
+          includeRepeats: selection?.includeRepeats === true,
+          snapshotCountBefore,
+          snapshotCountAfter: result.snapshots.length,
+          selectedSnapshotId: result.selectedSnapshotId,
+          workspaceTab,
+        },
+      });
+      return result;
+    },
+    [
+      applySequenceWorkspaceMutationFocus,
+      persistSequenceWorkspace,
+      selectedSnapshotId,
+      selectedSnapshotMarker,
+      sequenceRepeats,
+      sequenceTempi,
+      workspaceTab,
+    ],
+  );
 
-  const onResetSnapshotDescription = useCallback((id) => {
-    setSnapshots((prev) => resetSnapshotDescriptionInWorkspace({
-      snapshots: prev,
-      snapshotId: id,
-      snapshotLabelMode,
-    }));
-  }, [snapshotLabelMode]);
+  const onUpdateSnapshot = useCallback(
+    (id, updates) => {
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-update-requested",
+        detail: "Requested snapshot workspace update",
+        context: {
+          source: "sequencer",
+          snapshotId: id,
+          selectedSnapshotId,
+          snapshotCountBefore: snapshotsRef.current.length,
+          updateKeys: Object.keys(updates ?? {}),
+          noteCountBefore:
+            snapshotsRef.current.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
+          noteCountAfter: Array.isArray(updates?.notes) ? updates.notes.length : null,
+          workspaceTab,
+        },
+      });
+      const nextSnapshots = updateSnapshotInWorkspace({
+        snapshots: snapshotsRef.current,
+        snapshotId: id,
+        updates,
+        snapshotLabelMode,
+      });
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-update-applied",
+        detail: "Applied snapshot workspace update",
+        context: {
+          source: "sequencer",
+          snapshotId: id,
+          selectedSnapshotId,
+          snapshotCountBefore: snapshotsRef.current.length,
+          snapshotCountAfter: nextSnapshots.length,
+          updateKeys: Object.keys(updates ?? {}),
+          noteCountBefore:
+            snapshotsRef.current.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
+          noteCountAfter:
+            nextSnapshots.find((snapshot) => snapshot.id === id)?.notes?.length ?? null,
+          workspaceTab,
+        },
+      });
+      snapshotsRef.current = nextSnapshots;
+      persistSequenceWorkspace({
+        snapshots: nextSnapshots,
+      });
+      setSnapshots(nextSnapshots);
+    },
+    [persistSequenceWorkspace, selectedSnapshotId, snapshotLabelMode, workspaceTab],
+  );
+
+  const onResetSnapshotDescription = useCallback(
+    (id) => {
+      setSnapshots((prev) =>
+        resetSnapshotDescriptionInWorkspace({
+          snapshots: prev,
+          snapshotId: id,
+          snapshotLabelMode,
+        }),
+      );
+    },
+    [snapshotLabelMode],
+  );
 
   useEffect(() => {
     setSequencePlayhead((prev) => {
@@ -2901,17 +3020,19 @@ const App = () => {
         return prev.markerIndex == null ? prev : { ...prev, markerIndex: null };
       }
       if (previousStep >= snapshots.length) {
-        const markerIndex = prev.markerIndex == null || sequenceCueGroups.length === 0
-          ? null
-          : Math.max(0, Math.min(sequenceCueGroups.length - 1, prev.markerIndex));
+        const markerIndex =
+          prev.markerIndex == null || sequenceCueGroups.length === 0
+            ? null
+            : Math.max(0, Math.min(sequenceCueGroups.length - 1, prev.markerIndex));
         return prev.stepIndex === snapshots.length && markerIndex === prev.markerIndex
           ? prev
           : { ...prev, stepIndex: snapshots.length, markerIndex };
       }
       const stepIndex = Math.max(0, Math.min(snapshots.length - 1, previousStep));
-      const markerIndex = prev.markerIndex == null || sequenceCueGroups.length === 0
-        ? null
-        : Math.max(0, Math.min(sequenceCueGroups.length - 1, prev.markerIndex));
+      const markerIndex =
+        prev.markerIndex == null || sequenceCueGroups.length === 0
+          ? null
+          : Math.max(0, Math.min(sequenceCueGroups.length - 1, prev.markerIndex));
       return stepIndex === prev.stepIndex && markerIndex === prev.markerIndex
         ? prev
         : { ...prev, stepIndex, markerIndex };
@@ -2952,7 +3073,12 @@ const App = () => {
     if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
     if (synthRef.current?.prepare) await synthRef.current.prepare();
     if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
-  }, [activatePendingPreset, pendingRestoredPreset, primeAudioFromUserInteraction, userHasInteracted]);
+  }, [
+    activatePendingPreset,
+    pendingRestoredPreset,
+    primeAudioFromUserInteraction,
+    userHasInteracted,
+  ]);
 
   const clampModulationPalettePos = useCallback((position) => {
     if (typeof window === "undefined") return position;
@@ -2963,8 +3089,7 @@ const App = () => {
     const viewportHeight = viewport?.height ?? window.innerHeight;
     const width = rect?.width ?? 260;
     const headerHeight =
-      paletteEl?.querySelector(".modulation-palette-header")?.getBoundingClientRect().height
-      ?? 34;
+      paletteEl?.querySelector(".modulation-palette-header")?.getBoundingClientRect().height ?? 34;
     const minVisibleWidth = Math.min(120, Math.max(80, width * 0.45));
     const minX = Math.round(8 - width + minVisibleWidth);
     const maxX = Math.round(viewportWidth - minVisibleWidth - 8);
@@ -2985,8 +3110,7 @@ const App = () => {
     const viewportHeight = viewport?.height ?? window.innerHeight;
     const width = rect?.width ?? 220;
     const headerHeight =
-      paletteEl?.querySelector(".snapshot-palette-header")?.getBoundingClientRect().height
-      ?? 34;
+      paletteEl?.querySelector(".snapshot-palette-header")?.getBoundingClientRect().height ?? 34;
     const minVisibleWidth = Math.min(120, Math.max(84, width * 0.5));
     const minX = Math.round(8 - width + minVisibleWidth);
     const maxX = Math.round(viewportWidth - minVisibleWidth - 8);
@@ -3004,10 +3128,12 @@ const App = () => {
       const { pointerId, offsetX, offsetY } = modulationPaletteDragRef.current;
       if (e.pointerId !== pointerId) return;
       modulationPaletteUserMovedRef.current = true;
-      setModulationPalettePos(clampModulationPalettePos({
-        x: Math.max(8, e.clientX - offsetX),
-        y: Math.max(8, e.clientY - offsetY),
-      }));
+      setModulationPalettePos(
+        clampModulationPalettePos({
+          x: Math.max(8, e.clientX - offsetX),
+          y: Math.max(8, e.clientY - offsetY),
+        }),
+      );
     };
     const onPointerUp = (e) => {
       if (!modulationPaletteDragRef.current) return;
@@ -3030,10 +3156,12 @@ const App = () => {
       const { pointerId, offsetX, offsetY } = snapshotPaletteDragRef.current;
       if (e.pointerId !== pointerId) return;
       snapshotPaletteUserMovedRef.current = true;
-      setSnapshotPalettePos(clampSnapshotPalettePos({
-        x: Math.max(8, e.clientX - offsetX),
-        y: Math.max(8, e.clientY - offsetY),
-      }));
+      setSnapshotPalettePos(
+        clampSnapshotPalettePos({
+          x: Math.max(8, e.clientX - offsetX),
+          y: Math.max(8, e.clientY - offsetY),
+        }),
+      );
     };
     const onPointerUp = (e) => {
       if (!snapshotPaletteDragRef.current) return;
@@ -3098,14 +3226,17 @@ const App = () => {
   const longPressTimer = useRef(null);
   const longPressFired = useRef(false);
 
-  const onSidebarTouchStart = useCallback((_e) => {
-    primeAudioFromUserInteraction();
-    longPressFired.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressFired.current = true;
-      if (keysRef.current) keysRef.current.latchToggle();
-    }, 400);
-  }, [primeAudioFromUserInteraction]);
+  const onSidebarTouchStart = useCallback(
+    (_e) => {
+      primeAudioFromUserInteraction();
+      longPressFired.current = false;
+      longPressTimer.current = setTimeout(() => {
+        longPressFired.current = true;
+        if (keysRef.current) keysRef.current.latchToggle();
+      }, 400);
+    },
+    [primeAudioFromUserInteraction],
+  );
 
   const onSidebarTouchEnd = useCallback((e) => {
     clearTimeout(longPressTimer.current);
@@ -3208,8 +3339,14 @@ const App = () => {
     [settings, presetRuntimeResetRevision],
   );
   const colorImpactKey = useMemo(() => settingsImpactKey(settings, "colors"), [settings]);
-  const inputRuntimeImpactKey = useMemo(() => settingsImpactKey(settings, "inputRuntime"), [settings]);
-  const outputRuntimeImpactKey = useMemo(() => settingsImpactKey(settings, "outputRuntime"), [settings]);
+  const inputRuntimeImpactKey = useMemo(
+    () => settingsImpactKey(settings, "inputRuntime"),
+    [settings],
+  );
+  const outputRuntimeImpactKey = useMemo(
+    () => settingsImpactKey(settings, "outputRuntime"),
+    [settings],
+  );
   const tuningWorkspace = useMemo(
     () =>
       settings.scale && Array.isArray(settings.scale) && settings.scale.length > 0
@@ -3235,11 +3372,7 @@ const App = () => {
     [tuningWorkspace],
   );
   const modulationSummary = useMemo(() => {
-    return deriveModulationSummaryText(
-      modulationState,
-      modulationDegreeLabel,
-      tuningWorkspace,
-    );
+    return deriveModulationSummaryText(modulationState, modulationDegreeLabel, tuningWorkspace);
   }, [modulationDegreeLabel, modulationState, tuningWorkspace]);
   const {
     modulationHistory,
@@ -3260,7 +3393,7 @@ const App = () => {
     return deriveCurrentFundamentalSummary(tuningWorkspace, deferredModulationHistory, {
       fundamental: settings.fundamental,
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so palette clicks do not synchronously re-render modulation-dependent table displays.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by deferredModulationHistoryKey so palette clicks do not synchronously re-render modulation-dependent table displays.
   }, [tuningWorkspace, activeDeferredModulationKey, settings.fundamental]);
   const modulationPaletteTitle = useMemo(() => {
     return deriveModulationPaletteTitles(modulationHistory, modulationDegreeLabel, tuningWorkspace);
@@ -3354,7 +3487,9 @@ const App = () => {
       layoutMode:
         inputController?.id === "hakenaudio"
           ? "controller_geometry"
-          : (settings.midi_passthrough ? "sequential" : "controller_geometry"),
+          : settings.midi_passthrough
+            ? "sequential"
+            : "controller_geometry",
       mpeInput: effectiveMpeInput,
       seqAnchorNote: normalizedSeqAnchor.note,
       seqAnchorChannel: normalizedSeqAnchor.channel,
@@ -3380,9 +3515,7 @@ const App = () => {
       bendFlip: !!settings.midiin_bend_flip,
       // Haken Continuum MPE+ uses a 96-semitone pitch-bend range.
       scaleBendRange:
-        inputController?.id === "hakenaudio"
-          ? 96
-          : (settings.midiin_scale_bend_range ?? 48),
+        inputController?.id === "hakenaudio" ? 96 : (settings.midiin_scale_bend_range ?? 48),
       hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 100,
       hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending",
       hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 64,
@@ -3453,16 +3586,11 @@ const App = () => {
   const onCommitCurrentModulation = useCallback(() => {
     if (!hasCommittableModulation || !tuningWorkspace) return null;
     if (keysRef.current?.panic) keysRef.current.panic();
-    return commitModulationHistoryToPreset(
-      settings,
-      tuningWorkspace,
-      activeModulationLibrary,
-      {
-        hejiAnchorLabel: structuralSettings.heji_anchor_label_effective,
-        hejiAnchorRatio: structuralSettings.heji_anchor_ratio_effective,
-        hejiTemperedOnly: settings.heji_tempered_only === true,
-      },
-    );
+    return commitModulationHistoryToPreset(settings, tuningWorkspace, activeModulationLibrary, {
+      hejiAnchorLabel: structuralSettings.heji_anchor_label_effective,
+      hejiAnchorRatio: structuralSettings.heji_anchor_ratio_effective,
+      hejiTemperedOnly: settings.heji_tempered_only === true,
+    });
   }, [
     hasCommittableModulation,
     tuningWorkspace,
@@ -3501,9 +3629,7 @@ const App = () => {
   // loaded (Keyboard only mounts when isValid — i.e. a scale is present).
   useEffect(() => {
     const wantAppMode =
-      !!exquisRawPorts &&
-      inputRuntime?.target !== "scale" &&
-      !settings.midi_passthrough;
+      !!exquisRawPorts && inputRuntime?.target !== "scale" && !settings.midi_passthrough;
 
     if (!wantAppMode) {
       if (exquisLedsRef.current) {
@@ -3565,7 +3691,8 @@ const App = () => {
       inputRuntime?.target === "scale" ||
       settings.midi_passthrough ||
       typeof document === "undefined"
-    ) return;
+    )
+      return;
 
     const recoverExquisAppMode = () => {
       if (document.visibilityState && document.visibilityState !== "visible") return;
@@ -3652,10 +3779,7 @@ const App = () => {
     // lifecycle rules stay centralized.
     loadLinnstrumentUserFirmware().then((module) => {
       if (disposed) return;
-      const leds = module.attachLinnstrumentLedDriver(
-        linnstrumentRawPorts.output,
-        keysRef.current,
-      );
+      const leds = module.attachLinnstrumentLedDriver(linnstrumentRawPorts.output, keysRef.current);
       if (disposed) {
         module.detachLinnstrumentLedDriver(leds, keysRef.current);
         return;
@@ -3754,11 +3878,7 @@ const App = () => {
         bendRange: 96,
       });
     });
-  }, [
-    hakenOutId,
-    hakenOutput,
-    settings.midiin_mpe_manager_ch,
-  ]);
+  }, [hakenOutId, hakenOutput, settings.midiin_mpe_manager_ch]);
 
   // Color settings: only the color fields. Changes here update the live Keys
   // instance imperatively (via updateColors) without reconstructing it.
@@ -3774,80 +3894,82 @@ const App = () => {
   );
 
   const keyboardHejiFrame = useMemo(() => {
-    return deriveActiveHejiFrame(
-      tuningWorkspace,
-      modulationHistory,
-      {
-        hejiEnabled: structuralSettings.heji,
-        hejiSupported: structuralSettings.heji_supported,
-        anchorLabel: structuralSettings.heji_anchor_label_effective,
-        anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
-        referenceDegree: structuralSettings.reference_degree ?? 0,
-        temperedOnly: settings.heji_tempered_only === true,
-      },
-    );
+    return deriveActiveHejiFrame(tuningWorkspace, modulationHistory, {
+      hejiEnabled: structuralSettings.heji,
+      hejiSupported: structuralSettings.heji_supported,
+      anchorLabel: structuralSettings.heji_anchor_label_effective,
+      anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
+      referenceDegree: structuralSettings.reference_degree ?? 0,
+      temperedOnly: settings.heji_tempered_only === true,
+    });
   }, [modulationHistory, structuralSettings, tuningWorkspace, settings.heji_tempered_only]);
 
   const activeHejiFrame = useMemo(() => {
-    return deriveActiveHejiFrame(
-      tuningWorkspace,
-      deferredModulationHistory,
-      {
-        hejiEnabled: structuralSettings.heji,
-        hejiSupported: structuralSettings.heji_supported,
-        anchorLabel: structuralSettings.heji_anchor_label_effective,
-        anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
-        referenceDegree: structuralSettings.reference_degree ?? 0,
-        temperedOnly: settings.heji_tempered_only === true,
-      },
-    );
+    return deriveActiveHejiFrame(tuningWorkspace, deferredModulationHistory, {
+      hejiEnabled: structuralSettings.heji,
+      hejiSupported: structuralSettings.heji_supported,
+      anchorLabel: structuralSettings.heji_anchor_label_effective,
+      anchorRatioText: structuralSettings.heji_anchor_ratio_effective,
+      referenceDegree: structuralSettings.reference_degree ?? 0,
+      temperedOnly: settings.heji_tempered_only === true,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by activeDeferredModulationKey so zero-count preset libraries do not invalidate HEJI spelling.
-  }, [hasActiveDeferredModulation, structuralSettings, tuningWorkspace, activeDeferredModulationKey, settings.heji_tempered_only]);
+  }, [
+    hasActiveDeferredModulation,
+    structuralSettings,
+    tuningWorkspace,
+    activeDeferredModulationKey,
+    settings.heji_tempered_only,
+  ]);
 
   // Label settings: display-only fields extracted from structuralSettings.
   // Passed to Keyboard so it can call updateLabels imperatively whenever
   // structuralSettings recomputes due to label-related changes, without
   // those changes causing a Keys reconstruction.
-  const labelSettings = useMemo(
-    () => {
-      const hejiShowCents = settings.heji_show_cents !== false;
-      const hejiTemperedOnly = settings.heji_tempered_only === true;
-      let liveHejiNames = structuralSettings.heji_names_keys ?? structuralSettings.heji_names;
-      if (
-        hasActiveKeyboardModulation &&
-        structuralSettings.heji &&
-        structuralSettings.heji_supported !== false &&
-        tuningWorkspace &&
-        keyboardHejiFrame
-      ) {
-        liveHejiNames = deriveHejiLabelsForFrame(tuningWorkspace, keyboardHejiFrame, {
-          suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
-          temperedOnly: hejiTemperedOnly,
-          forceShowZeroDeviation: hejiTemperedOnly && hejiShowCents,
-        });
-      }
+  const labelSettings = useMemo(() => {
+    const hejiShowCents = settings.heji_show_cents !== false;
+    const hejiTemperedOnly = settings.heji_tempered_only === true;
+    let liveHejiNames = structuralSettings.heji_names_keys ?? structuralSettings.heji_names;
+    if (
+      hasActiveKeyboardModulation &&
+      structuralSettings.heji &&
+      structuralSettings.heji_supported !== false &&
+      tuningWorkspace &&
+      keyboardHejiFrame
+    ) {
+      liveHejiNames = deriveHejiLabelsForFrame(tuningWorkspace, keyboardHejiFrame, {
+        suppressDeviation: !hejiShowCents && !hejiTemperedOnly,
+        temperedOnly: hejiTemperedOnly,
+        forceShowZeroDeviation: hejiTemperedOnly && hejiShowCents,
+      });
+    }
 
-      return {
-        key_labels:       structuralSettings.key_labels,
-        degree:           !!structuralSettings.degree,
-        note:             !!structuralSettings.note,
-        scala:            !!structuralSettings.scala,
-        cents:            !!structuralSettings.cents,
-        heji:             !!structuralSettings.heji,
-        equaves:          !!structuralSettings.equaves,
-        no_labels:        !!structuralSettings.no_labels,
-        show_equaves:     !!structuralSettings.equaves,
-        note_names:       structuralSettings.note_names,
-        scala_names:      structuralSettings.scala_names,
-        heji_names:       liveHejiNames,
-        heji_anchor_label_eff:  structuralSettings.heji_anchor_label_effective,
-        heji_anchor_ratio_eff:  structuralSettings.heji_anchor_ratio_effective,
-        scale:            structuralSettings.scale,
-        reference_degree: structuralSettings.reference_degree,
-      };
-    },
-    [structuralSettings, tuningWorkspace, keyboardHejiFrame, hasActiveKeyboardModulation, settings.heji_show_cents, settings.heji_tempered_only],
-  );
+    return {
+      key_labels: structuralSettings.key_labels,
+      degree: !!structuralSettings.degree,
+      note: !!structuralSettings.note,
+      scala: !!structuralSettings.scala,
+      cents: !!structuralSettings.cents,
+      heji: !!structuralSettings.heji,
+      equaves: !!structuralSettings.equaves,
+      no_labels: !!structuralSettings.no_labels,
+      show_equaves: !!structuralSettings.equaves,
+      note_names: structuralSettings.note_names,
+      scala_names: structuralSettings.scala_names,
+      heji_names: liveHejiNames,
+      heji_anchor_label_eff: structuralSettings.heji_anchor_label_effective,
+      heji_anchor_ratio_eff: structuralSettings.heji_anchor_ratio_effective,
+      scale: structuralSettings.scale,
+      reference_degree: structuralSettings.reference_degree,
+    };
+  }, [
+    structuralSettings,
+    tuningWorkspace,
+    keyboardHejiFrame,
+    hasActiveKeyboardModulation,
+    settings.heji_show_cents,
+    settings.heji_tempered_only,
+  ]);
 
   const tableHejiNames = useMemo(() => {
     if (
@@ -3866,7 +3988,15 @@ const App = () => {
       forceShowZeroDeviation: settings.heji_tempered_only === true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deferredModulationHistory is intentionally represented by activeDeferredModulationKey so zero-count preset libraries do not invalidate HEJI spelling.
-  }, [structuralSettings, tuningWorkspace, activeHejiFrame, activeDeferredModulationKey, hasActiveDeferredModulation, settings.heji_tempered_only, labelSettings.heji_names]);
+  }, [
+    structuralSettings,
+    tuningWorkspace,
+    activeHejiFrame,
+    activeDeferredModulationKey,
+    hasActiveDeferredModulation,
+    settings.heji_tempered_only,
+    labelSettings.heji_names,
+  ]);
 
   const normalizedSettings = useMemo(
     () => ({
@@ -3903,11 +4033,15 @@ const App = () => {
       if (linnstrumentUserFirmwareEligible && linnstrumentLedsRef.current) {
         linnstrumentLedsRef.current.userFirmwareActive = true;
       }
-      bindControllerLedRefs(keys, {
-        lumatone: lumatoneLedsRef.current,
-        exquis: exquisLedsRef.current,
-        linnstrument: linnstrumentLedsRef.current,
-      }, { eagerSync: false });
+      bindControllerLedRefs(
+        keys,
+        {
+          lumatone: lumatoneLedsRef.current,
+          exquis: exquisLedsRef.current,
+          linnstrument: linnstrumentLedsRef.current,
+        },
+        { eagerSync: false },
+      );
       if (settings.lumatone_led_sync && lumatoneLedsRef.current) {
         const syncKey = buildLumatoneAutoSyncKey({
           lumatoneInId,
@@ -4060,10 +4194,7 @@ const App = () => {
 
   return (
     <div
-      className={[
-        active ? "hide" : "show",
-        controlsHiddenForKeyboard ? "text-entry-active" : "",
-      ]
+      className={[active ? "hide" : "show", controlsHiddenForKeyboard ? "text-entry-active" : ""]
         .filter(Boolean)
         .join(" ")}
     >
@@ -4109,9 +4240,8 @@ const App = () => {
             >
               MIDIWeb browser
             </a>{" "}
-            to use MIDI features in PLAINSOUND HEXATONE. After returning from the
-            lock screen or another app, use the onscreen refresh button to resume audio
-            if playback is silent.
+            to use MIDI features in PLAINSOUND HEXATONE. After returning from the lock screen or
+            another app, use the onscreen refresh button to resume audio if playback is silent.
           </div>
           <div className="ios-banner__actions">
             <button onClick={() => hideBannerForSession("ios")}>Remind Me Later</button>
@@ -4285,9 +4415,11 @@ const App = () => {
               });
             }}
             onContextMenu={(e) => e.preventDefault()}
-            >
+          >
             <b>MOD</b>
-            {modulationSummary ? <span className="modulation-route">{modulationSummary}</span> : null}
+            {modulationSummary ? (
+              <span className="modulation-route">{modulationSummary}</span>
+            ) : null}
           </button>
           <button
             id="panic-button"
@@ -4341,7 +4473,9 @@ const App = () => {
           }}
           onContextMenu={(e) => e.preventDefault()}
         >
-          <span class="refresh-glyph" aria-hidden="true">⟳</span>
+          <span class="refresh-glyph" aria-hidden="true">
+            ⟳
+          </span>
         </button>
       </div>
 
@@ -4395,8 +4529,7 @@ const App = () => {
             <div className="snapshot-palette-body">
               {snapshots.map((snap, index) => {
                 const isPlaying =
-                  snap.id === playingSnapshotId
-                  || manualPlayingSnapshotIds.includes(snap.id);
+                  snap.id === playingSnapshotId || manualPlayingSnapshotIds.includes(snap.id);
                 const isDragOver = dragOverId === snap.id;
                 return (
                   <div
@@ -4464,7 +4597,9 @@ const App = () => {
                         onStopSnapshot(snap.id);
                       }}
                     >
-                      <span class="snapshot-stop-glyph" aria-hidden="true">■</span>
+                      <span class="snapshot-stop-glyph" aria-hidden="true">
+                        ■
+                      </span>
                     </button>
                     <button
                       class="snapshot-del-btn"
@@ -4517,7 +4652,11 @@ const App = () => {
             <strong>MODULATION HISTORY</strong>
             <button
               className="modulation-palette-toggle"
-              title={modulationPaletteCollapsed ? "Expand modulation history" : "Collapse modulation history"}
+              title={
+                modulationPaletteCollapsed
+                  ? "Expand modulation history"
+                  : "Collapse modulation history"
+              }
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -4538,9 +4677,7 @@ const App = () => {
               className="modulation-palette-summary"
               title="Current degree-0 fundamental after all active modulation steps"
             >
-              <span className="modulation-palette-summary-label">
-                1/1 Shift:
-              </span>
+              <span className="modulation-palette-summary-label">1/1 Shift:</span>
               <span className="modulation-palette-summary-value">
                 {currentFundamentalSummary.display}
               </span>
@@ -4561,7 +4698,9 @@ const App = () => {
                     e.stopPropagation();
                   }}
                 >
-                  <span class="refresh-glyph" aria-hidden="true">⟳</span>
+                  <span class="refresh-glyph" aria-hidden="true">
+                    ⟳
+                  </span>
                 </button>
               ) : null}
             </div>
@@ -4637,9 +4776,9 @@ const App = () => {
                           e.preventDefault();
                           e.stopPropagation();
                         }}
-                        >
-                          ×
-                        </button>
+                      >
+                        ×
+                      </button>
                     ) : null}
                   </span>
                 </div>
@@ -4689,7 +4828,11 @@ const App = () => {
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
             <em>
-              Capture chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining as SNAPSHOTS. Build step sequences and trigger them event by event. EDIT start and stop times within a chord to make CUES that sound a melody or arpeggiation. Create bars, repeats, and tempo markers to generate an automated timed playback.{" "}
+              Capture chords and momentary expression data (velocity, pressure, timbre) while
+              playing or sustaining as SNAPSHOTS. Build step sequences and trigger them event by
+              event. EDIT start and stop times within a chord to make CUES that sound a melody or
+              arpeggiation. Create bars, repeats, and tempo markers to generate an automated timed
+              playback.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -4702,7 +4845,11 @@ const App = () => {
         ) : workspaceTab === "hexatone" ? (
           <p class="sidebar-intro">
             <em>
-              TO PLAY, choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic controller like Lumatone or Exquis. Use internal sounds or retune external synths using MTS, MPE, OSC. Edit the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER takes snapshots across tunings; build a sequence.{" "}
+              TO PLAY, choose a tuning, click or touch notes, attach a MIDI keyboard or an
+              isomorphic controller like Lumatone or Exquis. Use internal sounds or retune external
+              synths using MTS, MPE, OSC. Edit the scale in the table below; drag to retune notes;
+              rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER takes
+              snapshots across tunings; build a sequence.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -4759,17 +4906,21 @@ const App = () => {
               onSequenceDescriptionChange={setActiveSequenceDescription}
               onSequenceSaved={onSequenceSaved}
               onSequenceLegatoChange={setSequenceLegato}
-              onSequencePlaybackSpeedChange={(value) => setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))}
+              onSequencePlaybackSpeedChange={(value) =>
+                setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))
+              }
               onSequencePlaybackPitchOffsetChange={commitSequencePlaybackPitchOffset}
               onSequencePlaybackPitchOffsetPreview={previewSequencePlaybackPitchOffset}
               onSequencePlayRepeatsChange={setSequencePlayRepeats}
               onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
               onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
               onManualArpeggiationChange={(updates) => {
-                setManualArpeggiation((current) => normalizeManualArpeggiation({
-                  ...current,
-                  ...updates,
-                }));
+                setManualArpeggiation((current) =>
+                  normalizeManualArpeggiation({
+                    ...current,
+                    ...updates,
+                  }),
+                );
               }}
               onSetSnapshotLabelMode={setSnapshotLabelMode}
               onSelectSnapshot={onSelectSequencerSnapshot}
@@ -4840,7 +4991,9 @@ const App = () => {
                 onCommitCurrentModulation={onCommitCurrentModulation}
                 persistOnReload={persistOnReload}
                 setPersistOnReload={setPersistOnReload}
-                showActivateAudioContext={!!pendingRestoredPreset || (restoredOnMount && !userHasInteracted)}
+                showActivateAudioContext={
+                  !!pendingRestoredPreset || (restoredOnMount && !userHasInteracted)
+                }
                 activateAudioContext={refreshKeyboardAndAudio}
                 activatePendingPreset={activatePendingPreset}
                 onRevertBuiltin={onRevertBuiltin}
@@ -4849,7 +5002,9 @@ const App = () => {
                 heji_names={labelSettings.heji_names}
                 heji_names_table={tableHejiNames}
                 modulation_transposition_cents={currentFundamentalSummary?.cents ?? 0}
-                modulation_display_active={Math.abs(currentFundamentalSummary?.cents ?? 0) > 0.000001}
+                modulation_display_active={
+                  Math.abs(currentFundamentalSummary?.cents ?? 0) > 0.000001
+                }
                 heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
                 heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
                 heji_supported={structuralSettings.heji_supported}

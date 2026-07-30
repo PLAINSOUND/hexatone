@@ -59,8 +59,15 @@ describe("sequencer playhead runtime", () => {
   it("treats a stopped cue selection as armed so the selector stays bracketed", () => {
     const state = derivePlayheadNavigationState({
       playhead: { stepIndex: 2, markerIndex: 12, barIndex: 2, stopped: true },
-      sortedBars: [{ id: "bar-1", position: 1 }, { id: "bar-2", position: 2 }, { id: "bar-3", position: 3 }],
-      sequenceCueGroups: Array.from({ length: 16 }, (_, index) => ({ snapshotIndex: Math.min(index, 3), time: 1 + index * 0.25 })),
+      sortedBars: [
+        { id: "bar-1", position: 1 },
+        { id: "bar-2", position: 2 },
+        { id: "bar-3", position: 3 },
+      ],
+      sequenceCueGroups: Array.from({ length: 16 }, (_, index) => ({
+        snapshotIndex: Math.min(index, 3),
+        time: 1 + index * 0.25,
+      })),
       snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }],
       pendingTransportSelection: { snapshotIndex: 2, cueIndex: 12 },
     });
@@ -92,7 +99,10 @@ describe("sequencer playhead runtime", () => {
   it("keeps the containing snapshot bracketed when a cue is armed", () => {
     const state = derivePlayheadNavigationState({
       playhead: { stepIndex: 1, markerIndex: 5, barIndex: 1, stopped: true },
-      sortedBars: [{ id: "bar-1", position: 1 }, { id: "bar-2", position: 2 }],
+      sortedBars: [
+        { id: "bar-1", position: 1 },
+        { id: "bar-2", position: 2 },
+      ],
       sequenceCueGroups: Array.from({ length: 8 }, (_, index) => ({
         snapshotIndex: index < 3 ? 0 : 1,
         time: 1 + index * 0.25,
@@ -151,7 +161,10 @@ describe("sequencer playhead runtime", () => {
   it("shows the active cue index while playback is already on a cue", () => {
     const state = derivePlayheadNavigationState({
       playhead: { stepIndex: 1, markerIndex: 2, barIndex: 1, stopped: false },
-      sortedBars: [{ id: "bar-1", position: 1 }, { id: "bar-2", position: 2 }],
+      sortedBars: [
+        { id: "bar-1", position: 1 },
+        { id: "bar-2", position: 2 },
+      ],
       sequenceCueGroups: [
         { snapshotIndex: 0, time: 1 },
         { snapshotIndex: 1, time: 2 },

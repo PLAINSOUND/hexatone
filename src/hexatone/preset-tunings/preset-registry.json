@@ -35,19 +35,12 @@
     {
       "slug": "arabic-and-persian-theoretical-systems",
       "name": "Arabic and Persian Theoretical Systems",
-      "presets": [
-        "22-farabi",
-        "22-sabat-maqam",
-        "17-ibn-sina",
-        "17-ormavi"
-      ]
+      "presets": ["22-farabi", "22-sabat-maqam", "17-ibn-sina", "17-ormavi"]
     },
     {
       "slug": "indian-theoretical-systems",
       "name": "Indian Theoretical Systems",
-      "presets": [
-        "22-sruti-sambamurthy-danielou"
-      ]
+      "presets": ["22-sruti-sambamurthy-danielou"]
     },
     {
       "slug": "harmonics-and-subharmonics",

@@ -51,7 +51,11 @@ describe("buildSequenceRuntimeModel", () => {
 
     expect(withRepeats.sequenceRepeatSections).toHaveLength(1);
     expect(withoutPlaybackRepeats.sequenceRepeatSections).toHaveLength(1);
-    expect(withRepeats.timedPlaybackBursts.length).toBeGreaterThan(withoutPlaybackRepeats.timedPlaybackBursts.length);
-    expect(withoutPlaybackRepeats.timedPlaybackBursts.some((burst) => burst.repeatJump != null)).toBe(false);
+    expect(withRepeats.timedPlaybackBursts.length).toBeGreaterThan(
+      withoutPlaybackRepeats.timedPlaybackBursts.length,
+    );
+    expect(
+      withoutPlaybackRepeats.timedPlaybackBursts.some((burst) => burst.repeatJump != null),
+    ).toBe(false);
   });
 });

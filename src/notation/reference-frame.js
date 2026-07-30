@@ -3,12 +3,7 @@
 // a pitch class coherently around a chosen anchor and harmonic frame.
 
 import { Fraction, toMonzo } from "xen-dev-utils";
-import {
-  hejiToMonzo,
-  monzoToHeji,
-  parseHejiPitchClassLabel,
-  subtractMonzos,
-} from "./heji.js";
+import { hejiToMonzo, monzoToHeji, parseHejiPitchClassLabel, subtractMonzos } from "./heji.js";
 
 function parseRatioText(text) {
   const value = String(text || "").trim();

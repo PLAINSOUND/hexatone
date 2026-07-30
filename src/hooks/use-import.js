@@ -43,13 +43,16 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
       onUserInteraction();
     }
     setSettings((s) => {
-      const scaleImport = typeof overrideScaleImport === "string" ? overrideScaleImport : s.scale_import;
+      const scaleImport =
+        typeof overrideScaleImport === "string" ? overrideScaleImport : s.scale_import;
       if (!scaleImport) return s;
 
       const parsed = parseScale(scaleImport);
       const { filename, description, equivSteps, scale, labels, colors } = parsed;
       const scala_names = parsedScaleToLabels(scale);
-      const importedEquivSteps = Number.isFinite(Number(equivSteps)) ? Number(equivSteps) : scale?.length;
+      const importedEquivSteps = Number.isFinite(Number(equivSteps))
+        ? Number(equivSteps)
+        : scale?.length;
       const { rSteps, drSteps } = deriveImportedLayoutSteps(importedEquivSteps);
 
       const hasNames = parsed.hexatone_note_names && parsed.hexatone_note_names.some((n) => n);
@@ -83,9 +86,7 @@ const useImport = (settings, setSettings, { onReady, onUserInteraction }) => {
         parsed.hexatone_reference_degree !== undefined
           ? parsed.hexatone_reference_degree
           : s.reference_degree;
-      const midiin_anchor_note =
-        parsed.hexatone_midiin_anchor_note ||
-        s.midiin_anchor_note;
+      const midiin_anchor_note = parsed.hexatone_midiin_anchor_note || s.midiin_anchor_note;
 
       return {
         ...s,

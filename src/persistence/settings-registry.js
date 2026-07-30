@@ -165,7 +165,8 @@ export const SETTINGS_REGISTRY = [
     type: "int",
     default: 25,
     perController: true,
-    description: "LinnStrument User Firmware X-data spike reduction strength (0 = off, 100 = strongest)",
+    description:
+      "LinnStrument User Firmware X-data spike reduction strength (0 = off, 100 = strongest)",
   },
   {
     key: "linnstrument_x_input_smoothing",
@@ -181,7 +182,8 @@ export const SETTINGS_REGISTRY = [
     type: "string",
     default: "single_channel",
     perController: true,
-    description: "LinnStrument bypass channel allocation: single channel, channel per row, or channel per note",
+    description:
+      "LinnStrument bypass channel allocation: single channel, channel per row, or channel per note",
   },
   {
     key: "midiin_scale_bend_range",
@@ -228,7 +230,8 @@ export const SETTINGS_REGISTRY = [
     type: "int",
     default: 64,
     perController: true,
-    description: "Haken Continuum Raster to Notes pressure-to-velocity blend (0 keep attack velocity, 127 follow pressure)",
+    description:
+      "Haken Continuum Raster to Notes pressure-to-velocity blend (0 keep attack velocity, 127 follow pressure)",
   },
   {
     key: "hakenaudio_note_off_delay",
@@ -252,7 +255,8 @@ export const SETTINGS_REGISTRY = [
     type: "int",
     default: 50,
     perController: true,
-    description: "Haken Continuum Raster to Notes hysteresis amount to reduce note flutter near boundaries",
+    description:
+      "Haken Continuum Raster to Notes hysteresis amount to reduce note flutter near boundaries",
   },
   {
     key: "hakenaudio_raster_filter_mode",
@@ -260,7 +264,8 @@ export const SETTINGS_REGISTRY = [
     type: "string",
     default: "all",
     perController: true,
-    description: "Haken Continuum Raster to Notes filter mode: all degrees or selected degree subset",
+    description:
+      "Haken Continuum Raster to Notes filter mode: all degrees or selected degree subset",
   },
   {
     key: "hakenaudio_raster_filter",
@@ -402,8 +407,20 @@ export const SETTINGS_REGISTRY = [
   { key: "osc_volume_formant", tier: "local", type: "float", default: 0.5, perController: false },
   { key: "osc_volume_saw", tier: "local", type: "float", default: 0.5, perController: false },
   { key: "osc_quick_release", tier: "local", type: "float", default: 0.5, perController: false },
-  { key: "osc_quick_release_time", tier: "local", type: "float", default: 0.25, perController: false },
-  { key: "osc_quick_release_raster_only", tier: "local", type: "bool", default: true, perController: false },
+  {
+    key: "osc_quick_release_time",
+    tier: "local",
+    type: "float",
+    default: 0.25,
+    perController: false,
+  },
+  {
+    key: "osc_quick_release_raster_only",
+    tier: "local",
+    type: "bool",
+    default: true,
+    perController: false,
+  },
   // WebMIDI permission/access level restored on refresh so the explicit
   // Enable MIDI / Enable Sysex checkboxes stay in sync with device menus.
   // This is session-scoped runtime state, not a shareable preset value.
@@ -474,7 +491,8 @@ export const SETTINGS_REGISTRY = [
     type: "string",
     default: "",
     perController: false,
-    description: "Comma-separated scale degrees that remain lit on the Lumatone when degree filtering is active",
+    description:
+      "Comma-separated scale degrees that remain lit on the Lumatone when degree filtering is active",
   },
   {
     key: "lumatone_degree_filter_snapshots",

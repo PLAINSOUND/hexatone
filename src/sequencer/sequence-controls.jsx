@@ -31,13 +31,16 @@ function sliderExponentToSpeed(value) {
   return Math.pow(2, exponent);
 }
 
-function deriveStickyCenterValue(rawValue, {
-  lockRef,
-  engageThreshold = 0,
-  releaseThreshold = engageThreshold,
-  maxAbs = 1,
-  outputMaxAbs = maxAbs,
-} = {}) {
+function deriveStickyCenterValue(
+  rawValue,
+  {
+    lockRef,
+    engageThreshold = 0,
+    releaseThreshold = engageThreshold,
+    maxAbs = 1,
+    outputMaxAbs = maxAbs,
+  } = {},
+) {
   const raw = Number(rawValue) || 0;
   const distance = Math.abs(raw);
   const sign = Math.sign(raw);
@@ -138,16 +141,13 @@ function StickyPlaybackSlider({
   };
 
   const mapPointerValue = (rawValue) => {
-    const { outputValue } = deriveStickyCenterValue(
-      clamp(rawValue, safeMin, safeMax),
-      {
-        lockRef,
-        engageThreshold: safeDeadZone,
-        releaseThreshold: safeReleaseZone,
-        maxAbs: safeMax,
-        outputMaxAbs: safeMax,
-      },
-    );
+    const { outputValue } = deriveStickyCenterValue(clamp(rawValue, safeMin, safeMax), {
+      lockRef,
+      engageThreshold: safeDeadZone,
+      releaseThreshold: safeReleaseZone,
+      maxAbs: safeMax,
+      outputMaxAbs: safeMax,
+    });
     return snapToStep(outputValue);
   };
 
@@ -155,7 +155,7 @@ function StickyPlaybackSlider({
     const rect = trackRef.current?.getBoundingClientRect?.();
     if (!rect || rect.width <= 0) return clampedValue;
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return safeMin + (ratio * (safeMax - safeMin));
+    return safeMin + ratio * (safeMax - safeMin);
   };
 
   const commitPointerValue = (clientX) => {
@@ -180,9 +180,8 @@ function StickyPlaybackSlider({
 
   const finishPointerDrag = (event) => {
     if (!draggingRef.current) return;
-    const nextValue = event.type === "pointercancel"
-      ? lastDragValueRef.current
-      : commitPointerValue(event.clientX);
+    const nextValue =
+      event.type === "pointercancel" ? lastDragValueRef.current : commitPointerValue(event.clientX);
     draggingRef.current = false;
     lockRef.current = Math.abs(nextValue) <= safeDeadZone;
     setIsActive(false);
@@ -331,604 +330,628 @@ const SequenceControls = ({
     Number.isFinite(playhead?.markerIndex) ? "cue" : "snapshot",
   );
   const normalizedManualArpeggiation = normalizeManualArpeggiation(manualArpeggiation);
-  const spreadVariationPercent = Math.round(
-    normalizedManualArpeggiation.spreadVariation * 100,
-  );
-  const timingVariationPercent = Math.round(
-    normalizedManualArpeggiation.timingVariation * 100,
-  );
-  const decayVariationPercent = Math.round(
-    normalizedManualArpeggiation.decayVariation * 100,
-  );
-  const decaySliderValue = manualArpeggiationDecaySliderValue(
-    normalizedManualArpeggiation,
-  );
+  const spreadVariationPercent = Math.round(normalizedManualArpeggiation.spreadVariation * 100);
+  const timingVariationPercent = Math.round(normalizedManualArpeggiation.timingVariation * 100);
+  const decayVariationPercent = Math.round(normalizedManualArpeggiation.decayVariation * 100);
+  const decaySliderValue = manualArpeggiationDecaySliderValue(normalizedManualArpeggiation);
   const decayDisplayValue = manualArpeggiationDecayDisplay(normalizedManualArpeggiation);
-  const snapshotBackAvailable = snapshotSelectValue === terminalSequenceTarget
-    ? snapshots.length > 0
-    : Number.isFinite(Number(snapshotSelectValue)) && Number(snapshotSelectValue) > 0;
-  const cueBackAvailable = cueSelectValue === terminalSequenceTarget
-    ? sequenceCueGroups.length > 0
-    : Number.isFinite(Number(cueSelectValue)) && Number(cueSelectValue) > 0;
+  const snapshotBackAvailable =
+    snapshotSelectValue === terminalSequenceTarget
+      ? snapshots.length > 0
+      : Number.isFinite(Number(snapshotSelectValue)) && Number(snapshotSelectValue) > 0;
+  const cueBackAvailable =
+    cueSelectValue === terminalSequenceTarget
+      ? sequenceCueGroups.length > 0
+      : Number.isFinite(Number(cueSelectValue)) && Number(cueSelectValue) > 0;
 
   return (
     <>
-    {showAllEvents ? (
-      <>
-        <div class="sequencer-option-row">
-          <span>Choose Tempo Position</span>
-          <span class="sequencer-bars-add sequencer-bars-add--tempo">
-            <input
-              type="text"
-              class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
-              aria-label="new tempo position"
-              value={newTempoPosition}
-              onFocus={selectControlValue}
-              onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
-            />
-            <span class="sequencer-bars-add__tempo">
+      {showAllEvents ? (
+        <>
+          <div class="sequencer-option-row">
+            <span>Choose Tempo Position</span>
+            <span class="sequencer-bars-add sequencer-bars-add--tempo">
               <input
                 type="text"
-                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpmIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
-                aria-label="new tempo bpm"
-                value={newTempoBpm}
+                class={`sidebar-input sequencer-bars-add__position${newTempoPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+                aria-label="new tempo position"
+                value={newTempoPosition}
                 onFocus={selectControlValue}
-                onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+                onInput={(e) => setNewTempoPosition(e.currentTarget.value)}
               />
-              <span class="sequencer-bars-add__suffix">bpm</span>
+              <span class="sequencer-bars-add__tempo">
+                <input
+                  type="text"
+                  class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__bpm${newTempoBpmIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
+                  aria-label="new tempo bpm"
+                  value={newTempoBpm}
+                  onFocus={selectControlValue}
+                  onInput={(e) => setNewTempoBpm(e.currentTarget.value)}
+                />
+                <span class="sequencer-bars-add__suffix">bpm</span>
+              </span>
+              <button
+                type="button"
+                class="preset-action-btn sequencer-bars-add__button"
+                onClick={addTempoAtRequestedPosition}
+              >
+                Add Tempo
+              </button>
             </span>
-            <button type="button" class="preset-action-btn sequencer-bars-add__button" onClick={addTempoAtRequestedPosition}>
-              Add Tempo
-            </button>
-          </span>
-        </div>
-        <div class="sequencer-option-row sequencer-option-row--tempo-transition-action sequencer-option-row--mobile-inline">
-          <span>Make Gradual Transition</span>
-          <span class="sequencer-bars-add__stacked-button-slot">
-            <button
-              type="button"
-              class="preset-action-btn sequencer-bars-add__button sequencer-bars-add__button--stacked"
-              onClick={addTempoTransitionAtRequestedPosition}
-            >
-              Add Target Tempo
-            </button>
-          </span>
-        </div>
-
-        <div class="sequencer-option-row">
-          <span>Choose Bar Position</span>
-          <span class="sequencer-bars-add sequencer-bars-add--bar">
-            <input
-              type="text"
-              class={`sidebar-input sequencer-bars-add__position${newBarPositionIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
-              aria-label="new bar position"
-              value={newBarPosition}
-              onFocus={selectControlValue}
-              onInput={(e) => {
-                const rawValue = String(e.currentTarget.value ?? "").trim();
-                const integerPortion = rawValue.split(/[.,]/, 1)[0]?.replace(/[^\d]/g, "") ?? "";
-                setNewBarPosition(integerPortion, false);
-              }}
-            />
-            <span class="sequencer-bars-add__meter">
-              <input
-                type="number"
-                step="1"
-                min="1"
-                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input sequencer-bars-add__meter-input--numerator${newBarMeterIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
-                aria-label="new bar numerator"
-                value={newBarNumerator}
-                onFocus={selectControlValue}
-                onInput={(e) => updateNewBarMeterField("numerator", e.currentTarget.value)}
-              />
-              <span class="sequencer-bars-add__meter-separator">/</span>
-              <input
-                type="number"
-                step="1"
-                min="1"
-                class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newBarMeterIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
-                aria-label="new bar denominator"
-                value={newBarDenominator}
-                onFocus={selectControlValue}
-                onInput={(e) => updateNewBarMeterField("denominator", e.currentTarget.value)}
-              />
+          </div>
+          <div class="sequencer-option-row sequencer-option-row--tempo-transition-action sequencer-option-row--mobile-inline">
+            <span>Make Gradual Transition</span>
+            <span class="sequencer-bars-add__stacked-button-slot">
+              <button
+                type="button"
+                class="preset-action-btn sequencer-bars-add__button sequencer-bars-add__button--stacked"
+                onClick={addTempoTransitionAtRequestedPosition}
+              >
+                Add Target Tempo
+              </button>
             </span>
-            <button type="button" class="preset-action-btn sequencer-bars-add__button" onClick={addBarAtRequestedPosition}>
-              Add Bar
-            </button>
-          </span>
+          </div>
+
+          <div class="sequencer-option-row">
+            <span>Choose Bar Position</span>
+            <span class="sequencer-bars-add sequencer-bars-add--bar">
+              <input
+                type="text"
+                class={`sidebar-input sequencer-bars-add__position${newBarPositionIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
+                aria-label="new bar position"
+                value={newBarPosition}
+                onFocus={selectControlValue}
+                onInput={(e) => {
+                  const rawValue = String(e.currentTarget.value ?? "").trim();
+                  const integerPortion = rawValue.split(/[.,]/, 1)[0]?.replace(/[^\d]/g, "") ?? "";
+                  setNewBarPosition(integerPortion, false);
+                }}
+              />
+              <span class="sequencer-bars-add__meter">
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input sequencer-bars-add__meter-input--numerator${newBarMeterIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
+                  aria-label="new bar numerator"
+                  value={newBarNumerator}
+                  onFocus={selectControlValue}
+                  onInput={(e) => updateNewBarMeterField("numerator", e.currentTarget.value)}
+                />
+                <span class="sequencer-bars-add__meter-separator">/</span>
+                <input
+                  type="number"
+                  step="1"
+                  min="1"
+                  class={`sidebar-input sequencer-bars-add__aux sequencer-bars-add__meter-input${newBarMeterIsSuggested ? " sequencer-bars-add__position--hint" : ""}`}
+                  aria-label="new bar denominator"
+                  value={newBarDenominator}
+                  onFocus={selectControlValue}
+                  onInput={(e) => updateNewBarMeterField("denominator", e.currentTarget.value)}
+                />
+              </span>
+              <button
+                type="button"
+                class="preset-action-btn sequencer-bars-add__button"
+                onClick={addBarAtRequestedPosition}
+              >
+                Add Bar
+              </button>
+            </span>
+          </div>
+
+          <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+            <span>Auto-Create Bars</span>
+            <span class="sequencer-option-row__controls">
+              <input
+                type="checkbox"
+                checked={sequenceAutoCreateBars}
+                onChange={(e) => onSequenceAutoCreateBarsChange?.(e.currentTarget.checked)}
+              />
+              <button
+                type="button"
+                class="preset-action-btn"
+                onClick={() => onAddBarsBeforeSnapshots?.()}
+              >
+                Add Bars Before Snapshots
+              </button>
+            </span>
+          </label>
+
+          <div class="sequencer-option-row">
+            <span>Choose Repeat Position</span>
+            <span class="sequencer-bars-add sequencer-bars-add--tempo">
+              <input
+                type="text"
+                class={`sidebar-input sequencer-bars-add__position${newRepeatPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
+                aria-label="new repeat position"
+                value={newRepeatPosition}
+                onFocus={selectControlValue}
+                onInput={(e) => setNewRepeatPosition?.(e.currentTarget.value)}
+              />
+              <button
+                type="button"
+                class="preset-action-btn sequencer-bars-add__button"
+                onClick={() => onAddRepeatMarker?.("start")}
+              >
+                Start Marker
+              </button>
+              <button
+                type="button"
+                class="preset-action-btn sequencer-bars-add__button"
+                onClick={() => onAddRepeatMarker?.("end")}
+              >
+                End Marker
+              </button>
+            </span>
+          </div>
+        </>
+      ) : null}
+
+      <label class="sequencer-option-row sequencer-option-row--label-left">
+        <span>Snapshot Labels</span>
+        <select
+          class="sidebar-input"
+          value={snapshotLabelMode}
+          onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
+        >
+          {SNAPSHOT_LABEL_MODES.map((mode) => (
+            <option key={mode.value} value={mode.value}>
+              {mode.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label class="sequencer-option-row sequencer-option-row--label-left">
+        <span>Snapshot Arpeggiation</span>
+        <select
+          class="sidebar-input"
+          aria-label="manual snapshot arpeggiation mode"
+          value={normalizedManualArpeggiation.mode}
+          onChange={(e) =>
+            onManualArpeggiationChange?.({
+              mode: e.currentTarget.value,
+            })
+          }
+        >
+          {MANUAL_ARPEGGIATION_MODES.map((mode) => (
+            <option key={mode.value} value={mode.value}>
+              {mode.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {normalizedManualArpeggiation.mode !== "off" ? (
+        <div class="sequencer-manual-arpeggiation-controls">
+          <label class="sequencer-option-row sequencer-option-row--label-left">
+            <span>Initial Spread</span>
+            <span class="sequencer-manual-arpeggiation-control">
+              <input
+                type="range"
+                min="0"
+                max="5000"
+                step="25"
+                aria-label="manual arpeggiation initial spread"
+                value={normalizedManualArpeggiation.initialSpreadMs}
+                onInput={(e) =>
+                  onManualArpeggiationChange?.({
+                    initialSpreadMs: Number(e.currentTarget.value),
+                  })
+                }
+              />
+              <output>{normalizedManualArpeggiation.initialSpreadMs} ms</output>
+            </span>
+          </label>
+
+          <label class="sequencer-option-row sequencer-option-row--label-left">
+            <span>Spread Variation</span>
+            <span class="sequencer-manual-arpeggiation-control">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                aria-label="manual arpeggiation spread variation"
+                value={spreadVariationPercent}
+                onInput={(e) =>
+                  onManualArpeggiationChange?.({
+                    spreadVariation: Number(e.currentTarget.value) / 100,
+                  })
+                }
+              />
+              <output>{spreadVariationPercent}%</output>
+            </span>
+          </label>
+
+          <label class="sequencer-option-row sequencer-option-row--label-left">
+            <span>Timing Variation</span>
+            <span class="sequencer-manual-arpeggiation-control">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                aria-label="manual arpeggiation timing variation"
+                value={timingVariationPercent}
+                onInput={(e) =>
+                  onManualArpeggiationChange?.({
+                    timingVariation: Number(e.currentTarget.value) / 100,
+                  })
+                }
+              />
+              <output>{timingVariationPercent}%</output>
+            </span>
+          </label>
+
+          <label class="sequencer-option-row sequencer-option-row--label-left">
+            <span>Decay</span>
+            <span class="sequencer-manual-arpeggiation-control sequencer-manual-arpeggiation-control--decay">
+              <input
+                type="range"
+                min="0"
+                max={SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE}
+                step="100"
+                aria-label="manual arpeggiation decay"
+                aria-valuetext={decayDisplayValue}
+                value={decaySliderValue}
+                onInput={(e) => {
+                  onManualArpeggiationChange?.(
+                    manualArpeggiationDecayFromSlider(e.currentTarget.value),
+                  );
+                }}
+              />
+              <output>{decayDisplayValue}</output>
+            </span>
+          </label>
+
+          <label class="sequencer-option-row sequencer-option-row--label-left">
+            <span>Decay Variation</span>
+            <span class="sequencer-manual-arpeggiation-control">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                aria-label="manual arpeggiation decay variation"
+                value={decayVariationPercent}
+                onInput={(e) =>
+                  onManualArpeggiationChange?.({
+                    decayVariation: Number(e.currentTarget.value) / 100,
+                  })
+                }
+              />
+              <output>{decayVariationPercent}%</output>
+            </span>
+          </label>
         </div>
+      ) : null}
 
-        <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-          <span>Auto-Create Bars</span>
-          <span class="sequencer-option-row__controls">
-            <input
-              type="checkbox"
-              checked={sequenceAutoCreateBars}
-              onChange={(e) => onSequenceAutoCreateBarsChange?.(e.currentTarget.checked)}
-            />
-            <button type="button" class="preset-action-btn" onClick={() => onAddBarsBeforeSnapshots?.()}>
-              Add Bars Before Snapshots
-            </button>
-          </span>
-        </label>
+      <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+        <span>Legato</span>
+        <input
+          type="checkbox"
+          checked={sequenceLegato}
+          onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
+        />
+      </label>
 
-        <div class="sequencer-option-row">
-          <span>Choose Repeat Position</span>
-          <span class="sequencer-bars-add sequencer-bars-add--tempo">
-            <input
-              type="text"
-              class={`sidebar-input sequencer-bars-add__position${newRepeatPosition === "1.000000" ? " sequencer-bars-add__position--hint" : ""}`}
-              aria-label="new repeat position"
-              value={newRepeatPosition}
-              onFocus={selectControlValue}
-              onInput={(e) => setNewRepeatPosition?.(e.currentTarget.value)}
-            />
-            <button
-              type="button"
-              class="preset-action-btn sequencer-bars-add__button"
-              onClick={() => onAddRepeatMarker?.("start")}
-            >
-              Start Marker
-            </button>
-            <button
-              type="button"
-              class="preset-action-btn sequencer-bars-add__button"
-              onClick={() => onAddRepeatMarker?.("end")}
-            >
-              End Marker
-            </button>
-          </span>
-        </div>
+      <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+        <span>Auto-Scroll</span>
+        <input
+          type="checkbox"
+          checked={autoScrollEnabled}
+          onChange={(e) => onAutoScrollEnabledChange?.(e.currentTarget.checked)}
+        />
+      </label>
 
-      </>
-    ) : null}
+      <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+        <span>Play Repeats</span>
+        <input
+          type="checkbox"
+          checked={sequencePlayRepeats}
+          onChange={(e) => onSequencePlayRepeatsChange?.(e.currentTarget.checked)}
+        />
+      </label>
 
-    <label class="sequencer-option-row sequencer-option-row--label-left">
-      <span>Snapshot Labels</span>
-      <select
-        class="sidebar-input"
-        value={snapshotLabelMode}
-        onChange={(e) => onSetSnapshotLabelMode(e.currentTarget.value)}
-      >
-        {SNAPSHOT_LABEL_MODES.map((mode) => (
-          <option key={mode.value} value={mode.value}>
-            {mode.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+        <span>Snap Sequence to Current Hexatone Tuning</span>
+        <input
+          type="checkbox"
+          checked={snapSequenceToCurrentTuning}
+          onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
+        />
+      </label>
 
-    <label class="sequencer-option-row sequencer-option-row--label-left">
-      <span>Snapshot Arpeggiation</span>
-      <select
-        class="sidebar-input"
-        aria-label="manual snapshot arpeggiation mode"
-        value={normalizedManualArpeggiation.mode}
-        onChange={(e) => onManualArpeggiationChange?.({
-          mode: e.currentTarget.value,
-        })}
-      >
-        {MANUAL_ARPEGGIATION_MODES.map((mode) => (
-          <option key={mode.value} value={mode.value}>
-            {mode.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      <div ref={playbackRowRef} class="sequencer-playback-block">
+        <div class="sequencer-playback-row" aria-label="Sequence playback">
+          <span class="sequencer-playback-label">PLAY FROM</span>
 
-    {normalizedManualArpeggiation.mode !== "off" ? (
-      <div class="sequencer-manual-arpeggiation-controls">
-        <label class="sequencer-option-row sequencer-option-row--label-left">
-          <span>Initial Spread</span>
-          <span class="sequencer-manual-arpeggiation-control">
-            <input
-              type="range"
-              min="0"
-              max="5000"
-              step="25"
-              aria-label="manual arpeggiation initial spread"
-              value={normalizedManualArpeggiation.initialSpreadMs}
-              onInput={(e) => onManualArpeggiationChange?.({
-                initialSpreadMs: Number(e.currentTarget.value),
-              })}
-            />
-            <output>{normalizedManualArpeggiation.initialSpreadMs} ms</output>
-          </span>
-        </label>
-
-        <label class="sequencer-option-row sequencer-option-row--label-left">
-          <span>Spread Variation</span>
-          <span class="sequencer-manual-arpeggiation-control">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              aria-label="manual arpeggiation spread variation"
-              value={spreadVariationPercent}
-              onInput={(e) => onManualArpeggiationChange?.({
-                spreadVariation: Number(e.currentTarget.value) / 100,
-              })}
-            />
-            <output>{spreadVariationPercent}%</output>
-          </span>
-        </label>
-
-        <label class="sequencer-option-row sequencer-option-row--label-left">
-          <span>Timing Variation</span>
-          <span class="sequencer-manual-arpeggiation-control">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              aria-label="manual arpeggiation timing variation"
-              value={timingVariationPercent}
-              onInput={(e) => onManualArpeggiationChange?.({
-                timingVariation: Number(e.currentTarget.value) / 100,
-              })}
-            />
-            <output>{timingVariationPercent}%</output>
-          </span>
-        </label>
-
-        <label class="sequencer-option-row sequencer-option-row--label-left">
-          <span>Decay</span>
-          <span class="sequencer-manual-arpeggiation-control sequencer-manual-arpeggiation-control--decay">
-            <input
-              type="range"
-              min="0"
-              max={SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE}
-              step="100"
-              aria-label="manual arpeggiation decay"
-              aria-valuetext={decayDisplayValue}
-              value={decaySliderValue}
-              onInput={(e) => {
-                onManualArpeggiationChange?.(
-                  manualArpeggiationDecayFromSlider(e.currentTarget.value),
+          <span class="sequencer-playback-control sequencer-playback-control--bar">
+            <span class="sequencer-playback-key">BAR</span>
+            <select
+              class="sidebar-input sequencer-playback-select"
+              data-timed-transport-field="bar"
+              value={timedBarSelectValue ?? playhead?.barIndex ?? 0}
+              onChange={(e) => {
+                const selectedBarIndex = Number(e.currentTarget.value);
+                setPlayFromTarget("cue");
+                stopTimedTransportBefore(
+                  () => {
+                    transportScrollTargetRef.current = "bar";
+                    onSelectSequenceBar?.(selectedBarIndex);
+                  },
+                  timedTransportUiState,
+                  onTimedTransportStop,
                 );
               }}
-            />
-            <output>{decayDisplayValue}</output>
-          </span>
-        </label>
-
-        <label class="sequencer-option-row sequencer-option-row--label-left">
-          <span>Decay Variation</span>
-          <span class="sequencer-manual-arpeggiation-control">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              aria-label="manual arpeggiation decay variation"
-              value={decayVariationPercent}
-              onInput={(e) => onManualArpeggiationChange?.({
-                decayVariation: Number(e.currentTarget.value) / 100,
-              })}
-            />
-            <output>{decayVariationPercent}%</output>
-          </span>
-        </label>
-      </div>
-    ) : null}
-
-    <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-      <span>Legato</span>
-      <input
-        type="checkbox"
-        checked={sequenceLegato}
-        onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
-      />
-    </label>
-
-    <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-      <span>Auto-Scroll</span>
-      <input
-        type="checkbox"
-        checked={autoScrollEnabled}
-        onChange={(e) => onAutoScrollEnabledChange?.(e.currentTarget.checked)}
-      />
-    </label>
-
-    <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-      <span>Play Repeats</span>
-      <input
-        type="checkbox"
-        checked={sequencePlayRepeats}
-        onChange={(e) => onSequencePlayRepeatsChange?.(e.currentTarget.checked)}
-      />
-    </label>
-
-    <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-      <span>Snap Sequence to Current Hexatone Tuning</span>
-      <input
-        type="checkbox"
-        checked={snapSequenceToCurrentTuning}
-        onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
-      />
-    </label>
-
-    <div ref={playbackRowRef} class="sequencer-playback-block">
-      <div class="sequencer-playback-row" aria-label="Sequence playback">
-        <span class="sequencer-playback-label">PLAY FROM</span>
-
-        <span class="sequencer-playback-control sequencer-playback-control--bar">
-          <span class="sequencer-playback-key">BAR</span>
-          <select
-            class="sidebar-input sequencer-playback-select"
-            data-timed-transport-field="bar"
-            value={timedBarSelectValue ?? playhead?.barIndex ?? 0}
-            onChange={(e) => {
-              const selectedBarIndex = Number(e.currentTarget.value);
-              setPlayFromTarget("cue");
-              stopTimedTransportBefore(() => {
-                transportScrollTargetRef.current = "bar";
-                onSelectSequenceBar?.(selectedBarIndex);
-              }, timedTransportUiState, onTimedTransportStop);
-            }}
-          >
-            {sortedBars.map((bar, index) => (
-              <option key={bar.id ?? index} value={index}>
-                {index + 1}
-              </option>
-            ))}
-          </select>
-        </span>
-
-        <span class="sequencer-playback-control">
-          <span class="sequencer-playback-key">SNAPSHOT</span>
-          <button
-            type="button"
-            class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
-            aria-label="previous sequence step"
-            title="Previous step"
-            disabled={snapshots.length === 0 || !snapshotBackAvailable}
-            onClick={() => {
-              setPlayFromTarget("snapshot");
-              runTransportAction(() => onStepSequence?.(-1));
-            }}
-          >
-            <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
-          </button>
-          <select
-            class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "snapshot" ? " sequencer-playback-select--active-target" : ""}`}
-            aria-label="next snapshot target"
-            data-play-from-active={playFromTarget === "snapshot" ? "true" : "false"}
-            data-timed-transport-field="snapshot"
-            value={snapshotSelectValue}
-            onChange={(e) => {
-              const selectedSnapshotValue = e.currentTarget.value;
-              setPlayFromTarget("snapshot");
-              stopTimedTransportBefore(() => {
-                if (selectedSnapshotValue === "") {
-                  return;
-                }
-                if (selectedSnapshotValue === terminalSequenceTarget) {
-                  return;
-                }
-                armPendingSnapshot(selectedSnapshotValue);
-              }, timedTransportUiState, onTimedTransportStop);
-            }}
-          >
-            {renderedSnapshots.map((snapshot, index) => (
-              <option
-                key={snapshot.id ?? index}
-                value={String(index)}
-              >
-                {impliedPendingSnapshotIndex === String(index) ? `(${index + 1})` : String(index + 1)}
-              </option>
-            ))}
-            {playheadIsEnd && snapshots.length > 0 && (
-              <option value={terminalSequenceTarget}>
-                {impliedPendingSnapshotIndex === terminalSequenceTarget ? "(end)" : "end"}
-              </option>
-            )}
-          </select>
-          <button
-            type="button"
-            class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
-            aria-label="next sequence step"
-            title="Next step"
-            disabled={snapshots.length === 0 || (playheadIsOff
-              ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
-              : false)}
-            onClick={() => {
-              setPlayFromTarget("snapshot");
-              if (playheadIsEnd) {
-                runTransportAction(() => onJumpSequenceSnapshot?.(0));
-                return;
-              }
-              runTransportAction(() => onStepSequence?.(1));
-            }}
-          >
-            <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
-          </button>
-        </span>
-
-        <span class="sequencer-playback-control">
-          <span class="sequencer-playback-key">CUE</span>
-          <button
-            type="button"
-            class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
-            aria-label="previous sequence marker"
-            title="Previous marker"
-            disabled={snapshots.length === 0 || !cueBackAvailable}
-            onClick={() => {
-              setPlayFromTarget("cue");
-              runTransportAction(() => onStepSequenceMarker?.(-1));
-            }}
-          >
-            <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
-          </button>
-          <select
-            class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "cue" ? " sequencer-playback-select--active-target" : ""}`}
-            aria-label="next cue target"
-            data-play-from-active={playFromTarget === "cue" ? "true" : "false"}
-            data-timed-transport-field="cue"
-            value={cueSelectValue}
-            onChange={(e) => {
-              const selectedCueValue = e.currentTarget.value;
-              setPlayFromTarget("cue");
-              stopTimedTransportBefore(() => {
-                if (selectedCueValue === "") {
-                  return;
-                }
-                if (selectedCueValue === terminalSequenceTarget) {
-                  return;
-                }
-                armPendingCue(selectedCueValue);
-              }, timedTransportUiState, onTimedTransportStop);
-            }}
-          >
-            {sequenceCueGroups.map((group, index) => (
-              <option
-                key={`${group.snapshotIndex}:${group.time}:${index}`}
-                value={String(index)}
-              >
-                {impliedPendingCueIndex === String(index) ? `(${index + 1})` : String(index + 1)}
-              </option>
-            ))}
-            {playheadIsEnd && sequenceCueGroups.length > 0 && (
-              <option value={terminalSequenceTarget}>
-                {impliedPendingCueIndex === terminalSequenceTarget ? "(end)" : "end"}
-              </option>
-            )}
-          </select>
-          <button
-            type="button"
-            class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
-            aria-label="next sequence marker"
-            title="Next marker"
-            disabled={snapshots.length === 0 || (playheadIsOff
-              ? nextCueIndexFromBar < 0
-              : false)}
-            onClick={() => {
-              setPlayFromTarget("cue");
-              if (playheadIsEnd) {
-                runTransportAction(() => onJumpSequenceCue?.(0));
-                return;
-              }
-              runTransportAction(() => onStepSequenceMarker?.(1));
-            }}
-          >
-            <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
-          </button>
-        </span>
-
-        <span class="sequencer-playback-actions">
-          <button
-            type="button"
-            class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
-            title="Move playhead to start"
-            aria-label="move sequence playhead to start"
-            disabled={snapshots.length === 0 && playheadIsOff}
-            onClick={() => {
-              runTransportAction(() => onResetSequencePlayhead?.());
-            }}
-          >
-            <svg
-              class="snapshot-start-icon"
-              viewBox="0 0 10 10"
-              aria-hidden="true"
-              focusable="false"
             >
-              <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
-              <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="snapshot-play-btn"
-            title={`Play highlighted ${playFromTarget} target`}
-            aria-label="play current sequence position"
-            disabled={snapshots.length === 0}
-            onClick={() => {
-              runTransportAction(() => {
-                const cueIndex = cueSelectValue === "" || cueSelectValue === terminalSequenceTarget
-                  ? NaN
-                  : Number(cueSelectValue);
-                if (
-                  playFromTarget === "cue"
-                  && Number.isInteger(cueIndex)
-                  && cueIndex >= 0
-                  && cueIndex < sequenceCueGroups.length
-                  && typeof onPlayCue === "function"
-                ) {
-                  onPlayCue(cueIndex);
+              {sortedBars.map((bar, index) => (
+                <option key={bar.id ?? index} value={index}>
+                  {index + 1}
+                </option>
+              ))}
+            </select>
+          </span>
+
+          <span class="sequencer-playback-control">
+            <span class="sequencer-playback-key">SNAPSHOT</span>
+            <button
+              type="button"
+              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
+              aria-label="previous sequence step"
+              title="Previous step"
+              disabled={snapshots.length === 0 || !snapshotBackAvailable}
+              onClick={() => {
+                setPlayFromTarget("snapshot");
+                runTransportAction(() => onStepSequence?.(-1));
+              }}
+            >
+              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
+            </button>
+            <select
+              class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "snapshot" ? " sequencer-playback-select--active-target" : ""}`}
+              aria-label="next snapshot target"
+              data-play-from-active={playFromTarget === "snapshot" ? "true" : "false"}
+              data-timed-transport-field="snapshot"
+              value={snapshotSelectValue}
+              onChange={(e) => {
+                const selectedSnapshotValue = e.currentTarget.value;
+                setPlayFromTarget("snapshot");
+                stopTimedTransportBefore(
+                  () => {
+                    if (selectedSnapshotValue === "") {
+                      return;
+                    }
+                    if (selectedSnapshotValue === terminalSequenceTarget) {
+                      return;
+                    }
+                    armPendingSnapshot(selectedSnapshotValue);
+                  },
+                  timedTransportUiState,
+                  onTimedTransportStop,
+                );
+              }}
+            >
+              {renderedSnapshots.map((snapshot, index) => (
+                <option key={snapshot.id ?? index} value={String(index)}>
+                  {impliedPendingSnapshotIndex === String(index)
+                    ? `(${index + 1})`
+                    : String(index + 1)}
+                </option>
+              ))}
+              {playheadIsEnd && snapshots.length > 0 && (
+                <option value={terminalSequenceTarget}>
+                  {impliedPendingSnapshotIndex === terminalSequenceTarget ? "(end)" : "end"}
+                </option>
+              )}
+            </select>
+            <button
+              type="button"
+              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
+              aria-label="next sequence step"
+              title="Next step"
+              disabled={
+                snapshots.length === 0 ||
+                (playheadIsOff
+                  ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
+                  : false)
+              }
+              onClick={() => {
+                setPlayFromTarget("snapshot");
+                if (playheadIsEnd) {
+                  runTransportAction(() => onJumpSequenceSnapshot?.(0));
                   return;
                 }
-                onPlaySequence?.();
-              });
-            }}
-          >
-            <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            class="snapshot-play-btn snapshot-stop-btn"
-            title="Stop sequence playback"
-            aria-label="stop sequence playback"
-            disabled={!playingSnapshotId}
-            onClick={() => {
-              runTransportAction(() => onStopSnapshot?.());
-            }}
-          >
-            <span class="snapshot-stop-glyph" aria-hidden="true">
-              ■
-            </span>
-          </button>
-          <button
-            type="button"
-            class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
-            title="Move playhead to end"
-            aria-label="move sequence playhead to end"
-            disabled={snapshots.length === 0 && playheadIsEnd}
-            onClick={() => {
-              runTransportAction(() => onJumpSequenceEnd?.());
-            }}
-          >
-            <svg
-              class="snapshot-start-icon snapshot-start-icon--end"
-              viewBox="0 0 10 10"
-              aria-hidden="true"
-              focusable="false"
+                runTransportAction(() => onStepSequence?.(1));
+              }}
             >
-              <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
-              <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
-            </svg>
-          </button>
-        </span>
+              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
+            </button>
+          </span>
 
-        <span class="sequencer-playback-row__break" aria-hidden="true" />
+          <span class="sequencer-playback-control">
+            <span class="sequencer-playback-key">CUE</span>
+            <button
+              type="button"
+              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
+              aria-label="previous sequence marker"
+              title="Previous marker"
+              disabled={snapshots.length === 0 || !cueBackAvailable}
+              onClick={() => {
+                setPlayFromTarget("cue");
+                runTransportAction(() => onStepSequenceMarker?.(-1));
+              }}
+            >
+              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
+            </button>
+            <select
+              class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "cue" ? " sequencer-playback-select--active-target" : ""}`}
+              aria-label="next cue target"
+              data-play-from-active={playFromTarget === "cue" ? "true" : "false"}
+              data-timed-transport-field="cue"
+              value={cueSelectValue}
+              onChange={(e) => {
+                const selectedCueValue = e.currentTarget.value;
+                setPlayFromTarget("cue");
+                stopTimedTransportBefore(
+                  () => {
+                    if (selectedCueValue === "") {
+                      return;
+                    }
+                    if (selectedCueValue === terminalSequenceTarget) {
+                      return;
+                    }
+                    armPendingCue(selectedCueValue);
+                  },
+                  timedTransportUiState,
+                  onTimedTransportStop,
+                );
+              }}
+            >
+              {sequenceCueGroups.map((group, index) => (
+                <option key={`${group.snapshotIndex}:${group.time}:${index}`} value={String(index)}>
+                  {impliedPendingCueIndex === String(index) ? `(${index + 1})` : String(index + 1)}
+                </option>
+              ))}
+              {playheadIsEnd && sequenceCueGroups.length > 0 && (
+                <option value={terminalSequenceTarget}>
+                  {impliedPendingCueIndex === terminalSequenceTarget ? "(end)" : "end"}
+                </option>
+              )}
+            </select>
+            <button
+              type="button"
+              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
+              aria-label="next sequence marker"
+              title="Next marker"
+              disabled={snapshots.length === 0 || (playheadIsOff ? nextCueIndexFromBar < 0 : false)}
+              onClick={() => {
+                setPlayFromTarget("cue");
+                if (playheadIsEnd) {
+                  runTransportAction(() => onJumpSequenceCue?.(0));
+                  return;
+                }
+                runTransportAction(() => onStepSequenceMarker?.(1));
+              }}
+            >
+              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
+            </button>
+          </span>
+
+          <span class="sequencer-playback-actions">
+            <button
+              type="button"
+              class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
+              title="Move playhead to start"
+              aria-label="move sequence playhead to start"
+              disabled={snapshots.length === 0 && playheadIsOff}
+              onClick={() => {
+                runTransportAction(() => onResetSequencePlayhead?.());
+              }}
+            >
+              <svg
+                class="snapshot-start-icon"
+                viewBox="0 0 10 10"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
+                <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="snapshot-play-btn"
+              title={`Play highlighted ${playFromTarget} target`}
+              aria-label="play current sequence position"
+              disabled={snapshots.length === 0}
+              onClick={() => {
+                runTransportAction(() => {
+                  const cueIndex =
+                    cueSelectValue === "" || cueSelectValue === terminalSequenceTarget
+                      ? NaN
+                      : Number(cueSelectValue);
+                  if (
+                    playFromTarget === "cue" &&
+                    Number.isInteger(cueIndex) &&
+                    cueIndex >= 0 &&
+                    cueIndex < sequenceCueGroups.length &&
+                    typeof onPlayCue === "function"
+                  ) {
+                    onPlayCue(cueIndex);
+                    return;
+                  }
+                  onPlaySequence?.();
+                });
+              }}
+            >
+              <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              class="snapshot-play-btn snapshot-stop-btn"
+              title="Stop sequence playback"
+              aria-label="stop sequence playback"
+              disabled={!playingSnapshotId}
+              onClick={() => {
+                runTransportAction(() => onStopSnapshot?.());
+              }}
+            >
+              <span class="snapshot-stop-glyph" aria-hidden="true">
+                ■
+              </span>
+            </button>
+            <button
+              type="button"
+              class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
+              title="Move playhead to end"
+              aria-label="move sequence playhead to end"
+              disabled={snapshots.length === 0 && playheadIsEnd}
+              onClick={() => {
+                runTransportAction(() => onJumpSequenceEnd?.());
+              }}
+            >
+              <svg
+                class="snapshot-start-icon snapshot-start-icon--end"
+                viewBox="0 0 10 10"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
+                <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
+              </svg>
+            </button>
+          </span>
+
+          <span class="sequencer-playback-row__break" aria-hidden="true" />
+        </div>
+
+        <TimedPlaybackRow
+          snapshots={snapshots}
+          playheadIsOff={playheadIsOff}
+          playheadIsEnd={playheadIsEnd}
+          runTransportAction={runTransportAction}
+          onResetSequencePlayhead={onResetSequencePlayhead}
+          onJumpSequenceEnd={onJumpSequenceEnd}
+          timedTransportUiState={timedTransportUiState}
+          getTimedTransportDisplay={getTimedTransportDisplay}
+          onTimedTransportPlayPause={onTimedTransportPlayPause}
+          onTimedTransportStop={onTimedTransportStop}
+        />
+
+        <PlaybackModifiersRow
+          sequencePlaybackSpeed={sequencePlaybackSpeed}
+          sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
+          onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
+          onSequencePlaybackSpeedPreview={onSequencePlaybackSpeedPreview}
+          onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
+          onSequencePlaybackPitchOffsetPreview={onSequencePlaybackPitchOffsetPreview}
+          timedTransportUiState={timedTransportUiState}
+          getTimedTransportDisplay={getTimedTransportDisplay}
+        />
       </div>
-
-      <TimedPlaybackRow
-        snapshots={snapshots}
-        playheadIsOff={playheadIsOff}
-        playheadIsEnd={playheadIsEnd}
-        runTransportAction={runTransportAction}
-        onResetSequencePlayhead={onResetSequencePlayhead}
-        onJumpSequenceEnd={onJumpSequenceEnd}
-        timedTransportUiState={timedTransportUiState}
-        getTimedTransportDisplay={getTimedTransportDisplay}
-        onTimedTransportPlayPause={onTimedTransportPlayPause}
-        onTimedTransportStop={onTimedTransportStop}
-      />
-
-      <PlaybackModifiersRow
-        sequencePlaybackSpeed={sequencePlaybackSpeed}
-        sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
-        onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
-        onSequencePlaybackSpeedPreview={onSequencePlaybackSpeedPreview}
-        onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
-        onSequencePlaybackPitchOffsetPreview={onSequencePlaybackPitchOffsetPreview}
-        timedTransportUiState={timedTransportUiState}
-        getTimedTransportDisplay={getTimedTransportDisplay}
-      />
-    </div>
-
     </>
   );
 };
@@ -943,10 +966,18 @@ function PlaybackModifiersRow({
   timedTransportUiState,
   getTimedTransportDisplay,
 }) {
-  const [speedDraft, setSpeedDraft] = useState(() => formatSequencePlaybackSpeed(sequencePlaybackSpeed ?? 1));
-  const [pitchDraft, setPitchDraft] = useState(() => formatSequencePlaybackPitchCents(sequencePlaybackPitchOffset ?? 0));
-  const [speedSliderValue, setSpeedSliderValue] = useState(() => speedToSliderExponent(sequencePlaybackSpeed ?? 1));
-  const [pitchSliderValue, setPitchSliderValue] = useState(() => Number(sequencePlaybackPitchOffset ?? 0));
+  const [speedDraft, setSpeedDraft] = useState(() =>
+    formatSequencePlaybackSpeed(sequencePlaybackSpeed ?? 1),
+  );
+  const [pitchDraft, setPitchDraft] = useState(() =>
+    formatSequencePlaybackPitchCents(sequencePlaybackPitchOffset ?? 0),
+  );
+  const [speedSliderValue, setSpeedSliderValue] = useState(() =>
+    speedToSliderExponent(sequencePlaybackSpeed ?? 1),
+  );
+  const [pitchSliderValue, setPitchSliderValue] = useState(() =>
+    Number(sequencePlaybackPitchOffset ?? 0),
+  );
   const speedFrameRef = useRef(null);
   const pitchFrameRef = useRef(null);
   const pendingSpeedValueRef = useRef(Number(sequencePlaybackSpeed ?? 1));
@@ -954,13 +985,14 @@ function PlaybackModifiersRow({
   const pendingPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const lastPreviewedPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const committedPitchTextRef = useRef("");
-  const [timedTransportDisplay, setTimedTransportDisplay] = useState(() => (
-    getTimedTransportDisplay?.() ?? {
-      clock: "00:00:00",
-      barBeat: "1:1",
-      tempo: null,
-    }
-  ));
+  const [timedTransportDisplay, setTimedTransportDisplay] = useState(
+    () =>
+      getTimedTransportDisplay?.() ?? {
+        clock: "00:00:00",
+        barBeat: "1:1",
+        tempo: null,
+      },
+  );
 
   useEffect(() => {
     setSpeedDraft(formatSequencePlaybackSpeed(sequencePlaybackSpeed ?? 1));
@@ -973,14 +1005,9 @@ function PlaybackModifiersRow({
     const nextPitch = Number(sequencePlaybackPitchOffset ?? 0);
     const preservedText = committedPitchTextRef.current;
     const preservedValue = parseSequencePlaybackPitchInput(preservedText);
-    const shouldPreserveText = preservedText
-      && preservedValue != null
-      && Math.abs(preservedValue - nextPitch) < 1e-9;
-    setPitchDraft(
-      shouldPreserveText
-        ? preservedText
-        : formatSequencePlaybackPitchCents(nextPitch),
-    );
+    const shouldPreserveText =
+      preservedText && preservedValue != null && Math.abs(preservedValue - nextPitch) < 1e-9;
+    setPitchDraft(shouldPreserveText ? preservedText : formatSequencePlaybackPitchCents(nextPitch));
     setPitchSliderValue(Number(sequencePlaybackPitchOffset ?? 0));
   }, [sequencePlaybackPitchOffset]);
 
@@ -988,18 +1015,23 @@ function PlaybackModifiersRow({
     lastPreviewedPitchValueRef.current = Number(sequencePlaybackPitchOffset ?? 0);
   }, [sequencePlaybackPitchOffset]);
 
-  useEffect(() => () => {
-    if (speedFrameRef.current != null) window.cancelAnimationFrame(speedFrameRef.current);
-    if (pitchFrameRef.current != null) window.cancelAnimationFrame(pitchFrameRef.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (speedFrameRef.current != null) window.cancelAnimationFrame(speedFrameRef.current);
+      if (pitchFrameRef.current != null) window.cancelAnimationFrame(pitchFrameRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const refreshDisplay = () => {
-      setTimedTransportDisplay(getTimedTransportDisplay?.() ?? {
-        clock: "00:00:00",
-        barBeat: "1:1",
-        tempo: null,
-      });
+      setTimedTransportDisplay(
+        getTimedTransportDisplay?.() ?? {
+          clock: "00:00:00",
+          barBeat: "1:1",
+          tempo: null,
+        },
+      );
     };
     refreshDisplay();
     if (!timedTransportUiState?.running) return undefined;
@@ -1059,20 +1091,19 @@ function PlaybackModifiersRow({
   const parsedSpeedDraft = parseSequencePlaybackSpeedInput(speedDraft);
   const currentTimedTransportDisplay = timedTransportUiState?.running
     ? timedTransportDisplay
-    : (
-      getTimedTransportDisplay?.() ?? {
+    : (getTimedTransportDisplay?.() ?? {
         clock: "00:00:00",
         barBeat: "1:1",
         tempo: null,
-      }
-    );
+      });
   const speedCourtesy = formatEffectiveTempoCourtesy(
     currentTimedTransportDisplay?.tempo
       ? {
-        ...currentTimedTransportDisplay.tempo,
-        effectiveBpm: Number(currentTimedTransportDisplay.tempo.bpm ?? 0)
-          * (parsedSpeedDraft ?? sequencePlaybackSpeed ?? 1),
-      }
+          ...currentTimedTransportDisplay.tempo,
+          effectiveBpm:
+            Number(currentTimedTransportDisplay.tempo.bpm ?? 0) *
+            (parsedSpeedDraft ?? sequencePlaybackSpeed ?? 1),
+        }
       : null,
   );
   const pitchCourtesy = formatSequencePlaybackPitchCourtesy(
@@ -1107,7 +1138,10 @@ function PlaybackModifiersRow({
   };
 
   return (
-    <div class="sequencer-playback-row sequencer-playback-row--modifiers" aria-label="Sequence playback modifiers">
+    <div
+      class="sequencer-playback-row sequencer-playback-row--modifiers"
+      aria-label="Sequence playback modifiers"
+    >
       <div class="sequencer-playback-modifier">
         <span class="sequencer-playback-modifier__head">
           <span class="sequencer-playback-modifier__label">SPEED</span>
@@ -1152,7 +1186,9 @@ function PlaybackModifiersRow({
               }
               onSequencePlaybackSpeedChange?.(nextValue);
             }}
-            formatAriaValue={(exponentValue) => formatSequencePlaybackSpeed(sliderExponentToSpeed(exponentValue))}
+            formatAriaValue={(exponentValue) =>
+              formatSequencePlaybackSpeed(sliderExponentToSpeed(exponentValue))
+            }
           />
           <button
             type="button"
@@ -1238,19 +1274,22 @@ function TimedPlaybackRow({
   onTimedTransportPlayPause,
   onTimedTransportStop,
 }) {
-  const [timedTransportDisplay, setTimedTransportDisplay] = useState(() => (
-    getTimedTransportDisplay?.() ?? {
-      clock: "00:00:00",
-      barBeat: "1:1",
-    }
-  ));
+  const [timedTransportDisplay, setTimedTransportDisplay] = useState(
+    () =>
+      getTimedTransportDisplay?.() ?? {
+        clock: "00:00:00",
+        barBeat: "1:1",
+      },
+  );
 
   useEffect(() => {
     const refreshDisplay = () => {
-      setTimedTransportDisplay(getTimedTransportDisplay?.() ?? {
-        clock: "00:00:00",
-        barBeat: "1:1",
-      });
+      setTimedTransportDisplay(
+        getTimedTransportDisplay?.() ?? {
+          clock: "00:00:00",
+          barBeat: "1:1",
+        },
+      );
     };
     refreshDisplay();
     if (!timedTransportUiState?.running) return undefined;
@@ -1259,7 +1298,10 @@ function TimedPlaybackRow({
   }, [getTimedTransportDisplay, timedTransportUiState?.running]);
 
   return (
-    <div class="sequencer-playback-row sequencer-playback-row--timed" aria-label="Timed sequence playback">
+    <div
+      class="sequencer-playback-row sequencer-playback-row--timed"
+      aria-label="Timed sequence playback"
+    >
       <span class="sequencer-playback-label">TIMED PLAYBACK</span>
 
       <span class="sequencer-playback-control sequencer-playback-control--timed">
@@ -1284,19 +1326,16 @@ function TimedPlaybackRow({
           aria-label="move timed transport to start"
           disabled={snapshots.length === 0 && playheadIsOff}
           onClick={() => {
-            runTransportAction(() => stopTimedTransportBefore(
-              () => onResetSequencePlayhead?.(),
-              timedTransportUiState,
-              onTimedTransportStop,
-            ));
+            runTransportAction(() =>
+              stopTimedTransportBefore(
+                () => onResetSequencePlayhead?.(),
+                timedTransportUiState,
+                onTimedTransportStop,
+              ),
+            );
           }}
         >
-          <svg
-            class="snapshot-start-icon"
-            viewBox="0 0 10 10"
-            aria-hidden="true"
-            focusable="false"
-          >
+          <svg class="snapshot-start-icon" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
             <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
             <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
           </svg>
@@ -1305,7 +1344,9 @@ function TimedPlaybackRow({
           type="button"
           class="snapshot-play-btn"
           title={timedTransportUiState?.running ? "Pause timed transport" : "Play timed transport"}
-          aria-label={timedTransportUiState?.running ? "pause timed transport" : "play timed transport"}
+          aria-label={
+            timedTransportUiState?.running ? "pause timed transport" : "play timed transport"
+          }
           disabled={!timedTransportUiState?.canPlay}
           onClick={() => onTimedTransportPlayPause?.()}
         >
@@ -1334,11 +1375,13 @@ function TimedPlaybackRow({
           aria-label="move timed transport to end"
           disabled={snapshots.length === 0 && playheadIsEnd}
           onClick={() => {
-            runTransportAction(() => stopTimedTransportBefore(
-              () => onJumpSequenceEnd?.(),
-              timedTransportUiState,
-              onTimedTransportStop,
-            ));
+            runTransportAction(() =>
+              stopTimedTransportBefore(
+                () => onJumpSequenceEnd?.(),
+                timedTransportUiState,
+                onTimedTransportStop,
+              ),
+            );
           }}
         >
           <svg

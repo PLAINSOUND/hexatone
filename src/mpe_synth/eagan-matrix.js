@@ -7,8 +7,7 @@ export const EAGAN_MATRIX_CONTROLS = [
   { key: "mpe_eagan_post_level", label: "Post Level", cc: 18 },
 ];
 
-export const clampMidiCc = (value) =>
-  Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
+export const clampMidiCc = (value) => Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
 
 export function publishEaganBrightness(value) {
   const next = clampMidiCc(value);

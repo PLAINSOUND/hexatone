@@ -22,7 +22,7 @@ export function labelDegreeFromFrame(reducedNote, options = {}) {
 export function scaleCentsLabelForDegree(reducedNote, scale = []) {
   const degree0Cents = scale[0] ?? 0;
   const degreeCents = scale[reducedNote] ?? degree0Cents;
-  return `${Math.round(((degreeCents - degree0Cents) + 1200) % 1200)}.`;
+  return `${Math.round((degreeCents - degree0Cents + 1200) % 1200)}.`;
 }
 
 export function displayLabelForDegree(reducedNote, options = {}) {

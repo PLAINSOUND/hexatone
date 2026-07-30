@@ -78,9 +78,12 @@ describe("sample_synth modwheel", () => {
   const originalNavigator = globalThis.navigator;
 
   beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn(async () => ({
-      arrayBuffer: async () => new ArrayBuffer(8),
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        arrayBuffer: async () => new ArrayBuffer(8),
+      })),
+    );
     vi.stubGlobal("window", {
       AudioContext: MockAudioContext,
       addEventListener: vi.fn(),
@@ -117,7 +120,9 @@ describe("sample_synth modwheel", () => {
     hex.modwheel(127);
 
     expect(hex.filterNode.frequency.setTargetAtTime).toHaveBeenCalledTimes(1);
-    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][0]).toBeGreaterThan(initialFrequency);
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][0]).toBeGreaterThan(
+      initialFrequency,
+    );
   });
 
   it("retunes the active voice playback rate for standard wheel bend", async () => {
@@ -140,12 +145,38 @@ describe("sample_synth modwheel", () => {
     const targetCents = sourceCents + 147;
     const sourceOptions = { playbackSourceCents: sourceCents };
 
-    const held = synth.makeHex(null, sourceCents, 0, 0, 12, null, null, 60, 96, 0, 1, sourceOptions);
+    const held = synth.makeHex(
+      null,
+      sourceCents,
+      0,
+      0,
+      12,
+      null,
+      null,
+      60,
+      96,
+      0,
+      1,
+      sourceOptions,
+    );
     held.noteOn();
     held.sequenceRetune(targetCents);
     const heldRate = held.source.playbackRate.setTargetAtTime.mock.calls.at(-1)[0];
 
-    const retriggered = synth.makeHex(null, targetCents, 0, 0, 12, null, null, 60, 96, 0, 1, sourceOptions);
+    const retriggered = synth.makeHex(
+      null,
+      targetCents,
+      0,
+      0,
+      12,
+      null,
+      null,
+      60,
+      96,
+      0,
+      1,
+      sourceOptions,
+    );
     retriggered.noteOn();
 
     expect(held.sampleFreq).toBe(440);

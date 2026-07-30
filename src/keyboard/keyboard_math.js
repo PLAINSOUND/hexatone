@@ -89,14 +89,7 @@ export const channelOffset = (midiChannel, anchorChannel = 1) =>
  * @returns {Point|null}
  */
 export const midiNoteToCoords = (settings, noteNumber, midiChannel) => {
-  const {
-    midiin_anchor_note,
-    midiin_anchor_channel,
-    equivSteps,
-    rSteps,
-    drSteps,
-    gcd,
-  } = settings;
+  const { midiin_anchor_note, midiin_anchor_channel, equivSteps, rSteps, drSteps, gcd } = settings;
   const anchorNote = midiin_anchor_note;
 
   const offset = channelOffset(midiChannel, midiin_anchor_channel ?? 1);

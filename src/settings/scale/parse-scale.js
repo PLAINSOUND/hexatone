@@ -34,13 +34,14 @@ export const deriveImportedLayoutSteps = (equivSteps) => {
   // Scales just below 6*rSteps prefer the lower half split, scales above
   // prefer the upper half split, and exact fits choose the balanced center.
   const halfOctave = rSteps / 2;
-  const targetDrSteps = count <= 17 && rSteps <= 4
-    ? 1
-    : count < rSteps * 6
-      ? Math.floor(halfOctave)
-      : count > rSteps * 6
-        ? Math.ceil(halfOctave)
-        : halfOctave;
+  const targetDrSteps =
+    count <= 17 && rSteps <= 4
+      ? 1
+      : count < rSteps * 6
+        ? Math.floor(halfOctave)
+        : count > rSteps * 6
+          ? Math.ceil(halfOctave)
+          : halfOctave;
 
   let best = 1;
   let bestDistance = Infinity;
@@ -48,14 +49,9 @@ export const deriveImportedLayoutSteps = (equivSteps) => {
     if (gcd(rSteps, candidate) !== 1) continue;
     const distance = Math.abs(candidate - targetDrSteps);
     if (
-      distance < bestDistance
-      || (
-        distance === bestDistance &&
-        (
-          (count >= rSteps * 6 && candidate > best)
-          || (count < rSteps * 6 && candidate < best)
-        )
-      )
+      distance < bestDistance ||
+      (distance === bestDistance &&
+        ((count >= rSteps * 6 && candidate > best) || (count < rSteps * 6 && candidate < best)))
     ) {
       best = candidate;
       bestDistance = distance;
@@ -73,11 +69,10 @@ export const parseScale = (scala) => {
     errors: [],
   };
   const isIntegerLine = (value) => /^\s*[0-9]+\s*$/.test(value);
-  const isIntervalLine = (value) => (
-    /^\s*-?[0-9]+(?:\.[0-9]*)?\s*$/.test(value)
-    || /^\s*-?[0-9]+\s*\/\s*-?[0-9]+\s*$/.test(value)
-    || /^\s*-?[0-9]+\s*\\\s*[0-9]+\s*$/.test(value)
-  );
+  const isIntervalLine = (value) =>
+    /^\s*-?[0-9]+(?:\.[0-9]*)?\s*$/.test(value) ||
+    /^\s*-?[0-9]+\s*\/\s*-?[0-9]+\s*$/.test(value) ||
+    /^\s*-?[0-9]+\s*\\\s*[0-9]+\s*$/.test(value);
   var lines = scala.split("\n");
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];

@@ -150,10 +150,14 @@ describe("mpe_synth startup state", () => {
     hex.cc74(81, 81 << 7);
     vi.advanceTimersByTime(5);
 
-    const cc87Pitch = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xb0 + 1 && call[0][1] === 87);
+    const cc87Pitch = midi_output.send.mock.calls.filter(
+      (call) => call[0][0] === 0xb0 + 1 && call[0][1] === 87,
+    );
     const pitchBends = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xe0 + 1);
     const channelPressure = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xd0 + 1);
-    const cc74 = midi_output.send.mock.calls.filter((call) => call[0][0] === 0xb0 + 1 && call[0][1] === 74);
+    const cc74 = midi_output.send.mock.calls.filter(
+      (call) => call[0][0] === 0xb0 + 1 && call[0][1] === 74,
+    );
 
     expect(cc87Pitch.length).toBe(3);
     expect(pitchBends.length).toBe(1);
@@ -281,7 +285,6 @@ describe("mpe_synth first-note ordering", () => {
     expect(midi_output.send.mock.calls[0][0][0] & 0xf0).toBe(0xe0);
     expect(midi_output.send.mock.calls[1][0][0] & 0xf0).toBe(0x90);
   });
-
 });
 
 describe("mpe_synth controller-state replay", () => {
@@ -350,12 +353,8 @@ describe("mpe_synth MPE+ emission", () => {
 
     hex.retune(52.5, true);
 
-    expect(midi_output.send.mock.calls.some(
-      ([msg]) => msg[1] === 87,
-    )).toBe(false);
-    expect(midi_output.send.mock.calls.some(
-      ([msg]) => (msg[0] & 0xf0) === 0xe0,
-    )).toBe(true);
+    expect(midi_output.send.mock.calls.some(([msg]) => msg[1] === 87)).toBe(false);
+    expect(midi_output.send.mock.calls.some(([msg]) => (msg[0] & 0xf0) === 0xe0)).toBe(true);
   });
 
   it("retains CC87 for hi-res timbre and pressure when MPE+ PB is disabled", async () => {
@@ -432,12 +431,10 @@ describe("mpe_synth MPE+ emission", () => {
       expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 74, (9000 >> 7) & 0x7f]);
       expect(midi_output.send).toHaveBeenCalledWith([0xb0 + 1, 87, 7000 & 0x7f]);
       expect(midi_output.send).toHaveBeenCalledWith([0xd0 + 1, (7000 >> 7) & 0x7f]);
-      expect(midi_output.send.mock.calls.some(
-        ([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87,
-      )).toBe(true);
-      expect(midi_output.send.mock.calls.some(
-        ([msg]) => (msg[0] & 0xf0) === 0xe0,
-      )).toBe(true);
+      expect(
+        midi_output.send.mock.calls.some(([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87),
+      ).toBe(true);
+      expect(midi_output.send.mock.calls.some(([msg]) => (msg[0] & 0xf0) === 0xe0)).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -479,95 +476,87 @@ describe("mpe_synth MPE+ emission", () => {
   });
 
   it("updates MPE+ PB live without rebuilding", async () => {
-      const midi_output = { send: vi.fn() };
+    const midi_output = { send: vi.fn() };
 
-      const synth = await create_mpe_synth(
-        midi_output,
-        "1",
-        2,
-        4,
-        440,
-        0,
-        0,
-        60,
-        scale12,
-        "standard",
-        96,
-        2,
-        12,
-        2,
-        500,
-        true,
-        false,
-      );
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      4,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      false,
+    );
 
-      midi_output.send.mockClear();
-      const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
-      midi_output.send.mockClear();
+    midi_output.send.mockClear();
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+    midi_output.send.mockClear();
 
-      synth.setMpePlusPitchBendEnabled(true);
-      expect(midi_output.send).not.toHaveBeenCalled();
+    synth.setMpePlusPitchBendEnabled(true);
+    expect(midi_output.send).not.toHaveBeenCalled();
 
-      hex.retune(52.5, true);
-      expect(midi_output.send.mock.calls.some(
-        ([msg]) => msg[1] === 87,
-      )).toBe(true);
-      midi_output.send.mockClear();
+    hex.retune(52.5, true);
+    expect(midi_output.send.mock.calls.some(([msg]) => msg[1] === 87)).toBe(true);
+    midi_output.send.mockClear();
 
-      hex.retune(53.5, true);
-      expect(midi_output.send.mock.calls.some(
-        ([msg]) => msg[1] === 87,
-      )).toBe(true);
+    hex.retune(53.5, true);
+    expect(midi_output.send.mock.calls.some(([msg]) => msg[1] === 87)).toBe(true);
 
-      synth.setMpePlusPitchBendEnabled(false);
-      midi_output.send.mockClear();
+    synth.setMpePlusPitchBendEnabled(false);
+    midi_output.send.mockClear();
 
-      hex.retune(54.5, true);
-      expect(midi_output.send.mock.calls.some(
-        ([msg]) => msg[1] === 87,
-      )).toBe(false);
-      expect(midi_output.send.mock.calls.some(
-        ([msg]) => (msg[0] & 0xf0) === 0xe0,
-      )).toBe(true);
+    hex.retune(54.5, true);
+    expect(midi_output.send.mock.calls.some(([msg]) => msg[1] === 87)).toBe(false);
+    expect(midi_output.send.mock.calls.some(([msg]) => (msg[0] & 0xf0) === 0xe0)).toBe(true);
   });
 
   it("applies live MPE+ PB toggles to notes created after the toggle", async () => {
-      const midi_output = { send: vi.fn() };
+    const midi_output = { send: vi.fn() };
 
-      const synth = await create_mpe_synth(
-        midi_output,
-        "1",
-        2,
-        4,
-        440,
-        0,
-        0,
-        60,
-        scale12,
-        "standard",
-        96,
-        2,
-        12,
-        2,
-        500,
-        true,
-        false,
-      );
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      4,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      false,
+    );
 
-      synth.setMpePlusPitchBendEnabled(true);
-      midi_output.send.mockClear();
+    synth.setMpePlusPitchBendEnabled(true);
+    midi_output.send.mockClear();
 
-      synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+    synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
 
-      const cc87Index = midi_output.send.mock.calls.findIndex(
-        ([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87,
-      );
-      const pitchBendIndex = midi_output.send.mock.calls.findIndex(
-        ([msg]) => (msg[0] & 0xf0) === 0xe0,
-      );
+    const cc87Index = midi_output.send.mock.calls.findIndex(
+      ([msg]) => msg[0] === 0xb0 + 1 && msg[1] === 87,
+    );
+    const pitchBendIndex = midi_output.send.mock.calls.findIndex(
+      ([msg]) => (msg[0] & 0xf0) === 0xe0,
+    );
 
-      expect(cc87Index).toBeGreaterThanOrEqual(0);
-      expect(pitchBendIndex).toBeGreaterThan(cc87Index);
+    expect(cc87Index).toBeGreaterThanOrEqual(0);
+    expect(pitchBendIndex).toBeGreaterThan(cc87Index);
   });
 
   it("keeps an octave's live sequencer bends on two distinct owned channels", async () => {
@@ -682,26 +671,27 @@ describe("mpe_synth MPE+ emission", () => {
 });
 
 describe("mpe_synth automatic Y/Z output", () => {
-  const createAutoYzSynth = (midiOutput, enabled = true) => create_mpe_synth(
-    midiOutput,
-    "1",
-    2,
-    4,
-    440,
-    0,
-    0,
-    60,
-    scale12,
-    "standard",
-    96,
-    2,
-    12,
-    2,
-    500,
-    true,
-    false,
-    enabled,
-  );
+  const createAutoYzSynth = (midiOutput, enabled = true) =>
+    create_mpe_synth(
+      midiOutput,
+      "1",
+      2,
+      4,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      false,
+      enabled,
+    );
 
   it("schedules velocity-shaped CC74 and channel pressure after note-on", async () => {
     const midiOutput = { send: vi.fn() };
@@ -724,19 +714,7 @@ describe("mpe_synth automatic Y/Z output", () => {
   it("does not let a sequence's default zero pressure erase the velocity onset", async () => {
     const midiOutput = { send: vi.fn() };
     const synth = await createAutoYzSynth(midiOutput);
-    const hex = synth.makeHex(
-      { x: 0, y: 0 },
-      37.5,
-      0,
-      0,
-      12,
-      0,
-      100,
-      60,
-      100,
-      0,
-      1,
-    );
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 100, 0, 1);
     midiOutput.send.mockClear();
 
     hex.aftertouch(0, null, { initialSnapshotExpression: true });
@@ -749,19 +727,7 @@ describe("mpe_synth automatic Y/Z output", () => {
   it("sends note-off before the short generated release ramp", async () => {
     const midiOutput = { send: vi.fn() };
     const synth = await createAutoYzSynth(midiOutput);
-    const hex = synth.makeHex(
-      { x: 0, y: 0 },
-      37.5,
-      0,
-      0,
-      12,
-      0,
-      100,
-      60,
-      120,
-      0,
-      1,
-    );
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 120, 0, 1);
     midiOutput.send.mockClear();
 
     // The experimental release curve follows Note Off velocity, independently
@@ -779,19 +745,7 @@ describe("mpe_synth automatic Y/Z output", () => {
   it("can be toggled live and leaves ordinary MPE expression unchanged when off", async () => {
     const midiOutput = { send: vi.fn() };
     const synth = await createAutoYzSynth(midiOutput, false);
-    const hex = synth.makeHex(
-      { x: 0, y: 0 },
-      37.5,
-      0,
-      0,
-      12,
-      0,
-      100,
-      60,
-      100,
-      0,
-      1,
-    );
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 100, 0, 1);
     midiOutput.send.mockClear();
 
     hex.aftertouch(71);

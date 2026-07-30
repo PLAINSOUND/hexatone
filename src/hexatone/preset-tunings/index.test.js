@@ -92,25 +92,31 @@ describe("preset tunings registry", () => {
 
   it("finds a built-in tuning by name from the file-backed library", () => {
     const tuning = findPresetTuningByName("Pauline Oliveros: Heart of Tones");
-    expect(tuning).toEqual(expect.objectContaining({
-      name: "Pauline Oliveros: Heart of Tones",
-      scale: expect.any(Array),
-    }));
+    expect(tuning).toEqual(
+      expect.objectContaining({
+        name: "Pauline Oliveros: Heart of Tones",
+        scale: expect.any(Array),
+      }),
+    );
   });
 
   it("exposes a canonical default tuning record from the first built-in preset", () => {
-    expect(defaultTuningRecord).toEqual(expect.objectContaining({
-      name: expect.any(String),
-      scale: expect.any(Array),
-      key_colors_mode: expect.any(String),
-    }));
+    expect(defaultTuningRecord).toEqual(
+      expect.objectContaining({
+        name: expect.any(String),
+        scale: expect.any(Array),
+        key_colors_mode: expect.any(String),
+      }),
+    );
     expect(defaultTuningRecord).toEqual(presetTuningGroups[0].settings[0]);
   });
 
   it("publishes only file-backed preset groups", () => {
     expect(presetTuningGroups.length).toBeGreaterThan(0);
     expect(
-      presetTuningGroups.some((group) => group.settings.some((preset) => preset.name === "Legacy Only")),
+      presetTuningGroups.some((group) =>
+        group.settings.some((preset) => preset.name === "Legacy Only"),
+      ),
     ).toBe(false);
   });
 });

@@ -11,9 +11,7 @@ describe("LinnStrumentLEDs", () => {
     const leds = new LinnStrumentLEDs({ send });
     leds.userFirmwareActive = true;
 
-    leds.sendPaletteValues([
-      5, ...new Array(127).fill(7),
-    ]);
+    leds.sendPaletteValues([5, ...new Array(127).fill(7)]);
 
     expect(send).toHaveBeenNthCalledWith(1, [0xb0, 20, 1]);
     expect(send).toHaveBeenNthCalledWith(2, [0xb0, 21, 0]);
@@ -36,11 +34,13 @@ describe("LinnStrumentLEDs", () => {
   });
 
   it("maps identical tonic and center-degree screen colors to the same palette value", () => {
-    const degreeMap = buildLinnstrumentDegreeMap(new Map([
-      [0, "#ffffff"],
-      [9, "#ffffff"],
-      [7, "#fceec5"],
-    ]));
+    const degreeMap = buildLinnstrumentDegreeMap(
+      new Map([
+        [0, "#ffffff"],
+        [9, "#ffffff"],
+        [7, "#fceec5"],
+      ]),
+    );
 
     expect(degreeMap.get(0)).toBe(8);
     expect(degreeMap.get(9)).toBe(8);

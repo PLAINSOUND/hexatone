@@ -89,7 +89,12 @@ describe("Colors — spectrum colors off", () => {
 });
 
 describe("Colors — spectrum mode", () => {
-  const settings = { spectrum_colors: true, auto_colors: false, fundamental_color: "#abcdef", equivSteps: 12 };
+  const settings = {
+    spectrum_colors: true,
+    auto_colors: false,
+    fundamental_color: "#abcdef",
+    equivSteps: 12,
+  };
 
   it("renders the hue picker when spectrum is on", () => {
     render(<Colors settings={settings} onChange={() => {}} onAtomicChange={() => {}} />);
@@ -149,7 +154,14 @@ describe("Colors — interactions", () => {
   it("activates spectrum mode directly from the Key Colours selector", () => {
     const onAtomicChange = vi.fn();
     const onChange = vi.fn();
-    render(<Colors settings={baseSettings} rawSettings={baseSettings} onChange={onChange} onAtomicChange={onAtomicChange} />);
+    render(
+      <Colors
+        settings={baseSettings}
+        rawSettings={baseSettings}
+        onChange={onChange}
+        onAtomicChange={onAtomicChange}
+      />,
+    );
     fireEvent.change(screen.getByLabelText("Key Colours"), { target: { value: "spectrum" } });
     expect(onAtomicChange).not.toHaveBeenCalled();
     expect(onChange).toHaveBeenCalledWith("key_colors_mode", "spectrum");
@@ -188,8 +200,20 @@ describe("Colors — interactions", () => {
 
   it("commits the derived spectrum palette and turns spectrum colours off", () => {
     const onAtomicChange = vi.fn();
-    const settings = { spectrum_colors: true, auto_colors: false, fundamental_color: "#abcdef", equivSteps: 12 };
-    render(<Colors settings={settings} rawSettings={settings} onChange={() => {}} onAtomicChange={onAtomicChange} />);
+    const settings = {
+      spectrum_colors: true,
+      auto_colors: false,
+      fundamental_color: "#abcdef",
+      equivSteps: 12,
+    };
+    render(
+      <Colors
+        settings={settings}
+        rawSettings={settings}
+        onChange={() => {}}
+        onAtomicChange={onAtomicChange}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /commit spectrum colours/i }));
     expect(onAtomicChange).toHaveBeenCalledTimes(1);
     expect(onAtomicChange.mock.calls[0][0].spectrum_colors).toBe(false);
@@ -198,7 +222,10 @@ describe("Colors — interactions", () => {
   });
 
   it("saves the current prime palette as a user palette", () => {
-    vi.stubGlobal("prompt", vi.fn(() => "Warm Palette"));
+    vi.stubGlobal(
+      "prompt",
+      vi.fn(() => "Warm Palette"),
+    );
     render(
       <Colors
         settings={{ ...baseSettings, auto_colors: true }}
@@ -216,16 +243,31 @@ describe("Colors — interactions", () => {
   });
 
   it("loads a saved prime palette from the selector", () => {
-    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
-      {
-        name: "Dark Set",
-        colors: [
-          "#111111", "#222222", "#333333", "#444444", "#555555",
-          "#666666", "#777777", "#888888", "#999999", "#aaaaaa",
-          "#bbbbbb", "#cccccc", "#dddddd", "#eeeeee", "#fafafa",
-        ],
-      },
-    ]));
+    localStorage.setItem(
+      "hexatone_prime_family_palettes",
+      JSON.stringify([
+        {
+          name: "Dark Set",
+          colors: [
+            "#111111",
+            "#222222",
+            "#333333",
+            "#444444",
+            "#555555",
+            "#666666",
+            "#777777",
+            "#888888",
+            "#999999",
+            "#aaaaaa",
+            "#bbbbbb",
+            "#cccccc",
+            "#dddddd",
+            "#eeeeee",
+            "#fafafa",
+          ],
+        },
+      ]),
+    );
     const onChange = vi.fn();
     render(
       <Colors
@@ -245,12 +287,15 @@ describe("Colors — interactions", () => {
 
   it("restores the default prime palette", () => {
     const onChange = vi.fn();
-    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
-      {
-        name: "Dark Set",
-        colors: Array(15).fill("#111111"),
-      },
-    ]));
+    localStorage.setItem(
+      "hexatone_prime_family_palettes",
+      JSON.stringify([
+        {
+          name: "Dark Set",
+          colors: Array(15).fill("#111111"),
+        },
+      ]),
+    );
     render(
       <Colors
         settings={{
@@ -276,12 +321,15 @@ describe("Colors — interactions", () => {
   });
 
   it("reloads the selected saved prime palette", () => {
-    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
-      {
-        name: "Dark Set",
-        colors: Array(15).fill("#111111"),
-      },
-    ]));
+    localStorage.setItem(
+      "hexatone_prime_family_palettes",
+      JSON.stringify([
+        {
+          name: "Dark Set",
+          colors: Array(15).fill("#111111"),
+        },
+      ]),
+    );
     const onChange = vi.fn();
     render(
       <Colors
@@ -303,19 +351,19 @@ describe("Colors — interactions", () => {
     fireEvent.change(screen.getByLabelText("JI Colour Palette"), { target: { value: "Dark Set" } });
     onChange.mockClear();
     fireEvent.click(screen.getByRole("button", { name: /reload saved palette/i }));
-    expect(onChange).toHaveBeenCalledWith(
-      "prime_family_colors",
-      Array(15).fill("#111111"),
-    );
+    expect(onChange).toHaveBeenCalledWith("prime_family_colors", Array(15).fill("#111111"));
   });
 
   it("shows refresh, delete, and clear all only when a user palette is selected", () => {
-    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
-      {
-        name: "Dark Set",
-        colors: Array(15).fill("#111111"),
-      },
-    ]));
+    localStorage.setItem(
+      "hexatone_prime_family_palettes",
+      JSON.stringify([
+        {
+          name: "Dark Set",
+          colors: Array(15).fill("#111111"),
+        },
+      ]),
+    );
     render(
       <Colors
         settings={{ ...baseSettings, auto_colors: true }}
@@ -338,12 +386,15 @@ describe("Colors — interactions", () => {
   });
 
   it("deletes the selected user prime palette", () => {
-    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
-      {
-        name: "Dark Set",
-        colors: Array(15).fill("#111111"),
-      },
-    ]));
+    localStorage.setItem(
+      "hexatone_prime_family_palettes",
+      JSON.stringify([
+        {
+          name: "Dark Set",
+          colors: Array(15).fill("#111111"),
+        },
+      ]),
+    );
     render(
       <Colors
         settings={{ ...baseSettings, auto_colors: true }}
@@ -360,10 +411,13 @@ describe("Colors — interactions", () => {
   });
 
   it("clears all saved user prime palettes", () => {
-    localStorage.setItem("hexatone_prime_family_palettes", JSON.stringify([
-      { name: "Dark Set", colors: Array(15).fill("#111111") },
-      { name: "Light Set", colors: Array(15).fill("#eeeeee") },
-    ]));
+    localStorage.setItem(
+      "hexatone_prime_family_palettes",
+      JSON.stringify([
+        { name: "Dark Set", colors: Array(15).fill("#111111") },
+        { name: "Light Set", colors: Array(15).fill("#eeeeee") },
+      ]),
+    );
     render(
       <Colors
         settings={{ ...baseSettings, auto_colors: true }}
@@ -423,11 +477,31 @@ describe("Colors — interactions", () => {
       spectrum_colors: false,
       key_labels: "note_names",
       note_names: [
-        "C", "D", "C D", "D", "D", "E", "E", "E", "E", "F", "F G",
-        "F G", "F G", "G", "A", "A", "A", "A", "B", "B", "B", "B",
+        "C",
+        "D",
+        "C D",
+        "D",
+        "D",
+        "E",
+        "E",
+        "E",
+        "E",
+        "F",
+        "F G",
+        "F G",
+        "F G",
+        "G",
+        "A",
+        "A",
+        "A",
+        "A",
+        "B",
+        "B",
+        "B",
+        "B",
       ],
       scale: Array.from({ length: 22 }, (_, index) =>
-        index === 21 ? "2/1" : `${(((index + 1) * 1200) / 22).toFixed(6)}`
+        index === 21 ? "2/1" : `${(((index + 1) * 1200) / 22).toFixed(6)}`,
       ),
       equivSteps: 22,
       reference_degree: 17,
@@ -546,7 +620,9 @@ describe("Colors — interactions", () => {
     await waitFor(() => {
       expect(screen.queryByLabelText("save colour for prime-family-colour-23")).toBeNull();
     });
-    expect(screen.getByLabelText("hex colour for prime-family-colour-23").value.toLowerCase()).toBe("#95c69b");
+    expect(screen.getByLabelText("hex colour for prime-family-colour-23").value.toLowerCase()).toBe(
+      "#95c69b",
+    );
   });
 
   it("cancels a pending auto preview when auto colours is turned off", async () => {
@@ -691,11 +767,25 @@ describe("Colors — interactions", () => {
 
   it("returns to Manual after committing spectrum colours", () => {
     const onAtomicChange = vi.fn();
-    const settings = { spectrum_colors: true, auto_colors: false, fundamental_color: "#abcdef", equivSteps: 12 };
-    render(<Colors settings={settings} rawSettings={settings} onChange={() => {}} onAtomicChange={onAtomicChange} />);
+    const settings = {
+      spectrum_colors: true,
+      auto_colors: false,
+      fundamental_color: "#abcdef",
+      equivSteps: 12,
+    };
+    render(
+      <Colors
+        settings={settings}
+        rawSettings={settings}
+        onChange={() => {}}
+        onAtomicChange={onAtomicChange}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /commit spectrum colours/i }));
-    expect(onAtomicChange).toHaveBeenCalledWith(expect.objectContaining({
-      spectrum_colors: false,
-    }));
+    expect(onAtomicChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        spectrum_colors: false,
+      }),
+    );
   });
 });

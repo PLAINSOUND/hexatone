@@ -92,10 +92,6 @@ describe("sequence runtime diagnostics", () => {
     vi.runOnlyPendingTimers();
     expect(storage.setItem).toHaveBeenCalledTimes(1);
     const persisted = JSON.parse(storage.setItem.mock.calls[0][1]);
-    expect(persisted.state.entries.map((entry) => entry.step)).toEqual([
-      "one",
-      "two",
-      "complete",
-    ]);
+    expect(persisted.state.entries.map((entry) => entry.step)).toEqual(["one", "two", "complete"]);
   });
 });

@@ -9,10 +9,7 @@ import {
 
 describe("playback modifiers runtime", () => {
   it("treats playback pitch offsets as cents rather than semitone units", () => {
-    const shifted = applyPlaybackPitchOffsetToNote(
-      { midicents: 69, frequency: 440 },
-      100,
-    );
+    const shifted = applyPlaybackPitchOffsetToNote({ midicents: 69, frequency: 440 }, 100);
 
     expect(shifted.midicents).toBe(70);
     expect(shifted.frequency).toBeCloseTo(466.1637615, 6);
@@ -31,17 +28,23 @@ describe("playback modifiers runtime", () => {
   });
 
   it("only uses in-place retune for unsnapped legato playback", () => {
-    expect(shouldRetuneSequencePlaybackInPlace({
-      sequenceLegato: true,
-      snapSequenceToCurrentTuning: false,
-    })).toBe(true);
-    expect(shouldRetuneSequencePlaybackInPlace({
-      sequenceLegato: true,
-      snapSequenceToCurrentTuning: true,
-    })).toBe(false);
-    expect(shouldRetuneSequencePlaybackInPlace({
-      sequenceLegato: false,
-      snapSequenceToCurrentTuning: false,
-    })).toBe(false);
+    expect(
+      shouldRetuneSequencePlaybackInPlace({
+        sequenceLegato: true,
+        snapSequenceToCurrentTuning: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRetuneSequencePlaybackInPlace({
+        sequenceLegato: true,
+        snapSequenceToCurrentTuning: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRetuneSequencePlaybackInPlace({
+        sequenceLegato: false,
+        snapSequenceToCurrentTuning: false,
+      }),
+    ).toBe(false);
   });
 });

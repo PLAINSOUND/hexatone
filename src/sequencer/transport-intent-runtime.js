@@ -7,9 +7,7 @@ import {
   armPendingSnapshotSelection,
   clearPendingTransportSelection,
 } from "./transport-selection.js";
-import {
-  resolveCueAnchorSnapshotId,
-} from "./view-runtime.js";
+import { resolveCueAnchorSnapshotId } from "./view-runtime.js";
 
 export function buildStoppedSequenceTransportState({
   barIndex = 0,
@@ -54,15 +52,17 @@ export function buildCommittedSequencePlaybackState({
   barIndex,
   snapshots = [],
 } = {}) {
-  const selectedSnapshotId = cueGroup?.snapshotIndex != null
-    ? (snapshots[cueGroup.snapshotIndex]?.id ?? snapshot?.id ?? null)
-    : (snapshot?.id ?? null);
-  const selectedSnapshotMarker = safeMarkerIndex == null || cueGroup == null
-    ? null
-    : {
-      snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? snapshot?.id ?? null,
-      time: cueGroup.time - (cueGroup.snapshotIndex + 1),
-    };
+  const selectedSnapshotId =
+    cueGroup?.snapshotIndex != null
+      ? (snapshots[cueGroup.snapshotIndex]?.id ?? snapshot?.id ?? null)
+      : (snapshot?.id ?? null);
+  const selectedSnapshotMarker =
+    safeMarkerIndex == null || cueGroup == null
+      ? null
+      : {
+          snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? snapshot?.id ?? null,
+          time: cueGroup.time - (cueGroup.snapshotIndex + 1),
+        };
   return {
     pendingTransportSelection: clearPendingTransportSelection(),
     playingSnapshotId: (normalizedNotes?.length ?? 0) > 0 ? (snapshot?.id ?? null) : null,
@@ -115,9 +115,7 @@ export function resolveWorkspaceMutationTransportState({
   }
 
   const snapshotIndex = Number(focus?.snapshotIndex);
-  const snapshot = Number.isInteger(snapshotIndex)
-    ? snapshots[snapshotIndex] ?? null
-    : null;
+  const snapshot = Number.isInteger(snapshotIndex) ? (snapshots[snapshotIndex] ?? null) : null;
   if (!snapshot || (focus?.snapshotId != null && snapshot.id !== focus.snapshotId)) {
     return null;
   }
@@ -151,7 +149,12 @@ export function resolvePendingCueTransportState({
   barIndexForTime,
 } = {}) {
   const nextCueIndex = Number(targetCueIndex);
-  if (!Number.isFinite(nextCueIndex) || nextCueIndex < 0 || nextCueIndex >= sequenceCueGroups.length) return null;
+  if (
+    !Number.isFinite(nextCueIndex) ||
+    nextCueIndex < 0 ||
+    nextCueIndex >= sequenceCueGroups.length
+  )
+    return null;
   const cueGroup = sequenceCueGroups[nextCueIndex] ?? null;
   if (!cueGroup) return null;
   const anchorSnapshotId = resolveCueAnchorSnapshotId({
@@ -161,12 +164,12 @@ export function resolvePendingCueTransportState({
     snapshots,
     cueExpandedSnapshotIds: previewExpandedIds,
   });
-  const anchorSnapshotIndex = anchorSnapshotId == null
-    ? cueGroup.snapshotIndex
-    : snapshots.findIndex((snapshot) => snapshot.id === anchorSnapshotId);
-  const safeAnchorSnapshotIndex = anchorSnapshotIndex >= 0
-    ? anchorSnapshotIndex
-    : cueGroup.snapshotIndex;
+  const anchorSnapshotIndex =
+    anchorSnapshotId == null
+      ? cueGroup.snapshotIndex
+      : snapshots.findIndex((snapshot) => snapshot.id === anchorSnapshotId);
+  const safeAnchorSnapshotIndex =
+    anchorSnapshotIndex >= 0 ? anchorSnapshotIndex : cueGroup.snapshotIndex;
   const snapshot = snapshots[safeAnchorSnapshotIndex] ?? null;
   return {
     pendingTransportSelection: armPendingCueSelection(nextCueIndex, safeAnchorSnapshotIndex),
@@ -177,9 +180,9 @@ export function resolvePendingCueTransportState({
       selectedSnapshotId: snapshot?.id ?? null,
       selectedSnapshotMarker: snapshot
         ? {
-          snapshotId: snapshot.id,
-          time: cueGroup.time - (safeAnchorSnapshotIndex + 1),
-        }
+            snapshotId: snapshot.id,
+            time: cueGroup.time - (safeAnchorSnapshotIndex + 1),
+          }
         : null,
     }),
   };

@@ -92,7 +92,11 @@ describe("scheduleColorPreviewRedraw", () => {
 
 describe("drawColorPreviewDegrees", () => {
   it("repaints only visible hexes belonging to changed degrees", () => {
-    const degreeByX = new Map([[0, 1], [1, 2], [2, 1]]);
+    const degreeByX = new Map([
+      [0, 1],
+      [1, 2],
+      [2, 1],
+    ]);
     const ctx = {
       _staticGridValid: true,
       _staticGridContext: {},

@@ -69,7 +69,10 @@ const ScalaInput = ({
   // Sync draft when the controlled value changes from outside (e.g. preset load).
   useEffect(() => {
     const nextValue = value ?? "";
-    if (lastCommittedRef.current.canonical != null && nextValue === lastCommittedRef.current.canonical) {
+    if (
+      lastCommittedRef.current.canonical != null &&
+      nextValue === lastCommittedRef.current.canonical
+    ) {
       setDraft(lastCommittedRef.current.display ?? nextValue);
       return;
     }
@@ -79,9 +82,7 @@ const ScalaInput = ({
   const parsedDraft = parseDraftValue(draft);
   const { cents, valid, error } = parsedDraft;
 
-  const previewText = Number.isFinite(cents)
-    ? `${Math.round(cents)}¢`
-    : (error ?? "");
+  const previewText = Number.isFinite(cents) ? `${Math.round(cents)}¢` : (error ?? "");
 
   const inputStyle = {
     ...style,
@@ -99,7 +100,7 @@ const ScalaInput = ({
   const handleBlur = () => {
     let displayStr = draft.trim();
     if (displayStr.endsWith(".")) displayStr = `${displayStr}0`;
-    const typedBareInteger = displayStr !== "" && !(/[/.\\]/).test(displayStr);
+    const typedBareInteger = displayStr !== "" && !/[/.\\]/.test(displayStr);
 
     // Coerce bare zero entries to canonical "0." in degree context, but preserve
     // explicit Scala forms such as 1/1 or 0\12 in the display layer.
@@ -112,14 +113,14 @@ const ScalaInput = ({
       } else if (displayStr !== "") {
         finalStr = normaliseDegree(displayStr);
       }
-    } else if (displayStr !== "" && !(/[/.\\]/).test(displayStr)) {
+    } else if (displayStr !== "" && !/[/.\\]/.test(displayStr)) {
       // In interval context, bare integers should still commit back as ratios.
       finalStr = normaliseDegree(displayStr);
     }
 
     const result = parseDraftValue(displayStr);
     if (result.valid || (commitNegative && result.error === "negative")) {
-      const committedDisplay = (showCanonicalOnCommit || typedBareInteger) ? finalStr : displayStr;
+      const committedDisplay = showCanonicalOnCommit || typedBareInteger ? finalStr : displayStr;
       setDraft(committedDisplay);
       lastCommittedRef.current = { canonical: finalStr, display: committedDisplay };
       onChange(finalStr);
@@ -132,10 +133,7 @@ const ScalaInput = ({
   const resolvedWrapperClass = ["scala-input__wrapper", wrapperClass].filter(Boolean).join(" ");
 
   return (
-    <span
-      class={resolvedWrapperClass}
-      style={wrapperStyle}
-    >
+    <span class={resolvedWrapperClass} style={wrapperStyle}>
       <input
         type="text"
         class={inputClass}

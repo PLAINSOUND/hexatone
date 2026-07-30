@@ -16,7 +16,6 @@
      6.  iOS installation banner       → app.jsx
    ============================================================ */
 
-
 /* ── 1. Fonts & design tokens ─────────────────────────────── */
 
 @font-face {
@@ -144,29 +143,28 @@
   --font-plainsound-sans: "Plainsound Sans", sans-serif;
 
   /* iOS safe-area insets (Dynamic Island, home bar) */
-  --safe-area-top:   env(safe-area-inset-top,   0);
-  --safe-area-left:  env(safe-area-inset-left,  0);
+  --safe-area-top: env(safe-area-inset-top, 0);
+  --safe-area-left: env(safe-area-inset-left, 0);
   --safe-area-right: env(safe-area-inset-right, 0);
 
   /* Brand colour palette — used throughout app shell + settings */
-  --color-bg:         #faf9f8;   /* sidebar / input background */
-  --color-bg-btn:     #f0e9e9;   /* floating button background */
+  --color-bg: #faf9f8; /* sidebar / input background */
+  --color-bg-btn: #f0e9e9; /* floating button background */
   --color-bg-btn-hover: #ddd0d0; /* floating button hover */
-  --color-bg-btn-alt: #f4efef;   /* sidebar action button background */
+  --color-bg-btn-alt: #f4efef; /* sidebar action button background */
   --color-bg-btn-alt-hover: #e8dede; /* sidebar action button hover */
-  --color-border:     #c0aaaa;   /* floating button border */
-  --color-border-ui:  #c8b8b8;   /* sidebar input / fieldset border */
-  --color-text:       #330000;   /* primary dark text */
-  --color-accent:     #990000;   /* links, active states, destructive */
-  --color-accent-hot: #ff0000;   /* hover on links */
-  --color-latch:      #ff3333;   /* latch-active buttons */
+  --color-border: #c0aaaa; /* floating button border */
+  --color-border-ui: #c8b8b8; /* sidebar input / fieldset border */
+  --color-text: #330000; /* primary dark text */
+  --color-accent: #990000; /* links, active states, destructive */
+  --color-accent-hot: #ff0000; /* hover on links */
+  --color-latch: #ff3333; /* latch-active buttons */
 
   /* Shared button geometry */
-  --btn-radius-pill:   999px;
+  --btn-radius-pill: 999px;
   --btn-radius-square: 4px;
-  --btn-transition:    background-color 0.15s ease;
+  --btn-transition: background-color 0.15s ease;
 }
-
 
 /* ── 2. HTML / body reset ──────────────────────────────────── */
 /* → index.html */
@@ -191,7 +189,6 @@ body {
   transition: transform 0.3s ease-in-out;
 }
 
-
 /* ── 3. Global element defaults ───────────────────────────── */
 /* → app.jsx (table used in settings panels too) */
 
@@ -209,9 +206,12 @@ a:hover {
 }
 
 /* One-off alignment helpers used in sidebar header */
-#leftaligned { text-align: left;   }
-#centered    { text-align: center; }
-
+#leftaligned {
+  text-align: left;
+}
+#centered {
+  text-align: center;
+}
 
 /* ── 4. Sidebar ────────────────────────────────────────────── */
 /* → app.jsx  src/settings/index.jsx */
@@ -255,7 +255,9 @@ a:hover {
 
 /* Phone portrait: sidebar slides down from top */
 @media (max-width: 480px) {
-  #sidebar-spacer { height: 3em; }
+  #sidebar-spacer {
+    height: 3em;
+  }
 
   #sidebar {
     position: fixed;
@@ -276,16 +278,28 @@ a:hover {
       width 0.3s ease-in-out,
       background-color 0.24s ease,
       border-color 0.24s ease;
-    border-bottom-left-radius:  10px;
+    border-bottom-left-radius: 10px;
     border-bottom-right-radius: 10px;
   }
 
-  .hide #sidebar          { transform: translate(0, -100%); }
-  .show #sidebar          { transform: translate(0, 0); }
-  .hide #sidebar-button   { width: 2.5em; }
-  .show #sidebar-button   { width: 50vw; }
-  .hide #sidebar-button div { transform: rotate(90deg); }
-  .show #sidebar-button div { transform: rotate(270deg); }
+  .hide #sidebar {
+    transform: translate(0, -100%);
+  }
+  .show #sidebar {
+    transform: translate(0, 0);
+  }
+  .hide #sidebar-button {
+    width: 2.5em;
+  }
+  .show #sidebar-button {
+    width: 50vw;
+  }
+  .hide #sidebar-button div {
+    transform: rotate(90deg);
+  }
+  .show #sidebar-button div {
+    transform: rotate(270deg);
+  }
 }
 
 /* Desktop / tablet: sidebar slides in from left */
@@ -309,21 +323,36 @@ a:hover {
       height 0.3s ease-in-out,
       background-color 0.24s ease,
       border-color 0.24s ease;
-    border-top-right-radius:    10px;
+    border-top-right-radius: 10px;
     border-bottom-right-radius: 10px;
   }
 
-  .hide #sidebar          { transform: translate(-100%, 0); }
-  .show #sidebar          { transform: translate(0, 0); }
-  .hide #sidebar-button   { height: 2.5em; }
-  .show #sidebar-button   { height: 35vh; }
-  .hide #sidebar-button div { transform: rotate(0deg); }
-  .show #sidebar-button div { transform: rotate(180deg); }
+  .hide #sidebar {
+    transform: translate(-100%, 0);
+  }
+  .show #sidebar {
+    transform: translate(0, 0);
+  }
+  .hide #sidebar-button {
+    height: 2.5em;
+  }
+  .show #sidebar-button {
+    height: 35vh;
+  }
+  .hide #sidebar-button div {
+    transform: rotate(0deg);
+  }
+  .show #sidebar-button div {
+    transform: rotate(180deg);
+  }
 }
 
 /* iOS landscape: button moves below Dynamic Island, sidebar spacer shrinks */
 @media (max-height: 500px) and (orientation: landscape) {
-  #sidebar-spacer { top: 75vh; height: 1.5em; }
+  #sidebar-spacer {
+    top: 75vh;
+    height: 1.5em;
+  }
 
   #sidebar-button {
     top: calc(env(safe-area-inset-top, 0) + 0.5em);
@@ -334,9 +363,10 @@ a:hover {
   }
 
   .hide #sidebar-button,
-  .show #sidebar-button { height: 2.5em; }
+  .show #sidebar-button {
+    height: 2.5em;
+  }
 }
-
 
 /* ── 5. Bottom controls bar ───────────────────────────────── */
 /* → app.jsx */
@@ -351,7 +381,6 @@ a:hover {
   display: none !important;
   pointer-events: none;
 }
-
 
 /* ── 5a. Octave island ────────────────────────────────────── */
 /* → app.jsx */
@@ -384,8 +413,12 @@ a:hover {
   transition: var(--btn-transition);
 }
 
-.octave-btn:hover  { background-color: var(--color-bg-btn-hover); }
-.octave-btn:active { background-color: #ddcccc; }
+.octave-btn:hover {
+  background-color: var(--color-bg-btn-hover);
+}
+.octave-btn:active {
+  background-color: #ddcccc;
+}
 
 .octave-defer-active {
   background-color: #f3cec5;
@@ -403,7 +436,7 @@ a:hover {
   letter-spacing: 0.04em;
   min-width: 2.8em;
   text-align: center;
-  border-left:  1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
   border-right: 1px solid var(--color-border);
   padding: 0.45em 0.3em;
   pointer-events: none;
@@ -468,7 +501,6 @@ a:hover {
   #redraw-button {
     bottom: 3em !important;
   }
-
 }
 
 /* Phone landscape: keep panic button clear of right edge */
@@ -508,7 +540,6 @@ a:hover {
     transform: none;
   }
 }
-
 
 /* ── 5b. Sustain island ───────────────────────────────────── */
 /* → app.jsx */
@@ -584,7 +615,6 @@ a:hover {
 #modulation-island:focus {
   outline: none;
 }
-
 
 /* ── 5c. Snapshot button + list ───────────────────────────── */
 /* → app.jsx */
@@ -739,7 +769,9 @@ a:hover {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  transition: background-color 0.085s ease, color 0.085s ease;
+  transition:
+    background-color 0.085s ease,
+    color 0.085s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -998,7 +1030,7 @@ a:hover {
   border-radius: 0;
   text-align: right;
   box-shadow: none;
-  text-shadow: none;  
+  text-shadow: none;
   -webkit-appearance: none;
   appearance: none;
   transform: translateY(-0.08em);
@@ -1041,7 +1073,7 @@ a:hover {
   font-family: inherit;
   font-weight: 400;
   box-shadow: none;
-  text-shadow: none;  
+  text-shadow: none;
   -webkit-appearance: none;
   appearance: none;
   -webkit-border-radius: 0;
@@ -1157,7 +1189,8 @@ a:hover {
   height: 0.66em;
   margin: 0 0.24em;
   vertical-align: 0.08em;
-  background: linear-gradient(currentColor, currentColor) center / calc(100% - 0.62em) 1.25px no-repeat;
+  background: linear-gradient(currentColor, currentColor) center / calc(100% - 0.62em) 1.25px
+    no-repeat;
 }
 
 .modulation-palette-route-arrow::before,
@@ -1171,9 +1204,15 @@ a:hover {
   transform: translateY(-50%);
 }
 
-.modulation-palette-route-arrow::before { left: 0; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+.modulation-palette-route-arrow::before {
+  left: 0;
+  clip-path: polygon(100% 0, 0 50%, 100% 100%);
+}
 
-.modulation-palette-route-arrow::after { right: 0; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.modulation-palette-route-arrow::after {
+  right: 0;
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
 
 .modulation-palette-row-active .modulation-palette-route {
   color: #9a2f2f;
@@ -1325,7 +1364,6 @@ a:hover {
   }
 }
 
-
 /* ── 5d. Redraw button ────────────────────────────────────── */
 /* → app.jsx */
 
@@ -1356,7 +1394,6 @@ a:hover {
   background-color: #ddd0d0;
 }
 
-
 /* ── 5e. Panic button ─────────────────────────────────────── */
 /* → app.jsx */
 
@@ -1386,7 +1423,6 @@ a:hover {
 #panic-button:active {
   background-color: #ddcccc;
 }
-
 
 /* ── 6. iOS installation banner ──────────────────────────── */
 /* → app.jsx */
@@ -1437,7 +1473,6 @@ a:hover {
 #ios-banner button:hover {
   background: rgba(255, 255, 255, 0.14);
 }
-
 
 /* ── 7. App shell helpers ────────────────────────────────── */
 /* → app.jsx */

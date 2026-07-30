@@ -23,11 +23,15 @@ describe("updateColors", () => {
       scheduleColorPreviewRedraw: vi.fn(),
     };
 
-    updateColors.call(ctx, {
-      note_colors: ["ffffff"],
-      spectrum_colors: false,
-      fundamental_color: "ffffff",
-    }, { preview: true, degreeIndex: 3 });
+    updateColors.call(
+      ctx,
+      {
+        note_colors: ["ffffff"],
+        spectrum_colors: false,
+        fundamental_color: "ffffff",
+      },
+      { preview: true, degreeIndex: 3 },
+    );
 
     expect(ctx.settings.note_colors).toEqual(["ffffff"]);
     expect(ctx.scheduleColorPreviewRedraw).toHaveBeenCalledWith(3);
@@ -116,9 +120,7 @@ describe("buildLumatoneBypassLayoutEntries", () => {
         center_degree: 0,
         equivSteps: 12,
       },
-      controllerMap: new Map([
-        ["3.26", { x: 0, y: 0 }],
-      ]),
+      controllerMap: new Map([["3.26", { x: 0, y: 0 }]]),
       hexCoordsToCents() {
         return [0, 0, 0];
       },
@@ -192,9 +194,7 @@ describe("buildLumatoneBypassLayoutEntries", () => {
         center_degree: 0,
         equivSteps: 12,
       },
-      controllerMap: new Map([
-        ["3.26", { x: 0, y: 0 }],
-      ]),
+      controllerMap: new Map([["3.26", { x: 0, y: 0 }]]),
       hexCoordsToCents() {
         return [0, 0, 300];
       },

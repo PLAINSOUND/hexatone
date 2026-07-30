@@ -35,7 +35,10 @@ describe("tuning-preview-runtime", () => {
     state = setFundamentalPreview(state, 100);
 
     expect(hasFundamentalPreview(state)).toBe(true);
-    expect(getEffectiveFundamentalHz(workspace, state)).toBeCloseTo(440 * Math.pow(2, 100 / 1200), 8);
+    expect(getEffectiveFundamentalHz(workspace, state)).toBeCloseTo(
+      440 * Math.pow(2, 100 / 1200),
+      8,
+    );
 
     state = setFundamentalComparing(state, true);
     expect(isFundamentalComparing(state)).toBe(true);
@@ -91,18 +94,9 @@ describe("tuning-preview-runtime", () => {
     const equaveFrequency = getEffectiveFrequencyAtDegree(workspace, state, 3);
     const untouchedDegreeFrequency = getEffectiveFrequencyAtDegree(workspace, state, 2);
 
-    expect(degreeZeroFrequency).toBeCloseTo(
-      440 * Math.pow(2, (30 - 100) / 1200),
-      8,
-    );
-    expect(equaveFrequency).toBeCloseTo(
-      440 * Math.pow(2, (1230 - 100) / 1200),
-      8,
-    );
-    expect(untouchedDegreeFrequency).toBeCloseTo(
-      440 * Math.pow(2, (200 - 100) / 1200),
-      8,
-    );
+    expect(degreeZeroFrequency).toBeCloseTo(440 * Math.pow(2, (30 - 100) / 1200), 8);
+    expect(equaveFrequency).toBeCloseTo(440 * Math.pow(2, (1230 - 100) / 1200), 8);
+    expect(untouchedDegreeFrequency).toBeCloseTo(440 * Math.pow(2, (200 - 100) / 1200), 8);
   });
 
   it("emits effective scale runtime for keyboard consumers", () => {

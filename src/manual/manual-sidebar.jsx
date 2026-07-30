@@ -69,12 +69,7 @@ const ManualSidebar = ({
           <b>App</b>
         </legend>
         {onClose ? (
-          <button
-            type="button"
-            class="settings-panel__close"
-            onClick={onClose}
-            title="Close"
-          >
+          <button type="button" class="settings-panel__close" onClick={onClose} title="Close">
             ✕
           </button>
         ) : null}
@@ -118,10 +113,7 @@ const ManualSidebar = ({
           <legend>
             <b>{section.title}</b>
           </legend>
-          <div
-            class="manual-sidebar__content"
-            dangerouslySetInnerHTML={{ __html: section.html }}
-          />
+          <div class="manual-sidebar__content" dangerouslySetInnerHTML={{ __html: section.html }} />
         </fieldset>
       ))}
 
@@ -132,8 +124,7 @@ const ManualSidebar = ({
               type="button"
               class="preset-action-btn"
               onClick={() => {
-                const sidebar =
-                  scrollContainerRef?.current ?? document.getElementById("sidebar");
+                const sidebar = scrollContainerRef?.current ?? document.getElementById("sidebar");
                 if (sidebar) sidebar.scrollTo({ top: 0, behavior: "smooth" });
               }}
             >
@@ -142,7 +133,6 @@ const ManualSidebar = ({
           </span>
         </div>
       ) : null}
-
     </div>
   );
 };

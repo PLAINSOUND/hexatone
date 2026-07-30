@@ -7,13 +7,8 @@ import SnapshotSequenceItem from "./snapshot-sequence-item.jsx";
 import BarRow from "./bar-row.jsx";
 import TempoRow from "./tempo-row.jsx";
 import RepeatRow from "./repeat-row.jsx";
-import {
-  buildSnapshotCopyBlock,
-  resolveSnapshotCopyRange,
-} from "./snapshot-workspace-runtime.js";
-import {
-  absolutePositionToBarBeat,
-} from "./transport.js";
+import { buildSnapshotCopyBlock, resolveSnapshotCopyRange } from "./snapshot-workspace-runtime.js";
+import { absolutePositionToBarBeat } from "./transport.js";
 import {
   barDisplayBucket,
   buildBarNumberById,
@@ -208,7 +203,8 @@ const Sequencer = ({
   const [eventPane, setEventPane] = useState("timing");
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(loadSequencerAutoScrollPreference);
   const [cueViewportTransaction, setCueViewportTransaction] = useState(null);
-  const [compactSelectionPreviewSuppressedId, setCompactSelectionPreviewSuppressedId] = useState(null);
+  const [compactSelectionPreviewSuppressedId, setCompactSelectionPreviewSuppressedId] =
+    useState(null);
   const [copyRangeStart, setCopyRangeStart] = useState("1");
   const [copyRangeEnd, setCopyRangeEnd] = useState("1");
   const [copyInsertPosition, setCopyInsertPosition] = useState("1");
@@ -251,52 +247,49 @@ const Sequencer = ({
   }, [autoScrollEnabled]);
 
   // Derived sequence/timeline state.
-  const sequenceRuntime = useMemo(() => (
-    runtimeModel ?? buildSequenceRuntimeModel({
-      snapshots,
+  const sequenceRuntime = useMemo(
+    () =>
+      runtimeModel ??
+      buildSequenceRuntimeModel({
+        snapshots,
+        displaySnapshots,
+        playbackSnapshots,
+        bars,
+        tempi,
+        repeats,
+        sequenceLegato,
+        source: "sequencer",
+      }),
+    [
+      bars,
       displaySnapshots,
       playbackSnapshots,
-      bars,
-      tempi,
       repeats,
+      runtimeModel,
       sequenceLegato,
-      source: "sequencer",
-    })
-  ), [
-    bars,
-    displaySnapshots,
-    playbackSnapshots,
-    repeats,
-    runtimeModel,
-    sequenceLegato,
-    snapshots,
-    tempi,
-  ]);
+      snapshots,
+      tempi,
+    ],
+  );
   const renderedSnapshots = sequenceRuntime.renderedSnapshots;
   // The stored snapshots define timed-transport structure. `playbackSnapshots`
   // may be a live pitch-remapped view of the same events, so changing that
   // view must not invalidate a running transport.
-  const playbackRuntimeToken = useMemo(() => buildDependencyToken([
-    snapshots,
-    bars,
-    tempi,
-    repeats,
-  ]), [
-    bars,
-    repeats,
-    snapshots,
-    tempi,
-  ]);
-  const timedTriggerToken = useMemo(() => buildDependencyToken([
-    playbackRuntimeToken,
-    sequenceLegato,
-  ]), [playbackRuntimeToken, sequenceLegato]);
+  const playbackRuntimeToken = useMemo(
+    () => buildDependencyToken([snapshots, bars, tempi, repeats]),
+    [bars, repeats, snapshots, tempi],
+  );
+  const timedTriggerToken = useMemo(
+    () => buildDependencyToken([playbackRuntimeToken, sequenceLegato]),
+    [playbackRuntimeToken, sequenceLegato],
+  );
   const sortedBars = sequenceRuntime.sortedBars;
   const suggestedBarPosition = useMemo(() => {
     const snapshotEndPosition = Math.max(1, snapshots.length + 1);
-    const lastBarPosition = sortedBars.length > 0
-      ? Math.max(...sortedBars.map((bar) => Math.round(Number(bar?.position) || 1)))
-      : 0;
+    const lastBarPosition =
+      sortedBars.length > 0
+        ? Math.max(...sortedBars.map((bar) => Math.round(Number(bar?.position) || 1)))
+        : 0;
     return String(Math.max(snapshotEndPosition, lastBarPosition + 1));
   }, [snapshots.length, sortedBars]);
   const suggestedBarMeter = useMemo(() => {
@@ -314,29 +307,53 @@ const Sequencer = ({
   const sequenceCueGroups = sequenceRuntime.sequenceCueGroups;
   const terminalBarlinePosition = sequenceRuntime.terminalBarlinePosition;
   const tempoTransitionCueMap = sequenceRuntime.tempoTransitionCueMap;
-  const explicitBarPositions = useMemo(() => sortedBars.map((bar) => ({
-    position: Math.round(Number(bar?.position) || 1),
-    barNumber: absolutePositionToBarBeat(Number(bar?.position) || 1, sortedBars, 1, 9, terminalBarlinePosition)?.barNumber ?? 1,
-  })), [sortedBars, terminalBarlinePosition]);
-  const formatTransportBarBeat = useCallback((position) => {
-    const resolved = absolutePositionToBarBeat(position, sortedBars, 1, 9, terminalBarlinePosition);
-    if (!resolved) return "1:1";
-    const fraction = resolved.numerator > 0 ? ` ${resolved.numerator}/${resolved.denominator}` : "";
-    return `${resolved.barNumber}:${resolved.beat}${fraction}`;
-  }, [sortedBars, terminalBarlinePosition]);
-  const describeTransportTempo = useCallback((position, speedMultiplier = 1) => {
-    const tempo = deriveTempoAtSequencePosition(
-      position,
-      sortedTempi,
-      sortedBars,
-      terminalBarlinePosition,
-    );
-    if (!tempo) return null;
-    return {
-      ...tempo,
-      effectiveBpm: Math.round(tempo.bpm * Math.max(0, Number(speedMultiplier) || 1) * 10) / 10,
-    };
-  }, [sortedBars, sortedTempi, terminalBarlinePosition]);
+  const explicitBarPositions = useMemo(
+    () =>
+      sortedBars.map((bar) => ({
+        position: Math.round(Number(bar?.position) || 1),
+        barNumber:
+          absolutePositionToBarBeat(
+            Number(bar?.position) || 1,
+            sortedBars,
+            1,
+            9,
+            terminalBarlinePosition,
+          )?.barNumber ?? 1,
+      })),
+    [sortedBars, terminalBarlinePosition],
+  );
+  const formatTransportBarBeat = useCallback(
+    (position) => {
+      const resolved = absolutePositionToBarBeat(
+        position,
+        sortedBars,
+        1,
+        9,
+        terminalBarlinePosition,
+      );
+      if (!resolved) return "1:1";
+      const fraction =
+        resolved.numerator > 0 ? ` ${resolved.numerator}/${resolved.denominator}` : "";
+      return `${resolved.barNumber}:${resolved.beat}${fraction}`;
+    },
+    [sortedBars, terminalBarlinePosition],
+  );
+  const describeTransportTempo = useCallback(
+    (position, speedMultiplier = 1) => {
+      const tempo = deriveTempoAtSequencePosition(
+        position,
+        sortedTempi,
+        sortedBars,
+        terminalBarlinePosition,
+      );
+      if (!tempo) return null;
+      return {
+        ...tempo,
+        effectiveBpm: Math.round(tempo.bpm * Math.max(0, Number(speedMultiplier) || 1) * 10) / 10,
+      };
+    },
+    [sortedBars, sortedTempi, terminalBarlinePosition],
+  );
   const sequenceRepeatSections = sequenceRuntime.sequenceRepeatSections;
   const timedPlaybackBursts = sequenceRuntime.timedPlaybackBursts;
   const timedCueTriggers = sequenceRuntime.timedCueTriggers;
@@ -359,37 +376,43 @@ const Sequencer = ({
     impliedPendingSnapshotIndex,
     impliedPendingCueIndex,
     terminalSequenceTarget,
-  } = useMemo(() => derivePlayheadNavigationState({
-    playhead,
-    sortedBars,
-    sequenceCueGroups,
-    snapshots,
-    selectedSnapshotId,
-    selectedMarker,
-    pendingTransportSelection,
-  }), [
-    pendingTransportSelection,
-    playhead,
-    selectedMarker,
-    selectedSnapshotId,
-    sequenceCueGroups,
-    snapshots,
-    sortedBars,
-  ]);
+  } = useMemo(
+    () =>
+      derivePlayheadNavigationState({
+        playhead,
+        sortedBars,
+        sequenceCueGroups,
+        snapshots,
+        selectedSnapshotId,
+        selectedMarker,
+        pendingTransportSelection,
+      }),
+    [
+      pendingTransportSelection,
+      playhead,
+      selectedMarker,
+      selectedSnapshotId,
+      sequenceCueGroups,
+      snapshots,
+      sortedBars,
+    ],
+  );
 
   const snapshotIndexById = useMemo(() => {
     const entries = renderedSnapshots.map((snapshot, index) => [snapshot.id, index + 1]);
     return new Map(entries);
   }, [renderedSnapshots]);
 
-  const findSnapshotById = useCallback((snapshotId) => (
-    snapshots.find((snapshot) => snapshot.id === snapshotId) ?? null
-  ), [snapshots]);
+  const findSnapshotById = useCallback(
+    (snapshotId) => snapshots.find((snapshot) => snapshot.id === snapshotId) ?? null,
+    [snapshots],
+  );
 
   const findNoteInSnapshot = useCallback((snapshot, noteRef) => {
     if (!snapshot) return null;
     const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-    const note = (snapshot.notes ?? []).find((entry) => noteMatchesReference(entry, noteRef, length)) ?? null;
+    const note =
+      (snapshot.notes ?? []).find((entry) => noteMatchesReference(entry, noteRef, length)) ?? null;
     return note ? { note, length } : null;
   }, []);
 
@@ -398,7 +421,10 @@ const Sequencer = ({
     return `${String(baseId)}:copy:${duplicateNoteIdRef.current}`;
   }, []);
 
-  const snapshotEventsById = useMemo(() => buildSnapshotEventsById(sequenceEvents), [sequenceEvents]);
+  const snapshotEventsById = useMemo(
+    () => buildSnapshotEventsById(sequenceEvents),
+    [sequenceEvents],
+  );
 
   const firstSnapshotCueEventIds = useMemo(
     () => buildFirstSnapshotCueEventIds(snapshotEventsById),
@@ -412,7 +438,9 @@ const Sequencer = ({
     [repeats, sortedBars, sortedTempi],
   );
   const firstStructuralScrollKey = useMemo(() => {
-    const orderedBuckets = [...structuralMarkersByDisplayBucket.keys()].sort((left, right) => left - right);
+    const orderedBuckets = [...structuralMarkersByDisplayBucket.keys()].sort(
+      (left, right) => left - right,
+    );
     for (const bucket of orderedBuckets) {
       const firstMarker = structuralMarkersByDisplayBucket.get(bucket)?.[0] ?? null;
       const markerKey = structuralEventRenderKey(firstMarker);
@@ -420,33 +448,38 @@ const Sequencer = ({
     }
     return null;
   }, [structuralMarkersByDisplayBucket]);
-  const repeatStartKeyAtPosition = useCallback((position) => {
-    const time = Number(position);
-    if (!Number.isFinite(time)) return null;
-    const repeat = (Array.isArray(repeats) ? repeats : []).find((entry) => (
-      entry?.kind === "start" &&
-      Math.abs(Number(entry?.position) - time) < 1e-9
-    ));
-    return repeat == null
-      ? null
-      : structuralEventRenderKey({
-        type: "repeat-start",
-        repeatId: repeat.id,
-      });
-  }, [repeats]);
-  const structuralScrollKeysAtPosition = useCallback((position) => {
-    const time = Number(position);
-    if (!Number.isFinite(time)) return [];
-    const keys = [];
-    for (const markers of structuralMarkersByDisplayBucket.values()) {
-      markers.forEach((marker) => {
-        if (Math.abs(Number(marker?.position) - time) >= 1e-9) return;
-        const markerKey = structuralEventRenderKey(marker);
-        if (markerKey) keys.push(markerKey);
-      });
-    }
-    return keys;
-  }, [structuralMarkersByDisplayBucket]);
+  const repeatStartKeyAtPosition = useCallback(
+    (position) => {
+      const time = Number(position);
+      if (!Number.isFinite(time)) return null;
+      const repeat = (Array.isArray(repeats) ? repeats : []).find(
+        (entry) => entry?.kind === "start" && Math.abs(Number(entry?.position) - time) < 1e-9,
+      );
+      return repeat == null
+        ? null
+        : structuralEventRenderKey({
+            type: "repeat-start",
+            repeatId: repeat.id,
+          });
+    },
+    [repeats],
+  );
+  const structuralScrollKeysAtPosition = useCallback(
+    (position) => {
+      const time = Number(position);
+      if (!Number.isFinite(time)) return [];
+      const keys = [];
+      for (const markers of structuralMarkersByDisplayBucket.values()) {
+        markers.forEach((marker) => {
+          if (Math.abs(Number(marker?.position) - time) >= 1e-9) return;
+          const markerKey = structuralEventRenderKey(marker);
+          if (markerKey) keys.push(markerKey);
+        });
+      }
+      return keys;
+    },
+    [structuralMarkersByDisplayBucket],
+  );
 
   const firstEventIdByCueIndex = useMemo(
     () => buildFirstEventIdByCueIndex(sequenceEvents),
@@ -482,9 +515,8 @@ const Sequencer = ({
 
   useEffect(() => {
     const selectedIndex = snapshots.findIndex((snapshot) => snapshot.id === selectedSnapshotId);
-    const selectionKey = selectedIndex < 0
-      ? null
-      : JSON.stringify([selectedSnapshotId, selectedIndex]);
+    const selectionKey =
+      selectedIndex < 0 ? null : JSON.stringify([selectedSnapshotId, selectedIndex]);
     if (selectionKey === copyRangeSelectionKeyRef.current) return;
     copyRangeSelectionKeyRef.current = selectionKey;
     if (selectedIndex < 0) return;
@@ -493,24 +525,30 @@ const Sequencer = ({
     setCopyRangeEnd(position);
   }, [selectedSnapshotId, snapshots]);
 
-  const handleCopyRangeStartInput = useCallback((rawValue) => {
-    const nextValue = rawValue;
-    setCopyRangeStart(nextValue);
-    const nextStart = Math.max(1, Math.round(Number(nextValue) || 1));
-    const currentEnd = Math.max(1, Math.round(Number(copyRangeEnd) || 1));
-    if (currentEnd < nextStart) {
-      setCopyRangeEnd(String(nextStart));
-    }
-  }, [copyRangeEnd]);
+  const handleCopyRangeStartInput = useCallback(
+    (rawValue) => {
+      const nextValue = rawValue;
+      setCopyRangeStart(nextValue);
+      const nextStart = Math.max(1, Math.round(Number(nextValue) || 1));
+      const currentEnd = Math.max(1, Math.round(Number(copyRangeEnd) || 1));
+      if (currentEnd < nextStart) {
+        setCopyRangeEnd(String(nextStart));
+      }
+    },
+    [copyRangeEnd],
+  );
 
-  const handleCopyRangeEndInput = useCallback((rawValue) => {
-    const nextEnd = Math.max(1, Math.round(Number(rawValue) || 1));
-    const currentStart = Math.max(1, Math.round(Number(copyRangeStart) || 1));
-    setCopyRangeEnd(String(nextEnd));
-    if (nextEnd < currentStart) {
-      setCopyRangeStart(String(nextEnd));
-    }
-  }, [copyRangeStart]);
+  const handleCopyRangeEndInput = useCallback(
+    (rawValue) => {
+      const nextEnd = Math.max(1, Math.round(Number(rawValue) || 1));
+      const currentStart = Math.max(1, Math.round(Number(copyRangeStart) || 1));
+      setCopyRangeEnd(String(nextEnd));
+      if (nextEnd < currentStart) {
+        setCopyRangeStart(String(nextEnd));
+      }
+    },
+    [copyRangeStart],
+  );
 
   const derivedInsertBarBeat = useMemo(() => {
     const position = Math.round(Number(copyInsertPosition) || 1);
@@ -520,51 +558,66 @@ const Sequencer = ({
   const derivedInsertBarNumber = derivedInsertBarBeat?.barNumber ?? 1;
   const insertIsInsideBar = useMemo(() => {
     const position = Math.round(Number(copyInsertPosition) || 1);
-    return !sortedBars.some((bar) => Math.abs((Number(bar?.position) || 0) - position) < 1e-9)
-      && position > 1
-      && position <= snapshots.length;
+    return (
+      !sortedBars.some((bar) => Math.abs((Number(bar?.position) || 0) - position) < 1e-9) &&
+      position > 1 &&
+      position <= snapshots.length
+    );
   }, [copyInsertPosition, snapshots.length, sortedBars]);
 
   useEffect(() => {
-    setCopyInsertBarNumber(insertIsInsideBar ? `[${derivedInsertBarNumber}]` : String(derivedInsertBarNumber));
+    setCopyInsertBarNumber(
+      insertIsInsideBar ? `[${derivedInsertBarNumber}]` : String(derivedInsertBarNumber),
+    );
   }, [derivedInsertBarNumber, insertIsInsideBar]);
 
-  const resolvedCopyRange = useMemo(() => resolveSnapshotCopyRange({
-    snapshots,
-    bars,
-    startPosition: copyRangeStart,
-    endPosition: copyRangeEnd,
-    includeBars: copyIncludeBars,
-  }), [bars, copyIncludeBars, copyRangeEnd, copyRangeStart, snapshots]);
+  const resolvedCopyRange = useMemo(
+    () =>
+      resolveSnapshotCopyRange({
+        snapshots,
+        bars,
+        startPosition: copyRangeStart,
+        endPosition: copyRangeEnd,
+        includeBars: copyIncludeBars,
+      }),
+    [bars, copyIncludeBars, copyRangeEnd, copyRangeStart, snapshots],
+  );
 
-  const resolvedCopyRangeSnapshotIds = useMemo(() => (
-    resolvedCopyRange?.valid
-      ? snapshots
-        .slice(resolvedCopyRange.startPosition - 1, resolvedCopyRange.endPosition)
-        .map((snapshot) => snapshot.id)
-      : []
-  ), [resolvedCopyRange, snapshots]);
+  const resolvedCopyRangeSnapshotIds = useMemo(
+    () =>
+      resolvedCopyRange?.valid
+        ? snapshots
+            .slice(resolvedCopyRange.startPosition - 1, resolvedCopyRange.endPosition)
+            .map((snapshot) => snapshot.id)
+        : [],
+    [resolvedCopyRange, snapshots],
+  );
 
-  const currentCopySelectionSignature = useMemo(() => JSON.stringify({
-    snapshotIds: resolvedCopyRangeSnapshotIds,
-    startPosition: resolvedCopyRange?.startPosition ?? null,
-    endPosition: resolvedCopyRange?.endPosition ?? null,
-    includeBars: copyIncludeBars,
-    includeTempi: copyIncludeTempi,
-    includeRepeats: copyIncludeRepeats,
-  }), [
-    copyIncludeBars,
-    copyIncludeRepeats,
-    copyIncludeTempi,
-    resolvedCopyRange?.endPosition,
-    resolvedCopyRange?.startPosition,
-    resolvedCopyRangeSnapshotIds,
-  ]);
+  const currentCopySelectionSignature = useMemo(
+    () =>
+      JSON.stringify({
+        snapshotIds: resolvedCopyRangeSnapshotIds,
+        startPosition: resolvedCopyRange?.startPosition ?? null,
+        endPosition: resolvedCopyRange?.endPosition ?? null,
+        includeBars: copyIncludeBars,
+        includeTempi: copyIncludeTempi,
+        includeRepeats: copyIncludeRepeats,
+      }),
+    [
+      copyIncludeBars,
+      copyIncludeRepeats,
+      copyIncludeTempi,
+      resolvedCopyRange?.endPosition,
+      resolvedCopyRange?.startPosition,
+      resolvedCopyRangeSnapshotIds,
+    ],
+  );
 
   useEffect(() => {
     if (!rangeEditUndo) return;
-    const sameRange = rangeEditUndo.snapshotIds.length === resolvedCopyRangeSnapshotIds.length
-      && rangeEditUndo.snapshotIds.every((id, index) => id === resolvedCopyRangeSnapshotIds[index]);
+    const sameRange =
+      rangeEditUndo.snapshotIds.length === resolvedCopyRangeSnapshotIds.length &&
+      rangeEditUndo.snapshotIds.every((id, index) => id === resolvedCopyRangeSnapshotIds[index]);
     if (!sameRange) setRangeEditUndo(null);
   }, [rangeEditUndo, resolvedCopyRangeSnapshotIds]);
 
@@ -578,23 +631,18 @@ const Sequencer = ({
     if (!resolvedCopyRange?.valid) {
       return "";
     }
-    const action = copiedSelectionSignature === currentCopySelectionSignature
-      ? "copied"
-      : "selected";
+    const action =
+      copiedSelectionSignature === currentCopySelectionSignature ? "copied" : "selected";
     return (
       (resolvedCopyRange.startPosition === resolvedCopyRange.endPosition
         ? `Snapshot ${resolvedCopyRange.startPosition} ${action}`
-        : `Snapshots ${resolvedCopyRange.startPosition}-${resolvedCopyRange.endPosition} ${action}`)
-      + (
-        copyIncludeBars
-        && (
-          resolvedCopyRange.requestedStartPosition !== resolvedCopyRange.startPosition
-          || resolvedCopyRange.requestedEndPosition !== resolvedCopyRange.endPosition
-        )
-          ? " (expanded to full bars)."
-          : "."
-      )
-      + (copiedSnapshotBlock?.includeBars && !copyInsertAtBarBoundary
+        : `Snapshots ${resolvedCopyRange.startPosition}-${resolvedCopyRange.endPosition} ${action}`) +
+      (copyIncludeBars &&
+      (resolvedCopyRange.requestedStartPosition !== resolvedCopyRange.startPosition ||
+        resolvedCopyRange.requestedEndPosition !== resolvedCopyRange.endPosition)
+        ? " (expanded to full bars)."
+        : ".") +
+      (copiedSnapshotBlock?.includeBars && !copyInsertAtBarBoundary
         ? " Insert position must be at a bar marker, the beginning, or the end."
         : "")
     );
@@ -607,28 +655,36 @@ const Sequencer = ({
     resolvedCopyRange,
   ]);
 
-  const resolveBarPositionFromBarNumber = useCallback((rawValue) => {
-    const numeric = Math.round(Number(String(rawValue ?? "").replace(/[^\d-]/g, "")) || 0);
-    if (!Number.isFinite(numeric) || numeric <= 0) return null;
-    const exact = explicitBarPositions.find((entry) => entry.barNumber === numeric);
-    return exact?.position ?? null;
-  }, [explicitBarPositions]);
+  const resolveBarPositionFromBarNumber = useCallback(
+    (rawValue) => {
+      const numeric = Math.round(Number(String(rawValue ?? "").replace(/[^\d-]/g, "")) || 0);
+      if (!Number.isFinite(numeric) || numeric <= 0) return null;
+      const exact = explicitBarPositions.find((entry) => entry.barNumber === numeric);
+      return exact?.position ?? null;
+    },
+    [explicitBarPositions],
+  );
 
-  const snapInsertPositionToBar = useCallback((rawValue) => {
-    const numeric = Math.round(Number(rawValue) || 0);
-    if (!Number.isFinite(numeric)) return;
-    if (numeric <= 1) {
-      setCopyInsertPosition("1");
-      return;
-    }
-    if (numeric >= snapshots.length + 1) {
-      setCopyInsertPosition(String(snapshots.length + 1));
-      return;
-    }
-    const currentBar = absolutePositionToBarBeat(numeric, sortedBars, 1, 9, terminalBarlinePosition)?.barNumber ?? 1;
-    const snapped = resolveBarPositionFromBarNumber(currentBar) ?? 1;
-    setCopyInsertPosition(String(snapped));
-  }, [resolveBarPositionFromBarNumber, snapshots.length, sortedBars, terminalBarlinePosition]);
+  const snapInsertPositionToBar = useCallback(
+    (rawValue) => {
+      const numeric = Math.round(Number(rawValue) || 0);
+      if (!Number.isFinite(numeric)) return;
+      if (numeric <= 1) {
+        setCopyInsertPosition("1");
+        return;
+      }
+      if (numeric >= snapshots.length + 1) {
+        setCopyInsertPosition(String(snapshots.length + 1));
+        return;
+      }
+      const currentBar =
+        absolutePositionToBarBeat(numeric, sortedBars, 1, 9, terminalBarlinePosition)?.barNumber ??
+        1;
+      const snapped = resolveBarPositionFromBarNumber(currentBar) ?? 1;
+      setCopyInsertPosition(String(snapped));
+    },
+    [resolveBarPositionFromBarNumber, snapshots.length, sortedBars, terminalBarlinePosition],
+  );
 
   const handleCopySnapshotBlock = useCallback(() => {
     const block = buildSnapshotCopyBlock({
@@ -676,7 +732,9 @@ const Sequencer = ({
     }
     const result = onInsertSnapshotCopyBlock?.(copiedSnapshotBlock, position);
     if (result === "bar-boundary-required") {
-      setCopyInsertStatus("Bar-inclusive insertion must start at a bar marker, the beginning, or the end.");
+      setCopyInsertStatus(
+        "Bar-inclusive insertion must start at a bar marker, the beginning, or the end.",
+      );
       return;
     }
     if (typeof result === "string" && result) {
@@ -698,13 +756,10 @@ const Sequencer = ({
     );
   }, [copiedSnapshotBlock, copyInsertPosition, onInsertSnapshotCopyBlock, snapshots.length]);
 
-  const {
-    editCommitTick,
-    notifyEditCommitted,
-    runTransportAction,
-  } = useEditCommitTransportController({
-    snapshots,
-  });
+  const { editCommitTick, notifyEditCommitted, runTransportAction } =
+    useEditCommitTransportController({
+      snapshots,
+    });
 
   const sequencePlaybackActive = !!playingSnapshotId && playhead?.stopped !== true;
   const soundingAttackEventIds = useMemo(() => {
@@ -718,16 +773,28 @@ const Sequencer = ({
       playingSnapshotId,
       sequenceEvents,
     });
-  }, [activeSnapshotId, playingSnapshotId, playheadMarkerIndex, renderedSnapshots, sequenceEvents, sequencePlaybackActive, sortedBars, sortedTempi]);
-  const cueExpandedSnapshotIdsAt = useCallback((cueIndexZeroBased) => {
-    return buildCueExpandedSnapshotIdsAt(
-      cueIndexZeroBased,
-      renderedSnapshots,
-      sortedBars,
-      sortedTempi,
-      sequenceEvents,
-    );
-  }, [renderedSnapshots, sequenceEvents, sortedBars, sortedTempi]);
+  }, [
+    activeSnapshotId,
+    playingSnapshotId,
+    playheadMarkerIndex,
+    renderedSnapshots,
+    sequenceEvents,
+    sequencePlaybackActive,
+    sortedBars,
+    sortedTempi,
+  ]);
+  const cueExpandedSnapshotIdsAt = useCallback(
+    (cueIndexZeroBased) => {
+      return buildCueExpandedSnapshotIdsAt(
+        cueIndexZeroBased,
+        renderedSnapshots,
+        sortedBars,
+        sortedTempi,
+        sequenceEvents,
+      );
+    },
+    [renderedSnapshots, sequenceEvents, sortedBars, sortedTempi],
+  );
   const cueExpandedSnapshotIds = useMemo(() => {
     return deriveCueExpandedSnapshotIds({
       activeCueIndex,
@@ -790,8 +857,7 @@ const Sequencer = ({
   const viewportOwner = resolveSequencerViewportOwner({
     timedPlaybackRunning: timedTransportUiState.running,
   });
-  const timedPlaybackOwnsViewport =
-    viewportOwner === SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK;
+  const timedPlaybackOwnsViewport = viewportOwner === SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK;
   // UI controllers: scroll tracking, timed transport, and row draft editing
   // are split out so this component can remain a composition layer.
   const {
@@ -836,63 +902,75 @@ const Sequencer = ({
     recordTimedTransportDiagnostic,
   });
 
-  const virtualSequenceItems = useMemo(() => renderedSnapshots.map((snapshot, index) => {
-    const snapshotEvents = snapshotEventsById.get(snapshot.id) ?? [];
-    const expanded = showAllEvents || expandedIds.has(snapshot.id);
-    const embeddedStructuralKeys = expanded
-      ? new Set(snapshotEvents
-        .filter((event) => event.type === "bar" || event.type === "tempo" || event.type === "repeat-start" || event.type === "repeat-end")
-        .map((event) => structuralEventRenderKey(event)))
-      : new Set();
-    const outsideStructuralMarkers = (structuralMarkersByDisplayBucket.get(index) ?? [])
-      .filter((marker) => !embeddedStructuralKeys.has(structuralEventRenderKey(marker)));
-    const structuralCount = outsideStructuralMarkers.length;
-    const visibleTempoMarkers = [
-      ...(expanded ? snapshotEvents.filter((event) => event.type === "tempo") : []),
-      ...outsideStructuralMarkers.filter((marker) => marker.structuralType === "tempo"),
-    ];
-    const transitionCueCount = visibleTempoMarkers.filter((tempo) => (
-      tempoTransitionCueMap.has(tempo.tempoId ?? tempo.id)
-    )).length;
-    const measurementToken = [
-      expanded ? 1 : 0,
-      snapshotEvents.length,
-      structuralCount,
-      transitionCueCount,
-    ].join(":");
-    return {
-      key: snapshot.id,
-      snapshot,
-      measurementToken,
-      estimatedSize: estimateSequenceGroupHeight({
-        expanded,
-        eventCount: snapshotEvents.length,
-        structuralCount,
-        transitionCueCount,
+  const virtualSequenceItems = useMemo(
+    () =>
+      renderedSnapshots.map((snapshot, index) => {
+        const snapshotEvents = snapshotEventsById.get(snapshot.id) ?? [];
+        const expanded = showAllEvents || expandedIds.has(snapshot.id);
+        const embeddedStructuralKeys = expanded
+          ? new Set(
+              snapshotEvents
+                .filter(
+                  (event) =>
+                    event.type === "bar" ||
+                    event.type === "tempo" ||
+                    event.type === "repeat-start" ||
+                    event.type === "repeat-end",
+                )
+                .map((event) => structuralEventRenderKey(event)),
+            )
+          : new Set();
+        const outsideStructuralMarkers = (structuralMarkersByDisplayBucket.get(index) ?? []).filter(
+          (marker) => !embeddedStructuralKeys.has(structuralEventRenderKey(marker)),
+        );
+        const structuralCount = outsideStructuralMarkers.length;
+        const visibleTempoMarkers = [
+          ...(expanded ? snapshotEvents.filter((event) => event.type === "tempo") : []),
+          ...outsideStructuralMarkers.filter((marker) => marker.structuralType === "tempo"),
+        ];
+        const transitionCueCount = visibleTempoMarkers.filter((tempo) =>
+          tempoTransitionCueMap.has(tempo.tempoId ?? tempo.id),
+        ).length;
+        const measurementToken = [
+          expanded ? 1 : 0,
+          snapshotEvents.length,
+          structuralCount,
+          transitionCueCount,
+        ].join(":");
+        return {
+          key: snapshot.id,
+          snapshot,
+          measurementToken,
+          estimatedSize: estimateSequenceGroupHeight({
+            expanded,
+            eventCount: snapshotEvents.length,
+            structuralCount,
+            transitionCueCount,
+          }),
+          expandedEstimatedSize: estimateSequenceGroupHeight({
+            expanded: true,
+            eventCount: snapshotEvents.length,
+            structuralCount,
+            transitionCueCount,
+          }),
+        };
       }),
-      expandedEstimatedSize: estimateSequenceGroupHeight({
-        expanded: true,
-        eventCount: snapshotEvents.length,
-        structuralCount,
-        transitionCueCount,
-      }),
-    };
-  }), [
-    expandedIds,
-    renderedSnapshots,
-    showAllEvents,
-    snapshotEventsById,
-    structuralMarkersByDisplayBucket,
-    tempoTransitionCueMap,
-  ]);
+    [
+      expandedIds,
+      renderedSnapshots,
+      showAllEvents,
+      snapshotEventsById,
+      structuralMarkersByDisplayBucket,
+      tempoTransitionCueMap,
+    ],
+  );
   const virtualSequenceListRef = useRef(null);
   const virtualPinnedIndexes = useMemo(() => {
-    const pinnedIds = new Set([
-      selectedSnapshotId,
-      activeSnapshotId,
-      playingSnapshotId,
-      draggedId,
-    ].filter((id) => id != null));
+    const pinnedIds = new Set(
+      [selectedSnapshotId, activeSnapshotId, playingSnapshotId, draggedId].filter(
+        (id) => id != null,
+      ),
+    );
     const indexes = [];
     renderedSnapshots.forEach((snapshot, index) => {
       if (pinnedIds.has(snapshot.id)) indexes.push(index);
@@ -902,7 +980,15 @@ const Sequencer = ({
       indexes.push(selectedBarBucket);
     }
     return indexes;
-  }, [activeSnapshotId, draggedId, playingSnapshotId, renderedSnapshots, selectedBarIndex, selectedSnapshotId, sortedBars]);
+  }, [
+    activeSnapshotId,
+    draggedId,
+    playingSnapshotId,
+    renderedSnapshots,
+    selectedBarIndex,
+    selectedSnapshotId,
+    sortedBars,
+  ]);
   const sequenceVirtualization = useSequenceVirtualization({
     scrollPanelRef,
     contentRef: virtualSequenceListRef,
@@ -920,235 +1006,264 @@ const Sequencer = ({
     cancelPendingStartAnchor: cancelVirtualSequenceAnchor,
     releaseStartAnchorLayout: releaseVirtualSequenceAnchor,
   } = sequenceVirtualization;
-  const renderedSnapshotIndexById = useMemo(() => new Map(
-    renderedSnapshots.map((snapshot, index) => [snapshot.id, index]),
-  ), [renderedSnapshots]);
-  const materializeVirtualViewport = useCallback((firstIndex, lastIndex = firstIndex) => {
-    if (virtualSequenceItems.length === 0) return [];
-    let first = Math.max(0, Math.min(virtualSequenceItems.length - 1, Number(firstIndex)));
-    let last = Math.max(first, Math.min(virtualSequenceItems.length - 1, Number(lastIndex)));
-    const panelHeight = scrollPanelRef.current instanceof HTMLElement
-      ? scrollPanelRef.current.clientHeight || 640
-      : 640;
-    const paddingBudget = panelHeight + SEQUENCE_VIRTUALIZATION_OVERSCAN_PX;
-    let beforeHeight = 0;
-    while (first > 0 && beforeHeight < paddingBudget) {
-      first -= 1;
-      beforeHeight += Math.max(1, Number(virtualSequenceItems[first]?.estimatedSize) || 1);
-    }
-    let afterHeight = 0;
-    while (last < virtualSequenceItems.length - 1 && afterHeight < paddingBudget) {
-      last += 1;
-      afterHeight += Math.max(1, Number(virtualSequenceItems[last]?.estimatedSize) || 1);
-    }
-    return Array.from({ length: last - first + 1 }, (_, offset) => first + offset);
-  }, [scrollPanelRef, virtualSequenceItems]);
-  const scrollVirtualSnapshotRowIntoView = useCallback((snapshotId) => {
-    const index = renderedSnapshotIndexById.get(snapshotId);
-    return index == null ? false : scrollVirtualSequenceIndexIntoView(index);
-  }, [renderedSnapshotIndexById, scrollVirtualSequenceIndexIntoView]);
+  const renderedSnapshotIndexById = useMemo(
+    () => new Map(renderedSnapshots.map((snapshot, index) => [snapshot.id, index])),
+    [renderedSnapshots],
+  );
+  const materializeVirtualViewport = useCallback(
+    (firstIndex, lastIndex = firstIndex) => {
+      if (virtualSequenceItems.length === 0) return [];
+      let first = Math.max(0, Math.min(virtualSequenceItems.length - 1, Number(firstIndex)));
+      let last = Math.max(first, Math.min(virtualSequenceItems.length - 1, Number(lastIndex)));
+      const panelHeight =
+        scrollPanelRef.current instanceof HTMLElement
+          ? scrollPanelRef.current.clientHeight || 640
+          : 640;
+      const paddingBudget = panelHeight + SEQUENCE_VIRTUALIZATION_OVERSCAN_PX;
+      let beforeHeight = 0;
+      while (first > 0 && beforeHeight < paddingBudget) {
+        first -= 1;
+        beforeHeight += Math.max(1, Number(virtualSequenceItems[first]?.estimatedSize) || 1);
+      }
+      let afterHeight = 0;
+      while (last < virtualSequenceItems.length - 1 && afterHeight < paddingBudget) {
+        last += 1;
+        afterHeight += Math.max(1, Number(virtualSequenceItems[last]?.estimatedSize) || 1);
+      }
+      return Array.from({ length: last - first + 1 }, (_, offset) => first + offset);
+    },
+    [scrollPanelRef, virtualSequenceItems],
+  );
+  const scrollVirtualSnapshotRowIntoView = useCallback(
+    (snapshotId) => {
+      const index = renderedSnapshotIndexById.get(snapshotId);
+      return index == null ? false : scrollVirtualSequenceIndexIntoView(index);
+    },
+    [renderedSnapshotIndexById, scrollVirtualSequenceIndexIntoView],
+  );
 
   useLayoutEffect(() => {
     cancelNavigationAutoscroll();
     timedAutoscrollPresenterRef.current?.cancel();
   }, [cancelNavigationAutoscroll, sequenceRuntime.runtimeInstanceId]);
-  const prepareSnapshotViewport = useCallback((snapshotIndex) => {
-    const numericIndex = Number(snapshotIndex);
-    if (
-      timedPlaybackOwnsViewport
-      || !autoScrollEnabledRef.current
-      || !Number.isInteger(numericIndex)
-    ) return false;
-    const scrollPanel = scrollPanelRef.current;
-    const playbackRect = playbackRowRef.current instanceof HTMLElement
-      ? playbackRowRef.current.getBoundingClientRect()
-      : null;
-    const panelRect = scrollPanel instanceof HTMLElement
-      ? scrollPanel.getBoundingClientRect()
-      : null;
-    const stickyTransportOverlap = playbackRect == null || panelRect == null
-      ? 0
-      : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-    const materializedIndexes = materializeVirtualViewport(numericIndex);
-    releaseVirtualSequenceAnchor();
-    return scrollVirtualSequenceIndexIntoView(numericIndex, {
-      align: "start",
-      topOffset: stickyTransportOverlap + 6,
-      targetIndexes: [numericIndex],
-      materializedIndexes,
-      retainedIndexes: materializedIndexes,
-      requireMeasuredLayout: true,
-      applyOnce: true,
-    });
-  }, [
-    playbackRowRef,
-    materializeVirtualViewport,
-    releaseVirtualSequenceAnchor,
-    scrollPanelRef,
-    scrollVirtualSequenceIndexIntoView,
-    timedPlaybackOwnsViewport,
-  ]);
-  const prepareBarViewport = useCallback((barIndex) => {
-    const numericBarIndex = Number(barIndex);
-    if (
-      timedPlaybackOwnsViewport
-      || !autoScrollEnabledRef.current
-      || !Number.isInteger(numericBarIndex)
-    ) return false;
-    const bar = sortedBars[numericBarIndex] ?? null;
-    const virtualIndex = barDisplayBucket(bar?.position);
-    if (virtualIndex < 0 || virtualIndex >= renderedSnapshots.length) return false;
-    const structuralKeys = structuralScrollKeysAtPosition(bar.position);
-    const materializedIndexes = materializeVirtualViewport(virtualIndex);
-    releaseVirtualSequenceAnchor();
-    return scrollVirtualSequenceIndexIntoView(virtualIndex, {
-      align: "start",
-      topOffset: 6,
-      targetIndexes: [virtualIndex],
-      materializedIndexes,
-      retainedIndexes: materializedIndexes,
-      preferredStructuralKey: structuralKeys[0] ?? null,
-      targetStructuralKeys: structuralKeys,
-      requireMeasuredLayout: true,
-      applyOnce: true,
-    });
-  }, [
-    releaseVirtualSequenceAnchor,
-    materializeVirtualViewport,
-    renderedSnapshots.length,
-    scrollVirtualSequenceIndexIntoView,
-    sortedBars,
-    structuralScrollKeysAtPosition,
-    timedPlaybackOwnsViewport,
-  ]);
-  const selectSequenceBarWithViewport = useCallback((barIndex) => {
-    prepareBarViewport(barIndex);
-    onSelectSequenceBar?.(barIndex);
-  }, [onSelectSequenceBar, prepareBarViewport]);
-  const armVirtualizedPendingSnapshot = useCallback((snapshotIndex) => {
-    prepareSnapshotViewport(snapshotIndex);
-    armPendingSnapshot(snapshotIndex, { viewportPrepared: true });
-  }, [
-    armPendingSnapshot,
-    prepareSnapshotViewport,
-  ]);
-  const prepareCueViewport = useCallback((cueIndex, { onApplied = null } = {}) => {
-    const numericCueIndex = Number(cueIndex);
-    if (
-      timedPlaybackOwnsViewport
-      || !autoScrollEnabledRef.current
-      || !Number.isInteger(numericCueIndex)
-    ) return false;
-    const cueViewport = deriveCueViewportPlan({
-      cueIndexZeroBased: numericCueIndex,
-      sequenceEvents,
-    });
-    const cueSnapshotIds = cueViewport.snapshotIds;
-    const overflowEvent = cueViewport.overflowEventId == null
-      ? null
-      : sequenceEvents.find((event) => event.eventId === cueViewport.overflowEventId) ?? null;
-    const cueEventIds = new Set(cueViewport.eventIds);
-    // sequenceEvents.snapshotIndex addresses renderedSnapshots. Source
-    // snapshot indexes diverge after the runtime inserts display snapshots, so
-    // converting these IDs through `snapshots` can anchor a later visible row.
-    const cueSnapshotIndexes = [...new Set(
-      sequenceEvents
-        .filter((event) => cueEventIds.has(event.eventId))
-        .map((event) => renderedSnapshotIndexById.get(event.snapshotId))
-        .filter((index) => (
-          Number.isInteger(index)
-          && index >= 0
-          && index < renderedSnapshots.length
-        )),
-    )];
-    const recentSnapshotId = overflowEvent?.snapshotId ?? resolveCueAnchorSnapshotId({
-      activeCueIndex: numericCueIndex + 1,
+  const prepareSnapshotViewport = useCallback(
+    (snapshotIndex) => {
+      const numericIndex = Number(snapshotIndex);
+      if (
+        timedPlaybackOwnsViewport ||
+        !autoScrollEnabledRef.current ||
+        !Number.isInteger(numericIndex)
+      )
+        return false;
+      const scrollPanel = scrollPanelRef.current;
+      const playbackRect =
+        playbackRowRef.current instanceof HTMLElement
+          ? playbackRowRef.current.getBoundingClientRect()
+          : null;
+      const panelRect =
+        scrollPanel instanceof HTMLElement ? scrollPanel.getBoundingClientRect() : null;
+      const stickyTransportOverlap =
+        playbackRect == null || panelRect == null
+          ? 0
+          : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      const materializedIndexes = materializeVirtualViewport(numericIndex);
+      releaseVirtualSequenceAnchor();
+      return scrollVirtualSequenceIndexIntoView(numericIndex, {
+        align: "start",
+        topOffset: stickyTransportOverlap + 6,
+        targetIndexes: [numericIndex],
+        materializedIndexes,
+        retainedIndexes: materializedIndexes,
+        requireMeasuredLayout: true,
+        applyOnce: true,
+      });
+    },
+    [
+      playbackRowRef,
+      materializeVirtualViewport,
+      releaseVirtualSequenceAnchor,
+      scrollPanelRef,
+      scrollVirtualSequenceIndexIntoView,
+      timedPlaybackOwnsViewport,
+    ],
+  );
+  const prepareBarViewport = useCallback(
+    (barIndex) => {
+      const numericBarIndex = Number(barIndex);
+      if (
+        timedPlaybackOwnsViewport ||
+        !autoScrollEnabledRef.current ||
+        !Number.isInteger(numericBarIndex)
+      )
+        return false;
+      const bar = sortedBars[numericBarIndex] ?? null;
+      const virtualIndex = barDisplayBucket(bar?.position);
+      if (virtualIndex < 0 || virtualIndex >= renderedSnapshots.length) return false;
+      const structuralKeys = structuralScrollKeysAtPosition(bar.position);
+      const materializedIndexes = materializeVirtualViewport(virtualIndex);
+      releaseVirtualSequenceAnchor();
+      return scrollVirtualSequenceIndexIntoView(virtualIndex, {
+        align: "start",
+        topOffset: 6,
+        targetIndexes: [virtualIndex],
+        materializedIndexes,
+        retainedIndexes: materializedIndexes,
+        preferredStructuralKey: structuralKeys[0] ?? null,
+        targetStructuralKeys: structuralKeys,
+        requireMeasuredLayout: true,
+        applyOnce: true,
+      });
+    },
+    [
+      releaseVirtualSequenceAnchor,
+      materializeVirtualViewport,
+      renderedSnapshots.length,
+      scrollVirtualSequenceIndexIntoView,
+      sortedBars,
+      structuralScrollKeysAtPosition,
+      timedPlaybackOwnsViewport,
+    ],
+  );
+  const selectSequenceBarWithViewport = useCallback(
+    (barIndex) => {
+      prepareBarViewport(barIndex);
+      onSelectSequenceBar?.(barIndex);
+    },
+    [onSelectSequenceBar, prepareBarViewport],
+  );
+  const armVirtualizedPendingSnapshot = useCallback(
+    (snapshotIndex) => {
+      prepareSnapshotViewport(snapshotIndex);
+      armPendingSnapshot(snapshotIndex, { viewportPrepared: true });
+    },
+    [armPendingSnapshot, prepareSnapshotViewport],
+  );
+  const prepareCueViewport = useCallback(
+    (cueIndex, { onApplied = null } = {}) => {
+      const numericCueIndex = Number(cueIndex);
+      if (
+        timedPlaybackOwnsViewport ||
+        !autoScrollEnabledRef.current ||
+        !Number.isInteger(numericCueIndex)
+      )
+        return false;
+      const cueViewport = deriveCueViewportPlan({
+        cueIndexZeroBased: numericCueIndex,
+        sequenceEvents,
+      });
+      const cueSnapshotIds = cueViewport.snapshotIds;
+      const overflowEvent =
+        cueViewport.overflowEventId == null
+          ? null
+          : (sequenceEvents.find((event) => event.eventId === cueViewport.overflowEventId) ?? null);
+      const cueEventIds = new Set(cueViewport.eventIds);
+      // sequenceEvents.snapshotIndex addresses renderedSnapshots. Source
+      // snapshot indexes diverge after the runtime inserts display snapshots, so
+      // converting these IDs through `snapshots` can anchor a later visible row.
+      const cueSnapshotIndexes = [
+        ...new Set(
+          sequenceEvents
+            .filter((event) => cueEventIds.has(event.eventId))
+            .map((event) => renderedSnapshotIndexById.get(event.snapshotId))
+            .filter(
+              (index) => Number.isInteger(index) && index >= 0 && index < renderedSnapshots.length,
+            ),
+        ),
+      ];
+      const recentSnapshotId =
+        overflowEvent?.snapshotId ??
+        resolveCueAnchorSnapshotId({
+          activeCueIndex: numericCueIndex + 1,
+          sequenceCueGroups,
+          sequenceEvents,
+          snapshots,
+          cueExpandedSnapshotIds: cueSnapshotIds,
+        });
+      const overflowSnapshotIndex = renderedSnapshotIndexById.get(overflowEvent?.snapshotId);
+      const recentSnapshotIndex = Number.isInteger(overflowSnapshotIndex)
+        ? overflowSnapshotIndex
+        : recentSnapshotId == null
+          ? (sequenceCueGroups[numericCueIndex]?.snapshotIndex ?? null)
+          : (renderedSnapshotIndexById.get(recentSnapshotId) ?? null);
+      if (!Number.isInteger(recentSnapshotIndex) || recentSnapshotIndex < 0) return false;
+      const firstRelevantIndex =
+        cueSnapshotIndexes.length > 0 ? Math.min(...cueSnapshotIndexes) : recentSnapshotIndex;
+      const lastRelevantIndex =
+        cueSnapshotIndexes.length > 0 ? Math.max(...cueSnapshotIndexes) : recentSnapshotIndex;
+      const relevantIndexes = Array.from(
+        { length: lastRelevantIndex - firstRelevantIndex + 1 },
+        (_, offset) => firstRelevantIndex + offset,
+      );
+      const materializedIndexes = materializeVirtualViewport(
+        relevantIndexes[0],
+        relevantIndexes.at(-1),
+      );
+      const scrollPanel = scrollPanelRef.current;
+      const playbackRect =
+        playbackRowRef.current instanceof HTMLElement
+          ? playbackRowRef.current.getBoundingClientRect()
+          : null;
+      const panelRect =
+        scrollPanel instanceof HTMLElement ? scrollPanel.getBoundingClientRect() : null;
+      const stickyTransportOverlap =
+        playbackRect == null || panelRect == null
+          ? 0
+          : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
+      return scrollVirtualSequenceIndexIntoView(recentSnapshotIndex, {
+        align: "start",
+        topOffset: stickyTransportOverlap + 6,
+        // Mount the complete physical interval. No estimated spacer is then
+        // allowed between the first and last relevant event row.
+        targetIndexes: relevantIndexes,
+        materializedIndexes,
+        // Keep the exact interval used to calculate this one scroll. Dropping
+        // the intervening snapshots immediately after applying the anchor
+        // changes the virtual offsets and invalidates the chosen row position.
+        // The next cue transaction replaces this interval.
+        retainedIndexes: materializedIndexes,
+        overflowAlignment: "end",
+        preferredEventId: cueViewport.overflowEventId,
+        targetEventIds: cueViewport.eventIds,
+        requireMountedEventTargets: true,
+        requireMeasuredLayout: true,
+        applyOnce: true,
+        onApplied,
+      });
+    },
+    [
+      playbackRowRef,
+      materializeVirtualViewport,
+      renderedSnapshotIndexById,
+      renderedSnapshots.length,
+      scrollPanelRef,
+      scrollVirtualSequenceIndexIntoView,
       sequenceCueGroups,
       sequenceEvents,
       snapshots,
-      cueExpandedSnapshotIds: cueSnapshotIds,
-    });
-    const overflowSnapshotIndex = renderedSnapshotIndexById.get(overflowEvent?.snapshotId);
-    const recentSnapshotIndex = Number.isInteger(overflowSnapshotIndex)
-      ? overflowSnapshotIndex
-      : recentSnapshotId == null
-        ? (sequenceCueGroups[numericCueIndex]?.snapshotIndex ?? null)
-        : (renderedSnapshotIndexById.get(recentSnapshotId) ?? null);
-    if (!Number.isInteger(recentSnapshotIndex) || recentSnapshotIndex < 0) return false;
-    const firstRelevantIndex = cueSnapshotIndexes.length > 0
-      ? Math.min(...cueSnapshotIndexes)
-      : recentSnapshotIndex;
-    const lastRelevantIndex = cueSnapshotIndexes.length > 0
-      ? Math.max(...cueSnapshotIndexes)
-      : recentSnapshotIndex;
-    const relevantIndexes = Array.from(
-      { length: lastRelevantIndex - firstRelevantIndex + 1 },
-      (_, offset) => firstRelevantIndex + offset,
-    );
-    const materializedIndexes = materializeVirtualViewport(
-      relevantIndexes[0],
-      relevantIndexes.at(-1),
-    );
-    const scrollPanel = scrollPanelRef.current;
-    const playbackRect = playbackRowRef.current instanceof HTMLElement
-      ? playbackRowRef.current.getBoundingClientRect()
-      : null;
-    const panelRect = scrollPanel instanceof HTMLElement
-      ? scrollPanel.getBoundingClientRect()
-      : null;
-    const stickyTransportOverlap = playbackRect == null || panelRect == null
-      ? 0
-      : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
-    return scrollVirtualSequenceIndexIntoView(recentSnapshotIndex, {
-      align: "start",
-      topOffset: stickyTransportOverlap + 6,
-      // Mount the complete physical interval. No estimated spacer is then
-      // allowed between the first and last relevant event row.
-      targetIndexes: relevantIndexes,
-      materializedIndexes,
-      // Keep the exact interval used to calculate this one scroll. Dropping
-      // the intervening snapshots immediately after applying the anchor
-      // changes the virtual offsets and invalidates the chosen row position.
-      // The next cue transaction replaces this interval.
-      retainedIndexes: materializedIndexes,
-      overflowAlignment: "end",
-      preferredEventId: cueViewport.overflowEventId,
-      targetEventIds: cueViewport.eventIds,
-      requireMountedEventTargets: true,
-      requireMeasuredLayout: true,
-      applyOnce: true,
-      onApplied,
-    });
-  }, [
-    playbackRowRef,
-    materializeVirtualViewport,
-    renderedSnapshotIndexById,
-    renderedSnapshots.length,
-    scrollPanelRef,
-    scrollVirtualSequenceIndexIntoView,
-    sequenceCueGroups,
-    sequenceEvents,
-    snapshots,
-    timedPlaybackOwnsViewport,
-  ]);
-  const startCueViewportTransaction = useCallback((cueIndex) => {
-    const numericCueIndex = Number(cueIndex);
-    if (!Number.isInteger(numericCueIndex)) return;
-    cueViewportGenerationRef.current += 1;
-    releaseVirtualSequenceAnchor();
-    setCueViewportTransaction({
-      generation: cueViewportGenerationRef.current,
-      cueIndex: numericCueIndex,
-      phase: "expand",
-    });
-  }, [releaseVirtualSequenceAnchor]);
-  const armVirtualizedPendingCue = useCallback((cueIndex) => {
-    armPendingCue(cueIndex, { viewportPrepared: true });
-    startCueViewportTransaction(cueIndex);
-  }, [
-    armPendingCue,
-    startCueViewportTransaction,
-  ]);
+      timedPlaybackOwnsViewport,
+    ],
+  );
+  const startCueViewportTransaction = useCallback(
+    (cueIndex) => {
+      const numericCueIndex = Number(cueIndex);
+      if (!Number.isInteger(numericCueIndex)) return;
+      cueViewportGenerationRef.current += 1;
+      releaseVirtualSequenceAnchor();
+      setCueViewportTransaction({
+        generation: cueViewportGenerationRef.current,
+        cueIndex: numericCueIndex,
+        phase: "expand",
+      });
+    },
+    [releaseVirtualSequenceAnchor],
+  );
+  const armVirtualizedPendingCue = useCallback(
+    (cueIndex) => {
+      armPendingCue(cueIndex, { viewportPrepared: true });
+      startCueViewportTransaction(cueIndex);
+    },
+    [armPendingCue, startCueViewportTransaction],
+  );
 
   const armNavigationAutoscrollIntent = useCallback((mode, fromTarget) => {
     navigationAutoscrollIntentRef.current = {
@@ -1164,51 +1279,67 @@ const Sequencer = ({
     if (Object.is(intent.fromTarget, currentTarget)) return false;
     return true;
   }, []);
-  const stepSequenceWithAutoscroll = useCallback((direction) => {
-    transportScrollTargetRef.current = "snapshot";
-    armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
-    onStepSequence?.(direction);
-  }, [activeSnapshotId, armNavigationAutoscrollIntent, onStepSequence, transportScrollTargetRef]);
-  const jumpSequenceSnapshotWithAutoscroll = useCallback((snapshotIndex) => {
-    transportScrollTargetRef.current = "snapshot";
-    armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
-    onJumpSequenceSnapshot?.(snapshotIndex);
-  }, [activeSnapshotId, armNavigationAutoscrollIntent, onJumpSequenceSnapshot, transportScrollTargetRef]);
+  const stepSequenceWithAutoscroll = useCallback(
+    (direction) => {
+      transportScrollTargetRef.current = "snapshot";
+      armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
+      onStepSequence?.(direction);
+    },
+    [activeSnapshotId, armNavigationAutoscrollIntent, onStepSequence, transportScrollTargetRef],
+  );
+  const jumpSequenceSnapshotWithAutoscroll = useCallback(
+    (snapshotIndex) => {
+      transportScrollTargetRef.current = "snapshot";
+      armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
+      onJumpSequenceSnapshot?.(snapshotIndex);
+    },
+    [
+      activeSnapshotId,
+      armNavigationAutoscrollIntent,
+      onJumpSequenceSnapshot,
+      transportScrollTargetRef,
+    ],
+  );
   // CUE selection has already prepared its viewport. Triggering that queued
   // cue leaves activeCueIndex unchanged, so the intent below deliberately
   // produces no scroll. Later arrow presses change the cue index and prepare
   // the newly reached cue through the layout effect.
-  const stepSequenceMarkerWithAutoscroll = useCallback((direction) => {
-    transportScrollTargetRef.current = "cue";
-    const triggersPreparedCue = (
-      direction > 0
-      && playhead?.stopped === true
-      && Number.isFinite(pendingTransportSelection?.cueIndex)
-    );
-    if (triggersPreparedCue) {
-      cueStepViewportRequestedRef.current = false;
-      cueViewportGenerationRef.current += 1;
-      setCueViewportTransaction(null);
-      cancelNavigationAutoscroll();
-      cancelVirtualSequenceAnchor();
+  const stepSequenceMarkerWithAutoscroll = useCallback(
+    (direction) => {
+      transportScrollTargetRef.current = "cue";
+      const triggersPreparedCue =
+        direction > 0 &&
+        playhead?.stopped === true &&
+        Number.isFinite(pendingTransportSelection?.cueIndex);
+      if (triggersPreparedCue) {
+        cueStepViewportRequestedRef.current = false;
+        cueViewportGenerationRef.current += 1;
+        setCueViewportTransaction(null);
+        cancelNavigationAutoscroll();
+        cancelVirtualSequenceAnchor();
+        onStepSequenceMarker?.(direction);
+        return;
+      }
+      cueStepViewportRequestedRef.current = true;
       onStepSequenceMarker?.(direction);
-      return;
-    }
-    cueStepViewportRequestedRef.current = true;
-    onStepSequenceMarker?.(direction);
-  }, [
-    cancelNavigationAutoscroll,
-    cancelVirtualSequenceAnchor,
-    onStepSequenceMarker,
-    pendingTransportSelection?.cueIndex,
-    playhead?.stopped,
-    transportScrollTargetRef,
-  ]);
-  const jumpSequenceCueWithAutoscroll = useCallback((cueIndex) => {
-    transportScrollTargetRef.current = "cue";
-    cueStepViewportRequestedRef.current = true;
-    onJumpSequenceCue?.(cueIndex);
-  }, [onJumpSequenceCue, transportScrollTargetRef]);
+    },
+    [
+      cancelNavigationAutoscroll,
+      cancelVirtualSequenceAnchor,
+      onStepSequenceMarker,
+      pendingTransportSelection?.cueIndex,
+      playhead?.stopped,
+      transportScrollTargetRef,
+    ],
+  );
+  const jumpSequenceCueWithAutoscroll = useCallback(
+    (cueIndex) => {
+      transportScrollTargetRef.current = "cue";
+      cueStepViewportRequestedRef.current = true;
+      onJumpSequenceCue?.(cueIndex);
+    },
+    [onJumpSequenceCue, transportScrollTargetRef],
+  );
 
   useLayoutEffect(() => {
     if (timedPlaybackOwnsViewport) return;
@@ -1216,11 +1347,7 @@ const Sequencer = ({
     if (!cueStepViewportRequestedRef.current) return;
     cueStepViewportRequestedRef.current = false;
     startCueViewportTransaction(activeCueIndex - 1);
-  }, [
-    activeCueIndex,
-    startCueViewportTransaction,
-    timedPlaybackOwnsViewport,
-  ]);
+  }, [activeCueIndex, startCueViewportTransaction, timedPlaybackOwnsViewport]);
 
   useLayoutEffect(() => {
     if (cueViewportTransaction == null) return;
@@ -1230,35 +1357,24 @@ const Sequencer = ({
       if (!showAllEvents && !sameSnapshotSet(expandedIds, requiredExpandedIds)) {
         setExpandedIds(requiredExpandedIds);
       }
-      setCueViewportTransaction((current) => (
-        current?.generation === generation
-          ? { ...current, phase: "materialize" }
-          : current
-      ));
+      setCueViewportTransaction((current) =>
+        current?.generation === generation ? { ...current, phase: "materialize" } : current,
+      );
       return;
     }
     if (phase !== "materialize") return;
-    if (
-      timedPlaybackOwnsViewport
-      || !autoScrollEnabledRef.current
-    ) {
-      setCueViewportTransaction((current) => (
-        current?.generation === generation ? null : current
-      ));
+    if (timedPlaybackOwnsViewport || !autoScrollEnabledRef.current) {
+      setCueViewportTransaction((current) => (current?.generation === generation ? null : current));
       return;
     }
     const onApplied = () => {
-      setCueViewportTransaction((current) => (
-        current?.generation === generation
-          ? { ...current, phase: "prepared" }
-          : current
-      ));
+      setCueViewportTransaction((current) =>
+        current?.generation === generation ? { ...current, phase: "prepared" } : current,
+      );
     };
-    setCueViewportTransaction((current) => (
-      current?.generation === generation
-        ? { ...current, phase: "measuring" }
-        : current
-    ));
+    setCueViewportTransaction((current) =>
+      current?.generation === generation ? { ...current, phase: "measuring" } : current,
+    );
     prepareCueViewport(cueIndex, { onApplied });
   }, [
     cueExpandedSnapshotIdsAt,
@@ -1359,9 +1475,8 @@ const Sequencer = ({
   useEffect(() => {
     const setTransportField = (field, value) => {
       if (value != null) timedTransportFieldValuesRef.current[field] = String(value);
-      const select = playbackRowRef.current?.querySelector?.(
-        `[data-timed-transport-field="${field}"]`,
-      ) ?? null;
+      const select =
+        playbackRowRef.current?.querySelector?.(`[data-timed-transport-field="${field}"]`) ?? null;
       if (select && value != null) select.value = String(value);
     };
     const highlightPresenter = createTimedPlaybackHighlightPresenter({
@@ -1394,9 +1509,7 @@ const Sequencer = ({
     timedVisualCueHandlerRef.current = (cueIndex, trigger, burst) => {
       const cueGroup = sequenceCueGroups[cueIndex] ?? null;
       const snapshotIndex = cueGroup?.snapshotIndex ?? null;
-      const snapshotId = cueGroup == null
-        ? null
-        : (snapshots[snapshotIndex]?.id ?? null);
+      const snapshotId = cueGroup == null ? null : (snapshots[snapshotIndex]?.id ?? null);
       const soundingAfter = Array.isArray(burst?.soundingAfter) ? burst.soundingAfter : [];
       const soundingEventIds = new Set(
         soundingAfter.map((note) => note?.eventId).filter((eventId) => eventId != null),
@@ -1418,18 +1531,14 @@ const Sequencer = ({
 
       if (!showAllEvents) {
         const timedExpandedSnapshotIds = new Set(
-          soundingAfter
-            .map((note) => note?.snapshotId)
-            .filter((id) => id != null),
+          soundingAfter.map((note) => note?.snapshotId).filter((id) => id != null),
         );
         if (timedExpandedSnapshotIds.size === 0 && snapshotId != null) {
           timedExpandedSnapshotIds.add(snapshotId);
         }
-        setExpandedIds((previous) => (
-          sameSnapshotSet(previous, timedExpandedSnapshotIds)
-            ? previous
-            : timedExpandedSnapshotIds
-        ));
+        setExpandedIds((previous) =>
+          sameSnapshotSet(previous, timedExpandedSnapshotIds) ? previous : timedExpandedSnapshotIds,
+        );
       }
 
       if (!autoScrollEnabledRef.current) {
@@ -1499,13 +1608,16 @@ const Sequencer = ({
     return () => window.cancelAnimationFrame(refreshFrame);
   }, [timedTransportUiState.running, virtualSequenceLayout]);
 
-  useEffect(() => () => {
-    pendingTimedVisualNotificationRef.current = null;
-    if (timedVisualNotificationFrameRef.current != null) {
-      window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
-      timedVisualNotificationFrameRef.current = null;
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      pendingTimedVisualNotificationRef.current = null;
+      if (timedVisualNotificationFrameRef.current != null) {
+        window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
+        timedVisualNotificationFrameRef.current = null;
+      }
+    },
+    [],
+  );
 
   if (!timedTransportUiState.running) {
     timedTransportFieldValuesRef.current = {
@@ -1524,12 +1636,11 @@ const Sequencer = ({
 
   useEffect(() => {
     if (timedPlaybackOwnsViewport) return;
-    const pendingCueIndex = (
-      transportScrollTargetRef.current === "cue"
-      && Number.isFinite(pendingTransportSelection?.cueIndex)
-    )
-      ? pendingTransportSelection.cueIndex
-      : null;
+    const pendingCueIndex =
+      transportScrollTargetRef.current === "cue" &&
+      Number.isFinite(pendingTransportSelection?.cueIndex)
+        ? pendingTransportSelection.cueIndex
+        : null;
     const nextExpandedIds = deriveExpandedSnapshotIds({
       showAllEvents,
       cueExpandedSnapshotIdsAt,
@@ -1539,12 +1650,11 @@ const Sequencer = ({
       activeCueIndex,
       pendingCueIndex,
       cueExpandedSnapshotIds,
-      suppressSelectedSnapshotPreview: (
+      suppressSelectedSnapshotPreview:
         !showAllEvents &&
         activeCueIndex == null &&
         selectedSnapshotId != null &&
-        compactSelectionPreviewSuppressedId === selectedSnapshotId
-      ),
+        compactSelectionPreviewSuppressedId === selectedSnapshotId,
     });
     if (nextExpandedIds == null) return;
     setExpandedIds((prev) => (sameSnapshotSet(prev, nextExpandedIds) ? prev : nextExpandedIds));
@@ -1620,15 +1730,18 @@ const Sequencer = ({
     setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
   };
 
-  const selectSnapshotForEditing = useCallback((snapshotId) => {
-    const snapshotIndex = snapshots.findIndex((snapshot) => snapshot.id === snapshotId);
-    if (snapshotIndex >= 0) {
-      const snapshotPosition = String(snapshotIndex + 1);
-      setCopyRangeStart(snapshotPosition);
-      setCopyRangeEnd(snapshotPosition);
-    }
-    onSelectSnapshot?.(snapshotId);
-  }, [onSelectSnapshot, snapshots]);
+  const selectSnapshotForEditing = useCallback(
+    (snapshotId) => {
+      const snapshotIndex = snapshots.findIndex((snapshot) => snapshot.id === snapshotId);
+      if (snapshotIndex >= 0) {
+        const snapshotPosition = String(snapshotIndex + 1);
+        setCopyRangeStart(snapshotPosition);
+        setCopyRangeEnd(snapshotPosition);
+      }
+      onSelectSnapshot?.(snapshotId);
+    },
+    [onSelectSnapshot, snapshots],
+  );
 
   const toggleEditPlayLayout = useCallback(() => {
     const target = transportScrollTargetRef.current;
@@ -1672,19 +1785,22 @@ const Sequencer = ({
     transportScrollTargetRef,
   ]);
 
-  const handleSnapshotRowClick = useCallback((snapshotId, isSelected) => {
-    selectSnapshotForEditing(snapshotId);
-    if (showAllEvents) {
-      setCompactSelectionPreviewSuppressedId(null);
-      return;
-    }
-    if (isSelected) {
-      setCompactSelectionPreviewSuppressedId(null);
-      toggleExpanded(snapshotId);
-      return;
-    }
-    setCompactSelectionPreviewSuppressedId(snapshotId);
-  }, [selectSnapshotForEditing, showAllEvents]);
+  const handleSnapshotRowClick = useCallback(
+    (snapshotId, isSelected) => {
+      selectSnapshotForEditing(snapshotId);
+      if (showAllEvents) {
+        setCompactSelectionPreviewSuppressedId(null);
+        return;
+      }
+      if (isSelected) {
+        setCompactSelectionPreviewSuppressedId(null);
+        toggleExpanded(snapshotId);
+        return;
+      }
+      setCompactSelectionPreviewSuppressedId(snapshotId);
+    },
+    [selectSnapshotForEditing, showAllEvents],
+  );
 
   const resolveDropSide = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1739,17 +1855,20 @@ const Sequencer = ({
     return false;
   }, [resolvedCopyRange?.valid]);
 
-  const buildRangeEditUndo = useCallback((extra = {}) => {
-    const rangeSnapshots = snapshots.slice(
-      resolvedCopyRange.startPosition - 1,
-      resolvedCopyRange.endPosition,
-    );
-    return {
-      snapshots: rangeSnapshots,
-      snapshotIds: rangeSnapshots.map((snapshot) => snapshot.id),
-      ...extra,
-    };
-  }, [resolvedCopyRange, snapshots]);
+  const buildRangeEditUndo = useCallback(
+    (extra = {}) => {
+      const rangeSnapshots = snapshots.slice(
+        resolvedCopyRange.startPosition - 1,
+        resolvedCopyRange.endPosition,
+      );
+      return {
+        snapshots: rangeSnapshots,
+        snapshotIds: rangeSnapshots.map((snapshot) => snapshot.id),
+        ...extra,
+      };
+    },
+    [resolvedCopyRange, snapshots],
+  );
 
   const handleResetSnapshotRangeNoteOffsetsInPlace = useCallback(() => {
     if (!requireValidCopyRange()) return;
@@ -1797,10 +1916,10 @@ const Sequencer = ({
     setCopiedSnapshotBlock(null);
     setRangeEditUndo(null);
     setCopyInsertStatus(
-      `Deleted ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}`
-      + `${copyIncludeBars ? " with bars" : ""}`
-      + `${copyIncludeTempi ? ", tempi" : ""}`
-      + `${copyIncludeRepeats ? ", repeats" : ""}.`,
+      `Deleted ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}` +
+        `${copyIncludeBars ? " with bars" : ""}` +
+        `${copyIncludeTempi ? ", tempi" : ""}` +
+        `${copyIncludeRepeats ? ", repeats" : ""}.`,
     );
   }, [
     copyIncludeBars,
@@ -1814,44 +1933,53 @@ const Sequencer = ({
     resolvedCopyRange,
   ]);
 
-  const handleDeleteSnapshot = useCallback((snapshotId) => {
-    const result = onDeleteSnapshot?.(snapshotId);
-    workspaceMutationViewportRef.current = result?.focus ?? null;
-  }, [onDeleteSnapshot]);
+  const handleDeleteSnapshot = useCallback(
+    (snapshotId) => {
+      const result = onDeleteSnapshot?.(snapshotId);
+      workspaceMutationViewportRef.current = result?.focus ?? null;
+    },
+    [onDeleteSnapshot],
+  );
 
-  const handleSetSnapshotRangeArticulation = useCallback((articulation) => {
-    if (!requireValidCopyRange()) return;
-    const undo = buildRangeEditUndo({
-      manualArpeggiationMode: normalizedManualArpeggiation.mode,
-    });
-    const result = onSetSnapshotRangeArticulation?.({
-      startPosition: copyRangeStart,
-      endPosition: copyRangeEnd,
-      includeBars: copyIncludeBars,
-    }, articulation);
-    if (typeof result === "string" && result) {
-      setCopyInsertStatus("Unable to set arpeggiation for the selected range.");
-      return;
-    }
-    setRangeEditUndo(undo);
-    if (normalizedManualArpeggiation.mode !== "per-snapshot") {
-      onManualArpeggiationChange?.({ mode: "per-snapshot" });
-    }
-    setCopyInsertStatus(
-      `Set ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}`
-      + ` to ${articulation === "arpeggiate" ? "arp" : "chord"}.`,
-    );
-  }, [
-    buildRangeEditUndo,
-    copyIncludeBars,
-    copyRangeEnd,
-    copyRangeStart,
-    normalizedManualArpeggiation.mode,
-    onManualArpeggiationChange,
-    onSetSnapshotRangeArticulation,
-    requireValidCopyRange,
-    resolvedCopyRange,
-  ]);
+  const handleSetSnapshotRangeArticulation = useCallback(
+    (articulation) => {
+      if (!requireValidCopyRange()) return;
+      const undo = buildRangeEditUndo({
+        manualArpeggiationMode: normalizedManualArpeggiation.mode,
+      });
+      const result = onSetSnapshotRangeArticulation?.(
+        {
+          startPosition: copyRangeStart,
+          endPosition: copyRangeEnd,
+          includeBars: copyIncludeBars,
+        },
+        articulation,
+      );
+      if (typeof result === "string" && result) {
+        setCopyInsertStatus("Unable to set arpeggiation for the selected range.");
+        return;
+      }
+      setRangeEditUndo(undo);
+      if (normalizedManualArpeggiation.mode !== "per-snapshot") {
+        onManualArpeggiationChange?.({ mode: "per-snapshot" });
+      }
+      setCopyInsertStatus(
+        `Set ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}` +
+          ` to ${articulation === "arpeggiate" ? "arp" : "chord"}.`,
+      );
+    },
+    [
+      buildRangeEditUndo,
+      copyIncludeBars,
+      copyRangeEnd,
+      copyRangeStart,
+      normalizedManualArpeggiation.mode,
+      onManualArpeggiationChange,
+      onSetSnapshotRangeArticulation,
+      requireValidCopyRange,
+      resolvedCopyRange,
+    ],
+  );
 
   const handleRevertSnapshotRangeChanges = useCallback(() => {
     if (!rangeEditUndo) return;
@@ -1871,68 +1999,101 @@ const Sequencer = ({
   }, [onManualArpeggiationChange, onRestoreSnapshotRangeChanges, rangeEditUndo]);
 
   // Local mutation adapters passed down into row components.
-  const updateEventField = useCallback((snapshot, noteRef, field, rawValue) => {
-    const notes = updateEventFieldInSnapshot(snapshot, noteRef, field, rawValue);
-    if (!notes) return;
-    onUpdateSnapshot(snapshot.id, { notes });
-  }, [onUpdateSnapshot]);
+  const updateEventField = useCallback(
+    (snapshot, noteRef, field, rawValue) => {
+      const notes = updateEventFieldInSnapshot(snapshot, noteRef, field, rawValue);
+      if (!notes) return;
+      onUpdateSnapshot(snapshot.id, { notes });
+    },
+    [onUpdateSnapshot],
+  );
 
-  const restoreEventPitchLabel = useCallback((snapshot, noteRef) => {
-    const notes = restoreEventPitchLabelInSnapshot(snapshot, noteRef);
-    onUpdateSnapshot(snapshot.id, { notes });
-  }, [onUpdateSnapshot]);
+  const restoreEventPitchLabel = useCallback(
+    (snapshot, noteRef) => {
+      const notes = restoreEventPitchLabelInSnapshot(snapshot, noteRef);
+      onUpdateSnapshot(snapshot.id, { notes });
+    },
+    [onUpdateSnapshot],
+  );
 
-  const commitEventPitchLabel = useCallback((snapshot, noteRef) => {
-    const notes = commitEventPitchLabelInSnapshot(snapshot, noteRef);
-    onUpdateSnapshot(snapshot.id, { notes });
-  }, [onUpdateSnapshot]);
+  const commitEventPitchLabel = useCallback(
+    (snapshot, noteRef) => {
+      const notes = commitEventPitchLabelInSnapshot(snapshot, noteRef);
+      onUpdateSnapshot(snapshot.id, { notes });
+    },
+    [onUpdateSnapshot],
+  );
 
-  const updateBarPosition = useCallback((barId, rawValue) => {
-    const numeric = Number(rawValue);
-    if (!Number.isFinite(numeric)) return;
-    onUpdateBar?.(barId, { position: Math.max(1, Math.round(numeric)) });
-  }, [onUpdateBar]);
+  const updateBarPosition = useCallback(
+    (barId, rawValue) => {
+      const numeric = Number(rawValue);
+      if (!Number.isFinite(numeric)) return;
+      onUpdateBar?.(barId, { position: Math.max(1, Math.round(numeric)) });
+    },
+    [onUpdateBar],
+  );
 
-  const updateTempoPosition = useCallback((tempoId, rawValue) => {
-    const numeric = Number(rawValue);
-    if (!Number.isFinite(numeric)) return;
-    onUpdateTempo?.(tempoId, { position: Math.round(numeric * 1000000) / 1000000 });
-  }, [onUpdateTempo]);
+  const updateTempoPosition = useCallback(
+    (tempoId, rawValue) => {
+      const numeric = Number(rawValue);
+      if (!Number.isFinite(numeric)) return;
+      onUpdateTempo?.(tempoId, { position: Math.round(numeric * 1000000) / 1000000 });
+    },
+    [onUpdateTempo],
+  );
 
-  const updateRepeatPosition = useCallback((repeatId, rawValue) => {
-    const numeric = Number(rawValue);
-    if (!Number.isFinite(numeric)) return;
-    onUpdateRepeat?.(repeatId, { position: Math.round(numeric * 1000000) / 1000000 });
-  }, [onUpdateRepeat]);
+  const updateRepeatPosition = useCallback(
+    (repeatId, rawValue) => {
+      const numeric = Number(rawValue);
+      if (!Number.isFinite(numeric)) return;
+      onUpdateRepeat?.(repeatId, { position: Math.round(numeric * 1000000) / 1000000 });
+    },
+    [onUpdateRepeat],
+  );
 
-  const updateRepeatCount = useCallback((repeatId, rawValue) => {
-    const numeric = Math.max(2, Math.round(Number(rawValue) || 2));
-    if (!Number.isFinite(numeric)) return;
-    onUpdateRepeat?.(repeatId, { repeatCount: numeric });
-  }, [onUpdateRepeat]);
+  const updateRepeatCount = useCallback(
+    (repeatId, rawValue) => {
+      const numeric = Math.max(2, Math.round(Number(rawValue) || 2));
+      if (!Number.isFinite(numeric)) return;
+      onUpdateRepeat?.(repeatId, { repeatCount: numeric });
+    },
+    [onUpdateRepeat],
+  );
 
-  const updateTempoBpm = useCallback((tempoId, rawValue) => {
-    const numeric = Number(rawValue);
-    if (!Number.isFinite(numeric) || numeric <= 0) return;
-    onUpdateTempo?.(tempoId, { bpm: numeric });
-  }, [onUpdateTempo]);
+  const updateTempoBpm = useCallback(
+    (tempoId, rawValue) => {
+      const numeric = Number(rawValue);
+      if (!Number.isFinite(numeric) || numeric <= 0) return;
+      onUpdateTempo?.(tempoId, { bpm: numeric });
+    },
+    [onUpdateTempo],
+  );
 
-  const updateTempoBeatFraction = useCallback((tempoId, numerator, denominator) => {
-    onUpdateTempo?.(tempoId, normalizeTempoBeatFraction(numerator, denominator));
-  }, [onUpdateTempo]);
+  const updateTempoBeatFraction = useCallback(
+    (tempoId, numerator, denominator) => {
+      onUpdateTempo?.(tempoId, normalizeTempoBeatFraction(numerator, denominator));
+    },
+    [onUpdateTempo],
+  );
 
-  const updateTempoMode = useCallback((tempoId, mode) => {
-    onUpdateTempo?.(tempoId, {
-      mode: mode === "gradual" ? "gradual" : "immediate",
-    });
-  }, [onUpdateTempo]);
+  const updateTempoMode = useCallback(
+    (tempoId, mode) => {
+      onUpdateTempo?.(tempoId, {
+        mode: mode === "gradual" ? "gradual" : "immediate",
+      });
+    },
+    [onUpdateTempo],
+  );
 
-  const updateBarTimeSignatureField = useCallback((barId, field, rawValue) => {
-    if (field !== "numerator" && field !== "denominator") return;
-    const parsed = Math.round(Number(rawValue) || 0);
-    const numeric = Math.max(1, parsed);
-    onUpdateBar?.(barId, { [field]: numeric });
-  }, [onUpdateBar]);
+  const updateBarTimeSignatureField = useCallback(
+    (barId, field, rawValue) => {
+      if (field !== "numerator" && field !== "denominator") return;
+      const parsed = Math.round(Number(rawValue) || 0);
+      const numeric = Math.max(1, parsed);
+      onUpdateBar?.(barId, { [field]: numeric });
+    },
+    [onUpdateBar],
+  );
 
   const addBarAtRequestedPosition = () => {
     const numeric = Number(newBarPosition);
@@ -1961,26 +2122,24 @@ const Sequencer = ({
     onAddTempo?.(Math.round(position * 1000000) / 1000000, bpm, "gradual");
   };
 
-  const updateNewTempoPosition = useCallback((rawValue) => {
-    setNewTempoPosition(rawValue);
-    if (!newTempoBpmIsSuggested || String(rawValue).trim() === "") return;
-    const position = Number(rawValue);
-    if (!Number.isFinite(position)) return;
-    const tempo = deriveTempoAtSequencePosition(
-      position,
-      sortedTempi,
-      sortedBars,
-      terminalBarlinePosition,
-    );
-    const quarterNoteBpm = Number(tempo?.wholeNotesPerMinute) * 4;
-    if (!Number.isFinite(quarterNoteBpm) || quarterNoteBpm <= 0) return;
-    setNewTempoBpm(String(Math.round(quarterNoteBpm * 1000000) / 1000000));
-  }, [
-    newTempoBpmIsSuggested,
-    sortedBars,
-    sortedTempi,
-    terminalBarlinePosition,
-  ]);
+  const updateNewTempoPosition = useCallback(
+    (rawValue) => {
+      setNewTempoPosition(rawValue);
+      if (!newTempoBpmIsSuggested || String(rawValue).trim() === "") return;
+      const position = Number(rawValue);
+      if (!Number.isFinite(position)) return;
+      const tempo = deriveTempoAtSequencePosition(
+        position,
+        sortedTempi,
+        sortedBars,
+        terminalBarlinePosition,
+      );
+      const quarterNoteBpm = Number(tempo?.wholeNotesPerMinute) * 4;
+      if (!Number.isFinite(quarterNoteBpm) || quarterNoteBpm <= 0) return;
+      setNewTempoBpm(String(Math.round(quarterNoteBpm * 1000000) / 1000000));
+    },
+    [newTempoBpmIsSuggested, sortedBars, sortedTempi, terminalBarlinePosition],
+  );
 
   const updateNewTempoBpm = useCallback((rawValue) => {
     setNewTempoBpm(rawValue);
@@ -2026,19 +2185,25 @@ const Sequencer = ({
     setNewBarDenominator(suggestedBarMeter.denominator);
   }, [newBarMeterIsSuggested, suggestedBarMeter]);
 
-  const handleEnterCommit = useCallback((e, commit) => {
-    if (e.key !== "Enter") return;
-    e.preventDefault();
-    commitTextInput(e.currentTarget, commit);
-    notifyEditCommitted();
-    e.currentTarget.blur();
-  }, [notifyEditCommitted]);
+  const handleEnterCommit = useCallback(
+    (e, commit) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      commitTextInput(e.currentTarget, commit);
+      notifyEditCommitted();
+      e.currentTarget.blur();
+    },
+    [notifyEditCommitted],
+  );
 
-  const handleBlurCommit = useCallback((e, commit, afterCommit = null) => {
-    commitTextInput(e.currentTarget, commit);
-    if (typeof afterCommit === "function") afterCommit();
-    notifyEditCommitted();
-  }, [notifyEditCommitted]);
+  const handleBlurCommit = useCallback(
+    (e, commit, afterCommit = null) => {
+      commitTextInput(e.currentTarget, commit);
+      if (typeof afterCommit === "function") afterCommit();
+      notifyEditCommitted();
+    },
+    [notifyEditCommitted],
+  );
 
   const currentEventPane = eventPane === "expression" ? "expression" : "timing";
 
@@ -2047,7 +2212,12 @@ const Sequencer = ({
     const next = new Map();
     for (const event of sequenceEvents) {
       if (!event?.eventId) continue;
-      if (event.type !== "note" && event.type !== "tempo" && event.type !== "repeat-start" && event.type !== "repeat-end") {
+      if (
+        event.type !== "note" &&
+        event.type !== "tempo" &&
+        event.type !== "repeat-start" &&
+        event.type !== "repeat-end"
+      ) {
         continue;
       }
       const barBeat = absolutePositionToBarBeat(
@@ -2064,272 +2234,306 @@ const Sequencer = ({
     return next;
   }, [sequenceEvents, sortedBars, terminalBarlinePosition]);
 
-  const barRowDnd = useMemo(() => ({
-    draggedBarId,
-    barDragIdRef,
-    setDraggedBarId,
-    onMoveBar,
-  }), [draggedBarId, onMoveBar]);
+  const barRowDnd = useMemo(
+    () => ({
+      draggedBarId,
+      barDragIdRef,
+      setDraggedBarId,
+      onMoveBar,
+    }),
+    [draggedBarId, onMoveBar],
+  );
 
-  const barRowEditing = useMemo(() => ({
-    onDeleteBar,
-    handleEnterCommit,
-    handleBlurCommit,
-    updateBarPosition,
-    updateBarTimeSignatureField,
-  }), [
-    handleBlurCommit,
-    handleEnterCommit,
-    onDeleteBar,
-    updateBarPosition,
-    updateBarTimeSignatureField,
-  ]);
+  const barRowEditing = useMemo(
+    () => ({
+      onDeleteBar,
+      handleEnterCommit,
+      handleBlurCommit,
+      updateBarPosition,
+      updateBarTimeSignatureField,
+    }),
+    [
+      handleBlurCommit,
+      handleEnterCommit,
+      onDeleteBar,
+      updateBarPosition,
+      updateBarTimeSignatureField,
+    ],
+  );
 
-  const tempoRowTiming = useMemo(() => ({
-    sortedBars,
-    sortedTempi,
-    terminalBarlinePosition,
-    barBeatByEventId,
-    tempoBarRelativeDraftKey,
-    tempoBarRelativeDrafts,
-    tempoTransitionCueMap,
-  }), [
-    barBeatByEventId,
-    sortedBars,
-    sortedTempi,
-    tempoBarRelativeDrafts,
-    tempoTransitionCueMap,
-    terminalBarlinePosition,
-  ]);
+  const tempoRowTiming = useMemo(
+    () => ({
+      sortedBars,
+      sortedTempi,
+      terminalBarlinePosition,
+      barBeatByEventId,
+      tempoBarRelativeDraftKey,
+      tempoBarRelativeDrafts,
+      tempoTransitionCueMap,
+    }),
+    [
+      barBeatByEventId,
+      sortedBars,
+      sortedTempi,
+      tempoBarRelativeDrafts,
+      tempoTransitionCueMap,
+      terminalBarlinePosition,
+    ],
+  );
 
-  const repeatRowTiming = useMemo(() => ({
-    sortedBars,
-    terminalBarlinePosition,
-    barBeatByEventId,
-    repeatBarRelativeDraftKey,
-    repeatBarRelativeDrafts,
-  }), [
-    barBeatByEventId,
-    repeatBarRelativeDrafts,
-    sortedBars,
-    terminalBarlinePosition,
-  ]);
+  const repeatRowTiming = useMemo(
+    () => ({
+      sortedBars,
+      terminalBarlinePosition,
+      barBeatByEventId,
+      repeatBarRelativeDraftKey,
+      repeatBarRelativeDrafts,
+    }),
+    [barBeatByEventId, repeatBarRelativeDrafts, sortedBars, terminalBarlinePosition],
+  );
 
-  const tempoRowEditing = useMemo(() => ({
-    handleEnterCommit,
-    handleBlurCommit,
-    updateTempoBeatFraction,
-    updateTempoBpm,
-    updateTempoMode,
-    updateTempoPosition,
-    updateTempoBarRelativeDraftField,
-    commitTempoBarRelativeDraft,
-    cancelTempoBarRelativeDraft,
-    onDeleteTempo,
-  }), [
-    cancelTempoBarRelativeDraft,
-    commitTempoBarRelativeDraft,
-    handleBlurCommit,
-    handleEnterCommit,
-    onDeleteTempo,
-    updateTempoBarRelativeDraftField,
-    updateTempoBeatFraction,
-    updateTempoBpm,
-    updateTempoMode,
-    updateTempoPosition,
-  ]);
+  const tempoRowEditing = useMemo(
+    () => ({
+      handleEnterCommit,
+      handleBlurCommit,
+      updateTempoBeatFraction,
+      updateTempoBpm,
+      updateTempoMode,
+      updateTempoPosition,
+      updateTempoBarRelativeDraftField,
+      commitTempoBarRelativeDraft,
+      cancelTempoBarRelativeDraft,
+      onDeleteTempo,
+    }),
+    [
+      cancelTempoBarRelativeDraft,
+      commitTempoBarRelativeDraft,
+      handleBlurCommit,
+      handleEnterCommit,
+      onDeleteTempo,
+      updateTempoBarRelativeDraftField,
+      updateTempoBeatFraction,
+      updateTempoBpm,
+      updateTempoMode,
+      updateTempoPosition,
+    ],
+  );
 
-  const repeatRowEditing = useMemo(() => ({
-    handleEnterCommit,
-    handleBlurCommit,
-    updateRepeatPosition,
-    updateRepeatCount,
-    updateRepeatBarRelativeDraftField,
-    commitRepeatBarRelativeDraft,
-    cancelRepeatBarRelativeDraft,
-    onDeleteRepeat,
-  }), [
-    cancelRepeatBarRelativeDraft,
-    commitRepeatBarRelativeDraft,
-    handleBlurCommit,
-    handleEnterCommit,
-    onDeleteRepeat,
-    updateRepeatBarRelativeDraftField,
-    updateRepeatCount,
-    updateRepeatPosition,
-  ]);
+  const repeatRowEditing = useMemo(
+    () => ({
+      handleEnterCommit,
+      handleBlurCommit,
+      updateRepeatPosition,
+      updateRepeatCount,
+      updateRepeatBarRelativeDraftField,
+      commitRepeatBarRelativeDraft,
+      cancelRepeatBarRelativeDraft,
+      onDeleteRepeat,
+    }),
+    [
+      cancelRepeatBarRelativeDraft,
+      commitRepeatBarRelativeDraft,
+      handleBlurCommit,
+      handleEnterCommit,
+      onDeleteRepeat,
+      updateRepeatBarRelativeDraftField,
+      updateRepeatCount,
+      updateRepeatPosition,
+    ],
+  );
 
-  const eventRowView = useMemo(() => ({
-    findSnapshotById,
-    selectedMarker,
-    activeNavigationMode,
-    activeCueIndex,
-    activeSnapshotId,
-    sequencePlaybackActive,
-    soundingAttackEventIds,
-    snapshotIndexById,
-    firstSnapshotCueEventIds,
-    currentEventPane,
-  }), [
-    activeCueIndex,
-    activeNavigationMode,
-    activeSnapshotId,
-    currentEventPane,
-    findSnapshotById,
-    firstSnapshotCueEventIds,
-    selectedMarker,
-    sequencePlaybackActive,
-    snapshotIndexById,
-    soundingAttackEventIds,
-  ]);
+  const eventRowView = useMemo(
+    () => ({
+      findSnapshotById,
+      selectedMarker,
+      activeNavigationMode,
+      activeCueIndex,
+      activeSnapshotId,
+      sequencePlaybackActive,
+      soundingAttackEventIds,
+      snapshotIndexById,
+      firstSnapshotCueEventIds,
+      currentEventPane,
+    }),
+    [
+      activeCueIndex,
+      activeNavigationMode,
+      activeSnapshotId,
+      currentEventPane,
+      findSnapshotById,
+      firstSnapshotCueEventIds,
+      selectedMarker,
+      sequencePlaybackActive,
+      snapshotIndexById,
+      soundingAttackEventIds,
+    ],
+  );
 
-  const eventRowDrafts = useMemo(() => ({
-    sortedBars,
-    terminalBarlinePosition,
-    barBeatByEventId,
-    eventBarRelativeDraftKey,
-    barRelativeDrafts,
-    eventSequenceDraftKey,
-    eventSequenceDrafts,
-  }), [
-    barBeatByEventId,
-    barRelativeDrafts,
-    eventSequenceDrafts,
-    sortedBars,
-    terminalBarlinePosition,
-  ]);
+  const eventRowDrafts = useMemo(
+    () => ({
+      sortedBars,
+      terminalBarlinePosition,
+      barBeatByEventId,
+      eventBarRelativeDraftKey,
+      barRelativeDrafts,
+      eventSequenceDraftKey,
+      eventSequenceDrafts,
+    }),
+    [barBeatByEventId, barRelativeDrafts, eventSequenceDrafts, sortedBars, terminalBarlinePosition],
+  );
 
-  const eventRowDrag = useMemo(() => ({
-    eventRowRefs,
-    barDragIdRef,
-    onMoveBar,
-    setDraggedBarId,
-    eventDragRef,
-    setDraggedEventId,
-    setDragOverId,
-    draggedEventId,
-  }), [draggedEventId, eventRowRefs, onMoveBar]);
+  const eventRowDrag = useMemo(
+    () => ({
+      eventRowRefs,
+      barDragIdRef,
+      onMoveBar,
+      setDraggedBarId,
+      eventDragRef,
+      setDraggedEventId,
+      setDragOverId,
+      draggedEventId,
+    }),
+    [draggedEventId, eventRowRefs, onMoveBar],
+  );
 
-  const eventRowEditing = useMemo(() => ({
-    onSelectMarker,
-    deleteEventNote,
-    updateEventSequenceDraftField,
-    applyEventSequenceDraft,
-    cancelEventSequenceDraft,
-    updateEventField,
-    handleEnterCommit,
-    handleBlurCommit,
-    snapSequenceToCurrentTuning,
-    restoreEventPitchLabel,
-    commitEventPitchLabel,
-    updateEventBarRelativeDraftField,
-    commitEventBarRelativeDraft,
-    cancelEventBarRelativeDraft,
-  }), [
-    cancelEventBarRelativeDraft,
-    cancelEventSequenceDraft,
-    commitEventBarRelativeDraft,
-    commitEventPitchLabel,
-    deleteEventNote,
-    handleBlurCommit,
-    handleEnterCommit,
-    onSelectMarker,
-    restoreEventPitchLabel,
-    snapSequenceToCurrentTuning,
-    updateEventBarRelativeDraftField,
-    updateEventField,
-    updateEventSequenceDraftField,
-    applyEventSequenceDraft,
-  ]);
+  const eventRowEditing = useMemo(
+    () => ({
+      onSelectMarker,
+      deleteEventNote,
+      updateEventSequenceDraftField,
+      applyEventSequenceDraft,
+      cancelEventSequenceDraft,
+      updateEventField,
+      handleEnterCommit,
+      handleBlurCommit,
+      snapSequenceToCurrentTuning,
+      restoreEventPitchLabel,
+      commitEventPitchLabel,
+      updateEventBarRelativeDraftField,
+      commitEventBarRelativeDraft,
+      cancelEventBarRelativeDraft,
+    }),
+    [
+      cancelEventBarRelativeDraft,
+      cancelEventSequenceDraft,
+      commitEventBarRelativeDraft,
+      commitEventPitchLabel,
+      deleteEventNote,
+      handleBlurCommit,
+      handleEnterCommit,
+      onSelectMarker,
+      restoreEventPitchLabel,
+      snapSequenceToCurrentTuning,
+      updateEventBarRelativeDraftField,
+      updateEventField,
+      updateEventSequenceDraftField,
+      applyEventSequenceDraft,
+    ],
+  );
 
-  const eventRowTransport = useMemo(() => ({
-    playingSnapshotId,
-    runTransportAction,
-    onPlayCue,
-    onStopSnapshot,
-  }), [onPlayCue, onStopSnapshot, playingSnapshotId, runTransportAction]);
+  const eventRowTransport = useMemo(
+    () => ({
+      playingSnapshotId,
+      runTransportAction,
+      onPlayCue,
+      onStopSnapshot,
+    }),
+    [onPlayCue, onStopSnapshot, playingSnapshotId, runTransportAction],
+  );
 
-  const sharedDragState = useMemo(() => ({
-    dragOverId,
-    dragOverSide,
-    draggedId,
-    dragIdRef,
-    snapshotRowRefs,
-    eventDragRef,
-    barDragIdRef,
-    setDragOverId,
-    setDragOverSide,
-    setDraggedId,
-    setDraggedEventId,
-    setDraggedBarId,
-    onMoveBar,
-  }), [dragOverId, dragOverSide, draggedId, onMoveBar, snapshotRowRefs]);
+  const sharedDragState = useMemo(
+    () => ({
+      dragOverId,
+      dragOverSide,
+      draggedId,
+      dragIdRef,
+      snapshotRowRefs,
+      eventDragRef,
+      barDragIdRef,
+      setDragOverId,
+      setDragOverSide,
+      setDraggedId,
+      setDraggedEventId,
+      setDraggedBarId,
+      onMoveBar,
+    }),
+    [dragOverId, dragOverSide, draggedId, onMoveBar, snapshotRowRefs],
+  );
 
-  const sharedStructure = useMemo(() => ({
-    snapshotEventsById,
-    structuralMarkersByDisplayBucket,
-    barRowRefs,
-    barNumberById,
-  }), [barNumberById, barRowRefs, snapshotEventsById, structuralMarkersByDisplayBucket]);
+  const sharedStructure = useMemo(
+    () => ({
+      snapshotEventsById,
+      structuralMarkersByDisplayBucket,
+      barRowRefs,
+      barNumberById,
+    }),
+    [barNumberById, barRowRefs, snapshotEventsById, structuralMarkersByDisplayBucket],
+  );
 
-  const sharedRows = useMemo(() => ({
-    eventPane,
-    setEventPane,
-    barRowDnd,
-    barRowEditing,
-    tempoRowTiming,
-    tempoRowEditing,
-    repeatRowTiming,
-    repeatRowEditing,
-    eventRowView,
-    eventRowDrafts,
-    eventRowDrag,
-    eventRowEditing,
-    eventRowTransport,
-  }), [
-    barRowDnd,
-    barRowEditing,
-    eventPane,
-    eventRowDrafts,
-    eventRowDrag,
-    eventRowEditing,
-    eventRowTransport,
-    eventRowView,
-    repeatRowEditing,
-    repeatRowTiming,
-    tempoRowEditing,
-    tempoRowTiming,
-  ]);
+  const sharedRows = useMemo(
+    () => ({
+      eventPane,
+      setEventPane,
+      barRowDnd,
+      barRowEditing,
+      tempoRowTiming,
+      tempoRowEditing,
+      repeatRowTiming,
+      repeatRowEditing,
+      eventRowView,
+      eventRowDrafts,
+      eventRowDrag,
+      eventRowEditing,
+      eventRowTransport,
+    }),
+    [
+      barRowDnd,
+      barRowEditing,
+      eventPane,
+      eventRowDrafts,
+      eventRowDrag,
+      eventRowEditing,
+      eventRowTransport,
+      eventRowView,
+      repeatRowEditing,
+      repeatRowTiming,
+      tempoRowEditing,
+      tempoRowTiming,
+    ],
+  );
 
-  const sharedActions = useMemo(() => ({
-    resolveDropSide,
-    duplicateEventNoteToSnapshot,
-    moveEventNoteToSnapshot,
-    onDuplicateSnapshot,
-    onMoveSnapshot,
-    onSnapshotRowClick: handleSnapshotRowClick,
-    onSelectSnapshot: selectSnapshotForEditing,
-    toggleExpanded,
-    onDeleteSnapshot: handleDeleteSnapshot,
-    ensureExpanded,
-    onUpdateSnapshot,
-    onResetSnapshotDescription,
-    onPlaySnapshot,
-    onStopSnapshot,
-  }), [
-    duplicateEventNoteToSnapshot,
-    ensureExpanded,
-    handleSnapshotRowClick,
-    moveEventNoteToSnapshot,
-    handleDeleteSnapshot,
-    onDuplicateSnapshot,
-    onMoveSnapshot,
-    onPlaySnapshot,
-    onResetSnapshotDescription,
-    selectSnapshotForEditing,
-    onStopSnapshot,
-    onUpdateSnapshot,
-  ]);
+  const sharedActions = useMemo(
+    () => ({
+      resolveDropSide,
+      duplicateEventNoteToSnapshot,
+      moveEventNoteToSnapshot,
+      onDuplicateSnapshot,
+      onMoveSnapshot,
+      onSnapshotRowClick: handleSnapshotRowClick,
+      onSelectSnapshot: selectSnapshotForEditing,
+      toggleExpanded,
+      onDeleteSnapshot: handleDeleteSnapshot,
+      ensureExpanded,
+      onUpdateSnapshot,
+      onResetSnapshotDescription,
+      onPlaySnapshot,
+      onStopSnapshot,
+    }),
+    [
+      duplicateEventNoteToSnapshot,
+      ensureExpanded,
+      handleSnapshotRowClick,
+      moveEventNoteToSnapshot,
+      handleDeleteSnapshot,
+      onDuplicateSnapshot,
+      onMoveSnapshot,
+      onPlaySnapshot,
+      onResetSnapshotDescription,
+      selectSnapshotForEditing,
+      onStopSnapshot,
+      onUpdateSnapshot,
+    ],
+  );
 
   // Render the Sequencer as a thin view/composition layer over the derived
   // runtime state and controller hooks assembled above.
@@ -2368,7 +2572,11 @@ const Sequencer = ({
         </legend>
         <p>
           <em>
-            SHIFT+ENTER stores currently sounding notes, including expression data if available. The panels below allow snapshots to be played, re-ordered, copied, and edited. Changing global or bar-relative event positions automatically creates cues that may be triggered one-by-one. Adding bars with time signatures, tempo markers, repeats, and empty snapshots where needed generates a musical score with automated timed playback.           
+            SHIFT+ENTER stores currently sounding notes, including expression data if available. The
+            panels below allow snapshots to be played, re-ordered, copied, and edited. Changing
+            global or bar-relative event positions automatically creates cues that may be triggered
+            one-by-one. Adding bars with time signatures, tempo markers, repeats, and empty
+            snapshots where needed generates a musical score with automated timed playback.
           </em>
         </p>
         <div class="preset-actions preset-actions--library">
@@ -2378,41 +2586,40 @@ const Sequencer = ({
           <button type="button" class="preset-action-btn" onClick={onAddEmptySnapshot}>
             Append Empty Snapshot
           </button>
-          {snapshots.length > 0 &&
-            (
-              <span class="preset-actions__clear-slot">
-                {confirmClearSnapshots ? (
-                  <span class="preset-actions__confirm">
-                    <em class="preset-actions__confirm-text">Clear all snapshots?</em>
-                    <button
-                      type="button"
-                      class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
-                      onClick={() => {
-                        onDeleteAllSnapshots?.();
-                        setConfirmClearSnapshots(false);
-                      }}
-                    >
-                      Yes, clear
-                    </button>
-                    <button
-                      type="button"
-                      class="preset-utility-btn settings-form__inline-button--nowrap"
-                      onClick={() => setConfirmClearSnapshots(false)}
-                    >
-                      Cancel
-                    </button>
-                  </span>
-                ) : (
+          {snapshots.length > 0 && (
+            <span class="preset-actions__clear-slot">
+              {confirmClearSnapshots ? (
+                <span class="preset-actions__confirm">
+                  <em class="preset-actions__confirm-text">Clear all snapshots?</em>
                   <button
                     type="button"
-                    class="delete-btn preset-utility-btn preset-actions__clear-trigger"
-                    onClick={() => setConfirmClearSnapshots(true)}
+                    class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
+                    onClick={() => {
+                      onDeleteAllSnapshots?.();
+                      setConfirmClearSnapshots(false);
+                    }}
                   >
-                    Clear All
+                    Yes, clear
                   </button>
-                )}
-              </span>
-            )}
+                  <button
+                    type="button"
+                    class="preset-utility-btn settings-form__inline-button--nowrap"
+                    onClick={() => setConfirmClearSnapshots(false)}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  class="delete-btn preset-utility-btn preset-actions__clear-trigger"
+                  onClick={() => setConfirmClearSnapshots(true)}
+                >
+                  Clear All
+                </button>
+              )}
+            </span>
+          )}
         </div>
       </fieldset>
 
@@ -2485,7 +2692,11 @@ const Sequencer = ({
                 <span class="sequencer-copy-block__summary-text">{copySummaryText}</span>
               </span>
             )}
-            <button type="button" class="preset-action-btn sequencer-copy-block__copy-button" onClick={handleCopySnapshotBlock}>
+            <button
+              type="button"
+              class="preset-action-btn sequencer-copy-block__copy-button"
+              onClick={handleCopySnapshotBlock}
+            >
               Copy Selection
             </button>
           </span>
@@ -2585,7 +2796,11 @@ const Sequencer = ({
                   if (nextPosition != null) setCopyInsertPosition(String(nextPosition));
                 }}
                 onBlur={() => {
-                  setCopyInsertBarNumber(insertIsInsideBar ? `[${derivedInsertBarNumber}]` : String(derivedInsertBarNumber));
+                  setCopyInsertBarNumber(
+                    insertIsInsideBar
+                      ? `[${derivedInsertBarNumber}]`
+                      : String(derivedInsertBarNumber),
+                  );
                 }}
               />
             </label>
@@ -2596,7 +2811,9 @@ const Sequencer = ({
             type="button"
             class="preset-action-btn"
             onClick={handleInsertSnapshotBlock}
-            disabled={!copiedSnapshotBlock || (copiedSnapshotBlock.includeBars && !copyInsertAtBarBoundary)}
+            disabled={
+              !copiedSnapshotBlock || (copiedSnapshotBlock.includeBars && !copyInsertAtBarBoundary)
+            }
           >
             Insert Copied Block
           </button>
@@ -2725,20 +2942,26 @@ const Sequencer = ({
                   data-sequence-structural-key={structuralEventRenderKey(marker)}
                 >
                   {marker.structuralType === "bar" ? (
-                    <BarRow bar={marker} barNumberById={barNumberById} dnd={barRowDnd} editing={barRowEditing} />
-                  ) : marker.structuralType === "repeat-start" || marker.structuralType === "repeat-end" ? (
-                    <RepeatRow repeat={marker} timing={repeatRowTiming} editing={repeatRowEditing} />
-                  ) : (
-                    <TempoRow
-                      tempo={marker}
-                      timing={tempoRowTiming}
-                      editing={tempoRowEditing}
+                    <BarRow
+                      bar={marker}
+                      barNumberById={barNumberById}
+                      dnd={barRowDnd}
+                      editing={barRowEditing}
                     />
+                  ) : marker.structuralType === "repeat-start" ||
+                    marker.structuralType === "repeat-end" ? (
+                    <RepeatRow
+                      repeat={marker}
+                      timing={repeatRowTiming}
+                      editing={repeatRowEditing}
+                    />
+                  ) : (
+                    <TempoRow tempo={marker} timing={tempoRowTiming} editing={tempoRowEditing} />
                   )}
                 </div>
               ))}
               <div ref={virtualSequenceListRef} class="sequencer-virtual-list">
-                {virtualSequenceLayout.rows.map((row) => (
+                {virtualSequenceLayout.rows.map((row) =>
                   row.type === "spacer" ? (
                     <div
                       key={row.key}
@@ -2763,8 +2986,8 @@ const Sequencer = ({
                       actions={sharedActions}
                       virtualMeasure={measureVirtualSequenceItem}
                     />
-                  )
-                ))}
+                  ),
+                )}
               </div>
             </div>
           )}
@@ -2775,18 +2998,18 @@ const Sequencer = ({
         {!topSequenceSaveVisible &&
           sequenceSaveActionState.visible &&
           typeof sequenceSaveActionState.action === "function" && (
-          <div class="settings-form__action-row sequencer-fieldset__save-row">
-            <span class="settings-form__action-group settings-form__action-group--wrap">
-              <button
-                type="button"
-                class="preset-action-btn"
-                onClick={sequenceSaveActionState.action}
-              >
-                {sequenceSaveActionState.label}
-              </button>
-            </span>
-          </div>
-        )}
+            <div class="settings-form__action-row sequencer-fieldset__save-row">
+              <span class="settings-form__action-group settings-form__action-group--wrap">
+                <button
+                  type="button"
+                  class="preset-action-btn"
+                  onClick={sequenceSaveActionState.action}
+                >
+                  {sequenceSaveActionState.label}
+                </button>
+              </span>
+            </div>
+          )}
       </fieldset>
     </div>
   );

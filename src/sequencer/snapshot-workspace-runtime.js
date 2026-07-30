@@ -47,7 +47,12 @@ function sortMarkers(markers = []) {
   });
 }
 
-function shiftMarkerForCopyInsertion(marker, insertionPosition, snapshotCount = 1, shouldStayAtBoundary = () => false) {
+function shiftMarkerForCopyInsertion(
+  marker,
+  insertionPosition,
+  snapshotCount = 1,
+  shouldStayAtBoundary = () => false,
+) {
   const position = normalizeMarkerPosition(marker?.position);
   if (position == null || position < insertionPosition - 1e-9) return marker;
   if (Math.abs(position - insertionPosition) < 1e-9 && shouldStayAtBoundary(marker)) {
@@ -70,23 +75,29 @@ function shiftStructuralMarkersForCopyInsertion({
   const normalizedSnapshotCount = Math.max(1, Math.round(Number(snapshotCount) || 1));
   return {
     bars: Array.isArray(bars)
-      ? bars.map((bar) => shiftMarkerForCopyInsertion(bar, normalizedInsertionPosition, normalizedSnapshotCount))
+      ? bars.map((bar) =>
+          shiftMarkerForCopyInsertion(bar, normalizedInsertionPosition, normalizedSnapshotCount),
+        )
       : [],
     tempi: Array.isArray(tempi)
-      ? tempi.map((tempo) => shiftMarkerForCopyInsertion(
-        tempo,
-        normalizedInsertionPosition,
-        normalizedSnapshotCount,
-        (marker) => normalizeTempoMode(marker?.mode) === "gradual",
-      ))
+      ? tempi.map((tempo) =>
+          shiftMarkerForCopyInsertion(
+            tempo,
+            normalizedInsertionPosition,
+            normalizedSnapshotCount,
+            (marker) => normalizeTempoMode(marker?.mode) === "gradual",
+          ),
+        )
       : [],
     repeats: Array.isArray(repeats)
-      ? repeats.map((repeat) => shiftMarkerForCopyInsertion(
-        repeat,
-        normalizedInsertionPosition,
-        normalizedSnapshotCount,
-        (marker) => marker?.kind === "end",
-      ))
+      ? repeats.map((repeat) =>
+          shiftMarkerForCopyInsertion(
+            repeat,
+            normalizedInsertionPosition,
+            normalizedSnapshotCount,
+            (marker) => marker?.kind === "end",
+          ),
+        )
       : [],
   };
 }
@@ -107,10 +118,11 @@ function barStartAtOrBefore(position, bars = []) {
 }
 
 function nextBarStartAfter(position, bars = []) {
-  return sortMarkers(bars)
-    .map((bar) => Math.round(Number(bar?.position) || 0))
-    .find((barPosition) => barPosition > position)
-    ?? null;
+  return (
+    sortMarkers(bars)
+      .map((bar) => Math.round(Number(bar?.position) || 0))
+      .find((barPosition) => barPosition > position) ?? null
+  );
 }
 
 function resetCopiedNotes(notes = []) {
@@ -162,9 +174,10 @@ export function resolveSnapshotCopyRange({
 
   const expandedStart = barStartAtOrBefore(lowerRequested, bars);
   const nextBarStart = nextBarStartAfter(upperRequested, bars);
-  const expandedEnd = nextBarStart == null
-    ? snapshotCount
-    : Math.max(expandedStart, Math.min(snapshotCount, nextBarStart - 1));
+  const expandedEnd =
+    nextBarStart == null
+      ? snapshotCount
+      : Math.max(expandedStart, Math.min(snapshotCount, nextBarStart - 1));
 
   return {
     snapshotCount,
@@ -202,15 +215,13 @@ export function buildSnapshotCopyBlock({
   const startIndex = range.startPosition - 1;
   const endIndex = range.endPosition - 1;
   const selectionEndBoundary = range.endPosition + 1;
-  const copiedSnapshots = (snapshots ?? [])
-    .slice(startIndex, endIndex + 1)
-    .map((snapshot) => {
-      const copiedSnapshot = clone(snapshot);
-      if (resetNoteOffsets === true) {
-        copiedSnapshot.notes = resetCopiedNotes(copiedSnapshot.notes);
-      }
-      return copiedSnapshot;
-    });
+  const copiedSnapshots = (snapshots ?? []).slice(startIndex, endIndex + 1).map((snapshot) => {
+    const copiedSnapshot = clone(snapshot);
+    if (resetNoteOffsets === true) {
+      copiedSnapshot.notes = resetCopiedNotes(copiedSnapshot.notes);
+    }
+    return copiedSnapshot;
+  });
 
   const mapMarkerIntoBlock = (marker) => {
     const position = normalizeMarkerPosition(marker?.position);
@@ -223,9 +234,11 @@ export function buildSnapshotCopyBlock({
 
   const isMarkerWithinRange = (marker) => {
     const position = normalizeMarkerPosition(marker?.position);
-    return position != null
-      && position >= range.startPosition - 1e-9
-      && position < selectionEndBoundary - 1e-9;
+    return (
+      position != null &&
+      position >= range.startPosition - 1e-9 &&
+      position < selectionEndBoundary - 1e-9
+    );
   };
 
   return {
@@ -236,15 +249,24 @@ export function buildSnapshotCopyBlock({
     includeRepeats: includeRepeats === true,
     resetNoteOffsets: resetNoteOffsets === true,
     snapshots: copiedSnapshots,
-    bars: includeBars === true
-      ? sortMarkers((bars ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean))
-      : [],
-    tempi: includeTempi === true
-      ? sortMarkers((tempi ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean))
-      : [],
-    repeats: includeRepeats === true
-      ? sortMarkers((repeats ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean))
-      : [],
+    bars:
+      includeBars === true
+        ? sortMarkers(
+            (bars ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean),
+          )
+        : [],
+    tempi:
+      includeTempi === true
+        ? sortMarkers(
+            (tempi ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean),
+          )
+        : [],
+    repeats:
+      includeRepeats === true
+        ? sortMarkers(
+            (repeats ?? []).filter(isMarkerWithinRange).map(mapMarkerIntoBlock).filter(Boolean),
+          )
+        : [],
   };
 }
 
@@ -276,9 +298,12 @@ export function insertSnapshotCopyBlock({
   }
 
   const normalizedInsertionPosition = normalizeInsertionPosition(insertionPosition, snapshotCount);
-  const insertionAtBarBoundary = normalizedInsertionPosition === 1
-    || normalizedInsertionPosition === snapshotCount + 1
-    || (bars ?? []).some((bar) => Math.abs((Number(bar?.position) || 0) - normalizedInsertionPosition) < 1e-9);
+  const insertionAtBarBoundary =
+    normalizedInsertionPosition === 1 ||
+    normalizedInsertionPosition === snapshotCount + 1 ||
+    (bars ?? []).some(
+      (bar) => Math.abs((Number(bar?.position) || 0) - normalizedInsertionPosition) < 1e-9,
+    );
 
   if (block.includeBars === true && !insertionAtBarBoundary) {
     return {
@@ -317,21 +342,27 @@ export function insertSnapshotCopyBlock({
   const insertedBars = (block.includeBars === true ? block.bars : []).map((bar) => ({
     ...clone(bar),
     id: ++resolvedNextBarId,
-    position: normalizeMarkerPosition((Number(bar?.position) || 1) + normalizedInsertionPosition - 1),
+    position: normalizeMarkerPosition(
+      (Number(bar?.position) || 1) + normalizedInsertionPosition - 1,
+    ),
   }));
 
   let nextTempoId = nextNumericMarkerId(shifted.tempi);
   const insertedTempi = (block.includeTempi === true ? block.tempi : []).map((tempo) => ({
     ...clone(tempo),
     id: nextTempoId++,
-    position: normalizeMarkerPosition((Number(tempo?.position) || 1) + normalizedInsertionPosition - 1),
+    position: normalizeMarkerPosition(
+      (Number(tempo?.position) || 1) + normalizedInsertionPosition - 1,
+    ),
   }));
 
   let nextRepeatId = nextNumericMarkerId(shifted.repeats);
   const insertedRepeats = (block.includeRepeats === true ? block.repeats : []).map((repeat) => ({
     ...clone(repeat),
     id: nextRepeatId++,
-    position: normalizeMarkerPosition((Number(repeat?.position) || 1) + normalizedInsertionPosition - 1),
+    position: normalizeMarkerPosition(
+      (Number(repeat?.position) || 1) + normalizedInsertionPosition - 1,
+    ),
   }));
 
   return {
@@ -442,10 +473,7 @@ export function setSnapshotRangeArticulationInWorkspace({
   };
 }
 
-export function restoreSnapshotsInWorkspace({
-  snapshots = [],
-  replacements = [],
-} = {}) {
+export function restoreSnapshotsInWorkspace({ snapshots = [], replacements = [] } = {}) {
   const replacementById = new Map(
     (replacements ?? [])
       .filter((snapshot) => snapshot?.id != null)
@@ -510,7 +538,9 @@ export function deleteSnapshotRangeFromWorkspace({
 
   const startIndex = range.startPosition - 1;
   const endIndex = range.endPosition - 1;
-  const nextSnapshots = (snapshots ?? []).filter((_, index) => index < startIndex || index > endIndex);
+  const nextSnapshots = (snapshots ?? []).filter(
+    (_, index) => index < startIndex || index > endIndex,
+  );
   const shifted = shiftStructuralMarkersAfterSnapshotRangeDeletion({
     bars,
     tempi,
@@ -523,19 +553,20 @@ export function deleteSnapshotRangeFromWorkspace({
   });
 
   const snapshotAtDeletionPoint = nextSnapshots[startIndex] ?? null;
-  const focus = snapshotAtDeletionPoint == null
-    ? {
-      kind: "end",
-      snapshotIndex: nextSnapshots.length,
-      snapshotId: null,
-      snapshotCount: nextSnapshots.length,
-    }
-    : {
-      kind: "snapshot",
-      snapshotIndex: startIndex,
-      snapshotId: snapshotAtDeletionPoint.id,
-      snapshotCount: nextSnapshots.length,
-    };
+  const focus =
+    snapshotAtDeletionPoint == null
+      ? {
+          kind: "end",
+          snapshotIndex: nextSnapshots.length,
+          snapshotId: null,
+          snapshotCount: nextSnapshots.length,
+        }
+      : {
+          kind: "snapshot",
+          snapshotIndex: startIndex,
+          snapshotId: snapshotAtDeletionPoint.id,
+          snapshotCount: nextSnapshots.length,
+        };
 
   return {
     snapshots: nextSnapshots,
@@ -602,7 +633,9 @@ export function deleteSnapshotFromWorkspace({
   selectedSnapshotId = null,
   selectedSnapshotMarker = null,
 } = {}) {
-  const deletedSnapshotIndex = (snapshots ?? []).findIndex((snapshot) => snapshot.id === snapshotId);
+  const deletedSnapshotIndex = (snapshots ?? []).findIndex(
+    (snapshot) => snapshot.id === snapshotId,
+  );
   const nextSnapshots = (snapshots ?? []).filter((snapshot) => snapshot.id !== snapshotId);
   let nextBars = bars ?? [];
   let nextTempi = tempi ?? [];
@@ -621,24 +654,24 @@ export function deleteSnapshotFromWorkspace({
     nextRepeats = shifted.repeats;
   }
 
-  const snapshotAtDeletionPoint = deletedSnapshotIndex < 0
-    ? null
-    : nextSnapshots[deletedSnapshotIndex] ?? null;
-  const focus = deletedSnapshotIndex < 0
-    ? null
-    : snapshotAtDeletionPoint == null
-      ? {
-        kind: "end",
-        snapshotIndex: nextSnapshots.length,
-        snapshotId: null,
-        snapshotCount: nextSnapshots.length,
-      }
-      : {
-        kind: "snapshot",
-        snapshotIndex: deletedSnapshotIndex,
-        snapshotId: snapshotAtDeletionPoint.id,
-        snapshotCount: nextSnapshots.length,
-      };
+  const snapshotAtDeletionPoint =
+    deletedSnapshotIndex < 0 ? null : (nextSnapshots[deletedSnapshotIndex] ?? null);
+  const focus =
+    deletedSnapshotIndex < 0
+      ? null
+      : snapshotAtDeletionPoint == null
+        ? {
+            kind: "end",
+            snapshotIndex: nextSnapshots.length,
+            snapshotId: null,
+            snapshotCount: nextSnapshots.length,
+          }
+        : {
+            kind: "snapshot",
+            snapshotIndex: deletedSnapshotIndex,
+            snapshotId: snapshotAtDeletionPoint.id,
+            snapshotCount: nextSnapshots.length,
+          };
 
   return {
     snapshots: nextSnapshots,
@@ -672,12 +705,7 @@ export function buildClearedSequenceWorkspaceState() {
   };
 }
 
-export function moveSnapshotInWorkspace({
-  snapshots = [],
-  fromId,
-  toId,
-  side = "before",
-} = {}) {
+export function moveSnapshotInWorkspace({ snapshots = [], fromId, toId, side = "before" } = {}) {
   const fromIdx = (snapshots ?? []).findIndex((snapshot) => snapshot.id === fromId);
   const toIdx = (snapshots ?? []).findIndex((snapshot) => snapshot.id === toId);
   if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return snapshots ?? [];
@@ -761,9 +789,9 @@ export function updateSnapshotInWorkspace({
         : {}),
     };
     if (
-      !nextSnapshot.descriptionManual
-      && Object.prototype.hasOwnProperty.call(updates, "notes")
-      && !Object.prototype.hasOwnProperty.call(updates, "description")
+      !nextSnapshot.descriptionManual &&
+      Object.prototype.hasOwnProperty.call(updates, "notes") &&
+      !Object.prototype.hasOwnProperty.call(updates, "description")
     ) {
       nextSnapshot.description = buildSnapshotDescription(nextSnapshot.notes, snapshotLabelMode);
     }

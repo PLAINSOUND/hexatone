@@ -14,8 +14,13 @@ import { cloneJsonValue } from "../persistence/clone-json-value.js";
 
 export function applyNoteUpdateToSnapshot(targetSnapshot, buildNotes) {
   if (!targetSnapshot) return null;
-  const length = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
-  return sortSnapshotNotes(assignStableSequencerNoteIds(buildNotes(targetSnapshot, length), length), length);
+  const length = Number.isFinite(Number(targetSnapshot?.length))
+    ? Number(targetSnapshot.length)
+    : 1;
+  return sortSnapshotNotes(
+    assignStableSequencerNoteIds(buildNotes(targetSnapshot, length), length),
+    length,
+  );
 }
 
 export function buildTransferredNote({
@@ -28,7 +33,9 @@ export function buildTransferredNote({
 }) {
   if (!sourceSnapshot || !targetSnapshot || !note) return null;
 
-  const sourceLength = Number.isFinite(Number(sourceSnapshot?.length)) ? Number(sourceSnapshot.length) : 1;
+  const sourceLength = Number.isFinite(Number(sourceSnapshot?.length))
+    ? Number(sourceSnapshot.length)
+    : 1;
   const sourceSnapshotNumber = snapshotIndexById.get(sourceSnapshot.id) ?? 1;
   const targetSnapshotNumber = snapshotIndexById.get(targetSnapshot.id) ?? 1;
   const start = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
@@ -36,8 +43,13 @@ export function buildTransferredNote({
   const end = Math.max(start, rawEnd);
   const absoluteStart = normalizeSequenceNumber(sourceSnapshotNumber + start);
   const absoluteEnd = normalizeSequenceNumber(sourceSnapshotNumber + end);
-  const targetLength = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
-  const identity = typeof noteRef === "string" ? noteRef : (noteRef?.noteKey ?? note?.id ?? noteIdentity(note, sourceLength));
+  const targetLength = Number.isFinite(Number(targetSnapshot?.length))
+    ? Number(targetSnapshot.length)
+    : 1;
+  const identity =
+    typeof noteRef === "string"
+      ? noteRef
+      : (noteRef?.noteKey ?? note?.id ?? noteIdentity(note, sourceLength));
   const baseMovedNote = {
     ...cloneJsonValue(note),
     id: note?.id ?? stableSequencerNoteId(identity),
@@ -57,13 +69,15 @@ export function buildTransferredNote({
     noteKey: identity,
   });
 
-  return movedNote ? {
-    movedNote,
-    sourceSnapshotNumber,
-    targetSnapshotNumber,
-    absoluteStart,
-    absoluteEnd,
-  } : null;
+  return movedNote
+    ? {
+        movedNote,
+        sourceSnapshotNumber,
+        targetSnapshotNumber,
+        absoluteStart,
+        absoluteEnd,
+      }
+    : null;
 }
 
 export function applyTransferredNote({
@@ -90,11 +104,11 @@ export function applyTransferredNote({
 
   if (sourceSnapshot.id === targetSnapshot.id) {
     return {
-      sourceNotes: applyNoteUpdateToSnapshot(sourceSnapshot, (snapshot, length) => (
-        (snapshot.notes ?? []).map((entry) => (
-          noteMatchesReference(entry, noteRef, length) ? movedNote : entry
-        ))
-      )),
+      sourceNotes: applyNoteUpdateToSnapshot(sourceSnapshot, (snapshot, length) =>
+        (snapshot.notes ?? []).map((entry) =>
+          noteMatchesReference(entry, noteRef, length) ? movedNote : entry,
+        ),
+      ),
       targetNotes: null,
       selectedSnapshotId: targetSnapshot.id,
       selectedTime: movedNote.start,
@@ -102,9 +116,9 @@ export function applyTransferredNote({
   }
 
   return {
-    sourceNotes: applyNoteUpdateToSnapshot(sourceSnapshot, (snapshot, length) => (
-      (snapshot.notes ?? []).filter((entry) => !noteMatchesReference(entry, noteRef, length))
-    )),
+    sourceNotes: applyNoteUpdateToSnapshot(sourceSnapshot, (snapshot, length) =>
+      (snapshot.notes ?? []).filter((entry) => !noteMatchesReference(entry, noteRef, length)),
+    ),
     targetNotes: applyNoteUpdateToSnapshot(targetSnapshot, (snapshot) => [
       ...(snapshot.notes ?? []),
       movedNote,

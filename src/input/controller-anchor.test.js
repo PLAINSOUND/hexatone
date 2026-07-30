@@ -791,9 +791,9 @@ function describeSingleChannelModes(label, ctrl, layout2dNote, bypassNote = 60) 
       saveAnchor(ctrl, layout2dNote - 5, { midi_passthrough: false });
       saveAnchor(ctrl, bypassNote + 5, { midi_passthrough: true });
 
-      expect(
-        loadAnchorSettingsUpdate(ctrl, { midi_passthrough: false }).midiin_anchor_note,
-      ).toBe(layout2dNote - 5);
+      expect(loadAnchorSettingsUpdate(ctrl, { midi_passthrough: false }).midiin_anchor_note).toBe(
+        layout2dNote - 5,
+      );
       expect(loadAnchorSettingsUpdate(ctrl, { midi_passthrough: true }).midiin_anchor_note).toBe(
         bypassNote + 5,
       );

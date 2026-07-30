@@ -154,20 +154,24 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("publishes live scale table activity after MIDI note state mutates", async () => {
-    const keys = createKeys({}, {}, {
-      makeHex: vi.fn((coords, cents) => ({
-        coords,
-        cents,
-        release: false,
-        noteOn: vi.fn(),
-        noteOff: vi.fn(function noteOff() {
-          this.release = true;
-        }),
-        retune: vi.fn(function retune(newCents) {
-          this.cents = newCents;
-        }),
-      })),
-    });
+    const keys = createKeys(
+      {},
+      {},
+      {
+        makeHex: vi.fn((coords, cents) => ({
+          coords,
+          cents,
+          release: false,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(function noteOff() {
+            this.release = true;
+          }),
+          retune: vi.fn(function retune(newCents) {
+            this.cents = newCents;
+          }),
+        })),
+      },
+    );
     const snapshots = [];
     keys.subscribeLiveScaleTable((snapshot) => snapshots.push(snapshot));
     snapshots.length = 0;
@@ -311,10 +315,7 @@ describe("Keys MIDI input integration", () => {
       noteOff: vi.fn(),
       retune: vi.fn(),
     };
-    const hexOn = vi
-      .fn()
-      .mockReturnValueOnce(firstHex)
-      .mockReturnValueOnce(secondHex);
+    const hexOn = vi.fn().mockReturnValueOnce(firstHex).mockReturnValueOnce(secondHex);
     keys.hexOn = hexOn;
     keys.hexOff = vi.fn();
 
@@ -364,8 +365,24 @@ describe("Keys MIDI input integration", () => {
       pressed_interval: 2,
     });
     const preventDefault = vi.fn();
-    keys.onKeyDown({ code: "Backquote", repeat: false, shiftKey: true, preventDefault, metaKey: false, ctrlKey: false, altKey: false });
-    keys.onKeyDown({ code: "Backquote", repeat: false, shiftKey: true, preventDefault, metaKey: false, ctrlKey: false, altKey: false });
+    keys.onKeyDown({
+      code: "Backquote",
+      repeat: false,
+      shiftKey: true,
+      preventDefault,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+    });
+    keys.onKeyDown({
+      code: "Backquote",
+      repeat: false,
+      shiftKey: true,
+      preventDefault,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+    });
 
     expect(preventDefault).toHaveBeenCalledTimes(2);
     expect(onModulationArmChange).toHaveBeenNthCalledWith(1, true);
@@ -976,7 +993,9 @@ describe("Keys MIDI input integration", () => {
     expect(oldB._onsetFrameId).toBe(keys.getModulationState().oldFrame?.id);
     expect(newHex._onsetFrameId).toBe(keys.getModulationState().pendingFrame?.id);
     expect(newHex._noteContext?.frameId).toBe(keys.getModulationState().pendingFrame?.id);
-    expect(newHex._noteContext?.transpositionCents).toBe(keys.getModulationState().pendingFrame?.transpositionCents);
+    expect(newHex._noteContext?.transpositionCents).toBe(
+      keys.getModulationState().pendingFrame?.transpositionCents,
+    );
 
     keys.previewFundamental(50);
 
@@ -1169,9 +1188,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys.getModulationState().pendingFrame.geometryShiftDrSteps).toBe(0);
     expect(keys.state.activeMidi.get(60)?.cents).toBeCloseTo(0, 5);
 
-    const shifted61 = keys.coordResolver.coordForSteps(
-      keys.coordResolver.noteToSteps(63, 1),
-    );
+    const shifted61 = keys.coordResolver.coordForSteps(keys.coordResolver.noteToSteps(63, 1));
     keys.midinoteOn(makeMidiEvent(61));
     expect(keys.state.activeMidi.get(61)?.coords).toEqual(shifted61);
 
@@ -1380,9 +1397,7 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.settings.midiin_anchor_note).toBe(60);
     expect(keys.state.activeMidi.get(60)?.cents).toBeCloseTo(0, 5);
-    const shifted61 = keys.coordResolver.coordForSteps(
-      keys.coordResolver.noteToSteps(80, 1),
-    );
+    const shifted61 = keys.coordResolver.coordForSteps(keys.coordResolver.noteToSteps(80, 1));
     keys.midinoteOn(makeMidiEvent(61));
     expect(keys.state.activeMidi.get(61)?.coords).toEqual(shifted61);
     expect(keys.getModulationState().history.at(-1)).toMatchObject({
@@ -1418,12 +1433,8 @@ describe("Keys MIDI input integration", () => {
       },
     );
 
-    const sourceCoords = keys.coordResolver.coordForSteps(
-      keys.coordResolver.noteToSteps(60, 1),
-    );
-    const targetCoords = keys.coordResolver.coordForSteps(
-      keys.coordResolver.noteToSteps(62, 1),
-    );
+    const sourceCoords = keys.coordResolver.coordForSteps(keys.coordResolver.noteToSteps(60, 1));
+    const targetCoords = keys.coordResolver.coordForSteps(keys.coordResolver.noteToSteps(62, 1));
     keys.midinoteOn(makeMidiEvent(60));
     expect(keys.state.activeMidi.get(60)?.coords).toEqual(sourceCoords);
     expect(keys.armModulation()).toBe(true);
@@ -1738,7 +1749,7 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
   });
- 
+
   it("redraws normally when fixed-do history replay changes geometry with sounding notes held", () => {
     const synth = {
       makeHex: vi.fn((coords, cents) => ({
@@ -2089,10 +2100,7 @@ describe("Keys MIDI input integration", () => {
 
     expect(hex.cents).toBeCloseTo(modulatedCents, 5);
     expect(hex.fundamental).toBeCloseTo(newFundamental, 8);
-    expect(keys.getEffectiveFundamental()).toBeCloseTo(
-      newFundamental * Math.pow(2, 700 / 1200),
-      8,
-    );
+    expect(keys.getEffectiveFundamental()).toBeCloseTo(newFundamental * Math.pow(2, 700 / 1200), 8);
   });
 
   it("measures scale-cents labels from degree 0 instead of reference_degree", () => {
@@ -2486,7 +2494,8 @@ describe("Keys MIDI input integration", () => {
             transpositionDeltaCents: -200,
           },
         ],
-      )).not.toThrow();
+      ),
+    ).not.toThrow();
   });
 
   it("uses controller-provided scale pitch cents in nearest-scale mode", () => {
@@ -2603,12 +2612,15 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("uses the dedicated MPE pitch-bend semitone range when resolving pre-bent MPE nearest-scale note-ons", () => {
-    const keys = createKeys({}, {
-      target: "scale",
-      mpeInput: true,
-      scaleBendRange: 12,
-      bendRange: "4/1",
-    });
+    const keys = createKeys(
+      {},
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 12,
+        bendRange: "4/1",
+      },
+    );
     const hexOn = vi.fn((coords) => ({
       coords,
       cents: 600,
@@ -3146,7 +3158,9 @@ describe("Keys MIDI input integration", () => {
       _scaleModeBendAnchor14: 8192,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex, baseCents: 300, hexes: new Set([hex]) };
     keys.state.activeMidiByChannel.set(5, entry);
@@ -3194,7 +3208,9 @@ describe("Keys MIDI input integration", () => {
       _rasterSteps: 2,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex, baseCents: 300, hexes: new Set([hex]) };
     keys.state.activeMidiByChannel.set(5, entry);
@@ -3240,7 +3256,9 @@ describe("Keys MIDI input integration", () => {
       _rasterSteps: 0,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
     keys.state.activeMidi.set(60, oldHex);
@@ -3255,7 +3273,9 @@ describe("Keys MIDI input integration", () => {
       _baseCents: 100,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     keys.hexOn = vi.fn(() => newHex);
 
@@ -3314,7 +3334,9 @@ describe("Keys MIDI input integration", () => {
       _rasterSteps: 0,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
     keys.state.activeMidi.set(60, oldHex);
@@ -3329,7 +3351,9 @@ describe("Keys MIDI input integration", () => {
       _baseCents: 400,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     keys.hexOn = vi.fn(() => newHex);
 
@@ -3376,7 +3400,9 @@ describe("Keys MIDI input integration", () => {
       _rasterSteps: 0,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
     keys.state.activeMidi.set(60, oldHex);
@@ -3391,7 +3417,9 @@ describe("Keys MIDI input integration", () => {
       _baseCents: 600,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     keys.hexOn = vi.fn(() => newHex);
 
@@ -3441,7 +3469,9 @@ describe("Keys MIDI input integration", () => {
       _rasterSteps: 0,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
     keys.state.activeMidi.set(60, oldHex);
@@ -3456,7 +3486,9 @@ describe("Keys MIDI input integration", () => {
       _baseCents: 0,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     keys.hexOn = vi.fn(() => newHex);
 
@@ -3505,7 +3537,9 @@ describe("Keys MIDI input integration", () => {
       _rasterSteps: 0,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
     keys.state.activeMidi.set(60, oldHex);
@@ -3561,7 +3595,9 @@ describe("Keys MIDI input integration", () => {
       _rasterSteps: 0,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
     keys.state.activeMidi.set(60, oldHex);
@@ -3576,7 +3612,9 @@ describe("Keys MIDI input integration", () => {
       _baseCents: 400,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     keys.hexOn = vi.fn(() => newHex);
 
@@ -3624,7 +3662,9 @@ describe("Keys MIDI input integration", () => {
       _rasterSteps: 0,
       release: false,
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     };
     const entry = { hex: oldHex, baseCents: 0, hexes: new Set([oldHex]) };
     keys.state.activeMidi.set(60, oldHex);
@@ -4076,7 +4116,11 @@ describe("Keys MIDI input integration", () => {
     keys._hakenRasterBend(entry, 5, 9045, false);
 
     keys.state.activeMidi.set(60 + 128 * 4, actualCurrentHex);
-    keys.state.activeMidiByChannel.set(5, { hex: actualCurrentHex, baseCents: 100, hexes: new Set([actualCurrentHex]) });
+    keys.state.activeMidiByChannel.set(5, {
+      hex: actualCurrentHex,
+      baseCents: 100,
+      hexes: new Set([actualCurrentHex]),
+    });
     keys.noteOff = vi.fn();
 
     keys.midinoteOff(makeMidiEvent(60, 5, 96, 55));
@@ -4190,11 +4234,20 @@ describe("Keys MIDI input integration", () => {
       release: false,
       noteOn: vi.fn(),
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keysUp = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 48,
+        bendRange: "2/1",
+        hakenXGlideShaping: 0,
+        hakenXGlideMode: "pitch_bending",
+      },
       { makeHex: makeHexUp },
     );
     keysUp.controller = { id: "hakenaudio" };
@@ -4215,11 +4268,20 @@ describe("Keys MIDI input integration", () => {
       release: false,
       noteOn: vi.fn(),
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keysDown = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 48,
+        bendRange: "2/1",
+        hakenXGlideShaping: 0,
+        hakenXGlideMode: "pitch_bending",
+      },
       { makeHex: makeHexDown },
     );
     keysDown.controller = { id: "hakenaudio" };
@@ -4246,11 +4308,20 @@ describe("Keys MIDI input integration", () => {
       release: false,
       noteOn: vi.fn(),
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keysUp = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideShaping: 100, hakenXGlideMode: "pitch_bending" },
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 48,
+        bendRange: "2/1",
+        hakenXGlideShaping: 100,
+        hakenXGlideMode: "pitch_bending",
+      },
       { makeHex: makeHexUp },
     );
     keysUp.controller = { id: "hakenaudio" };
@@ -4271,11 +4342,20 @@ describe("Keys MIDI input integration", () => {
       release: false,
       noteOn: vi.fn(),
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keysDown = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideShaping: 100, hakenXGlideMode: "pitch_bending" },
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 48,
+        bendRange: "2/1",
+        hakenXGlideShaping: 100,
+        hakenXGlideMode: "pitch_bending",
+      },
       { makeHex: makeHexDown },
     );
     keysDown.controller = { id: "hakenaudio" };
@@ -4297,12 +4377,25 @@ describe("Keys MIDI input integration", () => {
 
   it("Continuum X glide shaping creates more stability near note centers", () => {
     const makeHexFlat = vi.fn((coords, cents) => ({
-      coords, cents, release: false, noteOn: vi.fn(), noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keysFlat = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 5, bendRange: "2/1", hakenXGlideShaping: 0, hakenXGlideMode: "pitch_bending" },
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 5,
+        bendRange: "2/1",
+        hakenXGlideShaping: 0,
+        hakenXGlideMode: "pitch_bending",
+      },
       { makeHex: makeHexFlat },
     );
     keysFlat.controller = { id: "hakenaudio" };
@@ -4318,12 +4411,25 @@ describe("Keys MIDI input integration", () => {
     const flatBend = Math.abs(hexFlat.retune.mock.calls[0][0] - baseCentsFlat);
 
     const makeHexShaped = vi.fn((coords, cents) => ({
-      coords, cents, release: false, noteOn: vi.fn(), noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keysShaped = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 5, bendRange: "2/1", hakenXGlideShaping: 100, hakenXGlideMode: "pitch_bending" },
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 5,
+        bendRange: "2/1",
+        hakenXGlideShaping: 100,
+        hakenXGlideMode: "pitch_bending",
+      },
       { makeHex: makeHexShaped },
     );
     keysShaped.controller = { id: "hakenaudio" };
@@ -4351,7 +4457,9 @@ describe("Keys MIDI input integration", () => {
       release: false,
       noteOn: vi.fn(),
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keys = createKeys(
       {
@@ -4389,7 +4497,9 @@ describe("Keys MIDI input integration", () => {
       release: false,
       noteOn: vi.fn(),
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keys = createKeys(
       {
@@ -4439,7 +4549,9 @@ describe("Keys MIDI input integration", () => {
       release: false,
       noteOn: vi.fn(),
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keys = createKeys(
       {
@@ -4483,7 +4595,9 @@ describe("Keys MIDI input integration", () => {
       release: false,
       noteOn: vi.fn(),
       noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keys = createKeys(
       {
@@ -4522,12 +4636,24 @@ describe("Keys MIDI input integration", () => {
 
   it("Continuum scale mode does not apply retune when bend is exactly at anchor", () => {
     const makeHex = vi.fn((coords, cents) => ({
-      coords, cents, release: false, noteOn: vi.fn(), noteOff: vi.fn(),
-      retune: vi.fn(function retune(newCents) { this.cents = newCents; }),
+      coords,
+      cents,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(function retune(newCents) {
+        this.cents = newCents;
+      }),
     }));
     const keys = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      { target: "scale", mpeInput: true, scaleBendRange: 48, bendRange: "2/1", hakenXGlideMode: "pitch_bending" },
+      {
+        target: "scale",
+        mpeInput: true,
+        scaleBendRange: 48,
+        bendRange: "2/1",
+        hakenXGlideMode: "pitch_bending",
+      },
       { makeHex },
     );
     keys.controller = { id: "hakenaudio" };
@@ -4559,7 +4685,12 @@ describe("Keys MIDI input integration", () => {
     vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
 
     const hexOn = vi.fn((coords) => ({
-      coords, cents: 0, _baseCents: 0, noteOn: vi.fn(), noteOff: vi.fn(), release: false,
+      coords,
+      cents: 0,
+      _baseCents: 0,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      release: false,
     }));
     const keys = createKeys(
       {
@@ -4609,11 +4740,14 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("releases the originally lit hex in hex-layout mode instead of recomputing release coords", () => {
-    const keys = createKeys({}, {
-      target: "hex_layout",
-      mpeInput: true,
-      layoutMode: "controller_geometry",
-    });
+    const keys = createKeys(
+      {},
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        layoutMode: "controller_geometry",
+      },
+    );
     const originalCoords = new Point(8, -3);
     const recomputedCoords = new Point(2, 11);
     const releaseHex = {
@@ -4652,12 +4786,15 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("does not retarget global recency wheel state when releasing one MPE nearest-scale note", () => {
-    const keys = createKeys({}, {
-      target: "scale",
-      mpeInput: true,
-      wheelToRecent: true,
-      pitchBendMode: "recency",
-    });
+    const keys = createKeys(
+      {},
+      {
+        target: "scale",
+        mpeInput: true,
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+    );
     const aHex = {
       coords: new Point(3, 4),
       cents: 100,
@@ -4872,14 +5009,17 @@ describe("Keys MIDI input integration", () => {
       name: "MIDI Function",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "auto",
-      midi_passthrough: false,
-      midiin_anchor_channel: 3,
-      midiin_anchor_note: 26,
-      lumatone_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+        midi_passthrough: false,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
+        lumatone_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     keys.autoSyncLumatoneLEDs = vi.fn();
 
     keys.updateInputRuntime(
@@ -4900,14 +5040,17 @@ describe("Keys MIDI input integration", () => {
       name: "MIDI Function",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "lumatone",
-      midi_passthrough: false,
-      midiin_anchor_channel: 3,
-      midiin_anchor_note: 26,
-      lumatone_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
+        lumatone_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     keys.autoSyncLumatoneLEDs = vi.fn();
 
     keys.updateInputRuntime(
@@ -4928,14 +5071,17 @@ describe("Keys MIDI input integration", () => {
       name: "USB MIDI Interface",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "lumatone",
-      midi_passthrough: false,
-      midiin_anchor_channel: 3,
-      midiin_anchor_note: 26,
-      lumatone_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
+        lumatone_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     keys.autoSyncLumatoneLEDs = vi.fn();
 
     keys.updateInputRuntime(
@@ -4956,19 +5102,27 @@ describe("Keys MIDI input integration", () => {
       name: "MIDI Function",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "generic",
-      midi_passthrough: true,
-      midiin_anchor_channel: 3,
-      midiin_anchor_note: 26,
-      lumatone_led_sync: true,
-    }, { layoutMode: "sequential" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "generic",
+        midi_passthrough: true,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
+        lumatone_led_sync: true,
+      },
+      { layoutMode: "sequential" },
+    );
     expect(keys.controller?.id).toBe("generic");
     keys.autoSyncLumatoneLEDs = vi.fn();
 
     keys.updateInputRuntime(
-      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 26, seqAnchorChannel: 3 },
+      {
+        ...keys.inputRuntime,
+        layoutMode: "controller_geometry",
+        seqAnchorNote: 26,
+        seqAnchorChannel: 3,
+      },
       {
         midiin_controller_override: "lumatone",
         midi_passthrough: false,
@@ -4988,19 +5142,27 @@ describe("Keys MIDI input integration", () => {
       name: "MIDI Function",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "generic",
-      midi_passthrough: false,
-      midiin_anchor_channel: 3,
-      midiin_anchor_note: 26,
-      lumatone_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "generic",
+        midi_passthrough: false,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
+        lumatone_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     expect(keys.controller?.id).toBe("generic");
     keys.autoSyncLumatoneLEDs = vi.fn();
 
     keys.updateInputRuntime(
-      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 26, seqAnchorChannel: 3 },
+      {
+        ...keys.inputRuntime,
+        layoutMode: "controller_geometry",
+        seqAnchorNote: 26,
+        seqAnchorChannel: 3,
+      },
       {
         midiin_controller_override: "lumatone",
         midi_passthrough: false,
@@ -5020,14 +5182,17 @@ describe("Keys MIDI input integration", () => {
       name: "USB MIDI Interface",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "lumatone",
-      midi_passthrough: false,
-      midiin_anchor_channel: 3,
-      midiin_anchor_note: 26,
-      lumatone_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "lumatone",
+        midi_passthrough: false,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
+        lumatone_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     keys.lumatoneLEDs = { sendAll: vi.fn() };
     keys._buildLumatoneColorEntries = vi.fn(() => [{ board: 3, key: 26, hexColor: "#ffffff" }]);
 
@@ -5045,14 +5210,17 @@ describe("Keys MIDI input integration", () => {
       name: "MIDI Function",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "auto",
-      midi_passthrough: true,
-      midiin_anchor_channel: 3,
-      midiin_anchor_note: 26,
-      lumatone_led_sync: true,
-    }, { layoutMode: "sequential" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+        midi_passthrough: true,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
+        lumatone_led_sync: true,
+      },
+      { layoutMode: "sequential" },
+    );
     keys.autoSyncLumatoneLEDs = vi.fn();
 
     keys.updateInputRuntime(
@@ -5077,14 +5245,17 @@ describe("Keys MIDI input integration", () => {
       hasListener: vi.fn().mockReturnValue(false),
     };
     vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "auto",
-      midi_passthrough: false,
-      midiin_anchor_channel: 3,
-      midiin_anchor_note: 26,
-      lumatone_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+        midi_passthrough: false,
+        midiin_anchor_channel: 3,
+        midiin_anchor_note: 26,
+        lumatone_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     keys.autoSyncLumatoneLEDs = vi.fn();
 
     ensureMidiInputBinding.call(keys, { force: true });
@@ -5098,13 +5269,16 @@ describe("Keys MIDI input integration", () => {
       name: "Intuitive Instruments Exquis",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "auto",
-      midi_passthrough: false,
-      midiin_anchor_note: 19,
-      exquis_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+        midi_passthrough: false,
+        midiin_anchor_note: 19,
+        exquis_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     keys.syncExquisLEDs = vi.fn();
 
     keys.updateInputRuntime(
@@ -5123,13 +5297,16 @@ describe("Keys MIDI input integration", () => {
       name: "Intuitive Instruments Exquis",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "exquis",
-      midi_passthrough: false,
-      midiin_anchor_note: 19,
-      exquis_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "exquis",
+        midi_passthrough: false,
+        midiin_anchor_note: 19,
+        exquis_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     keys.syncExquisLEDs = vi.fn();
 
     keys.updateInputRuntime(
@@ -5148,13 +5325,16 @@ describe("Keys MIDI input integration", () => {
       name: "Intuitive Instruments Exquis",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "generic",
-      midi_passthrough: true,
-      midiin_anchor_note: 60,
-      exquis_led_sync: true,
-    }, { layoutMode: "sequential" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "generic",
+        midi_passthrough: true,
+        midiin_anchor_note: 60,
+        exquis_led_sync: true,
+      },
+      { layoutMode: "sequential" },
+    );
     expect(keys.controller?.id).toBe("generic");
     keys.syncExquisLEDs = vi.fn();
 
@@ -5177,14 +5357,17 @@ describe("Keys MIDI input integration", () => {
       name: "Roger Linn Design LinnStrument 128",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "auto",
-      midi_passthrough: false,
-      midiin_anchor_channel: 4,
-      midiin_anchor_note: 9,
-      linnstrument_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+        midi_passthrough: false,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 9,
+        linnstrument_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     keys.syncLinnstrumentLEDs = vi.fn();
 
     keys.updateInputRuntime(
@@ -5205,19 +5388,27 @@ describe("Keys MIDI input integration", () => {
       name: "Roger Linn Design LinnStrument 128",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "generic",
-      midi_passthrough: true,
-      midiin_anchor_channel: 4,
-      midiin_anchor_note: 9,
-      linnstrument_led_sync: true,
-    }, { layoutMode: "sequential" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "generic",
+        midi_passthrough: true,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 9,
+        linnstrument_led_sync: true,
+      },
+      { layoutMode: "sequential" },
+    );
     expect(keys.controller?.id).toBe("generic");
     keys.syncLinnstrumentLEDs = vi.fn();
 
     keys.updateInputRuntime(
-      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 9, seqAnchorChannel: 4 },
+      {
+        ...keys.inputRuntime,
+        layoutMode: "controller_geometry",
+        seqAnchorNote: 9,
+        seqAnchorChannel: 4,
+      },
       {
         midiin_controller_override: "linnstrument",
         midi_passthrough: false,
@@ -5237,19 +5428,27 @@ describe("Keys MIDI input integration", () => {
       name: "Roger Linn Design LinnStrument 128",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "generic",
-      midi_passthrough: false,
-      midiin_anchor_channel: 4,
-      midiin_anchor_note: 9,
-      linnstrument_led_sync: true,
-    }, { layoutMode: "controller_geometry" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "generic",
+        midi_passthrough: false,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 9,
+        linnstrument_led_sync: true,
+      },
+      { layoutMode: "controller_geometry" },
+    );
     expect(keys.controller?.id).toBe("generic");
     keys.syncLinnstrumentLEDs = vi.fn();
 
     keys.updateInputRuntime(
-      { ...keys.inputRuntime, layoutMode: "controller_geometry", seqAnchorNote: 9, seqAnchorChannel: 4 },
+      {
+        ...keys.inputRuntime,
+        layoutMode: "controller_geometry",
+        seqAnchorNote: 9,
+        seqAnchorChannel: 4,
+      },
       {
         midiin_controller_override: "linnstrument",
         midi_passthrough: false,
@@ -5269,14 +5468,17 @@ describe("Keys MIDI input integration", () => {
       name: "Roger Linn Design LinnStrument 128",
       addListener: vi.fn(),
     });
-    const keys = createKeys({
-      midiin_device: "input-1",
-      midiin_controller_override: "auto",
-      midi_passthrough: true,
-      midiin_anchor_channel: 4,
-      midiin_anchor_note: 9,
-      linnstrument_led_sync: true,
-    }, { layoutMode: "sequential" });
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+        midi_passthrough: true,
+        midiin_anchor_channel: 4,
+        midiin_anchor_note: 9,
+        linnstrument_led_sync: true,
+      },
+      { layoutMode: "sequential" },
+    );
     keys.syncLinnstrumentLEDs = vi.fn();
 
     keys.updateInputRuntime(
@@ -5421,10 +5623,7 @@ describe("Keys MIDI input integration", () => {
       midiin_controller_override: "auto",
     });
 
-    keys.updateInputRuntime(
-      { ...keys.inputRuntime },
-      { midiin_device: "input-new" },
-    );
+    keys.updateInputRuntime({ ...keys.inputRuntime }, { midiin_device: "input-new" });
 
     expect(oldInput.removeListener).toHaveBeenCalledWith("noteon");
     expect(oldInput.removeListener).toHaveBeenCalledWith("pitchbend");
@@ -5482,7 +5681,8 @@ describe("Keys MIDI input integration", () => {
       addListener: vi.fn(),
       removeListener: vi.fn(),
     };
-    const getInputById = vi.spyOn(WebMidi, "getInputById")
+    const getInputById = vi
+      .spyOn(WebMidi, "getInputById")
       .mockReturnValueOnce(staleInput)
       .mockReturnValue(refreshedInput);
 
@@ -5608,11 +5808,9 @@ describe("Keys MIDI input integration", () => {
       midi_device: "output-1",
       midi_channel: 1,
     });
-    const getOutputSpy = vi
-      .spyOn(WebMidi, "getOutputById")
-      .mockImplementation(() => {
-        throw new Error("WebMidi is not enabled.");
-      });
+    const getOutputSpy = vi.spyOn(WebMidi, "getOutputById").mockImplementation(() => {
+      throw new Error("WebMidi is not enabled.");
+    });
 
     expect(() => keys.updateLiveOutputState(null, {})).not.toThrow();
     expect(getOutputSpy).toHaveBeenCalledWith("output-1");
@@ -5653,9 +5851,12 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("applies standard wheel bend immediately when wheel-to-recent is off", () => {
-    const keys = createKeys({}, {
-      wheelToRecent: false,
-    });
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: false,
+      },
+    );
     const handleSpy = vi.spyOn(keys, "_handleWheelBend");
     const applySpy = vi.spyOn(keys, "_applyWheelInputNow");
 
@@ -5666,13 +5867,19 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("applies wheel-to-recent bend immediately without rAF scheduling", () => {
-    const keys = createKeys({}, {
-      wheelToRecent: true,
-      pitchBendMode: "recency",
-    });
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+    );
     const handleSpy = vi.spyOn(keys, "_handleWheelBend");
     const applySpy = vi.spyOn(keys, "_applyWheelInputNow");
-    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn(() => 1),
+    );
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
 
     keys._wheelValue14 = 8192;
@@ -5851,8 +6058,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Lumatone MIDI Function",
@@ -5886,7 +6092,10 @@ describe("Keys MIDI input integration", () => {
     );
 
     const passthroughSpy = vi.spyOn(keys, "_passthroughPitchBend");
-    vi.stubGlobal("requestAnimationFrame", vi.fn(() => 1));
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn(() => 1),
+    );
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     keys.hexOn(new Point(1, 0), 60, 96, 0);
 
@@ -5901,8 +6110,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -5968,8 +6176,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Haken Audio Continuum",
@@ -6013,8 +6220,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Haken Audio Continuum",
@@ -6073,8 +6279,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Haken Audio Continuum",
@@ -6121,8 +6326,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Haken Audio Continuum",
@@ -6182,8 +6386,7 @@ describe("Keys MIDI input integration", () => {
     const listenersRaw = {};
     const makeInput = (name, listeners) => ({
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name,
@@ -6259,8 +6462,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6327,8 +6529,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6372,8 +6573,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6417,8 +6617,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6462,8 +6661,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6507,8 +6705,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6552,8 +6749,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6602,8 +6798,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6652,8 +6847,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6711,8 +6905,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6762,8 +6955,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6816,8 +7008,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6927,8 +7118,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -6975,17 +7165,14 @@ describe("Keys MIDI input integration", () => {
     listeners.controlchange({ message: { channel: 1, dataBytes: [33, 112] } });
     const laterCents = retune.mock.calls.at(-1)[0];
 
-    expect(Math.abs(attackCents - baseCents)).toBeLessThan(
-      Math.abs(laterCents - baseCents),
-    );
+    expect(Math.abs(attackCents - baseCents)).toBeLessThan(Math.abs(laterCents - baseCents));
   });
 
   it("holds the last LinnStrument UF bent pitch through low-pressure release motion until note-off", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -7040,8 +7227,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -7099,8 +7285,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -7148,8 +7333,7 @@ describe("Keys MIDI input integration", () => {
     const listeners = {};
     const input = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        listeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -7239,8 +7423,7 @@ describe("Keys MIDI input integration", () => {
     const leftListeners = {};
     const leftInput = {
       addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
-        leftListeners[eventName] =
-          typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+        leftListeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
       }),
       removeListener: vi.fn(),
       name: "Roger Linn Design LinnStrument 128",
@@ -7403,14 +7586,16 @@ describe("Keys MIDI input integration", () => {
 
   it("captures the live scale ratio for chord proportion snapshot labels", () => {
     const synth = {
-      makeHex: vi.fn((coords, cents, _steps, _equaves, _equivSteps, _prev, _next, _label, velocity) => ({
-        coords,
-        cents,
-        velocity,
-        release: false,
-        noteOn: vi.fn(),
-        noteOff: vi.fn(),
-      })),
+      makeHex: vi.fn(
+        (coords, cents, _steps, _equaves, _equivSteps, _prev, _next, _label, velocity) => ({
+          coords,
+          cents,
+          velocity,
+          release: false,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+        }),
+      ),
     };
     const tuningRuntime = {
       scale: [0, parseExactInterval("5/4").cents, parseExactInterval("3/2").cents],
@@ -7424,12 +7609,18 @@ describe("Keys MIDI input integration", () => {
       equaveInterval: parseExactInterval("2/1"),
       equaveCents: 1200,
     };
-    const keys = createKeys({
-      scale: tuningRuntime.scale,
-      equivSteps: 3,
-      rSteps: 1,
-      drSteps: 1000,
-    }, {}, synth, null, tuningRuntime);
+    const keys = createKeys(
+      {
+        scale: tuningRuntime.scale,
+        equivSteps: 3,
+        rSteps: 1,
+        drSteps: 1000,
+      },
+      {},
+      synth,
+      null,
+      tuningRuntime,
+    );
 
     const hex = keys.hexOn(new Point(1, 0), 60, 96, 0);
 
@@ -7439,14 +7630,16 @@ describe("Keys MIDI input integration", () => {
 
   it("captures the live scale ratio above the first equave for chord proportion snapshot labels", () => {
     const synth = {
-      makeHex: vi.fn((coords, cents, _steps, _equaves, _equivSteps, _prev, _next, _label, velocity) => ({
-        coords,
-        cents,
-        velocity,
-        release: false,
-        noteOn: vi.fn(),
-        noteOff: vi.fn(),
-      })),
+      makeHex: vi.fn(
+        (coords, cents, _steps, _equaves, _equivSteps, _prev, _next, _label, velocity) => ({
+          coords,
+          cents,
+          velocity,
+          release: false,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+        }),
+      ),
     };
     const tuningRuntime = {
       scale: [0, parseExactInterval("5/4").cents, parseExactInterval("3/2").cents],
@@ -7460,12 +7653,18 @@ describe("Keys MIDI input integration", () => {
       equaveInterval: parseExactInterval("2/1"),
       equaveCents: 1200,
     };
-    const keys = createKeys({
-      scale: tuningRuntime.scale,
-      equivSteps: 3,
-      rSteps: 1,
-      drSteps: 1000,
-    }, {}, synth, null, tuningRuntime);
+    const keys = createKeys(
+      {
+        scale: tuningRuntime.scale,
+        equivSteps: 3,
+        rSteps: 1,
+        drSteps: 1000,
+      },
+      {},
+      synth,
+      null,
+      tuningRuntime,
+    );
 
     const hex = keys.hexOn(new Point(4, 0), 60, 96, 0);
 
@@ -7636,17 +7835,19 @@ describe("Keys MIDI input integration", () => {
     const aftertouch = vi.fn();
     const polyTimbre = vi.fn();
     const synth = {
-      makeHex: vi.fn((coords, cents, _i, _j, _period, _baseCents, _untransposedCents, _label, velocity) => ({
-        coords,
-        cents,
-        _baseCents: cents,
-        velocity,
-        release: false,
-        noteOn: vi.fn(),
-        noteOff: vi.fn(),
-        aftertouch,
-        polyTimbre,
-      })),
+      makeHex: vi.fn(
+        (coords, cents, _i, _j, _period, _baseCents, _untransposedCents, _label, velocity) => ({
+          coords,
+          cents,
+          _baseCents: cents,
+          velocity,
+          release: false,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+          aftertouch,
+          polyTimbre,
+        }),
+      ),
     };
     const keys = createKeys(
       {
@@ -7662,13 +7863,15 @@ describe("Keys MIDI input integration", () => {
       synth,
     );
 
-    keys.playSnapshot([{
-      midicents: 69,
-      attackVelocity: 111,
-      releaseVelocity: 39,
-      pressure: 66,
-      timbre: 91,
-    }]);
+    keys.playSnapshot([
+      {
+        midicents: 69,
+        attackVelocity: 111,
+        releaseVelocity: 39,
+        pressure: 66,
+        timbre: 91,
+      },
+    ]);
     keys.midinoteOn(makeMidiEvent(32, 7, 88));
 
     const snapshot = keys.getSnapshot();
@@ -7676,11 +7879,11 @@ describe("Keys MIDI input integration", () => {
     expect(snapshot).toHaveLength(2);
     expect(snapshot.map((note) => Math.round(note.midicents * 1000) / 1000)).toContain(69);
     expect(snapshot.some((note) => note.attackVelocity === 88)).toBe(true);
-    expect(snapshot.some((note) => (
-      note.attackVelocity === 111 &&
-      note.pressure === 66 &&
-      note.timbre === 91
-    ))).toBe(true);
+    expect(
+      snapshot.some(
+        (note) => note.attackVelocity === 111 && note.pressure === 66 && note.timbre === 91,
+      ),
+    ).toBe(true);
 
     aftertouch.mockClear();
     polyTimbre.mockClear();
@@ -7837,10 +8040,13 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("keeps the previous recency target at its current bent pitch when a new note takes over", () => {
-    const keys = createKeys({}, {
-      wheelToRecent: true,
-      pitchBendMode: "recency",
-    });
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+    );
     const oldHex = {
       coords: new Point(1, 0),
       cents: 1000,
@@ -7877,10 +8083,13 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("reapplies recency wheel bend from the note base when an older note becomes front again", () => {
-    const keys = createKeys({}, {
-      wheelToRecent: true,
-      pitchBendMode: "recency",
-    });
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+    );
     const oldHex = {
       coords: new Point(1, 0),
       cents: 1000,
@@ -7922,10 +8131,13 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("does not overwrite note base with an already-bent pitch when wheel is moved before note-on", () => {
-    const keys = createKeys({}, {
-      wheelToRecent: true,
-      pitchBendMode: "recency",
-    });
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+    );
     const aHex = {
       coords: new Point(1, 0),
       cents: 1000,
@@ -7946,10 +8158,7 @@ describe("Keys MIDI input integration", () => {
       noteOff: vi.fn(),
       release: false,
     };
-    const hexOn = vi
-      .fn()
-      .mockReturnValueOnce(aHex)
-      .mockReturnValueOnce(bHex);
+    const hexOn = vi.fn().mockReturnValueOnce(aHex).mockReturnValueOnce(bHex);
     keys.hexOn = hexOn;
     keys.hexOff = vi.fn();
     keys._wheelValue14 = 12000;
@@ -7967,10 +8176,13 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("glides the previous held note to the current wheel position when recency returns to it", () => {
-    const keys = createKeys({}, {
-      wheelToRecent: true,
-      pitchBendMode: "recency",
-    });
+    const keys = createKeys(
+      {},
+      {
+        wheelToRecent: true,
+        pitchBendMode: "recency",
+      },
+    );
     const aHex = {
       coords: new Point(1, 0),
       cents: 1000,

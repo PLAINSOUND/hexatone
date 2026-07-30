@@ -92,16 +92,18 @@ describe("sequencer sequence mutations", () => {
   it("restores captured pitch and name", () => {
     const editedSnapshot = {
       ...snapshot,
-      notes: [{
-        id: "a",
-        midicents: 69.1,
-        start: 0,
-        end: 1,
-        displayLabel: "edited",
-        displayLabelEdited: true,
-        originalMidicents: 69,
-        originalDisplayLabel: "A",
-      }],
+      notes: [
+        {
+          id: "a",
+          midicents: 69.1,
+          start: 0,
+          end: 1,
+          displayLabel: "edited",
+          displayLabelEdited: true,
+          originalMidicents: 69,
+          originalDisplayLabel: "A",
+        },
+      ],
     };
     const restored = restoreEventPitchLabelInSnapshot(editedSnapshot, "a");
     expect(restored[0]).toMatchObject({
@@ -115,16 +117,18 @@ describe("sequencer sequence mutations", () => {
   it("commits edited pitch and name as the new snapshot baseline", () => {
     const editedSnapshot = {
       ...snapshot,
-      notes: [{
-        id: "a",
-        midicents: 69.1,
-        start: 0,
-        end: 1,
-        displayLabel: "La 441",
-        displayLabelEdited: true,
-        originalMidicents: 69,
-        originalDisplayLabel: "A",
-      }],
+      notes: [
+        {
+          id: "a",
+          midicents: 69.1,
+          start: 0,
+          end: 1,
+          displayLabel: "La 441",
+          displayLabelEdited: true,
+          originalMidicents: 69,
+          originalDisplayLabel: "A",
+        },
+      ],
     };
     const committed = commitEventPitchLabelInSnapshot(editedSnapshot, "a");
     expect(committed[0]).toMatchObject({
@@ -139,15 +143,17 @@ describe("sequencer sequence mutations", () => {
   it("restores a name-only edit when no pitch change was made", () => {
     const editedSnapshot = {
       ...snapshot,
-      notes: [{
-        id: "a",
-        midicents: 69,
-        start: 0,
-        end: 1,
-        displayLabel: "La 440",
-        displayLabelEdited: true,
-        originalDisplayLabel: "A",
-      }],
+      notes: [
+        {
+          id: "a",
+          midicents: 69,
+          start: 0,
+          end: 1,
+          displayLabel: "La 440",
+          displayLabelEdited: true,
+          originalDisplayLabel: "A",
+        },
+      ],
     };
     const restored = restoreEventPitchLabelInSnapshot(editedSnapshot, "a");
     expect(restored[0]).toMatchObject({

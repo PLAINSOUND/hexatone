@@ -5,7 +5,13 @@ import { buildPitchFrame } from "../../notation/pitch-frame.js";
 import { createScaleWorkspace } from "../../tuning/workspace.js";
 
 describe("KeyLabels HEJI anchor handling", () => {
-  const pitchFrameFor = ({ scale = ["3/2", "2/1"], reference_degree = 1, fundamental = 440, heji_anchor_label = "A", heji_anchor_ratio = "1/1" } = {}) => {
+  const pitchFrameFor = ({
+    scale = ["3/2", "2/1"],
+    reference_degree = 1,
+    fundamental = 440,
+    heji_anchor_label = "A",
+    heji_anchor_ratio = "1/1",
+  } = {}) => {
     const settings = {
       scale,
       reference_degree,
@@ -86,7 +92,9 @@ describe("KeyLabels HEJI anchor handling", () => {
       />,
     );
 
-    expect(screen.getByText("Non-octave equave cannot generate consistent note names.")).toBeTruthy();
+    expect(
+      screen.getByText("Non-octave equave cannot generate consistent note names."),
+    ).toBeTruthy();
     expect(screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)").disabled).toBe(true);
     expect(screen.getByLabelText("Notation (Spelling)").disabled).toBe(true);
     expect(screen.getByLabelText("Tempered Accidentals Only").disabled).toBe(true);
@@ -159,7 +167,7 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(onChange).toHaveBeenCalledWith("heji_anchor_ratio", "1/1");
   });
 
-  it('commits the HEJI anchor ratio on Enter like blur', () => {
+  it("commits the HEJI anchor ratio on Enter like blur", () => {
     const onChange = vi.fn();
 
     render(
@@ -603,13 +611,40 @@ describe("KeyLabels HEJI anchor handling", () => {
         settings={{
           key_labels: "heji",
           scale: Array.from({ length: 31 }, (_, index) =>
-            index === 30 ? "2/1" : `${(((index + 1) * 1200) / 31).toFixed(6)}`
+            index === 30 ? "2/1" : `${(((index + 1) * 1200) / 31).toFixed(6)}`,
           ),
           note_names: [
-            "c", "c", "c", "d", "d", "d", "d", "d",
-            "e", "e", "e", "e", "e", "f", "f", "f",
-            "g", "g", "g", "g", "g", "a", "a", "a",
-            "a", "a", "b", "b", "b", "b", "b",
+            "c",
+            "c",
+            "c",
+            "d",
+            "d",
+            "d",
+            "d",
+            "d",
+            "e",
+            "e",
+            "e",
+            "e",
+            "e",
+            "f",
+            "f",
+            "f",
+            "g",
+            "g",
+            "g",
+            "g",
+            "g",
+            "a",
+            "a",
+            "a",
+            "a",
+            "a",
+            "b",
+            "b",
+            "b",
+            "b",
+            "b",
           ],
           fundamental: 440,
           reference_degree: 23,
@@ -643,8 +678,9 @@ describe("KeyLabels HEJI anchor handling", () => {
       />,
     );
 
-    const optionLabels = Array.from(screen.getByLabelText("Key Labels").querySelectorAll("option"))
-      .map((option) => option.textContent);
+    const optionLabels = Array.from(
+      screen.getByLabelText("Key Labels").querySelectorAll("option"),
+    ).map((option) => option.textContent);
 
     expect(optionLabels).toEqual([
       "Blank Keys",

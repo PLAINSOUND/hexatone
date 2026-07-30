@@ -2,11 +2,7 @@
 // It saves and restores the active workspace shape so the Sequencer tab can
 // survive reloads independently of user-library save/load actions.
 
-import {
-  normalizeBarMarkers,
-  normalizeRepeatMarkers,
-  normalizeTempoMarkers,
-} from "./transport.js";
+import { normalizeBarMarkers, normalizeRepeatMarkers, normalizeTempoMarkers } from "./transport.js";
 import {
   normalizeManualArpeggiation,
   normalizeSnapshotManualTrigger,
@@ -22,9 +18,11 @@ function clone(value) {
 export function serializeSequenceWorkspace(workspace = {}) {
   return {
     version: 2,
-    snapshots: clone(Array.isArray(workspace.snapshots)
-      ? workspace.snapshots.map(normalizeSnapshotManualTrigger)
-      : []),
+    snapshots: clone(
+      Array.isArray(workspace.snapshots)
+        ? workspace.snapshots.map(normalizeSnapshotManualTrigger)
+        : [],
+    ),
     bars: clone(Array.isArray(workspace.bars) ? workspace.bars : []),
     tempi: clone(Array.isArray(workspace.tempi) ? workspace.tempi : []),
     repeats: clone(Array.isArray(workspace.repeats) ? workspace.repeats : []),
@@ -45,9 +43,9 @@ export function normalizeSequenceWorkspaceRecord(record) {
   if (!record || typeof record !== "object") return null;
   return {
     version: 2,
-    snapshots: clone(Array.isArray(record.snapshots)
-      ? record.snapshots.map(normalizeSnapshotManualTrigger)
-      : []),
+    snapshots: clone(
+      Array.isArray(record.snapshots) ? record.snapshots.map(normalizeSnapshotManualTrigger) : [],
+    ),
     bars: normalizeBarMarkers(clone(Array.isArray(record.bars) ? record.bars : [])),
     tempi: normalizeTempoMarkers(clone(Array.isArray(record.tempi) ? record.tempi : [])),
     repeats: normalizeRepeatMarkers(clone(Array.isArray(record.repeats) ? record.repeats : [])),

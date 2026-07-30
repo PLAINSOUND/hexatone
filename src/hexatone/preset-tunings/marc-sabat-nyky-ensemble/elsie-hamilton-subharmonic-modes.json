@@ -20,20 +20,7 @@
   "built_in_group": "Marc Sabat NYKY Ensemble",
   "key_labels": "note_names",
   "fundamental_color": "#ffdbe8",
-  "note_names": [
-    "B",
-    "C",
-    "C",
-    "D",
-    "*nD",
-    "E",
-    "*nE",
-    "F",
-    "G",
-    "G",
-    "A",
-    "*nA"
-  ],
+  "note_names": ["B", "C", "C", "D", "*nD", "E", "*nE", "F", "G", "G", "A", "*nA"],
   "note_colors": [
     "#d0d0d7",
     "#ffffff",

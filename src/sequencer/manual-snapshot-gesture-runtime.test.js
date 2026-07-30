@@ -53,14 +53,15 @@ describe("manual snapshot gesture runtime", () => {
     const release = vi.fn();
     const complete = vi.fn();
     const runtime = createManualSnapshotGestureRuntime();
-    const gestureId = runtime.start({
-      events: [
-        { type: "attack", eventId: "note-0", offsetMs: 0 },
-      ],
-    }, {
-      onRelease: release,
-      onComplete: complete,
-    });
+    const gestureId = runtime.start(
+      {
+        events: [{ type: "attack", eventId: "note-0", offsetMs: 0 }],
+      },
+      {
+        onRelease: release,
+        onComplete: complete,
+      },
+    );
 
     expect(runtime.activeGestureIds()).toEqual([gestureId]);
     runtime.release(gestureId, {
@@ -78,15 +79,18 @@ describe("manual snapshot gesture runtime", () => {
     const attack = vi.fn();
     const release = vi.fn();
     const runtime = createManualSnapshotGestureRuntime();
-    const gestureId = runtime.start({
-      events: [
-        { type: "attack", eventId: "note-0", offsetMs: 100 },
-        { type: "attack", eventId: "note-1", offsetMs: 200 },
-      ],
-    }, {
-      onAttack: attack,
-      onRelease: release,
-    });
+    const gestureId = runtime.start(
+      {
+        events: [
+          { type: "attack", eventId: "note-0", offsetMs: 100 },
+          { type: "attack", eventId: "note-1", offsetMs: 200 },
+        ],
+      },
+      {
+        onAttack: attack,
+        onRelease: release,
+      },
+    );
 
     runtime.release(gestureId, {
       events: [

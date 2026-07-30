@@ -173,13 +173,13 @@ describe("useSettingsChange", () => {
 
     handlers.onChange("heji_palette_visible", true);
     handlers.onAtomicChange({
-      heji_palette_structure: "{\"letter\":\"A\"}",
+      heji_palette_structure: '{"letter":"A"}',
       heji_palette_deviation: "+17",
       heji_palette_decimals: 2,
     });
 
     expect(sessionStorage.getItem("heji_palette_visible")).toBe("true");
-    expect(sessionStorage.getItem("heji_palette_structure")).toBe("{\"letter\":\"A\"}");
+    expect(sessionStorage.getItem("heji_palette_structure")).toBe('{"letter":"A"}');
     expect(sessionStorage.getItem("heji_palette_deviation")).toBe("+17");
     expect(sessionStorage.getItem("heji_palette_decimals")).toBe("2");
   });
@@ -210,17 +210,21 @@ describe("useSettingsChange", () => {
     handlers.onChange("midiin_anchor_note", 41);
     handlers.onChange("midiin_anchor_channel", 2);
 
-    expect(setSettings.mock.calls[0][0]()).toEqual(expect.objectContaining({
-      midiin_anchor_note: 41,
-      lumatone_anchor_note: 41,
-      lumatone_anchor_channel: 3,
-    }));
-    expect(setSettings.mock.calls[1][0]()).toEqual(expect.objectContaining({
-      midiin_anchor_note: 41,
-      midiin_anchor_channel: 2,
-      lumatone_anchor_note: 41,
-      lumatone_anchor_channel: 2,
-    }));
+    expect(setSettings.mock.calls[0][0]()).toEqual(
+      expect.objectContaining({
+        midiin_anchor_note: 41,
+        lumatone_anchor_note: 41,
+        lumatone_anchor_channel: 3,
+      }),
+    );
+    expect(setSettings.mock.calls[1][0]()).toEqual(
+      expect.objectContaining({
+        midiin_anchor_note: 41,
+        midiin_anchor_channel: 2,
+        lumatone_anchor_note: 41,
+        lumatone_anchor_channel: 2,
+      }),
+    );
   });
 
   it("copies atomic Haken anchor edits into preset-specific fields", () => {
@@ -248,9 +252,11 @@ describe("useSettingsChange", () => {
 
     handlers.onAtomicChange({ midiin_anchor_note: 67 });
 
-    expect(setSettings.mock.calls[0][0]()).toEqual(expect.objectContaining({
-      midiin_anchor_note: 67,
-      haken_anchor_note: 67,
-    }));
+    expect(setSettings.mock.calls[0][0]()).toEqual(
+      expect.objectContaining({
+        midiin_anchor_note: 67,
+        haken_anchor_note: 67,
+      }),
+    );
   });
 });

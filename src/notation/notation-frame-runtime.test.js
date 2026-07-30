@@ -144,22 +144,26 @@ describe("notation-frame-runtime", () => {
   });
 
   it("derives the compounded current fundamental as ratio and cents when routes are exact", () => {
-    const derived = deriveCurrentFundamentalForHistory(workspace, [
+    const derived = deriveCurrentFundamentalForHistory(
+      workspace,
+      [
+        {
+          sourceDegree: 3,
+          targetDegree: 2,
+          strategy: "retune_surface_to_source",
+          count: 1,
+        },
+        {
+          sourceDegree: 2,
+          targetDegree: 1,
+          strategy: "retune_surface_to_source",
+          count: 1,
+        },
+      ],
       {
-        sourceDegree: 3,
-        targetDegree: 2,
-        strategy: "retune_surface_to_source",
-        count: 1,
+        fundamental: 440,
       },
-      {
-        sourceDegree: 2,
-        targetDegree: 1,
-        strategy: "retune_surface_to_source",
-        count: 1,
-      },
-    ], {
-      fundamental: 440,
-    });
+    );
 
     expect(derived.ratioText).toBe("4/3");
     expect(derived.cents).toBeCloseTo(workspace.slots[3].cents - workspace.slots[1].cents, 6);
@@ -167,18 +171,22 @@ describe("notation-frame-runtime", () => {
   });
 
   it("uses stored octave-aware route intervals for the current fundamental", () => {
-    const derived = deriveCurrentFundamentalForHistory(workspace, [
+    const derived = deriveCurrentFundamentalForHistory(
+      workspace,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 3,
+          strategy: "retune_surface_to_source",
+          count: 2,
+          transpositionDeltaCents: 231.174093530875,
+          transpositionRatioText: "8/7",
+        },
+      ],
       {
-        sourceDegree: 0,
-        targetDegree: 3,
-        strategy: "retune_surface_to_source",
-        count: 2,
-        transpositionDeltaCents: 231.174093530875,
-        transpositionRatioText: "8/7",
+        fundamental: 440,
       },
-    ], {
-      fundamental: 440,
-    });
+    );
 
     expect(derived.ratioText).toBe("64/49");
     expect(derived.cents).toBeCloseTo(462.34818706175, 8);
@@ -186,18 +194,22 @@ describe("notation-frame-runtime", () => {
   });
 
   it("normalizes legacy route ratios to the stored cents displacement for the current fundamental", () => {
-    const derived = deriveCurrentFundamentalForHistory(workspace, [
+    const derived = deriveCurrentFundamentalForHistory(
+      workspace,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 3,
+          strategy: "retune_surface_to_source",
+          count: 1,
+          transpositionDeltaCents: parseExactInterval("7/8").cents,
+          transpositionRatioText: "7/4",
+        },
+      ],
       {
-        sourceDegree: 0,
-        targetDegree: 3,
-        strategy: "retune_surface_to_source",
-        count: 1,
-        transpositionDeltaCents: parseExactInterval("7/8").cents,
-        transpositionRatioText: "7/4",
+        fundamental: 440,
       },
-    ], {
-      fundamental: 440,
-    });
+    );
 
     expect(derived.ratioText).toBe("7/8");
     expect(derived.cents).toBeCloseTo(parseExactInterval("7/8").cents, 8);
@@ -205,17 +217,21 @@ describe("notation-frame-runtime", () => {
   });
 
   it("normalizes fallback degree ratios to stored cents displacement when route ratio text is absent", () => {
-    const derived = deriveCurrentFundamentalForHistory(workspace, [
+    const derived = deriveCurrentFundamentalForHistory(
+      workspace,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 3,
+          strategy: "retune_surface_to_source",
+          count: 1,
+          transpositionDeltaCents: parseExactInterval("4/3").cents,
+        },
+      ],
       {
-        sourceDegree: 0,
-        targetDegree: 3,
-        strategy: "retune_surface_to_source",
-        count: 1,
-        transpositionDeltaCents: parseExactInterval("4/3").cents,
+        fundamental: 440,
       },
-    ], {
-      fundamental: 440,
-    });
+    );
 
     expect(derived.ratioText).toBe("4/3");
     expect(derived.cents).toBeCloseTo(parseExactInterval("4/3").cents, 8);
@@ -228,17 +244,21 @@ describe("notation-frame-runtime", () => {
       reference_degree: 0,
       fundamental: 440,
     });
-    const derived = deriveCurrentFundamentalForHistory(workspaceWithNinth, [
+    const derived = deriveCurrentFundamentalForHistory(
+      workspaceWithNinth,
+      [
+        {
+          sourceDegree: 0,
+          targetDegree: 1,
+          strategy: "retune_surface_to_source",
+          count: 1,
+          transpositionDeltaCents: parseExactInterval("32/27").cents,
+        },
+      ],
       {
-        sourceDegree: 0,
-        targetDegree: 1,
-        strategy: "retune_surface_to_source",
-        count: 1,
-        transpositionDeltaCents: parseExactInterval("32/27").cents,
+        fundamental: 440,
       },
-    ], {
-      fundamental: 440,
-    });
+    );
 
     expect(derived.ratioText).toBe("32/27");
     expect(derived.cents).toBeCloseTo(parseExactInterval("32/27").cents, 8);
@@ -274,7 +294,13 @@ describe("notation-frame-runtime", () => {
       reference_degree: 56,
       fundamental: 441,
     });
-    const anchor = deriveHejiAnchor(56, noteNames, degreeTexts, 441, workspace.slots.map((slot) => slot.cents));
+    const anchor = deriveHejiAnchor(
+      56,
+      noteNames,
+      degreeTexts,
+      441,
+      workspace.slots.map((slot) => slot.cents),
+    );
     const baseFrame = createHarmonicFrame(workspace, {
       anchorDegree: 56,
       anchorLabel: anchor.label,
@@ -306,7 +332,13 @@ describe("notation-frame-runtime", () => {
       reference_degree: 56,
       fundamental: 441,
     });
-    const anchor = deriveHejiAnchor(56, noteNames, degreeTexts, 441, workspace.slots.map((slot) => slot.cents));
+    const anchor = deriveHejiAnchor(
+      56,
+      noteNames,
+      degreeTexts,
+      441,
+      workspace.slots.map((slot) => slot.cents),
+    );
     const baseFrame = createHarmonicFrame(workspace, {
       anchorDegree: 56,
       anchorLabel: anchor.label,

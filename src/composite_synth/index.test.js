@@ -122,8 +122,26 @@ describe("composite_synth controller-state replay", () => {
     const oscSetMod = vi.fn();
     const sampleSetMod = vi.fn();
     const synth = create_composite_synth([
-      { family: "osc", makeHex: vi.fn(() => ({ coords: { x: 0, y: 0 }, cents: 0, noteOn: vi.fn(), noteOff: vi.fn() })), setMod: oscSetMod },
-      { family: "sample", makeHex: vi.fn(() => ({ coords: { x: 0, y: 0 }, cents: 0, noteOn: vi.fn(), noteOff: vi.fn() })), setMod: sampleSetMod },
+      {
+        family: "osc",
+        makeHex: vi.fn(() => ({
+          coords: { x: 0, y: 0 },
+          cents: 0,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+        })),
+        setMod: oscSetMod,
+      },
+      {
+        family: "sample",
+        makeHex: vi.fn(() => ({
+          coords: { x: 0, y: 0 },
+          cents: 0,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(),
+        })),
+        setMod: sampleSetMod,
+      },
     ]);
 
     expect(synth.family).toBe("composite");
@@ -165,12 +183,16 @@ describe("composite_synth controller-state replay", () => {
 
   it("sends absolute sequencer targets to every child without wheel passthrough", () => {
     const mpeHex = {
-      coords: { x: 0, y: 0 }, cents: 0, note_played: 60,
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      note_played: 60,
       standardWheelPassthroughOnly: true,
       retune: vi.fn(),
     };
     const mtsHex = {
-      coords: { x: 0, y: 0 }, cents: 0, note_played: 60,
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      note_played: 60,
       sequenceRetune: vi.fn(),
     };
     const wrapper = create_composite_synth([

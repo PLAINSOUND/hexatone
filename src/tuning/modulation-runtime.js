@@ -10,9 +10,7 @@ function coordKey(coords) {
 }
 
 function geometryModeForStrategy(strategy) {
-  return strategy === "reinterpret_surface_from_target"
-    ? "stable_surface"
-    : "moveable_surface";
+  return strategy === "reinterpret_surface_from_target" ? "stable_surface" : "moveable_surface";
 }
 
 function normalizeHistoryEntry(entry = {}) {
@@ -76,10 +74,11 @@ export function createModulationState(options = {}) {
     targetDegree: null,
     strategy: options.strategy ?? "retune_surface_to_source",
     geometryMode:
-      options.geometryMode ?? geometryModeForStrategy(options.strategy ?? "retune_surface_to_source"),
+      options.geometryMode ??
+      geometryModeForStrategy(options.strategy ?? "retune_surface_to_source"),
     takeoverConsumed: false,
     history,
-    historyIndex: options.historyIndex ?? (currentRoute?.count ?? 0),
+    historyIndex: options.historyIndex ?? currentRoute?.count ?? 0,
     currentRoute,
     lastDecision: null,
   };
@@ -162,16 +161,14 @@ export function commitModulationTarget(state, options = {}) {
   }
 
   const sourceStillSounding = options.sourceStillSounding !== false;
-  const decisionType =
-    options.articulation ?? (sourceStillSounding ? "takeover" : "attack");
+  const decisionType = options.articulation ?? (sourceStillSounding ? "takeover" : "attack");
   // pendingFrame is already derived by the caller from the committed tuning
   // substrate plus the selected source/target. This state machine only records
   // when that frame becomes active and whether the target should attack or
   // take over an existing source voice.
   const strategy = options.strategy ?? state.strategy;
   const geometryMode =
-    options.geometryMode ??
-    geometryModeForStrategy(strategy ?? "retune_surface_to_source");
+    options.geometryMode ?? geometryModeForStrategy(strategy ?? "retune_surface_to_source");
   const nextEntry = {
     sourceDegree: state.sourceDegree,
     targetDegree: options.targetDegree ?? null,
@@ -186,7 +183,7 @@ export function commitModulationTarget(state, options = {}) {
       ? { deltaDrSteps: Math.trunc(options.deltaDrSteps) }
       : Number.isFinite(options.surfaceDeltaY)
         ? { deltaDrSteps: Math.trunc(options.surfaceDeltaY) }
-      : {}),
+        : {}),
     ...(Number.isFinite(options.transpositionDeltaCents)
       ? { transpositionDeltaCents: options.transpositionDeltaCents }
       : {}),
@@ -194,7 +191,9 @@ export function commitModulationTarget(state, options = {}) {
       ? { transpositionRatioText: options.transpositionRatioText.trim() }
       : {}),
   };
-  const nextHistoryBase = Array.isArray(state.history) ? state.history.map(normalizeHistoryEntry) : [];
+  const nextHistoryBase = Array.isArray(state.history)
+    ? state.history.map(normalizeHistoryEntry)
+    : [];
   const nextHistory = [...nextHistoryBase, nextEntry];
 
   return {
@@ -254,7 +253,9 @@ export function settleModulationIfPossible(state, options = {}) {
     takeoverConsumed: false,
     history: Array.isArray(state.history) ? state.history.map(normalizeHistoryEntry) : [],
     historyIndex: state.currentRoute?.count ?? state.historyIndex ?? 0,
-    currentRoute: state.currentRoute ? normalizeHistoryEntry(state.currentRoute) : selectCurrentRoute(state.history),
+    currentRoute: state.currentRoute
+      ? normalizeHistoryEntry(state.currentRoute)
+      : selectCurrentRoute(state.history),
     lastDecision: {
       type: "settlement_complete",
       strategy: state.strategy,
@@ -294,7 +295,12 @@ export function setModulationHistoryIndex(state, historyIndex, currentFrame = st
   return setModulationRouteCount(state, routeIndex, historyIndex, currentFrame);
 }
 
-export function setModulationRouteCount(state, routeIndex, count, currentFrame = state.currentFrame) {
+export function setModulationRouteCount(
+  state,
+  routeIndex,
+  count,
+  currentFrame = state.currentFrame,
+) {
   // currentFrame is supplied by the caller because deriving a frame from route
   // counts depends on the active tuning/workspace runtime, not just this state.
   const history = Array.isArray(state.history) ? state.history.map(normalizeHistoryEntry) : [];
@@ -327,7 +333,10 @@ export function setModulationRouteCount(state, routeIndex, count, currentFrame =
   };
 }
 
-export function clearModulationHistory(state, currentFrame = state.homeFrame ?? state.currentFrame) {
+export function clearModulationHistory(
+  state,
+  currentFrame = state.homeFrame ?? state.currentFrame,
+) {
   return {
     ...state,
     mode: "idle",
@@ -348,7 +357,10 @@ export function clearModulationHistory(state, currentFrame = state.homeFrame ?? 
   };
 }
 
-export function resetModulationRouteCounts(state, currentFrame = state.homeFrame ?? state.currentFrame) {
+export function resetModulationRouteCounts(
+  state,
+  currentFrame = state.homeFrame ?? state.currentFrame,
+) {
   const history = Array.isArray(state.history)
     ? state.history.map((entry) => ({ ...normalizeHistoryEntry(entry), count: 0 }))
     : [];

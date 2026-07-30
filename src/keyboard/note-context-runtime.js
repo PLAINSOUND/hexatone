@@ -60,10 +60,9 @@ export function evaluateSettlement(modulationState, notes = []) {
 
 export function classifyReleaseForSettlement(modulationState, options = {}) {
   const suppressed = options.suppressed === true;
-  const notes = options.notes ?? normalizeSettlementNotes(
-    options.activeHexes ?? [],
-    options.sustainedNotes ?? [],
-  );
+  const notes =
+    options.notes ??
+    normalizeSettlementNotes(options.activeHexes ?? [], options.sustainedNotes ?? []);
   const settlement = evaluateSettlement(modulationState, notes);
 
   return {

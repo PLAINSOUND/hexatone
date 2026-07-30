@@ -79,8 +79,9 @@ export function deriveSpectrumNoteColors(settings, fundamentalColor) {
 }
 
 function deriveFallbackKeyColorMode(settings, requestedMode) {
-  const explicitlyRequestedManual = Object.prototype.hasOwnProperty.call(settings ?? {}, "key_colors_mode")
-    && settings?.key_colors_mode === "manual";
+  const explicitlyRequestedManual =
+    Object.prototype.hasOwnProperty.call(settings ?? {}, "key_colors_mode") &&
+    settings?.key_colors_mode === "manual";
   if (requestedMode !== "manual" || !explicitlyRequestedManual) return requestedMode;
   const storedNoteColors = Array.isArray(settings?.note_colors) ? settings.note_colors : [];
   if (storedNoteColors.length > 0) return requestedMode;
@@ -88,11 +89,13 @@ function deriveFallbackKeyColorMode(settings, requestedMode) {
   const count = settings?.equivSteps || settings?.scale?.length || 0;
   if (count > 0) return "spectrum";
 
-  const autoCandidate = getCachedAutoNormalizedColors(settings, () => deriveAutoNoteColors(settings, {
-    heji_names: settings.heji_names,
-    heji_names_table: settings.heji_names_table,
-    hejiFrame: settings.heji_frame,
-  }));
+  const autoCandidate = getCachedAutoNormalizedColors(settings, () =>
+    deriveAutoNoteColors(settings, {
+      heji_names: settings.heji_names,
+      heji_names_table: settings.heji_names_table,
+      hejiFrame: settings.heji_frame,
+    }),
+  );
   if (Array.isArray(autoCandidate) && autoCandidate.length > 0) return "auto";
   return requestedMode;
 }
@@ -107,14 +110,16 @@ export const normalizeColors = (settings) => {
     key_colors_mode,
   });
   const sourceNoteColors = colorFlags.auto_colors
-    ? getCachedAutoNormalizedColors(settings, () => deriveAutoNoteColors(settings, {
-      heji_names: settings.heji_names,
-      heji_names_table: settings.heji_names_table,
-      hejiFrame: settings.heji_frame,
-    }))
-    : (colorFlags.spectrum_colors
+    ? getCachedAutoNormalizedColors(settings, () =>
+        deriveAutoNoteColors(settings, {
+          heji_names: settings.heji_names,
+          heji_names_table: settings.heji_names_table,
+          hejiFrame: settings.heji_frame,
+        }),
+      )
+    : colorFlags.spectrum_colors
       ? deriveSpectrumNoteColors(settings, fundamental_color)
-      : (settings.note_colors || []));
+      : settings.note_colors || [];
   const note_colors = sourceNoteColors.map((c) => (c ? c.replace(/#/, "") : "ffffff"));
 
   return {
@@ -166,9 +171,7 @@ export const normalizeStructural = (settings, options = {}) => {
   if (settings.scale) {
     const scaleAsStrings = settings.scale.map((i) => String(i));
     const workspace = options.workspace ?? createScaleWorkspace(settings);
-    const workspaceRuntime =
-      options.tuningRuntime ??
-      normalizeWorkspaceForKeys(workspace);
+    const workspaceRuntime = options.tuningRuntime ?? normalizeWorkspaceForKeys(workspace);
     const scala_names = scaleAsStrings.map((i) => scalaToLabels(i));
     scala_names.pop();
     scala_names.unshift("1/1");
@@ -209,11 +212,14 @@ export const normalizeStructural = (settings, options = {}) => {
         explicitAnchorLabel: settings.heji_anchor_label || "",
         explicitAnchorRatio: normaliseHejiAnchorRatio(settings.heji_anchor_ratio || ""),
       });
-      const pitchFrame = buildPitchFrame({
-        ...settings,
-        heji_anchor_label: effectiveHejiAnchor.anchorLabel,
-        heji_anchor_ratio: effectiveHejiAnchor.anchorRatioText,
-      }, workspace);
+      const pitchFrame = buildPitchFrame(
+        {
+          ...settings,
+          heji_anchor_label: effectiveHejiAnchor.anchorLabel,
+          heji_anchor_ratio: effectiveHejiAnchor.anchorRatioText,
+        },
+        workspace,
+      );
       result["heji_anchor_label_effective"] = effectiveHejiAnchor.anchorLabel;
       result["heji_anchor_ratio_effective"] = effectiveHejiAnchor.anchorRatioText;
       result["pitch_frame"] = pitchFrame;

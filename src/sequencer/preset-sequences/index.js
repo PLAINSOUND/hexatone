@@ -90,10 +90,7 @@ export function buildPresetSequenceGroups({
   const registryOrder = registryCategories
     .map((entry) => entry?.slug)
     .filter((slug) => typeof slug === "string");
-  const discoveredSlugs = new Set([
-    ...sequencesByCategory.keys(),
-    ...registryBySlug.keys(),
-  ]);
+  const discoveredSlugs = new Set([...sequencesByCategory.keys(), ...registryBySlug.keys()]);
 
   const categoryEntries = [...discoveredSlugs].map((slug) => {
     const metadata = registryBySlug.get(slug);
@@ -121,8 +118,12 @@ export function buildPresetSequenceGroups({
       name: entry.name,
       sequences: [...(sequencesByCategory.get(entry.slug) ?? [])]
         .sort((a, b) => {
-          const aIndex = orderIndex.has(a.fileSlug) ? orderIndex.get(a.fileSlug) : Number.POSITIVE_INFINITY;
-          const bIndex = orderIndex.has(b.fileSlug) ? orderIndex.get(b.fileSlug) : Number.POSITIVE_INFINITY;
+          const aIndex = orderIndex.has(a.fileSlug)
+            ? orderIndex.get(a.fileSlug)
+            : Number.POSITIVE_INFINITY;
+          const bIndex = orderIndex.has(b.fileSlug)
+            ? orderIndex.get(b.fileSlug)
+            : Number.POSITIVE_INFINITY;
           if (aIndex !== bIndex) return aIndex - bIndex;
           return a.sequence.name.localeCompare(b.sequence.name, undefined, { numeric: true });
         })

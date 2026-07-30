@@ -126,14 +126,12 @@ describe("HakenContinuumSettings", () => {
           reference_degree: 9,
           fundamental: 440,
         }}
-        snapshots={[{
-          id: 1,
-          notes: [
-            { midicents: 69 },
-            { midicents: 64 },
-            { midicents: 60 },
-          ],
-        }]}
+        snapshots={[
+          {
+            id: 1,
+            notes: [{ midicents: 69 }, { midicents: 64 }, { midicents: 60 }],
+          },
+        ]}
         rawPorts={{ output: { id: "umone-out", name: "UM-ONE" } }}
         midiOutputs={new Map()}
         onChange={onChange}
@@ -178,14 +176,12 @@ describe("HakenContinuumSettings", () => {
           reference_degree: 9,
           fundamental: 440,
         }}
-        snapshots={[{
-          id: 1,
-          notes: [
-            { midicents: 69 },
-            { midicents: 64 },
-            { midicents: 60 },
-          ],
-        }]}
+        snapshots={[
+          {
+            id: 1,
+            notes: [{ midicents: 69 }, { midicents: 64 }, { midicents: 60 }],
+          },
+        ]}
         rawPorts={{ output: { id: "umone-out", name: "UM-ONE" } }}
         midiOutputs={new Map()}
         onChange={onChange}
@@ -231,12 +227,7 @@ describe("HakenContinuumSettings", () => {
       hakenPedalLearnActive: false,
     };
 
-    const { rerender } = render(
-      <HakenContinuumSettings
-        {...props}
-        snapshots={[]}
-      />,
-    );
+    const { rerender } = render(<HakenContinuumSettings {...props} snapshots={[]} />);
 
     let select = screen.getByRole("combobox", { name: "Continuum Raster Filter" });
     expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
@@ -246,14 +237,12 @@ describe("HakenContinuumSettings", () => {
     rerender(
       <HakenContinuumSettings
         {...props}
-        snapshots={[{
-          id: 1,
-          notes: [
-            { midicents: 69 },
-            { midicents: 64 },
-            { midicents: 60 },
-          ],
-        }]}
+        snapshots={[
+          {
+            id: 1,
+            notes: [{ midicents: 69 }, { midicents: 64 }, { midicents: 60 }],
+          },
+        ]}
       />,
     );
 

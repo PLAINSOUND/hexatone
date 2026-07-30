@@ -23,13 +23,17 @@ describe("sequencer transport runtime", () => {
   });
 
   it("builds one-based bar numbers keyed by persisted bar id", () => {
-    expect(buildBarNumberById([
-      { id: "bar-1", position: 1 },
-      { id: "bar-2", position: 2 },
-    ])).toEqual(new Map([
-      ["bar-1", 1],
-      ["bar-2", 2],
-    ]));
+    expect(
+      buildBarNumberById([
+        { id: "bar-1", position: 1 },
+        { id: "bar-2", position: 2 },
+      ]),
+    ).toEqual(
+      new Map([
+        ["bar-1", 1],
+        ["bar-2", 2],
+      ]),
+    );
   });
 
   it("groups whole-position bars and tempi with tempo precedence at the same position", () => {
@@ -70,5 +74,4 @@ describe("sequencer transport runtime", () => {
     ]);
     expect(groups.has(1)).toBe(false);
   });
-
 });

@@ -3,9 +3,7 @@
 // movement between snapshots, while delegating all mutation policy back up to
 // the sequencer controllers.
 
-import {
-  absolutePositionToBarBeat,
-} from "./transport.js";
+import { absolutePositionToBarBeat } from "./transport.js";
 import {
   buildBlurCommit,
   buildDraftEnterCommit,
@@ -58,25 +56,20 @@ const renderCueTransport = ({
         runTransportAction(() => onStopSnapshot?.());
       }}
     >
-      <span class="snapshot-stop-glyph" aria-hidden="true">■</span>
+      <span class="snapshot-stop-glyph" aria-hidden="true">
+        ■
+      </span>
     </button>
   </span>
 );
 
-const renderCueMarker = ({
-  snapshot,
-  event,
-  sequenceTime,
-  firstSnapshotCueEventIds,
-}) => {
+const renderCueMarker = ({ snapshot, event, sequenceTime, firstSnapshotCueEventIds }) => {
   if (event.cueDisplayLead) {
     return (
       <span class="sequencer-event__cue-marker" title={`Cue ${event.cueIndex} at ${sequenceTime}`}>
         <span class="sequencer-event__cue-number-wrap">
           <span class="sequencer-event__cue-number-group" aria-hidden="true">
-            <span class="sequencer-event__cue-number">
-              {event.cueIndex}
-            </span>
+            <span class="sequencer-event__cue-number">{event.cueIndex}</span>
           </span>
           <span class="sequencer-event__cue-dot" aria-hidden="true" />
         </span>
@@ -84,7 +77,8 @@ const renderCueMarker = ({
     );
   }
 
-  const isCourtesyStart = firstSnapshotCueEventIds.get(`${snapshot.id}:${event.cueIndex}`) === event.eventId;
+  const isCourtesyStart =
+    firstSnapshotCueEventIds.get(`${snapshot.id}:${event.cueIndex}`) === event.eventId;
   if (!isCourtesyStart) return null;
 
   return (
@@ -95,9 +89,7 @@ const renderCueMarker = ({
       <span class="sequencer-event__cue-number-wrap">
         <span class="sequencer-event__cue-number-group" aria-hidden="true">
           <span class="sequencer-event__cue-bracket">(</span>
-          <span class="sequencer-event__cue-number">
-            {event.cueIndex}
-          </span>
+          <span class="sequencer-event__cue-number">{event.cueIndex}</span>
           <span class="sequencer-event__cue-bracket">)</span>
         </span>
         <span class="sequencer-event__cue-dot" aria-hidden="true" />
@@ -124,25 +116,27 @@ const EventRow = ({
     view.selectedMarker?.snapshotId === snapshot.id &&
     view.selectedMarker?.time === event.relativeTime;
   const isCueActive = view.activeNavigationMode === "cue" && view.activeCueIndex === event.cueIndex;
-  const isSnapshotActive = view.activeNavigationMode === "snapshot" && view.activeSnapshotId === snapshot.id;
-  const isSoundingAttack = view.sequencePlaybackActive && event.kind === "attack" && (
-    view.soundingAttackEventIds.has(event.eventId) ||
-    isCueActive ||
-    isSnapshotActive
-  );
+  const isSnapshotActive =
+    view.activeNavigationMode === "snapshot" && view.activeSnapshotId === snapshot.id;
+  const isSoundingAttack =
+    view.sequencePlaybackActive &&
+    event.kind === "attack" &&
+    (view.soundingAttackEventIds.has(event.eventId) || isCueActive || isSnapshotActive);
   const sequenceTime = formatSequenceTime(
     view.snapshotIndexById.get(snapshot.id) ?? snapshotIndex + 1,
     event.relativeTime,
   );
   const eventSnapshotNumber = view.snapshotIndexById.get(snapshot.id) ?? snapshotIndex + 1;
-  const barBeat = drafts.barBeatByEventId?.get(event.eventId) ?? absolutePositionToBarBeat(
-    event.absoluteTime,
-    drafts.sortedBars,
-    event.fractionDenominator,
-    9,
-    drafts.terminalBarlinePosition,
-    event.kind === "release",
-  );
+  const barBeat =
+    drafts.barBeatByEventId?.get(event.eventId) ??
+    absolutePositionToBarBeat(
+      event.absoluteTime,
+      drafts.sortedBars,
+      event.fractionDenominator,
+      9,
+      drafts.terminalBarlinePosition,
+      event.kind === "release",
+    );
   const draftKey = drafts.eventBarRelativeDraftKey(snapshot.id, event.eventId, event.kind);
   const barRelativeDraft = drafts.barRelativeDrafts[draftKey] ?? null;
   const eventSequenceKey = drafts.eventSequenceDraftKey(snapshot.id, event.eventId, event.kind);
@@ -155,7 +149,7 @@ const EventRow = ({
 
   return (
     <div
-        key={`${event.eventId}:${keySuffix}`}
+      key={`${event.eventId}:${keySuffix}`}
       ref={(node) => {
         if (node) drag.eventRowRefs.current.set(event.eventId, node);
         else drag.eventRowRefs.current.delete(event.eventId);
@@ -187,12 +181,14 @@ const EventRow = ({
           aria-label={`delete snapshot ${snapshotIndex + 1} ${event.kind} event`}
           title={`Delete snapshot ${snapshotIndex + 1} ${event.kind} event`}
           onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              editing.deleteEventNote(snapshot.id, noteRef);
-            }}
+          onClick={(e) => {
+            e.stopPropagation();
+            editing.deleteEventNote(snapshot.id, noteRef);
+          }}
         >
-          <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+          <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
+            ×
+          </span>
         </button>
       </div>
       <div
@@ -235,15 +231,24 @@ const EventRow = ({
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} snapshot`}
           {...stopProps}
           onFocus={buildSelectOnFocus({ stop: true })}
-          onInput={(e) => editing.updateEventSequenceDraftField(eventSequenceKey, "snapshotNumber", e.currentTarget.value, {
-            snapshotId: snapshot.id,
-            noteId: event.noteId ?? null,
-            noteKey: event.noteKey,
-            kind: event.kind,
-            snapshotNumber: eventSnapshotNumber,
-            relativeTime: event.relativeTime,
-          })}
-          onKeyDown={buildDraftEnterCommit(() => editing.applyEventSequenceDraft(drafts.eventSequenceDrafts[eventSequenceKey]))}
+          onInput={(e) =>
+            editing.updateEventSequenceDraftField(
+              eventSequenceKey,
+              "snapshotNumber",
+              e.currentTarget.value,
+              {
+                snapshotId: snapshot.id,
+                noteId: event.noteId ?? null,
+                noteKey: event.noteKey,
+                kind: event.kind,
+                snapshotNumber: eventSnapshotNumber,
+                relativeTime: event.relativeTime,
+              },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.applyEventSequenceDraft(drafts.eventSequenceDrafts[eventSequenceKey]),
+          )}
         />
       </div>
       <div class="sequencer-event__cell sequencer-grid-offset">
@@ -251,7 +256,9 @@ const EventRow = ({
           key={`${event.eventId}-offset`}
           type="text"
           class={`sequencer-event__input sequencer-event__position${isOutOfSnapshotRange(snapshot, event.relativeTime) ? " sequencer-event__position--out-of-range" : ""}${isEventSequenceDraftActive ? " sequencer-event__input--draft" : ""}`}
-          defaultValue={formatDisplaySequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime)}
+          defaultValue={formatDisplaySequenceOffset(
+            eventSequenceDraft?.offset ?? event.relativeTime,
+          )}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} offset`}
           {...stopProps}
           onPointerDown={buildSelectAllOnFirstPointerDown({ stop: true })}
@@ -259,15 +266,24 @@ const EventRow = ({
             stop: true,
             setValue: () => formatSequenceOffset(eventSequenceDraft?.offset ?? event.relativeTime),
           })}
-          onInput={(e) => editing.updateEventSequenceDraftField(eventSequenceKey, "offset", e.currentTarget.value, {
-            snapshotId: snapshot.id,
-            noteId: event.noteId ?? null,
-            noteKey: event.noteKey,
-            kind: event.kind,
-            snapshotNumber: eventSnapshotNumber,
-            relativeTime: event.relativeTime,
-          })}
-          onKeyDown={buildDraftEnterCommit(() => editing.applyEventSequenceDraft(drafts.eventSequenceDrafts[eventSequenceKey]))}
+          onInput={(e) =>
+            editing.updateEventSequenceDraftField(
+              eventSequenceKey,
+              "offset",
+              e.currentTarget.value,
+              {
+                snapshotId: snapshot.id,
+                noteId: event.noteId ?? null,
+                noteKey: event.noteKey,
+                kind: event.kind,
+                snapshotNumber: eventSnapshotNumber,
+                relativeTime: event.relativeTime,
+              },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.applyEventSequenceDraft(drafts.eventSequenceDrafts[eventSequenceKey]),
+          )}
           onBlur={(e) => {
             const value = Number(e.currentTarget.value);
             e.currentTarget.value = formatDisplaySequenceOffset(
@@ -301,7 +317,9 @@ const EventRow = ({
             setValue: () => formatEditableMidicents(event.midicents),
           })}
           disabled={editing.snapSequenceToCurrentTuning}
-          onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(sourceSnapshot, noteRef, "midicents", value))}
+          onKeyDown={buildEnterCommit(editing, (value) =>
+            editing.updateEventField(sourceSnapshot, noteRef, "midicents", value),
+          )}
           onBlur={buildBlurCommit(
             editing,
             (value) => editing.updateEventField(sourceSnapshot, noteRef, "midicents", value),
@@ -329,7 +347,9 @@ const EventRow = ({
             setValue: () => formatEditableFrequency(event.frequency),
           })}
           disabled={editing.snapSequenceToCurrentTuning}
-          onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(sourceSnapshot, noteRef, "frequency", value))}
+          onKeyDown={buildEnterCommit(editing, (value) =>
+            editing.updateEventField(sourceSnapshot, noteRef, "frequency", value),
+          )}
           onBlur={buildBlurCommit(
             editing,
             (value) => editing.updateEventField(sourceSnapshot, noteRef, "frequency", value),
@@ -353,14 +373,21 @@ const EventRow = ({
             {...stopProps}
             disabled={editing.snapSequenceToCurrentTuning}
             onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
-            onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", value))}
-            onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", value))}
+            onKeyDown={buildEnterCommit(editing, (value) =>
+              editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", value),
+            )}
+            onBlur={buildBlurCommit(editing, (value) =>
+              editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", value),
+            )}
           />
         </span>
       </div>
       {view.currentEventPane === "timing" ? (
         <>
-          <div key={`${event.eventId}-timing-bar`} class="sequencer-event__cell sequencer-grid-offset">
+          <div
+            key={`${event.eventId}-timing-bar`}
+            class="sequencer-event__cell sequencer-grid-offset"
+          >
             <input
               type="number"
               step="1"
@@ -370,16 +397,29 @@ const EventRow = ({
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} bar`}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true })}
-              onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, {
-                snapshotId: snapshot.id,
-                noteId: event.noteId ?? null,
-                noteKey: event.noteKey,
-                kind: event.kind,
-              })}
-              onKeyDown={buildDraftEnterCommit(() => editing.commitEventBarRelativeDraft(snapshot, noteRef, event.kind, draftKey))}
+              onInput={(e) =>
+                editing.updateEventBarRelativeDraftField(
+                  draftKey,
+                  barBeat,
+                  "bar",
+                  e.currentTarget.value,
+                  {
+                    snapshotId: snapshot.id,
+                    noteId: event.noteId ?? null,
+                    noteKey: event.noteKey,
+                    kind: event.kind,
+                  },
+                )
+              }
+              onKeyDown={buildDraftEnterCommit(() =>
+                editing.commitEventBarRelativeDraft(snapshot, noteRef, event.kind, draftKey),
+              )}
             />
           </div>
-          <div key={`${event.eventId}-timing-beat`} class="sequencer-event__cell sequencer-grid-offset">
+          <div
+            key={`${event.eventId}-timing-beat`}
+            class="sequencer-event__cell sequencer-grid-offset"
+          >
             <input
               type="number"
               step="1"
@@ -389,16 +429,29 @@ const EventRow = ({
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat`}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true })}
-              onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, {
-                snapshotId: snapshot.id,
-                noteId: event.noteId ?? null,
-                noteKey: event.noteKey,
-                kind: event.kind,
-              })}
-              onKeyDown={buildDraftEnterCommit(() => editing.commitEventBarRelativeDraft(snapshot, noteRef, event.kind, draftKey))}
+              onInput={(e) =>
+                editing.updateEventBarRelativeDraftField(
+                  draftKey,
+                  barBeat,
+                  "beat",
+                  e.currentTarget.value,
+                  {
+                    snapshotId: snapshot.id,
+                    noteId: event.noteId ?? null,
+                    noteKey: event.noteKey,
+                    kind: event.kind,
+                  },
+                )
+              }
+              onKeyDown={buildDraftEnterCommit(() =>
+                editing.commitEventBarRelativeDraft(snapshot, noteRef, event.kind, draftKey),
+              )}
             />
           </div>
-          <div key={`${event.eventId}-timing-num`} class="sequencer-event__cell sequencer-grid-offset">
+          <div
+            key={`${event.eventId}-timing-num`}
+            class="sequencer-event__cell sequencer-grid-offset"
+          >
             <input
               type="number"
               step="1"
@@ -408,16 +461,29 @@ const EventRow = ({
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction numerator`}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true })}
-              onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "numerator", e.currentTarget.value, {
-                snapshotId: snapshot.id,
-                noteId: event.noteId ?? null,
-                noteKey: event.noteKey,
-                kind: event.kind,
-              })}
-              onKeyDown={buildDraftEnterCommit(() => editing.commitEventBarRelativeDraft(snapshot, noteRef, event.kind, draftKey))}
+              onInput={(e) =>
+                editing.updateEventBarRelativeDraftField(
+                  draftKey,
+                  barBeat,
+                  "numerator",
+                  e.currentTarget.value,
+                  {
+                    snapshotId: snapshot.id,
+                    noteId: event.noteId ?? null,
+                    noteKey: event.noteKey,
+                    kind: event.kind,
+                  },
+                )
+              }
+              onKeyDown={buildDraftEnterCommit(() =>
+                editing.commitEventBarRelativeDraft(snapshot, noteRef, event.kind, draftKey),
+              )}
             />
           </div>
-          <div key={`${event.eventId}-timing-den`} class="sequencer-event__cell sequencer-grid-offset">
+          <div
+            key={`${event.eventId}-timing-den`}
+            class="sequencer-event__cell sequencer-grid-offset"
+          >
             <input
               type="number"
               step="1"
@@ -427,19 +493,32 @@ const EventRow = ({
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} beat fraction denominator`}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true })}
-              onInput={(e) => editing.updateEventBarRelativeDraftField(draftKey, barBeat, "denominator", e.currentTarget.value, {
-                snapshotId: snapshot.id,
-                noteId: event.noteId ?? null,
-                noteKey: event.noteKey,
-                kind: event.kind,
-              })}
-              onKeyDown={buildDraftEnterCommit(() => editing.commitEventBarRelativeDraft(snapshot, noteRef, event.kind, draftKey))}
+              onInput={(e) =>
+                editing.updateEventBarRelativeDraftField(
+                  draftKey,
+                  barBeat,
+                  "denominator",
+                  e.currentTarget.value,
+                  {
+                    snapshotId: snapshot.id,
+                    noteId: event.noteId ?? null,
+                    noteKey: event.noteKey,
+                    kind: event.kind,
+                  },
+                )
+              }
+              onKeyDown={buildDraftEnterCommit(() =>
+                editing.commitEventBarRelativeDraft(snapshot, noteRef, event.kind, draftKey),
+              )}
             />
           </div>
         </>
       ) : (
         <>
-          <div key={`${event.eventId}-expression-onvel`} class="sequencer-event__cell sequencer-grid-offset">
+          <div
+            key={`${event.eventId}-expression-onvel`}
+            class="sequencer-event__cell sequencer-grid-offset"
+          >
             <input
               type="text"
               class="sequencer-event__input"
@@ -447,11 +526,18 @@ const EventRow = ({
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} on velocity`}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
-              onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(snapshot, noteRef, "attackVelocity", value))}
-              onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(snapshot, noteRef, "attackVelocity", value))}
+              onKeyDown={buildEnterCommit(editing, (value) =>
+                editing.updateEventField(snapshot, noteRef, "attackVelocity", value),
+              )}
+              onBlur={buildBlurCommit(editing, (value) =>
+                editing.updateEventField(snapshot, noteRef, "attackVelocity", value),
+              )}
             />
           </div>
-          <div key={`${event.eventId}-expression-offvel`} class="sequencer-event__cell sequencer-grid-offset">
+          <div
+            key={`${event.eventId}-expression-offvel`}
+            class="sequencer-event__cell sequencer-grid-offset"
+          >
             <input
               type="text"
               class="sequencer-event__input"
@@ -459,11 +545,18 @@ const EventRow = ({
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} off velocity`}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
-              onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(snapshot, noteRef, "releaseVelocity", value))}
-              onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(snapshot, noteRef, "releaseVelocity", value))}
+              onKeyDown={buildEnterCommit(editing, (value) =>
+                editing.updateEventField(snapshot, noteRef, "releaseVelocity", value),
+              )}
+              onBlur={buildBlurCommit(editing, (value) =>
+                editing.updateEventField(snapshot, noteRef, "releaseVelocity", value),
+              )}
             />
           </div>
-          <div key={`${event.eventId}-expression-pressure`} class="sequencer-event__cell sequencer-grid-offset">
+          <div
+            key={`${event.eventId}-expression-pressure`}
+            class="sequencer-event__cell sequencer-grid-offset"
+          >
             <input
               type="text"
               class="sequencer-event__input"
@@ -471,11 +564,18 @@ const EventRow = ({
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} pressure`}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
-              onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(snapshot, noteRef, "pressure", value))}
-              onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(snapshot, noteRef, "pressure", value))}
+              onKeyDown={buildEnterCommit(editing, (value) =>
+                editing.updateEventField(snapshot, noteRef, "pressure", value),
+              )}
+              onBlur={buildBlurCommit(editing, (value) =>
+                editing.updateEventField(snapshot, noteRef, "pressure", value),
+              )}
             />
           </div>
-          <div key={`${event.eventId}-expression-timbre`} class="sequencer-event__cell sequencer-grid-offset">
+          <div
+            key={`${event.eventId}-expression-timbre`}
+            class="sequencer-event__cell sequencer-grid-offset"
+          >
             <input
               type="text"
               class="sequencer-event__input"
@@ -483,8 +583,12 @@ const EventRow = ({
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} timbre`}
               {...stopProps}
               onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
-              onKeyDown={buildEnterCommit(editing, (value) => editing.updateEventField(snapshot, noteRef, "timbre", value))}
-              onBlur={buildBlurCommit(editing, (value) => editing.updateEventField(snapshot, noteRef, "timbre", value))}
+              onKeyDown={buildEnterCommit(editing, (value) =>
+                editing.updateEventField(snapshot, noteRef, "timbre", value),
+              )}
+              onBlur={buildBlurCommit(editing, (value) =>
+                editing.updateEventField(snapshot, noteRef, "timbre", value),
+              )}
             />
           </div>
         </>
@@ -544,7 +648,7 @@ const EventRow = ({
               ×
             </button>
           </span>
-        ) : (event.kind === "attack" && event.canRestoreDisplayLabel) ? (
+        ) : event.kind === "attack" && event.canRestoreDisplayLabel ? (
           <span class="sequencer-event__draft-actions">
             <button
               type="button"
@@ -571,15 +675,17 @@ const EventRow = ({
               ×
             </button>
           </span>
-        ) : ((event.cueDisplayLead || (
-          view.firstSnapshotCueEventIds.get(`${snapshot.id}:${event.cueIndex}`) === event.eventId
-        )) ? renderCueTransport({
-          cueIndex: event.cueIndex,
-          playingSnapshotId: transport.playingSnapshotId,
-          onPlayCue: transport.onPlayCue,
-          onStopSnapshot: transport.onStopSnapshot,
-          runTransportAction: transport.runTransportAction,
-        }) : null)}
+        ) : event.cueDisplayLead ||
+          view.firstSnapshotCueEventIds.get(`${snapshot.id}:${event.cueIndex}`) ===
+            event.eventId ? (
+          renderCueTransport({
+            cueIndex: event.cueIndex,
+            playingSnapshotId: transport.playingSnapshotId,
+            onPlayCue: transport.onPlayCue,
+            onStopSnapshot: transport.onStopSnapshot,
+            runTransportAction: transport.runTransportAction,
+          })
+        ) : null}
       </div>
     </div>
   );

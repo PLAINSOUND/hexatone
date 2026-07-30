@@ -207,21 +207,21 @@ describe("spellScaleAsHejiLabels", () => {
     // Degree 0 has ratioText "1/1" so it gets the exact HEJI path; the rest are
     // tempered (null ratioText) and get tempered glyphs.
     const degrees = [
-      { ratioText: "1/1", cents: 0    },
-      { ratioText: null,  cents: 100  },
-      { ratioText: null,  cents: 200  },
-      { ratioText: null,  cents: 300  },
-      { ratioText: null,  cents: 400  },
-      { ratioText: null,  cents: 500  },
-      { ratioText: null,  cents: 600  },
-      { ratioText: null,  cents: 700  },
-      { ratioText: null,  cents: 800  },
-      { ratioText: null,  cents: 900  },
-      { ratioText: null,  cents: 1000 },
-      { ratioText: null,  cents: 1100 },
+      { ratioText: "1/1", cents: 0 },
+      { ratioText: null, cents: 100 },
+      { ratioText: null, cents: 200 },
+      { ratioText: null, cents: 300 },
+      { ratioText: null, cents: 400 },
+      { ratioText: null, cents: 500 },
+      { ratioText: null, cents: 600 },
+      { ratioText: null, cents: 700 },
+      { ratioText: null, cents: 800 },
+      { ratioText: null, cents: 900 },
+      { ratioText: null, cents: 1000 },
+      { ratioText: null, cents: 1100 },
     ];
     const labels = spellScaleAsHejiLabels(degrees, frame);
-    expect(labels[0]).toBe(`${xn}A`);   // exact HEJI 1/1
+    expect(labels[0]).toBe(`${xn}A`); // exact HEJI 1/1
     expect(labels[1]).toBe(`${tb}B`);
     expect(labels[2]).toBe(`${tn}B`);
     expect(labels[3]).toBe(`${tn}C`);
@@ -239,12 +239,12 @@ describe("spellScaleAsHejiLabels", () => {
     // 1/1 (exact HEJI), 204¢ (tempered), 3/2 (exact HEJI)
     const degrees = [
       { ratioText: "1/1", cents: 0 },
-      { ratioText: null,  cents: 204.0 },
+      { ratioText: null, cents: 204.0 },
       { ratioText: "3/2", cents: 701.955 },
     ];
     const labels = spellScaleAsHejiLabels(degrees, frame);
-    expect(labels[0]).toBe(`${xn}A`);      // exact HEJI 1/1 = A natural, 0¢ deviation
-    expect(labels[1]).toBe(`${tn}B+4`);    // 204¢ tempered → nearest 200¢ (tnB), +4¢
-    expect(labels[2]).toBe(`${xn}E+2`);   // exact HEJI 3/2 = E natural, +2¢ from 12-EDO
+    expect(labels[0]).toBe(`${xn}A`); // exact HEJI 1/1 = A natural, 0¢ deviation
+    expect(labels[1]).toBe(`${tn}B+4`); // 204¢ tempered → nearest 200¢ (tnB), +4¢
+    expect(labels[2]).toBe(`${xn}E+2`); // exact HEJI 3/2 = E natural, +2¢ from 12-EDO
   });
 });

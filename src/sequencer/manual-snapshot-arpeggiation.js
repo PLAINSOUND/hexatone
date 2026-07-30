@@ -53,7 +53,9 @@ export function normalizeManualArpeggiation(value = {}) {
   // preserve that stored-session meaning by migrating it to sustain.
   const decayMode = VALID_DECAY_MODES.has(source.decayMode)
     ? source.decayMode
-    : (Number.isFinite(legacyDecayMs) && legacyDecayMs === 0 ? "sustain" : "timed");
+    : Number.isFinite(legacyDecayMs) && legacyDecayMs === 0
+      ? "sustain"
+      : "timed";
   return {
     mode: VALID_MODES.has(source.mode) ? source.mode : DEFAULT_MANUAL_ARPEGGIATION.mode,
     styleId: styleId || DEFAULT_MANUAL_ARPEGGIATION.styleId,
@@ -81,12 +83,7 @@ export function normalizeManualArpeggiation(value = {}) {
         DEFAULT_MANUAL_ARPEGGIATION.decayMs,
       ),
     ),
-    decayVariation: clamp(
-      source.decayVariation,
-      0,
-      1,
-      DEFAULT_MANUAL_ARPEGGIATION.decayVariation,
-    ),
+    decayVariation: clamp(source.decayVariation, 0, 1, DEFAULT_MANUAL_ARPEGGIATION.decayVariation),
     styleParameters: cloneParameters(source.styleParameters, {}),
   };
 }

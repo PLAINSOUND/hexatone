@@ -17,12 +17,14 @@ export function modulatedControllerCoords(keys, coords, frame = null) {
 }
 
 export function refreshRuntimeDisplayOffset(keys) {
-  const nextX = keys.settings.modulation_style === "fixed_do"
-    ? Math.trunc(keys._activeFrame()?.geometryShiftRSteps ?? 0)
-    : 0;
-  const nextY = keys.settings.modulation_style === "fixed_do"
-    ? Math.trunc(keys._activeFrame()?.geometryShiftDrSteps ?? 0)
-    : 0;
+  const nextX =
+    keys.settings.modulation_style === "fixed_do"
+      ? Math.trunc(keys._activeFrame()?.geometryShiftRSteps ?? 0)
+      : 0;
+  const nextY =
+    keys.settings.modulation_style === "fixed_do"
+      ? Math.trunc(keys._activeFrame()?.geometryShiftDrSteps ?? 0)
+      : 0;
   if (
     keys.settings.runtime_display_offset_x === nextX &&
     keys.settings.runtime_display_offset_y === nextY

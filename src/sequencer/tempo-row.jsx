@@ -11,20 +11,18 @@ import {
   buildSelectOnFocus,
 } from "./field-props.js";
 
-const TempoRow = ({
-  tempo,
-  timing,
-  editing,
-}) => {
+const TempoRow = ({ tempo, timing, editing }) => {
   const tempoId = tempo.tempoId ?? tempo.id;
   const tempoPosition = Number(tempo.position ?? tempo.absoluteTime);
-  const barBeat = timing.barBeatByEventId?.get(tempo.eventId) ?? absolutePositionToBarBeat(
-    tempoPosition,
-    timing.sortedBars,
-    null,
-    9,
-    timing.terminalBarlinePosition,
-  );
+  const barBeat =
+    timing.barBeatByEventId?.get(tempo.eventId) ??
+    absolutePositionToBarBeat(
+      tempoPosition,
+      timing.sortedBars,
+      null,
+      9,
+      timing.terminalBarlinePosition,
+    );
   const sequenceTime = tempoPosition.toFixed(6);
   const isAlwaysOnTempo = Math.abs(tempoPosition - 1) < 1e-9;
   const openingTempoCount = (timing.sortedTempi ?? []).filter(
@@ -70,17 +68,16 @@ const TempoRow = ({
               editing.onDeleteTempo?.(tempoId);
             }}
           >
-            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
+              ×
+            </span>
           </button>
         ) : null}
       </div>
       <div class="sequencer-tempo-row__gutter-spacer" aria-hidden="true" />
       <div class="sequencer-tempo-row__summary sequencer-grid-offset">
         {isAlwaysOnTempo ? (
-          <span
-            class="sequencer-tempo-row__label"
-            title="The opening tempo is always immediate"
-          >
+          <span class="sequencer-tempo-row__label" title="The opening tempo is always immediate">
             {tempoLabel}
           </span>
         ) : (
@@ -92,10 +89,7 @@ const TempoRow = ({
             title={`Change to ${isGradualTempo ? "immediate" : "gradual"} tempo`}
             onClick={(event) => {
               event.stopPropagation();
-              editing.updateTempoMode(
-                tempoId,
-                isGradualTempo ? "immediate" : "gradual",
-              );
+              editing.updateTempoMode(tempoId, isGradualTempo ? "immediate" : "gradual");
             }}
           >
             {tempoLabel}
@@ -112,7 +106,9 @@ const TempoRow = ({
           onKeyDown={(e) => editing.handleEnterCommit(e, () => commitTempoBeatFraction(e))}
           onBlur={(e) => editing.handleBlurCommit(e, () => commitTempoBeatFraction(e))}
         />
-        <span class="sequencer-tempo-row__summary-sep" aria-hidden="true">/</span>
+        <span class="sequencer-tempo-row__summary-sep" aria-hidden="true">
+          /
+        </span>
         <input
           type="number"
           step="1"
@@ -124,7 +120,9 @@ const TempoRow = ({
           onKeyDown={(e) => editing.handleEnterCommit(e, () => commitTempoBeatFraction(e))}
           onBlur={(e) => editing.handleBlurCommit(e, () => commitTempoBeatFraction(e))}
         />
-        <span class="sequencer-tempo-row__summary-sep" aria-hidden="true">=</span>
+        <span class="sequencer-tempo-row__summary-sep" aria-hidden="true">
+          =
+        </span>
         <input
           type="number"
           step="1"
@@ -150,7 +148,9 @@ const TempoRow = ({
           defaultValue={sequenceTime}
           aria-label="tempo position"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onKeyDown={buildEnterCommit(editing, (value) => editing.updateTempoPosition(tempoId, value))}
+          onKeyDown={buildEnterCommit(editing, (value) =>
+            editing.updateTempoPosition(tempoId, value),
+          )}
           onBlur={buildBlurCommit(editing, (value) => editing.updateTempoPosition(tempoId, value))}
         />
       </div>
@@ -163,8 +163,18 @@ const TempoRow = ({
           value={tempoBarRelativeDraft?.barNumber ?? String(barBeat?.barNumber ?? 1)}
           aria-label="tempo bar"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, { tempoId })}
-          onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
+          onInput={(e) =>
+            editing.updateTempoBarRelativeDraftField(
+              draftKey,
+              barBeat,
+              "bar",
+              e.currentTarget.value,
+              { tempoId },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.commitTempoBarRelativeDraft(tempoId, draftKey),
+          )}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__beat-cell sequencer-grid-offset">
@@ -176,8 +186,18 @@ const TempoRow = ({
           value={tempoBeatValue}
           aria-label="tempo beat"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, { tempoId })}
-          onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
+          onInput={(e) =>
+            editing.updateTempoBarRelativeDraftField(
+              draftKey,
+              barBeat,
+              "beat",
+              e.currentTarget.value,
+              { tempoId },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.commitTempoBarRelativeDraft(tempoId, draftKey),
+          )}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__num-cell sequencer-grid-offset">
@@ -189,8 +209,18 @@ const TempoRow = ({
           value={tempoNumValue}
           aria-label="tempo beat fraction numerator"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "num", e.currentTarget.value, { tempoId })}
-          onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
+          onInput={(e) =>
+            editing.updateTempoBarRelativeDraftField(
+              draftKey,
+              barBeat,
+              "num",
+              e.currentTarget.value,
+              { tempoId },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.commitTempoBarRelativeDraft(tempoId, draftKey),
+          )}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__den-cell sequencer-grid-offset">
@@ -202,8 +232,18 @@ const TempoRow = ({
           value={tempoDenValue}
           aria-label="tempo beat fraction denominator"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onInput={(e) => editing.updateTempoBarRelativeDraftField(draftKey, barBeat, "den", e.currentTarget.value, { tempoId })}
-          onKeyDown={buildDraftEnterCommit(() => editing.commitTempoBarRelativeDraft(tempoId, draftKey))}
+          onInput={(e) =>
+            editing.updateTempoBarRelativeDraftField(
+              draftKey,
+              barBeat,
+              "den",
+              e.currentTarget.value,
+              { tempoId },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.commitTempoBarRelativeDraft(tempoId, draftKey),
+          )}
         />
       </div>
       <div class="sequencer-tempo-row__tail">

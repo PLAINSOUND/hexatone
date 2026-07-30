@@ -34,13 +34,16 @@ export function deriveFrameForHistory(options = {}) {
   const fundamental = options.fundamental ?? 440;
   const fixedDoEnabled = options.fixedDoEnabled === true;
   const scale = Array.isArray(options.scale) ? options.scale : [];
-  const makeFrame = options.makeFrame ?? ((degree, extra = {}) => createKeysFrame({
-    degree,
-    referenceDegree,
-    fundamental,
-    strategy,
-    ...extra,
-  }));
+  const makeFrame =
+    options.makeFrame ??
+    ((degree, extra = {}) =>
+      createKeysFrame({
+        degree,
+        referenceDegree,
+        fundamental,
+        strategy,
+        ...extra,
+      }));
 
   if (!history.length) {
     return makeFrame(referenceDegree, {
@@ -63,14 +66,15 @@ export function deriveFrameForHistory(options = {}) {
     const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
     return sum + count * routeTranspositionDeltaCents(route, scale);
   }, 0);
-  const transpositionSteps = strategy === "reinterpret_surface_from_target"
-    ? activeRoutes.reduce((sum, route) => {
-      const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
-      const sourceDegree = route?.sourceDegree ?? 0;
-      const targetDegree = route?.targetDegree ?? sourceDegree;
-      return sum + count * (targetDegree - sourceDegree);
-    }, 0)
-    : 0;
+  const transpositionSteps =
+    strategy === "reinterpret_surface_from_target"
+      ? activeRoutes.reduce((sum, route) => {
+          const count = Number.isFinite(route?.count) ? Math.trunc(route.count) : 0;
+          const sourceDegree = route?.sourceDegree ?? 0;
+          const targetDegree = route?.targetDegree ?? sourceDegree;
+          return sum + count * (targetDegree - sourceDegree);
+        }, 0)
+      : 0;
   const geometryShift = deriveGeometryShiftForHistory(activeRoutes, fixedDoEnabled);
   const effectiveFundamental = fundamental * Math.pow(2, transpositionCents / 1200);
   const route = activeRoutes[activeRoutes.length - 1] ?? null;

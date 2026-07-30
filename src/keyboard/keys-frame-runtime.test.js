@@ -8,14 +8,15 @@ import {
 describe("keyboard/keys-frame-runtime", () => {
   function makeFrameFactory() {
     let frameGeneration = 0;
-    return (degree, extra = {}) => createKeysFrame({
-      id: `frame:${++frameGeneration}:${degree}`,
-      degree,
-      referenceDegree: 9,
-      fundamental: 440,
-      strategy: "retune_surface_to_source",
-      ...extra,
-    });
+    return (degree, extra = {}) =>
+      createKeysFrame({
+        id: `frame:${++frameGeneration}:${degree}`,
+        degree,
+        referenceDegree: 9,
+        fundamental: 440,
+        strategy: "retune_surface_to_source",
+        ...extra,
+      });
   }
 
   it("builds a home frame when history is empty", () => {

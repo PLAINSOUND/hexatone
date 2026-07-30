@@ -22,11 +22,11 @@ export const colorProp = function (props, propName, componentName) {
   if (value !== undefined && !/^#?[a-zA-Z0-9]{6}$/.test(props[propName])) {
     return new Error(
       "Invalid hex color for prop `" +
-      propName +
-      "` supplied to" +
-      " `" +
-      componentName +
-      "`. Validation failed.",
+        propName +
+        "` supplied to" +
+        " `" +
+        componentName +
+        "`. Validation failed.",
     );
   }
 };
@@ -95,49 +95,54 @@ const Colors = (props) => {
   const autoActiveRef = useRef(autoActive);
   const spectrumActive = colorMode === "spectrum";
   const primeFamilyColors = normalizePrimeFamilyColors(rawSettings.prime_family_colors);
-  const autoColorSettings = useMemo(() => ({
-    scale: rawSettings.scale,
-    equivSteps: rawSettings.equivSteps,
-    note_names: rawSettings.note_names,
-    note_colors: rawSettings.note_colors,
-    key_labels: rawSettings.key_labels,
-    reference_degree: rawSettings.reference_degree,
-    fundamental: rawSettings.fundamental,
-    name: rawSettings.name,
-    short_description: rawSettings.short_description,
-    heji_anchor_ratio: rawSettings.heji_anchor_ratio,
-    heji_anchor_label: rawSettings.heji_anchor_label,
-    heji_tempered_only: rawSettings.heji_tempered_only,
-    heji_show_cents: rawSettings.heji_show_cents,
-    heji_names: rawSettings.heji_names,
-    heji_names_table: rawSettings.heji_names_table,
-    prime_family_colors: rawSettings.prime_family_colors,
-    heji_frame: props.settings?.heji_frame ?? rawSettings?.heji_frame ?? null,
-  }), [
-    rawSettings.scale,
-    rawSettings.equivSteps,
-    rawSettings.note_names,
-    rawSettings.note_colors,
-    rawSettings.key_labels,
-    rawSettings.reference_degree,
-    rawSettings.fundamental,
-    rawSettings.name,
-    rawSettings.short_description,
-    rawSettings.heji_anchor_ratio,
-    rawSettings.heji_anchor_label,
-    rawSettings.heji_tempered_only,
-    rawSettings.heji_show_cents,
-    rawSettings.heji_names,
-    rawSettings.heji_names_table,
-    rawSettings.prime_family_colors,
-    props.settings?.heji_frame,
-    rawSettings?.heji_frame,
-  ]);
-  const derivedAutoColors = useMemo(() => deriveAutoNoteColors(autoColorSettings, {
-    hejiFrame: autoColorSettings.heji_frame,
-  }), [
-    autoColorSettings,
-  ]);
+  const autoColorSettings = useMemo(
+    () => ({
+      scale: rawSettings.scale,
+      equivSteps: rawSettings.equivSteps,
+      note_names: rawSettings.note_names,
+      note_colors: rawSettings.note_colors,
+      key_labels: rawSettings.key_labels,
+      reference_degree: rawSettings.reference_degree,
+      fundamental: rawSettings.fundamental,
+      name: rawSettings.name,
+      short_description: rawSettings.short_description,
+      heji_anchor_ratio: rawSettings.heji_anchor_ratio,
+      heji_anchor_label: rawSettings.heji_anchor_label,
+      heji_tempered_only: rawSettings.heji_tempered_only,
+      heji_show_cents: rawSettings.heji_show_cents,
+      heji_names: rawSettings.heji_names,
+      heji_names_table: rawSettings.heji_names_table,
+      prime_family_colors: rawSettings.prime_family_colors,
+      heji_frame: props.settings?.heji_frame ?? rawSettings?.heji_frame ?? null,
+    }),
+    [
+      rawSettings.scale,
+      rawSettings.equivSteps,
+      rawSettings.note_names,
+      rawSettings.note_colors,
+      rawSettings.key_labels,
+      rawSettings.reference_degree,
+      rawSettings.fundamental,
+      rawSettings.name,
+      rawSettings.short_description,
+      rawSettings.heji_anchor_ratio,
+      rawSettings.heji_anchor_label,
+      rawSettings.heji_tempered_only,
+      rawSettings.heji_show_cents,
+      rawSettings.heji_names,
+      rawSettings.heji_names_table,
+      rawSettings.prime_family_colors,
+      props.settings?.heji_frame,
+      rawSettings?.heji_frame,
+    ],
+  );
+  const derivedAutoColors = useMemo(
+    () =>
+      deriveAutoNoteColors(autoColorSettings, {
+        hejiFrame: autoColorSettings.heji_frame,
+      }),
+    [autoColorSettings],
+  );
   const [savedPrimePalettes, setSavedPrimePalettes] = useState(loadPrimeFamilyPalettes);
   const [selectedPrimePalette, setSelectedPrimePalette] = useState("default");
   const [primePaletteResetVersion, setPrimePaletteResetVersion] = useState(0);
@@ -256,19 +261,25 @@ const Colors = (props) => {
       ...props.settings,
       prime_family_colors: nextPrimeFamilyColors,
     });
-    props.keysRef.current.updateColors({
-      note_colors: normalized.note_colors,
-      spectrum_colors: normalized.spectrum_colors,
-      fundamental_color: normalized.fundamental_color,
-    }, { preview: true });
+    props.keysRef.current.updateColors(
+      {
+        note_colors: normalized.note_colors,
+        spectrum_colors: normalized.spectrum_colors,
+        fundamental_color: normalized.fundamental_color,
+      },
+      { preview: true },
+    );
   };
 
-  useEffect(() => () => {
-    if (primePreviewFrameRef.current) {
-      cancelAnimationFrame(primePreviewFrameRef.current);
-      primePreviewFrameRef.current = 0;
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (primePreviewFrameRef.current) {
+        cancelAnimationFrame(primePreviewFrameRef.current);
+        primePreviewFrameRef.current = 0;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     autoActiveRef.current = autoActive;
@@ -346,9 +357,10 @@ const Colors = (props) => {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      const name = typeof parsed.name === "string" && parsed.name.trim()
-        ? parsed.name.trim()
-        : file.name.replace(/\.json$/i, "");
+      const name =
+        typeof parsed.name === "string" && parsed.name.trim()
+          ? parsed.name.trim()
+          : file.name.replace(/\.json$/i, "");
       const colors = normalizePrimeFamilyColors(parsed.colors ?? parsed.prime_family_colors);
       const nextEntry = { name, colors };
       const nextPalettes = savedPrimePalettes.some((palette) => palette.name === name)
@@ -375,7 +387,9 @@ const Colors = (props) => {
 
   const handleDeletePrimePalette = () => {
     if (!selectedPaletteEntry) return;
-    const nextPalettes = savedPrimePalettes.filter((palette) => palette.name !== selectedPaletteEntry.name);
+    const nextPalettes = savedPrimePalettes.filter(
+      (palette) => palette.name !== selectedPaletteEntry.name,
+    );
     savePrimeFamilyPalettes(nextPalettes);
     setSavedPrimePalettes(nextPalettes);
     setSelectedPrimePalette("default");
@@ -414,9 +428,13 @@ const Colors = (props) => {
     props.onChange("spectrum_colors", false);
   };
 
-  const hasCommitableAutoColors = derivedAutoColors.length > 0
-    && derivedAutoColors.some((color, index) =>
-      normaliseColorForCompare(color) !== normaliseColorForCompare(rawSettings.note_colors?.[index]));
+  const hasCommitableAutoColors =
+    derivedAutoColors.length > 0 &&
+    derivedAutoColors.some(
+      (color, index) =>
+        normaliseColorForCompare(color) !==
+        normaliseColorForCompare(rawSettings.note_colors?.[index]),
+    );
 
   return (
     <div class="scale-colors-group">
@@ -435,121 +453,141 @@ const Colors = (props) => {
       </label>
 
       {autoActive && (
-          <fieldset class="auto-prime-colors-fieldset">
-            <legend>47-Limit JI Colours</legend>
-            <div class={`scale-colors-fieldset-actions${showPrimePalette ? " scale-colors-fieldset-actions--palette-open" : ""}`}>
-              <label class="auto-prime-colors-fieldset__toggle-row">
-                <input
-                  type="checkbox"
-                  checked={showPrimePalette}
-                  onChange={(e) => setShowPrimePalette(e.currentTarget.checked)}
-                />
-                Palette
-              </label>
-              <button
-                type="button"
-                class="preset-action-btn"
-                disabled={!hasCommitableAutoColors}
-                onClick={handleCommitAutoColors}
-              >
-                Commit Auto Colours
-              </button>
-            </div>
-            {showPrimePalette && (
-              <div class="auto-prime-colors-palette-panel">
-                <div class="auto-prime-colors-grid">
-                  {PRIME_COLOR_ORDER.map((prime, index) => (
-                    <label
-                      class="auto-prime-colors-grid__item"
-                      key={`prime-family-color-${prime}-${primePaletteResetVersion}`}
-                    >
-                      <span class="auto-prime-colors-grid__label">{prime === 1 ? "1°" : `${prime}°`}</span>
-                      <ColorCell
-                        name={`prime-family-colour-${prime}`}
-                        value={primeFamilyColors[index]}
-                        disabled={false}
-                        onChange={handlePrimeFamilyColorChange(index)}
-                        suggestedColor={null}
-                        onPreviewColor={handlePrimeFamilyPreview(index)}
-                      />
-                    </label>
-                  ))}
-                </div>
-                <div class="auto-prime-colors-actions">
-                  <div class="auto-prime-colors-palette-layout">
-                    <div class="auto-prime-colors-palette-row">
-                      <div class="auto-prime-colors-selector-row">
-                        <button type="button" class="preset-action-btn" onClick={handleResetPrimePalette}>
-                          Default Colours
-                        </button>
-                        <div class="preset-selector-row auto-prime-colors-palette-selector">
-                          <select
-                            aria-label="JI Colour Palette"
-                            value={selectedPrimePalette}
-                            onChange={handleSelectPrimePalette}
-                          >
-                            <option value="default">Default</option>
-                            {savedPrimePalettes.map((palette) => (
-                              <option key={palette.name} value={palette.name}>
-                                {palette.name}
-                              </option>
-                            ))}
-                          </select>
-                          {selectedPaletteEntry && (
-                            <button
-                              type="button"
-                              class="preset-refresh-btn"
-                              aria-label="Reload saved palette"
-                              title="Reload saved palette"
-                              onClick={handleRevertPrimePalette}
-                            >
-                              <span class="preset-refresh-glyph">⟳</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      <span class="auto-prime-colors-actions__group">
-                        <button type="button" class="preset-action-btn" onClick={handleSavePrimePalette}>
-                          Save
-                        </button>
-                        <button type="button" class="preset-action-btn" onClick={() => paletteFileInputRef.current?.click()}>
-                          Open
-                        </button>
-                        <button type="button" class="preset-action-btn" onClick={handleWritePrimePaletteFile}>
-                          Write
-                        </button>
-                      </span>
-                    </div>
-                    {selectedPaletteEntry && (
-                      <span class="auto-prime-colors-actions__side">
-                        <button
-                          type="button"
-                          class="delete-btn preset-utility-btn"
-                          onClick={handleDeletePrimePalette}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          type="button"
-                          class="delete-btn preset-utility-btn"
-                          onClick={handleClearAllPrimePalettes}
-                        >
-                          Clear All
-                        </button>
-                      </span>
-                    )}
-                    <input
-                      ref={paletteFileInputRef}
-                      type="file"
-                      accept=".json,application/json"
-                      class="settings-form__hidden-file-input"
-                      onChange={handleOpenPrimePaletteFile}
+        <fieldset class="auto-prime-colors-fieldset">
+          <legend>47-Limit JI Colours</legend>
+          <div
+            class={`scale-colors-fieldset-actions${showPrimePalette ? " scale-colors-fieldset-actions--palette-open" : ""}`}
+          >
+            <label class="auto-prime-colors-fieldset__toggle-row">
+              <input
+                type="checkbox"
+                checked={showPrimePalette}
+                onChange={(e) => setShowPrimePalette(e.currentTarget.checked)}
+              />
+              Palette
+            </label>
+            <button
+              type="button"
+              class="preset-action-btn"
+              disabled={!hasCommitableAutoColors}
+              onClick={handleCommitAutoColors}
+            >
+              Commit Auto Colours
+            </button>
+          </div>
+          {showPrimePalette && (
+            <div class="auto-prime-colors-palette-panel">
+              <div class="auto-prime-colors-grid">
+                {PRIME_COLOR_ORDER.map((prime, index) => (
+                  <label
+                    class="auto-prime-colors-grid__item"
+                    key={`prime-family-color-${prime}-${primePaletteResetVersion}`}
+                  >
+                    <span class="auto-prime-colors-grid__label">
+                      {prime === 1 ? "1°" : `${prime}°`}
+                    </span>
+                    <ColorCell
+                      name={`prime-family-colour-${prime}`}
+                      value={primeFamilyColors[index]}
+                      disabled={false}
+                      onChange={handlePrimeFamilyColorChange(index)}
+                      suggestedColor={null}
+                      onPreviewColor={handlePrimeFamilyPreview(index)}
                     />
+                  </label>
+                ))}
+              </div>
+              <div class="auto-prime-colors-actions">
+                <div class="auto-prime-colors-palette-layout">
+                  <div class="auto-prime-colors-palette-row">
+                    <div class="auto-prime-colors-selector-row">
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={handleResetPrimePalette}
+                      >
+                        Default Colours
+                      </button>
+                      <div class="preset-selector-row auto-prime-colors-palette-selector">
+                        <select
+                          aria-label="JI Colour Palette"
+                          value={selectedPrimePalette}
+                          onChange={handleSelectPrimePalette}
+                        >
+                          <option value="default">Default</option>
+                          {savedPrimePalettes.map((palette) => (
+                            <option key={palette.name} value={palette.name}>
+                              {palette.name}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedPaletteEntry && (
+                          <button
+                            type="button"
+                            class="preset-refresh-btn"
+                            aria-label="Reload saved palette"
+                            title="Reload saved palette"
+                            onClick={handleRevertPrimePalette}
+                          >
+                            <span class="preset-refresh-glyph">⟳</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <span class="auto-prime-colors-actions__group">
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={handleSavePrimePalette}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={() => paletteFileInputRef.current?.click()}
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn"
+                        onClick={handleWritePrimePaletteFile}
+                      >
+                        Write
+                      </button>
+                    </span>
                   </div>
+                  {selectedPaletteEntry && (
+                    <span class="auto-prime-colors-actions__side">
+                      <button
+                        type="button"
+                        class="delete-btn preset-utility-btn"
+                        onClick={handleDeletePrimePalette}
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        class="delete-btn preset-utility-btn"
+                        onClick={handleClearAllPrimePalettes}
+                      >
+                        Clear All
+                      </button>
+                    </span>
+                  )}
+                  <input
+                    ref={paletteFileInputRef}
+                    type="file"
+                    accept=".json,application/json"
+                    class="settings-form__hidden-file-input"
+                    onChange={handleOpenPrimePaletteFile}
+                  />
                 </div>
               </div>
-            )}
-          </fieldset>
+            </div>
+          )}
+        </fieldset>
       )}
 
       {spectrumActive && (
@@ -607,7 +645,6 @@ const Colors = (props) => {
           </label>
         </fieldset>
       )}
-
     </div>
   );
 };

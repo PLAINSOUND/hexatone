@@ -103,12 +103,7 @@ describe("ScalaInput", () => {
   it("does not fight deletion while editing before commit", () => {
     const onChange = vi.fn();
     render(
-      <ScalaInput
-        value="500."
-        context="degree"
-        onChange={onChange}
-        aria-label="Scale Degree"
-      />,
+      <ScalaInput value="500." context="degree" onChange={onChange} aria-label="Scale Degree" />,
     );
 
     const input = screen.getByLabelText("Scale Degree");

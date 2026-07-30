@@ -34,20 +34,48 @@ describe("sequencer transport", () => {
   });
 
   it("preserves tempo stacks in creation order and makes the newest effective", () => {
-    expect(normalizeTempoMarkers([
-      { id: "a", position: 1, bpm: 60, beatLength: 1 },
-      { id: "b", position: 1, bpm: 72, beatLength: 0.5 },
-      { id: "c", position: 3, bpm: 90, beatLength: 1 },
-    ])).toEqual([
-      { id: "a", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "b", position: 1, bpm: 72, beatNumerator: 1, beatDenominator: 8, beatLength: 0.5, mode: "immediate" },
-      { id: "c", position: 3, bpm: 90, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
+    expect(
+      normalizeTempoMarkers([
+        { id: "a", position: 1, bpm: 60, beatLength: 1 },
+        { id: "b", position: 1, bpm: 72, beatLength: 0.5 },
+        { id: "c", position: 3, bpm: 90, beatLength: 1 },
+      ]),
+    ).toEqual([
+      {
+        id: "a",
+        position: 1,
+        bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "immediate",
+      },
+      {
+        id: "b",
+        position: 1,
+        bpm: 72,
+        beatNumerator: 1,
+        beatDenominator: 8,
+        beatLength: 0.5,
+        mode: "immediate",
+      },
+      {
+        id: "c",
+        position: 3,
+        bpm: 90,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "immediate",
+      },
     ]);
-    expect(deriveEffectiveTempoMarkers([
-      { id: 9, position: 1, bpm: 60 },
-      { id: 10, position: 1, bpm: 72 },
-      { id: 11, position: 3, bpm: 90 },
-    ]).map((tempo) => tempo.id)).toEqual([10, 11]);
+    expect(
+      deriveEffectiveTempoMarkers([
+        { id: 9, position: 1, bpm: 60 },
+        { id: 10, position: 1, bpm: 72 },
+        { id: 11, position: 3, bpm: 90 },
+      ]).map((tempo) => tempo.id),
+    ).toEqual([10, 11]);
   });
 
   it("uses only the newest piled marker in tempo segments", () => {
@@ -63,22 +91,64 @@ describe("sequencer transport", () => {
   });
 
   it("normalizes legacy transition tempo markers to gradual and defaults missing modes to immediate", () => {
-    expect(normalizeTempoMarkers([
-      { id: "a", position: 1, bpm: 60, beatLength: 1 },
-      { id: "b", position: 2, bpm: 72, beatLength: 1, mode: "transition" },
-    ], { includeDefault: false })).toEqual([
-      { id: "a", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "b", position: 2, bpm: 72, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "gradual" },
+    expect(
+      normalizeTempoMarkers(
+        [
+          { id: "a", position: 1, bpm: 60, beatLength: 1 },
+          { id: "b", position: 2, bpm: 72, beatLength: 1, mode: "transition" },
+        ],
+        { includeDefault: false },
+      ),
+    ).toEqual([
+      {
+        id: "a",
+        position: 1,
+        bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "immediate",
+      },
+      {
+        id: "b",
+        position: 2,
+        bpm: 72,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "gradual",
+      },
     ]);
   });
 
   it("forces the initial tempo marker at position 1 to immediate mode", () => {
-    expect(normalizeTempoMarkers([
-      { id: "a", position: 1, bpm: 60, beatLength: 1, mode: "transition" },
-      { id: "b", position: 2, bpm: 72, beatLength: 1, mode: "transition" },
-    ], { includeDefault: false })).toEqual([
-      { id: "a", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-      { id: "b", position: 2, bpm: 72, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "gradual" },
+    expect(
+      normalizeTempoMarkers(
+        [
+          { id: "a", position: 1, bpm: 60, beatLength: 1, mode: "transition" },
+          { id: "b", position: 2, bpm: 72, beatLength: 1, mode: "transition" },
+        ],
+        { includeDefault: false },
+      ),
+    ).toEqual([
+      {
+        id: "a",
+        position: 1,
+        bpm: 60,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "immediate",
+      },
+      {
+        id: "b",
+        position: 2,
+        bpm: 72,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode: "gradual",
+      },
     ]);
   });
 
@@ -96,9 +166,11 @@ describe("sequencer transport", () => {
   });
 
   it("preserves explicit non-power-of-two meter denominators while deriving bar length", () => {
-    expect(normalizeMeterMarkers([
-      { id: "m1", position: 2, numerator: 5, denominator: 7, beatLength: 0.5 },
-    ])).toEqual([
+    expect(
+      normalizeMeterMarkers([
+        { id: "m1", position: 2, numerator: 5, denominator: 7, beatLength: 0.5 },
+      ]),
+    ).toEqual([
       {
         id: "meter:default",
         position: 1,
@@ -119,10 +191,12 @@ describe("sequencer transport", () => {
   });
 
   it("builds exact piecewise tempo segments from sequence space", () => {
-    expect(buildTempoSegments([
-      { id: "t1", position: 1, bpm: 60, beatLength: 1 },
-      { id: "t2", position: 3, bpm: 120, beatLength: 1 },
-    ])).toEqual([
+    expect(
+      buildTempoSegments([
+        { id: "t1", position: 1, bpm: 60, beatLength: 1 },
+        { id: "t2", position: 3, bpm: 120, beatLength: 1 },
+      ]),
+    ).toEqual([
       {
         id: "t1",
         position: 1,
@@ -159,11 +233,14 @@ describe("sequencer transport", () => {
       { id: 3, position: 4, numerator: 4, denominator: 4 },
     ];
 
-    const cues = deriveTempoTransitionCueMap([
-      { id: "t1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
-      { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, mode: "gradual" },
-      { id: "t3", position: 4, bpm: 48, beatNumerator: 1, beatDenominator: 4, mode: "gradual" },
-    ], bars);
+    const cues = deriveTempoTransitionCueMap(
+      [
+        { id: "t1", position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, mode: "immediate" },
+        { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, mode: "gradual" },
+        { id: "t3", position: 4, bpm: 48, beatNumerator: 1, beatDenominator: 4, mode: "gradual" },
+      ],
+      bars,
+    );
 
     expect(cues.get("t1")).toEqual({
       anchorTempoId: "t1",
@@ -253,10 +330,15 @@ describe("sequencer transport", () => {
   });
 
   it("forces bar positions to positive integers", () => {
-    expect(normalizeBarMarkers([
-      { id: "a", position: 0.4, numerator: 4, denominator: 4 },
-      { id: "b", position: 2.7, numerator: 3, denominator: 2 },
-    ], { includeDefault: false })).toEqual([
+    expect(
+      normalizeBarMarkers(
+        [
+          { id: "a", position: 0.4, numerator: 4, denominator: 4 },
+          { id: "b", position: 2.7, numerator: 3, denominator: 2 },
+        ],
+        { includeDefault: false },
+      ),
+    ).toEqual([
       { id: "a", position: 1, numerator: 4, denominator: 4 },
       { id: "b", position: 3, numerator: 3, denominator: 2 },
     ]);
@@ -322,12 +404,17 @@ describe("sequencer transport", () => {
       { id: 2, position: 2, numerator: 4, denominator: 4 },
     ];
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 1,
-      beat: 2,
-      numerator: 1,
-      denominator: 4,
-    }, bars)).toBe(1.3125);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 1,
+          beat: 2,
+          numerator: 1,
+          denominator: 4,
+        },
+        bars,
+      ),
+    ).toBe(1.3125);
   });
 
   it("can represent an exact explicit barline as the end of the preceding bar", () => {
@@ -372,12 +459,17 @@ describe("sequencer transport", () => {
       { id: 2, position: 2, numerator: 4, denominator: 4 },
     ];
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 1,
-      beat: 1,
-      numerator: 4,
-      denominator: 4,
-    }, bars)).toBe(1.25);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 1,
+          beat: 1,
+          numerator: 4,
+          denominator: 4,
+        },
+        bars,
+      ),
+    ).toBe(1.25);
   });
 
   it("carries beat overflow into the next bar when bars are available", () => {
@@ -387,12 +479,17 @@ describe("sequencer transport", () => {
       { id: 3, position: 3, numerator: 4, denominator: 4 },
     ];
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 1,
-      beat: 4,
-      numerator: 4,
-      denominator: 4,
-    }, bars)).toBe(2);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 1,
+          beat: 4,
+          numerator: 4,
+          denominator: 4,
+        },
+        bars,
+      ),
+    ).toBe(2);
 
     expect(absolutePositionToBarBeat(2, bars)).toEqual({
       barNumber: 2,
@@ -413,12 +510,17 @@ describe("sequencer transport", () => {
       { id: 3, position: 3, numerator: 4, denominator: 4 },
     ];
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 2,
-      beat: 3,
-      numerator: 0,
-      denominator: 1,
-    }, bars)).toBe(2.666667);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 2,
+          beat: 3,
+          numerator: 0,
+          denominator: 1,
+        },
+        bars,
+      ),
+    ).toBe(2.666667);
 
     expect(absolutePositionToBarBeat(2.666667, bars, 1)).toEqual({
       barNumber: 2,
@@ -433,11 +535,9 @@ describe("sequencer transport", () => {
   });
 
   it("preserves a preferred sextuplet denominator for nonzero note-event fractions", () => {
-    const bars = [
-      { id: 1, position: 1, numerator: 4, denominator: 4 },
-    ];
+    const bars = [{ id: 1, position: 1, numerator: 4, denominator: 4 }];
 
-    expect(absolutePositionToBarBeat(1 + ((2 / 6) * 0.25), bars, 6, 9, null, false, true)).toEqual({
+    expect(absolutePositionToBarBeat(1 + (2 / 6) * 0.25, bars, 6, 9, null, false, true)).toEqual({
       barNumber: 1,
       beat: 1,
       numerator: 2,
@@ -459,7 +559,7 @@ describe("sequencer transport", () => {
       beatUnit: 4,
     });
 
-    expect(absolutePositionToBarBeat(1 + ((3 / 6) * 0.25), bars, 6, 9, null, false, true)).toEqual({
+    expect(absolutePositionToBarBeat(1 + (3 / 6) * 0.25, bars, 6, 9, null, false, true)).toEqual({
       barNumber: 1,
       beat: 1,
       numerator: 3,
@@ -499,12 +599,17 @@ describe("sequencer transport", () => {
       beatUnit: 2,
     });
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 2,
-      beat: 2,
-      numerator: 0,
-      denominator: 1,
-    }, bars)).toBe(2.333333);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 2,
+          beat: 2,
+          numerator: 0,
+          denominator: 1,
+        },
+        bars,
+      ),
+    ).toBe(2.333333);
   });
 
   it("spreads a bar signature across the full distance to the next explicit bar marker", () => {
@@ -525,38 +630,59 @@ describe("sequencer transport", () => {
       beatUnit: 2,
     });
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 2,
-      beat: 3,
-      numerator: 0,
-      denominator: 1,
-    }, bars)).toBe(3.333333);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 2,
+          beat: 3,
+          numerator: 0,
+          denominator: 1,
+        },
+        bars,
+      ),
+    ).toBe(3.333333);
   });
 
   it("derives a terminal barline position from snapshots and explicit bars", () => {
-    expect(deriveTerminalBarlinePosition([
-      {
-        length: 1,
-        notes: [{ start: 0, end: 0.875 }],
-      },
-      {
-        length: 1.4,
-        notes: [{ start: 0.2, end: 1.4 }],
-      },
-    ], [{ id: 1, position: 1 }, { id: 2, position: 2 }])).toBe(4);
+    expect(
+      deriveTerminalBarlinePosition(
+        [
+          {
+            length: 1,
+            notes: [{ start: 0, end: 0.875 }],
+          },
+          {
+            length: 1.4,
+            notes: [{ start: 0.2, end: 1.4 }],
+          },
+        ],
+        [
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ],
+      ),
+    ).toBe(4);
   });
 
   it("keeps an exact integer snapshot ending on that same terminal barline", () => {
-    expect(deriveTerminalBarlinePosition([
-      {
-        length: 1,
-        notes: [{ start: 0, end: 1 }],
-      },
-      {
-        length: 1,
-        notes: [{ start: 0, end: 1 }],
-      },
-    ], [{ id: 1, position: 1 }, { id: 2, position: 2 }])).toBe(3);
+    expect(
+      deriveTerminalBarlinePosition(
+        [
+          {
+            length: 1,
+            notes: [{ start: 0, end: 1 }],
+          },
+          {
+            length: 1,
+            notes: [{ start: 0, end: 1 }],
+          },
+        ],
+        [
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ],
+      ),
+    ).toBe(3);
   });
 
   it("spans the last explicit bar to the implicit terminal barline", () => {
@@ -588,12 +714,18 @@ describe("sequencer transport", () => {
       beatUnit: 1,
     });
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 2,
-      beat: 1,
-      numerator: 1,
-      denominator: 1,
-    }, bars, terminalPosition)).toBe(19);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 2,
+          beat: 1,
+          numerator: 1,
+          denominator: 1,
+        },
+        bars,
+        terminalPosition,
+      ),
+    ).toBe(19);
   });
 
   it("treats n snapshots inside one bar as a bar whose global length is n", () => {
@@ -653,12 +785,16 @@ describe("sequencer transport", () => {
     ];
     const terminalPosition = 19;
 
-    const quarterPosition = barBeatToAbsolutePosition({
-      barNumber: 14,
-      beat: 1,
-      numerator: 1,
-      denominator: 4,
-    }, bars, terminalPosition);
+    const quarterPosition = barBeatToAbsolutePosition(
+      {
+        barNumber: 14,
+        beat: 1,
+        numerator: 1,
+        denominator: 4,
+      },
+      bars,
+      terminalPosition,
+    );
 
     expect(quarterPosition).toBe(17.5);
     expect(absolutePositionToBarBeat(quarterPosition, bars, 4, 9, terminalPosition)).toEqual({
@@ -674,30 +810,32 @@ describe("sequencer transport", () => {
   });
 
   it("normalizes repeat markers while preserving floating positions", () => {
-    expect(normalizeRepeatMarkers([
-      { id: "end-a", position: 3, kind: "end" },
-      { id: "start-a", position: 1.5, kind: "start" },
-      { id: "start-b", position: 1.5, kind: "start" },
-    ])).toEqual([
+    expect(
+      normalizeRepeatMarkers([
+        { id: "end-a", position: 3, kind: "end" },
+        { id: "start-a", position: 1.5, kind: "start" },
+        { id: "start-b", position: 1.5, kind: "start" },
+      ]),
+    ).toEqual([
       { id: "start-b", position: 1.5, kind: "start", repeatCount: null },
       { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
     ]);
   });
 
   it("orders an end repeat before a start repeat at the same position", () => {
-    expect(normalizeRepeatMarkers([
-      { id: "start-a", position: 3, kind: "start" },
-      { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
-    ])).toEqual([
+    expect(
+      normalizeRepeatMarkers([
+        { id: "start-a", position: 3, kind: "start" },
+        { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
+      ]),
+    ).toEqual([
       { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
       { id: "start-a", position: 3, kind: "start", repeatCount: null },
     ]);
   });
 
   it("keeps dangling end repeats visible instead of synthesizing undeletable start markers", () => {
-    expect(normalizeRepeatMarkers([
-      { id: "end-a", position: 3, kind: "end" },
-    ])).toEqual([
+    expect(normalizeRepeatMarkers([{ id: "end-a", position: 3, kind: "end" }])).toEqual([
       { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
     ]);
   });
@@ -707,40 +845,50 @@ describe("sequencer transport", () => {
   });
 
   it("derives an implicit start position exactly at the previous end marker for a later dangling end repeat", () => {
-    expect(deriveImplicitRepeatStartPosition([
-      { id: "start-a", position: 1, kind: "start" },
-      { id: "end-a", position: 3, kind: "end" },
-    ], 5)).toBe(3);
+    expect(
+      deriveImplicitRepeatStartPosition(
+        [
+          { id: "start-a", position: 1, kind: "start" },
+          { id: "end-a", position: 3, kind: "end" },
+        ],
+        5,
+      ),
+    ).toBe(3);
   });
 
   it("does not derive an implicit start position when the preceding repeat marker is already a start", () => {
-    expect(deriveImplicitRepeatStartPosition([
-      { id: "end-a", position: 3, kind: "end" },
-      { id: "start-a", position: 1, kind: "start" },
-    ], 5)).toBe(3);
-    expect(deriveImplicitRepeatStartPosition([
-      { id: "start-b", position: 4, kind: "start" },
-    ], 5)).toBeNull();
+    expect(
+      deriveImplicitRepeatStartPosition(
+        [
+          { id: "end-a", position: 3, kind: "end" },
+          { id: "start-a", position: 1, kind: "start" },
+        ],
+        5,
+      ),
+    ).toBe(3);
+    expect(
+      deriveImplicitRepeatStartPosition([{ id: "start-b", position: 4, kind: "start" }], 5),
+    ).toBeNull();
   });
 
   it("does not derive an implicit start position from a marker at the same position as the new end", () => {
-    expect(deriveImplicitRepeatStartPosition([
-      { id: "end-a", position: 2, kind: "end" },
-    ], 2)).toBeNull();
+    expect(
+      deriveImplicitRepeatStartPosition([{ id: "end-a", position: 2, kind: "end" }], 2),
+    ).toBeNull();
   });
 
   it("derives extra implicit starts for later dangling end markers", () => {
-    expect(deriveImplicitRepeatStartPositionsForDanglingEnds([
-      { id: "start-a", position: 1, kind: "start" },
-      { id: "end-a", position: 3, kind: "end" },
-      { id: "end-b", position: 5, kind: "end" },
-    ])).toEqual([3]);
+    expect(
+      deriveImplicitRepeatStartPositionsForDanglingEnds([
+        { id: "start-a", position: 1, kind: "start" },
+        { id: "end-a", position: 3, kind: "end" },
+        { id: "end-b", position: 5, kind: "end" },
+      ]),
+    ).toEqual([3]);
   });
 
   it("drops invalid end repeat markers at position 1", () => {
-    expect(normalizeRepeatMarkers([
-      { id: "end-a", position: 1, kind: "end" },
-    ])).toEqual([]);
+    expect(normalizeRepeatMarkers([{ id: "end-a", position: 1, kind: "end" }])).toEqual([]);
   });
 
   it("clamps denominator to at least 1", () => {
@@ -749,12 +897,17 @@ describe("sequencer transport", () => {
       { id: 2, position: 2, numerator: 4, denominator: 4 },
     ];
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 1,
-      beat: 1,
-      numerator: 1,
-      denominator: 0,
-    }, bars)).toBe(1.25);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 1,
+          beat: 1,
+          numerator: 1,
+          denominator: 0,
+        },
+        bars,
+      ),
+    ).toBe(1.25);
   });
 
   it("normalizes legacy 0/n bar signatures up to 4/n bars", () => {
@@ -781,11 +934,16 @@ describe("sequencer transport", () => {
       beatUnit: 4,
     });
 
-    expect(barBeatToAbsolutePosition({
-      barNumber: 1,
-      beat: 1,
-      numerator: 0,
-      denominator: 4,
-    }, bars)).toBe(1);
+    expect(
+      barBeatToAbsolutePosition(
+        {
+          barNumber: 1,
+          beat: 1,
+          numerator: 0,
+          denominator: 4,
+        },
+        bars,
+      ),
+    ).toBe(1);
   });
 });

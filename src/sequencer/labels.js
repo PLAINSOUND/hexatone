@@ -73,9 +73,7 @@ function buildVoicedRatios(notes = []) {
   for (const note of sortSnapshotNotes(notes)) {
     const ratio = parsePositiveRatioText(note?.ratioText);
     if (!ratio) return [];
-    const voicedRatio = previousRatio
-      ? liftRatioByOctaves(ratio, previousRatio)
-      : ratio;
+    const voicedRatio = previousRatio ? liftRatioByOctaves(ratio, previousRatio) : ratio;
     ratios.push(voicedRatio);
     previousRatio = voicedRatio;
   }
@@ -86,10 +84,7 @@ function buildVoicedRatios(notes = []) {
 function ratiosToIntegerValues(ratios = []) {
   if (!Array.isArray(ratios) || ratios.length === 0) return [];
   if (ratios.some((ratio) => ratio == null)) return [];
-  const commonDenominator = ratios.reduce(
-    (current, ratio) => lcm(current, ratio.denominator),
-    1n,
-  );
+  const commonDenominator = ratios.reduce((current, ratio) => lcm(current, ratio.denominator), 1n);
   const scaledIntegers = ratios.map(
     (ratio) => ratio.numerator * (commonDenominator / ratio.denominator),
   );
@@ -155,7 +150,10 @@ export function buildSnapshotDescription(notes = [], mode = "labels") {
   if (sorted.length === 0) return "";
 
   if (mode === "midicents") {
-    return sorted.map((note) => formatMidicents(note.midicents)).filter(Boolean).join(", ");
+    return sorted
+      .map((note) => formatMidicents(note.midicents))
+      .filter(Boolean)
+      .join(", ");
   }
 
   if (mode === "interval_cents") {
@@ -163,7 +161,10 @@ export function buildSnapshotDescription(notes = [], mode = "labels") {
   }
 
   if (mode === "frequency") {
-    return sorted.map((note) => formatFrequency(note.midicents)).filter(Boolean).join(", ");
+    return sorted
+      .map((note) => formatFrequency(note.midicents))
+      .filter(Boolean)
+      .join(", ");
   }
 
   if (mode === "proportion") {
@@ -182,5 +183,8 @@ export function buildSnapshotDescription(notes = [], mode = "labels") {
 
   const labels = sorted.map((note) => String(note?.displayLabel ?? "").trim()).filter(Boolean);
   if (labels.length > 0) return labels.join(", ");
-  return sorted.map((note) => formatFrequency(note.midicents)).filter(Boolean).join(", ");
+  return sorted
+    .map((note) => formatFrequency(note.midicents))
+    .filter(Boolean)
+    .join(", ");
 }

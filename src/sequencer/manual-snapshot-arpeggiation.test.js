@@ -73,8 +73,6 @@ describe("manual snapshot arpeggiation settings", () => {
     expect(
       manualArpeggiationDecayFromSlider(SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE),
     ).toEqual({ decayMode: "sustain" });
-    expect(manualArpeggiationDecayDisplay({ decayMode: "timed", decayMs: 700 })).toBe(
-      "700 ms",
-    );
+    expect(manualArpeggiationDecayDisplay({ decayMode: "timed", decayMs: 700 })).toBe("700 ms");
   });
 });

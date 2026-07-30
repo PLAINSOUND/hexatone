@@ -15,15 +15,14 @@ export function buildSnapshotEventsById(sequenceEvents = []) {
       event.type !== "barline" &&
       event.type !== "repeat-start" &&
       event.type !== "repeat-end"
-    ) continue;
+    )
+      continue;
     if (
-      (
-        event.type === "bar" ||
+      (event.type === "bar" ||
         event.type === "tempo" ||
         event.type === "barline" ||
         event.type === "repeat-start" ||
-        event.type === "repeat-end"
-      ) &&
+        event.type === "repeat-end") &&
       isWholeSequencePosition(event.absoluteTime) &&
       Math.abs(Number(event.absoluteTime) - (Number(event.snapshotIndex) + 1)) < 1e-9
     ) {
@@ -105,7 +104,11 @@ export function buildFirstCueTimeBySnapshotIndex(sequenceCueGroups = []) {
   return times;
 }
 
-export function buildCueExpandedSnapshotIds(activeCueIndex, sequenceEvents = [], soundingAttackEventIds = new Set()) {
+export function buildCueExpandedSnapshotIds(
+  activeCueIndex,
+  sequenceEvents = [],
+  soundingAttackEventIds = new Set(),
+) {
   if (activeCueIndex == null) return new Set();
 
   const ids = new Set();

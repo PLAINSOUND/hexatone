@@ -64,9 +64,10 @@ function createThresholdHandoff({ sourceValue, targetValue, score, send }) {
 }
 
 export function createTransferredHex(sourceHex, options = {}) {
-  const targetCoords = options.coords instanceof Point
-    ? new Point(options.coords.x, options.coords.y)
-    : new Point(options.coords.x, options.coords.y);
+  const targetCoords =
+    options.coords instanceof Point
+      ? new Point(options.coords.x, options.coords.y)
+      : new Point(options.coords.x, options.coords.y);
   const baseCents = sourceHex._baseCents ?? sourceHex.cents ?? options.cents;
   const pitchValue = (value14, value21, cents) => ({
     value14: clampPitchBend14(value14),
@@ -79,7 +80,7 @@ export function createTransferredHex(sourceHex, options = {}) {
       value14: clamp14Bit(sourceHex._lastAftertouch14),
     },
     targetValue: { value: 0, value14: null },
-    score: (payload) => payload.value14 ?? (payload.value * 128),
+    score: (payload) => payload.value14 ?? payload.value * 128,
     send: (payload) => {
       sourceHex._lastAftertouch = clamp7Bit(payload.value);
       sourceHex._lastAftertouch14 = clamp14Bit(payload.value14);
@@ -124,7 +125,7 @@ export function createTransferredHex(sourceHex, options = {}) {
       value14: clamp14Bit(sourceHex._lastCC7414),
     },
     targetValue: { value: 0, value14: null },
-    score: (payload) => payload.value14 ?? (payload.value * 128),
+    score: (payload) => payload.value14 ?? payload.value * 128,
     send: sendCc74Payload,
   });
   const pitchBendHandoff = createThresholdHandoff({
@@ -134,7 +135,7 @@ export function createTransferredHex(sourceHex, options = {}) {
       sourceHex._lastPitchBendCents ?? sourceHex.cents,
     ),
     targetValue: pitchValue(8192, null, baseCents),
-    score: (value) => Math.abs((value.value21 ?? (value.value14 * 128)) - 1048576),
+    score: (value) => Math.abs((value.value21 ?? value.value14 * 128) - 1048576),
     send: (value) => {
       sourceHex._lastPitchBend14 = value.value14;
       sourceHex._lastPitchBend21 = value.value21;
@@ -160,7 +161,8 @@ export function createTransferredHex(sourceHex, options = {}) {
       sourceHex._transferProxy = null;
       sourceHex._transferReleaseNoOp = false;
       sourceHex.noteOff(releaseVelocity);
-      if (options.onTransferredRelease) options.onTransferredRelease(proxy, sourceHex, releaseVelocity);
+      if (options.onTransferredRelease)
+        options.onTransferredRelease(proxy, sourceHex, releaseVelocity);
     },
     retune: (newCents, bendOnly = false) => {
       proxy.cents = newCents;
@@ -196,16 +198,22 @@ export function createTransferredHex(sourceHex, options = {}) {
     polyTimbre: (value, value14 = null) => {
       proxy._lastCC74 = clamp7Bit(value);
       proxy._lastCC7414 = clamp14Bit(value14);
-      sendTargetCc74({
-        value: proxy._lastCC74,
-        value14: proxy._lastCC7414,
-      }, { polyTimbre: true });
+      sendTargetCc74(
+        {
+          value: proxy._lastCC74,
+          value14: proxy._lastCC7414,
+        },
+        { polyTimbre: true },
+      );
     },
     _transferSourceCC74: (value, options = {}) => {
-      sendSourceCc74({
-        value: clamp7Bit(value),
-        value14: clamp14Bit(sourceHex._lastCC7414),
-      }, options);
+      sendSourceCc74(
+        {
+          value: clamp7Bit(value),
+          value14: clamp14Bit(sourceHex._lastCC7414),
+        },
+        options,
+      );
     },
     _transferTargetPitchBend: (value) => {
       const next = pitchValue(value?.value14, value?.value21, value?.cents);

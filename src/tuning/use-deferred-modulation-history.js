@@ -20,10 +20,7 @@ function cloneHistory(history = []) {
 }
 
 export default function useDeferredModulationHistory(modulationState, keysRef) {
-  const modulationHistory = useMemo(
-    () => modulationState?.history ?? [],
-    [modulationState],
-  );
+  const modulationHistory = useMemo(() => modulationState?.history ?? [], [modulationState]);
   const activeModulationHistoryKey = useMemo(
     () => modulationHistoryKey(modulationHistory),
     [modulationHistory],

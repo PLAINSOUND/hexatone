@@ -23,7 +23,11 @@ describe("manual snapshot gesture planner", () => {
 
   it("distributes tied notes evenly in stable event-list order", () => {
     const plan = planManualSnapshotFormation(
-      [{ id: "a", start: 0 }, { id: "b", start: 0 }, { id: "c", start: 0 }],
+      [
+        { id: "a", start: 0 },
+        { id: "b", start: 0 },
+        { id: "c", start: 0 },
+      ],
       { initialSpreadMs: 600 },
     );
 
@@ -42,16 +46,18 @@ describe("manual snapshot gesture planner", () => {
       { initialSpreadMs: 600 },
     );
 
-    expect(plan.events.map(({ noteId }) => noteId))
-      .toEqual(["low", "middle", "high", "later"]);
-    expect(plan.events.map(({ offsetMs }) => offsetMs))
-      .toEqual([0, 0, 0, 600]);
+    expect(plan.events.map(({ noteId }) => noteId)).toEqual(["low", "middle", "high", "later"]);
+    expect(plan.events.map(({ offsetMs }) => offsetMs)).toEqual([0, 0, 0, 600]);
   });
 
   it("varies gaps without changing order or the final offset", () => {
     const values = [0, 1];
     const plan = planManualSnapshotFormation(
-      [{ id: "a", start: 0 }, { id: "b", start: 1 }, { id: "c", start: 2 }],
+      [
+        { id: "a", start: 0 },
+        { id: "b", start: 1 },
+        { id: "c", start: 2 },
+      ],
       { initialSpreadMs: 1000, timingVariation: 1 },
       () => values.shift(),
     );
@@ -81,12 +87,15 @@ describe("manual snapshot gesture planner", () => {
       () => 0.5,
     );
 
-    expect(preserved.events.map(({ offsetMs }) => offsetMs))
-      .toEqual([0, 0, 0, 0, 1000]);
-    expect(redistributed.events.map(({ offsetMs }) => offsetMs))
-      .toEqual([0, 250, 500, 750, 1000]);
-    expect(redistributed.events.map(({ noteId }) => noteId))
-      .toEqual(["first", "second", "third", "fourth", "last"]);
+    expect(preserved.events.map(({ offsetMs }) => offsetMs)).toEqual([0, 0, 0, 0, 1000]);
+    expect(redistributed.events.map(({ offsetMs }) => offsetMs)).toEqual([0, 250, 500, 750, 1000]);
+    expect(redistributed.events.map(({ noteId }) => noteId)).toEqual([
+      "first",
+      "second",
+      "third",
+      "fourth",
+      "last",
+    ]);
   });
 
   it("blends composed gaps with generated gaps at intermediate variation", () => {
@@ -133,7 +142,10 @@ describe("manual snapshot gesture planner", () => {
   });
 
   it("varies the total spread reciprocally around its center value", () => {
-    const notes = [{ id: "a", start: 0 }, { id: "b", start: 1 }];
+    const notes = [
+      { id: "a", start: 0 },
+      { id: "b", start: 1 },
+    ];
     const lower = planManualSnapshotFormation(
       notes,
       { initialSpreadMs: 2000, spreadVariation: 1 / 3 },
@@ -147,14 +159,17 @@ describe("manual snapshot gesture planner", () => {
 
     expect(lower.durationMs).toBeCloseTo(1500);
     expect(lower.events.at(-1).offsetMs).toBeCloseTo(1500);
-    expect(upper.durationMs).toBeCloseTo(2000 * 4 / 3);
-    expect(upper.events.at(-1).offsetMs).toBeCloseTo(2000 * 4 / 3);
+    expect(upper.durationMs).toBeCloseTo((2000 * 4) / 3);
+    expect(upper.events.at(-1).offsetMs).toBeCloseTo((2000 * 4) / 3);
   });
 
   it("plans independently varied releases from the next trigger", () => {
     const randomValues = [1, 0];
     const formation = planManualSnapshotFormation(
-      [{ id: "first", start: 0 }, { id: "second", start: 1 }],
+      [
+        { id: "first", start: 0 },
+        { id: "second", start: 1 },
+      ],
       {
         initialSpreadMs: 100,
         timingVariation: 0,
@@ -177,12 +192,16 @@ describe("manual snapshot gesture planner", () => {
 
   it("supports immediate and sustained release endpoints", () => {
     const attacks = planManualSnapshotFormation(
-      [{ id: "first", start: 0 }, { id: "second", start: 1 }],
+      [
+        { id: "first", start: 0 },
+        { id: "second", start: 1 },
+      ],
       { initialSpreadMs: 100 },
     ).events;
 
-    expect(planManualSnapshotRelease(attacks, { decayMode: "immediate" }).events)
-      .toEqual(attacks.map((event) => ({ ...event, type: "release", offsetMs: 0 })));
+    expect(planManualSnapshotRelease(attacks, { decayMode: "immediate" }).events).toEqual(
+      attacks.map((event) => ({ ...event, type: "release", offsetMs: 0 })),
+    );
     expect(planManualSnapshotRelease(attacks, { decayMode: "sustain" })).toEqual({
       durationMs: 0,
       events: [],
@@ -194,10 +213,9 @@ describe("manual snapshot gesture planner", () => {
       durationMs: 0,
       events: [],
     });
-    expect(planManualSnapshotFormation([{ id: "solo" }], { initialSpreadMs: 700 }))
-      .toMatchObject({
-        durationMs: 0,
-        events: [{ offsetMs: 0, noteId: "solo" }],
-      });
+    expect(planManualSnapshotFormation([{ id: "solo" }], { initialSpreadMs: 700 })).toMatchObject({
+      durationMs: 0,
+      events: [{ offsetMs: 0, noteId: "solo" }],
+    });
   });
 });

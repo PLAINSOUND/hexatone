@@ -210,7 +210,11 @@ describe("timed transport diagnostics", () => {
       },
     };
     let diagnostics = createTimedTransportDiagnostics(10);
-    diagnostics = pushTimedTransportDiagnostic(diagnostics, { type: "fire", latenessMs: 18, cueIndex: 7 });
+    diagnostics = pushTimedTransportDiagnostic(diagnostics, {
+      type: "fire",
+      latenessMs: 18,
+      cueIndex: 7,
+    });
 
     persistTimedTransportDiagnostics(diagnostics, storage);
 
@@ -249,10 +253,10 @@ describe("timed transport diagnostics", () => {
         this.values.set(key, value);
       },
     };
-    let diagnostics = pushTimedTransportDiagnostic(
-      createTimedTransportDiagnostics(10),
-      { type: "schedule", cueIndex: 1 },
-    );
+    let diagnostics = pushTimedTransportDiagnostic(createTimedTransportDiagnostics(10), {
+      type: "schedule",
+      cueIndex: 1,
+    });
     bufferTimedTransportDiagnostics(diagnostics, storage);
     diagnostics = pushTimedTransportDiagnostic(diagnostics, { type: "fire", cueIndex: 2 });
     bufferTimedTransportDiagnostics(diagnostics, storage);

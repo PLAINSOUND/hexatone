@@ -31,9 +31,7 @@ export const CONTROLLER_PRESET_ANCHOR_FIELDS = CONTROLLER_PRESET_ANCHOR_CONFIGS.
 );
 
 export function getControllerPresetAnchorConfig(controllerId) {
-  return CONTROLLER_PRESET_ANCHOR_CONFIGS.find(
-    (config) => config.controllerId === controllerId,
-  );
+  return CONTROLLER_PRESET_ANCHOR_CONFIGS.find((config) => config.controllerId === controllerId);
 }
 
 export function buildControllerPresetAnchorUpdate(controllerId, note, channel) {
@@ -42,9 +40,7 @@ export function buildControllerPresetAnchorUpdate(controllerId, note, channel) {
 
   return {
     ...(Number.isFinite(note) ? { [config.noteKey]: note } : {}),
-    ...(config.channelKey && Number.isFinite(channel)
-      ? { [config.channelKey]: channel }
-      : {}),
+    ...(config.channelKey && Number.isFinite(channel) ? { [config.channelKey]: channel } : {}),
   };
 }
 
@@ -53,8 +49,8 @@ export function hasControllerPresetAnchor(settings = {}, controllerId) {
   const config = getControllerPresetAnchorConfig(controllerId);
   if (!config) return false;
   return (
-    Number.isFinite(settings[config.noteKey])
-    || (config.channelKey && Number.isFinite(settings[config.channelKey]))
+    Number.isFinite(settings[config.noteKey]) ||
+    (config.channelKey && Number.isFinite(settings[config.channelKey]))
   );
 }
 
@@ -95,16 +91,13 @@ export function deriveControllerPresetAnchorFields(settings = {}) {
   const hasExplicitChannel =
     activeConfig.channelKey && Number.isFinite(settings[activeConfig.channelKey]);
 
-  if (
-    Number.isFinite(note)
-    && (hasExplicitNote || note !== controller?.anchorDefault)
-  ) {
+  if (Number.isFinite(note) && (hasExplicitNote || note !== controller?.anchorDefault)) {
     fields[activeConfig.noteKey] = note;
   }
   if (
-    activeConfig.channelKey
-    && Number.isFinite(channel)
-    && (hasExplicitChannel || channel !== controller?.anchorChannelDefault)
+    activeConfig.channelKey &&
+    Number.isFinite(channel) &&
+    (hasExplicitChannel || channel !== controller?.anchorChannelDefault)
   ) {
     fields[activeConfig.channelKey] = channel;
   }

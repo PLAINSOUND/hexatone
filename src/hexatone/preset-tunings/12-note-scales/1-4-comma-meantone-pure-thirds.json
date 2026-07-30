@@ -19,20 +19,7 @@
   "short_description": "12-MT-1_4-SC",
   "built_in_group": "12 Note Scales",
   "key_labels": "note_names",
-  "note_names": [
-    "c",
-    "♯c",
-    "d",
-    "♭e",
-    "e",
-    "f",
-    "♯f",
-    "g",
-    "♯g",
-    "a",
-    "♭b",
-    "b"
-  ],
+  "note_names": ["c", "♯c", "d", "♭e", "e", "f", "♯f", "g", "♯g", "a", "♭b", "b"],
   "note_colors": [
     "#ffdbdb",
     "#eee9d3",

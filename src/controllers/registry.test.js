@@ -10,11 +10,7 @@ import {
   normalizeTonalPlexus205Degree,
   buildLinnstrumentUserFirmwareMap,
 } from "./registry.js";
-import {
-  lumatoneAddressForCoords,
-  lumatoneBlockOffset,
-  lumatoneNoteCoords,
-} from "./lumatone.js";
+import { lumatoneAddressForCoords, lumatoneBlockOffset, lumatoneNoteCoords } from "./lumatone.js";
 import { detectHakenDeviceName } from "./hakenaudio.js";
 
 const getController = (id) => CONTROLLER_REGISTRY.find((controller) => controller.id === id);
@@ -203,7 +199,7 @@ describe("controller registry", () => {
   it("LinnStrument UF right-neighbour is always (x+1, y+0)", () => {
     const map = getController("linnstrument").buildMap(9, 4, 16);
     const anchor = map.get("4.9");
-    const right  = map.get("4.10");  // same row, +1 col
+    const right = map.get("4.10"); // same row, +1 col
     expect(right.x - anchor.x).toBe(1);
     expect(right.y - anchor.y).toBe(0);
   });
@@ -211,7 +207,7 @@ describe("controller registry", () => {
   it("LinnStrument UF row-up neighbour is always (x+1, y-1)", () => {
     const map = getController("linnstrument").buildMap(9, 4, 16);
     const anchor = map.get("4.9");
-    const above  = map.get("5.9");   // one row up
+    const above = map.get("5.9"); // one row up
     expect(above.x - anchor.x).toBe(1);
     expect(above.y - anchor.y).toBe(-1);
   });
@@ -219,7 +215,7 @@ describe("controller registry", () => {
   it("LinnStrument UF map uses channels 1-8 (one per row)", () => {
     const map = getController("linnstrument").buildMap(9, 4, 16);
     const channels = new Set(Array.from(map.keys()).map((k) => k.split(".")[0]));
-    expect(channels).toEqual(new Set(["1","2","3","4","5","6","7","8"]));
+    expect(channels).toEqual(new Set(["1", "2", "3", "4", "5", "6", "7", "8"]));
   });
 
   it("LinnStrument UF bottom-left and top-right corners have correct geometry", () => {

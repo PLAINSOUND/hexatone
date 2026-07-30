@@ -153,11 +153,16 @@ export function normalizeTuningRecord(record, options = {}) {
   }
 
   if (Array.isArray(record.modulation_library)) {
-    const normalizedLibrary = normalizeModulationHistory(record.modulation_library, { zeroCounts: true });
+    const normalizedLibrary = normalizeModulationHistory(record.modulation_library, {
+      zeroCounts: true,
+    });
     if (normalizedLibrary.length > 0) normalized.modulation_library = normalizedLibrary;
   }
 
-  if (record.modulation_history_position && typeof record.modulation_history_position === "object") {
+  if (
+    record.modulation_history_position &&
+    typeof record.modulation_history_position === "object"
+  ) {
     normalized.modulation_history_position = clone(record.modulation_history_position);
   }
 
@@ -176,8 +181,8 @@ export function normalizeTuningGroup(group, options = {}) {
   if (!name) return null;
   const settings = Array.isArray(group.settings)
     ? group.settings
-      .map((setting) => normalizeTuningRecord({ ...setting, built_in_group: name }, options))
-      .filter(Boolean)
+        .map((setting) => normalizeTuningRecord({ ...setting, built_in_group: name }, options))
+        .filter(Boolean)
     : [];
   return settings.length > 0 ? { name, settings } : null;
 }
@@ -202,7 +207,9 @@ export function settingsToTuningRecord(settings = {}, extra = {}) {
   }
 
   if (Array.isArray(raw.modulation_library)) {
-    const normalizedLibrary = normalizeModulationHistory(raw.modulation_library, { zeroCounts: true });
+    const normalizedLibrary = normalizeModulationHistory(raw.modulation_library, {
+      zeroCounts: true,
+    });
     if (normalizedLibrary.length > 0) raw.modulation_library = normalizedLibrary;
     else delete raw.modulation_library;
   }

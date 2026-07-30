@@ -11,7 +11,12 @@ import {
 import { buildPlaybackTimeline } from "./playback-timeline.js";
 import { deriveRepeatSections } from "./repeat-playback-runtime.js";
 import { deriveTimedCueTriggers } from "./timed-cue-triggers.js";
-import { normalizeBarMarkers, normalizeTempoMarkers, deriveTempoTransitionCueMap, deriveTerminalBarlinePosition } from "./transport.js";
+import {
+  normalizeBarMarkers,
+  normalizeTempoMarkers,
+  deriveTempoTransitionCueMap,
+  deriveTerminalBarlinePosition,
+} from "./transport.js";
 import { deriveSequenceCueGroupsFromEvents, deriveSequenceEvents } from "./trigger-groups.js";
 
 let nextRuntimeInstanceId = 1;
@@ -42,9 +47,7 @@ export function buildSequenceRuntimeModel({
     tempoCount: Array.isArray(tempi) ? tempi.length : 0,
     repeatCount: Array.isArray(repeats) ? repeats.length : 0,
   };
-  const effectivePlaybackRepeats = Array.isArray(playbackRepeats)
-    ? playbackRepeats
-    : repeats;
+  const effectivePlaybackRepeats = Array.isArray(playbackRepeats) ? playbackRepeats : repeats;
 
   const sortedBars = measureSequenceRuntimeStep(
     "normalize-bars",
@@ -63,12 +66,15 @@ export function buildSequenceRuntimeModel({
   );
   const playbackSequenceEvents = measureSequenceRuntimeStep(
     "derive-playback-sequence-events",
-    () => (
-      playbackRenderedSnapshots === renderedSnapshots
-        && effectivePlaybackRepeats === repeats
+    () =>
+      playbackRenderedSnapshots === renderedSnapshots && effectivePlaybackRepeats === repeats
         ? sequenceEvents
-        : deriveSequenceEvents(playbackRenderedSnapshots, sortedBars, sortedTempi, effectivePlaybackRepeats)
-    ),
+        : deriveSequenceEvents(
+            playbackRenderedSnapshots,
+            sortedBars,
+            sortedTempi,
+            effectivePlaybackRepeats,
+          ),
     {
       ...entryMeta,
       eventCount: sequenceEvents.length,
@@ -84,11 +90,10 @@ export function buildSequenceRuntimeModel({
   );
   const playbackSequenceCueGroups = measureSequenceRuntimeStep(
     "derive-playback-sequence-cues",
-    () => (
+    () =>
       playbackSequenceEvents === sequenceEvents
         ? sequenceCueGroups
-        : deriveSequenceCueGroupsFromEvents(playbackSequenceEvents)
-    ),
+        : deriveSequenceCueGroupsFromEvents(playbackSequenceEvents),
     {
       ...entryMeta,
       eventCount: playbackSequenceEvents.length,
@@ -121,14 +126,15 @@ export function buildSequenceRuntimeModel({
   );
   const playbackTimeline = measureSequenceRuntimeStep(
     "build-playback-timeline",
-    () => buildPlaybackTimeline({
-      snapshots: playbackRenderedSnapshots,
-      bars: sortedBars,
-      tempi: sortedTempi,
-      repeats: effectivePlaybackRepeats,
-      sequenceEvents: playbackSequenceEvents,
-      sequenceCueGroups: playbackSequenceCueGroups,
-    }),
+    () =>
+      buildPlaybackTimeline({
+        snapshots: playbackRenderedSnapshots,
+        bars: sortedBars,
+        tempi: sortedTempi,
+        repeats: effectivePlaybackRepeats,
+        sequenceEvents: playbackSequenceEvents,
+        sequenceCueGroups: playbackSequenceCueGroups,
+      }),
     {
       ...entryMeta,
       cueCount: playbackSequenceCueGroups.length,

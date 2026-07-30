@@ -27,7 +27,8 @@ export function fitHexLabelScale(context, name, hexSize) {
     Math.abs(metrics?.actualBoundingBoxLeft ?? 0) + Math.abs(metrics?.actualBoundingBoxRight ?? 0),
   );
   const measuredHeight =
-    Math.abs(metrics?.actualBoundingBoxAscent ?? 0) + Math.abs(metrics?.actualBoundingBoxDescent ?? 0);
+    Math.abs(metrics?.actualBoundingBoxAscent ?? 0) +
+    Math.abs(metrics?.actualBoundingBoxDescent ?? 0);
   if (!(measuredWidth > 0) && !(measuredHeight > 0)) return baseScale;
   const maxWidth = Math.max(12, (Number(hexSize) || 46) * 1.12);
   const maxHeight = Math.max(12, (Number(hexSize) || 46) * 1.18);
@@ -139,12 +140,8 @@ export function rebuildVisibleGridGeometry() {
   const isFullyVisible = (hexGeometry) => {
     for (let i = 0; i < 6; i++) {
       const point = this._transformCanvasPoint(hexGeometry.x[i], hexGeometry.y[i]);
-      if (
-        point.x < 0 ||
-        point.x > canvasWidth ||
-        point.y < 0 ||
-        point.y > canvasHeight
-      ) return false;
+      if (point.x < 0 || point.x > canvasWidth || point.y < 0 || point.y > canvasHeight)
+        return false;
     }
     return true;
   };
@@ -215,7 +212,12 @@ export function ensureStaticGrid() {
   if (!this._staticGridContext) return false;
   this._staticGridContext.save();
   this._staticGridContext.setTransform(1, 0, 0, 1, 0, 0);
-  this._staticGridContext.clearRect(0, 0, this._staticGridCanvas.width, this._staticGridCanvas.height);
+  this._staticGridContext.clearRect(
+    0,
+    0,
+    this._staticGridCanvas.width,
+    this._staticGridCanvas.height,
+  );
   this._staticGridContext.restore();
   for (const coords of this._visibleGridCoords) {
     this._drawStaticHex(coords, this._staticGridContext);
@@ -257,7 +259,8 @@ export function restoreHexStaticBackground(coords) {
   if (!this._ensureStaticGrid()) return false;
   const pixelRatio = Math.max(1, Number(this.state.pixelRatio) || 1);
   const { width, height } = cssViewportSize(this);
-  const geometry = this._hexGeometryCache.get(this._coordKey(coords)) ?? this._buildHexGeometry(coords);
+  const geometry =
+    this._hexGeometryCache.get(this._coordKey(coords)) ?? this._buildHexGeometry(coords);
   const bounds = this._hexPixelBounds(geometry, 28);
   const sx = Math.max(0, Math.floor(bounds.left));
   const sy = Math.max(0, Math.floor(bounds.top));
@@ -265,7 +268,13 @@ export function restoreHexStaticBackground(coords) {
   const ey = Math.min(height, Math.ceil(bounds.bottom));
   const sw = Math.max(0, ex - sx);
   const sh = Math.max(0, ey - sy);
-  if (!this._staticGridCanvas || sw === 0 || sh === 0 || typeof this.state.context?.drawImage !== "function") return false;
+  if (
+    !this._staticGridCanvas ||
+    sw === 0 ||
+    sh === 0 ||
+    typeof this.state.context?.drawImage !== "function"
+  )
+    return false;
   this._withMainIdentityTransform((context) => {
     context.clearRect(sx, sy, sw, sh);
     context.drawImage(
@@ -329,7 +338,8 @@ export function redrawSoundingHexesInBounds(bounds) {
   const drawn = new Set();
   const overlaps = (hex) => {
     if (!hex?.coords) return false;
-    const geometry = this._hexGeometryCache.get(this._coordKey(hex.coords)) ?? this._buildHexGeometry(hex.coords);
+    const geometry =
+      this._hexGeometryCache.get(this._coordKey(hex.coords)) ?? this._buildHexGeometry(hex.coords);
     const hexBounds = this._hexPixelBounds(geometry, 28);
     return !(
       hexBounds.right < bounds.left ||
@@ -434,7 +444,6 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   context.strokeStyle = "darkgray";
   context.lineWidth = hexSize * 0.15;
   context.shadowBlur = hexSize * 0.46 * pixelRatio;
-  ;
   context.shadowColor = "black";
   context.shadowOffsetX = 0;
   context.shadowOffsetY = 0;
@@ -469,24 +478,20 @@ export function drawHex(p, c, current_text_color, context = this.state.context, 
   if (!labelSettings.no_labels || labelSettings.equaves) {
     const name = labelSettings.no_labels
       ? ""
-      : (options.displayLabel ?? displayLabelForDegree(reducedNote, {
-        settings: labelSettings,
-        frame: options.frame ?? this._activeFrame(),
-        geometryMode: options.geometryMode ?? this._modulationState?.geometryMode,
-        scaleLength: equivSteps,
-        scale: this.tuning.scale,
-      }));
+      : (options.displayLabel ??
+        displayLabelForDegree(reducedNote, {
+          settings: labelSettings,
+          frame: options.frame ?? this._activeFrame(),
+          geometryMode: options.geometryMode ?? this._modulationState?.geometryMode,
+          scaleLength: equivSteps,
+          scale: this.tuning.scale,
+        }));
 
     if (name) {
       context.save();
       context.beginPath();
       if (typeof context.rect === "function") {
-        context.rect(
-          -labelClipWidth / 2,
-          -labelClipHeight / 2,
-          labelClipWidth,
-          labelClipHeight,
-        );
+        context.rect(-labelClipWidth / 2, -labelClipHeight / 2, labelClipWidth, labelClipHeight);
       } else if (typeof context.moveTo === "function" && typeof context.lineTo === "function") {
         const left = -labelClipWidth / 2;
         const top = -labelClipHeight / 2;
@@ -536,10 +541,10 @@ export function centsToColor(cents, pressed, pressed_interval) {
     returnColor = hex2rgb(returnColor);
 
     if (pressed) {
-    returnColor[0] = 255;
-    returnColor[1] = 0;
-    returnColor[2] = 0;
-  }
+      returnColor[0] = 255;
+      returnColor[1] = 0;
+      returnColor[2] = 0;
+    }
 
     return [rgb(returnColor[0], returnColor[1], returnColor[2]), current_text_color];
   }

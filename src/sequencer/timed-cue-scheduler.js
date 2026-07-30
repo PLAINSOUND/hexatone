@@ -21,7 +21,11 @@ export function collectTimedCueBurstsWithinLookahead(
 
   while (nextPlaybackIndex < bursts.length) {
     const burst = bursts[nextPlaybackIndex];
-    if (!Number.isFinite(Number(burst?.elapsedSeconds)) || Number(burst.elapsedSeconds) > horizon + 1e-9) break;
+    if (
+      !Number.isFinite(Number(burst?.elapsedSeconds)) ||
+      Number(burst.elapsedSeconds) > horizon + 1e-9
+    )
+      break;
     if (Number.isFinite(burst?.sourceCueIndex)) cueBursts.push(burst);
     nextPlaybackIndex += 1;
   }

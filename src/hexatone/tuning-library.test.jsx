@@ -2,11 +2,9 @@ import { render, screen, fireEvent } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./preset-tunings/index.js", () => ({
-  findPresetTuningByName: vi.fn((name) => (
-    name === "Built A" || name === "Built B"
-      ? { name, scale: ["100.", "1200."] }
-      : null
-  )),
+  findPresetTuningByName: vi.fn((name) =>
+    name === "Built A" || name === "Built B" ? { name, scale: ["100.", "1200."] } : null,
+  ),
 }));
 import TuningLibrary from "./tuning-library.jsx";
 import { loadUserTunings, USER_TUNINGS_STORAGE_KEY } from "./user-tunings.js";
@@ -82,15 +80,16 @@ describe("TuningLibrary", () => {
   });
 
   it("orders numbered user tuning names naturally", () => {
-    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
-      { name: "Study 10", scale: ["100.", "1200."] },
-      { name: "Study 2", scale: ["100.", "1200."] },
-      { name: "Study 9", scale: ["100.", "1200."] },
-    ]));
-
-    render(
-      <TuningLibraryHarness initialSettings={{ name: "", scale: null }} />,
+    localStorage.setItem(
+      USER_TUNINGS_STORAGE_KEY,
+      JSON.stringify([
+        { name: "Study 10", scale: ["100.", "1200."] },
+        { name: "Study 2", scale: ["100.", "1200."] },
+        { name: "Study 9", scale: ["100.", "1200."] },
+      ]),
     );
+
+    render(<TuningLibraryHarness initialSettings={{ name: "", scale: null }} />);
 
     const options = [...screen.getByRole("combobox", { name: "User tunings" }).options]
       .slice(1)
@@ -102,10 +101,7 @@ describe("TuningLibrary", () => {
     const onLoadSpy = vi.fn();
 
     render(
-      <TuningLibraryHarness
-        initialSettings={{ name: "", scale: null }}
-        onLoadSpy={onLoadSpy}
-      />,
+      <TuningLibraryHarness initialSettings={{ name: "", scale: null }} onLoadSpy={onLoadSpy} />,
     );
 
     fireEvent.change(screen.getByRole("combobox", { name: "Built-in tunings" }), {
@@ -194,12 +190,15 @@ describe("TuningLibrary", () => {
   });
 
   it("keeps save attached to the loaded user tuning after renaming", () => {
-    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
-      {
-        name: "Alpha",
-        scale: ["100.", "1200."],
-      },
-    ]));
+    localStorage.setItem(
+      USER_TUNINGS_STORAGE_KEY,
+      JSON.stringify([
+        {
+          name: "Alpha",
+          scale: ["100.", "1200."],
+        },
+      ]),
+    );
 
     render(
       <TuningLibraryHarness
@@ -219,12 +218,15 @@ describe("TuningLibrary", () => {
   });
 
   it("marks the attached user tuning with * when only the name changes", () => {
-    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
-      {
-        name: "Alpha",
-        scale: ["100.", "1200."],
-      },
-    ]));
+    localStorage.setItem(
+      USER_TUNINGS_STORAGE_KEY,
+      JSON.stringify([
+        {
+          name: "Alpha",
+          scale: ["100.", "1200."],
+        },
+      ]),
+    );
 
     render(
       <TuningLibraryHarness
@@ -257,12 +259,15 @@ describe("TuningLibrary", () => {
   });
 
   it("deletes the active user tuning and clears the workspace", () => {
-    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
-      {
-        name: "Alpha",
-        scale: ["100.", "1200."],
-      },
-    ]));
+    localStorage.setItem(
+      USER_TUNINGS_STORAGE_KEY,
+      JSON.stringify([
+        {
+          name: "Alpha",
+          scale: ["100.", "1200."],
+        },
+      ]),
+    );
     const onClearSpy = vi.fn();
 
     render(
@@ -299,12 +304,15 @@ describe("TuningLibrary", () => {
   });
 
   it("does not warn when switching away from a clean recalled user tuning", () => {
-    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
-      {
-        name: "Alpha",
-        scale: ["100.", "1200."],
-      },
-    ]));
+    localStorage.setItem(
+      USER_TUNINGS_STORAGE_KEY,
+      JSON.stringify([
+        {
+          name: "Alpha",
+          scale: ["100.", "1200."],
+        },
+      ]),
+    );
     const onLoadSpy = vi.fn();
 
     render(
@@ -332,10 +340,13 @@ describe("TuningLibrary", () => {
   });
 
   it("clears all user tunings after confirmation", () => {
-    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
-      { name: "Alpha", scale: ["100.", "1200."] },
-      { name: "Beta", scale: ["200.", "1200."] },
-    ]));
+    localStorage.setItem(
+      USER_TUNINGS_STORAGE_KEY,
+      JSON.stringify([
+        { name: "Alpha", scale: ["100.", "1200."] },
+        { name: "Beta", scale: ["200.", "1200."] },
+      ]),
+    );
 
     render(
       <TuningLibraryHarness
@@ -356,18 +367,17 @@ describe("TuningLibrary", () => {
     const onLoadSpy = vi.fn();
 
     render(
-      <TuningLibraryHarness
-        initialSettings={{ name: "", scale: null }}
-        onLoadSpy={onLoadSpy}
-      />,
+      <TuningLibraryHarness initialSettings={{ name: "", scale: null }} onLoadSpy={onLoadSpy} />,
     );
 
     const file = {
       name: "Imported.json",
-      text: vi.fn(async () => JSON.stringify({
-        name: "Imported",
-        scale: ["100.", "1200."],
-      })),
+      text: vi.fn(async () =>
+        JSON.stringify({
+          name: "Imported",
+          scale: ["100.", "1200."],
+        }),
+      ),
     };
 
     fireEvent.change(document.querySelector('input[type="file"]'), {

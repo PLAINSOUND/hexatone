@@ -21,7 +21,6 @@
      8.  Reference Frequency row     → scale/index.js
    ============================================================ */
 
-
 /* ── 1. Global element overrides for sidebar context ──────── */
 /* → settings/index.jsx and all sub-panels                     */
 
@@ -514,7 +513,6 @@
   background: var(--color-accent-hot);
 }
 
-
 #sidebar .settings-form__range-row:hover input[type="range"]::-webkit-slider-thumb,
 #sidebar .settings-form__range-row:focus-within input[type="range"]::-webkit-slider-thumb,
 #sidebar .settings-form__range-row:hover input[type="range"]::-moz-range-thumb,
@@ -699,7 +697,9 @@
 }
 
 @media (max-width: 550px) {
-  #sidebar label .color-cell { margin-left: 30%; }
+  #sidebar label .color-cell {
+    margin-left: 30%;
+  }
 }
 
 /* Variant used in colors.js top row — margin-left: auto right-aligns on all widths */
@@ -756,7 +756,6 @@ td.scale-color-col .color-input {
     flex: none;
   }
 }
-
 
 /* ── 3. Tuning library ────────────────────────────────────── */
 /* → ../hexatone/tuning-library.jsx                            */
@@ -1363,36 +1362,19 @@ td.scale-color-col .color-input {
   --sequencer-snapshot-primary-col: 4.1em;
   --sequencer-snapshot-articulation-col: 3.4em;
   --sequencer-event-actions-col: 3.45em;
-  --sequencer-detail-columns:
-    var(--sequencer-delete-col)
-    var(--sequencer-number-col)
-    var(--sequencer-event-snapshot-col)
-    var(--sequencer-event-position-col)
-    var(--sequencer-event-kind-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-pitch-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
-    var(--sequencer-event-value-col)
+  --sequencer-detail-columns: var(--sequencer-delete-col) var(--sequencer-number-col)
+    var(--sequencer-event-snapshot-col) var(--sequencer-event-position-col)
+    var(--sequencer-event-kind-col) var(--sequencer-event-pitch-col)
+    var(--sequencer-event-pitch-col) var(--sequencer-event-pitch-col)
+    var(--sequencer-event-value-col) var(--sequencer-event-value-col)
+    var(--sequencer-event-value-col) var(--sequencer-event-value-col)
     var(--sequencer-event-actions-col);
   --sequencer-structural-columns: var(--sequencer-detail-columns);
-  --sequencer-snapshot-columns:
-    var(--sequencer-delete-col)
-    var(--sequencer-number-col)
-    var(--sequencer-snapshot-primary-col)
-    minmax(0, 1fr)
-    max-content
-    max-content;
-  --sequencer-snapshot-row-columns:
-    var(--sequencer-delete-col)
-    var(--sequencer-number-col)
-    var(--sequencer-snapshot-primary-col)
-    var(--sequencer-snapshot-articulation-col)
-    minmax(0, 1fr)
-    max-content
-    max-content;
+  --sequencer-snapshot-columns: var(--sequencer-delete-col) var(--sequencer-number-col)
+    var(--sequencer-snapshot-primary-col) minmax(0, 1fr) max-content max-content;
+  --sequencer-snapshot-row-columns: var(--sequencer-delete-col) var(--sequencer-number-col)
+    var(--sequencer-snapshot-primary-col) var(--sequencer-snapshot-articulation-col) minmax(0, 1fr)
+    max-content max-content;
   display: grid;
   grid-template-columns: var(--sequencer-snapshot-columns);
   border: none;
@@ -1411,12 +1393,17 @@ td.scale-color-col .color-input {
 
 .sequencer-item--selected {
   background: #e8edf5;
-  box-shadow: inset 0 1px 0 #d6deea, inset 0 -1px 0 #d6deea;
+  box-shadow:
+    inset 0 1px 0 #d6deea,
+    inset 0 -1px 0 #d6deea;
 }
 
 .sequencer-item--timed-playing {
   background: #dce8f7;
-  box-shadow: inset 3px 0 0 #4779b8, inset 0 1px 0 #c7d8ed, inset 0 -1px 0 #c7d8ed;
+  box-shadow:
+    inset 3px 0 0 #4779b8,
+    inset 0 1px 0 #c7d8ed,
+    inset 0 -1px 0 #c7d8ed;
 }
 
 .sequencer-item--bar {
@@ -2047,11 +2034,14 @@ td.scale-color-col .color-input {
     margin-right: 0;
   }
 
-  .sequencer-playback-row[aria-label="Sequence playback"] > .sequencer-playback-control:not(.sequencer-playback-control--bar) {
+  .sequencer-playback-row[aria-label="Sequence playback"]
+    > .sequencer-playback-control:not(.sequencer-playback-control--bar) {
     order: 5;
   }
 
-  .sequencer-playback-row[aria-label="Sequence playback"] > .sequencer-playback-control:not(.sequencer-playback-control--bar) + .sequencer-playback-control:not(.sequencer-playback-control--bar) {
+  .sequencer-playback-row[aria-label="Sequence playback"]
+    > .sequencer-playback-control:not(.sequencer-playback-control--bar)
+    + .sequencer-playback-control:not(.sequencer-playback-control--bar) {
     margin-left: 0.9em;
   }
 
@@ -2608,7 +2598,8 @@ td.scale-color-col .color-input {
 
   .sequencer-option-row.sequencer-option-row--mobile-inline > .sequencer-option-row__controls,
   .sequencer-option-row.sequencer-option-row--mobile-inline > input[type="checkbox"],
-  .sequencer-option-row.sequencer-option-row--mobile-inline > .sequencer-bars-add__stacked-button-slot {
+  .sequencer-option-row.sequencer-option-row--mobile-inline
+    > .sequencer-bars-add__stacked-button-slot {
     width: 50%;
     margin-left: auto;
   }
@@ -2619,7 +2610,9 @@ td.scale-color-col .color-input {
     justify-content: flex-start;
   }
 
-  .sequencer-option-row.sequencer-option-row--mobile-inline > .sequencer-option-row__controls .preset-action-btn {
+  .sequencer-option-row.sequencer-option-row--mobile-inline
+    > .sequencer-option-row__controls
+    .preset-action-btn {
     width: auto;
     max-width: none;
     flex: 0 0 auto;
@@ -2628,7 +2621,8 @@ td.scale-color-col .color-input {
     word-break: keep-all;
   }
 
-  .sequencer-option-row.sequencer-option-row--mobile-inline > .sequencer-bars-add__stacked-button-slot {
+  .sequencer-option-row.sequencer-option-row--mobile-inline
+    > .sequencer-bars-add__stacked-button-slot {
     width: auto;
     justify-content: flex-start;
   }
@@ -2649,7 +2643,6 @@ td.scale-color-col .color-input {
   .sequencer-bars-add--bar {
     grid-template-columns: minmax(7.6em, 1fr) minmax(0, 1fr) max-content;
   }
-
 }
 
 #sidebar .sequencer-arrow-btn {
@@ -3495,7 +3488,9 @@ td.scale-color-col .color-input {
 }
 
 #sidebar .sequencer-repeat-row .sequencer-repeat-row__count-input.sequencer-event__input,
-#sidebar .sequencer-repeat-row input[type="text"].sequencer-repeat-row__count-input.sequencer-event__input {
+#sidebar
+  .sequencer-repeat-row
+  input[type="text"].sequencer-repeat-row__count-input.sequencer-event__input {
   width: 1.2em;
   max-width: 1.2em;
   min-width: 0;
@@ -3520,7 +3515,9 @@ td.scale-color-col .color-input {
 }
 
 #sidebar .sequencer-repeat-row .sequencer-repeat-row__count-input--hint.sequencer-event__input,
-#sidebar .sequencer-repeat-row input[type="text"].sequencer-repeat-row__count-input--hint.sequencer-event__input,
+#sidebar
+  .sequencer-repeat-row
+  input[type="text"].sequencer-repeat-row__count-input--hint.sequencer-event__input,
 #sidebar .sequencer-repeat-row .sequencer-repeat-row__count-suffix--hint {
   color: rgba(111, 94, 94, 0.6);
 }
@@ -3978,79 +3975,134 @@ td.scale-color-col .color-input {
   -webkit-appearance: none;
 }
 
-#sidebar .sequencer-bar-row .sequencer-bar-row__position-cell input[type="text"].sequencer-event__input,
-#sidebar .sequencer-bar-row .sequencer-bar-row__position-cell input[type="text"].sequencer-event__position {
+#sidebar
+  .sequencer-bar-row
+  .sequencer-bar-row__position-cell
+  input[type="text"].sequencer-event__input,
+#sidebar
+  .sequencer-bar-row
+  .sequencer-bar-row__position-cell
+  input[type="text"].sequencer-event__position {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-event__input--stepper,
-#sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-bar-row__signature-input {
+#sidebar
+  .sequencer-bar-row
+  .sequencer-bar-row__time-signature
+  input[type="number"].sequencer-event__input--stepper,
+#sidebar
+  .sequencer-bar-row
+  .sequencer-bar-row__time-signature
+  input[type="number"].sequencer-bar-row__signature-input {
   background: var(--color-bg);
   background-color: var(--color-bg);
   box-shadow: inset 0 0 0 999px var(--color-bg);
 }
 
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input,
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position {
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__input,
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__position {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input,
-#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position {
+#sidebar
+  .sequencer-tempo-row--gradual
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__input,
+#sidebar
+  .sequencer-tempo-row--gradual
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__position {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;
 }
 
-#sidebar .sequencer-repeat-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input,
-#sidebar .sequencer-repeat-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position {
+#sidebar
+  .sequencer-repeat-row
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__input,
+#sidebar
+  .sequencer-repeat-row
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__position {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper,
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper {
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__summary
+  input[type="number"].sequencer-event__input--stepper,
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__time-cell
+  input[type="number"].sequencer-event__input--stepper {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper,
-#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper {
+#sidebar
+  .sequencer-tempo-row--gradual
+  .sequencer-tempo-row__summary
+  input[type="number"].sequencer-event__input--stepper,
+#sidebar
+  .sequencer-tempo-row--gradual
+  .sequencer-tempo-row__time-cell
+  input[type="number"].sequencer-event__input--stepper {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;
 }
 
-#sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper {
+#sidebar
+  .sequencer-repeat-row
+  .sequencer-tempo-row__time-cell
+  input[type="number"].sequencer-event__input--stepper {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-num {
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__summary
+  input[type="number"].sequencer-tempo-row__summary-input--fraction-num {
   text-align: right;
   padding-left: 0;
   padding-right: 0.16em;
 }
 
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-den {
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__summary
+  input[type="number"].sequencer-tempo-row__summary-input--fraction-den {
   text-align: right;
   padding-left: 0;
   padding-right: 0.16em;
 }
 
-#sidebar .sequencer-bar-row input[type="text"].sequencer-event__input.sequencer-bar-row__signature-input {
+#sidebar
+  .sequencer-bar-row
+  input[type="text"].sequencer-event__input.sequencer-bar-row__signature-input {
   font-family: "Plainsound Sans", sans-serif;
   font-weight: bold;
 }
 
-#sidebar .sequencer-bar-row input[type="number"].sequencer-event__input--stepper.sequencer-bar-row__signature-input {
+#sidebar
+  .sequencer-bar-row
+  input[type="number"].sequencer-event__input--stepper.sequencer-bar-row__signature-input {
   font-family: "Plainsound Sans", sans-serif;
   font-weight: bold;
   min-height: 1.18em;
@@ -4088,62 +4140,109 @@ td.scale-color-col .color-input {
   background-color: #ffffff;
 }
 
-#sidebar .sequencer-bar-row .sequencer-bar-row__position-cell input[type="text"].sequencer-event__input:focus,
-#sidebar .sequencer-bar-row .sequencer-bar-row__position-cell input[type="text"].sequencer-event__position:focus {
+#sidebar
+  .sequencer-bar-row
+  .sequencer-bar-row__position-cell
+  input[type="text"].sequencer-event__input:focus,
+#sidebar
+  .sequencer-bar-row
+  .sequencer-bar-row__position-cell
+  input[type="text"].sequencer-event__position:focus {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input:focus,
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position:focus {
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__input:focus,
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__position:focus {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input:focus,
-#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position:focus {
+#sidebar
+  .sequencer-tempo-row--gradual
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__input:focus,
+#sidebar
+  .sequencer-tempo-row--gradual
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__position:focus {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;
 }
 
-#sidebar .sequencer-repeat-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__input:focus,
-#sidebar .sequencer-repeat-row .sequencer-tempo-row__position-cell input[type="text"].sequencer-event__position:focus {
+#sidebar
+  .sequencer-repeat-row
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__input:focus,
+#sidebar
+  .sequencer-repeat-row
+  .sequencer-tempo-row__position-cell
+  input[type="text"].sequencer-event__position:focus {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-event__input--stepper:focus,
-#sidebar .sequencer-bar-row .sequencer-bar-row__time-signature input[type="number"].sequencer-bar-row__signature-input:focus {
+#sidebar
+  .sequencer-bar-row
+  .sequencer-bar-row__time-signature
+  input[type="number"].sequencer-event__input--stepper:focus,
+#sidebar
+  .sequencer-bar-row
+  .sequencer-bar-row__time-signature
+  input[type="number"].sequencer-bar-row__signature-input:focus {
   background: var(--color-bg);
   background-color: var(--color-bg);
   box-shadow: inset 0 0 0 999px var(--color-bg);
 }
 
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper:focus,
-#sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper:focus {
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__summary
+  input[type="number"].sequencer-event__input--stepper:focus,
+#sidebar
+  .sequencer-tempo-row
+  .sequencer-tempo-row__time-cell
+  input[type="number"].sequencer-event__input--stepper:focus {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper:focus,
-#sidebar .sequencer-tempo-row--gradual .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper:focus {
+#sidebar
+  .sequencer-tempo-row--gradual
+  .sequencer-tempo-row__summary
+  input[type="number"].sequencer-event__input--stepper:focus,
+#sidebar
+  .sequencer-tempo-row--gradual
+  .sequencer-tempo-row__time-cell
+  input[type="number"].sequencer-event__input--stepper:focus {
   background: #fff0e3;
   background-color: #fff0e3;
   box-shadow: inset 0 0 0 999px #fff0e3;
 }
 
-#sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__input--stepper:focus {
+#sidebar
+  .sequencer-repeat-row
+  .sequencer-tempo-row__time-cell
+  input[type="number"].sequencer-event__input--stepper:focus {
   background: #ffe7eb;
   background-color: #ffe7eb;
   box-shadow: inset 0 0 0 999px #ffe7eb;
 }
 
-#sidebar .sequencer-events-grid input[type="text"].sequencer-event__input.sequencer-event__position--out-of-range {
+#sidebar
+  .sequencer-events-grid
+  input[type="text"].sequencer-event__input.sequencer-event__position--out-of-range {
   color: #9b1f1f;
 }
 
@@ -4172,7 +4271,8 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-event-row--attack .sequencer-event__cell.sequencer-event__kind-cell--active,
-.sequencer-event-row--attack.sequencer-event-row--timed-sounding .sequencer-event__cell.sequencer-event__kind-cell {
+.sequencer-event-row--attack.sequencer-event-row--timed-sounding
+  .sequencer-event__cell.sequencer-event__kind-cell {
   background: #a4ec82;
   background-image: linear-gradient(180deg, #fbfff6 0%, #a4ec82 50%, #6ed84b 100%);
   box-shadow:
@@ -4184,8 +4284,12 @@ td.scale-color-col .color-input {
   border-color: rgba(86, 164, 56, 0.88);
 }
 
-.sequencer-event-row--attack .sequencer-event__cell.sequencer-event__kind-cell--active .sequencer-event__kind,
-.sequencer-event-row--attack.sequencer-event-row--timed-sounding .sequencer-event__kind-cell .sequencer-event__kind {
+.sequencer-event-row--attack
+  .sequencer-event__cell.sequencer-event__kind-cell--active
+  .sequencer-event__kind,
+.sequencer-event-row--attack.sequencer-event-row--timed-sounding
+  .sequencer-event__kind-cell
+  .sequencer-event__kind {
   color: #336f1e;
   font-weight: 700;
 }
@@ -4204,13 +4308,8 @@ td.scale-color-col .color-input {
     --sequencer-event-pitch-col: 3.1em;
     --sequencer-event-value-col: 2.2em;
     --sequencer-event-actions-col: 2.85em;
-    --sequencer-snapshot-columns:
-      var(--sequencer-delete-col)
-      var(--sequencer-number-col)
-      var(--sequencer-snapshot-primary-col)
-      minmax(11.1em, 1fr)
-      max-content
-      max-content;
+    --sequencer-snapshot-columns: var(--sequencer-delete-col) var(--sequencer-number-col)
+      var(--sequencer-snapshot-primary-col) minmax(11.1em, 1fr) max-content max-content;
   }
 
   .sequencer-list {
@@ -4268,23 +4367,46 @@ td.scale-color-col .color-input {
   }
 
   #sidebar .sequencer-bars-add__meter-input:not(.sequencer-bars-add__meter-input--numerator),
-  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-den,
-  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper.sequencer-tempo-row__summary-input--fraction-den,
-  #sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den,
-  #sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den {
+  #sidebar
+    .sequencer-tempo-row
+    .sequencer-tempo-row__summary
+    input[type="number"].sequencer-tempo-row__summary-input--fraction-den,
+  #sidebar
+    .sequencer-tempo-row
+    .sequencer-tempo-row__summary
+    input[type="number"].sequencer-event__input--stepper.sequencer-tempo-row__summary-input--fraction-den,
+  #sidebar
+    .sequencer-tempo-row
+    .sequencer-tempo-row__time-cell
+    input[type="number"].sequencer-event__fraction-den,
+  #sidebar
+    .sequencer-repeat-row
+    .sequencer-tempo-row__time-cell
+    input[type="number"].sequencer-event__fraction-den {
     text-align: left !important;
     padding-left: 0.18em !important;
     padding-right: 0 !important;
   }
-
 }
 
 @media (max-height: 480px) and (orientation: landscape) {
   #sidebar .sequencer-bars-add__meter-input:not(.sequencer-bars-add__meter-input--numerator),
-  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-tempo-row__summary-input--fraction-den,
-  #sidebar .sequencer-tempo-row .sequencer-tempo-row__summary input[type="number"].sequencer-event__input--stepper.sequencer-tempo-row__summary-input--fraction-den,
-  #sidebar .sequencer-tempo-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den,
-  #sidebar .sequencer-repeat-row .sequencer-tempo-row__time-cell input[type="number"].sequencer-event__fraction-den {
+  #sidebar
+    .sequencer-tempo-row
+    .sequencer-tempo-row__summary
+    input[type="number"].sequencer-tempo-row__summary-input--fraction-den,
+  #sidebar
+    .sequencer-tempo-row
+    .sequencer-tempo-row__summary
+    input[type="number"].sequencer-event__input--stepper.sequencer-tempo-row__summary-input--fraction-den,
+  #sidebar
+    .sequencer-tempo-row
+    .sequencer-tempo-row__time-cell
+    input[type="number"].sequencer-event__fraction-den,
+  #sidebar
+    .sequencer-repeat-row
+    .sequencer-tempo-row__time-cell
+    input[type="number"].sequencer-event__fraction-den {
     text-align: left !important;
     padding-left: 0.18em !important;
     padding-right: 0 !important;
@@ -4423,7 +4545,6 @@ td.scale-color-col .color-input {
   color: var(--color-text);
 }
 
-
 /* ── 4. Scale table ────────────────────────────────────────── */
 /* → scale/scale-table/index.js                                */
 
@@ -4432,7 +4553,6 @@ td.scale-color-col .color-input {
   flex-direction: column;
   gap: 0.5em;
 }
-
 
 /* ── 4a. Column widths ─────────────────────────────────────── */
 
@@ -4443,26 +4563,68 @@ td.scale-color-col .color-input {
   width: 100%;
 }
 
-th.scale-data-col,      td.scale-data-col      { width: 48%; }
-th.scale-frequency-col, td.scale-frequency-col { width: 18%; }
-th.scale-name-col,      td.scale-name-col      { width: 18%; }
-th.scale-color-col,     td.scale-color-col     { width: 16%; }
+th.scale-data-col,
+td.scale-data-col {
+  width: 48%;
+}
+th.scale-frequency-col,
+td.scale-frequency-col {
+  width: 18%;
+}
+th.scale-name-col,
+td.scale-name-col {
+  width: 18%;
+}
+th.scale-color-col,
+td.scale-color-col {
+  width: 16%;
+}
 
-td.scale-name-col       { padding-right: 2px; }
-td.scale-name-col input { width: 100%; }
+td.scale-name-col {
+  padding-right: 2px;
+}
+td.scale-name-col input {
+  width: 100%;
+}
 
 /* Phone portrait: more room for degree data, tighter freq/name/colour */
 @media (max-width: 480px) {
-  .degree-gutter     { width: 2ch; min-width: 2ch; }
-  .scale-degree-cell { gap: 0.1em; }
+  .degree-gutter {
+    width: 2ch;
+    min-width: 2ch;
+  }
+  .scale-degree-cell {
+    gap: 0.1em;
+  }
 
-  th.scale-data-col,      td.scale-data-col      { width: 58%; }
-  th.scale-frequency-col, td.scale-frequency-col { width: 16%; }
-  th.scale-name-col,      td.scale-name-col      { width: 16%; padding-right: 0; padding-left: 0; }
-  th.scale-color-col,     td.scale-color-col     { width: 10%; padding-left: 0; padding-right: 0; }
+  th.scale-data-col,
+  td.scale-data-col {
+    width: 58%;
+  }
+  th.scale-frequency-col,
+  td.scale-frequency-col {
+    width: 16%;
+  }
+  th.scale-name-col,
+  td.scale-name-col {
+    width: 16%;
+    padding-right: 0;
+    padding-left: 0;
+  }
+  th.scale-color-col,
+  td.scale-color-col {
+    width: 10%;
+    padding-left: 0;
+    padding-right: 0;
+  }
 
-  td.scale-name-col input { width: 100%; }
-  td.scale-frequency-col { position: relative; padding-right: 6px; }
+  td.scale-name-col input {
+    width: 100%;
+  }
+  td.scale-frequency-col {
+    position: relative;
+    padding-right: 6px;
+  }
   td.scale-name-col .heji-name-cell,
   td.scale-name-col .heji-name-input,
   td.scale-name-col > input[type="text"] {
@@ -4536,7 +4698,6 @@ td.scale-name-col input { width: 100%; }
   }
 }
 
-
 /* ── 4b. Row highlights: reference degree (yellow) + center degree (pink) ── */
 /* Reference degree = degree tuned to Reference Frequency → pale yellow       */
 /* Center degree    = degree drawn at canvas center       → pale pink         */
@@ -4544,8 +4705,12 @@ td.scale-name-col input { width: 100%; }
 /* td.scale-frequency-col input.frequency-input has higher element+class      */
 /* specificity and would otherwise override the row background colour.         */
 
-.reference-degree-row { background-color: #fff8a8; }
-.center-degree-row    { background-color: #ffebed; }
+.reference-degree-row {
+  background-color: #fff8a8;
+}
+.center-degree-row {
+  background-color: #ffebed;
+}
 
 .reference-degree-label,
 .center-degree-label {
@@ -4575,7 +4740,9 @@ td.scale-name-col input { width: 100%; }
 
 /* When both classes apply, yellow (reference) wins across the entire row.
    Double-class selector has higher specificity than either single-class rule. */
-.reference-degree-row.center-degree-row { background-color: #fff8a8; }
+.reference-degree-row.center-degree-row {
+  background-color: #fff8a8;
+}
 
 .reference-degree-row.center-degree-row input:not(:disabled),
 .reference-degree-row.center-degree-row .color-input,
@@ -4583,9 +4750,12 @@ td.scale-name-col input { width: 100%; }
   background-color: #fff8a8 !important;
 }
 
-.reference-degree-row td:first-child { border-radius: 4px 0 0 4px; }
-.reference-degree-row td:last-child  { border-radius: 0 4px 4px 0; }
-
+.reference-degree-row td:first-child {
+  border-radius: 4px 0 0 4px;
+}
+.reference-degree-row td:last-child {
+  border-radius: 0 4px 4px 0;
+}
 
 /* ── 4c. Sidebar input alignment ──────────────────────────── */
 
@@ -4618,9 +4788,8 @@ input.equiv-cell:disabled,
   border-color: #e8d8d8;
   background: transparent;
   -webkit-text-fill-color: #bb9999; /* overrides iOS/Safari disabled grey */
-  opacity: 1;                        /* iOS reduces opacity on disabled inputs */
+  opacity: 1; /* iOS reduces opacity on disabled inputs */
 }
-
 
 /* ── 4d. Degree gutter + cents badge ──────────────────────── */
 
@@ -4693,7 +4862,6 @@ input.equiv-cell:disabled,
   border: 1px solid #ccb7b7;
   background: #ffffff;
 }
-
 
 /* ── 4e. Tune cell + drag handle + rationalise dropdown ───── */
 
@@ -4768,8 +4936,13 @@ input.equiv-cell:disabled,
     color 0.15s ease;
 }
 
-.tune-handle:hover  { background: #ddd0d0; }
-.tune-handle:active { background: #ccbbbb; cursor: grabbing; }
+.tune-handle:hover {
+  background: #ddd0d0;
+}
+.tune-handle:active {
+  background: #ccbbbb;
+  cursor: grabbing;
+}
 
 .tune-handle--padded {
   padding-bottom: 6px;
@@ -4810,7 +4983,9 @@ input.equiv-cell:disabled,
     color 0.15s ease;
 }
 
-.tune-btn:hover { background: #ddd0d0; }
+.tune-btn:hover {
+  background: #ddd0d0;
+}
 
 /* Modifier variants — only differing properties listed */
 /* Rationalise candidate dropdown */
@@ -4861,7 +5036,9 @@ input.equiv-cell:disabled,
   flex-wrap: wrap;
 }
 
-.rationalise-candidate:hover { background: #f3ecec; }
+.rationalise-candidate:hover {
+  background: #f3ecec;
+}
 
 .rationalise-candidate--committed .rationalise-candidate__ratio {
   font-style: italic;
@@ -4876,8 +5053,12 @@ input.equiv-cell:disabled,
   color: #bb6666;
 }
 
-.rationalise-candidate__ratio { font-weight: 700; }
-.rationalise-candidate__meta  { color: #885f5f; }
+.rationalise-candidate__ratio {
+  font-weight: 700;
+}
+.rationalise-candidate__meta {
+  color: #885f5f;
+}
 .rationalise-candidate__heji {
   display: inline-block;
   font-family: "Plainsound Sans", serif;
@@ -4905,7 +5086,6 @@ input.equiv-cell:disabled,
   border: 1px solid rgba(0, 0, 0, 0.18);
   border-radius: 2px;
 }
-
 
 /* ── 4f. Scale table toolbar ──────────────────────────────── */
 
@@ -4940,7 +5120,9 @@ input.equiv-cell:disabled,
   align-items: center;
 }
 
-.scale-table-toolbar__rationalise { margin-left: 0.5em; }
+.scale-table-toolbar__rationalise {
+  margin-left: 0.5em;
+}
 
 .scale-table-toolbar__sort:hover,
 .scale-table-toolbar__toggle:hover,
@@ -5054,7 +5236,9 @@ input.equiv-cell:disabled,
 .scale-row--selected,
 .scale-row--selected td {
   background: #e8edf5 !important;
-  box-shadow: inset 0 1px 0 #d6deea, inset 0 -1px 0 #d6deea;
+  box-shadow:
+    inset 0 1px 0 #d6deea,
+    inset 0 -1px 0 #d6deea;
 }
 
 .scale-row--selected input:not(:disabled),
@@ -5064,7 +5248,6 @@ input.equiv-cell:disabled,
 .scale-row--selected .sidebar-input input {
   background-color: #e8edf5 !important;
 }
-
 
 /* ── 5. Scale panel controls ──────────────────────────────── */
 /* → scale/index.js                                            */
@@ -5088,7 +5271,6 @@ input.equiv-cell:disabled,
     text-align: center;
   }
 }
-
 
 /* ── 6. Key Labels / HEJI panel ───────────────────────────── */
 /* → scale/key-labels.js                                       */
@@ -5233,7 +5415,9 @@ input.equiv-cell:disabled,
   margin-left: 0;
 }
 
-.heji-palette-builder__prime-grid .heji-palette-builder__group-chunk + .heji-palette-builder__group-chunk {
+.heji-palette-builder__prime-grid
+  .heji-palette-builder__group-chunk
+  + .heji-palette-builder__group-chunk {
   margin-left: 0;
 }
 
@@ -5259,7 +5443,10 @@ input.equiv-cell:disabled,
   margin-left: 0.6em;
 }
 
-.heji-palette-builder__group-row > .heji-palette-builder__group-label + .heji-palette-builder__symbols + .heji-palette-builder__group-label {
+.heji-palette-builder__group-row
+  > .heji-palette-builder__group-label
+  + .heji-palette-builder__symbols
+  + .heji-palette-builder__group-label {
   margin-left: 0.6em;
 }
 
@@ -5360,7 +5547,9 @@ input.equiv-cell:disabled,
     margin-left: 0;
   }
 
-  .heji-palette-builder__group-row--chunks .heji-palette-builder__group-chunk + .heji-palette-builder__group-chunk,
+  .heji-palette-builder__group-row--chunks
+    .heji-palette-builder__group-chunk
+    + .heji-palette-builder__group-chunk,
   .heji-palette-builder__group-row--chunks .heji-palette-builder__group-chunk--after-symbols {
     margin-left: 0;
   }
@@ -5597,7 +5786,6 @@ input.equiv-cell:disabled,
   }
 }
 
-
 /* ── 7. Search preferences panel ─────────────────────────── */
 /* → scale/scale-table/index.js                                */
 
@@ -5643,8 +5831,13 @@ input.equiv-cell:disabled,
   color: #5e4444;
 }
 
-.scale-search-prefs__top-row select { flex: 1 1 auto; min-width: 0; }
-.scale-search-prefs__top-row button { flex-shrink: 0; }
+.scale-search-prefs__top-row select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.scale-search-prefs__top-row button {
+  flex-shrink: 0;
+}
 
 /* Main row: Region / Type / Range / Odd-limit / Prime-limit controls */
 .scale-search-prefs__row {
@@ -5698,7 +5891,9 @@ input.equiv-cell:disabled,
 }
 
 /* Primes above the current prime limit — dimmed and non-interactive */
-.scale-search-prefs__prime--inactive { opacity: 0.35; }
+.scale-search-prefs__prime--inactive {
+  opacity: 0.35;
+}
 
 .scale-search-prefs__prime--inactive input {
   background: #f0ecec;
@@ -5729,10 +5924,17 @@ input.equiv-cell:disabled,
   text-align: center;
 }
 
-.scale-search-prefs__prime-badge        { color: #774444; flex-shrink: 0; line-height: 1; }
-.scale-search-prefs__prime-badge--ut    { color: #555599; }
-.scale-search-prefs__prime-badge--ot    { color: #995555; }
-
+.scale-search-prefs__prime-badge {
+  color: #774444;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.scale-search-prefs__prime-badge--ut {
+  color: #555599;
+}
+.scale-search-prefs__prime-badge--ot {
+  color: #995555;
+}
 
 /* ── 8. Reference Frequency row ───────────────────────────── */
 /* → scale/index.js                                            */

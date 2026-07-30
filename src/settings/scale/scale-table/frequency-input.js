@@ -39,8 +39,12 @@ const FrequencyInput = ({
   const isDirty = deviationCents !== null && Math.abs(deviationCents) > 0.001;
   // Match the tune-delta / tune-comparing colour scheme
   const color = isDirty
-    ? (comparing ? "#660000" : "#990000")
-    : (liveModulated ? "#9a2f2f" : undefined);
+    ? comparing
+      ? "#660000"
+      : "#990000"
+    : liveModulated
+      ? "#9a2f2f"
+      : undefined;
   const fontStyle = comparing ? "italic" : undefined;
   return (
     <input

@@ -38,7 +38,7 @@ function anchorDataFromWorkspace(workspace, degree) {
     interval: cloneInterval(slot?.committedIdentity ?? null),
     ratioText: slot?.sourceText?.includes("/")
       ? slot.sourceText
-      : slot?.exactRole?.ratioText ?? slot?.sourceText ?? null,
+      : (slot?.exactRole?.ratioText ?? slot?.sourceText ?? null),
   };
 }
 
@@ -135,7 +135,7 @@ export function spellSlotForFrame(slot, frame, options = {}) {
   const centsFromAnchor = modulo((slot?.cents ?? 0) - anchorCents, frame.equaveCents ?? 1200);
   const ratioText = slot?.sourceText?.includes("/")
     ? slot.sourceText
-    : slot?.exactRole?.ratioText ?? null;
+    : (slot?.exactRole?.ratioText ?? null);
   let label = null;
 
   if (frame.notationSystem === "letter_heji" && frame.referenceFrame) {
@@ -191,7 +191,11 @@ function renderedLabelDeviation(label) {
 }
 
 function normalizeDegree(value) {
-  return Number.isFinite(value) ? Math.trunc(value) : Number.isFinite(Number(value)) ? Math.trunc(Number(value)) : null;
+  return Number.isFinite(value)
+    ? Math.trunc(value)
+    : Number.isFinite(Number(value))
+      ? Math.trunc(Number(value))
+      : null;
 }
 
 function formatRatioFraction(ratio) {
@@ -306,14 +310,11 @@ export function replayModulationHistoryForFrame(workspace, baseFrame, history = 
         ...options,
         suppressDeviation: false,
       }).label;
-      const movedLabel =
-        trimRenderedLabelToPitchClass(sourceLabel) ??
-        frame.heji.anchorLabel;
+      const movedLabel = trimRenderedLabelToPitchClass(sourceLabel) ?? frame.heji.anchorLabel;
       const movedDeviation = renderedLabelDeviation(sourceLabel);
-      const targetRatioText =
-        targetSlot?.sourceText?.includes("/")
-          ? targetSlot.sourceText
-          : targetSlot?.exactRole?.ratioText ?? targetSlot?.sourceText ?? frame.anchorRatioText;
+      const targetRatioText = targetSlot?.sourceText?.includes("/")
+        ? targetSlot.sourceText
+        : (targetSlot?.exactRole?.ratioText ?? targetSlot?.sourceText ?? frame.anchorRatioText);
 
       frame = mutateHarmonicFrame(frame, {
         workspace,

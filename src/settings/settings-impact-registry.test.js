@@ -32,7 +32,9 @@ describe("settings impact registry", () => {
       ...flattenValues(SETTINGS_IMPACT_GROUPS),
       ...flattenValues(SETTINGS_IMPACT_IGNORED_FIELDS),
     ]);
-    const missing = SETTINGS_REGISTRY.map((entry) => entry.key).filter((key) => !classified.has(key));
+    const missing = SETTINGS_REGISTRY.map((entry) => entry.key).filter(
+      (key) => !classified.has(key),
+    );
     expect(missing).toEqual([]);
   });
 
@@ -91,7 +93,9 @@ describe("settings impact registry", () => {
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_mpe_hi_ch");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_pitchbend_mode");
     expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("midiin_pressure_mode");
-    expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain("linnstrument_channel_allocation");
+    expect(SETTINGS_IMPACT_GROUPS.keysReconstruction).not.toContain(
+      "linnstrument_channel_allocation",
+    );
   });
 
   it("keeps MIDI controller-map settings out of full Keys reconstruction", () => {
@@ -125,8 +129,12 @@ describe("settings impact registry", () => {
     for (const file of runtimeSourceFiles) {
       const source = fs.readFileSync(file, "utf8");
       for (const key of ignoredKeys) {
-        const propertyAccess = new RegExp(`(?:^|[^\\w])(?:this\\.)?settings(?:\\?|)\\.${escapeRegex(key)}\\b`);
-        const bracketAccess = new RegExp(`(?:^|[^\\w])(?:this\\.)?settings\\[(?:'|")${escapeRegex(key)}(?:'|")\\]`);
+        const propertyAccess = new RegExp(
+          `(?:^|[^\\w])(?:this\\.)?settings(?:\\?|)\\.${escapeRegex(key)}\\b`,
+        );
+        const bracketAccess = new RegExp(
+          `(?:^|[^\\w])(?:this\\.)?settings\\[(?:'|")${escapeRegex(key)}(?:'|")\\]`,
+        );
         if (propertyAccess.test(source) || bracketAccess.test(source)) {
           offenders.push(`${path.basename(file)}:${key}`);
         }

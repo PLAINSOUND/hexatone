@@ -135,7 +135,6 @@ describe("ScaleTable — key labels: heji", () => {
     expect(screen.getByText("HEJI")).toBeTruthy();
     expect(screen.queryByText("Name")).toBeNull();
   });
-
 });
 
 // ── Scale values ──────────────────────────────────────────────────────────────
@@ -620,7 +619,20 @@ describe("ScaleTable — explicit colors", () => {
             "15/8",
             "2/1",
           ],
-          note_names: ["B", "C", "C", "D", "*nD", "E", "*nE", "F", "G", "G", "A", "*nA"],
+          note_names: [
+            "B",
+            "C",
+            "C",
+            "D",
+            "*nD",
+            "E",
+            "*nE",
+            "F",
+            "G",
+            "G",
+            "A",
+            "*nA",
+          ],
           note_colors: [
             "#b7b196",
             "#f4d0f5",
@@ -669,7 +681,20 @@ describe("ScaleTable — explicit colors", () => {
             "15/8",
             "2/1",
           ],
-          note_names: ["B", "C", "C", "D", "*nD", "E", "*nE", "F", "G", "G", "A", "*nA"],
+          note_names: [
+            "B",
+            "C",
+            "C",
+            "D",
+            "*nD",
+            "E",
+            "*nE",
+            "F",
+            "G",
+            "G",
+            "A",
+            "*nA",
+          ],
           note_colors: [
             "#d0d0d7",
             "#ffffff",
@@ -722,7 +747,27 @@ describe("ScaleTable — explicit colors", () => {
             "15/8",
             "2/1",
           ],
-          note_names: ["C", "C", "D", "D", "C", "E", "E", "F", "G", "C", "G", "C", "A", "A", "C", "B", "C", "B", "C"],
+          note_names: [
+            "C",
+            "C",
+            "D",
+            "D",
+            "C",
+            "E",
+            "E",
+            "F",
+            "G",
+            "C",
+            "G",
+            "C",
+            "A",
+            "A",
+            "C",
+            "B",
+            "C",
+            "B",
+            "C",
+          ],
           note_colors: [
             "#ffffff",
             "#cdcac1",
@@ -752,7 +797,6 @@ describe("ScaleTable — explicit colors", () => {
     expect(screen.getByLabelText("apply suggested colour for color1")).not.toBeNull();
     expect(screen.queryByLabelText("apply suggested colour for color3")).toBeNull();
   });
-
 
   it("centers fifths on the plain pure-3 D nearest 9/8", () => {
     const onChange = vi.fn();
@@ -789,7 +833,9 @@ describe("ScaleTable — explicit colors", () => {
       />,
     );
 
-    expect(screen.getByLabelText("apply suggested colour for color1").title).toContain("7-limit overtonal diatonic");
+    expect(screen.getByLabelText("apply suggested colour for color1").title).toContain(
+      "7-limit overtonal diatonic",
+    );
   });
 
   it("lets compare plus save restore the original after an auto-colour preview", () => {
@@ -848,10 +894,12 @@ describe("ScaleTable — explicit colors", () => {
 
   it("coalesces rapid picker previews to the latest colour in one animation frame", () => {
     let previewFrame;
-    const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      previewFrame = callback;
-      return 41;
-    });
+    const requestFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        previewFrame = callback;
+        return 41;
+      });
     const keysRef = { current: { updateColors: vi.fn() } };
     const { container } = render(
       <ScaleTable settings={settingsBase} onChange={() => {}} keysRef={keysRef} />,
@@ -971,10 +1019,18 @@ describe("ScaleTable — table structure", () => {
       />,
     );
 
-    expect(screen.getByLabelText("scale degree gutter 4").classList.contains("degree-gutter--active")).toBe(true);
-    expect(screen.getByLabelText("scale degree gutter 4").querySelector(".degree-gutter__live-led")).not.toBeNull();
-    expect(screen.getByLabelText("scale degree gutter 3").classList.contains("degree-gutter--active")).toBe(false);
-    expect(screen.getByLabelText("scale degree gutter 3").querySelector(".degree-gutter__live-led")).toBeNull();
+    expect(
+      screen.getByLabelText("scale degree gutter 4").classList.contains("degree-gutter--active"),
+    ).toBe(true);
+    expect(
+      screen.getByLabelText("scale degree gutter 4").querySelector(".degree-gutter__live-led"),
+    ).not.toBeNull();
+    expect(
+      screen.getByLabelText("scale degree gutter 3").classList.contains("degree-gutter--active"),
+    ).toBe(false);
+    expect(
+      screen.getByLabelText("scale degree gutter 3").querySelector(".degree-gutter__live-led"),
+    ).toBeNull();
     expect(screen.getByLabelText("pitch name 4").value).toBe(settingsBase.note_names[4]);
   });
 
@@ -1149,7 +1205,12 @@ describe("ScaleTable — table structure", () => {
 
     render(
       <ScaleTable
-        settings={{ ...settingsBase, fundamental: 440, reference_degree: 9, scale: ["9/8", ...scale_values.slice(1)] }}
+        settings={{
+          ...settingsBase,
+          fundamental: 440,
+          reference_degree: 9,
+          scale: ["9/8", ...scale_values.slice(1)],
+        }}
         onChange={onChange}
         onAtomicChange={onAtomicChange}
       />,

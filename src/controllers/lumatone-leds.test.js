@@ -175,5 +175,4 @@ describe("LumatoneLEDs", () => {
     });
     expect(output.send).toHaveBeenCalledTimes(3);
   });
-
-})
+});

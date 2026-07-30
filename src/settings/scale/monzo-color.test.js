@@ -72,13 +72,17 @@ describe("monzoToSuggestedColor", () => {
   });
 
   it("can center the fifths frame on an inferred D other than the default", () => {
-    expect(getFifthsFrameFromMonzo([0, 0], undefined, { centerAbsoluteFifthSteps: 0 })).toMatchObject({
+    expect(
+      getFifthsFrameFromMonzo([0, 0], undefined, { centerAbsoluteFifthSteps: 0 }),
+    ).toMatchObject({
       absoluteFifthSteps: 0,
       centerAbsoluteFifthSteps: 0,
       fifthSteps: 0,
       rank: 0,
     });
-    expect(monzoToSuggestedColor([0, 4], undefined, { centerAbsoluteFifthSteps: 0 }).screenHex).toBe("#dee2da");
+    expect(
+      monzoToSuggestedColor([0, 4], undefined, { centerAbsoluteFifthSteps: 0 }).screenHex,
+    ).toBe("#dee2da");
   });
 
   it("keeps 23-family overtonal identities visually unified", () => {
@@ -87,7 +91,9 @@ describe("monzoToSuggestedColor", () => {
   });
 
   it("keeps 43-family overtonal identities visually unified", () => {
-    expect(monzoToSuggestedColor([-7, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]).screenHex).toBe("#c9a573");
+    expect(monzoToSuggestedColor([-7, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]).screenHex).toBe(
+      "#c9a573",
+    );
   });
 
   it("matches curated Tree variants for exact odd-partial overtones", () => {
@@ -170,7 +176,9 @@ describe("monzoToSuggestedColor", () => {
     const under25 = monzoToSuggestedColor([-6, 7, -2], undefined, options).screenHex;
     const [over5H, over5S, over5L] = srgb_to_okhsl(...hexToRgb(over5));
     const [over25H, over25S, over25L] = srgb_to_okhsl(...hexToRgb(over25));
-    const [over25ChromaticH, over25ChromaticS, over25ChromaticL] = srgb_to_okhsl(...hexToRgb(over25Chromatic));
+    const [over25ChromaticH, over25ChromaticS, over25ChromaticL] = srgb_to_okhsl(
+      ...hexToRgb(over25Chromatic),
+    );
     const [under25H, under25S, under25L] = srgb_to_okhsl(...hexToRgb(under25));
 
     expect(over5).toBe(customFive);
@@ -192,7 +200,9 @@ describe("monzoToSuggestedColor", () => {
     const overtoneChromatic = monzoToSuggestedColor([4, -4, 0, 1]).screenHex;
     const overtoneDiatonic = monzoToSuggestedColor([-4, 1, 0, 1]).screenHex;
     const overtoneCenteredDiatonic = monzoToSuggestedColor([-3, 0, 0, 1]).screenHex;
-    const [, overtoneChromaticS, overtoneChromaticL] = srgb_to_okhsl(...hexToRgb(overtoneChromatic));
+    const [, overtoneChromaticS, overtoneChromaticL] = srgb_to_okhsl(
+      ...hexToRgb(overtoneChromatic),
+    );
     const [, overtoneDiatonicS, overtoneDiatonicL] = srgb_to_okhsl(...hexToRgb(overtoneDiatonic));
     expect(overtoneDiatonic).toBe("#ffe5e5");
     expect(overtoneCenteredDiatonic).toBe("#ffe5e5");
@@ -234,9 +244,15 @@ describe("monzoToSuggestedColor", () => {
     const undertoneDiatonic = monzoToSuggestedColor([0, 2, 0, -1]).screenHex;
     const undertoneChromatic = monzoToSuggestedColor([-3, 4, 0, -1]).screenHex;
     const over49 = monzoToSuggestedColor([-4, 0, 0, 2]).screenHex;
-    const [, overtoneChromaticS, overtoneChromaticL] = srgb_to_okhsl(...hexToRgb(overtoneChromatic));
-    const [, undertoneDiatonicS, undertoneDiatonicL] = srgb_to_okhsl(...hexToRgb(undertoneDiatonic));
-    const [, undertoneChromaticS, undertoneChromaticL] = srgb_to_okhsl(...hexToRgb(undertoneChromatic));
+    const [, overtoneChromaticS, overtoneChromaticL] = srgb_to_okhsl(
+      ...hexToRgb(overtoneChromatic),
+    );
+    const [, undertoneDiatonicS, undertoneDiatonicL] = srgb_to_okhsl(
+      ...hexToRgb(undertoneDiatonic),
+    );
+    const [, undertoneChromaticS, undertoneChromaticL] = srgb_to_okhsl(
+      ...hexToRgb(undertoneChromatic),
+    );
     expect(undertoneDiatonic).not.toBe(overtoneChromatic);
     expect(undertoneDiatonic).not.toBe(over49);
     expect(undertoneChromatic).not.toBe(undertoneDiatonic);
@@ -263,9 +279,13 @@ describe("monzoToSuggestedColor", () => {
     const under7 = monzoToSuggestedColor([0, 2, 0, -1], undefined, options).screenHex;
     const under7Chromatic = monzoToSuggestedColor([-3, 4, 0, -1], undefined, options).screenHex;
     const [over7H, over7S, over7L] = srgb_to_okhsl(...hexToRgb(over7));
-    const [over7ChromaticH, over7ChromaticS, over7ChromaticL] = srgb_to_okhsl(...hexToRgb(over7Chromatic));
+    const [over7ChromaticH, over7ChromaticS, over7ChromaticL] = srgb_to_okhsl(
+      ...hexToRgb(over7Chromatic),
+    );
     const [under7H, under7S, under7L] = srgb_to_okhsl(...hexToRgb(under7));
-    const [under7ChromaticH, under7ChromaticS, under7ChromaticL] = srgb_to_okhsl(...hexToRgb(under7Chromatic));
+    const [under7ChromaticH, under7ChromaticS, under7ChromaticL] = srgb_to_okhsl(
+      ...hexToRgb(under7Chromatic),
+    );
 
     expect(over7).toBe(customSeven);
     expect(Math.abs(under7H - over7H)).toBeLessThan(0.05);
@@ -304,15 +324,23 @@ describe("monzoToSuggestedColor", () => {
 
   it("can disable the structural fifths/black-key overlay", () => {
     expect(monzoToSuggestedColor([0, -2]).screenHex).toBe("#d0d0d7");
-    expect(monzoToSuggestedColor([0, -2], undefined, { structuralOverlay: "none" }).screenHex).toBe("#ffffff");
+    expect(monzoToSuggestedColor([0, -2], undefined, { structuralOverlay: "none" }).screenHex).toBe(
+      "#ffffff",
+    );
 
     expect(monzoToSuggestedColor([-7, 3, 1]).screenHex).toBe("#e6e0cb");
-    expect(monzoToSuggestedColor([-7, 3, 1], undefined, { structuralOverlay: "none" }).screenHex).toBe("#fffae5");
+    expect(
+      monzoToSuggestedColor([-7, 3, 1], undefined, { structuralOverlay: "none" }).screenHex,
+    ).toBe("#fffae5");
   });
 
   it("uses odd-branch exact colors for harmonic-series intervals when black-key overlay is disabled", () => {
-    expect(monzoToSuggestedColor([-3, -1, 2], undefined, { structuralOverlay: "none" }).screenHex).toBe("#fef5be");
-    expect(monzoToSuggestedColor([-1, -1, 0, 1], undefined, { structuralOverlay: "none" }).screenHex).toBe("#ffe5e5");
+    expect(
+      monzoToSuggestedColor([-3, -1, 2], undefined, { structuralOverlay: "none" }).screenHex,
+    ).toBe("#fef5be");
+    expect(
+      monzoToSuggestedColor([-1, -1, 0, 1], undefined, { structuralOverlay: "none" }).screenHex,
+    ).toBe("#ffe5e5");
   });
 
   it("preserves exact positive odd-branch colors for mixed overtonal primes under structural overlay", () => {
@@ -325,8 +353,12 @@ describe("monzoToSuggestedColor", () => {
   });
 
   it("does not let a positive odd branch override undertonal prime families in subharmonic mode", () => {
-    const u5a = monzoToSuggestedColor([1, 1, -1], undefined, { structuralOverlay: "none" }).screenHex;
-    const u5b = monzoToSuggestedColor([3, 0, -1], undefined, { structuralOverlay: "none" }).screenHex;
+    const u5a = monzoToSuggestedColor([1, 1, -1], undefined, {
+      structuralOverlay: "none",
+    }).screenHex;
+    const u5b = monzoToSuggestedColor([3, 0, -1], undefined, {
+      structuralOverlay: "none",
+    }).screenHex;
     expect(u5a).toBe(u5b);
     expect(u5a).not.toBe("#ffffff");
   });
@@ -557,9 +589,11 @@ describe("monzoToSuggestedColor", () => {
   });
 
   it("preserves the curated default 49 color when no custom family override is active", () => {
-    expect(monzoToSuggestedColor([-4, 0, 0, 2], undefined, {
-      structuralOverlay: "none",
-    }).screenHex).toBe("#f8c9c9");
+    expect(
+      monzoToSuggestedColor([-4, 0, 0, 2], undefined, {
+        structuralOverlay: "none",
+      }).screenHex,
+    ).toBe("#f8c9c9");
   });
 
   it("applies the shared pure-prime power lift to custom 7-family colors", () => {
@@ -663,10 +697,7 @@ describe("monzoToSuggestedColor", () => {
     const customThree = "#ffd8f4";
     const options = {
       structuralOverlay: "none",
-      primeFamilyColorMap: getPrimeFamilyColorMap([
-        DEFAULT_PRIME_FAMILY_COLORS[1],
-        customThree,
-      ]),
+      primeFamilyColorMap: getPrimeFamilyColorMap([DEFAULT_PRIME_FAMILY_COLORS[1], customThree]),
     };
 
     const over3 = monzoToSuggestedColor([0, 1], undefined, options).screenHex;
@@ -709,10 +740,7 @@ describe("monzoToSuggestedColor", () => {
     const customThree = "#c39898";
     const options = {
       structuralOverlay: "fifths",
-      primeFamilyColorMap: getPrimeFamilyColorMap([
-        DEFAULT_PRIME_FAMILY_COLORS[1],
-        customThree,
-      ]),
+      primeFamilyColorMap: getPrimeFamilyColorMap([DEFAULT_PRIME_FAMILY_COLORS[1], customThree]),
     };
 
     expect(monzoToSuggestedColor([0, 1], undefined, options).screenHex).toBe(customThree);
@@ -725,10 +753,7 @@ describe("monzoToSuggestedColor", () => {
     const customThree = "#c39898";
     const options = {
       structuralOverlay: "fifths",
-      primeFamilyColorMap: getPrimeFamilyColorMap([
-        DEFAULT_PRIME_FAMILY_COLORS[1],
-        customThree,
-      ]),
+      primeFamilyColorMap: getPrimeFamilyColorMap([DEFAULT_PRIME_FAMILY_COLORS[1], customThree]),
     };
 
     const core = monzoToSuggestedColor([0, 1], undefined, options).screenHex;
@@ -738,7 +763,9 @@ describe("monzoToSuggestedColor", () => {
     const sharpFamily = monzoToSuggestedColor([0, 11], undefined, options).screenHex;
     const [coreH, coreS, coreL] = srgb_to_okhsl(...hexToRgb(core));
     const [flatContrastH, flatContrastS, flatContrastL] = srgb_to_okhsl(...hexToRgb(flatContrast));
-    const [sharpContrastH, sharpContrastS, sharpContrastL] = srgb_to_okhsl(...hexToRgb(sharpContrast));
+    const [sharpContrastH, sharpContrastS, sharpContrastL] = srgb_to_okhsl(
+      ...hexToRgb(sharpContrast),
+    );
     const [, flatFamilyS, flatFamilyL] = srgb_to_okhsl(...hexToRgb(flatFamily));
     const [, sharpFamilyS, sharpFamilyL] = srgb_to_okhsl(...hexToRgb(sharpFamily));
 
@@ -759,15 +786,16 @@ describe("monzoToSuggestedColor", () => {
     const customThree = "#ffd8f4";
     const options = {
       structuralOverlay: "none",
-      primeFamilyColorMap: getPrimeFamilyColorMap([
-        DEFAULT_PRIME_FAMILY_COLORS[1],
-        customThree,
-      ]),
+      primeFamilyColorMap: getPrimeFamilyColorMap([DEFAULT_PRIME_FAMILY_COLORS[1], customThree]),
     };
 
     const over23 = monzoToSuggestedColor([0, 0, 0, 0, 0, 0, 0, 0, 1], undefined, options).screenHex;
     const over69 = monzoToSuggestedColor([0, 1, 0, 0, 0, 0, 0, 0, 1], undefined, options).screenHex;
-    const over207 = monzoToSuggestedColor([0, 2, 0, 0, 0, 0, 0, 0, 1], undefined, options).screenHex;
+    const over207 = monzoToSuggestedColor(
+      [0, 2, 0, 0, 0, 0, 0, 0, 1],
+      undefined,
+      options,
+    ).screenHex;
 
     expect(over23).toBe("#95c69b");
     expect(over69).toBe(over23);

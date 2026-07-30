@@ -18,10 +18,7 @@ import { settingsToAbletonScala } from "../settings/scale/parse-scale.js";
 import { loadUserTunings } from "../hexatone/user-tunings.js";
 import { PRESET_SKIP_KEYS, buildRegistryDefaults } from "../persistence/settings-registry.js";
 import { normalizeModulationHistory } from "../tuning/modulation-runtime.js";
-import {
-  getControllerById,
-  getControllerMpeInputPolicy,
-} from "../controllers/registry.js";
+import { getControllerById, getControllerMpeInputPolicy } from "../controllers/registry.js";
 import { CONTROLLER_PRESET_ANCHOR_CONFIGS } from "../controllers/preset-anchors.js";
 import { loadSavedAnchor, loadSavedAnchorChannel } from "../input/controller-anchor.js";
 import { deriveKeyColorFlags } from "../settings/scale/key-colors-mode.js";
@@ -159,9 +156,12 @@ function getPresetAnchorConfig(settings = {}, preferredControllerId = null) {
   const preferred = PRESET_ANCHOR_CONFIGS.find(
     (config) => config.controllerId === preferredControllerId && hasAnchor(config),
   );
-  return preferred ?? PRESET_ANCHOR_CONFIGS.find(
-    ({ noteKey, channelKey }) =>
-      Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
+  return (
+    preferred ??
+    PRESET_ANCHOR_CONFIGS.find(
+      ({ noteKey, channelKey }) =>
+        Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
+    )
   );
 }
 
@@ -173,10 +173,7 @@ function getAnchorFallback(settings = {}) {
     };
   }
 
-  const presetAnchorConfig = getPresetAnchorConfig(
-    settings,
-    settings.midiin_controller_override,
-  );
+  const presetAnchorConfig = getPresetAnchorConfig(settings, settings.midiin_controller_override);
   if (!presetAnchorConfig?.controller) {
     return {
       midiin_anchor_note: settings.midiin_anchor_note ?? 60,
@@ -185,10 +182,13 @@ function getAnchorFallback(settings = {}) {
   }
 
   return {
-    midiin_anchor_note: loadSavedAnchor(presetAnchorConfig.controller, settings, { preferStored: false }),
-    midiin_anchor_channel: loadSavedAnchorChannel(presetAnchorConfig.controller, settings, {
+    midiin_anchor_note: loadSavedAnchor(presetAnchorConfig.controller, settings, {
       preferStored: false,
-    }) ?? 1,
+    }),
+    midiin_anchor_channel:
+      loadSavedAnchorChannel(presetAnchorConfig.controller, settings, {
+        preferStored: false,
+      }) ?? 1,
   };
 }
 
@@ -254,18 +254,27 @@ export const mergePresetIntoSettings = (settings, preset) => {
 
 const snapshotOf = (s, modulationLibrary = []) => {
   return {
-    tuningRecord: JSON.stringify(settingsToTuningRecord(s, {
-      modulation_library: modulationLibrary,
-    })),
-    modulationLibrary: JSON.stringify(normalizeModulationHistory(modulationLibrary, { zeroCounts: true })),
+    tuningRecord: JSON.stringify(
+      settingsToTuningRecord(s, {
+        modulation_library: modulationLibrary,
+      }),
+    ),
+    modulationLibrary: JSON.stringify(
+      normalizeModulationHistory(modulationLibrary, { zeroCounts: true }),
+    ),
   };
 };
 
 const isDirty = (snap, s, modulationLibrary = []) => {
   if (!snap) return false;
-  if (JSON.stringify(settingsToTuningRecord(s, {
-    modulation_library: modulationLibrary,
-  })) !== snap.tuningRecord) return true;
+  if (
+    JSON.stringify(
+      settingsToTuningRecord(s, {
+        modulation_library: modulationLibrary,
+      }),
+    ) !== snap.tuningRecord
+  )
+    return true;
   return (
     JSON.stringify(normalizeModulationHistory(modulationLibrary, { zeroCounts: true })) !==
     snap.modulationLibrary
@@ -324,10 +333,13 @@ function buildRestorablePresetPayload(source, appliedSettings, savedLibrary = []
     settingsToTuningRecord(appliedSettings, {
       modulation_library: savedLibrary,
     }) ??
-    normalizeTuningRecord({
-      ...appliedSettings,
-      modulation_library: normalizeModulationHistory(savedLibrary, { zeroCounts: true }),
-    }, { allowEmptyScale: true });
+    normalizeTuningRecord(
+      {
+        ...appliedSettings,
+        modulation_library: normalizeModulationHistory(savedLibrary, { zeroCounts: true }),
+      },
+      { allowEmptyScale: true },
+    );
   if (!canonicalPreset) return null;
   for (const key of RESTORABLE_INPUT_RUNTIME_KEYS) {
     if (appliedSettings[key] !== undefined) {
@@ -371,7 +383,7 @@ function normalizePresetControllerInputSettings(preset = {}) {
   const controllerId =
     normalized.midiin_controller_override && normalized.midiin_controller_override !== "auto"
       ? normalized.midiin_controller_override
-      : activePresetAnchorConfig?.controllerId ?? null;
+      : (activePresetAnchorConfig?.controllerId ?? null);
   const controller = controllerId ? getControllerById(controllerId) : null;
   const policy = getControllerMpeInputPolicy(controller);
 
@@ -468,14 +480,16 @@ const usePresets = (
     if (!savedName) return;
 
     if (isIOS) {
-      const payloadPreset = savedPayload?.source === savedSource &&
-        savedPayload?.name === savedName
-        ? savedPayload.preset
-        : null;
+      const payloadPreset =
+        savedPayload?.source === savedSource && savedPayload?.name === savedName
+          ? savedPayload.preset
+          : null;
       setActiveSource(savedSource);
       setActivePresetName(savedName);
       if (payloadPreset) {
-        const savedLibrary = normalizeModulationHistory(payloadPreset.modulation_library, { zeroCounts: true });
+        const savedLibrary = normalizeModulationHistory(payloadPreset.modulation_library, {
+          zeroCounts: true,
+        });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setPendingRestoredPreset({ source: savedSource, name: savedName, preset: payloadPreset });
@@ -484,14 +498,18 @@ const usePresets = (
       if (savedSource === "builtin") {
         const presetData = findPreset(savedName);
         if (presetData) {
-          const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+          const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
+            zeroCounts: true,
+          });
           setPresetModulationLibrary(savedLibrary);
           onPresetModulationLibraryLoaded?.(savedLibrary);
         }
       } else if (savedSource === "user") {
         const preset = loadUserTunings().find((p) => p.name === savedName);
         if (preset) {
-          const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+          const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
+            zeroCounts: true,
+          });
           setPresetModulationLibrary(savedLibrary);
           onPresetModulationLibraryLoaded?.(savedLibrary);
         } else if (hasRestorableWorkspace(settings)) {
@@ -505,13 +523,19 @@ const usePresets = (
       return;
     }
 
-    if (savedPayload?.source === savedSource && savedPayload?.name === savedName && savedPayload?.preset) {
+    if (
+      savedPayload?.source === savedSource &&
+      savedPayload?.name === savedName &&
+      savedPayload?.preset
+    ) {
       setRestoredOnMount(true);
       setActiveSource(savedSource);
       setActivePresetName(savedName);
       const adjustedPreset = adjustPresetForRestore(savedPayload.preset);
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
-      const savedLibrary = normalizeModulationHistory(savedPayload.preset.modulation_library, { zeroCounts: true });
+      const savedLibrary = normalizeModulationHistory(savedPayload.preset.modulation_library, {
+        zeroCounts: true,
+      });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -526,7 +550,9 @@ const usePresets = (
       if (presetData) {
         const adjustedPreset = adjustPresetForRestore(presetData);
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
-        const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+        const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
+          zeroCounts: true,
+        });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -543,7 +569,9 @@ const usePresets = (
         setActivePresetName(preset.name);
         const adjustedPreset = adjustPresetForRestore(preset);
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
-        const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+        const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
+          zeroCounts: true,
+        });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -571,7 +599,9 @@ const usePresets = (
       const adjustedPreset = adjustPresetForRestore(pendingPreset);
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
-      const savedLibrary = normalizeModulationHistory(pendingPreset.modulation_library, { zeroCounts: true });
+      const savedLibrary = normalizeModulationHistory(pendingPreset.modulation_library, {
+        zeroCounts: true,
+      });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -582,7 +612,9 @@ const usePresets = (
       const adjustedPreset = adjustPresetForRestore(presetData);
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
-      const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+      const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
+        zeroCounts: true,
+      });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -593,7 +625,9 @@ const usePresets = (
       const adjustedPreset = adjustPresetForRestore(preset);
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
-      const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+      const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
+        zeroCounts: true,
+      });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -618,7 +652,9 @@ const usePresets = (
     const adjustedPreset = adjustPresetForRestore(presetData);
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
     bumpImportCount?.();
-    const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+    const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
+      zeroCounts: true,
+    });
     setPresetModulationLibrary(savedLibrary);
     onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -660,7 +696,9 @@ const usePresets = (
     const adjustedPreset = adjustPresetForRestore(preset);
     const merged = mergePresetIntoSettings(settings, adjustedPreset);
     bumpImportCount?.();
-    const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+    const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
+      zeroCounts: true,
+    });
     setPresetModulationLibrary(savedLibrary);
     onPresetModulationLibraryLoaded?.(savedLibrary);
     setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -688,7 +726,9 @@ const usePresets = (
       sessionStorage.setItem("hexatone_preset_source", "user");
       sessionStorage.setItem("hexatone_preset_name", preset.name);
       const merged = mergePresetIntoSettings(settings, preset);
-      const savedLibrary = normalizeModulationHistory(preset.modulation_library, { zeroCounts: true });
+      const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
+        zeroCounts: true,
+      });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -719,7 +759,9 @@ const usePresets = (
       };
       const merged = mergePresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
-      const savedLibrary = normalizeModulationHistory(presetData.modulation_library, { zeroCounts: true });
+      const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
+        zeroCounts: true,
+      });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
       setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
@@ -739,7 +781,9 @@ const usePresets = (
         const adjustedPreset = adjustPresetForRestore(saved);
         const merged = mergePresetIntoSettings(settings, adjustedPreset);
         bumpImportCount?.();
-        const savedLibrary = normalizeModulationHistory(saved.modulation_library, { zeroCounts: true });
+        const savedLibrary = normalizeModulationHistory(saved.modulation_library, {
+          zeroCounts: true,
+        });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
         setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));

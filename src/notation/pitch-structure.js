@@ -43,7 +43,7 @@ function subtractMonzo(left, right) {
 }
 
 function normalizeSignedCents(value) {
-  return ((value + 600) % 1200 + 1200) % 1200 - 600;
+  return ((((value + 600) % 1200) + 1200) % 1200) - 600;
 }
 
 function normalizedPrimeExponents(primeExponents = {}) {
@@ -70,25 +70,31 @@ export function createPitchStructure(overrides = {}) {
 export function pitchStructureToBaseId(structure) {
   const accidentalCount = structure.accidentalCount ?? 0;
   const chromatic =
-    accidentalCount <= -2 ? "doubleflat" :
-    accidentalCount === -1 ? "flat" :
-    accidentalCount === 1 ? "sharp" :
-    accidentalCount >= 2 ? "doublesharp" :
-    "natural";
-  return BASE_ID_BY_CHROMATIC_AND_SYNTONIC[makeBaseId(chromatic, Math.max(-3, Math.min(3, structure.syntonic ?? 0)))]
-    ?? "natural:0";
+    accidentalCount <= -2
+      ? "doubleflat"
+      : accidentalCount === -1
+        ? "flat"
+        : accidentalCount === 1
+          ? "sharp"
+          : accidentalCount >= 2
+            ? "doublesharp"
+            : "natural";
+  return (
+    BASE_ID_BY_CHROMATIC_AND_SYNTONIC[
+      makeBaseId(chromatic, Math.max(-3, Math.min(3, structure.syntonic ?? 0)))
+    ] ?? "natural:0"
+  );
 }
 
 export function pitchStructureToMonzo(structure, octave = 4) {
   const baseId = pitchStructureToBaseId(structure);
   const primeExponents = normalizedPrimeExponents(structure.primeExponents);
-  const extraIds = Object.entries(primeExponents)
-    .flatMap(([primeText, exponent]) => {
-      const prime = Number(primeText);
-      const family = HEJI_FAMILIES.find((candidate) => candidate.prime === prime);
-      if (!family || !exponent) return [];
-      return new Array(Math.abs(exponent)).fill(exponent > 0 ? family.upper.id : family.lower.id);
-    });
+  const extraIds = Object.entries(primeExponents).flatMap(([primeText, exponent]) => {
+    const prime = Number(primeText);
+    const family = HEJI_FAMILIES.find((candidate) => candidate.prime === prime);
+    if (!family || !exponent) return [];
+    return new Array(Math.abs(exponent)).fill(exponent > 0 ? family.upper.id : family.lower.id);
+  });
   if (!structure.letter) return zeroMonzo();
   return hejiToMonzo({
     letter: structure.letter,
@@ -115,7 +121,9 @@ export function pitchStructureToAutoDeviation(structure, options = {}) {
   const baseMonzo = pitchStructureToMonzo(baseStructure);
   if (monzosEqual(targetMonzo, baseMonzo)) return forceZero ? "+0" : "";
 
-  const cents = normalizeSignedCents(Math.round(monzoToCents(subtractMonzo(targetMonzo, baseMonzo))));
+  const cents = normalizeSignedCents(
+    Math.round(monzoToCents(subtractMonzo(targetMonzo, baseMonzo))),
+  );
   if (cents === 0) return forceZero ? "+0" : "";
   return cents > 0 ? `+${cents}` : `−${Math.abs(cents)}`;
 }
@@ -128,14 +136,13 @@ function buildBaseGlyph(structure) {
   const spillGlyph = spillCount
     ? (BASE_BY_ID[makeBaseId("natural", syntonic < 0 ? -1 : 1)]?.glyph ?? "").repeat(spillCount)
     : "";
-  const hasHigherPrimeInflection = Object.values(normalizedPrimeExponents(structure.primeExponents)).some(Boolean);
+  const hasHigherPrimeInflection = Object.values(
+    normalizedPrimeExponents(structure.primeExponents),
+  ).some(Boolean);
   const useTemperedAccidentals = structure.useTemperedAccidentals === true;
 
   if (useTemperedAccidentals && syntonic === 0) {
-    const temperedGlyph =
-      accidentalCount < 0 ? "" :
-      accidentalCount > 0 ? "" :
-      "";
+    const temperedGlyph = accidentalCount < 0 ? "" : accidentalCount > 0 ? "" : "";
     return temperedGlyph;
   }
 
@@ -146,8 +153,11 @@ function buildBaseGlyph(structure) {
 
   const isSharpSide = accidentalCount > 0;
   const magnitude = Math.abs(accidentalCount);
-  const singleGlyph = BASE_BY_ID[makeBaseId(isSharpSide ? "sharp" : "flat", clampedSyntonic)]?.glyph ?? "";
-  const doubleGlyph = BASE_BY_ID[makeBaseId(isSharpSide ? "doublesharp" : "doubleflat", clampedSyntonic)]?.glyph ?? "";
+  const singleGlyph =
+    BASE_BY_ID[makeBaseId(isSharpSide ? "sharp" : "flat", clampedSyntonic)]?.glyph ?? "";
+  const doubleGlyph =
+    BASE_BY_ID[makeBaseId(isSharpSide ? "doublesharp" : "doubleflat", clampedSyntonic)]?.glyph ??
+    "";
   const singleCount = structure.useDoubles ? magnitude % 2 : magnitude;
   const doubleCount = structure.useDoubles ? Math.floor(magnitude / 2) : 0;
 
@@ -164,7 +174,8 @@ function buildPrimeGlyphs(structure) {
       if (prime === 7 && structure.useDoubleSeptimals) {
         const magnitude = Math.abs(exponent);
         const singleGlyph = exponent > 0 ? family.upper.glyph : family.lower.glyph;
-        const doubleGlyph = exponent > 0 ? DOUBLE_SEPTIMAL_GLYPHS.positive : DOUBLE_SEPTIMAL_GLYPHS.negative;
+        const doubleGlyph =
+          exponent > 0 ? DOUBLE_SEPTIMAL_GLYPHS.positive : DOUBLE_SEPTIMAL_GLYPHS.negative;
         return [
           ...new Array(magnitude % 2).fill(singleGlyph),
           ...new Array(Math.floor(magnitude / 2)).fill(doubleGlyph),
@@ -180,7 +191,7 @@ export function pitchStructureToHeji(structure, options = {}) {
   const includeLetter = options.includeLetter !== false;
   const extras = buildPrimeGlyphs(structure);
   const base = buildBaseGlyph(structure);
-  return `${extras}${base}${includeLetter ? structure.letter ?? "" : ""}`;
+  return `${extras}${base}${includeLetter ? (structure.letter ?? "") : ""}`;
 }
 
 export function withPitchStructureLetter(structure, letter) {
@@ -251,8 +262,7 @@ export function parseHejiToStructure(text) {
     syntonic: base.syntonic ?? 0,
     primeExponents,
     useDoubles: base.chromatic === "doubleflat" || base.chromatic === "doublesharp",
-    useDoubleSeptimals:
-      Math.abs(primeExponents[7] ?? 0) >= 2,
+    useDoubleSeptimals: Math.abs(primeExponents[7] ?? 0) >= 2,
     useTemperedAccidentals: /[\uE2F1\uE2F2\uE2F3]/u.test(String(text ?? "")),
   });
 }

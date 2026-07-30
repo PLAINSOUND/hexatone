@@ -46,9 +46,10 @@ export function createSequencerCrashDiagnostics(limit = 100) {
 }
 
 export function resetSequencerCrashDiagnostics(state, limit = null) {
-  const nextLimit = limit == null
-    ? Math.max(1, Math.round(Number(state?.limit) || 100))
-    : Math.max(1, Math.round(Number(limit) || 100));
+  const nextLimit =
+    limit == null
+      ? Math.max(1, Math.round(Number(state?.limit) || 100))
+      : Math.max(1, Math.round(Number(limit) || 100));
   return createSequencerCrashDiagnostics(nextLimit);
 }
 
@@ -57,7 +58,8 @@ function normalizeContext(context) {
   const normalized = {
     source: context.source == null ? null : String(context.source),
     snapshotId: context.snapshotId == null ? null : String(context.snapshotId),
-    selectedSnapshotId: context.selectedSnapshotId == null ? null : String(context.selectedSnapshotId),
+    selectedSnapshotId:
+      context.selectedSnapshotId == null ? null : String(context.selectedSnapshotId),
     targetSnapshotId: context.targetSnapshotId == null ? null : String(context.targetSnapshotId),
     noteId: context.noteId == null ? null : String(context.noteId),
     resolvedNoteId: context.resolvedNoteId == null ? null : String(context.resolvedNoteId),
@@ -67,15 +69,23 @@ function normalizeContext(context) {
     draftKey: context.draftKey == null ? null : String(context.draftKey),
     captureStage: context.captureStage == null ? null : String(context.captureStage),
     navigationStage: context.navigationStage == null ? null : String(context.navigationStage),
-    navigationDirection: Number.isFinite(Number(context.navigationDirection)) ? Number(context.navigationDirection) : null,
+    navigationDirection: Number.isFinite(Number(context.navigationDirection))
+      ? Number(context.navigationDirection)
+      : null,
     workspaceTab: context.workspaceTab == null ? null : String(context.workspaceTab),
     barNumber: Number.isFinite(Number(context.barNumber)) ? Number(context.barNumber) : null,
     beat: Number.isFinite(Number(context.beat)) ? Number(context.beat) : null,
     numerator: Number.isFinite(Number(context.numerator)) ? Number(context.numerator) : null,
     denominator: Number.isFinite(Number(context.denominator)) ? Number(context.denominator) : null,
-    captureNoteCount: Number.isFinite(Number(context.captureNoteCount)) ? Number(context.captureNoteCount) : null,
-    snapshotCountBefore: Number.isFinite(Number(context.snapshotCountBefore)) ? Number(context.snapshotCountBefore) : null,
-    snapshotCountAfter: Number.isFinite(Number(context.snapshotCountAfter)) ? Number(context.snapshotCountAfter) : null,
+    captureNoteCount: Number.isFinite(Number(context.captureNoteCount))
+      ? Number(context.captureNoteCount)
+      : null,
+    snapshotCountBefore: Number.isFinite(Number(context.snapshotCountBefore))
+      ? Number(context.snapshotCountBefore)
+      : null,
+    snapshotCountAfter: Number.isFinite(Number(context.snapshotCountAfter))
+      ? Number(context.snapshotCountAfter)
+      : null,
     absoluteTime: roundMetric(context.absoluteTime),
     snapshotTime: roundMetric(context.snapshotTime),
     snapshotLength: roundMetric(context.snapshotLength),
@@ -85,16 +95,34 @@ function normalizeContext(context) {
     nextEnd: roundMetric(context.nextEnd),
     eventRelativeTime: roundMetric(context.eventRelativeTime),
     eventAbsoluteTime: roundMetric(context.eventAbsoluteTime),
-    snapshotIndex: Number.isFinite(Number(context.snapshotIndex)) ? Number(context.snapshotIndex) : null,
+    snapshotIndex: Number.isFinite(Number(context.snapshotIndex))
+      ? Number(context.snapshotIndex)
+      : null,
     cueIndex: Number.isFinite(Number(context.cueIndex)) ? Number(context.cueIndex) : null,
-    currentCueIndex: Number.isFinite(Number(context.currentCueIndex)) ? Number(context.currentCueIndex) : null,
-    nextCueIndex: Number.isFinite(Number(context.nextCueIndex)) ? Number(context.nextCueIndex) : null,
-    activeCueIndex: Number.isFinite(Number(context.activeCueIndex)) ? Number(context.activeCueIndex) : null,
-    playheadStepIndex: Number.isFinite(Number(context.playheadStepIndex)) ? Number(context.playheadStepIndex) : null,
-    playheadBarIndex: Number.isFinite(Number(context.playheadBarIndex)) ? Number(context.playheadBarIndex) : null,
-    expandedCount: Number.isFinite(Number(context.expandedCount)) ? Number(context.expandedCount) : null,
-    sequenceEventCount: Number.isFinite(Number(context.sequenceEventCount)) ? Number(context.sequenceEventCount) : null,
-    cueGroupCount: Number.isFinite(Number(context.cueGroupCount)) ? Number(context.cueGroupCount) : null,
+    currentCueIndex: Number.isFinite(Number(context.currentCueIndex))
+      ? Number(context.currentCueIndex)
+      : null,
+    nextCueIndex: Number.isFinite(Number(context.nextCueIndex))
+      ? Number(context.nextCueIndex)
+      : null,
+    activeCueIndex: Number.isFinite(Number(context.activeCueIndex))
+      ? Number(context.activeCueIndex)
+      : null,
+    playheadStepIndex: Number.isFinite(Number(context.playheadStepIndex))
+      ? Number(context.playheadStepIndex)
+      : null,
+    playheadBarIndex: Number.isFinite(Number(context.playheadBarIndex))
+      ? Number(context.playheadBarIndex)
+      : null,
+    expandedCount: Number.isFinite(Number(context.expandedCount))
+      ? Number(context.expandedCount)
+      : null,
+    sequenceEventCount: Number.isFinite(Number(context.sequenceEventCount))
+      ? Number(context.sequenceEventCount)
+      : null,
+    cueGroupCount: Number.isFinite(Number(context.cueGroupCount))
+      ? Number(context.cueGroupCount)
+      : null,
     scrollTop: roundMetric(context.scrollTop),
     targetTop: roundMetric(context.targetTop),
     effectStage: context.effectStage == null ? null : String(context.effectStage),
@@ -105,10 +133,16 @@ function normalizeContext(context) {
     duplicate: context.duplicate === true,
     autoScrollEnabled: context.autoScrollEnabled === true,
     showAllEvents: context.showAllEvents === true,
-    derivedBarNumber: Number.isFinite(Number(context.derivedBarNumber)) ? Number(context.derivedBarNumber) : null,
+    derivedBarNumber: Number.isFinite(Number(context.derivedBarNumber))
+      ? Number(context.derivedBarNumber)
+      : null,
     derivedBeat: Number.isFinite(Number(context.derivedBeat)) ? Number(context.derivedBeat) : null,
-    derivedNumerator: Number.isFinite(Number(context.derivedNumerator)) ? Number(context.derivedNumerator) : null,
-    derivedDenominator: Number.isFinite(Number(context.derivedDenominator)) ? Number(context.derivedDenominator) : null,
+    derivedNumerator: Number.isFinite(Number(context.derivedNumerator))
+      ? Number(context.derivedNumerator)
+      : null,
+    derivedDenominator: Number.isFinite(Number(context.derivedDenominator))
+      ? Number(context.derivedDenominator)
+      : null,
     timestamp: context.timestamp == null ? null : String(context.timestamp),
   };
   return Object.fromEntries(
@@ -136,9 +170,10 @@ export function pushSequencerCrashDiagnostic(state, entry = {}) {
     context: normalizeContext(entry.context),
     error: serializeError(entry.error),
   };
-  const entries = diagnostics.entries.length >= diagnostics.limit
-    ? [...diagnostics.entries.slice(1), normalizedEntry]
-    : [...diagnostics.entries, normalizedEntry];
+  const entries =
+    diagnostics.entries.length >= diagnostics.limit
+      ? [...diagnostics.entries.slice(1), normalizedEntry]
+      : [...diagnostics.entries, normalizedEntry];
   return {
     ...diagnostics,
     entries,
@@ -237,9 +272,10 @@ export function appendPersistedSequencerCrashDiagnostic(
   { immediate = false } = {},
 ) {
   if (!isSequencerCrashDiagnosticsEnabled()) return null;
-  const currentState = bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
-    ? bufferedDiagnosticsState
-    : loadPersistedSequencerCrashDiagnostics(storage)?.state;
+  const currentState =
+    bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
+      ? bufferedDiagnosticsState
+      : loadPersistedSequencerCrashDiagnostics(storage)?.state;
   const nextState = pushSequencerCrashDiagnostic(currentState, entry);
   if (immediate) {
     persistSequencerCrashDiagnostics(nextState, storage);
@@ -270,18 +306,26 @@ function installSequencerCrashDiagnosticsGlobal() {
 
   if (!listenersInstalled && globalThis.addEventListener) {
     errorListener = (event) => {
-      appendPersistedSequencerCrashDiagnostic({
-        type: "error",
-        detail: event?.message ?? "uncaught error",
-        error: event?.error ?? { message: event?.message, stack: null },
-      }, globalThis.sessionStorage, { immediate: true });
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "error",
+          detail: event?.message ?? "uncaught error",
+          error: event?.error ?? { message: event?.message, stack: null },
+        },
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
     };
     rejectionListener = (event) => {
-      appendPersistedSequencerCrashDiagnostic({
-        type: "unhandledrejection",
-        detail: "unhandled rejection",
-        error: event?.reason,
-      }, globalThis.sessionStorage, { immediate: true });
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "unhandledrejection",
+          detail: "unhandled rejection",
+          error: event?.reason,
+        },
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
     };
     globalThis.addEventListener("error", errorListener);
     globalThis.addEventListener("unhandledrejection", rejectionListener);

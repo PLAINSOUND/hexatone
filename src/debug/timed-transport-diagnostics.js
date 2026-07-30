@@ -27,7 +27,7 @@ function rms(values = []) {
   if (!Array.isArray(values) || values.length === 0) return null;
   const total = values.reduce((sum, value) => {
     const numeric = Number(value || 0);
-    return sum + (numeric * numeric);
+    return sum + numeric * numeric;
   }, 0);
   return Math.sqrt(total / values.length);
 }
@@ -65,9 +65,10 @@ export function createTimedTransportDiagnostics(limit = 200) {
 }
 
 export function resetTimedTransportDiagnostics(state, limit = null) {
-  const nextLimit = limit == null
-    ? Math.max(1, Math.round(Number(state?.limit) || 200))
-    : Math.max(1, Math.round(Number(limit) || 200));
+  const nextLimit =
+    limit == null
+      ? Math.max(1, Math.round(Number(state?.limit) || 200))
+      : Math.max(1, Math.round(Number(limit) || 200));
   return createTimedTransportDiagnostics(nextLimit);
 }
 
@@ -105,9 +106,10 @@ export function pushTimedTransportDiagnostic(state, entry = {}) {
     status: entry.status == null ? null : String(entry.status),
     detail: entry.detail == null ? null : String(entry.detail),
   };
-  const entries = diagnostics.entries.length >= diagnostics.limit
-    ? [...diagnostics.entries.slice(1), normalizedEntry]
-    : [...diagnostics.entries, normalizedEntry];
+  const entries =
+    diagnostics.entries.length >= diagnostics.limit
+      ? [...diagnostics.entries.slice(1), normalizedEntry]
+      : [...diagnostics.entries, normalizedEntry];
   return {
     ...diagnostics,
     entries,
@@ -126,28 +128,33 @@ export function summarizeTimedTransportDiagnostics(state) {
   const meanAbsoluteLatenessMs = mean(latenessSamples.map((value) => Math.abs(value)));
   const maxLatenessMs = latenessSamples.length > 0 ? Math.max(...latenessSamples) : null;
   const overrunCount = latenessSamples.filter((value) => value > 25).length;
-  const fireEntries = entries.filter((entry) => (
-    entry?.type === "fire"
-    && entry?.clockSeconds != null
-    && entry?.elapsedSeconds != null
-    && Number.isFinite(Number(entry.clockSeconds))
-    && Number.isFinite(Number(entry.elapsedSeconds))
-  ));
+  const fireEntries = entries.filter(
+    (entry) =>
+      entry?.type === "fire" &&
+      entry?.clockSeconds != null &&
+      entry?.elapsedSeconds != null &&
+      Number.isFinite(Number(entry.clockSeconds)) &&
+      Number.isFinite(Number(entry.elapsedSeconds)),
+  );
   const intervalJitterSamples = [];
   for (let index = 1; index < fireEntries.length; index += 1) {
     const previous = fireEntries[index - 1];
     const current = fireEntries[index];
     const actualDeltaMs = (Number(current.clockSeconds) - Number(previous.clockSeconds)) * 1000;
-    const expectedDeltaMs = (Number(current.elapsedSeconds) - Number(previous.elapsedSeconds)) * 1000;
+    const expectedDeltaMs =
+      (Number(current.elapsedSeconds) - Number(previous.elapsedSeconds)) * 1000;
     intervalJitterSamples.push(actualDeltaMs - expectedDeltaMs);
   }
   const meanIntervalJitterMs = mean(intervalJitterSamples);
   const rmsIntervalJitterMs = rms(intervalJitterSamples);
   const meanAbsoluteIntervalJitterMs = mean(intervalJitterSamples.map((value) => Math.abs(value)));
-  const maxAbsoluteIntervalJitterMs = intervalJitterSamples.length > 0
-    ? Math.max(...intervalJitterSamples.map((value) => Math.abs(value)))
-    : null;
-  const uiEntries = entries.filter((entry) => entry?.type === "ui-commit" || entry?.type === "ui-frame-sample");
+  const maxAbsoluteIntervalJitterMs =
+    intervalJitterSamples.length > 0
+      ? Math.max(...intervalJitterSamples.map((value) => Math.abs(value)))
+      : null;
+  const uiEntries = entries.filter(
+    (entry) => entry?.type === "ui-commit" || entry?.type === "ui-frame-sample",
+  );
   const commitDurationSamples = uiEntries
     .filter((entry) => entry?.commitDurationMs != null)
     .map((entry) => Number(entry?.commitDurationMs))
@@ -187,11 +194,17 @@ export function summarizeTimedTransportDiagnostics(state) {
       frameSampleCount: frameIntervalSamples.length,
       longFrameCount: frameIntervalSamples.filter((value) => value >= 50).length,
       meanCommitDurationMs: roundMetric(mean(commitDurationSamples)),
-      maxCommitDurationMs: roundMetric(commitDurationSamples.length > 0 ? Math.max(...commitDurationSamples) : null),
+      maxCommitDurationMs: roundMetric(
+        commitDurationSamples.length > 0 ? Math.max(...commitDurationSamples) : null,
+      ),
       meanFrameIntervalMs: roundMetric(mean(frameIntervalSamples)),
-      maxFrameIntervalMs: roundMetric(frameIntervalSamples.length > 0 ? Math.max(...frameIntervalSamples) : null),
+      maxFrameIntervalMs: roundMetric(
+        frameIntervalSamples.length > 0 ? Math.max(...frameIntervalSamples) : null,
+      ),
       meanMeasurementDurationMs: roundMetric(mean(measurementDurationSamples)),
-      maxMeasurementDurationMs: roundMetric(measurementDurationSamples.length > 0 ? Math.max(...measurementDurationSamples) : null),
+      maxMeasurementDurationMs: roundMetric(
+        measurementDurationSamples.length > 0 ? Math.max(...measurementDurationSamples) : null,
+      ),
       maxSnapshotRowCount: maximumMetric("snapshotRowCount"),
       maxEventRowCount: maximumMetric("eventRowCount"),
       maxStructuralRowCount: maximumMetric("structuralRowCount"),
@@ -284,11 +297,15 @@ export function clearPersistedTimedTransportDiagnostics(storage = globalThis?.se
   storage.removeItem(TIMED_TRANSPORT_DIAGNOSTICS_STORAGE_KEY);
 }
 
-export function appendPersistedTimedTransportDiagnostic(entry, storage = globalThis?.sessionStorage) {
+export function appendPersistedTimedTransportDiagnostic(
+  entry,
+  storage = globalThis?.sessionStorage,
+) {
   if (!isTimedTransportDiagnosticsEnabled()) return null;
-  const currentState = bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
-    ? bufferedDiagnosticsState
-    : loadPersistedTimedTransportDiagnostics(storage)?.state;
+  const currentState =
+    bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
+      ? bufferedDiagnosticsState
+      : loadPersistedTimedTransportDiagnostics(storage)?.state;
   const nextState = pushTimedTransportDiagnostic(currentState, entry);
   bufferTimedTransportDiagnostics(nextState, storage);
   return nextState;

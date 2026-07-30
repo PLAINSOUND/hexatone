@@ -3,13 +3,7 @@
 // specific color payloads for LinnStrument, Lumatone, and Exquis. It does not
 // decide modulation or tuning; it only reflects the current interpreted surface.
 
-import {
-  HSVtoRGB2,
-  nameToHex,
-  hex2rgb,
-  rgb2hsv,
-  rgbToHex,
-} from "./color_utils";
+import { HSVtoRGB2, nameToHex, hex2rgb, rgb2hsv, rgbToHex } from "./color_utils";
 import {
   buildLinnstrumentDegreeMap,
   LINNS_OFF,
@@ -101,7 +95,11 @@ export function updateColors(colors, options = {}) {
   this.scheduleGridRedraw();
 
   // Controller LED queues collapse rapid color drags to the latest state.
-  if (this.lumatoneLEDs && this.settings.lumatone_led_sync && canAutoSendLumatoneColors.call(this)) {
+  if (
+    this.lumatoneLEDs &&
+    this.settings.lumatone_led_sync &&
+    canAutoSendLumatoneColors.call(this)
+  ) {
     this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
   }
 
@@ -161,9 +159,7 @@ export function buildLinnstrumentColorArray() {
     const note = (ch - 1) * 16 + (col - 1);
     if (note < 0 || note > 127) continue;
     const [, reducedSteps] = this.hexCoordsToCents(controllerCoordsForDisplay.call(this, coords));
-    values[note] = reducedSteps === 0
-      ? LINNS_RED
-      : (degreeMap.get(reducedSteps) ?? LINNS_OFF);
+    values[note] = reducedSteps === 0 ? LINNS_RED : (degreeMap.get(reducedSteps) ?? LINNS_OFF);
   }
   return values;
 }
@@ -215,7 +211,8 @@ export function buildLumatoneBypassLayoutEntries() {
         midi_passthrough: false,
       }
     : this.settings;
-  const controllerMap = this.controllerMap ?? this._buildControllerMapForSettings?.(layout2dSettings);
+  const controllerMap =
+    this.controllerMap ?? this._buildControllerMapForSettings?.(layout2dSettings);
   if (!controllerMap) return null;
 
   const entries = [];
@@ -290,9 +287,10 @@ export function buildLumatoneColorEntries() {
     const key = parseInt(mapKey.slice(dotIdx + 1), 10);
     const mappedCoords = controllerCoordsForDisplay.call(this, coords);
     const [, reducedSteps] = this.hexCoordsToCents(mappedCoords);
-    const hexColor = darkMode || (degreeFilter && !degreeFilter.has(reducedSteps))
-      ? "#000000"
-      : this._getLumatoneHexColor(mappedCoords);
+    const hexColor =
+      darkMode || (degreeFilter && !degreeFilter.has(reducedSteps))
+        ? "#000000"
+        : this._getLumatoneHexColor(mappedCoords);
     entries.push({ board, key, hexColor });
   }
   return entries;

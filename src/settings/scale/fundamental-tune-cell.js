@@ -50,11 +50,7 @@ const FundamentalTuneCell = ({
     previousResetToken.current = resetToken;
     const previewClearedExternally = previousDirty.current && !isDirty;
     previousDirty.current = isDirty;
-    if (
-      !fundamentalChanged &&
-      !resetTokenChanged &&
-      !previewClearedExternally
-    ) {
+    if (!fundamentalChanged && !resetTokenChanged && !previewClearedExternally) {
       return;
     }
     if (keysRef?.current?.previewFundamental) keysRef.current.previewFundamental(0, true);
@@ -134,7 +130,9 @@ const FundamentalTuneCell = ({
           onClick={onCompare}
           title="A/B compare with original"
         >
-          <span class="refresh-glyph tune-btn-compare" aria-hidden="true">⟳</span>
+          <span class="refresh-glyph tune-btn-compare" aria-hidden="true">
+            ⟳
+          </span>
         </button>
       )}
       {isDirty && (

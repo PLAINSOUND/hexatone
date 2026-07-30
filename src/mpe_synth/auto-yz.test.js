@@ -202,9 +202,7 @@ describe("automatic MPE Y/Z shaping", () => {
     FakeWorker.instance.emit({ channel: 5, generation: 2, y: 0, z: 0 });
 
     const messages = midiOutput.send.mock.calls.map(([message]) => message);
-    const yValues = messages
-      .filter((message) => message[1] === 74)
-      .map((message) => message[2]);
+    const yValues = messages.filter((message) => message[1] === 74).map((message) => message[2]);
     expect(yValues).not.toContain(127);
     expect(yValues).toEqual([...yValues].sort((a, b) => b - a));
     expect(messages.at(-2)).toEqual([0xb0 + 4, 74, 0]);

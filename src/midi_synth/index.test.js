@@ -269,13 +269,23 @@ describe("midi_synth bulk-dump retune policy", () => {
     const output = { send: vi.fn() };
     const synth = await create_midi_synth({
       outputMode: {
-        output, channel: 0, midiMapping: "MTS1", transportMode: "single_note_realtime",
-        velocity: 72, sysexType: 127, deviceId: 127, mapNumber: 0, anchorNote: 60,
+        output,
+        channel: 0,
+        midiMapping: "MTS1",
+        transportMode: "single_note_realtime",
+        velocity: 72,
+        sysexType: 127,
+        deviceId: 127,
+        mapNumber: 0,
+        anchorNote: 60,
         pitchBendRange: 2,
       },
       tuningContext: {
-        fundamental: 440, degree0toRefAsArray: [0, 1], scale: scale12,
-        equivInterval: 1200, name: "test",
+        fundamental: 440,
+        degree0toRefAsArray: [0, 1],
+        scale: scale12,
+        equivInterval: 1200,
+        name: "test",
       },
       legacyInput: { midiin_device: "input-1", midiin_anchor_note: 60 },
     });
@@ -421,7 +431,14 @@ describe("midi_synth bulk-dump retune policy", () => {
     staticHex.sequenceRetune(247);
     expect(staticMap.output.send).toHaveBeenCalledTimes(1);
     expect(staticMap.output.send.mock.calls[0][0].slice(0, 8)).toEqual([
-      0xf0, 127, 127, 0x08, 0x02, 3, 0x01, staticHex.carrier,
+      0xf0,
+      127,
+      127,
+      0x08,
+      0x02,
+      3,
+      0x01,
+      staticHex.carrier,
     ]);
   });
 });

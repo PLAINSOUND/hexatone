@@ -16,7 +16,10 @@ describe("sequencer sequence operations", () => {
     length: 2,
     notes: [],
   };
-  const snapshotIndexById = new Map([["s1", 1], ["s2", 2]]);
+  const snapshotIndexById = new Map([
+    ["s1", 1],
+    ["s2", 2],
+  ]);
 
   it("applies note list updates with sequencer sorting", () => {
     const notes = applyNoteUpdateToSnapshot(sourceSnapshot, () => [

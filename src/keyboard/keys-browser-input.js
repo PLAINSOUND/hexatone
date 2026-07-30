@@ -102,11 +102,7 @@ export function onKeyDown(e) {
     }
   }
 
-  if (
-    isModulationToggleKeyCode(e.code) &&
-    !e.repeat &&
-    isShiftOnlyShortcut(e)
-  ) {
+  if (isModulationToggleKeyCode(e.code) && !e.repeat && isShiftOnlyShortcut(e)) {
     e.preventDefault();
     this.toggleModulationArm();
     return;

@@ -49,9 +49,10 @@ export function createSequenceRuntimeDiagnostics(limit = 200) {
 }
 
 export function resetSequenceRuntimeDiagnostics(state, limit = null) {
-  const nextLimit = limit == null
-    ? Math.max(1, Math.round(Number(state?.limit) || 200))
-    : Math.max(1, Math.round(Number(limit) || 200));
+  const nextLimit =
+    limit == null
+      ? Math.max(1, Math.round(Number(state?.limit) || 200))
+      : Math.max(1, Math.round(Number(limit) || 200));
   return createSequenceRuntimeDiagnostics(nextLimit);
 }
 
@@ -77,19 +78,25 @@ export function pushSequenceRuntimeDiagnostic(state, entry = {}) {
     visibleRowCount: nullableNumber(entry.visibleRowCount),
     scrollTop: nullableNumber(entry.scrollTop),
     runtimeInstanceId: nullableNumber(entry.runtimeInstanceId),
-    playbackRuntimeToken: entry.playbackRuntimeToken == null ? null : String(entry.playbackRuntimeToken),
+    playbackRuntimeToken:
+      entry.playbackRuntimeToken == null ? null : String(entry.playbackRuntimeToken),
     timedTriggerToken: entry.timedTriggerToken == null ? null : String(entry.timedTriggerToken),
     transportStatus: entry.transportStatus == null ? null : String(entry.transportStatus),
-    changedKeys: entry.changedKeys == null
-      ? null
-      : Array.isArray(entry.changedKeys)
-        ? entry.changedKeys.map((key) => String(key))
-        : String(entry.changedKeys).split(",").map((key) => key.trim()).filter(Boolean),
+    changedKeys:
+      entry.changedKeys == null
+        ? null
+        : Array.isArray(entry.changedKeys)
+          ? entry.changedKeys.map((key) => String(key))
+          : String(entry.changedKeys)
+              .split(",")
+              .map((key) => key.trim())
+              .filter(Boolean),
     detail: entry.detail == null ? null : String(entry.detail),
   };
-  const entries = diagnostics.entries.length >= diagnostics.limit
-    ? [...diagnostics.entries.slice(1), normalizedEntry]
-    : [...diagnostics.entries, normalizedEntry];
+  const entries =
+    diagnostics.entries.length >= diagnostics.limit
+      ? [...diagnostics.entries.slice(1), normalizedEntry]
+      : [...diagnostics.entries, normalizedEntry];
   return {
     ...diagnostics,
     entries,
@@ -146,12 +153,14 @@ export function summarizeSequenceRuntimeDiagnostics(state) {
       changedKeys.forEach((key) => {
         rebuildCauseCounts[key] = (rebuildCauseCounts[key] ?? 0) + 1;
       });
-      const playbackTokenChanged = previousPlaybackRuntimeToken != null
-        && entry?.playbackRuntimeToken != null
-        && previousPlaybackRuntimeToken !== entry.playbackRuntimeToken;
-      const timedTriggerTokenChanged = previousTimedTriggerToken != null
-        && entry?.timedTriggerToken != null
-        && previousTimedTriggerToken !== entry.timedTriggerToken;
+      const playbackTokenChanged =
+        previousPlaybackRuntimeToken != null &&
+        entry?.playbackRuntimeToken != null &&
+        previousPlaybackRuntimeToken !== entry.playbackRuntimeToken;
+      const timedTriggerTokenChanged =
+        previousTimedTriggerToken != null &&
+        entry?.timedTriggerToken != null &&
+        previousTimedTriggerToken !== entry.timedTriggerToken;
       if (playbackTokenChanged) playbackRuntimeTokenChangeCount += 1;
       if (timedTriggerTokenChanged) timedTriggerTokenChangeCount += 1;
       recentRebuilds.push({
@@ -173,15 +182,21 @@ export function summarizeSequenceRuntimeDiagnostics(state) {
   Object.values(byStep).forEach((stepSummary) => {
     stepSummary.totalDurationMs = roundMetric(stepSummary.totalDurationMs);
     stepSummary.maxDurationMs = roundMetric(stepSummary.maxDurationMs);
-    stepSummary.meanDurationMs = roundMetric(stepSummary.totalDurationMs / Math.max(1, stepSummary.count));
+    stepSummary.meanDurationMs = roundMetric(
+      stepSummary.totalDurationMs / Math.max(1, stepSummary.count),
+    );
   });
   Object.values(byType).forEach((typeSummary) => {
     typeSummary.totalDurationMs = roundMetric(typeSummary.totalDurationMs);
     typeSummary.maxDurationMs = roundMetric(typeSummary.maxDurationMs);
-    typeSummary.meanDurationMs = roundMetric(typeSummary.totalDurationMs / Math.max(1, typeSummary.count));
+    typeSummary.meanDurationMs = roundMetric(
+      typeSummary.totalDurationMs / Math.max(1, typeSummary.count),
+    );
     typeSummary.totalLatencyMs = roundMetric(typeSummary.totalLatencyMs);
     typeSummary.maxLatencyMs = roundMetric(typeSummary.maxLatencyMs);
-    typeSummary.meanLatencyMs = roundMetric(typeSummary.totalLatencyMs / Math.max(1, typeSummary.count));
+    typeSummary.meanLatencyMs = roundMetric(
+      typeSummary.totalLatencyMs / Math.max(1, typeSummary.count),
+    );
   });
   return {
     entryCount: entries.length,
@@ -231,22 +246,27 @@ export function loadPersistedSequenceRuntimeDiagnostics(storage = globalThis?.se
   }
 }
 
-export function appendPersistedSequenceRuntimeDiagnostic(entry, storage = globalThis?.sessionStorage) {
+export function appendPersistedSequenceRuntimeDiagnostic(
+  entry,
+  storage = globalThis?.sessionStorage,
+) {
   if (bufferedDiagnosticsStorage && bufferedDiagnosticsStorage !== storage) {
     writeSequenceRuntimeDiagnostics(bufferedDiagnosticsState, bufferedDiagnosticsStorage);
     bufferedDiagnosticsState = null;
   }
-  const currentState = bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
-    ? bufferedDiagnosticsState
-    : loadPersistedSequenceRuntimeDiagnostics(storage)?.state;
+  const currentState =
+    bufferedDiagnosticsStorage === storage && bufferedDiagnosticsState
+      ? bufferedDiagnosticsState
+      : loadPersistedSequenceRuntimeDiagnostics(storage)?.state;
   const nextState = pushSequenceRuntimeDiagnostic(currentState, entry);
   bufferedDiagnosticsState = nextState;
   bufferedDiagnosticsStorage = storage;
   if (pendingPersistenceTimer == null) {
-    pendingPersistenceTimer = globalThis.setTimeout?.(() => {
-      pendingPersistenceTimer = null;
-      writeSequenceRuntimeDiagnostics(bufferedDiagnosticsState, bufferedDiagnosticsStorage);
-    }, 0) ?? null;
+    pendingPersistenceTimer =
+      globalThis.setTimeout?.(() => {
+        pendingPersistenceTimer = null;
+        writeSequenceRuntimeDiagnostics(bufferedDiagnosticsState, bufferedDiagnosticsStorage);
+      }, 0) ?? null;
   }
   return nextState;
 }
@@ -288,13 +308,15 @@ function installSequenceRuntimeDiagnosticsGlobal() {
       return loadPersistedSequenceRuntimeDiagnostics();
     },
     getRebuildReport: () => {
-      const state = flushPersistedSequenceRuntimeDiagnostics()
-        ?? loadPersistedSequenceRuntimeDiagnostics()?.state;
+      const state =
+        flushPersistedSequenceRuntimeDiagnostics() ??
+        loadPersistedSequenceRuntimeDiagnostics()?.state;
       return summarizeSequenceRuntimeDiagnostics(state).rebuilds;
     },
     reset: () => {
-      const currentState = flushPersistedSequenceRuntimeDiagnostics()
-        ?? loadPersistedSequenceRuntimeDiagnostics()?.state;
+      const currentState =
+        flushPersistedSequenceRuntimeDiagnostics() ??
+        loadPersistedSequenceRuntimeDiagnostics()?.state;
       const nextState = resetSequenceRuntimeDiagnostics(currentState);
       persistSequenceRuntimeDiagnostics(nextState);
       return summarizeSequenceRuntimeDiagnostics(nextState);

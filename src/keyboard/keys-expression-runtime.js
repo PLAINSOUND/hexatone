@@ -18,11 +18,7 @@ const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 
 export function passthroughCC(cc, value) {
-  if (
-    this.midiout_data &&
-    this.settings.midi_device !== "OFF" &&
-    this.settings.midi_channel >= 0
-  ) {
+  if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendControlChange(cc, value, { channels: this.settings.midi_channel + 1 });
   }
   if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
@@ -35,11 +31,7 @@ export function passthroughCC(cc, value) {
 }
 
 export function passthroughChannelPressure(value) {
-  if (
-    this.midiout_data &&
-    this.settings.midi_device !== "OFF" &&
-    this.settings.midi_channel >= 0
-  ) {
+  if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendChannelAftertouch(value, {
       channels: this.settings.midi_channel + 1,
       rawValue: true,
@@ -56,11 +48,7 @@ export function passthroughChannelPressure(value) {
 
 export function passthroughPitchBend(val14) {
   const normalized = val14 / 8192.0 - 1.0;
-  if (
-    this.midiout_data &&
-    this.settings.midi_device !== "OFF" &&
-    this.settings.midi_channel >= 0
-  ) {
+  if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendPitchBend(normalized, { channels: this.settings.midi_channel + 1 });
   }
   if (
@@ -120,19 +108,14 @@ export function applyMpePitchBend(entry, channel, value14) {
     return;
   }
 
-  const anchor14 = (
-    continuumScaleMode &&
-    entry.hex._scaleModeBendAnchor14 != null
-  )
-    ? this._normalizePitchBend14(entry.hex._scaleModeBendAnchor14)
-    : 8192;
+  const anchor14 =
+    continuumScaleMode && entry.hex._scaleModeBendAnchor14 != null
+      ? this._normalizePitchBend14(entry.hex._scaleModeBendAnchor14)
+      : 8192;
   let norm = (bend14 - anchor14) / 8192;
   if (!continuumScaleMode && this.inputRuntime.bendFlip) norm = -norm;
   if (continuumScaleMode) {
-    const scaleFactor = Math.max(
-      0.25,
-      1,
-    );
+    const scaleFactor = Math.max(0.25, 1);
     const shapingControl = Math.max(
       0,
       Math.min(100, Number(this.inputRuntime.hakenXGlideShaping ?? 0) || 0),
@@ -340,7 +323,10 @@ export function reapplyCurrentWheelBend() {
 export function retuneHexFromBase(hex, baseCents, bendOnly = false) {
   if (!hex?.retune || hex.release) return;
   hex._baseCents = baseCents;
-  if ((this.inputRuntime.mpeInput || this.inputRuntime.perChannelExpression) && hex._inputChannel != null) {
+  if (
+    (this.inputRuntime.mpeInput || this.inputRuntime.perChannelExpression) &&
+    hex._inputChannel != null
+  ) {
     const channel = hex._inputChannel;
     const entry = this.state.activeMidiByChannel.get(channel) ?? { hex, baseCents };
     entry.baseCents = baseCents;
@@ -422,11 +408,7 @@ export function reapplyCurrentInputBends() {
     for (const [channel] of this.state.activeMidiByChannel) {
       const bend14 = this._mpeInputBendByChannel.get(channel) ?? 8192;
       for (const hex of this._activeHexesForInputChannel(channel)) {
-        this._applyMpePitchBend(
-          { hex, baseCents: hex._baseCents ?? hex.cents },
-          channel,
-          bend14,
-        );
+        this._applyMpePitchBend({ hex, baseCents: hex._baseCents ?? hex.cents }, channel, bend14);
       }
     }
     return;
@@ -459,7 +441,10 @@ export function updateWheelTarget(smoothReturn = false) {
   if (newFront) {
     this._wheelBaseCents = newFront._baseCents ?? newFront.cents;
     if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
-      const { baseCents, bentCents } = this._resolveRecencyWheelTarget(newFront, this._wheelValue14);
+      const { baseCents, bentCents } = this._resolveRecencyWheelTarget(
+        newFront,
+        this._wheelValue14,
+      );
       this._wheelBaseCents = baseCents;
       this._wheelBend = bentCents - baseCents;
       if (smoothReturn && this._wheelValue14 !== 8192 && newFront?.retune) {

@@ -60,13 +60,10 @@ const ScalaImport = (props) => {
     <div class="settings-form__stack settings-form__stack--import">
       {/* ── Import section ─────────────────────────────────────────────── */}
       <fieldset class="settings-panel">
-        <legend><b>Scala File</b></legend>
-        <button
-          type="button"
-          class="settings-panel__close"
-          onClick={props.onCancel}
-          title="Close"
-        >
+        <legend>
+          <b>Scala File</b>
+        </legend>
+        <button type="button" class="settings-panel__close" onClick={props.onCancel} title="Close">
           ✕
         </button>
         <p>
@@ -119,7 +116,9 @@ const ScalaImport = (props) => {
 
       {/* ── Export section ─────────────────────────────────────────────── */}
       <fieldset class="settings-panel">
-        <legend><b>Export</b></legend>
+        <legend>
+          <b>Export</b>
+        </legend>
         {hasNegativeExportValues ? (
           <p class="settings-form__warning-copy">
             Negative scale values are not supported in Scala export. Plain Scala and Ableton Scala

@@ -598,48 +598,56 @@ describe("settingsToPresetJson", () => {
   });
 
   it("exports changed LinnStrument and Haken anchors using controller-specific fields", () => {
-    const linnstrument = JSON.parse(settingsToPresetJson({
-      name: "LinnStrument Export",
-      scale: ["100.", "1200."],
-      equivSteps: 2,
-      midiin_controller_override: "linnstrument",
-      midi_passthrough: false,
-      midiin_anchor_note: 12,
-      midiin_anchor_channel: 6,
-    }));
+    const linnstrument = JSON.parse(
+      settingsToPresetJson({
+        name: "LinnStrument Export",
+        scale: ["100.", "1200."],
+        equivSteps: 2,
+        midiin_controller_override: "linnstrument",
+        midi_passthrough: false,
+        midiin_anchor_note: 12,
+        midiin_anchor_channel: 6,
+      }),
+    );
     expect(linnstrument.linnstrument_anchor_note).toBe(12);
     expect(linnstrument.linnstrument_anchor_channel).toBe(6);
 
-    const haken = JSON.parse(settingsToPresetJson({
-      name: "Haken Export",
-      scale: ["100.", "1200."],
-      equivSteps: 2,
-      midiin_controller_override: "hakenaudio",
-      midi_passthrough: false,
-      midiin_anchor_note: 67,
-      midiin_anchor_channel: 4,
-    }));
+    const haken = JSON.parse(
+      settingsToPresetJson({
+        name: "Haken Export",
+        scale: ["100.", "1200."],
+        equivSteps: 2,
+        midiin_controller_override: "hakenaudio",
+        midi_passthrough: false,
+        midiin_anchor_note: 67,
+        midiin_anchor_channel: 4,
+      }),
+    );
     expect(haken.haken_anchor_note).toBe(67);
     expect(haken.haken_anchor_channel).toBeUndefined();
   });
 
   it("keeps existing device anchors when a different active controller changes", () => {
-    const parsed = JSON.parse(settingsToPresetJson({
-      name: "Multi-controller Export",
-      scale: ["100.", "1200."],
-      equivSteps: 2,
-      midiin_controller_override: "exquis",
-      midi_passthrough: false,
-      midiin_anchor_note: 27,
-      lumatone_anchor_note: 41,
-      lumatone_anchor_channel: 2,
-    }));
+    const parsed = JSON.parse(
+      settingsToPresetJson({
+        name: "Multi-controller Export",
+        scale: ["100.", "1200."],
+        equivSteps: 2,
+        midiin_controller_override: "exquis",
+        midi_passthrough: false,
+        midiin_anchor_note: 27,
+        lumatone_anchor_note: 41,
+        lumatone_anchor_channel: 2,
+      }),
+    );
 
-    expect(parsed).toEqual(expect.objectContaining({
-      lumatone_anchor_note: 41,
-      lumatone_anchor_channel: 2,
-      exquis_anchor_note: 27,
-    }));
+    expect(parsed).toEqual(
+      expect.objectContaining({
+        lumatone_anchor_note: 41,
+        lumatone_anchor_channel: 2,
+        exquis_anchor_note: 27,
+      }),
+    );
   });
 });
 

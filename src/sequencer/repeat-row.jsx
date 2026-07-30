@@ -13,20 +13,18 @@ import {
   buildSelectOnFocus,
 } from "./field-props.js";
 
-const RepeatRow = ({
-  repeat,
-  timing,
-  editing,
-}) => {
+const RepeatRow = ({ repeat, timing, editing }) => {
   const repeatId = repeat.repeatId ?? repeat.id;
   const repeatPosition = Number(repeat.position ?? repeat.absoluteTime);
-  const barBeat = timing.barBeatByEventId?.get(repeat.eventId) ?? absolutePositionToBarBeat(
-    repeatPosition,
-    timing.sortedBars,
-    null,
-    9,
-    timing.terminalBarlinePosition,
-  );
+  const barBeat =
+    timing.barBeatByEventId?.get(repeat.eventId) ??
+    absolutePositionToBarBeat(
+      repeatPosition,
+      timing.sortedBars,
+      null,
+      9,
+      timing.terminalBarlinePosition,
+    );
   const sequenceTime = repeatPosition.toFixed(6);
   const draftKey = timing.repeatBarRelativeDraftKey(repeatId);
   const repeatBarRelativeDraft = timing.repeatBarRelativeDrafts[draftKey] ?? null;
@@ -70,11 +68,16 @@ const RepeatRow = ({
             editing.onDeleteRepeat?.(repeatId);
           }}
         >
-          <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+          <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
+            ×
+          </span>
         </button>
       </div>
       <div class="sequencer-tempo-row__gutter-spacer" aria-hidden="true" />
-      <div class={`sequencer-repeat-row__summary${isStart ? " sequencer-repeat-row__summary--start" : " sequencer-repeat-row__summary--end"}`} aria-hidden="true">
+      <div
+        class={`sequencer-repeat-row__summary${isStart ? " sequencer-repeat-row__summary--start" : " sequencer-repeat-row__summary--end"}`}
+        aria-hidden="true"
+      >
         <span class="sequencer-repeat-row__dots">
           <span class="sequencer-repeat-row__dot" />
           <span class="sequencer-repeat-row__dot" />
@@ -87,8 +90,12 @@ const RepeatRow = ({
           defaultValue={sequenceTime}
           aria-label="repeat position"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onKeyDown={buildEnterCommit(editing, (value) => editing.updateRepeatPosition(repeatId, value))}
-          onBlur={buildBlurCommit(editing, (value) => editing.updateRepeatPosition(repeatId, value))}
+          onKeyDown={buildEnterCommit(editing, (value) =>
+            editing.updateRepeatPosition(repeatId, value),
+          )}
+          onBlur={buildBlurCommit(editing, (value) =>
+            editing.updateRepeatPosition(repeatId, value),
+          )}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__bar-cell sequencer-grid-offset">
@@ -100,8 +107,18 @@ const RepeatRow = ({
           value={repeatBarRelativeDraft?.barNumber ?? String(barBeat?.barNumber ?? 1)}
           aria-label="repeat bar"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onInput={(e) => editing.updateRepeatBarRelativeDraftField(draftKey, barBeat, "bar", e.currentTarget.value, { repeatId })}
-          onKeyDown={buildDraftEnterCommit(() => editing.commitRepeatBarRelativeDraft(repeatId, draftKey))}
+          onInput={(e) =>
+            editing.updateRepeatBarRelativeDraftField(
+              draftKey,
+              barBeat,
+              "bar",
+              e.currentTarget.value,
+              { repeatId },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.commitRepeatBarRelativeDraft(repeatId, draftKey),
+          )}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__beat-cell sequencer-grid-offset">
@@ -113,8 +130,18 @@ const RepeatRow = ({
           value={repeatBeatValue}
           aria-label="repeat beat"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onInput={(e) => editing.updateRepeatBarRelativeDraftField(draftKey, barBeat, "beat", e.currentTarget.value, { repeatId })}
-          onKeyDown={buildDraftEnterCommit(() => editing.commitRepeatBarRelativeDraft(repeatId, draftKey))}
+          onInput={(e) =>
+            editing.updateRepeatBarRelativeDraftField(
+              draftKey,
+              barBeat,
+              "beat",
+              e.currentTarget.value,
+              { repeatId },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.commitRepeatBarRelativeDraft(repeatId, draftKey),
+          )}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__num-cell sequencer-grid-offset">
@@ -126,8 +153,18 @@ const RepeatRow = ({
           value={repeatNumValue}
           aria-label="repeat beat fraction numerator"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onInput={(e) => editing.updateRepeatBarRelativeDraftField(draftKey, barBeat, "num", e.currentTarget.value, { repeatId })}
-          onKeyDown={buildDraftEnterCommit(() => editing.commitRepeatBarRelativeDraft(repeatId, draftKey))}
+          onInput={(e) =>
+            editing.updateRepeatBarRelativeDraftField(
+              draftKey,
+              barBeat,
+              "num",
+              e.currentTarget.value,
+              { repeatId },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.commitRepeatBarRelativeDraft(repeatId, draftKey),
+          )}
         />
       </div>
       <div class="sequencer-event__cell sequencer-tempo-row__time-cell sequencer-tempo-row__den-cell sequencer-grid-offset">
@@ -139,8 +176,18 @@ const RepeatRow = ({
           value={repeatDenValue}
           aria-label="repeat beat fraction denominator"
           onFocus={buildSelectOnFocus({ clearCommitted: true })}
-          onInput={(e) => editing.updateRepeatBarRelativeDraftField(draftKey, barBeat, "den", e.currentTarget.value, { repeatId })}
-          onKeyDown={buildDraftEnterCommit(() => editing.commitRepeatBarRelativeDraft(repeatId, draftKey))}
+          onInput={(e) =>
+            editing.updateRepeatBarRelativeDraftField(
+              draftKey,
+              barBeat,
+              "den",
+              e.currentTarget.value,
+              { repeatId },
+            )
+          }
+          onKeyDown={buildDraftEnterCommit(() =>
+            editing.commitRepeatBarRelativeDraft(repeatId, draftKey),
+          )}
         />
       </div>
       <div class="sequencer-repeat-row__tail">
@@ -166,7 +213,11 @@ const RepeatRow = ({
                 commitRepeatCount(e.currentTarget.value);
               }}
             />
-            <span class={`sequencer-repeat-row__count-suffix${isRepeatCountHint ? " sequencer-repeat-row__count-suffix--hint" : ""}`}>x</span>
+            <span
+              class={`sequencer-repeat-row__count-suffix${isRepeatCountHint ? " sequencer-repeat-row__count-suffix--hint" : ""}`}
+            >
+              x
+            </span>
           </span>
         ) : null}
         {isRepeatBarRelativeDraftActive ? (

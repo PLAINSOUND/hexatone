@@ -13,9 +13,7 @@ vi.mock("./tune-cell.js", () => ({
       <button
         type="button"
         title={`preview degree ${degree}`}
-        onClick={() =>
-          onPreviewChange?.((prevState) => setDegreePreview(prevState, degree, 150))
-        }
+        onClick={() => onPreviewChange?.((prevState) => setDegreePreview(prevState, degree, 150))}
       >
         preview
       </button>
@@ -60,9 +58,7 @@ describe("ScaleTable preview reset", () => {
     let degreeFrequency = screen.getByLabelText("pitch frequency 1");
     expect(degreeFrequency.style.color).toBe("rgb(153, 0, 0)");
 
-    rerender(
-      <PreviewHarness importCount={1} />,
-    );
+    rerender(<PreviewHarness importCount={1} />);
 
     degreeFrequency = screen.getByLabelText("pitch frequency 1");
     expect(degreeFrequency.style.color).toBe("");

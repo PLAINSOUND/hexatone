@@ -104,9 +104,7 @@ describe("modulation-frame-runtime", () => {
       deltaDrSteps: -1,
     });
 
-    expect(
-      geometryDeltaFromCoords(new Point(1, 2), new Point(4, -1)),
-    ).toEqual({
+    expect(geometryDeltaFromCoords(new Point(1, 2), new Point(4, -1))).toEqual({
       deltaRSteps: 3,
       deltaDrSteps: -3,
     });
@@ -179,12 +177,20 @@ describe("modulation-frame-runtime", () => {
     });
     const history = [
       { sourceDegree: 0, targetDegree: 1, count: 0, strategy: "retune_surface_to_source" },
-      { sourceDegree: 1, targetDegree: 3, count: -1, strategy: "retune_surface_to_source", transpositionRatioText: "5/8" },
+      {
+        sourceDegree: 1,
+        targetDegree: 3,
+        count: -1,
+        strategy: "retune_surface_to_source",
+        transpositionRatioText: "5/8",
+      },
     ];
 
     expect(getActiveModulationHistory(history)).toEqual([history[1]]);
     expect(hasActiveModulationHistory(history)).toBe(true);
-    expect(modulationHistoryKey(getActiveModulationHistory(history))).toContain("1:3:retune_surface_to_source:-1");
+    expect(modulationHistoryKey(getActiveModulationHistory(history))).toContain(
+      "1:3:retune_surface_to_source:-1",
+    );
 
     const summary = deriveCurrentFundamentalSummary(workspace, history, { fundamental: 440 });
     expect(summary?.fundamentalHz).toBeCloseTo(
@@ -243,6 +249,8 @@ describe("modulation-frame-runtime", () => {
     expect(snapshot?.history).toEqual([{ sourceDegree: 1, targetDegree: 3, count: 1 }]);
     expect(deriveModulationSummaryText(snapshot, degreeLabel, workspace)).toBe("d1 →");
     expect(presetModulationSnapshot(snapshot?.history)?.mode).toBe("idle");
-    expect(deriveModulationPaletteTitles(snapshot?.history, degreeLabel, workspace)).toEqual(["d1 ↔ d3"]);
+    expect(deriveModulationPaletteTitles(snapshot?.history, degreeLabel, workspace)).toEqual([
+      "d1 ↔ d3",
+    ]);
   });
 });

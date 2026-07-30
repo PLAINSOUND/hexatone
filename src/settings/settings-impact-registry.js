@@ -1,17 +1,6 @@
 export const SETTINGS_IMPACT_FIELDS = {
-  tuning: [
-    "scale",
-    "equivSteps",
-    "reference_degree",
-    "fundamental",
-  ],
-  layout: [
-    "rSteps",
-    "drSteps",
-    "center_degree",
-    "hexSize",
-    "rotation",
-  ],
+  tuning: ["scale", "equivSteps", "reference_degree", "fundamental"],
+  layout: ["rSteps", "drSteps", "center_degree", "hexSize", "rotation"],
   labels: [
     "note_names",
     "key_labels",
@@ -130,14 +119,8 @@ export const SETTINGS_IMPACT_FIELDS = {
 // this list explicit makes new persistence keys fail registry coverage tests
 // until their rendering/runtime impact is classified.
 export const SETTINGS_IMPACT_IGNORED_FIELDS = {
-  presetMetadata: [
-    "name",
-    "description",
-    "short_description",
-  ],
-  scaleEditorOnly: [
-    "retuning_mode",
-  ],
+  presetMetadata: ["name", "description", "short_description"],
+  scaleEditorOnly: ["retuning_mode"],
   paletteUiOnly: [
     "heji_palette_visible",
     "heji_palette_structure",
@@ -154,11 +137,7 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
     "osc_quick_release_time",
     "osc_quick_release_raster_only",
   ],
-  permissionState: [
-    "webmidi_enabled",
-    "webmidi_sysex_enabled",
-    "webmidi_access",
-  ],
+  permissionState: ["webmidi_enabled", "webmidi_sysex_enabled", "webmidi_access"],
   ledDriverLifecycle: [
     "lumatone_out_port",
     "exquis_out_port",
@@ -179,10 +158,7 @@ export const SETTINGS_IMPACT_GROUPS = {
     ...SETTINGS_IMPACT_FIELDS.layout,
     ...SETTINGS_IMPACT_FIELDS.inputBinding,
   ],
-  musicalSurfaceReset: [
-    ...SETTINGS_IMPACT_FIELDS.tuning,
-    ...SETTINGS_IMPACT_FIELDS.layout,
-  ],
+  musicalSurfaceReset: [...SETTINGS_IMPACT_FIELDS.tuning, ...SETTINGS_IMPACT_FIELDS.layout],
   colors: [
     ...SETTINGS_IMPACT_FIELDS.colors,
     ...SETTINGS_IMPACT_FIELDS.tuning,

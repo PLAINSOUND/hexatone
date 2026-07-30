@@ -46,7 +46,7 @@ function sendNrpn(output, param, value) {
   const ch = 0xb0; // channel 1
   output.send([ch, 99, (param >> 7) & 0x7f]);
   output.send([ch, 98, param & 0x7f]);
-  output.send([ch, 6,  (value >> 7) & 0x7f]);
+  output.send([ch, 6, (value >> 7) & 0x7f]);
   output.send([ch, 38, value & 0x7f]);
   output.send([ch, 101, 127]);
   output.send([ch, 100, 127]);
@@ -63,12 +63,11 @@ export function configureLinnStrument(output) {
   if (!output) return;
 
   // NRPN 245 (User Firmware Mode) is NOT sent here.
-  sendNrpn(output, 227, 0);  // Row offset = No Overlap
-  sendNrpn(output, 36,  3);  // Octave = −2
-  sendNrpn(output, 37,  1);  // Transpose = −6 semitones
-  sendNrpn(output, 228, 2);  // Switch 1 = Sustain
-  sendNrpn(output, 229, 3);  // Switch 2 = CC65
-
+  sendNrpn(output, 227, 0); // Row offset = No Overlap
+  sendNrpn(output, 36, 3); // Octave = −2
+  sendNrpn(output, 37, 1); // Transpose = −6 semitones
+  sendNrpn(output, 228, 2); // Switch 1 = Sustain
+  sendNrpn(output, 229, 3); // Switch 2 = CC65
 }
 
 /**
@@ -77,14 +76,14 @@ export function configureLinnStrument(output) {
  * so the device returns to stand-alone playable mode.
  *
  * Restores:
- *   NRPN 245 = 0 
+ *   NRPN 245 = 0
  *
  * @param {MIDIOutput} output  Raw Web MIDI output port.
  */
 export function unconfigureLinnStrument(output) {
   if (!output) return;
 
-  sendNrpn(output, 245, 0);  // Turn off User Firmware mode
+  sendNrpn(output, 245, 0); // Turn off User Firmware mode
 }
 
 /**
@@ -105,8 +104,8 @@ export function enableLinnstrumentYZData(output) {
   if (!output) return;
   for (let row = 1; row <= 8; row++) {
     const status = 0xb0 | (row - 1); // CC status byte for channel `row`
-    output.send([status, 11, 1]);    // CC 11 = enable Y data for this row
-    output.send([status, 12, 1]);    // CC 12 = enable Z data for this row
+    output.send([status, 11, 1]); // CC 11 = enable Y data for this row
+    output.send([status, 12, 1]); // CC 12 = enable Z data for this row
   }
 }
 
@@ -114,7 +113,7 @@ export function enableLinnstrumentRowSlide(output) {
   if (!output) return;
   for (let row = 1; row <= 8; row++) {
     const status = 0xb0 | (row - 1);
-    output.send([status, 9, 1]);     // CC 9 = enable X-axis row slide mode
+    output.send([status, 9, 1]); // CC 9 = enable X-axis row slide mode
   }
 }
 
@@ -129,7 +128,7 @@ export function enableLinnstrumentXData(output) {
   if (!output) return;
   for (let row = 1; row <= 8; row++) {
     const status = 0xb0 | (row - 1);
-    output.send([status, 10, 1]);    // CC 10 = enable X data for this row
+    output.send([status, 10, 1]); // CC 10 = enable X data for this row
   }
 }
 
@@ -141,10 +140,10 @@ export function enableLinnstrumentXData(output) {
  * The current fallback mapper uses exact screen-hex overrides first, then
  * perceptual nearest-neighbour matching in okLab space.
  */
-const LINNS_OFF   = 7;   // unlit
+const LINNS_OFF = 7; // unlit
 
 // Minimal perceptual lightness gate (okLab L in 0–1 scale).
-const DARK_THRESHOLD  = 0.4; // below → Off
+const DARK_THRESHOLD = 0.4; // below → Off
 
 /**
  * Manual screen-hex → LinnStrument CC22 palette value mappings.
@@ -172,115 +171,113 @@ const DARK_THRESHOLD  = 0.4; // below → Off
  */
 export const LINNS_COLOR_PAIRS = [
   // ── Neutral / universal ───────────────────────────────────────────────────
-  ["ffffff", 8],   // pure white
-  ["ededed", 8],   // higher primes (near-white grey)
-  ["cfcfcf", 7],   // neutral grey → Off
-  ["adadad", 7],   // mid grey → Off
+  ["ffffff", 8], // pure white
+  ["ededed", 8], // higher primes (near-white grey)
+  ["cfcfcf", 7], // neutral grey → Off
+  ["adadad", 7], // mid grey → Off
 
   // ── 12-edo ────────────────────────────────────────────────────────────────
-  ["ededf7", 8],   // white keys (blue-tinted white)
-  ["c3c3d5", 7],   // black keys (blue-tinted grey)
-  ["ffdfdb", 11],  // C accent (warm pink) → Pink
+  ["ededf7", 8], // white keys (blue-tinted white)
+  ["c3c3d5", 7], // black keys (blue-tinted grey)
+  ["ffdfdb", 11], // C accent (warm pink) → Pink
 
   // ── 12-tone meantone ──────────────────────────────────────────────────────
-  ["f9f7eb", 8],   // white keys (warm white)
-  ["eee9d3", 2],   // sharps (warm cream) → Yellow
-  ["e2dfcf", 10],   // flats (darker cream) → Lime
-  ["eff4e7", 3],  // diesis up (green-tinted) → Green
-  ["dddae2", 9],   // diesis down (blue-tinted) → Orange
+  ["f9f7eb", 8], // white keys (warm white)
+  ["eee9d3", 2], // sharps (warm cream) → Yellow
+  ["e2dfcf", 10], // flats (darker cream) → Lime
+  ["eff4e7", 3], // diesis up (green-tinted) → Green
+  ["dddae2", 9], // diesis down (blue-tinted) → Orange
 
   // ── Pythagorean ───────────────────────────────────────────────────────────
-  ["d0d0d7", 7],   // black (near-achromatic) → Off
+  ["d0d0d7", 7], // black (near-achromatic) → Off
 
   // ── 5-limit / Yellow group ────────────────────────────────────────────────
-  ["fffae5", 2],   // 5° 15° 45° 135° (warm bright yellow) → Yellow
-  ["fef5be", 2],   // 25° 75° 225° (deeper yellow) → Yellow
-  ["ffef8a", 9],   // 125° (saturated amber) → Orange
-  ["fceec5", 8],   // 53-Tertial naturals (white) → Yellow
-  ["ffe070", 9],   // 53-Tertial vv Bb (amber-orange) → Orange
-  ["fafa82", 2],   // ivory (yellow-green) → Yellow
-  ["fbf6e0", 2],   // 55-Luma ivory → Yellow
-  ["dee2da", 10],  // u5 / u15 (green-grey) → Lime
-  ["d3dab9", 3],  // 23° 69° (yellow-green grey) → Green
+  ["fffae5", 2], // 5° 15° 45° 135° (warm bright yellow) → Yellow
+  ["fef5be", 2], // 25° 75° 225° (deeper yellow) → Yellow
+  ["ffef8a", 9], // 125° (saturated amber) → Orange
+  ["fceec5", 8], // 53-Tertial naturals (white) → Yellow
+  ["ffe070", 9], // 53-Tertial vv Bb (amber-orange) → Orange
+  ["fafa82", 2], // ivory (yellow-green) → Yellow
+  ["fbf6e0", 2], // 55-Luma ivory → Yellow
+  ["dee2da", 10], // u5 / u15 (green-grey) → Lime
+  ["d3dab9", 3], // 23° 69° (yellow-green grey) → Green
 
   // ── 7-limit / Red-Pink group ─────────────────────────────────────────────
-  ["ffe5e5", 11],  // 7° 21° 63° 189° (pale pink) → Pink
-  ["ffcba8", 9],   // 35° 105° 315° (peach-orange) → Orange
-  ["ffd270", 9],   // 175° (amber) → Orange
-  ["f8c9c9", 6],   // 49° 147° (rose) → Magenta
-  ["ffa8a8", 6],   // 245° (coral red) → Magenta
-  ["e2caca", 6],   // u7 (dusty rose) → Magenta
-  ["ece6df", 9],   // 7°u5 (warm beige) → Orange
-  ["ecc9a2", 9],   // 5°u7 (warm tan) → Orange
-  ["d0d6e1", 11],   // u7 sharps (blue-grey) → Pink
-  ["ffb8da", 6],   // 47° 141° (bright pink) → Magenta
-  ["f79cc5", 6],   // 235° (hot pink) → Magenta
+  ["ffe5e5", 11], // 7° 21° 63° 189° (pale pink) → Pink
+  ["ffcba8", 9], // 35° 105° 315° (peach-orange) → Orange
+  ["ffd270", 9], // 175° (amber) → Orange
+  ["f8c9c9", 6], // 49° 147° (rose) → Magenta
+  ["ffa8a8", 6], // 245° (coral red) → Magenta
+  ["e2caca", 6], // u7 (dusty rose) → Magenta
+  ["ece6df", 9], // 7°u5 (warm beige) → Orange
+  ["ecc9a2", 9], // 5°u7 (warm tan) → Orange
+  ["d0d6e1", 11], // u7 sharps (blue-grey) → Pink
+  ["ffb8da", 6], // 47° 141° (bright pink) → Magenta
+  ["f79cc5", 6], // 235° (hot pink) → Magenta
 
   // ── 11-limit / Green group ────────────────────────────────────────────────
-  ["dfffd6", 3],   // 11° 33° 99° (bright green) → Green
-  ["ddfe95", 10],  // 55° 165° (yellow-green) → Lime
-  ["e9ecc1", 10],  // 77° 231° (olive lime) → Lime
-  ["c3ffad", 3],   // 121° (bright green) → Green
-  ["cee3e2", 4],   // u11 (cyan-grey) → Cyan
-  ["bae5f7", 4],   // 7°u11 (sky blue) → Cyan
-  ["e4fbe6", 3],   // 11°u7 (pale green) → Green
-  ["e1d0e1", 10],   // 5°u11 (mauve) → Lime
-  ["e2eecd", 10],  // 11°u5 (yellow-green) → Lime
-  ["f5ffe0", 10],  // 55-Luma yellow-green → Lime
-  ["ddfde3", 3],   // 55-Luma blue-green → Green
+  ["dfffd6", 3], // 11° 33° 99° (bright green) → Green
+  ["ddfe95", 10], // 55° 165° (yellow-green) → Lime
+  ["e9ecc1", 10], // 77° 231° (olive lime) → Lime
+  ["c3ffad", 3], // 121° (bright green) → Green
+  ["cee3e2", 4], // u11 (cyan-grey) → Cyan
+  ["bae5f7", 4], // 7°u11 (sky blue) → Cyan
+  ["e4fbe6", 3], // 11°u7 (pale green) → Green
+  ["e1d0e1", 10], // 5°u11 (mauve) → Lime
+  ["e2eecd", 10], // 11°u5 (yellow-green) → Lime
+  ["f5ffe0", 10], // 55-Luma yellow-green → Lime
+  ["ddfde3", 3], // 55-Luma blue-green → Green
 
   // ── 13-limit / Purple group ───────────────────────────────────────────────
-  ["e6d7fe", 5],   // 13° 39° 117° (pale violet) → Blue
-  ["e9d7d3", 6],   // 65° 195° (rosy beige) → Cyan
-  ["ebd0e0", 4],   // 91° (mauve-pink) → Magenta
-  ["90f9cd", 4],   // 143° (mint) → Cyan
-  ["dbb3ff", 5],   // 169° (pale purple) → Blue
-  ["cba9fe", 5],   // u13 (lavender) → Blue
-  ["e4f6fb", 4],   // 5°u13 (pale cyan) → Cyan
-  ["e4fbf1", 3],   // 13°u5 (pale green) → Green
-  ["e5adff", 5],   // 59° (violet) → Blue
+  ["e6d7fe", 5], // 13° 39° 117° (pale violet) → Blue
+  ["e9d7d3", 6], // 65° 195° (rosy beige) → Cyan
+  ["ebd0e0", 4], // 91° (mauve-pink) → Magenta
+  ["90f9cd", 4], // 143° (mint) → Cyan
+  ["dbb3ff", 5], // 169° (pale purple) → Blue
+  ["cba9fe", 5], // u13 (lavender) → Blue
+  ["e4f6fb", 4], // 5°u13 (pale cyan) → Cyan
+  ["e4fbf1", 3], // 13°u5 (pale green) → Green
+  ["e5adff", 5], // 59° (violet) → Blue
 
   // ── 17-limit / Grey-brown group ───────────────────────────────────────────
-  ["eceae4", 7],   // 85° 255° (warm grey) → Off
-  ["ded4d5", 7],   // 119° (pinkish grey) → Off
-  ["ccdbce", 7],   // 187° (green-grey) → off
-  ["c3b4d5", 7],   // 221° (grey-violet) → Off
-  ["bab4c0", 7],   // (grey-violet) → Off
-  ["b5a5ca", 7],   // (grey-violet) → Off
-  ["ada5c0", 7],   // (grey-violet) → Off
+  ["eceae4", 7], // 85° 255° (warm grey) → Off
+  ["ded4d5", 7], // 119° (pinkish grey) → Off
+  ["ccdbce", 7], // 187° (green-grey) → off
+  ["c3b4d5", 7], // 221° (grey-violet) → Off
+  ["bab4c0", 7], // (grey-violet) → Off
+  ["b5a5ca", 7], // (grey-violet) → Off
+  ["ada5c0", 7], // (grey-violet) → Off
 
   // ── 19-limit / Pale blue group ────────────────────────────────────────────
-  ["d6f7ff", 4],   // 19° 57° 171° (pale sky) → Cyan
-  ["d8f7fd", 4],   // 55-Luma blue → Cyan
-  ["bedce4", 4],   // u19 / pale silver-blue → Cyan
-  ["e5fff9", 4],   // 95° (pale cyan-green) → Cyan
-  ["f4e6f2", 4],   // 133° (pale mauve) → Cyan
-  ["caf7e3", 4],   // 209° (pale mint) → Cyan
-  ["dbe6ff", 4],   // 247° (pale blue) → Cyan
+  ["d6f7ff", 4], // 19° 57° 171° (pale sky) → Cyan
+  ["d8f7fd", 4], // 55-Luma blue → Cyan
+  ["bedce4", 4], // u19 / pale silver-blue → Cyan
+  ["e5fff9", 4], // 95° (pale cyan-green) → Cyan
+  ["f4e6f2", 4], // 133° (pale mauve) → Cyan
+  ["caf7e3", 4], // 209° (pale mint) → Cyan
+  ["dbe6ff", 4], // 247° (pale blue) → Cyan
 
   // ── 23-limit / Dark green group ───────────────────────────────────────────
-  ["95c69b", 3],   // 23° brighter (mid green) → Green
-  ["90d597", 3],   // 115° (mid green) → Green
-  ["91b195", 3],   // 161° (dark green) → Green
-  ["69ec79", 3],   // 253° (bright green) → Green
+  ["95c69b", 3], // 23° brighter (mid green) → Green
+  ["90d597", 3], // 115° (mid green) → Green
+  ["91b195", 3], // 161° (dark green) → Green
+  ["69ec79", 3], // 253° (bright green) → Green
 
   // ── 29-limit / Dark blue group ────────────────────────────────────────────
-  ["b6ecd0", 5],   // 29° 87° (pale green) → Blue
-  ["8aafff", 5],   // 29° brighter (periwinkle) → Blue
-  ["b4cbfe", 5],   // 145° (pale blue) → Blue
-  ["b0a9fe", 5],   // 203° (lavender-blue) → Blue
+  ["b6ecd0", 5], // 29° 87° (pale green) → Blue
+  ["8aafff", 5], // 29° brighter (periwinkle) → Blue
+  ["b4cbfe", 5], // 145° (pale blue) → Blue
+  ["b0a9fe", 5], // 203° (lavender-blue) → Blue
 
   // ── 31-limit / Turquoise group ────────────────────────────────────────────
-  ["d1c2c2", 4],   // 31° (pale rose-grey) → Cyan
-  ["68f3ec", 4],   // 31° brighter (turquoise) → Cyan
-  ["0afff3", 4],   // 155° (bright cyan) → Cyan
-  ["0fd2c8", 4],   // 217° (teal) → Cyan
+  ["d1c2c2", 4], // 31° (pale rose-grey) → Cyan
+  ["68f3ec", 4], // 31° brighter (turquoise) → Cyan
+  ["0afff3", 4], // 155° (bright cyan) → Cyan
+  ["0fd2c8", 4], // 217° (teal) → Cyan
 ];
 
 // Fast exact-match lookup: normalised hex (no '#', lowercase) → palette value.
-const _LINNS_EXACT = new Map(
-  LINNS_COLOR_PAIRS.map(([hex, val]) => [hex.toLowerCase(), val])
-);
+const _LINNS_EXACT = new Map(LINNS_COLOR_PAIRS.map(([hex, val]) => [hex.toLowerCase(), val]));
 
 // Nearest-neighbour fallback table in okLab space. All manual colour pairs
 // contribute, so known palette nuances still shape the fallback result.
@@ -326,11 +323,7 @@ function hexToOklab(hex) {
 }
 
 function rgbToOklab(r, g, b) {
-  return linear_srgb_to_oklab(
-    srgb_to_linear(r),
-    srgb_to_linear(g),
-    srgb_to_linear(b),
-  );
+  return linear_srgb_to_oklab(srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
 }
 
 /** Palette value for Red. */
@@ -478,10 +471,10 @@ export class LinnStrumentLEDs {
   _sendCell(note, paletteValue) {
     // note = row * 16 + col  (row 0 = bottom, col 0 = left)
     const col = note % 16;
-    const row = Math.floor(note / 16);      // UF row 0 = bottom, matching ch=1
+    const row = Math.floor(note / 16); // UF row 0 = bottom, matching ch=1
     // CC20 = col (0-indexed), CC21 = row (0-indexed), CC22 = colour value.
     // All sent on channel 1 (status 0xB0).
-    this._out.send([0xb0, 20, col + 1]);   // 1-indexed despite docs saying 0
+    this._out.send([0xb0, 20, col + 1]); // 1-indexed despite docs saying 0
     this._out.send([0xb0, 21, row]);
     this._out.send([0xb0, 22, paletteValue]);
     this._last[note] = paletteValue;

@@ -19,11 +19,7 @@ const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 
 export function passthroughCC(cc, value) {
-  if (
-    this.midiout_data &&
-    this.settings.midi_device !== "OFF" &&
-    this.settings.midi_channel >= 0
-  ) {
+  if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendControlChange(cc, value, { channels: this.settings.midi_channel + 1 });
   }
   if (this.settings.output_mpe && this.settings.mpe_device !== "OFF") {
@@ -42,11 +38,7 @@ export function passthroughCC(cc, value) {
 }
 
 export function passthroughChannelPressure(value) {
-  if (
-    this.midiout_data &&
-    this.settings.midi_device !== "OFF" &&
-    this.settings.midi_channel >= 0
-  ) {
+  if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendChannelAftertouch(value, {
       channels: this.settings.midi_channel + 1,
       rawValue: true,
@@ -63,11 +55,7 @@ export function passthroughChannelPressure(value) {
 
 export function passthroughPitchBend(val14) {
   const normalized = val14 / 8192.0 - 1.0;
-  if (
-    this.midiout_data &&
-    this.settings.midi_device !== "OFF" &&
-    this.settings.midi_channel >= 0
-  ) {
+  if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendPitchBend(normalized, { channels: this.settings.midi_channel + 1 });
   }
   if (
@@ -100,9 +88,7 @@ export function applyPolyAftertouch(hex, value, value14 = null) {
 export function applyTimbreCC74(hex, value, value14 = null) {
   if (!hex || hex.release) return;
   const cc74 = Math.max(0, Math.min(127, Number(value) || 0));
-  const cc7414 = Number.isFinite(value14)
-    ? Math.max(0, Math.min(16256, Number(value14)))
-    : null;
+  const cc7414 = Number.isFinite(value14) ? Math.max(0, Math.min(16256, Number(value14))) : null;
   const polyphonicTimbre = !!this.inputRuntime?.mpeInput;
   hex._lastCC74 = cc74;
   hex._lastCC7414 = cc7414;
@@ -232,32 +218,25 @@ export function computeContinuumPitchBendCents(keys, entry, channel, value14, va
     keys.inputRuntime.layoutMode !== "sequential" &&
     keys.inputRuntime.target === "hex_layout" &&
     !!entry.hex.coords;
-  const anchor14 = entry.hex._continuumPitchAnchor14 != null
-    ? keys._normalizePitchBend14(entry.hex._continuumPitchAnchor14)
-    : (
-      keys.inputRuntime.target === "scale" &&
-      entry.hex._scaleModeBendAnchor14 != null
-    )
-      ? keys._normalizePitchBend14(entry.hex._scaleModeBendAnchor14)
-      : 8192;
-  const anchor21 = entry.hex._continuumPitchAnchor21 != null
-    ? normalizePitchBend21(entry.hex._continuumPitchAnchor21)
-    : (
-      keys.inputRuntime.target === "scale" &&
-      entry.hex._scaleModeBendAnchor21 != null
-    )
-      ? normalizePitchBend21(entry.hex._scaleModeBendAnchor21)
-      : 1048576;
-  let norm = bend21 != null
-    ? (bend21 - anchor21) / 1048576
-    : (bend14 - anchor14) / 8192;
+  const anchor14 =
+    entry.hex._continuumPitchAnchor14 != null
+      ? keys._normalizePitchBend14(entry.hex._continuumPitchAnchor14)
+      : keys.inputRuntime.target === "scale" && entry.hex._scaleModeBendAnchor14 != null
+        ? keys._normalizePitchBend14(entry.hex._scaleModeBendAnchor14)
+        : 8192;
+  const anchor21 =
+    entry.hex._continuumPitchAnchor21 != null
+      ? normalizePitchBend21(entry.hex._continuumPitchAnchor21)
+      : keys.inputRuntime.target === "scale" && entry.hex._scaleModeBendAnchor21 != null
+        ? normalizePitchBend21(entry.hex._scaleModeBendAnchor21)
+        : 1048576;
+  let norm = bend21 != null ? (bend21 - anchor21) / 1048576 : (bend14 - anchor14) / 8192;
   if (keys.inputRuntime.target !== "scale") norm = keys.inputRuntime.bendFlip ? -norm : norm;
   const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
-  const runtime =
-    keys._effectiveScaleRuntimeForFrame?.(keys._frameForSoundingHex?.(entry.hex)) ?? {
-      scale: keys.tuning.scale,
-      equivInterval: keys.tuning.equivInterval ?? 1200,
-    };
+  const runtime = keys._effectiveScaleRuntimeForFrame?.(keys._frameForSoundingHex?.(entry.hex)) ?? {
+    scale: keys.tuning.scale,
+    equivInterval: keys.tuning.equivInterval ?? 1200,
+  };
   const runtimeScale = runtime.scale ?? keys.tuning.scale;
   const runtimeEquivInterval = runtime.equivInterval ?? keys.tuning.equivInterval ?? 1200;
 
@@ -314,32 +293,29 @@ export function applyMpePitchBend(entry, channel, value14, value21 = null) {
       : null;
   this._mpeInputBendByChannel.set(channel, bend14);
   const hakenXGlideMode = resolveHakenXGlideMode(this.inputRuntime);
-  const isContinuumMpe =
-    this.controller?.id === "hakenaudio" &&
-    this.inputRuntime.mpeInput;
+  const isContinuumMpe = this.controller?.id === "hakenaudio" && this.inputRuntime.mpeInput;
   const continuumRasterMode =
     isContinuumMpe &&
-    (hakenXGlideMode === "raster_to_notes" ||
-      !!entry.hex._continuumRasterPendingExitHandoff);
+    (hakenXGlideMode === "raster_to_notes" || !!entry.hex._continuumRasterPendingExitHandoff);
   if (continuumRasterMode) {
     this._hakenRasterBend(entry, channel, bend14, this.inputRuntime.target === "scale");
     return;
   }
-  const continuumPitchBendingMode =
-    isContinuumMpe &&
-    hakenXGlideMode === "pitch_bending";
+  const continuumPitchBendingMode = isContinuumMpe && hakenXGlideMode === "pitch_bending";
   const baseCents = entry.hex._baseCents ?? entry.baseCents ?? entry.hex.cents;
   const genericMpeRangeCents = scalaToCents(this.inputRuntime.bendRange ?? "28/27");
   const bentCents = continuumPitchBendingMode
     ? computeContinuumPitchBendCents(this, entry, channel, bend14, bend21)
-    : baseCents + (((bend21 != null ? (bend21 - 1048576) / 1048576 : (bend14 - 8192) / 8192) *
-      (this.inputRuntime.bendFlip && this.inputRuntime.target !== "scale" ? -1 : 1)) *
-      genericMpeRangeCents);
+    : baseCents +
+      (bend21 != null ? (bend21 - 1048576) / 1048576 : (bend14 - 8192) / 8192) *
+        (this.inputRuntime.bendFlip && this.inputRuntime.target !== "scale" ? -1 : 1) *
+        genericMpeRangeCents;
   entry.baseCents = baseCents;
   entry.hex._lastPitchBend14 = bend14;
   entry.hex._lastPitchBend21 = bend21;
   entry.hex._lastPitchBendCents = bentCents;
-  if (applyTransferredPitchBend(entry.hex, { value14: bend14, value21: bend21, cents: bentCents })) return;
+  if (applyTransferredPitchBend(entry.hex, { value14: bend14, value21: bend21, cents: bentCents }))
+    return;
   if (bend21 != null) entry.hex.retune?.(bentCents, true, bend21);
   else entry.hex.retune?.(bentCents, true);
 }
@@ -532,7 +508,10 @@ export function reapplyCurrentWheelBend() {
 export function retuneHexFromBase(hex, baseCents, bendOnly = false) {
   if (!hex?.retune || hex.release) return;
   hex._baseCents = baseCents;
-  if ((this.inputRuntime.mpeInput || this.inputRuntime.perChannelExpression) && hex._inputChannel != null) {
+  if (
+    (this.inputRuntime.mpeInput || this.inputRuntime.perChannelExpression) &&
+    hex._inputChannel != null
+  ) {
     const channel = hex._inputChannel;
     const entry = this.state.activeMidiByChannel.get(channel) ?? { hex, baseCents };
     entry.baseCents = baseCents;
@@ -614,11 +593,7 @@ export function reapplyCurrentInputBends() {
     for (const [channel] of this.state.activeMidiByChannel) {
       const bend14 = this._mpeInputBendByChannel.get(channel) ?? 8192;
       for (const hex of this._activeHexesForInputChannel(channel)) {
-        this._applyMpePitchBend(
-          { hex, baseCents: hex._baseCents ?? hex.cents },
-          channel,
-          bend14,
-        );
+        this._applyMpePitchBend({ hex, baseCents: hex._baseCents ?? hex.cents }, channel, bend14);
       }
     }
     return;
@@ -628,9 +603,10 @@ export function reapplyCurrentInputBends() {
 
 export function refreshSoundingHexNeighbors() {
   const refresh = (hex) => {
-    const pitchAtCoords = typeof this.hexCoordsToLiveCents === "function"
-      ? this.hexCoordsToLiveCents(hex.coords)
-      : this.hexCoordsToCents(hex.coords);
+    const pitchAtCoords =
+      typeof this.hexCoordsToLiveCents === "function"
+        ? this.hexCoordsToLiveCents(hex.coords)
+        : this.hexCoordsToCents(hex.coords);
     const [, , , , , centsPrev, centsNext] = pitchAtCoords;
     hex.cents_prev = centsPrev;
     hex.cents_next = centsNext;
@@ -654,7 +630,10 @@ export function updateWheelTarget(smoothReturn = false) {
   if (newFront) {
     this._wheelBaseCents = newFront._baseCents ?? newFront.cents;
     if (this.inputRuntime.wheelToRecent && this.inputRuntime.pitchBendMode === "recency") {
-      const { baseCents, bentCents } = this._resolveRecencyWheelTarget(newFront, this._wheelValue14);
+      const { baseCents, bentCents } = this._resolveRecencyWheelTarget(
+        newFront,
+        this._wheelValue14,
+      );
       this._wheelBaseCents = baseCents;
       this._wheelBend = bentCents - baseCents;
       if (smoothReturn && this._wheelValue14 !== 8192 && newFront?.retune) {

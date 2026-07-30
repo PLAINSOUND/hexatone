@@ -23,7 +23,14 @@ describe("timed transport runtime", () => {
           id: "s1",
           length: 1,
           notes: [
-            { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 },
+            {
+              id: "n1",
+              midicents: 69,
+              attackVelocity: 80,
+              releaseVelocity: 40,
+              start: 0,
+              end: 0.5,
+            },
           ],
         },
       ],
@@ -49,14 +56,28 @@ describe("timed transport runtime", () => {
           id: "s1",
           length: 1,
           notes: [
-            { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 },
+            {
+              id: "n1",
+              midicents: 69,
+              attackVelocity: 80,
+              releaseVelocity: 40,
+              start: 0,
+              end: 0.5,
+            },
           ],
         },
         {
           id: "s2",
           length: 1,
           notes: [
-            { id: "n2", midicents: 72, attackVelocity: 70, releaseVelocity: 35, start: 0, end: 0.5 },
+            {
+              id: "n2",
+              midicents: 72,
+              attackVelocity: 70,
+              releaseVelocity: 35,
+              start: 0,
+              end: 0.5,
+            },
           ],
         },
       ],
@@ -89,7 +110,14 @@ describe("timed transport runtime", () => {
           id: "s1",
           length: 1,
           notes: [
-            { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 },
+            {
+              id: "n1",
+              midicents: 69,
+              attackVelocity: 80,
+              releaseVelocity: 40,
+              start: 0,
+              end: 0.5,
+            },
           ],
         },
       ],
@@ -130,7 +158,14 @@ describe("timed transport runtime", () => {
           id: "s1",
           length: 2,
           notes: [
-            { id: "held", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 2 },
+            {
+              id: "held",
+              midicents: 69,
+              attackVelocity: 80,
+              releaseVelocity: 40,
+              start: 0,
+              end: 2,
+            },
           ],
         },
       ],
@@ -181,10 +216,15 @@ describe("timed transport runtime", () => {
       lastDispatchedPlaybackIndex: 3,
     };
 
-    const result = applyLiveRepeatDecision(running, [playbackBursts[1], playbackBursts[2]], playbackBursts, {
-      playRepeats: false,
-      clockSeconds: 12,
-    });
+    const result = applyLiveRepeatDecision(
+      running,
+      [playbackBursts[1], playbackBursts[2]],
+      playbackBursts,
+      {
+        playRepeats: false,
+        clockSeconds: 12,
+      },
+    );
 
     expect(result.dueBursts).toHaveLength(1);
     expect(result.dueBursts[0]).toMatchObject({
@@ -209,14 +249,28 @@ describe("timed transport runtime", () => {
           id: "s1",
           length: 1,
           notes: [
-            { id: "n1", midicents: 69, attackVelocity: 80, releaseVelocity: 40, start: 0, end: 0.5 },
+            {
+              id: "n1",
+              midicents: 69,
+              attackVelocity: 80,
+              releaseVelocity: 40,
+              start: 0,
+              end: 0.5,
+            },
           ],
         },
         {
           id: "s2",
           length: 1,
           notes: [
-            { id: "n2", midicents: 72, attackVelocity: 70, releaseVelocity: 35, start: 0, end: 0.5 },
+            {
+              id: "n2",
+              midicents: 72,
+              attackVelocity: 70,
+              releaseVelocity: 35,
+              start: 0,
+              end: 0.5,
+            },
           ],
         },
       ],

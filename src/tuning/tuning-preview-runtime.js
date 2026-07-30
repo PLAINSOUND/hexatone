@@ -37,9 +37,7 @@ function withDegreePreviews(state, degreePreviews) {
 }
 
 function cloneDegreePreviews(state) {
-  return state.degreePreviews === EMPTY_DEGREE_PREVIEWS
-    ? {}
-    : { ...state.degreePreviews };
+  return state.degreePreviews === EMPTY_DEGREE_PREVIEWS ? {} : { ...state.degreePreviews };
 }
 
 function getSourceScale(source) {
@@ -88,8 +86,7 @@ export function getFundamentalDeviationCents(state) {
 }
 
 export function setFundamentalPreview(state, deltaCents) {
-  const nextDelta =
-    deltaCents !== null && Math.abs(deltaCents) > 0.001 ? deltaCents : null;
+  const nextDelta = deltaCents !== null && Math.abs(deltaCents) > 0.001 ? deltaCents : null;
   if (nextDelta === null) {
     if (!hasFundamentalPreview(state) && !state.fundamentalComparing) return state;
     return {
@@ -172,7 +169,11 @@ export function clearDegreePreview(state, degree) {
 }
 
 export function clearAllTuningPreviews(state) {
-  if (!hasFundamentalPreview(state) && !state.fundamentalComparing && state.degreePreviews === EMPTY_DEGREE_PREVIEWS) {
+  if (
+    !hasFundamentalPreview(state) &&
+    !state.fundamentalComparing &&
+    state.degreePreviews === EMPTY_DEGREE_PREVIEWS
+  ) {
     return state;
   }
   return createTuningPreviewState();
@@ -226,7 +227,10 @@ export function getEffectiveFrequencyAtDegree(
   const degreeCount = getSourceDegreeCount(source);
   const degree0Preview = getDegreePreview(state, 0);
   const activeDegree0Preview =
-    degree0Preview && degree0Preview.cents !== null && degree0Preview.cents !== undefined && !degree0Preview.comparing
+    degree0Preview &&
+    degree0Preview.cents !== null &&
+    degree0Preview.cents !== undefined &&
+    !degree0Preview.comparing
       ? degree0Preview.cents
       : null;
   let cents = getCommittedDegreeCents(source, degree);
@@ -245,16 +249,16 @@ export function getEffectiveFrequencyAtDegree(
 }
 
 export function getEffectiveScaleRuntime(source, state) {
-  const scale = getSourceScale(source).map((_, degree) => getEffectiveDegreeCents(source, state, degree));
+  const scale = getSourceScale(source).map((_, degree) =>
+    getEffectiveDegreeCents(source, state, degree),
+  );
   return {
     scale,
     equivInterval: getSourceEquivInterval(source),
     equivSteps: scale.length,
     referenceDegree: getSourceReferenceDegree(source),
     fundamental: getEffectiveFundamentalHz(source, state),
-    degreeIntervals: Array.isArray(source?.degreeIntervals)
-      ? source.degreeIntervals
-      : null,
+    degreeIntervals: Array.isArray(source?.degreeIntervals) ? source.degreeIntervals : null,
     equaveIdentity: source?.equaveIdentity ?? null,
   };
 }

@@ -2,10 +2,7 @@
 // It rebuilds the canonical snapshot/bar/tempo/repeat shape used when creating,
 // loading, or restoring a sequence, but does not handle per-row editing.
 
-import {
-  normalizeBarMarkers,
-  normalizeTempoMarkers,
-} from "./transport.js";
+import { normalizeBarMarkers, normalizeTempoMarkers } from "./transport.js";
 import {
   normalizeManualArpeggiation,
   normalizeSnapshotManualTrigger,
@@ -27,7 +24,8 @@ export function defaultSequenceTempi() {
 export function deriveSequenceWorkspaceIds({ snapshots = [], bars = [] } = {}) {
   return {
     snapshotId: (Array.isArray(snapshots) ? snapshots : []).reduce(
-      (max, snapshot) => Math.max(max, Number.isFinite(Number(snapshot?.id)) ? Number(snapshot.id) : 0),
+      (max, snapshot) =>
+        Math.max(max, Number.isFinite(Number(snapshot?.id)) ? Number(snapshot.id) : 0),
       0,
     ),
     barId: (Array.isArray(bars) ? bars : []).reduce(

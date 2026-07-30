@@ -1,10 +1,10 @@
 // A sequencer scroll panel can extend below the browser viewport when controls
 // above it wrap. Scroll decisions must use only the portion a user can see.
 
-export function intersectRectWithViewport(rect, {
-  viewportTop = 0,
-  viewportBottom = Infinity,
-} = {}) {
+export function intersectRectWithViewport(
+  rect,
+  { viewportTop = 0, viewportBottom = Infinity } = {},
+) {
   const rectTop = Number(rect?.top);
   const rectBottom = Number(rect?.bottom);
   if (!Number.isFinite(rectTop) || !Number.isFinite(rectBottom)) return null;
@@ -25,9 +25,8 @@ export function browserVisualViewportBounds() {
   const top = Number.isFinite(Number(visualViewport?.offsetTop))
     ? Number(visualViewport.offsetTop)
     : 0;
-  const fallbackHeight = Number(document.documentElement?.clientHeight)
-    || Number(window.innerHeight)
-    || 0;
+  const fallbackHeight =
+    Number(document.documentElement?.clientHeight) || Number(window.innerHeight) || 0;
   const height = Number(visualViewport?.height) || fallbackHeight;
   return {
     top,
@@ -43,8 +42,11 @@ export function visibleElementBounds(element) {
   const bottom = Number.isFinite(Number(rect?.bottom))
     ? Number(rect.bottom)
     : top + (Number(rect?.height) || Number(element.clientHeight) || 0);
-  return intersectRectWithViewport({ top, bottom }, {
-    viewportTop: viewport.top,
-    viewportBottom: viewport.bottom,
-  });
+  return intersectRectWithViewport(
+    { top, bottom },
+    {
+      viewportTop: viewport.top,
+      viewportBottom: viewport.bottom,
+    },
+  );
 }

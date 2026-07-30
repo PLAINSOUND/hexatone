@@ -19,20 +19,7 @@
   "short_description": "12-HS_A13-26no23",
   "built_in_group": "12 Note Scales",
   "key_labels": "note_names",
-  "note_names": [
-    "E",
-    "E",
-    "F",
-    "G",
-    "G",
-    "A",
-    "A",
-    "B",
-    "C",
-    "C",
-    "D",
-    "D"
-  ],
+  "note_names": ["E", "E", "F", "G", "G", "A", "A", "B", "C", "C", "D", "D"],
   "note_colors": [
     "#ffa0a0",
     "#fef5be",

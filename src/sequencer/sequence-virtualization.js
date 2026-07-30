@@ -19,17 +19,19 @@ export function estimateSequenceGroupHeight({
   const eventRowsHeight = expanded ? Math.max(0, Number(eventCount) || 0) * 25 : 0;
   const structuralRowsHeight = Math.max(0, Number(structuralCount) || 0) * 30;
   const transitionCueHeight = Math.max(0, Number(transitionCueCount) || 0) * 12;
-  return snapshotRowHeight
-    + eventHeaderHeight
-    + eventRowsHeight
-    + structuralRowsHeight
-    + transitionCueHeight;
+  return (
+    snapshotRowHeight +
+    eventHeaderHeight +
+    eventRowsHeight +
+    structuralRowsHeight +
+    transitionCueHeight
+  );
 }
 
 export function deriveRecentFittingEventBounds(eventRects = [], usableHeight = 0) {
-  const rects = eventRects.filter((rect) => (
-    Number.isFinite(Number(rect?.top)) && Number.isFinite(Number(rect?.bottom))
-  ));
+  const rects = eventRects.filter(
+    (rect) => Number.isFinite(Number(rect?.top)) && Number.isFinite(Number(rect?.bottom)),
+  );
   if (rects.length === 0) return null;
   const boundsFor = (targets) => ({
     top: Math.min(...targets.map((rect) => Number(rect.top))),
@@ -62,21 +64,22 @@ export function isSequenceAnchorTargetReady(contentNode, anchor) {
   if (!(preferredRow instanceof HTMLElement)) return false;
   if (anchor.preferredEventId != null) {
     const mountedEventIds = new Set(
-      [...contentNode.querySelectorAll("[data-sequence-event-id]")]
-        .map((node) => node.dataset.sequenceEventId),
+      [...contentNode.querySelectorAll("[data-sequence-event-id]")].map(
+        (node) => node.dataset.sequenceEventId,
+      ),
     );
     const preferredEventReady = mountedEventIds.has(String(anchor.preferredEventId));
     if (!preferredEventReady) return false;
     if (
-      anchor.requireMountedEventTargets
-      && !anchor.targetEventIds.every((eventId) => mountedEventIds.has(String(eventId)))
-    ) return false;
+      anchor.requireMountedEventTargets &&
+      !anchor.targetEventIds.every((eventId) => mountedEventIds.has(String(eventId)))
+    )
+      return false;
   }
   if (anchor.preferredStructuralKey != null) {
-    return [...contentNode.querySelectorAll("[data-sequence-structural-key]")]
-      .some((node) => (
-        node.dataset.sequenceStructuralKey === String(anchor.preferredStructuralKey)
-      ));
+    return [...contentNode.querySelectorAll("[data-sequence-structural-key]")].some(
+      (node) => node.dataset.sequenceStructuralKey === String(anchor.preferredStructuralKey),
+    );
   }
   return true;
 }
@@ -91,9 +94,9 @@ export function buildVirtualSequenceLayout({
   anchorIndex = null,
   enabled = true,
 } = {}) {
-  const sizes = items.map((item) => (
-    measuredSizes.get(item.key) ?? Math.max(1, Number(item.estimatedSize) || 1)
-  ));
+  const sizes = items.map(
+    (item) => measuredSizes.get(item.key) ?? Math.max(1, Number(item.estimatedSize) || 1),
+  );
   const offsets = [0];
   sizes.forEach((size) => offsets.push(offsets[offsets.length - 1] + size));
   const totalSize = offsets[offsets.length - 1] ?? 0;
@@ -110,13 +113,17 @@ export function buildVirtualSequenceLayout({
   }
 
   const normalizedAnchorIndex = anchorIndex == null ? null : Number(anchorIndex);
-  const effectiveScrollTop = Number.isInteger(normalizedAnchorIndex)
-    && normalizedAnchorIndex >= 0
-    && normalizedAnchorIndex < items.length
-    ? offsets[normalizedAnchorIndex]
-    : Number(scrollTop);
+  const effectiveScrollTop =
+    Number.isInteger(normalizedAnchorIndex) &&
+    normalizedAnchorIndex >= 0 &&
+    normalizedAnchorIndex < items.length
+      ? offsets[normalizedAnchorIndex]
+      : Number(scrollTop);
   const start = Math.max(0, effectiveScrollTop - overscan);
-  const end = Math.max(start, effectiveScrollTop + Math.max(1, Number(viewportHeight) || 1) + overscan);
+  const end = Math.max(
+    start,
+    effectiveScrollTop + Math.max(1, Number(viewportHeight) || 1) + overscan,
+  );
   const indexes = new Set();
   for (let index = 0; index < items.length; index += 1) {
     if (offsets[index + 1] >= start && offsets[index] <= end) indexes.add(index);
@@ -142,10 +149,11 @@ export function buildVirtualSequenceLayout({
     rows.push({ type: "spacer", key: `spacer:${cursor}:${items.length}`, size: trailingSize });
   }
 
-  const visibleItemCount = orderedIndexes.filter((index) => (
-    offsets[index + 1] >= effectiveScrollTop
-    && offsets[index] <= effectiveScrollTop + Math.max(1, Number(viewportHeight) || 1)
-  )).length;
+  const visibleItemCount = orderedIndexes.filter(
+    (index) =>
+      offsets[index + 1] >= effectiveScrollTop &&
+      offsets[index] <= effectiveScrollTop + Math.max(1, Number(viewportHeight) || 1),
+  ).length;
   return {
     rows,
     offsets,
@@ -174,10 +182,9 @@ export function useSequenceVirtualization({
   const pendingStartAnchorReleaseFramesRef = useRef([]);
   const measurementTokensRef = useRef(new Map());
   if (measurementTokensRef.current.size === 0 && items.length > 0) {
-    measurementTokensRef.current = new Map(items.map((item) => [
-      item.key,
-      item.measurementToken ?? item.estimatedSize,
-    ]));
+    measurementTokensRef.current = new Map(
+      items.map((item) => [item.key, item.measurementToken ?? item.estimatedSize]),
+    );
   }
   const appliedRevisionRef = useRef(revision);
   const layoutRef = useRef(null);
@@ -206,30 +213,37 @@ export function useSequenceVirtualization({
     });
   }, []);
 
-  const queueMeasurement = useCallback((key, size) => {
-    const numeric = Number(size);
-    if (!Number.isFinite(numeric) || numeric <= 0) return;
-    pendingMeasurementsRef.current.set(key, {
-      size: numeric,
-      token: measurementTokensRef.current.get(key),
-    });
-    if (pendingMeasurementFrameRef.current != null) return;
-    pendingMeasurementFrameRef.current = window.requestAnimationFrame(flushMeasurements);
-  }, [flushMeasurements]);
+  const queueMeasurement = useCallback(
+    (key, size) => {
+      const numeric = Number(size);
+      if (!Number.isFinite(numeric) || numeric <= 0) return;
+      pendingMeasurementsRef.current.set(key, {
+        size: numeric,
+        token: measurementTokensRef.current.get(key),
+      });
+      if (pendingMeasurementFrameRef.current != null) return;
+      pendingMeasurementFrameRef.current = window.requestAnimationFrame(flushMeasurements);
+    },
+    [flushMeasurements],
+  );
 
-  const measureItem = useCallback((key, node) => {
-    if (!measureRows) return;
-    const previousNode = observedNodesRef.current.get(key) ?? null;
-    if (previousNode && previousNode !== node) resizeObserverRef.current?.unobserve?.(previousNode);
-    if (!(node instanceof HTMLElement)) {
-      observedNodesRef.current.delete(key);
-      pendingMeasurementsRef.current.delete(key);
-      return;
-    }
-    observedNodesRef.current.set(key, node);
-    resizeObserverRef.current?.observe?.(node);
-    queueMeasurement(key, node.getBoundingClientRect().height || node.offsetHeight);
-  }, [measureRows, queueMeasurement]);
+  const measureItem = useCallback(
+    (key, node) => {
+      if (!measureRows) return;
+      const previousNode = observedNodesRef.current.get(key) ?? null;
+      if (previousNode && previousNode !== node)
+        resizeObserverRef.current?.unobserve?.(previousNode);
+      if (!(node instanceof HTMLElement)) {
+        observedNodesRef.current.delete(key);
+        pendingMeasurementsRef.current.delete(key);
+        return;
+      }
+      observedNodesRef.current.set(key, node);
+      resizeObserverRef.current?.observe?.(node);
+      queueMeasurement(key, node.getBoundingClientRect().height || node.offsetHeight);
+    },
+    [measureRows, queueMeasurement],
+  );
 
   useLayoutEffect(() => {
     if (!enabled || !measureRows || typeof ResizeObserver !== "function") return undefined;
@@ -254,17 +268,20 @@ export function useSequenceVirtualization({
     };
   }, [enabled, measureRows, queueMeasurement]);
 
-  useEffect(() => () => {
-    if (pendingMeasurementFrameRef.current != null) {
-      window.cancelAnimationFrame(pendingMeasurementFrameRef.current);
-    }
-    pendingMeasurementFrameRef.current = null;
-    pendingMeasurementsRef.current.clear();
-    pendingStartAnchorReleaseFramesRef.current.forEach((frameId) => {
-      window.cancelAnimationFrame(frameId);
-    });
-    pendingStartAnchorReleaseFramesRef.current = [];
-  }, []);
+  useEffect(
+    () => () => {
+      if (pendingMeasurementFrameRef.current != null) {
+        window.cancelAnimationFrame(pendingMeasurementFrameRef.current);
+      }
+      pendingMeasurementFrameRef.current = null;
+      pendingMeasurementsRef.current.clear();
+      pendingStartAnchorReleaseFramesRef.current.forEach((frameId) => {
+        window.cancelAnimationFrame(frameId);
+      });
+      pendingStartAnchorReleaseFramesRef.current = [];
+    },
+    [],
+  );
 
   useEffect(() => {
     const keys = new Set(items.map((item) => item.key));
@@ -284,15 +301,15 @@ export function useSequenceVirtualization({
   }, [items]);
 
   useLayoutEffect(() => {
-    const nextTokens = new Map(items.map((item) => [
-      item.key,
-      item.measurementToken ?? item.estimatedSize,
-    ]));
+    const nextTokens = new Map(
+      items.map((item) => [item.key, item.measurementToken ?? item.estimatedSize]),
+    );
     const changedKeys = items
-      .filter((item) => (
-        measurementTokensRef.current.has(item.key)
-        && measurementTokensRef.current.get(item.key) !== nextTokens.get(item.key)
-      ))
+      .filter(
+        (item) =>
+          measurementTokensRef.current.has(item.key) &&
+          measurementTokensRef.current.get(item.key) !== nextTokens.get(item.key),
+      )
       .map((item) => item.key);
     measurementTokensRef.current = nextTokens;
     if (changedKeys.length === 0) return;
@@ -324,9 +341,9 @@ export function useSequenceVirtualization({
     const updateViewport = () => {
       pendingFrameRef.current = null;
       const next = { scrollTop: panel.scrollTop, height: panel.clientHeight || 640 };
-      setViewport((previous) => (
-        previous.scrollTop === next.scrollTop && previous.height === next.height ? previous : next
-      ));
+      setViewport((previous) =>
+        previous.scrollTop === next.scrollTop && previous.height === next.height ? previous : next,
+      );
     };
     const scheduleUpdate = () => {
       if (pendingFrameRef.current != null) return;
@@ -334,7 +351,8 @@ export function useSequenceVirtualization({
     };
     updateViewport();
     panel.addEventListener("scroll", scheduleUpdate, { passive: true });
-    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(scheduleUpdate) : null;
+    const observer =
+      typeof ResizeObserver === "function" ? new ResizeObserver(scheduleUpdate) : null;
     observer?.observe(panel);
     return () => {
       panel.removeEventListener("scroll", scheduleUpdate);
@@ -429,231 +447,241 @@ export function useSequenceVirtualization({
     }
   }, [clearPendingStartAnchor, scrollPanelRef]);
 
-  const applyStartAnchor = useCallback((anchor, activeLayout = layoutRef.current) => {
-    const panel = scrollPanelRef?.current;
-    const contentNode = contentRef?.current;
-    if (!(panel instanceof HTMLElement) || !(contentNode instanceof HTMLElement)) return false;
-    const visiblePanel = visibleElementBounds(panel);
-    if (visiblePanel == null || visiblePanel.height <= 0) return false;
-    const targetIndexes = anchor.targetIndexes.length > 0
-      ? anchor.targetIndexes
-      : [anchor.preferredIndex];
-    const mountedTargets = targetIndexes.map((index) => contentNode.querySelector(
-      `[data-sequence-virtual-index="${index}"]`,
-    ));
-    const mountedTargetRects = mountedTargets.map((target) => (
-      target instanceof HTMLElement ? target.getBoundingClientRect() : null
-    ));
-    const allTargetsMeasured = mountedTargetRects.every((rect) => rect != null && rect.height > 0);
-    let mountedTargetRect = mountedTargetRects[
-      Math.max(0, targetIndexes.indexOf(anchor.preferredIndex))
-    ] ?? null;
-    let alignToBottom = false;
-    const eventNodesById = new Map(
-      [...contentNode.querySelectorAll("[data-sequence-event-id]")]
-        .map((node) => [node.dataset.sequenceEventId, node]),
-    );
-    const mountedEventRects = anchor.targetEventIds.map((eventId) => {
-      const node = eventNodesById.get(String(eventId));
-      return node instanceof HTMLElement ? node.getBoundingClientRect() : null;
-    });
-    const structuralNodesByKey = new Map(
-      [...contentNode.querySelectorAll("[data-sequence-structural-key]")]
-        .map((node) => [node.dataset.sequenceStructuralKey, node]),
-    );
-    const mountedStructuralRects = anchor.targetStructuralKeys.map((structuralKey) => {
-      const node = structuralNodesByKey.get(String(structuralKey));
-      return node instanceof HTMLElement ? node.getBoundingClientRect() : null;
-    });
-    const allStructuralTargetsMeasured = (
-      mountedStructuralRects.length > 0
-      && mountedStructuralRects.every((rect) => rect != null && rect.height > 0)
-    );
-    const allEventsMeasured = (
-      mountedEventRects.length > 0
-      && mountedEventRects.every((rect) => rect != null && rect.height > 0)
-    );
-    if (enabled && anchor.requireMeasuredLayout && !allTargetsMeasured) return false;
-    if (
-      anchor.requireMountedEventTargets
-      && anchor.targetEventIds.length > 0
-      && !allEventsMeasured
-    ) return false;
-    if (anchor.targetStructuralKeys.length > 0) {
-      if (allStructuralTargetsMeasured) {
-        const rangeTop = Math.min(...mountedStructuralRects.map((rect) => rect.top));
-        const rangeBottom = Math.max(...mountedStructuralRects.map((rect) => rect.bottom));
-        mountedTargetRect = {
-          top: rangeTop,
-          bottom: rangeBottom,
-          height: rangeBottom - rangeTop,
-        };
-        const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
-        alignToBottom = rangeBottom - rangeTop > usableHeight;
-      } else {
-        const preferredNode = structuralNodesByKey.get(String(anchor.preferredStructuralKey));
-        const preferredRect = preferredNode instanceof HTMLElement
-          ? preferredNode.getBoundingClientRect()
-          : null;
-        if (preferredRect != null && preferredRect.height > 0) {
-          mountedTargetRect = preferredRect;
-        }
-      }
-    } else if (anchor.targetEventIds.length > 0) {
-      if (allEventsMeasured) {
-        const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
-        const rangeTop = Math.min(...mountedEventRects.map((rect) => rect.top));
-        const rangeBottom = Math.max(...mountedEventRects.map((rect) => rect.bottom));
-        if (rangeBottom - rangeTop <= usableHeight) {
+  const applyStartAnchor = useCallback(
+    (anchor, activeLayout = layoutRef.current) => {
+      const panel = scrollPanelRef?.current;
+      const contentNode = contentRef?.current;
+      if (!(panel instanceof HTMLElement) || !(contentNode instanceof HTMLElement)) return false;
+      const visiblePanel = visibleElementBounds(panel);
+      if (visiblePanel == null || visiblePanel.height <= 0) return false;
+      const targetIndexes =
+        anchor.targetIndexes.length > 0 ? anchor.targetIndexes : [anchor.preferredIndex];
+      const mountedTargets = targetIndexes.map((index) =>
+        contentNode.querySelector(`[data-sequence-virtual-index="${index}"]`),
+      );
+      const mountedTargetRects = mountedTargets.map((target) =>
+        target instanceof HTMLElement ? target.getBoundingClientRect() : null,
+      );
+      const allTargetsMeasured = mountedTargetRects.every(
+        (rect) => rect != null && rect.height > 0,
+      );
+      let mountedTargetRect =
+        mountedTargetRects[Math.max(0, targetIndexes.indexOf(anchor.preferredIndex))] ?? null;
+      let alignToBottom = false;
+      const eventNodesById = new Map(
+        [...contentNode.querySelectorAll("[data-sequence-event-id]")].map((node) => [
+          node.dataset.sequenceEventId,
+          node,
+        ]),
+      );
+      const mountedEventRects = anchor.targetEventIds.map((eventId) => {
+        const node = eventNodesById.get(String(eventId));
+        return node instanceof HTMLElement ? node.getBoundingClientRect() : null;
+      });
+      const structuralNodesByKey = new Map(
+        [...contentNode.querySelectorAll("[data-sequence-structural-key]")].map((node) => [
+          node.dataset.sequenceStructuralKey,
+          node,
+        ]),
+      );
+      const mountedStructuralRects = anchor.targetStructuralKeys.map((structuralKey) => {
+        const node = structuralNodesByKey.get(String(structuralKey));
+        return node instanceof HTMLElement ? node.getBoundingClientRect() : null;
+      });
+      const allStructuralTargetsMeasured =
+        mountedStructuralRects.length > 0 &&
+        mountedStructuralRects.every((rect) => rect != null && rect.height > 0);
+      const allEventsMeasured =
+        mountedEventRects.length > 0 &&
+        mountedEventRects.every((rect) => rect != null && rect.height > 0);
+      if (enabled && anchor.requireMeasuredLayout && !allTargetsMeasured) return false;
+      if (
+        anchor.requireMountedEventTargets &&
+        anchor.targetEventIds.length > 0 &&
+        !allEventsMeasured
+      )
+        return false;
+      if (anchor.targetStructuralKeys.length > 0) {
+        if (allStructuralTargetsMeasured) {
+          const rangeTop = Math.min(...mountedStructuralRects.map((rect) => rect.top));
+          const rangeBottom = Math.max(...mountedStructuralRects.map((rect) => rect.bottom));
           mountedTargetRect = {
             top: rangeTop,
             bottom: rangeBottom,
             height: rangeBottom - rangeTop,
           };
+          const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
+          alignToBottom = rangeBottom - rangeTop > usableHeight;
+        } else {
+          const preferredNode = structuralNodesByKey.get(String(anchor.preferredStructuralKey));
+          const preferredRect =
+            preferredNode instanceof HTMLElement ? preferredNode.getBoundingClientRect() : null;
+          if (preferredRect != null && preferredRect.height > 0) {
+            mountedTargetRect = preferredRect;
+          }
+        }
+      } else if (anchor.targetEventIds.length > 0) {
+        if (allEventsMeasured) {
+          const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
+          const rangeTop = Math.min(...mountedEventRects.map((rect) => rect.top));
+          const rangeBottom = Math.max(...mountedEventRects.map((rect) => rect.bottom));
+          if (rangeBottom - rangeTop <= usableHeight) {
+            mountedTargetRect = {
+              top: rangeTop,
+              bottom: rangeBottom,
+              height: rangeBottom - rangeTop,
+            };
+          } else {
+            const preferredEventNode = eventNodesById.get(String(anchor.preferredEventId));
+            const preferredEventRect =
+              preferredEventNode instanceof HTMLElement
+                ? preferredEventNode.getBoundingClientRect()
+                : null;
+            mountedTargetRect =
+              preferredEventRect != null && preferredEventRect.height > 0
+                ? preferredEventRect
+                : mountedEventRects.at(-1);
+            alignToBottom = true;
+          }
         } else {
           const preferredEventNode = eventNodesById.get(String(anchor.preferredEventId));
-          const preferredEventRect = preferredEventNode instanceof HTMLElement
-            ? preferredEventNode.getBoundingClientRect()
-            : null;
-          mountedTargetRect = preferredEventRect != null && preferredEventRect.height > 0
-            ? preferredEventRect
-            : mountedEventRects.at(-1);
+          const preferredEventRect =
+            preferredEventNode instanceof HTMLElement
+              ? preferredEventNode.getBoundingClientRect()
+              : null;
+          if (preferredEventRect != null && preferredEventRect.height > 0) {
+            mountedTargetRect = preferredEventRect;
+          }
+          // A partial sounding set must never favor an old attack. Keep the
+          // newest available event at the bottom until every row can be judged.
           alignToBottom = true;
         }
+      } else if (allTargetsMeasured) {
+        const topmostRect = mountedTargetRects.reduce(
+          (topmost, rect) => (topmost == null || rect.top < topmost.top ? rect : topmost),
+          null,
+        );
+        const rangeTop = Math.min(...mountedTargetRects.map((rect) => rect.top));
+        const rangeBottom = Math.max(...mountedTargetRects.map((rect) => rect.bottom));
+        const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
+        if (rangeBottom - rangeTop <= usableHeight) {
+          mountedTargetRect = topmostRect;
+        } else if (anchor.overflowAlignment === "end") {
+          const preferredEventNode = [
+            ...contentNode.querySelectorAll("[data-sequence-event-id]"),
+          ].find((node) => node.dataset.sequenceEventId === String(anchor.preferredEventId));
+          const preferredEventRect =
+            preferredEventNode instanceof HTMLElement
+              ? preferredEventNode.getBoundingClientRect()
+              : null;
+          if (preferredEventRect != null && preferredEventRect.height > 0) {
+            mountedTargetRect = preferredEventRect;
+          }
+          alignToBottom = true;
+        }
+      }
+      let targetContentTop;
+      if (mountedTargetRect != null && mountedTargetRect.height > 0) {
+        targetContentTop = alignToBottom
+          ? panel.scrollTop + mountedTargetRect.bottom - visiblePanel.bottom + 6
+          : panel.scrollTop + mountedTargetRect.top - visiblePanel.top - anchor.topOffset;
       } else {
-        const preferredEventNode = eventNodesById.get(String(anchor.preferredEventId));
-        const preferredEventRect = preferredEventNode instanceof HTMLElement
-          ? preferredEventNode.getBoundingClientRect()
-          : null;
-        if (preferredEventRect != null && preferredEventRect.height > 0) {
-          mountedTargetRect = preferredEventRect;
-        }
-        // A partial sounding set must never favor an old attack. Keep the
-        // newest available event at the bottom until every row can be judged.
-        alignToBottom = true;
+        const top = activeLayout?.offsets?.[anchor.preferredIndex];
+        if (!Number.isFinite(top)) return false;
+        targetContentTop =
+          panel.scrollTop +
+          contentNode.getBoundingClientRect().top -
+          visiblePanel.top +
+          top -
+          anchor.topOffset;
       }
-    } else if (allTargetsMeasured) {
-      const topmostRect = mountedTargetRects.reduce((topmost, rect) => (
-        topmost == null || rect.top < topmost.top ? rect : topmost
-      ), null);
-      const rangeTop = Math.min(...mountedTargetRects.map((rect) => rect.top));
-      const rangeBottom = Math.max(...mountedTargetRects.map((rect) => rect.bottom));
-      const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
-      if (rangeBottom - rangeTop <= usableHeight) {
-        mountedTargetRect = topmostRect;
-      } else if (anchor.overflowAlignment === "end") {
-        const preferredEventNode = [...contentNode.querySelectorAll("[data-sequence-event-id]")]
-          .find((node) => node.dataset.sequenceEventId === String(anchor.preferredEventId));
-        const preferredEventRect = preferredEventNode instanceof HTMLElement
-          ? preferredEventNode.getBoundingClientRect()
-          : null;
-        if (preferredEventRect != null && preferredEventRect.height > 0) {
-          mountedTargetRect = preferredEventRect;
-        }
-        alignToBottom = true;
-      }
-    }
-    let targetContentTop;
-    if (mountedTargetRect != null && mountedTargetRect.height > 0) {
-      targetContentTop = alignToBottom
-        ? panel.scrollTop + mountedTargetRect.bottom - visiblePanel.bottom + 6
-        : panel.scrollTop + mountedTargetRect.top - visiblePanel.top - anchor.topOffset;
-    } else {
-      const top = activeLayout?.offsets?.[anchor.preferredIndex];
-      if (!Number.isFinite(top)) return false;
-      targetContentTop = panel.scrollTop
-        + contentNode.getBoundingClientRect().top
-        - visiblePanel.top
-        + top
-        - anchor.topOffset;
-    }
-    const nextTop = Math.max(0, targetContentTop);
-    if (Math.abs(nextTop - panel.scrollTop) >= 1) panel.scrollTop = nextTop;
-    const appliedTop = panel.scrollTop;
-    setViewport((previous) => (
-      previous.scrollTop === appliedTop
-        ? previous
-        : { scrollTop: appliedTop, height: panel.clientHeight || 640 }
-    ));
-    return true;
-  }, [contentRef, enabled, scrollPanelRef]);
-
-  const retainAnchorWindow = useCallback((anchor, activeLayout) => {
-    const anchorTop = activeLayout?.offsets?.[anchor.preferredIndex];
-    if (!Number.isFinite(anchorTop)) return;
-    const windowStart = Math.max(0, anchorTop - SEQUENCE_VIRTUALIZATION_OVERSCAN_PX);
-    const windowEnd = anchorTop
-      + Math.max(1, Number(viewport.height) || 1)
-      + SEQUENCE_VIRTUALIZATION_OVERSCAN_PX;
-    const retainedIndexes = new Set(
-      anchor.retainedIndexes.length > 0
-        ? anchor.retainedIndexes
-        : anchor.targetIndexes,
-    );
-    // Mounted rows before the target contributed their real DOM height to the
-    // coordinate used by applyStartAnchor. Preserve that small prefix window
-    // as well; replacing it with estimates after the scroll would move the
-    // target. Mounted rows after the target cannot affect its coordinate.
-    const firstTargetIndex = anchor.materializedIndexes.length > 0
-      ? Math.min(...anchor.materializedIndexes)
-      : anchor.preferredIndex;
-    (activeLayout?.rows ?? []).forEach((row) => {
-      if (row.type === "item" && row.index < firstTargetIndex) {
-        retainedIndexes.add(row.index);
-      }
-    });
-    setStabilizedIndexes((activeLayout?.rows ?? [])
-      .filter((row) => (
-        row.type === "item"
-        && (
-          retainedIndexes.has(row.index)
-          || (
-            activeLayout.offsets[row.index + 1] >= windowStart
-            && activeLayout.offsets[row.index] <= windowEnd
-          )
-        )
-      ))
-      .map((row) => row.index));
-  }, [viewport.height]);
-
-  const commitAnchorMeasurements = useCallback((anchor) => {
-    const contentNode = contentRef?.current;
-    if (!(contentNode instanceof HTMLElement)) return false;
-    const exactSizes = new Map();
-    const mountedIndexes = [
-      ...contentNode.querySelectorAll("[data-sequence-virtual-index]"),
-    ]
-      .map((node) => Number(node.dataset.sequenceVirtualIndex))
-      .filter((index) => Number.isInteger(index));
-    // Rows already mounted above a distant target contribute their real
-    // heights to its DOM coordinate. Record them in the same transaction so
-    // replacing that old viewport with spacers cannot move the chosen anchor.
-    new Set([...anchor.materializedIndexes, ...mountedIndexes]).forEach((index) => {
-      const item = items[index];
-      const node = contentNode.querySelector(`[data-sequence-virtual-index="${index}"]`);
-      const height = node instanceof HTMLElement
-        ? Number(node.getBoundingClientRect().height)
-        : 0;
-      if (item?.key == null || !Number.isFinite(height) || height <= 0) return;
-      exactSizes.set(item.key, height);
-      measuredTokenByKeyRef.current.set(
-        item.key,
-        measurementTokensRef.current.get(item.key),
+      const nextTop = Math.max(0, targetContentTop);
+      if (Math.abs(nextTop - panel.scrollTop) >= 1) panel.scrollTop = nextTop;
+      const appliedTop = panel.scrollTop;
+      setViewport((previous) =>
+        previous.scrollTop === appliedTop
+          ? previous
+          : { scrollTop: appliedTop, height: panel.clientHeight || 640 },
       );
-    });
-    if (exactSizes.size === 0) return false;
-    const changed = [...exactSizes].some(([key, height]) => (
-      Math.abs(Number(measuredSizes.get(key)) - height) >= 0.5
-      || !Number.isFinite(Number(measuredSizes.get(key)))
-    ));
-    if (!changed) return false;
-    setMeasuredSizes((previous) => {
-      const next = new Map(previous);
-      exactSizes.forEach((height, key) => next.set(key, height));
-      return next;
-    });
-    return true;
-  }, [contentRef, items, measuredSizes]);
+      return true;
+    },
+    [contentRef, enabled, scrollPanelRef],
+  );
+
+  const retainAnchorWindow = useCallback(
+    (anchor, activeLayout) => {
+      const anchorTop = activeLayout?.offsets?.[anchor.preferredIndex];
+      if (!Number.isFinite(anchorTop)) return;
+      const windowStart = Math.max(0, anchorTop - SEQUENCE_VIRTUALIZATION_OVERSCAN_PX);
+      const windowEnd =
+        anchorTop + Math.max(1, Number(viewport.height) || 1) + SEQUENCE_VIRTUALIZATION_OVERSCAN_PX;
+      const retainedIndexes = new Set(
+        anchor.retainedIndexes.length > 0 ? anchor.retainedIndexes : anchor.targetIndexes,
+      );
+      // Mounted rows before the target contributed their real DOM height to the
+      // coordinate used by applyStartAnchor. Preserve that small prefix window
+      // as well; replacing it with estimates after the scroll would move the
+      // target. Mounted rows after the target cannot affect its coordinate.
+      const firstTargetIndex =
+        anchor.materializedIndexes.length > 0
+          ? Math.min(...anchor.materializedIndexes)
+          : anchor.preferredIndex;
+      (activeLayout?.rows ?? []).forEach((row) => {
+        if (row.type === "item" && row.index < firstTargetIndex) {
+          retainedIndexes.add(row.index);
+        }
+      });
+      setStabilizedIndexes(
+        (activeLayout?.rows ?? [])
+          .filter(
+            (row) =>
+              row.type === "item" &&
+              (retainedIndexes.has(row.index) ||
+                (activeLayout.offsets[row.index + 1] >= windowStart &&
+                  activeLayout.offsets[row.index] <= windowEnd)),
+          )
+          .map((row) => row.index),
+      );
+    },
+    [viewport.height],
+  );
+
+  const commitAnchorMeasurements = useCallback(
+    (anchor) => {
+      const contentNode = contentRef?.current;
+      if (!(contentNode instanceof HTMLElement)) return false;
+      const exactSizes = new Map();
+      const mountedIndexes = [...contentNode.querySelectorAll("[data-sequence-virtual-index]")]
+        .map((node) => Number(node.dataset.sequenceVirtualIndex))
+        .filter((index) => Number.isInteger(index));
+      // Rows already mounted above a distant target contribute their real
+      // heights to its DOM coordinate. Record them in the same transaction so
+      // replacing that old viewport with spacers cannot move the chosen anchor.
+      new Set([...anchor.materializedIndexes, ...mountedIndexes]).forEach((index) => {
+        const item = items[index];
+        const node = contentNode.querySelector(`[data-sequence-virtual-index="${index}"]`);
+        const height =
+          node instanceof HTMLElement ? Number(node.getBoundingClientRect().height) : 0;
+        if (item?.key == null || !Number.isFinite(height) || height <= 0) return;
+        exactSizes.set(item.key, height);
+        measuredTokenByKeyRef.current.set(item.key, measurementTokensRef.current.get(item.key));
+      });
+      if (exactSizes.size === 0) return false;
+      const changed = [...exactSizes].some(
+        ([key, height]) =>
+          Math.abs(Number(measuredSizes.get(key)) - height) >= 0.5 ||
+          !Number.isFinite(Number(measuredSizes.get(key))),
+      );
+      if (!changed) return false;
+      setMeasuredSizes((previous) => {
+        const next = new Map(previous);
+        exactSizes.forEach((height, key) => next.set(key, height));
+        return next;
+      });
+      return true;
+    },
+    [contentRef, items, measuredSizes],
+  );
 
   useLayoutEffect(() => {
     const anchor = pendingStartAnchorRef.current;
@@ -664,8 +692,9 @@ export function useSequenceVirtualization({
     // the same size and therefore emits no callback.
     if (anchor.requireMeasuredLayout && anchor.measurementsCommitted !== true) {
       const contentNode = contentRef?.current;
-      const targetRowsReady = contentNode instanceof HTMLElement
-        && anchor.materializedIndexes.every((index) => {
+      const targetRowsReady =
+        contentNode instanceof HTMLElement &&
+        anchor.materializedIndexes.every((index) => {
           const node = contentNode.querySelector(`[data-sequence-virtual-index="${index}"]`);
           return node instanceof HTMLElement && node.getBoundingClientRect().height > 0;
         });
@@ -684,8 +713,10 @@ export function useSequenceVirtualization({
         if (!(panel instanceof HTMLElement) || !(contentNode instanceof HTMLElement)) return;
         const panelRect = visibleElementBounds(panel);
         const eventNodesById = new Map(
-          [...contentNode.querySelectorAll("[data-sequence-event-id]")]
-            .map((node) => [node.dataset.sequenceEventId, node]),
+          [...contentNode.querySelectorAll("[data-sequence-event-id]")].map((node) => [
+            node.dataset.sequenceEventId,
+            node,
+          ]),
         );
         const eventRects = anchor.targetEventIds.map((eventId) => {
           const node = eventNodesById.get(String(eventId));
@@ -697,10 +728,7 @@ export function useSequenceVirtualization({
           events: eventRects,
           scrollHeight: panel.scrollHeight,
         });
-        if (
-          anchor.geometrySignature == null
-          || anchor.geometrySignature !== geometrySignature
-        ) {
+        if (anchor.geometrySignature == null || anchor.geometrySignature !== geometrySignature) {
           anchor.geometrySignature = geometrySignature;
           const nextFrame = window.requestAnimationFrame(sampleAndApply);
           pendingStartAnchorReleaseFramesRef.current = [nextFrame];
@@ -762,118 +790,131 @@ export function useSequenceVirtualization({
     };
   }, [clearPendingStartAnchor, scrollPanelRef]);
 
-  const scrollIndexIntoView = useCallback((index, {
-    align = "nearest",
-    topOffset = 0,
-    targetIndexes = null,
-    materializedIndexes = null,
-    retainedIndexes = null,
-    overflowAlignment = "start",
-    preferredEventId = null,
-    targetEventIds = null,
-    requireMountedEventTargets = false,
-    requireMeasuredLayout = false,
-    applyOnce = false,
-    onApplied = null,
-    preferredStructuralKey = null,
-    targetStructuralKeys = null,
-  } = {}) => {
-    const numeric = Number(index);
-    const panel = scrollPanelRef?.current;
-    if (!Number.isInteger(numeric) || !(panel instanceof HTMLElement)) return false;
-    const top = layoutRef.current?.offsets?.[numeric];
-    const bottom = layoutRef.current?.offsets?.[numeric + 1];
-    if (!Number.isFinite(top) || !Number.isFinite(bottom)) return false;
-    const viewportHeight = panel.clientHeight || 640;
-    if (align === "start") {
-      const normalizedTargetIndexes = [...new Set(
-        (Array.isArray(targetIndexes) ? targetIndexes : [numeric])
-          .map((targetIndex) => Number(targetIndex))
-          .filter((targetIndex) => (
-            Number.isInteger(targetIndex)
-            && targetIndex >= 0
-            && targetIndex < items.length
-          )),
-      )];
-      const normalizedMaterializedIndexes = [...new Set(
-        (Array.isArray(materializedIndexes) ? materializedIndexes : normalizedTargetIndexes)
-          .map((targetIndex) => Number(targetIndex))
-          .filter((targetIndex) => (
-            Number.isInteger(targetIndex)
-            && targetIndex >= 0
-            && targetIndex < items.length
-          )),
-      )];
-      const anchor = {
-        preferredIndex: numeric,
-        targetIndexes: normalizedTargetIndexes,
-        materializedIndexes: normalizedMaterializedIndexes,
-        retainedIndexes: [...new Set(
-          (Array.isArray(retainedIndexes) ? retainedIndexes : normalizedMaterializedIndexes)
-            .map((targetIndex) => Number(targetIndex))
-            .filter((targetIndex) => (
-              Number.isInteger(targetIndex)
-              && targetIndex >= 0
-              && targetIndex < items.length
-            )),
-        )],
-        topOffset: Math.max(0, Number(topOffset) || 0),
-        overflowAlignment,
-        preferredEventId,
-        targetEventIds: Array.isArray(targetEventIds)
-          ? targetEventIds.filter((eventId) => eventId != null)
-          : [],
-        requireMountedEventTargets: requireMountedEventTargets === true,
-        requireMeasuredLayout: requireMeasuredLayout === true,
-        applyOnce: applyOnce === true,
-        onApplied: typeof onApplied === "function" ? onApplied : null,
-        preferredStructuralKey,
-        targetStructuralKeys: Array.isArray(targetStructuralKeys)
-          ? targetStructuralKeys.filter((key) => key != null)
-          : [],
-      };
-      if (!enabled) {
-        const applied = applyStartAnchor(anchor);
-        if (anchor.applyOnce && applied) anchor.onApplied?.();
+  const scrollIndexIntoView = useCallback(
+    (
+      index,
+      {
+        align = "nearest",
+        topOffset = 0,
+        targetIndexes = null,
+        materializedIndexes = null,
+        retainedIndexes = null,
+        overflowAlignment = "start",
+        preferredEventId = null,
+        targetEventIds = null,
+        requireMountedEventTargets = false,
+        requireMeasuredLayout = false,
+        applyOnce = false,
+        onApplied = null,
+        preferredStructuralKey = null,
+        targetStructuralKeys = null,
+      } = {},
+    ) => {
+      const numeric = Number(index);
+      const panel = scrollPanelRef?.current;
+      if (!Number.isInteger(numeric) || !(panel instanceof HTMLElement)) return false;
+      const top = layoutRef.current?.offsets?.[numeric];
+      const bottom = layoutRef.current?.offsets?.[numeric + 1];
+      if (!Number.isFinite(top) || !Number.isFinite(bottom)) return false;
+      const viewportHeight = panel.clientHeight || 640;
+      if (align === "start") {
+        const normalizedTargetIndexes = [
+          ...new Set(
+            (Array.isArray(targetIndexes) ? targetIndexes : [numeric])
+              .map((targetIndex) => Number(targetIndex))
+              .filter(
+                (targetIndex) =>
+                  Number.isInteger(targetIndex) && targetIndex >= 0 && targetIndex < items.length,
+              ),
+          ),
+        ];
+        const normalizedMaterializedIndexes = [
+          ...new Set(
+            (Array.isArray(materializedIndexes) ? materializedIndexes : normalizedTargetIndexes)
+              .map((targetIndex) => Number(targetIndex))
+              .filter(
+                (targetIndex) =>
+                  Number.isInteger(targetIndex) && targetIndex >= 0 && targetIndex < items.length,
+              ),
+          ),
+        ];
+        const anchor = {
+          preferredIndex: numeric,
+          targetIndexes: normalizedTargetIndexes,
+          materializedIndexes: normalizedMaterializedIndexes,
+          retainedIndexes: [
+            ...new Set(
+              (Array.isArray(retainedIndexes) ? retainedIndexes : normalizedMaterializedIndexes)
+                .map((targetIndex) => Number(targetIndex))
+                .filter(
+                  (targetIndex) =>
+                    Number.isInteger(targetIndex) && targetIndex >= 0 && targetIndex < items.length,
+                ),
+            ),
+          ],
+          topOffset: Math.max(0, Number(topOffset) || 0),
+          overflowAlignment,
+          preferredEventId,
+          targetEventIds: Array.isArray(targetEventIds)
+            ? targetEventIds.filter((eventId) => eventId != null)
+            : [],
+          requireMountedEventTargets: requireMountedEventTargets === true,
+          requireMeasuredLayout: requireMeasuredLayout === true,
+          applyOnce: applyOnce === true,
+          onApplied: typeof onApplied === "function" ? onApplied : null,
+          preferredStructuralKey,
+          targetStructuralKeys: Array.isArray(targetStructuralKeys)
+            ? targetStructuralKeys.filter((key) => key != null)
+            : [],
+        };
+        if (!enabled) {
+          const applied = applyStartAnchor(anchor);
+          if (anchor.applyOnce && applied) anchor.onApplied?.();
+          return applied;
+        }
+        pendingStartAnchorRef.current = anchor;
+        setStartAnchor(anchor);
+        const applied = anchor.requireMeasuredLayout ? false : applyStartAnchor(anchor);
+        if (anchor.applyOnce && applied) {
+          const activeLayout = layoutRef.current;
+          retainAnchorWindow(anchor, activeLayout);
+          anchor.onApplied?.();
+          pendingStartAnchorRef.current = null;
+          setStartAnchor(null);
+        }
         return applied;
       }
-      pendingStartAnchorRef.current = anchor;
-      setStartAnchor(anchor);
-      const applied = anchor.requireMeasuredLayout ? false : applyStartAnchor(anchor);
-      if (anchor.applyOnce && applied) {
-        const activeLayout = layoutRef.current;
-        retainAnchorWindow(anchor, activeLayout);
-        anchor.onApplied?.();
-        pendingStartAnchorRef.current = null;
-        setStartAnchor(null);
-      }
-      return applied;
-    }
-    if (!enabled) return false;
-    clearPendingStartAnchor();
-    const contentNode = contentRef?.current;
-    const contentTop = contentNode instanceof HTMLElement
-      ? panel.scrollTop
-        + contentNode.getBoundingClientRect().top
-        - panel.getBoundingClientRect().top
-      : 0;
-    const viewportBottom = panel.scrollTop + viewportHeight;
-    const absoluteTop = contentTop + top;
-    const absoluteBottom = contentTop + bottom;
-    if (absoluteTop >= panel.scrollTop && absoluteBottom <= viewportBottom) return false;
-    const nextTop = Math.max(0, absoluteTop - Math.min(120, SEQUENCE_VIRTUALIZATION_OVERSCAN_PX / 2));
-    panel.scrollTop = nextTop;
-    setViewport({ scrollTop: panel.scrollTop, height: viewportHeight });
-    return true;
-  }, [
-    applyStartAnchor,
-    clearPendingStartAnchor,
-    contentRef,
-    enabled,
-    items.length,
-    retainAnchorWindow,
-    scrollPanelRef,
-  ]);
+      if (!enabled) return false;
+      clearPendingStartAnchor();
+      const contentNode = contentRef?.current;
+      const contentTop =
+        contentNode instanceof HTMLElement
+          ? panel.scrollTop +
+            contentNode.getBoundingClientRect().top -
+            panel.getBoundingClientRect().top
+          : 0;
+      const viewportBottom = panel.scrollTop + viewportHeight;
+      const absoluteTop = contentTop + top;
+      const absoluteBottom = contentTop + bottom;
+      if (absoluteTop >= panel.scrollTop && absoluteBottom <= viewportBottom) return false;
+      const nextTop = Math.max(
+        0,
+        absoluteTop - Math.min(120, SEQUENCE_VIRTUALIZATION_OVERSCAN_PX / 2),
+      );
+      panel.scrollTop = nextTop;
+      setViewport({ scrollTop: panel.scrollTop, height: viewportHeight });
+      return true;
+    },
+    [
+      applyStartAnchor,
+      clearPendingStartAnchor,
+      contentRef,
+      enabled,
+      items.length,
+      retainAnchorWindow,
+      scrollPanelRef,
+    ],
+  );
 
   return {
     enabled,

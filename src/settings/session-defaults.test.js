@@ -66,7 +66,7 @@ describe("session-defaults integer non-zero round-trip", () => {
 describe("session-defaults HEJI palette round-trip", () => {
   it("restores the registered palette UI preferences", async () => {
     sessionStorage.setItem("heji_palette_visible", "true");
-    sessionStorage.setItem("heji_palette_structure", "{\"letter\":\"A\"}");
+    sessionStorage.setItem("heji_palette_structure", '{"letter":"A"}');
     sessionStorage.setItem("heji_palette_deviation", "+17");
     sessionStorage.setItem("heji_palette_decimals", "3");
     vi.resetModules();
@@ -74,7 +74,7 @@ describe("session-defaults HEJI palette round-trip", () => {
     const { default: sessionDefaults } = await import("./session-defaults.js");
 
     expect(sessionDefaults.heji_palette_visible).toBe(true);
-    expect(sessionDefaults.heji_palette_structure).toBe("{\"letter\":\"A\"}");
+    expect(sessionDefaults.heji_palette_structure).toBe('{"letter":"A"}');
     expect(sessionDefaults.heji_palette_deviation).toBe("+17");
     expect(sessionDefaults.heji_palette_decimals).toBe(3);
 

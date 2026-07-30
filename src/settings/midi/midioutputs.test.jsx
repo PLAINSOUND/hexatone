@@ -343,10 +343,7 @@ describe("MidiOutputs FluidSynth independence", () => {
     fireEvent.click(screen.getByLabelText("Mod Wheel → Brightness"));
     expect(onChange).toHaveBeenCalledWith("mpe_eagan_modwheel_brightness", true);
 
-    fireEvent(
-      window,
-      new CustomEvent(EAGAN_BRIGHTNESS_EVENT, { detail: { value: 103 } }),
-    );
+    fireEvent(window, new CustomEvent(EAGAN_BRIGHTNESS_EVENT, { detail: { value: 103 } }));
 
     expect(screen.getByRole("slider", { name: "Brightness" }).getAttribute("aria-valuenow")).toBe(
       "103",

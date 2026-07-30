@@ -26,10 +26,7 @@ self.onmessage = ({ data }) => {
   if (data?.type !== "schedule") return;
   const receivedAt = performance.now();
   const startedAt = Number.isFinite(data.startedAtEpoch)
-    ? receivedAt - Math.max(
-      0,
-      performance.timeOrigin + receivedAt - data.startedAtEpoch,
-    )
+    ? receivedAt - Math.max(0, performance.timeOrigin + receivedAt - data.startedAtEpoch)
     : receivedAt;
   const active = engine.schedule(
     data.channel,

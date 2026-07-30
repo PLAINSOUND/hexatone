@@ -22,16 +22,10 @@ export function deriveTimedPageFollowPosition({
   fallbackSnapshotId = null,
 } = {}) {
   const soundingAfter = Array.isArray(burst?.soundingAfter) ? burst.soundingAfter : [];
-  const newlyAttacked = new Set(
-    Array.isArray(burst?.newlyAttacked) ? burst.newlyAttacked : [],
-  );
-  const newlyAttackedNotes = soundingAfter.filter(
-    (note) => newlyAttacked.has(note?.instanceKey),
-  );
+  const newlyAttacked = new Set(Array.isArray(burst?.newlyAttacked) ? burst.newlyAttacked : []);
+  const newlyAttackedNotes = soundingAfter.filter((note) => newlyAttacked.has(note?.instanceKey));
   const newlyAttackedEventIds = new Set(
-    newlyAttackedNotes
-      .map((note) => note?.eventId)
-      .filter((eventId) => eventId != null),
+    newlyAttackedNotes.map((note) => note?.eventId).filter((eventId) => eventId != null),
   );
   const orderedEventIds = sequenceEvents
     .filter((event) => newlyAttackedEventIds.has(event?.eventId))
@@ -49,12 +43,14 @@ export function deriveTimedPageFollowPosition({
   const attackedSnapshotIndexes = newlyAttackedNotes
     .map((note) => Number(note?.snapshotIndex))
     .filter((index) => Number.isInteger(index) && index >= 0 && index < snapshots.length);
-  const earliestSnapshotIndex = attackedSnapshotIndexes.length > 0
-    ? Math.min(...attackedSnapshotIndexes)
-    : fallbackSnapshotIndex;
-  const latestSnapshotIndex = attackedSnapshotIndexes.length > 0
-    ? Math.max(...attackedSnapshotIndexes)
-    : fallbackSnapshotIndex;
+  const earliestSnapshotIndex =
+    attackedSnapshotIndexes.length > 0
+      ? Math.min(...attackedSnapshotIndexes)
+      : fallbackSnapshotIndex;
+  const latestSnapshotIndex =
+    attackedSnapshotIndexes.length > 0
+      ? Math.max(...attackedSnapshotIndexes)
+      : fallbackSnapshotIndex;
 
   return {
     scrollSnapshotId: snapshots[earliestSnapshotIndex]?.id ?? fallbackSnapshotId,
@@ -196,8 +192,7 @@ export function createTimedPlaybackAutoscrollPresenter({
 
     const startRow = resolveSnapshotRow?.(startId) ?? null;
     const endRow = endId == null ? startRow : (resolveSnapshotRow?.(endId) ?? null);
-    const eventRows = eventIds
-      .map((eventId) => resolveEventRow?.(eventId) ?? null);
+    const eventRows = eventIds.map((eventId) => resolveEventRow?.(eventId) ?? null);
     const missingIds = [
       startRow == null ? startId : null,
       endRow == null && endId !== startId ? endId : null,
@@ -229,7 +224,9 @@ export function createTimedPlaybackAutoscrollPresenter({
       scrollSnapshotRows(
         resolvedEventRows.length > 0
           ? resolvedEventRows
-          : (endRow && endRow !== startRow ? [startRow, endRow] : [startRow]),
+          : endRow && endRow !== startRow
+            ? [startRow, endRow]
+            : [startRow],
       );
     } else {
       scrollSnapshotRow?.(resolvedEventRows.at(-1) ?? startRow);

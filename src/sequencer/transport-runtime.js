@@ -51,14 +51,17 @@ export function buildStructuralMarkersByDisplayBucket(bars = [], tempi = [], rep
 
   bars.forEach((bar, index) => collect(bar, "bar", index));
   tempi.forEach((tempo, index) => collect(tempo, "tempo", index));
-  repeats.forEach((repeat, index) => collect(repeat, repeat?.kind === "end" ? "repeat-end" : "repeat-start", index));
+  repeats.forEach((repeat, index) =>
+    collect(repeat, repeat?.kind === "end" ? "repeat-end" : "repeat-start", index),
+  );
 
   for (const items of groups.values()) {
-    items.sort((a, b) => (
-      Number(a.position) - Number(b.position) ||
-      structuralTypePriority(a.structuralType) - structuralTypePriority(b.structuralType) ||
-      Number(a.structuralOrder) - Number(b.structuralOrder)
-    ));
+    items.sort(
+      (a, b) =>
+        Number(a.position) - Number(b.position) ||
+        structuralTypePriority(a.structuralType) - structuralTypePriority(b.structuralType) ||
+        Number(a.structuralOrder) - Number(b.structuralOrder),
+    );
   }
 
   return groups;

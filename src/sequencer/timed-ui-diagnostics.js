@@ -12,8 +12,9 @@ const SLOW_COMMIT_MS = 16;
 
 function uniqueNodes(ref) {
   return new Set(
-    [...(ref?.current?.values?.() ?? [])]
-      .filter((node) => node instanceof HTMLElement && node.isConnected),
+    [...(ref?.current?.values?.() ?? [])].filter(
+      (node) => node instanceof HTMLElement && node.isConnected,
+    ),
   );
 }
 
@@ -60,29 +61,32 @@ export default function useTimedUiDiagnostics({
   const lastCommitSampleAtRef = useRef(-Infinity);
   const previousRuntimeInstanceIdRef = useRef(runtimeInstanceId ?? null);
 
-  const collectMetrics = useCallback(() => ({
-    ...collectSequencerUiMetrics({
-      scrollPanelRef,
-      snapshotRowRefs,
-      eventRowRefs,
-      barRowRefs,
+  const collectMetrics = useCallback(
+    () => ({
+      ...collectSequencerUiMetrics({
+        scrollPanelRef,
+        snapshotRowRefs,
+        eventRowRefs,
+        barRowRefs,
+      }),
+      snapshotCount,
+      eventCount,
+      cueCount,
+      runtimeInstanceId,
+      status: running ? "running" : "stopped",
     }),
-    snapshotCount,
-    eventCount,
-    cueCount,
-    runtimeInstanceId,
-    status: running ? "running" : "stopped",
-  }), [
-    barRowRefs,
-    cueCount,
-    eventCount,
-    eventRowRefs,
-    running,
-    runtimeInstanceId,
-    scrollPanelRef,
-    snapshotCount,
-    snapshotRowRefs,
-  ]);
+    [
+      barRowRefs,
+      cueCount,
+      eventCount,
+      eventRowRefs,
+      running,
+      runtimeInstanceId,
+      scrollPanelRef,
+      snapshotCount,
+      snapshotRowRefs,
+    ],
+  );
 
   useLayoutEffect(() => {
     if (!running || !isTimedTransportDiagnosticsEnabled()) return;
@@ -96,7 +100,8 @@ export default function useTimedUiDiagnostics({
       clockSeconds: nowMs / 1000,
       commitDurationMs,
       ...collectMetrics(),
-      detail: commitDurationMs >= SLOW_COMMIT_MS ? "slow sequencer commit" : "sampled sequencer commit",
+      detail:
+        commitDurationMs >= SLOW_COMMIT_MS ? "slow sequencer commit" : "sampled sequencer commit",
     });
   });
 
@@ -104,7 +109,8 @@ export default function useTimedUiDiagnostics({
     const previousRuntimeInstanceId = previousRuntimeInstanceIdRef.current;
     previousRuntimeInstanceIdRef.current = runtimeInstanceId ?? null;
     if (!running || !isTimedTransportDiagnosticsEnabled()) return;
-    if (previousRuntimeInstanceId == null || previousRuntimeInstanceId === runtimeInstanceId) return;
+    if (previousRuntimeInstanceId == null || previousRuntimeInstanceId === runtimeInstanceId)
+      return;
     recordDiagnostic?.({
       type: "runtime-rebuild",
       clockSeconds: performance.now() / 1000,

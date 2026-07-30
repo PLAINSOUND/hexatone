@@ -60,8 +60,10 @@ function noteIdentity(note, fallbackLength = 1) {
 }
 
 function canRestoreEditedDisplayLabel(note) {
-  return Number.isFinite(Number(note?.originalMidicents))
-    || (note?.displayLabelEdited === true && note?.originalDisplayLabel != null);
+  return (
+    Number.isFinite(Number(note?.originalMidicents)) ||
+    (note?.displayLabelEdited === true && note?.originalDisplayLabel != null)
+  );
 }
 
 export function deriveSnapshotTriggerGroups(snapshot) {
@@ -118,11 +120,9 @@ export function deriveSnapshotTriggerGroups(snapshot) {
     });
   }
 
-  events.sort((a, b) => (
-    a.time - b.time ||
-    noteEventPhase(a) - noteEventPhase(b) ||
-    b.midicents - a.midicents
-  ));
+  events.sort(
+    (a, b) => a.time - b.time || noteEventPhase(a) - noteEventPhase(b) || b.midicents - a.midicents,
+  );
 
   const groups = [];
   for (const event of events) {
@@ -165,12 +165,7 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats =
         events.push({
           ...event,
           type: "note",
-          eventId: [
-            snapshot?.id ?? snapshotIndex,
-            event.noteId,
-            event.kind,
-            event.time,
-          ].join(":"),
+          eventId: [snapshot?.id ?? snapshotIndex, event.noteId, event.kind, event.time].join(":"),
           snapshotId: snapshot?.id ?? null,
           snapshotIndex,
           relativeTime: event.time,
@@ -220,8 +215,12 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats =
       tempoOrder,
       mode: normalizeTempoMode(tempo?.mode),
       bpm: Number(tempo?.bpm),
-      beatNumerator: Number.isFinite(Number(tempo?.beatNumerator)) ? Number(tempo.beatNumerator) : 1,
-      beatDenominator: Number.isFinite(Number(tempo?.beatDenominator)) ? Number(tempo.beatDenominator) : 4,
+      beatNumerator: Number.isFinite(Number(tempo?.beatNumerator))
+        ? Number(tempo.beatNumerator)
+        : 1,
+      beatDenominator: Number.isFinite(Number(tempo?.beatDenominator))
+        ? Number(tempo.beatDenominator)
+        : 4,
       beatLength: Number(tempo?.beatLength),
       eventId: `tempo:${tempo?.id ?? tempoOrder}:${absoluteTime}`,
       snapshotId: snapshots?.[snapshotIndex]?.id ?? null,
@@ -281,13 +280,14 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats =
     });
   }
 
-  events.sort((a, b) => (
-    a.absoluteTime - b.absoluteTime ||
-    sequenceRowPriority(a) - sequenceRowPriority(b) ||
-    ((b.midicents ?? -Infinity) - (a.midicents ?? -Infinity)) ||
-    ((a.barOrder ?? 0) - (b.barOrder ?? 0)) ||
-    ((a.tempoOrder ?? 0) - (b.tempoOrder ?? 0))
-  ));
+  events.sort(
+    (a, b) =>
+      a.absoluteTime - b.absoluteTime ||
+      sequenceRowPriority(a) - sequenceRowPriority(b) ||
+      (b.midicents ?? -Infinity) - (a.midicents ?? -Infinity) ||
+      (a.barOrder ?? 0) - (b.barOrder ?? 0) ||
+      (a.tempoOrder ?? 0) - (b.tempoOrder ?? 0),
+  );
 
   let cueIndex = 0;
   let previousTime = null;
@@ -319,22 +319,12 @@ export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats =
 
     const displayLeadShouldAdvance =
       (event.snapshotIndex ?? Infinity) < (currentDisplayLead?.snapshotIndex ?? Infinity) ||
-      (
-        event.snapshotIndex === currentDisplayLead?.snapshotIndex &&
-        (
-          event.relativeTime < currentDisplayLead.relativeTime ||
-          (
-            event.relativeTime === currentDisplayLead.relativeTime &&
-            (
-              noteEventPhase(event) < noteEventPhase(currentDisplayLead) ||
-              (
-                noteEventPhase(event) === noteEventPhase(currentDisplayLead) &&
-                event.midicents > currentDisplayLead.midicents
-              )
-            )
-          )
-        )
-      );
+      (event.snapshotIndex === currentDisplayLead?.snapshotIndex &&
+        (event.relativeTime < currentDisplayLead.relativeTime ||
+          (event.relativeTime === currentDisplayLead.relativeTime &&
+            (noteEventPhase(event) < noteEventPhase(currentDisplayLead) ||
+              (noteEventPhase(event) === noteEventPhase(currentDisplayLead) &&
+                event.midicents > currentDisplayLead.midicents)))));
 
     if (displayLeadShouldAdvance) currentDisplayLead = event;
   }
@@ -365,9 +355,7 @@ export function deriveSequenceCueGroupsFromEvents(sequenceEvents = []) {
 }
 
 export function deriveSequenceCueGroups(snapshots, bars = [], tempi = [], repeats = []) {
-  return deriveSequenceCueGroupsFromEvents(
-    deriveSequenceEvents(snapshots, bars, tempi, repeats),
-  );
+  return deriveSequenceCueGroupsFromEvents(deriveSequenceEvents(snapshots, bars, tempi, repeats));
 }
 
 export function sequenceNotesAtCueTime(snapshots, cueTime) {
@@ -426,13 +414,13 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
     }
   }
 
-  return [...activeByInstance.values()].sort((a, b) => (
-    Number(b.midicents) - Number(a.midicents)
-  ));
+  return [...activeByInstance.values()].sort((a, b) => Number(b.midicents) - Number(a.midicents));
 }
 
 export function sequenceNoteKeysAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
-  const events = deriveSequenceEvents(snapshots, bars, tempi).filter((event) => event.type === "note");
+  const events = deriveSequenceEvents(snapshots, bars, tempi).filter(
+    (event) => event.type === "note",
+  );
   const index = Number(cueIndex);
   if (!Number.isFinite(index) || index < 0) return [];
 
@@ -447,7 +435,9 @@ export function sequenceNoteKeysAtCueIndex(snapshots, bars = [], tempi = [], cue
 }
 
 export function sequenceNoteInstanceKeysAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
-  const events = deriveSequenceEvents(snapshots, bars, tempi).filter((event) => event.type === "note");
+  const events = deriveSequenceEvents(snapshots, bars, tempi).filter(
+    (event) => event.type === "note",
+  );
   const index = Number(cueIndex);
   if (!Number.isFinite(index) || index < 0) return [];
 
@@ -463,7 +453,9 @@ export function sequenceNoteInstanceKeysAtCueIndex(snapshots, bars = [], tempi =
 }
 
 export function sequenceAttackEventIdsAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
-  const events = deriveSequenceEvents(snapshots, bars, tempi).filter((event) => event.type === "note");
+  const events = deriveSequenceEvents(snapshots, bars, tempi).filter(
+    (event) => event.type === "note",
+  );
   const index = Number(cueIndex);
   if (!Number.isFinite(index) || index < 0) return [];
 

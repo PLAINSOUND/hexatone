@@ -2,18 +2,9 @@
 // It owns local editing affordances for bar position and time signature while
 // higher-level sequencer controllers own normalization and structural moves.
 
-import {
-  buildBlurCommit,
-  buildEnterCommit,
-  buildSelectOnFocus,
-} from "./field-props.js";
+import { buildBlurCommit, buildEnterCommit, buildSelectOnFocus } from "./field-props.js";
 
-const BarRow = ({
-  bar,
-  barNumberById,
-  dnd,
-  editing,
-}) => {
+const BarRow = ({ bar, barNumberById, dnd, editing }) => {
   const barId = bar.barId ?? bar.id;
   const barNumber = barNumberById.get(barId) ?? 1;
   const barPosition = Number(bar.position ?? bar.absoluteTime);
@@ -52,7 +43,9 @@ const BarRow = ({
               editing.onDeleteBar?.(barId);
             }}
           >
-            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">×</span>
+            <span class="sequencer-gutter__delete-glyph" aria-hidden="true">
+              ×
+            </span>
           </button>
         ) : null}
       </div>
@@ -84,7 +77,10 @@ const BarRow = ({
         />
       </div>
       <div class="sequencer-bar-row__signature-cell sequencer-grid-offset">
-        <div class="sequencer-bar-row__time-signature" aria-label={`bar ${barNumber} time signature`}>
+        <div
+          class="sequencer-bar-row__time-signature"
+          aria-label={`bar ${barNumber} time signature`}
+        >
           <input
             type="number"
             step="1"
@@ -92,10 +88,16 @@ const BarRow = ({
             class="sequencer-event__input sequencer-event__input--stepper sequencer-bar-row__signature-input"
             defaultValue={String(bar.numerator ?? 4)}
             aria-label={`bar ${barNumber} beats per bar`}
-            onInput={(e) => editing.updateBarTimeSignatureField(barId, "numerator", e.currentTarget.value)}
+            onInput={(e) =>
+              editing.updateBarTimeSignatureField(barId, "numerator", e.currentTarget.value)
+            }
             onFocus={buildSelectOnFocus({ clearCommitted: true })}
-            onKeyDown={buildEnterCommit(editing, (value) => editing.updateBarTimeSignatureField(barId, "numerator", value))}
-            onBlur={buildBlurCommit(editing, (value) => editing.updateBarTimeSignatureField(barId, "numerator", value))}
+            onKeyDown={buildEnterCommit(editing, (value) =>
+              editing.updateBarTimeSignatureField(barId, "numerator", value),
+            )}
+            onBlur={buildBlurCommit(editing, (value) =>
+              editing.updateBarTimeSignatureField(barId, "numerator", value),
+            )}
           />
           <input
             type="number"
@@ -104,10 +106,16 @@ const BarRow = ({
             class="sequencer-event__input sequencer-event__input--stepper sequencer-bar-row__signature-input"
             defaultValue={String(bar.denominator ?? 4)}
             aria-label={`bar ${barNumber} beat unit`}
-            onInput={(e) => editing.updateBarTimeSignatureField(barId, "denominator", e.currentTarget.value)}
+            onInput={(e) =>
+              editing.updateBarTimeSignatureField(barId, "denominator", e.currentTarget.value)
+            }
             onFocus={buildSelectOnFocus({ clearCommitted: true })}
-            onKeyDown={buildEnterCommit(editing, (value) => editing.updateBarTimeSignatureField(barId, "denominator", value))}
-            onBlur={buildBlurCommit(editing, (value) => editing.updateBarTimeSignatureField(barId, "denominator", value))}
+            onKeyDown={buildEnterCommit(editing, (value) =>
+              editing.updateBarTimeSignatureField(barId, "denominator", value),
+            )}
+            onBlur={buildBlurCommit(editing, (value) =>
+              editing.updateBarTimeSignatureField(barId, "denominator", value),
+            )}
           />
         </div>
       </div>

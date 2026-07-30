@@ -75,14 +75,16 @@ describe("sequencer snapshots", () => {
 
   it("captures current pressure and timbre expression when present", () => {
     const runtime = makeRuntime({
-      _allActiveHexes: () => [{
-        cents: 0,
-        velocity: 113,
-        _lastAftertouch: 64,
-        _lastAftertouch14: 8200,
-        _lastCC74: 91,
-        _lastCC7414: 12000,
-      }],
+      _allActiveHexes: () => [
+        {
+          cents: 0,
+          velocity: 113,
+          _lastAftertouch: 64,
+          _lastAftertouch14: 8200,
+          _lastCC74: 91,
+          _lastCC7414: 12000,
+        },
+      ],
     });
 
     expect(captureSnapshot(runtime)[0]).toMatchObject({
@@ -95,10 +97,12 @@ describe("sequencer snapshots", () => {
 
   it("captures current CC1 controller state as timbre when a non-MPE hex has no local CC74 history", () => {
     const runtime = makeRuntime({
-      _allActiveHexes: () => [{
-        cents: 0,
-        velocity: 113,
-      }],
+      _allActiveHexes: () => [
+        {
+          cents: 0,
+          velocity: 113,
+        },
+      ],
     });
     runtime._controllerCCValues = new Map([[1, 87]]);
 
@@ -109,17 +113,19 @@ describe("sequencer snapshots", () => {
 
   it("captures exact JI identity for snapshot proportion labels", () => {
     const runtime = makeRuntime({
-      _allActiveHexes: () => [{
-        cents: 0,
-        velocity: 113,
-        _noteContext: {
-          displayLabel: "A",
-          scaleRatioText: "5/4",
-          scaleMonzo: [-2, 0, 1],
-          ratioText: "3/2",
-          monzo: [-1, 1, 0],
+      _allActiveHexes: () => [
+        {
+          cents: 0,
+          velocity: 113,
+          _noteContext: {
+            displayLabel: "A",
+            scaleRatioText: "5/4",
+            scaleMonzo: [-2, 0, 1],
+            ratioText: "3/2",
+            monzo: [-1, 1, 0],
+          },
         },
-      }],
+      ],
     });
 
     expect(captureSnapshot(runtime)[0]).toMatchObject({
@@ -134,10 +140,12 @@ describe("sequencer snapshots", () => {
   it("captures sounded pitch from the live hex frequency helper when present", () => {
     const runtime = makeRuntime({
       _frequencyForHex: () => 441,
-      _allActiveHexes: () => [{
-        cents: 12,
-        velocity: 113,
-      }],
+      _allActiveHexes: () => [
+        {
+          cents: 12,
+          velocity: 113,
+        },
+      ],
     });
 
     expect(captureSnapshot(runtime)[0]).toMatchObject({
@@ -339,7 +347,7 @@ describe("sequencer snapshots", () => {
 
     expect(noteOn).toHaveBeenCalledTimes(1);
     expect(aftertouch).toHaveBeenCalledWith(64, 8200);
-    expect(setMod).toHaveBeenCalledWith(1 + (12000 / 16256));
+    expect(setMod).toHaveBeenCalledWith(1 + 12000 / 16256);
     expect(cc74).toHaveBeenCalledWith(91, 12000);
   });
 
@@ -393,15 +401,19 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [oldHex],
     });
 
-    const nextHexes = playSnapshot(runtime, [
-      {
-        midicents: 69,
-        attackVelocity: 120,
-        releaseVelocity: 44,
-        timbre: 91,
-        reattack: true,
-      },
-    ], { legato: true });
+    const nextHexes = playSnapshot(
+      runtime,
+      [
+        {
+          midicents: 69,
+          attackVelocity: 120,
+          releaseVelocity: 44,
+          timbre: 91,
+          reattack: true,
+        },
+      ],
+      { legato: true },
+    );
 
     expect(oldNoteOff).toHaveBeenCalledWith(33);
     expect(synth.makeHex).toHaveBeenCalledTimes(1);
@@ -435,15 +447,19 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [reusedHex],
     });
 
-    const nextHexes = playSnapshot(runtime, [
-      {
-        midicents: 69,
-        attackVelocity: 120,
-        releaseVelocity: 44,
-        pressure: 64,
-        timbre: 91,
-      },
-    ], { legato: true });
+    const nextHexes = playSnapshot(
+      runtime,
+      [
+        {
+          midicents: 69,
+          attackVelocity: 120,
+          releaseVelocity: 44,
+          pressure: 64,
+          timbre: 91,
+        },
+      ],
+      { legato: true },
+    );
 
     expect(runtime.stopSnapshot).not.toHaveBeenCalled();
     expect(synth.makeHex).not.toHaveBeenCalled();
@@ -472,15 +488,19 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [reusedHex],
     });
 
-    const nextHexes = playSnapshot(runtime, [
-      {
-        noteId: "note",
-        snapshotId: "s",
-        midicents: 70,
-        attackVelocity: 120,
-        releaseVelocity: 44,
-      },
-    ], { legato: true });
+    const nextHexes = playSnapshot(
+      runtime,
+      [
+        {
+          noteId: "note",
+          snapshotId: "s",
+          midicents: 70,
+          attackVelocity: 120,
+          releaseVelocity: 44,
+        },
+      ],
+      { legato: true },
+    );
 
     expect(runtime.stopSnapshot).not.toHaveBeenCalled();
     expect(reusedHex.noteOn).not.toHaveBeenCalled();
@@ -508,15 +528,19 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [reusedHex],
     });
 
-    playSnapshot(runtime, [
-      {
-        noteId: "note",
-        snapshotId: "s",
-        midicents: 70,
-        attackVelocity: 120,
-        releaseVelocity: 44,
-      },
-    ], { legato: true, bendOnlyRetune: true });
+    playSnapshot(
+      runtime,
+      [
+        {
+          noteId: "note",
+          snapshotId: "s",
+          midicents: 70,
+          attackVelocity: 120,
+          releaseVelocity: 44,
+        },
+      ],
+      { legato: true, bendOnlyRetune: true },
+    );
 
     expect(reusedHex.retune).toHaveBeenCalledTimes(1);
     expect(reusedHex.retune.mock.calls[0][0]).toBeCloseTo(100, 6);
@@ -541,15 +565,19 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [reusedHex],
     });
 
-    playSnapshot(runtime, [
-      {
-        noteId: "note",
-        snapshotId: "s",
-        midicents: 70,
-        attackVelocity: 120,
-        releaseVelocity: 44,
-      },
-    ], { legato: true, bendOnlyRetune: true });
+    playSnapshot(
+      runtime,
+      [
+        {
+          noteId: "note",
+          snapshotId: "s",
+          midicents: 70,
+          attackVelocity: 120,
+          releaseVelocity: 44,
+        },
+      ],
+      { legato: true, bendOnlyRetune: true },
+    );
 
     expect(reusedHex.standardWheelRetune).toHaveBeenCalledTimes(1);
     expect(reusedHex.standardWheelRetune.mock.calls[0][0]).toBeCloseTo(100, 6);
@@ -572,15 +600,19 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [reusedHex],
     });
 
-    retuneSnapshotHexes(runtime, [
-      {
-        noteId: "note",
-        snapshotId: "s",
-        midicents: 70,
-        attackVelocity: 120,
-        releaseVelocity: 44,
-      },
-    ], { bendOnly: true });
+    retuneSnapshotHexes(
+      runtime,
+      [
+        {
+          noteId: "note",
+          snapshotId: "s",
+          midicents: 70,
+          attackVelocity: 120,
+          releaseVelocity: 44,
+        },
+      ],
+      { bendOnly: true },
+    );
 
     expect(reusedHex.noteOn).not.toHaveBeenCalled();
     expect(reusedHex.noteOff).not.toHaveBeenCalled();
@@ -608,15 +640,19 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [reusedHex],
     });
 
-    retuneSnapshotHexes(runtime, [
-      {
-        noteId: "note",
-        snapshotId: "s",
-        midicents: 70,
-        attackVelocity: 120,
-        releaseVelocity: 44,
-      },
-    ], { bendOnly: true });
+    retuneSnapshotHexes(
+      runtime,
+      [
+        {
+          noteId: "note",
+          snapshotId: "s",
+          midicents: 70,
+          attackVelocity: 120,
+          releaseVelocity: 44,
+        },
+      ],
+      { bendOnly: true },
+    );
 
     expect(reusedHex.standardWheelRetune).toHaveBeenCalledTimes(1);
     expect(reusedHex.standardWheelRetune.mock.calls[0][0]).toBeCloseTo(100, 6);
@@ -635,13 +671,17 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [soundingHex],
     });
 
-    retuneSnapshotHexes(runtime, [
-      {
-        noteId: "note",
-        snapshotId: "new",
-        midicents: 72,
-      },
-    ], { bendOnly: true });
+    retuneSnapshotHexes(
+      runtime,
+      [
+        {
+          noteId: "note",
+          snapshotId: "new",
+          midicents: 72,
+        },
+      ],
+      { bendOnly: true },
+    );
 
     expect(soundingHex.standardWheelRetune).not.toHaveBeenCalled();
     expect(soundingHex.retune).not.toHaveBeenCalled();
@@ -700,9 +740,7 @@ describe("sequencer snapshots", () => {
       sequenceRetune: vi.fn(),
     };
     const synth = {
-      makeHex: vi.fn()
-        .mockReturnValueOnce(upperHex)
-        .mockReturnValueOnce(lowerHex),
+      makeHex: vi.fn().mockReturnValueOnce(upperHex).mockReturnValueOnce(lowerHex),
     };
     const runtime = makeRuntime({ synth });
     const upper = {
@@ -734,7 +772,7 @@ describe("sequencer snapshots", () => {
   });
 
   it("produces the same absolute pure-triad targets live and on retrigger", () => {
-    const pureTriad = [69, 69 + (386.3137139 / 100), 69 + (701.9550009 / 100)];
+    const pureTriad = [69, 69 + 386.3137139 / 100, 69 + 701.9550009 / 100];
     const makeSynth = () => ({
       makeHex: vi.fn((_coords, cents) => ({
         cents,
@@ -747,7 +785,7 @@ describe("sequencer snapshots", () => {
     const liveRuntime = makeRuntime({ synth: liveSynth });
     const initialOffset = 147;
     const shiftedInitialNotes = pureTriad.map((midicents) => ({
-      midicents: midicents + (initialOffset / 100),
+      midicents: midicents + initialOffset / 100,
     }));
     liveRuntime._snapshotHexes = playSnapshot(liveRuntime, shiftedInitialNotes, {
       pitchOffsetCents: initialOffset,
@@ -792,14 +830,18 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [reusedHex],
     });
 
-    const nextHexes = playSnapshot(runtime, [
-      {
-        id: "note-a",
-        midicents: 70,
-        attackVelocity: 120,
-        releaseVelocity: 44,
-      },
-    ], { legato: true });
+    const nextHexes = playSnapshot(
+      runtime,
+      [
+        {
+          id: "note-a",
+          midicents: 70,
+          attackVelocity: 120,
+          releaseVelocity: 44,
+        },
+      ],
+      { legato: true },
+    );
 
     expect(reusedHex.noteOn).not.toHaveBeenCalled();
     expect(reusedHex.noteOff).not.toHaveBeenCalled();
@@ -841,18 +883,22 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [heldA, heldB],
     });
 
-    const nextHexes = playSnapshot(runtime, [
-      {
-        midicents: 69,
-        attackVelocity: 100,
-        releaseVelocity: 40,
-      },
-      {
-        midicents: 72,
-        attackVelocity: 88,
-        releaseVelocity: 33,
-      },
-    ], { legato: true });
+    const nextHexes = playSnapshot(
+      runtime,
+      [
+        {
+          midicents: 69,
+          attackVelocity: 100,
+          releaseVelocity: 40,
+        },
+        {
+          midicents: 72,
+          attackVelocity: 88,
+          releaseVelocity: 33,
+        },
+      ],
+      { legato: true },
+    );
 
     expect(heldA.noteOff).not.toHaveBeenCalled();
     expect(heldB.noteOff).toHaveBeenCalledWith(55);
@@ -895,16 +941,20 @@ describe("sequencer snapshots", () => {
       },
     });
 
-    const nextHexes = playSnapshot(runtime, [
-      {
-        midicents: 69,
-        attackVelocity: 100,
-        releaseVelocity: 40,
-        snapshotId: "s2",
-        noteId: "b",
-        pressure: 55,
-      },
-    ], { legato: true });
+    const nextHexes = playSnapshot(
+      runtime,
+      [
+        {
+          midicents: 69,
+          attackVelocity: 100,
+          releaseVelocity: 40,
+          snapshotId: "s2",
+          noteId: "b",
+          pressure: 55,
+        },
+      ],
+      { legato: true },
+    );
 
     expect(heldA.noteOff).toHaveBeenCalledWith(31);
     expect(heldB.noteOff).not.toHaveBeenCalled();
@@ -925,7 +975,8 @@ describe("sequencer snapshots", () => {
     const hex64 = makeRuntimeHex("64");
     const hex67 = makeRuntimeHex("67");
     const synth = {
-      makeHex: vi.fn()
+      makeHex: vi
+        .fn()
         .mockReturnValueOnce(hex60)
         .mockReturnValueOnce(hex64)
         .mockReturnValueOnce(hex67),
@@ -936,35 +987,49 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [],
     });
 
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 10 },
-    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [{ midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 10 }],
+      { legato: true },
+    );
     expect(runtime._snapshotHexes).toEqual([hex60]);
 
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 20 },
-      { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 11 },
-    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [
+        { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 20 },
+        { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 11 },
+      ],
+      { legato: true },
+    );
     expect(hex60.noteOff).not.toHaveBeenCalled();
     expect(hex60.noteOn).toHaveBeenCalledTimes(1);
     expect(hex60.aftertouch).toHaveBeenLastCalledWith(11);
     expect(hex64.noteOn).toHaveBeenCalledTimes(1);
     expect(runtime._snapshotHexes).toEqual([hex64, hex60]);
 
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 67, attackVelocity: 80, releaseVelocity: 20, pressure: 30 },
-      { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 21 },
-      { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 12 },
-    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [
+        { midicents: 67, attackVelocity: 80, releaseVelocity: 20, pressure: 30 },
+        { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 21 },
+        { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 12 },
+      ],
+      { legato: true },
+    );
     expect(hex60.noteOff).not.toHaveBeenCalled();
     expect(hex64.noteOff).not.toHaveBeenCalled();
     expect(hex67.noteOn).toHaveBeenCalledTimes(1);
     expect(runtime._snapshotHexes).toEqual([hex67, hex64, hex60]);
 
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 22 },
-      { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 13 },
-    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [
+        { midicents: 64, attackVelocity: 90, releaseVelocity: 30, pressure: 22 },
+        { midicents: 60, attackVelocity: 100, releaseVelocity: 40, pressure: 13 },
+      ],
+      { legato: true },
+    );
     expect(hex67.noteOff).toHaveBeenCalledWith(20);
     expect(hex64.noteOff).not.toHaveBeenCalled();
     expect(hex60.noteOff).not.toHaveBeenCalled();
@@ -991,18 +1056,28 @@ describe("sequencer snapshots", () => {
       _snapshotHexes: [],
     });
 
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 60, attackVelocity: 100, releaseVelocity: 40 },
-    ], { legato: true });
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 64, attackVelocity: 90, releaseVelocity: 30 },
-      { midicents: 60, attackVelocity: 100, releaseVelocity: 40 },
-    ], { legato: true });
-    runtime._snapshotHexes = playSnapshot(runtime, [
-      { midicents: 67, attackVelocity: 80, releaseVelocity: 20 },
-      { midicents: 64, attackVelocity: 90, releaseVelocity: 30 },
-      { midicents: 60, attackVelocity: 100, releaseVelocity: 40 },
-    ], { legato: true });
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [{ midicents: 60, attackVelocity: 100, releaseVelocity: 40 }],
+      { legato: true },
+    );
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [
+        { midicents: 64, attackVelocity: 90, releaseVelocity: 30 },
+        { midicents: 60, attackVelocity: 100, releaseVelocity: 40 },
+      ],
+      { legato: true },
+    );
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [
+        { midicents: 67, attackVelocity: 80, releaseVelocity: 20 },
+        { midicents: 64, attackVelocity: 90, releaseVelocity: 30 },
+        { midicents: 60, attackVelocity: 100, releaseVelocity: 40 },
+      ],
+      { legato: true },
+    );
 
     expect(coordsSeen).toEqual(["9000,9000", "9001,9001", "9002,9002"]);
   });
@@ -1063,9 +1138,7 @@ describe("sequencer snapshots", () => {
     const secondHex = { noteOn: vi.fn(), noteOff: vi.fn() };
     const runtime = makeRuntime({
       synth: {
-        makeHex: vi.fn()
-          .mockReturnValueOnce(firstHex)
-          .mockReturnValueOnce(secondHex),
+        makeHex: vi.fn().mockReturnValueOnce(firstHex).mockReturnValueOnce(secondHex),
       },
     });
     const note = { midicents: 60, attackVelocity: 100, releaseVelocity: 40 };

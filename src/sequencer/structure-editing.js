@@ -27,7 +27,11 @@ function shiftMarkerAfterInsertion(marker, insertionPosition, snapshotCount = 1)
   };
 }
 
-function shiftMarkerAfterDeletion(marker, deletionPosition, { collapseWithinSnapshot = false } = {}) {
+function shiftMarkerAfterDeletion(
+  marker,
+  deletionPosition,
+  { collapseWithinSnapshot = false } = {},
+) {
   const position = normalizeStructuralPosition(marker?.position);
   if (position == null) return marker;
   const snapshotStart = deletionPosition;
@@ -54,9 +58,7 @@ function shiftMarkerAfterRangeDeletion(
   marker,
   startPosition,
   endPosition,
-  {
-    collapseWithinRange = false,
-  } = {},
+  { collapseWithinRange = false } = {},
 ) {
   const position = normalizeStructuralPosition(marker?.position);
   if (position == null) return marker;
@@ -115,13 +117,19 @@ export function shiftStructuralMarkersAfterSnapshotInsertion({
   const normalizedSnapshotCount = Math.max(1, Math.round(Number(snapshotCount) || 1));
   return {
     bars: Array.isArray(bars)
-      ? bars.map((bar) => shiftMarkerAfterInsertion(bar, normalizedInsertionPosition, normalizedSnapshotCount))
+      ? bars.map((bar) =>
+          shiftMarkerAfterInsertion(bar, normalizedInsertionPosition, normalizedSnapshotCount),
+        )
       : [],
     tempi: Array.isArray(tempi)
-      ? tempi.map((tempo) => shiftMarkerAfterInsertion(tempo, normalizedInsertionPosition, normalizedSnapshotCount))
+      ? tempi.map((tempo) =>
+          shiftMarkerAfterInsertion(tempo, normalizedInsertionPosition, normalizedSnapshotCount),
+        )
       : [],
     repeats: Array.isArray(repeats)
-      ? repeats.map((repeat) => shiftMarkerAfterInsertion(repeat, normalizedInsertionPosition, normalizedSnapshotCount))
+      ? repeats.map((repeat) =>
+          shiftMarkerAfterInsertion(repeat, normalizedInsertionPosition, normalizedSnapshotCount),
+        )
       : [],
   };
 }
@@ -144,15 +152,13 @@ export function shiftStructuralMarkersAfterSnapshotDeletion({
       .map((bar) => shiftMarkerAfterDeletion(bar, normalizedDeletionPosition)),
   );
 
-  const nextTempi = (Array.isArray(tempi) ? tempi : [])
-    .map((tempo) => shiftMarkerAfterDeletion(
-      tempo,
-      normalizedDeletionPosition,
-      { collapseWithinSnapshot: true },
-    ));
+  const nextTempi = (Array.isArray(tempi) ? tempi : []).map((tempo) =>
+    shiftMarkerAfterDeletion(tempo, normalizedDeletionPosition, { collapseWithinSnapshot: true }),
+  );
 
-  const nextRepeats = (Array.isArray(repeats) ? repeats : [])
-    .map((repeat) => shiftMarkerAfterDeletion(repeat, normalizedDeletionPosition, { collapseWithinSnapshot: true }));
+  const nextRepeats = (Array.isArray(repeats) ? repeats : []).map((repeat) =>
+    shiftMarkerAfterDeletion(repeat, normalizedDeletionPosition, { collapseWithinSnapshot: true }),
+  );
 
   return {
     bars: nextBars,
@@ -172,42 +178,47 @@ export function shiftStructuralMarkersAfterSnapshotRangeDeletion({
   deleteRepeatsInRange = false,
 } = {}) {
   const normalizedStartPosition = Math.max(1, Math.round(Number(startPosition) || 1));
-  const normalizedEndPosition = Math.max(normalizedStartPosition, Math.round(Number(endPosition) || normalizedStartPosition));
+  const normalizedEndPosition = Math.max(
+    normalizedStartPosition,
+    Math.round(Number(endPosition) || normalizedStartPosition),
+  );
   const annotateOriginalPosition = (marker) => ({
     ...marker,
     _originalPosition: normalizeStructuralPosition(marker?.position),
   });
   const isWithinDeletedRange = (marker) => {
     const position = normalizeStructuralPosition(marker?.position);
-    return position != null
-      && position >= normalizedStartPosition - 1e-9
-      && position < normalizedEndPosition + 1 - 1e-9;
+    return (
+      position != null &&
+      position >= normalizedStartPosition - 1e-9 &&
+      position < normalizedEndPosition + 1 - 1e-9
+    );
   };
 
   const nextBars = dedupeStructuralCollisions(
     (Array.isArray(bars) ? bars : [])
       .filter((bar) => !(deleteBarsInRange && isWithinDeletedRange(bar)))
       .map(annotateOriginalPosition)
-      .map((bar) => shiftMarkerAfterRangeDeletion(bar, normalizedStartPosition, normalizedEndPosition)),
+      .map((bar) =>
+        shiftMarkerAfterRangeDeletion(bar, normalizedStartPosition, normalizedEndPosition),
+      ),
   );
 
   const nextTempi = (Array.isArray(tempi) ? tempi : [])
     .filter((tempo) => !(deleteTempiInRange && isWithinDeletedRange(tempo)))
-    .map((tempo) => shiftMarkerAfterRangeDeletion(
-      tempo,
-      normalizedStartPosition,
-      normalizedEndPosition,
-      { collapseWithinRange: true },
-    ));
+    .map((tempo) =>
+      shiftMarkerAfterRangeDeletion(tempo, normalizedStartPosition, normalizedEndPosition, {
+        collapseWithinRange: true,
+      }),
+    );
 
   const nextRepeats = (Array.isArray(repeats) ? repeats : [])
     .filter((repeat) => !(deleteRepeatsInRange && isWithinDeletedRange(repeat)))
-    .map((repeat) => shiftMarkerAfterRangeDeletion(
-      repeat,
-      normalizedStartPosition,
-      normalizedEndPosition,
-      { collapseWithinRange: true },
-    ));
+    .map((repeat) =>
+      shiftMarkerAfterRangeDeletion(repeat, normalizedStartPosition, normalizedEndPosition, {
+        collapseWithinRange: true,
+      }),
+    );
 
   return {
     bars: nextBars,
@@ -221,18 +232,19 @@ function normalizeRequestedBarPosition(position, bars = []) {
   if (Number.isFinite(explicitPosition)) {
     return Math.max(1, Math.round(explicitPosition));
   }
-  return bars.length > 0
-    ? Math.max(...bars.map((bar) => Number(bar.position) || 1)) + 1
-    : 1;
+  return bars.length > 0 ? Math.max(...bars.map((bar) => Number(bar.position) || 1)) + 1 : 1;
 }
 
 function findExistingBarAtPosition(bars, excludedBarId, nextPosition, snapshots) {
   const remainingBars = (bars ?? []).filter((bar) => bar.id !== excludedBarId);
   const terminalPosition = deriveTerminalBarlinePosition(snapshots, remainingBars);
   if (Number(nextPosition) >= Number(terminalPosition) - 1e-9) return null;
-  return (bars ?? []).find((bar) => (
-    bar.id !== excludedBarId && Math.abs(Number(bar.position) - Number(nextPosition)) < 1e-9
-  )) ?? null;
+  return (
+    (bars ?? []).find(
+      (bar) =>
+        bar.id !== excludedBarId && Math.abs(Number(bar.position) - Number(nextPosition)) < 1e-9,
+    ) ?? null
+  );
 }
 
 export function addSequenceBarMarker({
@@ -247,7 +259,8 @@ export function addSequenceBarMarker({
   const nextPosition = normalizeRequestedBarPosition(position, bars);
   const nextNumerator = Math.max(0, Math.round(Number(numerator) || 0));
   const nextDenominator = Math.max(1, Math.round(Number(denominator) || 1));
-  const existingBar = (bars ?? []).find((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9) ?? null;
+  const existingBar =
+    (bars ?? []).find((bar) => Math.abs(Number(bar.position) - nextPosition) < 1e-9) ?? null;
   if (existingBar) {
     if (!confirmReplace()) {
       return { bars, nextBarId: id - 1 };
@@ -279,11 +292,7 @@ export function addSequenceBarMarker({
   };
 }
 
-export function addBarsBeforeSnapshots({
-  bars = [],
-  snapshotCount = 0,
-  nextBarId = 0,
-} = {}) {
+export function addBarsBeforeSnapshots({ bars = [], snapshotCount = 0, nextBarId = 0 } = {}) {
   const existingPositions = new Set(
     (bars ?? [])
       .map((bar) => Number(bar.position))
@@ -317,57 +326,64 @@ export function addSequenceTempoMarker({
   bpm = 60,
   mode = "immediate",
 } = {}) {
-  const id = (Array.isArray(tempi) ? tempi : []).reduce((max, tempo) => Math.max(max, Number(tempo?.id) || 0), 0) + 1;
-  const nextTempo = normalizeTempoMarkers([{
-    id,
-    position,
-    bpm,
-    beatNumerator: 1,
-    beatDenominator: 4,
-    beatLength: 1,
-    mode,
-  }], { includeDefault: false })[0];
-  return [...(tempi ?? []), nextTempo];
-}
-
-export function updateSequenceTempoMarker({
-  tempi = [],
-  tempoId,
-  updates = {},
-} = {}) {
-  const source = Array.isArray(tempi) ? tempi : [];
-  const hasMatchingTempo = source.some((tempo) => tempo.id === tempoId);
-  if (!hasMatchingTempo && tempoId === "tempo:default") {
-    const id = source.reduce(
+  const id =
+    (Array.isArray(tempi) ? tempi : []).reduce(
       (max, tempo) => Math.max(max, Number(tempo?.id) || 0),
       0,
     ) + 1;
-    const materializedDefault = normalizeTempoMarkers([{
-      id,
-      position: 1,
-      bpm: 60,
-      beatNumerator: 1,
-      beatDenominator: 4,
-      beatLength: 1,
-      mode: "immediate",
-      ...updates,
-    }], { includeDefault: false })[0];
+  const nextTempo = normalizeTempoMarkers(
+    [
+      {
+        id,
+        position,
+        bpm,
+        beatNumerator: 1,
+        beatDenominator: 4,
+        beatLength: 1,
+        mode,
+      },
+    ],
+    { includeDefault: false },
+  )[0];
+  return [...(tempi ?? []), nextTempo];
+}
+
+export function updateSequenceTempoMarker({ tempi = [], tempoId, updates = {} } = {}) {
+  const source = Array.isArray(tempi) ? tempi : [];
+  const hasMatchingTempo = source.some((tempo) => tempo.id === tempoId);
+  if (!hasMatchingTempo && tempoId === "tempo:default") {
+    const id = source.reduce((max, tempo) => Math.max(max, Number(tempo?.id) || 0), 0) + 1;
+    const materializedDefault = normalizeTempoMarkers(
+      [
+        {
+          id,
+          position: 1,
+          bpm: 60,
+          beatNumerator: 1,
+          beatDenominator: 4,
+          beatLength: 1,
+          mode: "immediate",
+          ...updates,
+        },
+      ],
+      { includeDefault: false },
+    )[0];
     return [materializedDefault, ...source];
   }
 
-  return source.map((tempo) => (
+  return source.map((tempo) =>
     tempo.id === tempoId
       ? normalizeTempoMarkers([{ ...tempo, ...updates }], { includeDefault: false })[0]
-      : tempo
-  ));
+      : tempo,
+  );
 }
 
-export function addSequenceRepeatMarker({
-  repeats = [],
-  position = null,
-  kind = "start",
-} = {}) {
-  let nextId = (Array.isArray(repeats) ? repeats : []).reduce((max, marker) => Math.max(max, Number(marker?.id) || 0), 0) + 1;
+export function addSequenceRepeatMarker({ repeats = [], position = null, kind = "start" } = {}) {
+  let nextId =
+    (Array.isArray(repeats) ? repeats : []).reduce(
+      (max, marker) => Math.max(max, Number(marker?.id) || 0),
+      0,
+    ) + 1;
   const normalizedKind = kind === "end" ? "end" : "start";
   const normalizedPosition = Number.isFinite(Number(position))
     ? Math.round(Number(position) * 1000000) / 1000000
@@ -381,22 +397,26 @@ export function addSequenceRepeatMarker({
   if (normalizedKind === "end") {
     const implicitStartPosition = deriveImplicitRepeatStartPosition(repeats, normalizedPosition);
     if (implicitStartPosition != null) {
-      additions.push(normalizeRepeatMarker({
-        id: nextId,
-        position: implicitStartPosition,
-        kind: "start",
-        repeatCount: null,
-      }));
+      additions.push(
+        normalizeRepeatMarker({
+          id: nextId,
+          position: implicitStartPosition,
+          kind: "start",
+          repeatCount: null,
+        }),
+      );
       nextId += 1;
     }
   }
 
-  additions.push(normalizeRepeatMarker({
-    id: nextId,
-    position: normalizedPosition,
-    kind: normalizedKind,
-    repeatCount: normalizedKind === "end" ? 2 : null,
-  }));
+  additions.push(
+    normalizeRepeatMarker({
+      id: nextId,
+      position: normalizedPosition,
+      kind: normalizedKind,
+      repeatCount: normalizedKind === "end" ? 2 : null,
+    }),
+  );
   nextId += 1;
 
   if (normalizedKind === "end") {
@@ -404,16 +424,22 @@ export function addSequenceRepeatMarker({
     const supplementalStartPositions = deriveImplicitRepeatStartPositionsForDanglingEnds(completed);
     supplementalStartPositions.forEach((startPosition) => {
       if (
-        additions.some((marker) => marker.kind === "start" && Math.abs(Number(marker.position) - Number(startPosition)) < 1e-9)
+        additions.some(
+          (marker) =>
+            marker.kind === "start" &&
+            Math.abs(Number(marker.position) - Number(startPosition)) < 1e-9,
+        )
       ) {
         return;
       }
-      additions.push(normalizeRepeatMarker({
-        id: nextId,
-        position: startPosition,
-        kind: "start",
-        repeatCount: null,
-      }));
+      additions.push(
+        normalizeRepeatMarker({
+          id: nextId,
+          position: startPosition,
+          kind: "start",
+          repeatCount: null,
+        }),
+      );
       nextId += 1;
     });
   }
@@ -421,19 +447,15 @@ export function addSequenceRepeatMarker({
   return [...(repeats ?? []), ...additions];
 }
 
-export function updateSequenceRepeatMarker({
-  repeats = [],
-  repeatId,
-  updates = {},
-} = {}) {
+export function updateSequenceRepeatMarker({ repeats = [], repeatId, updates = {} } = {}) {
   return (repeats ?? []).map((marker) => {
     if (marker.id !== repeatId) return marker;
     const nextMarker = normalizeRepeatMarker({ ...marker, ...updates });
     if (
-      nextMarker.kind === "end"
-      && updates != null
-      && Object.hasOwn(updates, "position")
-      && Number(nextMarker.position) <= 1
+      nextMarker.kind === "end" &&
+      updates != null &&
+      Object.hasOwn(updates, "position") &&
+      Number(nextMarker.position) <= 1
     ) {
       return marker;
     }
@@ -467,7 +489,12 @@ export function updateSequenceBarMarker({
       return {
         bars: [
           ...(bars ?? []).filter((bar) => bar.id !== existingBar.id),
-          normalizeBarMarker({ ...currentBar, ...normalizedUpdates, id: replacementId, position: nextPosition }),
+          normalizeBarMarker({
+            ...currentBar,
+            ...normalizedUpdates,
+            id: replacementId,
+            position: nextPosition,
+          }),
         ],
         nextBarId: replacementId,
       };
@@ -476,7 +503,12 @@ export function updateSequenceBarMarker({
     return {
       bars: [
         ...(bars ?? []),
-        normalizeBarMarker({ ...currentBar, ...normalizedUpdates, id: replacementId, position: nextPosition }),
+        normalizeBarMarker({
+          ...currentBar,
+          ...normalizedUpdates,
+          id: replacementId,
+          position: nextPosition,
+        }),
       ],
       nextBarId: replacementId,
     };
@@ -496,9 +528,7 @@ export function updateSequenceBarMarker({
   }
 
   return {
-    bars: (bars ?? []).map((bar) => (
-      bar.id === barId ? { ...bar, ...normalizedUpdates } : bar
-    )),
+    bars: (bars ?? []).map((bar) => (bar.id === barId ? { ...bar, ...normalizedUpdates } : bar)),
     nextBarId,
   };
 }
@@ -512,9 +542,7 @@ export function moveSequenceBarMarker({
   confirmReplace = () => true,
 } = {}) {
   const rawPosition = Number(position);
-  const nextPosition = Number.isFinite(rawPosition)
-    ? Math.max(1, Math.round(rawPosition))
-    : NaN;
+  const nextPosition = Number.isFinite(rawPosition) ? Math.max(1, Math.round(rawPosition)) : NaN;
   if (!Number.isFinite(nextPosition)) {
     return { bars, nextBarId };
   }
@@ -556,9 +584,7 @@ export function moveSequenceBarMarker({
   }
 
   return {
-    bars: (bars ?? []).map((bar) => (
-      bar.id === barId ? { ...bar, position: nextPosition } : bar
-    )),
+    bars: (bars ?? []).map((bar) => (bar.id === barId ? { ...bar, position: nextPosition } : bar)),
     nextBarId,
   };
 }

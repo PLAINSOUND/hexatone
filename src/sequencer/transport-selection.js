@@ -11,14 +11,22 @@ export function findSnapshotIndexById(snapshotId, snapshots = []) {
   return snapshots.findIndex((snapshot) => snapshot?.id === snapshotId);
 }
 
-export function findCueIndexBySnapshotMarker(selectedMarker, snapshots = [], sequenceCueGroups = []) {
+export function findCueIndexBySnapshotMarker(
+  selectedMarker,
+  snapshots = [],
+  sequenceCueGroups = [],
+) {
   if (selectedMarker?.snapshotId == null || !Number.isFinite(Number(selectedMarker?.time))) {
     return null;
   }
-  const markerSnapshotIndex = snapshots.findIndex((snapshot) => snapshot?.id === selectedMarker.snapshotId);
+  const markerSnapshotIndex = snapshots.findIndex(
+    (snapshot) => snapshot?.id === selectedMarker.snapshotId,
+  );
   if (markerSnapshotIndex < 0) return null;
   const markerTime = Number((markerSnapshotIndex + 1 + Number(selectedMarker.time)).toFixed(6));
-  const cueIndex = sequenceCueGroups.findIndex((group) => Math.abs(Number(group?.time) - markerTime) < 1e-6);
+  const cueIndex = sequenceCueGroups.findIndex(
+    (group) => Math.abs(Number(group?.time) - markerTime) < 1e-6,
+  );
   return cueIndex >= 0 ? cueIndex : null;
 }
 
@@ -30,7 +38,8 @@ export function deriveSelectedCueAbsoluteTime(
 ) {
   if (selectedMarker?.snapshotId != null && Number.isFinite(Number(selectedMarker?.time))) {
     const snapshotStart = snapshotIndexById.get(selectedMarker.snapshotId);
-    if (snapshotStart != null) return Number((snapshotStart + Number(selectedMarker.time)).toFixed(6));
+    if (snapshotStart != null)
+      return Number((snapshotStart + Number(selectedMarker.time)).toFixed(6));
   }
   if (playheadMarkerIndex != null) {
     const cueGroup = sequenceCueGroups[playheadMarkerIndex];
@@ -41,7 +50,9 @@ export function deriveSelectedCueAbsoluteTime(
 
 export function findFirstCueIndexForSnapshot(snapshotIndex, sequenceCueGroups = []) {
   if (!Number.isFinite(snapshotIndex) || snapshotIndex < 0) return null;
-  const cueIndex = sequenceCueGroups.findIndex((group) => Number(group?.snapshotIndex) >= snapshotIndex);
+  const cueIndex = sequenceCueGroups.findIndex(
+    (group) => Number(group?.snapshotIndex) >= snapshotIndex,
+  );
   return cueIndex >= 0 ? cueIndex : null;
 }
 
@@ -86,8 +97,13 @@ export function deriveTransportSelectionState({
       : Math.max(0, Math.min(snapshots.length - 1, rawPlayheadStepIndex));
   const playheadMarkerIndex = Number.isFinite(playhead?.markerIndex) ? playhead.markerIndex : null;
   const selectedSnapshotIndex = findSnapshotIndexById(selectedSnapshotId, snapshots);
-  const selectedCueIndex = findCueIndexBySnapshotMarker(selectedMarker, snapshots, sequenceCueGroups);
-  const effectiveStoppedSnapshotIndex = selectedSnapshotIndex >= 0 ? selectedSnapshotIndex : playheadStepIndex;
+  const selectedCueIndex = findCueIndexBySnapshotMarker(
+    selectedMarker,
+    snapshots,
+    sequenceCueGroups,
+  );
+  const effectiveStoppedSnapshotIndex =
+    selectedSnapshotIndex >= 0 ? selectedSnapshotIndex : playheadStepIndex;
   const selectedSnapshotPosition = selectedSnapshotIndex >= 0 ? selectedSnapshotIndex + 1 : null;
   const armedSnapshotIndex = Number.isFinite(pendingTransportSelection?.snapshotIndex)
     ? pendingTransportSelection.snapshotIndex
@@ -96,90 +112,125 @@ export function deriveTransportSelectionState({
     ? pendingTransportSelection.cueIndex
     : null;
 
-  const selectedBarIndex = sortedBars.length === 0
-    ? 0
-    : Math.max(0, Math.min(sortedBars.length - 1, Number(playhead?.barIndex) || 0));
-  const selectedBarTime = sortedBars.length === 0
-    ? 1
-    : Number(sortedBars[selectedBarIndex]?.position) || 1;
+  const selectedBarIndex =
+    sortedBars.length === 0
+      ? 0
+      : Math.max(0, Math.min(sortedBars.length - 1, Number(playhead?.barIndex) || 0));
+  const selectedBarTime =
+    sortedBars.length === 0 ? 1 : Number(sortedBars[selectedBarIndex]?.position) || 1;
   const nextCueIndexFromBar = sequenceCueGroups.findIndex((group) => group.time >= selectedBarTime);
-  const prevCueIndexFromBar = sequenceCueGroups.findLastIndex((group) => group.time < selectedBarTime);
-  const nextSnapshotIndexFromBar = nextCueIndexFromBar >= 0
-    ? sequenceCueGroups[nextCueIndexFromBar]?.snapshotIndex ?? -1
-    : snapshots.findIndex((_, index) => index + 1 >= selectedBarTime);
-  const normalizedNextSnapshotIndexFromBar = nextSnapshotIndexFromBar >= 0
-    ? nextSnapshotIndexFromBar
-    : snapshots.length;
-  const nextCueIndexFromSnapshot = findFirstCueIndexForSnapshot(effectiveStoppedSnapshotIndex, sequenceCueGroups) ?? -1;
-  const prevSnapshotIndexFromBar = prevCueIndexFromBar >= 0
-    ? sequenceCueGroups[prevCueIndexFromBar]?.snapshotIndex ?? -1
-    : snapshots.findLastIndex((_, index) => index + 1 < selectedBarTime);
-  const impliedSnapshotBracketIndex = armedSnapshotIndex != null
-    ? armedSnapshotIndex
-    : armedCueIndex != null
-      ? (Number.isFinite(pendingTransportSelection?.snapshotIndex) ? pendingTransportSelection.snapshotIndex : null)
-      : playheadIsOff
-        ? (normalizedNextSnapshotIndexFromBar >= 0 && normalizedNextSnapshotIndexFromBar < snapshots.length
-          ? normalizedNextSnapshotIndexFromBar
-          : null)
-        : null;
-  const impliedCueBracketIndex = armedCueIndex != null
-    ? armedCueIndex
-    : armedSnapshotIndex != null
-      ? findFirstCueIndexForSnapshot(armedSnapshotIndex, sequenceCueGroups)
-      : playheadIsOff
-        ? (nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length ? nextCueIndexFromBar : null)
-        : null;
-
-  const snapshotSelectValue = pendingSnapshotJumpIndex !== ""
-    ? pendingSnapshotJumpIndex
-    : armedSnapshotIndex != null
-      ? String(armedSnapshotIndex)
-      : armedCueIndex != null && Number.isFinite(pendingTransportSelection?.snapshotIndex)
-        ? String(pendingTransportSelection.snapshotIndex)
-    : playheadIsEnd
-      ? snapshots.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
-      : playheadStepIndex >= 0
-        ? String(playheadStepIndex)
-      : playheadIsOff || playheadStepIndex < 0
-        ? normalizedNextSnapshotIndexFromBar >= 0 && normalizedNextSnapshotIndexFromBar < snapshots.length
-          ? String(normalizedNextSnapshotIndexFromBar)
-          : snapshots.length > 0 ? String(snapshots.length - 1) : ""
-        : "";
-  const cueSelectValue = pendingCueJumpIndex !== ""
-    ? pendingCueJumpIndex
-    : armedCueIndex != null
-      ? String(armedCueIndex)
+  const prevCueIndexFromBar = sequenceCueGroups.findLastIndex(
+    (group) => group.time < selectedBarTime,
+  );
+  const nextSnapshotIndexFromBar =
+    nextCueIndexFromBar >= 0
+      ? (sequenceCueGroups[nextCueIndexFromBar]?.snapshotIndex ?? -1)
+      : snapshots.findIndex((_, index) => index + 1 >= selectedBarTime);
+  const normalizedNextSnapshotIndexFromBar =
+    nextSnapshotIndexFromBar >= 0 ? nextSnapshotIndexFromBar : snapshots.length;
+  const nextCueIndexFromSnapshot =
+    findFirstCueIndexForSnapshot(effectiveStoppedSnapshotIndex, sequenceCueGroups) ?? -1;
+  const prevSnapshotIndexFromBar =
+    prevCueIndexFromBar >= 0
+      ? (sequenceCueGroups[prevCueIndexFromBar]?.snapshotIndex ?? -1)
+      : snapshots.findLastIndex((_, index) => index + 1 < selectedBarTime);
+  const impliedSnapshotBracketIndex =
+    armedSnapshotIndex != null
+      ? armedSnapshotIndex
+      : armedCueIndex != null
+        ? Number.isFinite(pendingTransportSelection?.snapshotIndex)
+          ? pendingTransportSelection.snapshotIndex
+          : null
+        : playheadIsOff
+          ? normalizedNextSnapshotIndexFromBar >= 0 &&
+            normalizedNextSnapshotIndexFromBar < snapshots.length
+            ? normalizedNextSnapshotIndexFromBar
+            : null
+          : null;
+  const impliedCueBracketIndex =
+    armedCueIndex != null
+      ? armedCueIndex
       : armedSnapshotIndex != null
-        ? (() => {
-          const firstCueIndex = findFirstCueIndexForSnapshot(armedSnapshotIndex, sequenceCueGroups);
-          return firstCueIndex != null ? String(firstCueIndex) : "";
-        })()
-    : playheadIsEnd
-      ? sequenceCueGroups.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
-      : playheadMarkerIndex != null
-        ? String(playheadMarkerIndex)
-      : playheadStepIndex >= 0 && nextCueIndexFromSnapshot >= 0 && nextCueIndexFromSnapshot < sequenceCueGroups.length
-        ? String(nextCueIndexFromSnapshot)
-      : playheadIsOff || (playheadMarkerIndex == null && sequenceCueGroups.length === 0)
-        ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
-          ? String(nextCueIndexFromBar)
-          : sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length - 1) : ""
-        : sequenceCueGroups.length > 0 ? String(sequenceCueGroups.length - 1) : "";
-  const impliedPendingSnapshotIndex = pendingSnapshotJumpIndex !== ""
-    ? pendingSnapshotJumpIndex
-    : impliedSnapshotBracketIndex != null
-      ? String(impliedSnapshotBracketIndex)
-      : playheadIsEnd
-        ? snapshots.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
-        : "";
-  const impliedPendingCueIndex = pendingCueJumpIndex !== ""
-    ? pendingCueJumpIndex
-    : impliedCueBracketIndex != null
-      ? String(impliedCueBracketIndex)
-      : playheadIsEnd
-        ? sequenceCueGroups.length > 0 ? TERMINAL_SEQUENCE_TARGET : ""
-        : "";
+        ? findFirstCueIndexForSnapshot(armedSnapshotIndex, sequenceCueGroups)
+        : playheadIsOff
+          ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
+            ? nextCueIndexFromBar
+            : null
+          : null;
+
+  const snapshotSelectValue =
+    pendingSnapshotJumpIndex !== ""
+      ? pendingSnapshotJumpIndex
+      : armedSnapshotIndex != null
+        ? String(armedSnapshotIndex)
+        : armedCueIndex != null && Number.isFinite(pendingTransportSelection?.snapshotIndex)
+          ? String(pendingTransportSelection.snapshotIndex)
+          : playheadIsEnd
+            ? snapshots.length > 0
+              ? TERMINAL_SEQUENCE_TARGET
+              : ""
+            : playheadStepIndex >= 0
+              ? String(playheadStepIndex)
+              : playheadIsOff || playheadStepIndex < 0
+                ? normalizedNextSnapshotIndexFromBar >= 0 &&
+                  normalizedNextSnapshotIndexFromBar < snapshots.length
+                  ? String(normalizedNextSnapshotIndexFromBar)
+                  : snapshots.length > 0
+                    ? String(snapshots.length - 1)
+                    : ""
+                : "";
+  const cueSelectValue =
+    pendingCueJumpIndex !== ""
+      ? pendingCueJumpIndex
+      : armedCueIndex != null
+        ? String(armedCueIndex)
+        : armedSnapshotIndex != null
+          ? (() => {
+              const firstCueIndex = findFirstCueIndexForSnapshot(
+                armedSnapshotIndex,
+                sequenceCueGroups,
+              );
+              return firstCueIndex != null ? String(firstCueIndex) : "";
+            })()
+          : playheadIsEnd
+            ? sequenceCueGroups.length > 0
+              ? TERMINAL_SEQUENCE_TARGET
+              : ""
+            : playheadMarkerIndex != null
+              ? String(playheadMarkerIndex)
+              : playheadStepIndex >= 0 &&
+                  nextCueIndexFromSnapshot >= 0 &&
+                  nextCueIndexFromSnapshot < sequenceCueGroups.length
+                ? String(nextCueIndexFromSnapshot)
+                : playheadIsOff || (playheadMarkerIndex == null && sequenceCueGroups.length === 0)
+                  ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
+                    ? String(nextCueIndexFromBar)
+                    : sequenceCueGroups.length > 0
+                      ? String(sequenceCueGroups.length - 1)
+                      : ""
+                  : sequenceCueGroups.length > 0
+                    ? String(sequenceCueGroups.length - 1)
+                    : "";
+  const impliedPendingSnapshotIndex =
+    pendingSnapshotJumpIndex !== ""
+      ? pendingSnapshotJumpIndex
+      : impliedSnapshotBracketIndex != null
+        ? String(impliedSnapshotBracketIndex)
+        : playheadIsEnd
+          ? snapshots.length > 0
+            ? TERMINAL_SEQUENCE_TARGET
+            : ""
+          : "";
+  const impliedPendingCueIndex =
+    pendingCueJumpIndex !== ""
+      ? pendingCueJumpIndex
+      : impliedCueBracketIndex != null
+        ? String(impliedCueBracketIndex)
+        : playheadIsEnd
+          ? sequenceCueGroups.length > 0
+            ? TERMINAL_SEQUENCE_TARGET
+            : ""
+          : "";
 
   return {
     playheadIsOff,
@@ -199,7 +250,8 @@ export function deriveTransportSelectionState({
     nextCueIndexFromSnapshot,
     activeNavigationMode: playheadMarkerIndex != null ? "cue" : "snapshot",
     activeCueIndex: playheadMarkerIndex != null ? playheadMarkerIndex + 1 : null,
-    activeSnapshotId: playheadStepIndex >= 0 && !playheadIsEnd ? (snapshots[playheadStepIndex]?.id ?? null) : null,
+    activeSnapshotId:
+      playheadStepIndex >= 0 && !playheadIsEnd ? (snapshots[playheadStepIndex]?.id ?? null) : null,
     snapshotSelectValue,
     cueSelectValue,
     impliedPendingSnapshotIndex,

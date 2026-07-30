@@ -43,13 +43,25 @@ function restoreSession(entry) {
   const legacyKey = LEGACY_SESSION_KEY_ALIASES[entry.key];
   switch (entry.type) {
     case "int":
-      return sessionInt(entry.key, legacyKey ? sessionInt(legacyKey, entry.default) : entry.default);
+      return sessionInt(
+        entry.key,
+        legacyKey ? sessionInt(legacyKey, entry.default) : entry.default,
+      );
     case "float":
-      return sessionFloat(entry.key, legacyKey ? sessionFloat(legacyKey, entry.default) : entry.default);
+      return sessionFloat(
+        entry.key,
+        legacyKey ? sessionFloat(legacyKey, entry.default) : entry.default,
+      );
     case "bool":
-      return sessionBool(entry.key, legacyKey ? sessionBool(legacyKey, entry.default) : entry.default);
+      return sessionBool(
+        entry.key,
+        legacyKey ? sessionBool(legacyKey, entry.default) : entry.default,
+      );
     case "string":
-      return sessionString(entry.key, legacyKey ? sessionString(legacyKey, entry.default) : entry.default);
+      return sessionString(
+        entry.key,
+        legacyKey ? sessionString(legacyKey, entry.default) : entry.default,
+      );
     // 'joined' arrays are not session-stored (they live in URL/localStorage via useQuery)
     default:
       return entry.default;

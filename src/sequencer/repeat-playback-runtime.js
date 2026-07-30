@@ -21,8 +21,12 @@ export function deriveRepeatSections(sequenceCueGroups = [], repeats = []) {
     }
     if (!startMarker) return;
 
-    const startCueIndex = cueGroups.findIndex((group) => Number(group?.time) >= Number(startMarker.position) - 1e-9);
-    const endCueIndex = cueGroups.findLastIndex((group) => Number(group?.time) < Number(marker.position) - 1e-9);
+    const startCueIndex = cueGroups.findIndex(
+      (group) => Number(group?.time) >= Number(startMarker.position) - 1e-9,
+    );
+    const endCueIndex = cueGroups.findLastIndex(
+      (group) => Number(group?.time) < Number(marker.position) - 1e-9,
+    );
     if (startCueIndex < 0 || endCueIndex < 0 || startCueIndex > endCueIndex) return;
 
     sections.push({
@@ -36,10 +40,10 @@ export function deriveRepeatSections(sequenceCueGroups = [], repeats = []) {
     });
   });
 
-  return sections.sort((left, right) => (
-    left.endCueIndex - right.endCueIndex ||
-    right.startCueIndex - left.startCueIndex
-  ));
+  return sections.sort(
+    (left, right) =>
+      left.endCueIndex - right.endCueIndex || right.startCueIndex - left.startCueIndex,
+  );
 }
 
 export function advanceCueIndexWithRepeats({
@@ -69,12 +73,14 @@ export function advanceCueIndexWithRepeats({
   }
 
   const naturalNextCueIndex = safeCurrentCueIndex + 1;
-  const currentCueTime = safeCurrentCueIndex < cueGroups.length
-    ? Number(cueGroups[safeCurrentCueIndex]?.time)
-    : -Infinity;
-  const nextCueTime = naturalNextCueIndex < cueGroups.length
-    ? Number(cueGroups[naturalNextCueIndex]?.time)
-    : Infinity;
+  const currentCueTime =
+    safeCurrentCueIndex < cueGroups.length
+      ? Number(cueGroups[safeCurrentCueIndex]?.time)
+      : -Infinity;
+  const nextCueTime =
+    naturalNextCueIndex < cueGroups.length
+      ? Number(cueGroups[naturalNextCueIndex]?.time)
+      : Infinity;
   const matchingSection = repeatSections.find((section) => {
     if (!Number.isFinite(currentCueTime)) return false;
     if (currentCueTime < Number(section.startPosition) - 1e-9) return false;

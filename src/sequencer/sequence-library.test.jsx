@@ -1,11 +1,11 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/preact";
 import { useState } from "preact/hooks";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import SequenceLibrary, { loadUserSequences, normalizeSequenceRecord } from "./sequence-library.jsx";
-import {
-  loadPresetSequenceByName,
-  presetSequenceGroups,
-} from "./preset-sequences/index.js";
+import SequenceLibrary, {
+  loadUserSequences,
+  normalizeSequenceRecord,
+} from "./sequence-library.jsx";
+import { loadPresetSequenceByName, presetSequenceGroups } from "./preset-sequences/index.js";
 
 let fallPresetSequence = null;
 
@@ -99,11 +99,14 @@ describe("SequenceLibrary", () => {
   });
 
   it("orders numbered user sequence names naturally", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      { name: "Study 10", snapshots: [] },
-      { name: "Study 2", snapshots: [] },
-      { name: "Study 9", snapshots: [] },
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        { name: "Study 10", snapshots: [] },
+        { name: "Study 2", snapshots: [] },
+        { name: "Study 9", snapshots: [] },
+      ]),
+    );
 
     render(<SequenceLibraryHarness />);
 
@@ -124,11 +127,7 @@ describe("SequenceLibrary", () => {
       ],
     });
 
-    expect(normalized.tempi.map(({ mode }) => mode)).toEqual([
-      "immediate",
-      "gradual",
-      "immediate",
-    ]);
+    expect(normalized.tempi.map(({ mode }) => mode)).toEqual(["immediate", "gradual", "immediate"]);
   });
 
   it("persists and reloads bar time signatures through saved sequences", () => {
@@ -193,13 +192,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("shows an unsaved draft in the menu and prompts overwrite on name collision", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "FALL",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "FALL",
+          snapshots: [{ id: 1, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     render(
       <SequenceLibraryHarness
@@ -215,13 +217,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("saves a copy under a unique name", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "FALL",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "FALL",
+          snapshots: [{ id: 1, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     const onLoadSpy = vi.fn();
 
@@ -241,13 +246,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("increments an existing numeric suffix when saving a sequence copy", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "FALL 2",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "FALL 2",
+          snapshots: [{ id: 1, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     render(
       <SequenceLibraryHarness
@@ -264,13 +272,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("keeps save attached to the loaded user sequence after renaming", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "Alpha",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "Alpha",
+          snapshots: [{ id: 1, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     render(
       <SequenceLibraryHarness
@@ -289,13 +300,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("marks the attached user sequence with * when only the name changes", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "Alpha",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "Alpha",
+          snapshots: [{ id: 1, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     render(
       <SequenceLibraryHarness
@@ -311,13 +325,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("loads a selected saved sequence immediately when the workspace is empty", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "Empty Load",
-        snapshots: [{ id: 10, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "Empty Load",
+          snapshots: [{ id: 10, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     const onLoadSpy = vi.fn();
 
@@ -339,7 +356,9 @@ describe("SequenceLibrary", () => {
     render(
       <SequenceLibraryHarness
         initialBars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
-        initialTempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        initialTempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
       />,
     );
 
@@ -355,7 +374,9 @@ describe("SequenceLibrary", () => {
         initialName="Empty Study"
         initialDescription="A sequence to populate later."
         initialBars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
-        initialTempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        initialTempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
       />,
     );
 
@@ -373,13 +394,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("imports duplicate names with a numeric suffix without stashing the current draft", async () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "FALL",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "FALL",
+          snapshots: [{ id: 1, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     const onLoadSpy = vi.fn();
 
@@ -394,18 +418,20 @@ describe("SequenceLibrary", () => {
 
     const fileInput = document.querySelector('input[type="file"]');
     const file = new File(
-      [JSON.stringify({
-        type: "hexatone-sequence",
-        version: 3,
-        name: "FALL",
-        description: "",
-        snapshotLabelMode: "labels",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [],
-        snapshots: [{ id: 10, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 5, denominator: 4 }],
-      })],
+      [
+        JSON.stringify({
+          type: "hexatone-sequence",
+          version: 3,
+          name: "FALL",
+          description: "",
+          snapshotLabelMode: "labels",
+          autoCreateBars: true,
+          transport: { unit: "sequence", anchorSeconds: 0 },
+          tempi: [],
+          snapshots: [{ id: 10, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 5, denominator: 4 }],
+        }),
+      ],
       "FALL.json",
       { type: "application/json" },
     );
@@ -425,13 +451,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("uses a single discard confirmation when loading another saved sequence from a dirty workspace", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "Prompt Load",
-        snapshots: [{ id: 10, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "Prompt Load",
+          snapshots: [{ id: 10, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     const confirmSpy = vi.fn(() => true);
     window.confirm = confirmSpy;
@@ -459,13 +488,16 @@ describe("SequenceLibrary", () => {
   });
 
   it("deletes the active saved sequence and clears the workspace", () => {
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: "FALL",
-        snapshots: [{ id: 1, notes: [] }],
-        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: "FALL",
+          snapshots: [{ id: 1, notes: [] }],
+          bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        }),
+      ]),
+    );
 
     render(
       <SequenceLibraryHarness
@@ -515,7 +547,9 @@ describe("SequenceLibrary", () => {
         expect.objectContaining({ source: "builtin" }),
       );
     });
-    expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe(builtIn?.name ?? "");
+    expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe(
+      builtIn?.name ?? "",
+    );
     expect(screen.queryByRole("combobox", { name: "User sequences" })).toBeNull();
   });
 
@@ -534,7 +568,9 @@ describe("SequenceLibrary", () => {
     fireEvent.click(screen.getByText("Save current sequence in user library"));
 
     expect(screen.getByRole("combobox", { name: "Built-in sequences" }).value).toBe("");
-    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe(builtIn?.name ?? "");
+    expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe(
+      builtIn?.name ?? "",
+    );
   });
 
   it("uses the user-library save label for built-in sequences", () => {
@@ -561,18 +597,21 @@ describe("SequenceLibrary", () => {
   it("does not show overwrite messaging when a built-in sequence shares a name with a clean saved user sequence", () => {
     const builtIn = findFallPresetSequence();
 
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: builtIn?.name ?? "FALL",
-        description: builtIn?.description ?? "",
-        snapshotLabelMode: builtIn?.snapshotLabelMode,
-        autoCreateBars: builtIn?.autoCreateBars,
-        tempi: builtIn?.tempi,
-        snapshots: builtIn?.snapshots ?? [],
-        bars: builtIn?.bars ?? [],
-        repeats: builtIn?.repeats,
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: builtIn?.name ?? "FALL",
+          description: builtIn?.description ?? "",
+          snapshotLabelMode: builtIn?.snapshotLabelMode,
+          autoCreateBars: builtIn?.autoCreateBars,
+          tempi: builtIn?.tempi,
+          snapshots: builtIn?.snapshots ?? [],
+          bars: builtIn?.bars ?? [],
+          repeats: builtIn?.repeats,
+        }),
+      ]),
+    );
 
     render(
       <SequenceLibraryHarness
@@ -596,18 +635,21 @@ describe("SequenceLibrary", () => {
   it("does not warn when switching from a clean saved user sequence to a built-in sequence with the same name", () => {
     const builtIn = findFallPresetSequence();
 
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: builtIn?.name ?? "FALL",
-        description: builtIn?.description ?? "",
-        snapshotLabelMode: builtIn?.snapshotLabelMode,
-        autoCreateBars: builtIn?.autoCreateBars,
-        tempi: builtIn?.tempi,
-        snapshots: builtIn?.snapshots ?? [],
-        bars: builtIn?.bars ?? [],
-        repeats: builtIn?.repeats,
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: builtIn?.name ?? "FALL",
+          description: builtIn?.description ?? "",
+          snapshotLabelMode: builtIn?.snapshotLabelMode,
+          autoCreateBars: builtIn?.autoCreateBars,
+          tempi: builtIn?.tempi,
+          snapshots: builtIn?.snapshots ?? [],
+          bars: builtIn?.bars ?? [],
+          repeats: builtIn?.repeats,
+        }),
+      ]),
+    );
 
     const confirmSpy = vi.fn(() => true);
     window.confirm = confirmSpy;
@@ -645,15 +687,16 @@ describe("SequenceLibrary", () => {
 
   it("does not warn when switching from a clean built-in sequence to a user sequence with the same name but different data", () => {
     const builtIn = findFallPresetSequence();
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      normalizeSequenceRecord({
-        name: builtIn?.name ?? "FALL",
-        snapshots: [
-          { id: 10, notes: [{ id: "u", midicents: 70, start: 0, end: 1 }] },
-        ],
-        bars: [{ id: 1, position: 1, numerator: 3, denominator: 2 }],
-      }),
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        normalizeSequenceRecord({
+          name: builtIn?.name ?? "FALL",
+          snapshots: [{ id: 10, notes: [{ id: "u", midicents: 70, start: 0, end: 1 }] }],
+          bars: [{ id: 1, position: 1, numerator: 3, denominator: 2 }],
+        }),
+      ]),
+    );
 
     const confirmSpy = vi.fn(() => true);
     window.confirm = confirmSpy;

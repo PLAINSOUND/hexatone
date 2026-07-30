@@ -1,7 +1,10 @@
 import { useState } from "preact/hooks";
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { loadPersistedSequencerCrashDiagnostics, SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY } from "../debug/sequencer-crash-diagnostics.js";
+import {
+  loadPersistedSequencerCrashDiagnostics,
+  SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY,
+} from "../debug/sequencer-crash-diagnostics.js";
 import Sequencer from "./sequencer.jsx";
 import { buildSnapshotDescription } from "./labels.js";
 import flightSequence from "./preset-sequences/marc-sabat/Flight.json";
@@ -43,13 +46,13 @@ describe("Sequencer", () => {
             id: 10,
             length: 1,
             description: "A",
-            notes: [
-              { id: "a", midicents: 69, start: 0, end: 0.5 },
-            ],
+            notes: [{ id: "a", midicents: 69, start: 0, end: 0.5 }],
           },
         ]}
         bars={[{ id: 1, position: 1 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -187,7 +190,16 @@ describe("Sequencer", () => {
           id: 10,
           length: 1,
           description: "A",
-          notes: [{ id: "a", midicents: 69, start: 0.25, end: 0.75, startFractionDenominator: 4, endFractionDenominator: 4 }],
+          notes: [
+            {
+              id: "a",
+              midicents: 69,
+              start: 0.25,
+              end: 0.75,
+              startFractionDenominator: 4,
+              endFractionDenominator: 4,
+            },
+          ],
         },
       ]);
 
@@ -348,7 +360,17 @@ describe("Sequencer", () => {
       <Sequencer
         snapshots={[]}
         bars={[{ id: 1, position: 1 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }]}
+        tempi={[
+          {
+            id: 1,
+            position: 1,
+            bpm: 60,
+            beatNumerator: 1,
+            beatDenominator: 4,
+            beatLength: 1,
+            mode: "immediate",
+          },
+        ]}
         snapshotLabelMode="labels"
         manualArpeggiation={{
           mode: "per-snapshot",
@@ -403,18 +425,22 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("sequence playback pitch")).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback speed slider" })).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback pitch slider" })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: "manual snapshot arpeggiation mode" }).value)
-      .toBe("per-snapshot");
-    expect(screen.getByRole("slider", { name: "manual arpeggiation initial spread" }).value)
-      .toBe("825");
-    expect(screen.getByRole("slider", { name: "manual arpeggiation spread variation" }).value)
-      .toBe("33");
-    expect(screen.getByRole("slider", { name: "manual arpeggiation timing variation" }).value)
-      .toBe("18");
-    expect(screen.getByRole("slider", { name: "manual arpeggiation decay" }).value)
-      .toBe("4200");
-    expect(screen.getByRole("slider", { name: "manual arpeggiation decay variation" }).value)
-      .toBe("22");
+    expect(screen.getByRole("combobox", { name: "manual snapshot arpeggiation mode" }).value).toBe(
+      "per-snapshot",
+    );
+    expect(screen.getByRole("slider", { name: "manual arpeggiation initial spread" }).value).toBe(
+      "825",
+    );
+    expect(screen.getByRole("slider", { name: "manual arpeggiation spread variation" }).value).toBe(
+      "33",
+    );
+    expect(screen.getByRole("slider", { name: "manual arpeggiation timing variation" }).value).toBe(
+      "18",
+    );
+    expect(screen.getByRole("slider", { name: "manual arpeggiation decay" }).value).toBe("4200");
+    expect(screen.getByRole("slider", { name: "manual arpeggiation decay variation" }).value).toBe(
+      "22",
+    );
 
     fireEvent.input(screen.getByRole("slider", { name: "manual arpeggiation initial spread" }), {
       currentTarget: { value: "1200" },
@@ -541,8 +567,18 @@ describe("Sequencer", () => {
     render(
       <Sequencer
         snapshots={[
-          { id: 1, length: 1, notes: [{ id: "n1", midicents: 69, start: 0.25, end: 0.75 }], description: "A" },
-          { id: 2, length: 1, notes: [{ id: "n2", midicents: 71, start: 0.5, end: 0.9 }], description: "B" },
+          {
+            id: 1,
+            length: 1,
+            notes: [{ id: "n1", midicents: 69, start: 0.25, end: 0.75 }],
+            description: "A",
+          },
+          {
+            id: 2,
+            length: 1,
+            notes: [{ id: "n2", midicents: 71, start: 0.5, end: 0.9 }],
+            description: "B",
+          },
           { id: 3, length: 1, notes: [], description: "C" },
         ]}
         bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
@@ -619,11 +655,14 @@ describe("Sequencer", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Set to arp" }));
-    expect(onSetSnapshotRangeArticulation).toHaveBeenCalledWith({
-      startPosition: "1",
-      endPosition: "2",
-      includeBars: false,
-    }, "arpeggiate");
+    expect(onSetSnapshotRangeArticulation).toHaveBeenCalledWith(
+      {
+        startPosition: "1",
+        endPosition: "2",
+        includeBars: false,
+      },
+      "arpeggiate",
+    );
     expect(onManualArpeggiationChange).toHaveBeenCalledWith({ mode: "per-snapshot" });
     fireEvent.click(screen.getByRole("button", { name: "Revert changes" }));
     expect(onRestoreSnapshotRangeChanges).toHaveBeenCalledWith([
@@ -632,11 +671,14 @@ describe("Sequencer", () => {
     ]);
     expect(onManualArpeggiationChange).toHaveBeenLastCalledWith({ mode: "off" });
     fireEvent.click(screen.getByRole("button", { name: "Set to chord" }));
-    expect(onSetSnapshotRangeArticulation).toHaveBeenLastCalledWith({
-      startPosition: "1",
-      endPosition: "2",
-      includeBars: false,
-    }, "chord");
+    expect(onSetSnapshotRangeArticulation).toHaveBeenLastCalledWith(
+      {
+        startPosition: "1",
+        endPosition: "2",
+        includeBars: false,
+      },
+      "chord",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
     expect(screen.getByText("Snapshots 1-2 copied.")).toBeTruthy();
@@ -647,10 +689,7 @@ describe("Sequencer", () => {
       expect.objectContaining({
         length: 2,
         includeBars: false,
-        snapshots: [
-          expect.objectContaining({ id: 1 }),
-          expect.objectContaining({ id: 2 }),
-        ],
+        snapshots: [expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 })],
       }),
       4,
     );
@@ -676,8 +715,24 @@ describe("Sequencer", () => {
           { id: 2, position: 2, numerator: 3, denominator: 2 },
         ]}
         tempi={[
-          { id: "t1", position: 1.5, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" },
-          { id: "t2", position: 2, bpm: 72, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75, mode: "gradual" },
+          {
+            id: "t1",
+            position: 1.5,
+            bpm: 60,
+            beatNumerator: 1,
+            beatDenominator: 4,
+            beatLength: 1,
+            mode: "immediate",
+          },
+          {
+            id: "t2",
+            position: 2,
+            bpm: 72,
+            beatNumerator: 3,
+            beatDenominator: 16,
+            beatLength: 0.75,
+            mode: "gradual",
+          },
         ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={null}
@@ -717,14 +772,20 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(container.querySelector(".sequencer-tempo-row__transition-cue")?.textContent).toContain("ritardando until 3/16 = 72 bpm at Bar 2 Beat 1");
-    fireEvent.click(screen.getByRole("button", {
-      name: "tempo mode gradual; change to immediate",
-    }));
+    expect(container.querySelector(".sequencer-tempo-row__transition-cue")?.textContent).toContain(
+      "ritardando until 3/16 = 72 bpm at Bar 2 Beat 1",
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "tempo mode gradual; change to immediate",
+      }),
+    );
     expect(onUpdateTempo).toHaveBeenCalledWith("t2", { mode: "immediate" });
-    fireEvent.click(screen.getByRole("button", {
-      name: "tempo mode immediate; change to gradual",
-    }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "tempo mode immediate; change to gradual",
+      }),
+    );
     expect(onUpdateTempo).toHaveBeenCalledWith("t1", { mode: "gradual" });
   });
 
@@ -736,9 +797,7 @@ describe("Sequencer", () => {
             id: 10,
             length: 1,
             description: "A",
-            notes: [
-              { id: "a", midicents: 69, start: 0, end: 1 },
-            ],
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
           },
         ]}
         bars={[{ id: 1, position: 1 }]}
@@ -810,21 +869,22 @@ describe("Sequencer", () => {
             id: 10,
             length: 1,
             description: "A",
-            notes: [
-              { id: "a", midicents: 69, start: 0, end: 0.5 },
-            ],
+            notes: [{ id: "a", midicents: 69, start: 0, end: 0.5 }],
           },
           {
             id: 20,
             length: 1,
             description: "B",
-            notes: [
-              { id: "b", midicents: 72, start: 0, end: 0.5 },
-            ],
+            notes: [{ id: "b", midicents: 72, start: 0, end: 0.5 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -875,8 +935,12 @@ describe("Sequencer", () => {
     expect(onPlayCue).not.toHaveBeenCalled();
 
     flushQueuedFrames();
-    const firstSnapshotRow = screen.getByLabelText("snapshot 1 description").closest(".sequencer-item");
-    const secondSnapshotRow = screen.getByLabelText("snapshot 2 description").closest(".sequencer-item");
+    const firstSnapshotRow = screen
+      .getByLabelText("snapshot 1 description")
+      .closest(".sequencer-item");
+    const secondSnapshotRow = screen
+      .getByLabelText("snapshot 2 description")
+      .closest(".sequencer-item");
     const attackRows = document.querySelectorAll(".sequencer-event-row--attack");
     const barSelect = document.querySelector('[data-timed-transport-field="bar"]');
     const snapshotSelect = screen.getByLabelText("next snapshot target");
@@ -944,8 +1008,13 @@ describe("Sequencer", () => {
             notes: [{ id: "b", midicents: 71, start: 0, end: 0.5 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={11}
         selectedMarker={null}
@@ -1014,8 +1083,13 @@ describe("Sequencer", () => {
             notes: [{ id: "b", midicents: 71, start: 0, end: 0.5 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={11}
         selectedMarker={{ snapshotId: 11, time: 0 }}
@@ -1072,9 +1146,7 @@ describe("Sequencer", () => {
           id: 10,
           length: 1,
           description: "A",
-          notes: [
-            { id: "a", midicents: 69, start: 0, end: 0.5 },
-          ],
+          notes: [{ id: "a", midicents: 69, start: 0, end: 0.5 }],
         },
       ],
       displaySnapshots: [
@@ -1082,9 +1154,7 @@ describe("Sequencer", () => {
           id: 10,
           length: 1,
           description: "A",
-          notes: [
-            { id: "a", midicents: 69, start: 0, end: 0.5 },
-          ],
+          notes: [{ id: "a", midicents: 69, start: 0, end: 0.5 }],
         },
       ],
       bars: [{ id: 1, position: 1 }],
@@ -1139,9 +1209,7 @@ describe("Sequencer", () => {
             id: 10,
             length: 1,
             description: "A",
-            notes: [
-              { id: "a", midicents: 70, start: 0, end: 0.5 },
-            ],
+            notes: [{ id: "a", midicents: 70, start: 0, end: 0.5 }],
           },
         ]}
       />,
@@ -1161,9 +1229,7 @@ describe("Sequencer", () => {
           id: 10,
           length: 1,
           description: "A",
-          notes: [
-            { id: "a", midicents: 69, start: 0, end: 0.5 },
-          ],
+          notes: [{ id: "a", midicents: 69, start: 0, end: 0.5 }],
         },
       ],
       bars: [{ id: 1, position: 1 }],
@@ -1227,9 +1293,7 @@ describe("Sequencer", () => {
           id: 10,
           length: 1,
           description: "A",
-          notes: [
-            { id: "a", midicents: 69, start: 0, end: 0.5 },
-          ],
+          notes: [{ id: "a", midicents: 69, start: 0, end: 0.5 }],
         },
       ],
       bars: [{ id: 1, position: 1 }],
@@ -1308,9 +1372,7 @@ describe("Sequencer", () => {
         id: 10,
         length: 1,
         description: "A",
-        notes: [
-          { id: "a", midicents: 69, start: 0, end: 0.5 },
-        ],
+        notes: [{ id: "a", midicents: 69, start: 0, end: 0.5 }],
       },
     ];
     const baseProps = {
@@ -1366,9 +1428,7 @@ describe("Sequencer", () => {
         playbackSnapshots={[
           {
             ...snapshots[0],
-            notes: [
-              { ...snapshots[0].notes[0], midicents: 70 },
-            ],
+            notes: [{ ...snapshots[0].notes[0], midicents: 70 }],
           },
         ]}
       />,
@@ -1400,7 +1460,9 @@ describe("Sequencer", () => {
           },
         ]}
         bars={[{ id: 1, position: 1 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -1468,7 +1530,12 @@ describe("Sequencer", () => {
     const onPlayTimedCue = vi.fn();
 
     const Harness = () => {
-      const [playhead, setPlayhead] = useState({ barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true });
+      const [playhead, setPlayhead] = useState({
+        barIndex: 0,
+        stepIndex: -1,
+        markerIndex: null,
+        stopped: true,
+      });
       return (
         <Sequencer
           snapshots={[
@@ -1484,7 +1551,9 @@ describe("Sequencer", () => {
             },
           ]}
           bars={[{ id: 1, position: 1 }]}
-          tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+          tempi={[
+            { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+          ]}
           snapshotLabelMode="labels"
           selectedSnapshotId={10}
           selectedMarker={null}
@@ -1501,7 +1570,9 @@ describe("Sequencer", () => {
           onPlaySnapshot={vi.fn()}
           onStopSnapshot={vi.fn()}
           onSelectSequenceBar={vi.fn()}
-          onCueSequenceCue={(cueIndex) => setPlayhead({ barIndex: 0, stepIndex: 0, markerIndex: cueIndex, stopped: true })}
+          onCueSequenceCue={(cueIndex) =>
+            setPlayhead({ barIndex: 0, stepIndex: 0, markerIndex: cueIndex, stopped: true })
+          }
           onStepSequence={vi.fn()}
           onStepSequenceMarker={vi.fn()}
           onPlaySequence={vi.fn()}
@@ -1553,11 +1624,26 @@ describe("Sequencer", () => {
     const { rerender } = render(
       <Sequencer
         snapshots={[
-          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
-          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
+          },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -1605,11 +1691,26 @@ describe("Sequencer", () => {
     rerender(
       <Sequencer
         snapshots={[
-          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
-          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
+          },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -1673,15 +1774,35 @@ describe("Sequencer", () => {
     globalThis.cancelAnimationFrame = cancelRaf;
 
     const Harness = () => {
-      const [playhead, setPlayhead] = useState({ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: false });
+      const [playhead, setPlayhead] = useState({
+        barIndex: 0,
+        stepIndex: 0,
+        markerIndex: 0,
+        stopped: false,
+      });
       return (
         <Sequencer
           snapshots={[
-            { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
-            { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+            {
+              id: 10,
+              length: 1,
+              description: "A",
+              notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+            },
+            {
+              id: 11,
+              length: 1,
+              description: "B",
+              notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
+            },
           ]}
-          bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-          tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+          bars={[
+            { id: 1, position: 1 },
+            { id: 2, position: 2 },
+          ]}
+          tempi={[
+            { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+          ]}
           snapshotLabelMode="labels"
           selectedSnapshotId={10}
           selectedMarker={null}
@@ -1698,7 +1819,9 @@ describe("Sequencer", () => {
           onPlaySnapshot={vi.fn()}
           onStopSnapshot={vi.fn()}
           onSelectSequenceBar={vi.fn()}
-          onCueSequenceCue={(cueIndex) => setPlayhead({ barIndex: 1, stepIndex: 1, markerIndex: cueIndex, stopped: true })}
+          onCueSequenceCue={(cueIndex) =>
+            setPlayhead({ barIndex: 1, stepIndex: 1, markerIndex: cueIndex, stopped: true })
+          }
           onStepSequence={vi.fn()}
           onStepSequenceMarker={vi.fn()}
           onPlaySequence={vi.fn()}
@@ -1783,7 +1906,12 @@ describe("Sequencer", () => {
             const snapshotIndex = Number(targetIndex);
             setPendingTransportSelection({ snapshotIndex, cueIndex: null });
             setSelectedSnapshotId(snapshots[snapshotIndex].id);
-            setPlayhead({ barIndex: 0, stepIndex: snapshotIndex, markerIndex: null, stopped: true });
+            setPlayhead({
+              barIndex: 0,
+              stepIndex: snapshotIndex,
+              markerIndex: null,
+              stopped: true,
+            });
           }}
           onStepSequence={vi.fn()}
           onStepSequenceMarker={vi.fn()}
@@ -1837,7 +1965,9 @@ describe("Sequencer", () => {
       height: 10000,
     });
 
-    expect(screen.getAllByLabelText(/^snapshot \d+ description$/).length).toBeLessThan(snapshots.length);
+    expect(screen.getAllByLabelText(/^snapshot \d+ description$/).length).toBeLessThan(
+      snapshots.length,
+    );
     expect(document.querySelector(".sequencer-virtual-spacer")).not.toBeNull();
     expect(screen.queryByLabelText("snapshot 41 description")).toBeNull();
 
@@ -1954,9 +2084,11 @@ describe("Sequencer", () => {
             });
           }}
           onUpdateSnapshot={(snapshotId, updates) => {
-            setSnapshots((current) => current.map((snapshot) => (
-              snapshot.id === snapshotId ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((current) =>
+              current.map((snapshot) =>
+                snapshot.id === snapshotId ? { ...snapshot, ...updates } : snapshot,
+              ),
+            );
           }}
           onStepSequenceMarker={() => {
             setPendingTransportSelection({ snapshotIndex: null, cueIndex: null });
@@ -1987,13 +2119,48 @@ describe("Sequencer", () => {
         scrollTopValue = value;
       },
     });
-    scrollPanel.getBoundingClientRect = () => ({ top: 0, bottom: 200, left: 0, right: 0, width: 0, height: 200 });
+    scrollPanel.getBoundingClientRect = () => ({
+      top: 0,
+      bottom: 200,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 200,
+    });
 
     const eventRows = container.querySelectorAll(".sequencer-event-row");
-    eventRows[0].getBoundingClientRect = () => ({ top: 120 - scrollTopValue, bottom: 150 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
-    eventRows[1].getBoundingClientRect = () => ({ top: 320 - scrollTopValue, bottom: 350 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
-    eventRows[2].getBoundingClientRect = () => ({ top: 680 - scrollTopValue, bottom: 710 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
-    eventRows[3].getBoundingClientRect = () => ({ top: 760 - scrollTopValue, bottom: 790 - scrollTopValue, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[0].getBoundingClientRect = () => ({
+      top: 120 - scrollTopValue,
+      bottom: 150 - scrollTopValue,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
+    eventRows[1].getBoundingClientRect = () => ({
+      top: 320 - scrollTopValue,
+      bottom: 350 - scrollTopValue,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
+    eventRows[2].getBoundingClientRect = () => ({
+      top: 680 - scrollTopValue,
+      bottom: 710 - scrollTopValue,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
+    eventRows[3].getBoundingClientRect = () => ({
+      top: 760 - scrollTopValue,
+      bottom: 790 - scrollTopValue,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
     const originalElementRect = HTMLElement.prototype.getBoundingClientRect;
     HTMLElement.prototype.getBoundingClientRect = function getCueStepRect() {
       if (this.dataset?.sequenceEventId === "11:b:attack:0.25") {
@@ -2075,26 +2242,23 @@ describe("Sequencer", () => {
       }
       if (this.dataset?.sequenceVirtualIndex != null) {
         const index = Number(this.dataset.sequenceVirtualIndex);
-        const top = (index * 220) - scrollTop;
+        const top = index * 220 - scrollTop;
         return { top, bottom: top + 200, left: 0, right: 600, width: 600, height: 200 };
       }
       if (this.dataset?.sequenceEventId != null) {
         const eventPosition = eventOrderById.get(this.dataset.sequenceEventId);
         if (eventPosition) {
-          const top = (eventPosition.snapshotIndex * 220)
-            + 42
-            + (eventPosition.order * 24)
-            - scrollTop;
+          const top = eventPosition.snapshotIndex * 220 + 42 + eventPosition.order * 24 - scrollTop;
           return { top, bottom: top + 22, left: 0, right: 600, width: 600, height: 22 };
         }
       }
       if (
-        this.classList?.contains("sequencer-list")
-        || this.classList?.contains("sequencer-virtual-list")
+        this.classList?.contains("sequencer-list") ||
+        this.classList?.contains("sequencer-virtual-list")
       ) {
         return {
           top: -scrollTop,
-          bottom: (flightSequence.snapshots.length * 220) - scrollTop,
+          bottom: flightSequence.snapshots.length * 220 - scrollTop,
           left: 0,
           right: 600,
           width: 600,
@@ -2160,7 +2324,9 @@ describe("Sequencer", () => {
             stopped: false,
           }}
           onStepSequenceMarker={(direction) => {
-            setMarkerIndex((current) => Math.max(0, Math.min(cueGroups.length - 1, current + direction)));
+            setMarkerIndex((current) =>
+              Math.max(0, Math.min(cueGroups.length - 1, current + direction)),
+            );
           }}
           onJumpSequenceCue={setMarkerIndex}
         />
@@ -2181,8 +2347,10 @@ describe("Sequencer", () => {
         scrollTop = value;
       },
     });
-    const eventNodeFor = (eventId) => [...container.querySelectorAll("[data-sequence-event-id]")]
-      .find((node) => node.dataset.sequenceEventId === eventId) ?? null;
+    const eventNodeFor = (eventId) =>
+      [...container.querySelectorAll("[data-sequence-event-id]")].find(
+        (node) => node.dataset.sequenceEventId === eventId,
+      ) ?? null;
     const expectCueAnchorVisible = async (cueIndexZeroBased) => {
       const plan = deriveCueViewportPlan({ cueIndexZeroBased, sequenceEvents });
       await waitFor(() => {
@@ -2237,52 +2405,62 @@ describe("Sequencer", () => {
       });
       return (
         <Sequencer
-        snapshots={[
-          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
-          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
-        ]}
-        bars={[{ id: 1, position: 1 }]}
-        snapshotLabelMode="labels"
-        selectedSnapshotId={10}
-        selectedMarker={null}
-        playingSnapshotId={null}
-        playhead={playhead}
-        onTakeSnapshot={vi.fn()}
-        onLoadSequence={vi.fn()}
-        onSequenceNameChange={vi.fn()}
-        onSequenceDescriptionChange={vi.fn()}
-        onSequenceLegatoChange={vi.fn()}
-        onSetSnapshotLabelMode={vi.fn()}
-        onSelectSnapshot={vi.fn()}
-        onSelectMarker={vi.fn()}
-        onPlaySnapshot={vi.fn()}
-        onStopSnapshot={vi.fn()}
-        onSelectSequenceBar={vi.fn()}
-        onStepSequence={(direction) => {
-          setPlayhead((current) => ({
-            ...current,
-            stepIndex: current.stepIndex + direction,
-          }));
-        }}
-        onStepSequenceMarker={vi.fn()}
-        onPlaySequence={vi.fn()}
-        onPlayCue={vi.fn()}
-        onResetSequencePlayhead={vi.fn()}
-        onAddBar={vi.fn()}
-        onAddTempo={vi.fn()}
-        onAddBarsBeforeSnapshots={vi.fn()}
-        onDeleteBar={vi.fn()}
-        onDeleteTempo={vi.fn()}
-        onUpdateBar={vi.fn()}
-        onUpdateTempo={vi.fn()}
-        onMoveBar={vi.fn()}
-        onDeleteSnapshot={vi.fn()}
-        onMoveSnapshot={vi.fn()}
-        onUpdateSnapshot={vi.fn()}
-        onResetSnapshotDescription={vi.fn()}
-        activeSequenceName=""
-        activeSequenceDescription=""
-        sequenceLegato
+          snapshots={[
+            {
+              id: 10,
+              length: 1,
+              description: "A",
+              notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+            },
+            {
+              id: 11,
+              length: 1,
+              description: "B",
+              notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
+            },
+          ]}
+          bars={[{ id: 1, position: 1 }]}
+          snapshotLabelMode="labels"
+          selectedSnapshotId={10}
+          selectedMarker={null}
+          playingSnapshotId={null}
+          playhead={playhead}
+          onTakeSnapshot={vi.fn()}
+          onLoadSequence={vi.fn()}
+          onSequenceNameChange={vi.fn()}
+          onSequenceDescriptionChange={vi.fn()}
+          onSequenceLegatoChange={vi.fn()}
+          onSetSnapshotLabelMode={vi.fn()}
+          onSelectSnapshot={vi.fn()}
+          onSelectMarker={vi.fn()}
+          onPlaySnapshot={vi.fn()}
+          onStopSnapshot={vi.fn()}
+          onSelectSequenceBar={vi.fn()}
+          onStepSequence={(direction) => {
+            setPlayhead((current) => ({
+              ...current,
+              stepIndex: current.stepIndex + direction,
+            }));
+          }}
+          onStepSequenceMarker={vi.fn()}
+          onPlaySequence={vi.fn()}
+          onPlayCue={vi.fn()}
+          onResetSequencePlayhead={vi.fn()}
+          onAddBar={vi.fn()}
+          onAddTempo={vi.fn()}
+          onAddBarsBeforeSnapshots={vi.fn()}
+          onDeleteBar={vi.fn()}
+          onDeleteTempo={vi.fn()}
+          onUpdateBar={vi.fn()}
+          onUpdateTempo={vi.fn()}
+          onMoveBar={vi.fn()}
+          onDeleteSnapshot={vi.fn()}
+          onMoveSnapshot={vi.fn()}
+          onUpdateSnapshot={vi.fn()}
+          onResetSnapshotDescription={vi.fn()}
+          activeSequenceName=""
+          activeSequenceDescription=""
+          sequenceLegato
         />
       );
     }
@@ -2300,11 +2478,32 @@ describe("Sequencer", () => {
         scrollTopValue = value;
       },
     });
-    scrollPanel.getBoundingClientRect = () => ({ top: 0, bottom: 200, left: 0, right: 0, width: 0, height: 200 });
+    scrollPanel.getBoundingClientRect = () => ({
+      top: 0,
+      bottom: 200,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 200,
+    });
 
     const snapshotRows = container.querySelectorAll(".sequencer-item:not(.sequencer-item--bar)");
-    snapshotRows[0].getBoundingClientRect = () => ({ top: 60, bottom: 90, left: 0, right: 0, width: 0, height: 30 });
-    snapshotRows[1].getBoundingClientRect = () => ({ top: 120, bottom: 150, left: 0, right: 0, width: 0, height: 30 });
+    snapshotRows[0].getBoundingClientRect = () => ({
+      top: 60,
+      bottom: 90,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
+    snapshotRows[1].getBoundingClientRect = () => ({
+      top: 120,
+      bottom: 150,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
     const snapshotGroups = container.querySelectorAll(".sequencer-virtual-item");
     snapshotGroups[0].getBoundingClientRect = () => ({
       top: 360 - scrollTopValue,
@@ -2349,10 +2548,23 @@ describe("Sequencer", () => {
     const { container } = render(
       <Sequencer
         snapshots={[
-          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
-          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
+          },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={11}
         selectedMarker={null}
@@ -2426,10 +2638,23 @@ describe("Sequencer", () => {
     const { container } = render(
       <Sequencer
         snapshots={[
-          { id: 10, length: 1, description: "A", notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] },
-          { id: 11, length: 1, description: "B", notes: [{ id: "b", midicents: 72, start: 0, end: 1 }] },
+          {
+            id: 10,
+            length: 1,
+            description: "A",
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+          },
+          {
+            id: 11,
+            length: 1,
+            description: "B",
+            notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
+          },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -2578,7 +2803,14 @@ describe("Sequencer", () => {
         scrollTopValue = value;
       },
     });
-    scrollPanel.getBoundingClientRect = () => ({ top: 0, bottom: 200, left: 0, right: 0, width: 0, height: 200 });
+    scrollPanel.getBoundingClientRect = () => ({
+      top: 0,
+      bottom: 200,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 200,
+    });
 
     const snapshotGroups = container.querySelectorAll(".sequencer-virtual-item");
     snapshotGroups[0].getBoundingClientRect = () => ({
@@ -2598,9 +2830,30 @@ describe("Sequencer", () => {
       height: 360,
     });
     const eventRows = container.querySelectorAll(".sequencer-event-row");
-    eventRows[0].getBoundingClientRect = () => ({ top: 120, bottom: 150, left: 0, right: 0, width: 0, height: 30 });
-    eventRows[1].getBoundingClientRect = () => ({ top: 320, bottom: 350, left: 0, right: 0, width: 0, height: 30 });
-    eventRows[2].getBoundingClientRect = () => ({ top: 680, bottom: 710, left: 0, right: 0, width: 0, height: 30 });
+    eventRows[0].getBoundingClientRect = () => ({
+      top: 120,
+      bottom: 150,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
+    eventRows[1].getBoundingClientRect = () => ({
+      top: 320,
+      bottom: 350,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
+    eventRows[2].getBoundingClientRect = () => ({
+      top: 680,
+      bottom: 710,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 30,
+    });
 
     fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
 
@@ -2906,44 +3159,44 @@ describe("Sequencer", () => {
             Select snapshot after action
           </button>
           <Sequencer
-          snapshots={snapshots}
-          bars={[{ id: 1, position: 1 }]}
-          snapshotLabelMode="labels"
-          selectedSnapshotId={selectedSnapshotId}
-          selectedMarker={null}
-          playingSnapshotId={null}
-          playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
-          onTakeSnapshot={vi.fn()}
-          onLoadSequence={vi.fn()}
-          onSequenceNameChange={vi.fn()}
-          onSequenceDescriptionChange={vi.fn()}
-          onSequenceLegatoChange={vi.fn()}
-          onSetSnapshotLabelMode={vi.fn()}
-          onSelectSnapshot={setSelectedSnapshotId}
-          onSelectMarker={vi.fn()}
-          onPlaySnapshot={vi.fn()}
-          onStopSnapshot={vi.fn()}
-          onSelectSequenceBar={vi.fn()}
-          onStepSequence={vi.fn()}
-          onStepSequenceMarker={vi.fn()}
-          onPlaySequence={vi.fn()}
-          onPlayCue={vi.fn()}
-          onResetSequencePlayhead={vi.fn()}
-          onAddBar={vi.fn()}
-          onAddTempo={vi.fn()}
-          onAddBarsBeforeSnapshots={vi.fn()}
-          onDeleteBar={vi.fn()}
-          onDeleteTempo={vi.fn()}
-          onUpdateBar={vi.fn()}
-          onUpdateTempo={vi.fn()}
-          onMoveBar={vi.fn()}
-          onDeleteSnapshot={vi.fn()}
-          onMoveSnapshot={vi.fn()}
-          onUpdateSnapshot={vi.fn()}
-          onResetSnapshotDescription={vi.fn()}
-          activeSequenceName=""
-          activeSequenceDescription=""
-          sequenceLegato
+            snapshots={snapshots}
+            bars={[{ id: 1, position: 1 }]}
+            snapshotLabelMode="labels"
+            selectedSnapshotId={selectedSnapshotId}
+            selectedMarker={null}
+            playingSnapshotId={null}
+            playhead={{ barIndex: 0, stepIndex: 0, markerIndex: null, stopped: true }}
+            onTakeSnapshot={vi.fn()}
+            onLoadSequence={vi.fn()}
+            onSequenceNameChange={vi.fn()}
+            onSequenceDescriptionChange={vi.fn()}
+            onSequenceLegatoChange={vi.fn()}
+            onSetSnapshotLabelMode={vi.fn()}
+            onSelectSnapshot={setSelectedSnapshotId}
+            onSelectMarker={vi.fn()}
+            onPlaySnapshot={vi.fn()}
+            onStopSnapshot={vi.fn()}
+            onSelectSequenceBar={vi.fn()}
+            onStepSequence={vi.fn()}
+            onStepSequenceMarker={vi.fn()}
+            onPlaySequence={vi.fn()}
+            onPlayCue={vi.fn()}
+            onResetSequencePlayhead={vi.fn()}
+            onAddBar={vi.fn()}
+            onAddTempo={vi.fn()}
+            onAddBarsBeforeSnapshots={vi.fn()}
+            onDeleteBar={vi.fn()}
+            onDeleteTempo={vi.fn()}
+            onUpdateBar={vi.fn()}
+            onUpdateTempo={vi.fn()}
+            onMoveBar={vi.fn()}
+            onDeleteSnapshot={vi.fn()}
+            onMoveSnapshot={vi.fn()}
+            onUpdateSnapshot={vi.fn()}
+            onResetSnapshotDescription={vi.fn()}
+            activeSequenceName=""
+            activeSequenceDescription=""
+            sequenceLegato
           />
         </>
       );
@@ -3091,7 +3344,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 99, position: 2 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 99, position: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -3167,7 +3423,9 @@ describe("Sequencer", () => {
     expect(screen.getAllByLabelText("snapshot 1 attack snapshot")[0].value).toBe("1");
     expect(screen.getAllByLabelText("snapshot 1 attack offset")[0].value).toBe("0.000");
     expect(screen.getAllByLabelText("snapshot 1 release offset")[0].value).toBe("1.000");
-    const cueNumbers = [...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent);
+    const cueNumbers = [...container.querySelectorAll(".sequencer-event__cue-number")].map(
+      (node) => node.textContent,
+    );
     expect(cueNumbers).toEqual(["1", "2", "3"]);
     expect(screen.getByText("Offset")).not.toBeNull();
     expect(screen.getByLabelText("bar 1 position").value).toBe("1");
@@ -3178,12 +3436,20 @@ describe("Sequencer", () => {
     expect(screen.getAllByLabelText("snapshot 1 release midicents")[0].value).toBe("81.000");
     expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("880.0");
     expect(screen.getAllByLabelText("snapshot 1 release frequency")[0].value).toBe("880.0");
-    expect(screen.getAllByLabelText("snapshot 1 attack name").map((node) => node.value)).toContain("A");
-    expect(screen.getAllByLabelText("snapshot 1 release name").map((node) => node.value)).toContain("F");
+    expect(screen.getAllByLabelText("snapshot 1 attack name").map((node) => node.value)).toContain(
+      "A",
+    );
+    expect(screen.getAllByLabelText("snapshot 1 release name").map((node) => node.value)).toContain(
+      "F",
+    );
     expect(screen.getAllByLabelText("snapshot 1 attack bar")[0].value).toBe("1");
     expect(screen.getAllByLabelText("snapshot 1 attack beat")[0].value).toBe("1");
-    expect(screen.getAllByLabelText("snapshot 1 attack beat fraction numerator")[0].value).toBe("0");
-    expect(screen.getAllByLabelText("snapshot 1 attack beat fraction denominator")[0].value).toBe("1");
+    expect(screen.getAllByLabelText("snapshot 1 attack beat fraction numerator")[0].value).toBe(
+      "0",
+    );
+    expect(screen.getAllByLabelText("snapshot 1 attack beat fraction denominator")[0].value).toBe(
+      "1",
+    );
     expect(screen.getByLabelText("bar 1 beats per bar").value).toBe("4");
     expect(screen.getByLabelText("bar 1 beat unit").value).toBe("4");
     expect(screen.getAllByText("on")).toHaveLength(2);
@@ -3296,7 +3562,9 @@ describe("Sequencer", () => {
       />,
     );
 
-    const kindCells = [...container.querySelectorAll(".sequencer-event__kind")].map((node) => node.classList.contains("sequencer-event__kind--active"));
+    const kindCells = [...container.querySelectorAll(".sequencer-event__kind")].map((node) =>
+      node.classList.contains("sequencer-event__kind--active"),
+    );
     expect(kindCells).toEqual([true, true, false, false]);
   });
 
@@ -3353,9 +3621,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -3430,9 +3698,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -3505,9 +3773,9 @@ describe("Sequencer", () => {
           onMoveSnapshot={vi.fn()}
           onDuplicateSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -3659,17 +3927,13 @@ describe("Sequencer", () => {
             id: 10,
             length: 1,
             description: "A",
-            notes: [
-              { id: "a", midicents: 69, start: 0, end: 1 },
-            ],
+            notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
           },
           {
             id: 11,
             length: 1,
             description: "B",
-            notes: [
-              { id: "b", midicents: 71, start: 0.5, end: 1 },
-            ],
+            notes: [{ id: "b", midicents: 71, start: 0.5, end: 1 }],
           },
         ]}
         bars={[
@@ -3740,7 +4004,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 4, denominator: 4 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 4, denominator: 4 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -3803,7 +4070,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 3, denominator: 2 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 3, denominator: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -3904,9 +4174,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -3958,7 +4228,10 @@ describe("Sequencer", () => {
       return (
         <Sequencer
           snapshots={snapshots}
-          bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 4, denominator: 4 }]}
+          bars={[
+            { id: 1, position: 1, numerator: 4, denominator: 4 },
+            { id: 2, position: 2, numerator: 4, denominator: 4 },
+          ]}
           snapshotLabelMode="labels"
           selectedSnapshotId={10}
           selectedMarker={null}
@@ -3984,9 +4257,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -4011,9 +4284,10 @@ describe("Sequencer", () => {
 
     await waitFor(() => {
       const persisted = loadPersistedSequencerCrashDiagnostics();
-      const derivedEntry = [...(persisted?.state?.entries ?? [])]
-        .reverse()
-        .find((entry) => entry?.type === "event-derived-post-commit") ?? null;
+      const derivedEntry =
+        [...(persisted?.state?.entries ?? [])]
+          .reverse()
+          .find((entry) => entry?.type === "event-derived-post-commit") ?? null;
       expect(derivedEntry).not.toBeNull();
       expect(derivedEntry?.context).toMatchObject({
         snapshotId: "10",
@@ -4049,7 +4323,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 4, denominator: 4 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 4, denominator: 4 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -4234,20 +4511,14 @@ describe("Sequencer", () => {
     };
 
     const { rerender } = render(
-      <Sequencer
-        {...props}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]}
-      />,
+      <Sequencer {...props} bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }]} />,
     );
 
     expect(screen.getByLabelText("bar 1 beats per bar").value).toBe("4");
     expect(screen.getByLabelText("bar 1 beat unit").value).toBe("4");
 
     rerender(
-      <Sequencer
-        {...props}
-        bars={[{ id: 1, position: 1, numerator: 3, denominator: 8 }]}
-      />,
+      <Sequencer {...props} bars={[{ id: 1, position: 1, numerator: 3, denominator: 8 }]} />,
     );
 
     expect(screen.getByLabelText("bar 1 beats per bar").value).toBe("3");
@@ -4258,7 +4529,10 @@ describe("Sequencer", () => {
     localStorage.clear();
 
     const Harness = () => {
-      const [bars, setBars] = useState([{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 4, denominator: 4 }]);
+      const [bars, setBars] = useState([
+        { id: 1, position: 1, numerator: 4, denominator: 4 },
+        { id: 2, position: 2, numerator: 4, denominator: 4 },
+      ]);
       return (
         <Sequencer
           snapshots={[
@@ -4334,39 +4608,44 @@ describe("Sequencer", () => {
   it("renders imported bar signatures correctly after selecting a stored sequence from a fresh state", async () => {
     window.confirm = vi.fn(() => true);
     localStorage.clear();
-    localStorage.setItem("hexatone_user_sequences", JSON.stringify([
-      {
-        type: "hexatone-sequence",
-        version: 3,
-        name: "FALL",
-        description: "",
-        snapshotLabelMode: "proportion",
-        autoCreateBars: true,
-        transport: { unit: "sequence", anchorSeconds: 0 },
-        tempi: [
-          { id: 1, position: 1, bpm: 58, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
-        ],
-        snapshots: [
-          { id: 1, length: 1, description: "a", notes: [] },
-          { id: 2, length: 1, description: "b", notes: [] },
-          { id: 3, length: 1, description: "c", notes: [] },
-          { id: 4, length: 1, description: "d", notes: [] },
-          { id: 5, length: 1, description: "e", notes: [] },
-        ],
-        bars: [
-          { id: 1, position: 1, numerator: 1, denominator: 1 },
-          { id: 2, position: 2, numerator: 3, denominator: 2 },
-          { id: 4, position: 4, numerator: 9, denominator: 8 },
-          { id: 5, position: 5, numerator: 9, denominator: 8 },
-          { id: 6, position: 6, numerator: 3, denominator: 2 },
-        ],
-      },
-    ]));
+    localStorage.setItem(
+      "hexatone_user_sequences",
+      JSON.stringify([
+        {
+          type: "hexatone-sequence",
+          version: 3,
+          name: "FALL",
+          description: "",
+          snapshotLabelMode: "proportion",
+          autoCreateBars: true,
+          transport: { unit: "sequence", anchorSeconds: 0 },
+          tempi: [
+            { id: 1, position: 1, bpm: 58, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+          ],
+          snapshots: [
+            { id: 1, length: 1, description: "a", notes: [] },
+            { id: 2, length: 1, description: "b", notes: [] },
+            { id: 3, length: 1, description: "c", notes: [] },
+            { id: 4, length: 1, description: "d", notes: [] },
+            { id: 5, length: 1, description: "e", notes: [] },
+          ],
+          bars: [
+            { id: 1, position: 1, numerator: 1, denominator: 1 },
+            { id: 2, position: 2, numerator: 3, denominator: 2 },
+            { id: 4, position: 4, numerator: 9, denominator: 8 },
+            { id: 5, position: 5, numerator: 9, denominator: 8 },
+            { id: 6, position: 6, numerator: 3, denominator: 2 },
+          ],
+        },
+      ]),
+    );
 
     const Harness = () => {
       const [snapshots, setSnapshots] = useState([]);
       const [bars, setBars] = useState(normalizeBarMarkers([{ id: 1, position: 1 }]));
-      const [tempi, setTempi] = useState(normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]));
+      const [tempi, setTempi] = useState(
+        normalizeTempoMarkers([{ id: 1, position: 1, bpm: 60, beatLength: 1 }]),
+      );
       const [snapshotLabelMode, setSnapshotLabelMode] = useState("labels");
       const [activeSequenceName, setActiveSequenceName] = useState("");
       const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("");
@@ -4401,7 +4680,9 @@ describe("Sequencer", () => {
             const nextName = String(value ?? "");
             const trimmed = nextName.trim();
             setActiveSequenceName(nextName);
-            setActiveSequenceSavedName((current) => (current && current === trimmed ? current : ""));
+            setActiveSequenceSavedName((current) =>
+              current && current === trimmed ? current : "",
+            );
           }}
           onSequenceDescriptionChange={setActiveSequenceDescription}
           onSequenceSaved={(name) => {
@@ -4576,7 +4857,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 4, denominator: 4 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 4, denominator: 4 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -4640,7 +4924,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 4, denominator: 4 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 4, denominator: 4 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -4706,7 +4993,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 3, denominator: 2 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 3, denominator: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -4757,12 +5047,25 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("snapshot 1 attack beat").value).toBe("1");
 
     fireEvent.focus(screen.getByLabelText("snapshot 1 attack bar"));
-    fireEvent.input(screen.getByLabelText("snapshot 1 attack bar"), { currentTarget: { value: "2" }, target: { value: "2" } });
-    fireEvent.input(screen.getByLabelText("snapshot 1 attack beat"), { currentTarget: { value: "3" }, target: { value: "3" } });
+    fireEvent.input(screen.getByLabelText("snapshot 1 attack bar"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.input(screen.getByLabelText("snapshot 1 attack beat"), {
+      currentTarget: { value: "3" },
+      target: { value: "3" },
+    });
 
     fireEvent.click(screen.getByLabelText("commit snapshot 1 attack bar-relative timing"));
     expect(onUpdateSnapshot).toHaveBeenLastCalledWith(10, {
-      notes: [expect.objectContaining({ id: "a", start: 1.666667, end: 1.666667, startFractionDenominator: 1 })],
+      notes: [
+        expect.objectContaining({
+          id: "a",
+          start: 1.666667,
+          end: 1.666667,
+          startFractionDenominator: 1,
+        }),
+      ],
     });
   });
 
@@ -4782,7 +5085,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 3, denominator: 2 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 3, denominator: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -4812,8 +5118,14 @@ describe("Sequencer", () => {
       />,
     );
 
-    fireEvent.input(screen.getAllByLabelText("snapshot 1 attack bar")[0], { currentTarget: { value: "2" }, target: { value: "2" } });
-    fireEvent.input(screen.getAllByLabelText("snapshot 1 attack beat")[0], { currentTarget: { value: "3" }, target: { value: "3" } });
+    fireEvent.input(screen.getAllByLabelText("snapshot 1 attack bar")[0], {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.input(screen.getAllByLabelText("snapshot 1 attack beat")[0], {
+      currentTarget: { value: "3" },
+      target: { value: "3" },
+    });
 
     fireEvent.mouseDown(screen.getAllByLabelText("snapshot 1 attack frequency")[0]);
     expect(onUpdateSnapshot).not.toHaveBeenCalled();
@@ -4821,7 +5133,12 @@ describe("Sequencer", () => {
     fireEvent.mouseDown(screen.getAllByLabelText("snapshot 1 release frequency")[0]);
     expect(onUpdateSnapshot).toHaveBeenLastCalledWith(10, {
       notes: [
-        expect.objectContaining({ id: "a", start: 1.666667, end: 1.666667, startFractionDenominator: 1 }),
+        expect.objectContaining({
+          id: "a",
+          start: 1.666667,
+          end: 1.666667,
+          startFractionDenominator: 1,
+        }),
         expect.objectContaining({ id: "b" }),
       ],
     });
@@ -4870,9 +5187,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -4881,8 +5198,11 @@ describe("Sequencer", () => {
 
     const { container } = render(<Harness />);
 
-    expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2"]);
+    expect(
+      [...container.querySelectorAll(".sequencer-event__cue-number")].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(["1", "2"]);
 
     const positionInputs = screen.getAllByLabelText("snapshot 1 attack offset");
     fireEvent.focus(positionInputs[1]);
@@ -4892,10 +5212,16 @@ describe("Sequencer", () => {
     });
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
-    expect([...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map((node) => node.value))
-      .toEqual(["0.000", "0.100", "1.000", "1.000"]);
-    expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2", "3"]);
+    expect(
+      [...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map(
+        (node) => node.value,
+      ),
+    ).toEqual(["0.000", "0.100", "1.000", "1.000"]);
+    expect(
+      [...container.querySelectorAll(".sequencer-event__cue-number")].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(["1", "2", "3"]);
   });
 
   it("commits a position edit on Enter and regenerates cue numbering", () => {
@@ -4941,9 +5267,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -4964,10 +5290,16 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("cancel snapshot 1 attack sequence placement")).toBeTruthy();
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
-    expect([...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map((node) => node.value))
-      .toEqual(["0.000", "0.100", "1.000", "1.000"]);
-    expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2", "3"]);
+    expect(
+      [...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map(
+        (node) => node.value,
+      ),
+    ).toEqual(["0.000", "0.100", "1.000", "1.000"]);
+    expect(
+      [...container.querySelectorAll(".sequencer-event__cue-number")].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(["1", "2", "3"]);
   });
 
   it("commits position edits for captured snapshot notes that do not have ids", () => {
@@ -5014,9 +5346,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -5033,10 +5365,16 @@ describe("Sequencer", () => {
     });
     fireEvent.keyDown(positionInputs[1], { key: "Enter" });
 
-    expect([...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map((node) => node.value))
-      .toEqual(["0.000", "0.000", "0.200", "1.000", "1.000", "1.000"]);
-    expect([...container.querySelectorAll(".sequencer-event__cue-number")].map((node) => node.textContent))
-      .toEqual(["1", "2", "3"]);
+    expect(
+      [...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")].map(
+        (node) => node.value,
+      ),
+    ).toEqual(["0.000", "0.000", "0.200", "1.000", "1.000", "1.000"]);
+    expect(
+      [...container.querySelectorAll(".sequencer-event__cue-number")].map(
+        (node) => node.textContent,
+      ),
+    ).toEqual(["1", "2", "3"]);
   });
 
   it("deletes an event by removing its owning note", () => {
@@ -5112,7 +5450,10 @@ describe("Sequencer", () => {
       return (
         <Sequencer
           snapshots={snapshots}
-          bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+          bars={[
+            { id: 1, position: 1 },
+            { id: 2, position: 2 },
+          ]}
           snapshotLabelMode="labels"
           selectedSnapshotId={10}
           selectedMarker={null}
@@ -5138,9 +5479,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -5163,8 +5504,12 @@ describe("Sequencer", () => {
     fireEvent.dragOver(dropTarget, { dataTransfer });
     fireEvent.drop(dropTarget, { dataTransfer });
 
-    expect(screen.getAllByLabelText("snapshot 2 attack snapshot").map((node) => node.value)).toContain("2");
-    expect(screen.getAllByLabelText("snapshot 2 attack offset").map((node) => node.value)).toContain("-0.750");
+    expect(
+      screen.getAllByLabelText("snapshot 2 attack snapshot").map((node) => node.value),
+    ).toContain("2");
+    expect(
+      screen.getAllByLabelText("snapshot 2 attack offset").map((node) => node.value),
+    ).toContain("-0.750");
   });
 
   it("duplicates an event note into another snapshot on option-drag", () => {
@@ -5187,7 +5532,10 @@ describe("Sequencer", () => {
       return (
         <Sequencer
           snapshots={snapshots}
-          bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+          bars={[
+            { id: 1, position: 1 },
+            { id: 2, position: 2 },
+          ]}
           snapshotLabelMode="labels"
           selectedSnapshotId={10}
           selectedMarker={null}
@@ -5213,9 +5561,9 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, updates) => {
-            setSnapshots((prev) => prev.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...updates } : snapshot
-            )));
+            setSnapshots((prev) =>
+              prev.map((snapshot) => (snapshot.id === id ? { ...snapshot, ...updates } : snapshot)),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
         />
@@ -5239,7 +5587,9 @@ describe("Sequencer", () => {
     fireEvent.drop(dropTarget, { dataTransfer, altKey: true });
 
     expect(screen.getAllByLabelText("snapshot 2 attack snapshot")).toHaveLength(2);
-    expect(screen.getAllByLabelText("snapshot 2 attack offset").map((node) => node.value)).toContain("-0.750");
+    expect(
+      screen.getAllByLabelText("snapshot 2 attack offset").map((node) => node.value),
+    ).toContain("-0.750");
   });
 
   it("queues the first snapshot and cue again at the terminal sequence end slot", () => {
@@ -5297,8 +5647,14 @@ describe("Sequencer", () => {
 
     const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
     const cueTargetSelect = screen.getByLabelText("next cue target");
-    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(end)"]);
-    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "2", "(end)"]);
+    expect(
+      Array.from(snapshotTargetSelect.querySelectorAll("option")).map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(["1", "(end)"]);
+    expect(
+      Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent),
+    ).toEqual(["1", "2", "(end)"]);
     expect(snapshotTargetSelect.value).toBe("__end__");
     expect(cueTargetSelect.value).toBe("__end__");
     expect(screen.getByLabelText("next sequence step").disabled).toBe(false);
@@ -5330,7 +5686,10 @@ describe("Sequencer", () => {
             notes: [{ id: "b", midicents: 71, start: 0, end: 1 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={null}
         selectedMarker={null}
@@ -5362,8 +5721,14 @@ describe("Sequencer", () => {
 
     const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
     const cueTargetSelect = screen.getByLabelText("next cue target");
-    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)"]);
-    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)", "3"]);
+    expect(
+      Array.from(snapshotTargetSelect.querySelectorAll("option")).map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(["1", "(2)"]);
+    expect(
+      Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent),
+    ).toEqual(["1", "(2)", "3"]);
     expect(snapshotTargetSelect.value).toBe("1");
     expect(cueTargetSelect.value).toBe("1");
     expect(screen.getByLabelText("previous sequence step").disabled).toBe(false);
@@ -5395,7 +5760,10 @@ describe("Sequencer", () => {
             notes: [{ id: "b", midicents: 71, start: 0, end: 1 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={11}
         selectedMarker={null}
@@ -5428,8 +5796,14 @@ describe("Sequencer", () => {
 
     const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
     const cueTargetSelect = screen.getByLabelText("next cue target");
-    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)"]);
-    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)", "3"]);
+    expect(
+      Array.from(snapshotTargetSelect.querySelectorAll("option")).map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(["1", "(2)"]);
+    expect(
+      Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent),
+    ).toEqual(["1", "(2)", "3"]);
     expect(snapshotTargetSelect.value).toBe("1");
     expect(cueTargetSelect.value).toBe("1");
   });
@@ -5451,7 +5825,10 @@ describe("Sequencer", () => {
             notes: [{ id: "b", midicents: 71, start: 0, end: 1 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={11}
         selectedMarker={null}
@@ -5483,7 +5860,11 @@ describe("Sequencer", () => {
     );
 
     const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
-    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)"]);
+    expect(
+      Array.from(snapshotTargetSelect.querySelectorAll("option")).map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(["1", "(2)"]);
     expect(snapshotTargetSelect.value).toBe("1");
   });
 
@@ -5504,7 +5885,10 @@ describe("Sequencer", () => {
             notes: [{ id: "b", midicents: 71, start: 0, end: 1 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={11}
         selectedMarker={2}
@@ -5537,12 +5921,17 @@ describe("Sequencer", () => {
 
     const snapshotTargetSelect = screen.getByLabelText("next snapshot target");
     const cueTargetSelect = screen.getByLabelText("next cue target");
-    expect(Array.from(snapshotTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)"]);
-    expect(Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent)).toEqual(["1", "(2)", "3"]);
+    expect(
+      Array.from(snapshotTargetSelect.querySelectorAll("option")).map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(["1", "(2)"]);
+    expect(
+      Array.from(cueTargetSelect.querySelectorAll("option")).map((option) => option.textContent),
+    ).toEqual(["1", "(2)", "3"]);
     expect(snapshotTargetSelect.value).toBe("1");
     expect(cueTargetSelect.value).toBe("1");
   });
-
 
   it("adds a bar at the requested position", () => {
     const onAddBar = vi.fn();
@@ -5621,7 +6010,10 @@ describe("Sequencer", () => {
             ],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 1.5 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 1.5 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -5661,8 +6053,9 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("bar 1 position").value).toBe("1");
     expect(screen.getByLabelText("bar 2 position").value).toBe("2");
 
-    const expandedTimes = [...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position")]
-      .map((node) => node.value);
+    const expandedTimes = [
+      ...container.querySelectorAll(".sequencer-events-grid .sequencer-event__position"),
+    ].map((node) => node.value);
     expect(expandedTimes).toEqual(["0.000", "0.750", "1.000", "1.000", "2"]);
   });
 
@@ -5836,7 +6229,10 @@ describe("Sequencer", () => {
           },
         ]}
         bars={[{ id: 1, position: 1 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatLength: 1 }, { id: 2, position: 1.5, bpm: 72, beatLength: 1 }]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatLength: 1 },
+          { id: 2, position: 1.5, bpm: 72, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -5876,7 +6272,11 @@ describe("Sequencer", () => {
       />,
     );
 
-    expect(container.querySelector(".sequencer-events-grid__body .sequencer-item--bar .sequencer-tempo-row")).not.toBeNull();
+    expect(
+      container.querySelector(
+        ".sequencer-events-grid__body .sequencer-item--bar .sequencer-tempo-row",
+      ),
+    ).not.toBeNull();
   });
 
   it("holds tempo bar-relative edits in a draft until the user explicitly commits them", () => {
@@ -5892,8 +6292,13 @@ describe("Sequencer", () => {
             notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
           },
         ]}
-        bars={[{ id: 1, position: 1, numerator: 4, denominator: 4 }, { id: 2, position: 2, numerator: 3, denominator: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        bars={[
+          { id: 1, position: 1, numerator: 4, denominator: 4 },
+          { id: 2, position: 2, numerator: 3, denominator: 2 },
+        ]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -5948,8 +6353,14 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("tempo bar").value).toBe("1");
     expect(screen.getByLabelText("tempo beat").value).toBe("1");
 
-    fireEvent.input(screen.getByLabelText("tempo bar"), { currentTarget: { value: "2" }, target: { value: "2" } });
-    fireEvent.input(screen.getByLabelText("tempo beat"), { currentTarget: { value: "3" }, target: { value: "3" } });
+    fireEvent.input(screen.getByLabelText("tempo bar"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.input(screen.getByLabelText("tempo beat"), {
+      currentTarget: { value: "3" },
+      target: { value: "3" },
+    });
 
     fireEvent.click(screen.getByLabelText("commit tempo bar-relative timing"));
     expect(onUpdateTempo).toHaveBeenLastCalledWith(1, { position: 2.666667 });
@@ -5967,7 +6378,9 @@ describe("Sequencer", () => {
           },
         ]}
         bars={[{ id: 1, position: 1, numerator: 0, denominator: 1 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 }]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -6012,7 +6425,9 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").value).toBe("1");
     expect(screen.getByLabelText("snapshot 1 attack beat").disabled).toBe(false);
     expect(screen.getByLabelText("snapshot 1 attack beat fraction numerator").disabled).toBe(false);
-    expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").disabled).toBe(false);
+    expect(screen.getByLabelText("snapshot 1 attack beat fraction denominator").disabled).toBe(
+      false,
+    );
     expect(screen.getByLabelText("tempo beat").value).toBe("1");
     expect(screen.getByLabelText("tempo beat fraction numerator").value).toBe("0");
     expect(screen.getByLabelText("tempo beat fraction denominator").value).toBe("1");
@@ -6029,20 +6444,19 @@ describe("Sequencer", () => {
             id: 10,
             length: 1,
             description: "A",
-            notes: [
-              { id: "a", midicents: 69, start: 1, end: 1 },
-            ],
+            notes: [{ id: "a", midicents: 69, start: 1, end: 1 }],
           },
           {
             id: 11,
             length: 1,
             description: "B",
-            notes: [
-              { id: "b", midicents: 72, start: 0, end: 1 },
-            ],
+            notes: [{ id: "b", midicents: 72, start: 0, end: 1 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -6095,8 +6509,14 @@ describe("Sequencer", () => {
             notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
           },
         ]}
-        bars={[{ id: 1, position: 1 }, { id: 2, position: 2 }]}
-        tempi={[{ id: 1, position: 1, bpm: 60, beatLength: 1 }, { id: 2, position: 2, bpm: 72, beatLength: 1 }]}
+        bars={[
+          { id: 1, position: 1 },
+          { id: 2, position: 2 },
+        ]}
+        tempi={[
+          { id: 1, position: 1, bpm: 60, beatLength: 1 },
+          { id: 2, position: 2, bpm: 72, beatLength: 1 },
+        ]}
         snapshotLabelMode="labels"
         selectedSnapshotId={10}
         selectedMarker={null}
@@ -6188,9 +6608,11 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, patch) => {
-            setSnapshots((current) => current.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...patch } : snapshot
-            )));
+            setSnapshots((current) =>
+              current.map((snapshot) =>
+                snapshot.id === id ? { ...snapshot, ...patch } : snapshot,
+              ),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
           activeSequenceName=""
@@ -6208,7 +6630,9 @@ describe("Sequencer", () => {
     });
 
     expect(screen.getByLabelText("snapshot 1 attack name").value).toBe("edited");
-    expect(screen.getByLabelText("restore snapshot 1 attack captured pitch and name")).not.toBeNull();
+    expect(
+      screen.getByLabelText("restore snapshot 1 attack captured pitch and name"),
+    ).not.toBeNull();
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("70.500");
     expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).not.toBe("440.0");
 
@@ -6266,9 +6690,11 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, patch) => {
-            setSnapshots((current) => current.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...patch } : snapshot
-            )));
+            setSnapshots((current) =>
+              current.map((snapshot) =>
+                snapshot.id === id ? { ...snapshot, ...patch } : snapshot,
+              ),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
           activeSequenceName=""
@@ -6291,7 +6717,9 @@ describe("Sequencer", () => {
     fireEvent.blur(nameInput, { currentTarget: { value: "La 441" }, target: { value: "La 441" } });
 
     expect(screen.getByLabelText("snapshot 1 attack name").value).toBe("La 441");
-    expect(screen.getByLabelText("restore snapshot 1 attack captured pitch and name")).not.toBeNull();
+    expect(
+      screen.getByLabelText("restore snapshot 1 attack captured pitch and name"),
+    ).not.toBeNull();
 
     fireEvent.click(screen.getByLabelText("restore snapshot 1 attack captured pitch and name"));
 
@@ -6346,9 +6774,11 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, patch) => {
-            setSnapshots((current) => current.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...patch } : snapshot
-            )));
+            setSnapshots((current) =>
+              current.map((snapshot) =>
+                snapshot.id === id ? { ...snapshot, ...patch } : snapshot,
+              ),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
           activeSequenceName=""
@@ -6425,9 +6855,11 @@ describe("Sequencer", () => {
           onDeleteSnapshot={vi.fn()}
           onMoveSnapshot={vi.fn()}
           onUpdateSnapshot={(id, patch) => {
-            setSnapshots((current) => current.map((snapshot) => (
-              snapshot.id === id ? { ...snapshot, ...patch } : snapshot
-            )));
+            setSnapshots((current) =>
+              current.map((snapshot) =>
+                snapshot.id === id ? { ...snapshot, ...patch } : snapshot,
+              ),
+            );
           }}
           onResetSnapshotDescription={vi.fn()}
           activeSequenceName=""

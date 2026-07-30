@@ -18,15 +18,17 @@ const baseGeometry = {
 
 describe("sequencer autoscroll geometry", () => {
   it("top-aligns a selected transport target even when it is already visible", () => {
-    expect(deriveTopAlignedPanelScrollTop({
-      scrollTop: 300,
-      scrollHeight: 2000,
-      clientHeight: 500,
-      panelTop: 100,
-      targetTop: 240,
-      stickyTop: 50,
-      gap: 6,
-    })).toBe(384);
+    expect(
+      deriveTopAlignedPanelScrollTop({
+        scrollTop: 300,
+        scrollHeight: 2000,
+        clientHeight: 500,
+        panelTop: 100,
+        targetTop: 240,
+        stickyTop: 50,
+        gap: 6,
+      }),
+    ).toBe(384);
   });
 
   it("uses the complete sounding range when it fits and the newest row when it does not", () => {
@@ -39,44 +41,54 @@ describe("sequencer autoscroll geometry", () => {
   });
 
   it("does not scroll a target that is already visible below the sticky transport", () => {
-    expect(derivePagedPanelScrollTop({
-      ...baseGeometry,
-      targetTop: 200,
-      targetBottom: 260,
-    })).toBe(400);
+    expect(
+      derivePagedPanelScrollTop({
+        ...baseGeometry,
+        targetTop: 200,
+        targetBottom: 260,
+      }),
+    ).toBe(400);
   });
 
   it("moves a target below the viewport to the top to restore look-ahead space", () => {
-    expect(derivePagedPanelScrollTop({
-      ...baseGeometry,
-      targetTop: 570,
-      targetBottom: 630,
-    })).toBe(814);
+    expect(
+      derivePagedPanelScrollTop({
+        ...baseGeometry,
+        targetTop: 570,
+        targetBottom: 630,
+      }),
+    ).toBe(814);
   });
 
   it("turns the page as soon as a target reaches the usable bottom edge", () => {
-    expect(derivePagedPanelScrollTop({
-      ...baseGeometry,
-      targetTop: 534,
-      targetBottom: 594,
-    })).toBe(778);
+    expect(
+      derivePagedPanelScrollTop({
+        ...baseGeometry,
+        targetTop: 534,
+        targetBottom: 594,
+      }),
+    ).toBe(778);
   });
 
   it("reveals a target hidden behind the sticky transport", () => {
-    expect(derivePagedPanelScrollTop({
-      ...baseGeometry,
-      targetTop: 130,
-      targetBottom: 190,
-    })).toBe(374);
+    expect(
+      derivePagedPanelScrollTop({
+        ...baseGeometry,
+        targetTop: 130,
+        targetBottom: 190,
+      }),
+    ).toBe(374);
   });
 
   it("top-aligns a target that is taller than the usable viewport and clamps the result", () => {
-    expect(derivePagedPanelScrollTop({
-      ...baseGeometry,
-      scrollTop: 20,
-      targetTop: 80,
-      targetBottom: 700,
-    })).toBe(0);
+    expect(
+      derivePagedPanelScrollTop({
+        ...baseGeometry,
+        scrollTop: 20,
+        targetTop: 80,
+        targetBottom: 700,
+      }),
+    ).toBe(0);
   });
 
   it("rejects a queued target after virtualization detaches it", () => {

@@ -2,10 +2,7 @@
 // It builds search requests, lifts pitch-class candidates to absolute pitch
 // context, and formats the candidate data the TuneCell popup needs.
 
-import {
-  CANONICAL_MONZO_BASIS,
-  monzoToFractionOnBasis,
-} from "../../../tuning/interval.js";
+import { CANONICAL_MONZO_BASIS, monzoToFractionOnBasis } from "../../../tuning/interval.js";
 import { getWorkspaceSlot } from "../../../tuning/workspace.js";
 import {
   compareRationalCandidatesBy,
@@ -125,8 +122,7 @@ export function getRationalisationRequest({
     primeBoundsUt: primeBoundsUt ?? null,
     oddLimit: parseOptionalPositiveInt(searchPrefs?.oddLimit) ?? 255,
     centsTolerance: parseOptionalPositiveInt(searchPrefs?.centsTolerance) ?? 6,
-    contextTolerance:
-      parseOptionalPositiveInt(searchPrefs?.contextTolerance) ?? 14,
+    contextTolerance: parseOptionalPositiveInt(searchPrefs?.contextTolerance) ?? 14,
     maxCandidates: 8,
     region: searchPrefs?.region ?? "symmetric",
     frequencyContext: buildFrequencyContext({
@@ -176,7 +172,8 @@ function mergeUniqueCandidates(candidateSets, maxCandidates = 8) {
 
 function buildCommittedRatioCandidate(slot, baseRequest) {
   const committed = slot?.committedIdentity;
-  if (!committed?.ratio || !Array.isArray(committed?.monzo) || committed?.cents == null) return null;
+  if (!committed?.ratio || !Array.isArray(committed?.monzo) || committed?.cents == null)
+    return null;
   const context =
     baseRequest.workspace && baseRequest.targetDegree != null
       ? selectRationalisationContext(baseRequest.workspace, baseRequest.targetDegree, baseRequest)
@@ -190,8 +187,7 @@ function buildCommittedRatioCandidate(slot, baseRequest) {
       deviation: baseRequest.targetCents - committed.cents,
       primeLimit: committed.primeLimit ?? null,
       oddLimit: committed.ratio ? Math.max(committed.ratio.n, committed.ratio.d) : null,
-      harmonicRadius:
-        slot?.analysis?.harmonicRadius ?? harmonicRadiusFromMonzo(committed.monzo),
+      harmonicRadius: slot?.analysis?.harmonicRadius ?? harmonicRadiusFromMonzo(committed.monzo),
       region: baseRequest.region ?? "symmetric",
       contextualConsonance: 0,
       contextualBestMatch: 0,
@@ -244,12 +240,14 @@ export function getHumanTestableRationalCandidates(baseRequest) {
         maxCandidates,
       }),
     );
-    const merged = mergeUniqueCandidates(candidateSets, maxCandidates)
-      .map((candidate) => liftRationalCandidateToAbsoluteCents(candidate, baseRequest.targetCents));
+    const merged = mergeUniqueCandidates(candidateSets, maxCandidates).map((candidate) =>
+      liftRationalCandidateToAbsoluteCents(candidate, baseRequest.targetCents),
+    );
     if (merged.length >= 6) return merged;
   }
-  return mergeUniqueCandidates(candidateSets, maxCandidates)
-    .map((candidate) => liftRationalCandidateToAbsoluteCents(candidate, baseRequest.targetCents));
+  return mergeUniqueCandidates(candidateSets, maxCandidates).map((candidate) =>
+    liftRationalCandidateToAbsoluteCents(candidate, baseRequest.targetCents),
+  );
 }
 
 export function getSaveString({ committedInterval, previewInterval, tunedCents, committedCents }) {
@@ -257,7 +255,10 @@ export function getSaveString({ committedInterval, previewInterval, tunedCents, 
   // preview cents. A later free drag must not accidentally commit a stale ratio.
   if (previewInterval && tunedCents !== null) {
     const previewCents = previewInterval?.cents ?? null;
-    if (previewCents !== null && Math.abs(previewCents - tunedCents) <= PREVIEW_RATIO_TOLERANCE_CENTS) {
+    if (
+      previewCents !== null &&
+      Math.abs(previewCents - tunedCents) <= PREVIEW_RATIO_TOLERANCE_CENTS
+    ) {
       if (previewInterval?.ratio) return previewInterval.ratio.toFraction();
     }
   }

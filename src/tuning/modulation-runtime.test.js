@@ -264,7 +264,12 @@ describe("tuning/modulation-runtime", () => {
         { sourceDegree: 7, targetDegree: 2, strategy: "retune_surface_to_source", count: 0 },
       ],
       historyIndex: 1,
-      currentRoute: { sourceDegree: 0, targetDegree: 7, strategy: "retune_surface_to_source", count: 1 },
+      currentRoute: {
+        sourceDegree: 0,
+        targetDegree: 7,
+        strategy: "retune_surface_to_source",
+        count: 1,
+      },
     });
     const armed = beginModulation(state, {
       currentFrame: oldFrame,
@@ -298,7 +303,12 @@ describe("tuning/modulation-runtime", () => {
         { sourceDegree: 7, targetDegree: 11, strategy: "retune_surface_to_source", count: 2 },
       ],
       historyIndex: 2,
-      currentRoute: { sourceDegree: 7, targetDegree: 11, strategy: "retune_surface_to_source", count: 2 },
+      currentRoute: {
+        sourceDegree: 7,
+        targetDegree: 11,
+        strategy: "retune_surface_to_source",
+        count: 2,
+      },
     });
     const rewound = setModulationHistoryIndex(state, 0, oldFrame);
 
@@ -321,7 +331,12 @@ describe("tuning/modulation-runtime", () => {
         { sourceDegree: 7, targetDegree: 11, strategy: "retune_surface_to_source", count: -2 },
       ],
       historyIndex: -2,
-      currentRoute: { sourceDegree: 7, targetDegree: 11, strategy: "retune_surface_to_source", count: -2 },
+      currentRoute: {
+        sourceDegree: 7,
+        targetDegree: 11,
+        strategy: "retune_surface_to_source",
+        count: -2,
+      },
     });
 
     const reset = resetModulationRouteCounts(state, oldFrame);

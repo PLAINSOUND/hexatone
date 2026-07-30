@@ -20,11 +20,7 @@ export function buildStopPropagationProps() {
   };
 }
 
-export function buildSelectOnFocus({
-  stop = false,
-  clearCommitted = false,
-  setValue = null,
-} = {}) {
+export function buildSelectOnFocus({ stop = false, clearCommitted = false, setValue = null } = {}) {
   return (event) => {
     if (stop) event.stopPropagation();
     if (clearCommitted) delete event.currentTarget.dataset.lastCommittedValue;
@@ -42,11 +38,12 @@ export function buildEnterCommit(editing, onCommit) {
 }
 
 export function buildBlurCommit(editing, onCommit, afterCommit = null) {
-  return (event) => editing.handleBlurCommit(
-    event,
-    onCommit,
-    afterCommit == null ? null : () => afterCommit(event),
-  );
+  return (event) =>
+    editing.handleBlurCommit(
+      event,
+      onCommit,
+      afterCommit == null ? null : () => afterCommit(event),
+    );
 }
 
 export function buildDraftEnterCommit(onCommit) {

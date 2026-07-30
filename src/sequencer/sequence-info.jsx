@@ -4,12 +4,7 @@
 
 import { useEffect, useState } from "preact/hooks";
 
-const SequenceInfo = ({
-  name,
-  description,
-  onNameChange,
-  onDescriptionChange,
-}) => {
+const SequenceInfo = ({ name, description, onNameChange, onDescriptionChange }) => {
   const [nameDraft, setNameDraft] = useState(name || "");
   const [descriptionDraft, setDescriptionDraft] = useState(description || "");
 

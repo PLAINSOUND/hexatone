@@ -38,7 +38,9 @@ function deriveExactRole(interval) {
 function deriveSlotAnalysis(interval) {
   return {
     harmonicRadius: harmonicRadiusFromInterval(interval),
-    oddLimit: interval?.ratio ? Math.max(oddPart(interval.ratio.n), oddPart(interval.ratio.d)) : null,
+    oddLimit: interval?.ratio
+      ? Math.max(oddPart(interval.ratio.n), oddPart(interval.ratio.d))
+      : null,
     support: interval?.exact
       ? "exact"
       : interval?.kind === "cents"
@@ -140,10 +142,17 @@ export function createScaleWorkspace(settings, options = {}) {
   // settings.scale stores degrees 1..n plus the equave as the final entry.
   // The workspace inserts explicit degree 0 = 1/1 and keeps the equave outside
   // the playable slot list, matching the shape needed by Keys and frame logic.
-  const rawEntries = Array.isArray(settings?.scale) ? settings.scale.map((entry) => String(entry)) : [];
-  const equaveText = rawEntries.length ? rawEntries[rawEntries.length - 1] : options.defaultEquave ?? "2/1";
+  const rawEntries = Array.isArray(settings?.scale)
+    ? settings.scale.map((entry) => String(entry))
+    : [];
+  const equaveText = rawEntries.length
+    ? rawEntries[rawEntries.length - 1]
+    : (options.defaultEquave ?? "2/1");
   const scaleEntries = rawEntries.length ? rawEntries.slice(0, -1) : [];
-  const slots = [buildDegreeZeroSlot(), ...scaleEntries.map((text, index) => buildSlotFromScaleText(text, index + 1))];
+  const slots = [
+    buildDegreeZeroSlot(),
+    ...scaleEntries.map((text, index) => buildSlotFromScaleText(text, index + 1)),
+  ];
 
   return {
     version: 1,

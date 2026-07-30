@@ -4,9 +4,7 @@
 
 import { Fraction, monzoToCents, primeLimit as xenPrimeLimit, toMonzo } from "xen-dev-utils";
 import { CANONICAL_MONZO_BASIS, monzoToFractionOnBasis } from "./interval.js";
-import {
-  DEFAULT_TUNEABLE_INTERVALS,
-} from "./tuneable-intervals.js";
+import { DEFAULT_TUNEABLE_INTERVALS } from "./tuneable-intervals.js";
 
 // Maximum log2 of numerator or denominator we will try to materialise as a
 // Fraction.  2^53 is Number.MAX_SAFE_INTEGER; anything beyond that breaks the
@@ -38,33 +36,31 @@ function oddPart(n) {
 // and 3/1 at 1902c both collapse to 702c). All are kept as separate entries.
 // Sorted by radius ascending (most consonant first) so the first match found
 // when scanning is always the strongest.
-export const TUNEABLE_PC = DEFAULT_TUNEABLE_INTERVALS
-  .map((entry) => {
-    const [n, d] = entry.ratioParts;
-    const radius = 0.5 * (Math.log2(oddPart(n)) + Math.log2(oddPart(d)));
-    const octaveShift = Math.floor(entry.cents / 1200);
-    const pc = entry.cents - octaveShift * 1200;
-    // Compute monzo on CANONICAL_MONZO_BASIS from [n, d].
-    // toMonzo(n/d) gives the full monzo; we expand/trim to basis length.
-    let monzo;
-    try {
-      const raw = toMonzo(new Fraction(n, d));
-      monzo = Array.from({ length: CANONICAL_MONZO_BASIS.length }, (_, i) => raw[i] ?? 0);
-    } catch {
-      monzo = null;
-    }
-    return {
-      ratio: entry.ratio,
-      ratioParts: entry.ratioParts,
-      monzo,
-      cents: pc,
-      octaveShift,
-      radius,
-      weight: entry.weight,
-      toleranceCents: entry.toleranceCents,
-    };
-  })
-  .sort((a, b) => a.radius - b.radius);
+export const TUNEABLE_PC = DEFAULT_TUNEABLE_INTERVALS.map((entry) => {
+  const [n, d] = entry.ratioParts;
+  const radius = 0.5 * (Math.log2(oddPart(n)) + Math.log2(oddPart(d)));
+  const octaveShift = Math.floor(entry.cents / 1200);
+  const pc = entry.cents - octaveShift * 1200;
+  // Compute monzo on CANONICAL_MONZO_BASIS from [n, d].
+  // toMonzo(n/d) gives the full monzo; we expand/trim to basis length.
+  let monzo;
+  try {
+    const raw = toMonzo(new Fraction(n, d));
+    monzo = Array.from({ length: CANONICAL_MONZO_BASIS.length }, (_, i) => raw[i] ?? 0);
+  } catch {
+    monzo = null;
+  }
+  return {
+    ratio: entry.ratio,
+    ratioParts: entry.ratioParts,
+    monzo,
+    cents: pc,
+    octaveShift,
+    radius,
+    weight: entry.weight,
+    toleranceCents: entry.toleranceCents,
+  };
+}).sort((a, b) => a.radius - b.radius);
 
 // Overtonal series pitch classes: members of the harmonic series n/1 reduced to
 // [0, 1200), derived from TUNEABLE_PC entries that are purely overtonal (all
@@ -75,8 +71,13 @@ export const OVERTONAL_SERIES_PC = (() => {
   const entries = [];
   // Unison: always the root, contributes no deviation
   entries.push({
-    ratio: "1/1", ratioParts: [1, 1], monzo: null,
-    cents: 0, octaveShift: 0, radius: 0, weight: 1.0,
+    ratio: "1/1",
+    ratioParts: [1, 1],
+    monzo: null,
+    cents: 0,
+    octaveShift: 0,
+    radius: 0,
+    weight: 1.0,
     harmonicNumber: 1,
   });
   for (const entry of TUNEABLE_PC) {
@@ -104,11 +105,11 @@ export const DEFAULT_RATIONALISE_OPTIONS = {
   maxCandidates: 8,
   region: "symmetric",
   maxContextComparisons: 8,
-  weightRadius: 1.0,       // penalises harmonic complexity
-  weightDeviation: 0.5,    // penalises pitch deviation (less critical than radius)
-  weightContext: 0.6,      // rewards contextual consonance breadth
-  weightBranch: 1.0,       // rewards overtonal branch membership (equal weight to radius)
-  weightConsistency: 0.8,  // rewards harmonic adjacency to already-committed degrees
+  weightRadius: 1.0, // penalises harmonic complexity
+  weightDeviation: 0.5, // penalises pitch deviation (less critical than radius)
+  weightContext: 0.6, // rewards contextual consonance breadth
+  weightBranch: 1.0, // rewards overtonal branch membership (equal weight to radius)
+  weightConsistency: 0.8, // rewards harmonic adjacency to already-committed degrees
   tuneableIntervals: DEFAULT_TUNEABLE_INTERVALS,
 };
 
@@ -137,7 +138,6 @@ function normalizeCentsToOctavePitchClass(cents) {
   if (!Number.isFinite(cents)) return cents;
   return ((cents % 1200) + 1200) % 1200;
 }
-
 
 export function harmonicRadiusFromMonzo(monzo, basis = CANONICAL_MONZO_BASIS) {
   return (
@@ -282,7 +282,11 @@ function boundsToRanges(primeBounds, region, primeBoundsUt = null) {
     entries.push({
       index,
       prime,
-      range: buildRange(otMax, region, region === "custom" ? (primeBoundsUt?.[prime] ?? otMax) : null),
+      range: buildRange(
+        otMax,
+        region,
+        region === "custom" ? (primeBoundsUt?.[prime] ?? otMax) : null,
+      ),
     });
   }
   return entries;
@@ -352,7 +356,9 @@ function _residualTableCacheKey(residualEntries, oddLimit) {
   // Key encodes primes + their range bounds + oddLimit.
   // Using a compact string rather than JSON.stringify(ranges) to avoid
   // allocating large arrays just for the key.
-  const parts = residualEntries.map((e) => `${e.prime}:${e.range[0]}..${e.range[e.range.length - 1]}`);
+  const parts = residualEntries.map(
+    (e) => `${e.prime}:${e.range[0]}..${e.range[e.range.length - 1]}`,
+  );
   return `${parts.join(",")}|${oddLimit ?? ""}`;
 }
 
@@ -504,7 +510,7 @@ function monzoIsSafe(monzo) {
 // The ratio field is populated lazily once the candidate passes all filters.
 function buildCandidateRecordFromMonzo({ monzo, cents, targetCents }) {
   return {
-    ratio: null,          // populated by materializeCandidateRatio() after filtering
+    ratio: null, // populated by materializeCandidateRatio() after filtering
     ratioText: null,
     monzo,
     cents,
@@ -599,7 +605,7 @@ function boundedContextSlots(workspace, targetDegree, options = {}) {
     // Directed dyad in [0, 1200): interval measured from slot UP to target,
     // wrapping within the octave. We do NOT fold to [0, 600] so that 3/2 (702c)
     // and 4/3 (498c) remain distinct — both are counted when present.
-    const dyadCents = ((targetCents - slotCents) % 1200 + 1200) % 1200;
+    const dyadCents = (((targetCents - slotCents) % 1200) + 1200) % 1200;
 
     // Find the tuneable pitch class with the lowest harmonic radius that is
     // within ctxTol of this directed dyad.
@@ -641,7 +647,8 @@ function _tryPushCandidate(monzo, targetCents, tol, merged, candidates) {
   const candidate = buildCandidateRecordFromMonzo({ monzo, cents, targetCents });
   candidate.region = merged.region;
 
-  if (merged.oddLimit != null && merged.oddLimit > 0 && candidate.oddLimit > merged.oddLimit) return;
+  if (merged.oddLimit != null && merged.oddLimit > 0 && candidate.oddLimit > merged.oddLimit)
+    return;
   if (!materializeCandidateRatio(candidate)) return;
 
   candidates.push(candidate);
@@ -720,9 +727,17 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
     for (const combination of cartesianProductGenerator(rangeEntries.map((e) => e.range))) {
       if (combination.every((v) => v === 0)) continue;
       const rawMonzo = buildMonzoFromCombination(combination, rangeEntries);
-      _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), normalizedTargetCents, tol, merged, candidates);
+      _tryPushCandidate(
+        normalizeMonzoToPitchClass(rawMonzo),
+        normalizedTargetCents,
+        tol,
+        merged,
+        candidates,
+      );
     }
-    candidates.sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => cheapBaseScore(candidate, merged)));
+    candidates.sort((a, b) =>
+      compareRationalCandidatesBy(a, b, (candidate) => cheapBaseScore(candidate, merged)),
+    );
     return candidates;
   }
 
@@ -759,7 +774,7 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
       const pc35 = ((raw35 % 1200) + 1200) % 1200;
 
       // Residual the primes-≥7 layer must supply.
-      const residualTarget = ((normalizedTargetCents - pc35) % 1200 + 1200) % 1200;
+      const residualTarget = (((normalizedTargetCents - pc35) % 1200) + 1200) % 1200;
 
       const matches = residualMatches(residualTable, residualTarget, tol);
       if (matches.length === 0) continue;
@@ -781,15 +796,22 @@ export function enumerateCandidatesFromBounds(targetCents, options = {}) {
           rawMonzo[residualEntries[i].index] = match.exps[i];
         }
 
-        _tryPushCandidate(normalizeMonzoToPitchClass(rawMonzo), normalizedTargetCents, tol, merged, candidates);
+        _tryPushCandidate(
+          normalizeMonzoToPitchClass(rawMonzo),
+          normalizedTargetCents,
+          tol,
+          merged,
+          candidates,
+        );
       }
     }
   }
 
-  candidates.sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => cheapBaseScore(candidate, merged)));
+  candidates.sort((a, b) =>
+    compareRationalCandidatesBy(a, b, (candidate) => cheapBaseScore(candidate, merged)),
+  );
   return candidates;
 }
-
 
 // Score a single directed dyad (slot → candidate) against TUNEABLE_PC.
 //
@@ -812,7 +834,7 @@ export function scoreCandidateAgainstContext(candidate, contextSlot, options = {
   const targetCents = candidate.cents;
   // Directed dyad: slot → target in [0, 1200), preserving direction so that
   // 3/2 (702c above) and 4/3 (498c above, or equivalently 702c below) are distinct.
-  const dyadCents = ((targetCents - slotCents) % 1200 + 1200) % 1200;
+  const dyadCents = (((targetCents - slotCents) % 1200) + 1200) % 1200;
 
   // Scan TUNEABLE_PC (sorted by radius ascending) for the best match.
   for (const tuneable of TUNEABLE_PC) {
@@ -916,14 +938,24 @@ export function scorePrimeConsistency(candidate, committedMonzos) {
       if (delta === 0) continue;
 
       diffCount++;
-      if (diffCount > 1) { adjacent = false; break; }
+      if (diffCount > 1) {
+        adjacent = false;
+        break;
+      }
 
       if (prime === 3) {
-        if (delta > 2) { adjacent = false; break; }
+        if (delta > 2) {
+          adjacent = false;
+          break;
+        }
       } else if (prime <= 19) {
-        if (delta !== 1) { adjacent = false; break; }
+        if (delta !== 1) {
+          adjacent = false;
+          break;
+        }
       } else {
-        adjacent = false; break;
+        adjacent = false;
+        break;
       }
     }
 
@@ -950,9 +982,7 @@ function seriesMemberPrimeLimit(member) {
 // the branch score using the budget-shrinking tolerance model.
 function scoreBranchFromRoot(rootCents, identity, scaleCents, ctxTol, primeLimit) {
   // The candidate itself is exact (0¢ deviation) as the fixed identity.
-  const identityScore = identity.radius > 0
-    ? identity.weight / identity.radius
-    : identity.weight;
+  const identityScore = identity.radius > 0 ? identity.weight / identity.radius : identity.weight;
   let score = identityScore;
   let maxDeviation = 0;
 
@@ -969,7 +999,7 @@ function scoreBranchFromRoot(rootCents, identity, scaleCents, ctxTol, primeLimit
     // Find closest scale note.
     let bestDiff = Infinity;
     for (const sc of scaleCents) {
-      const raw = ((sc - idealPc) % 1200 + 1200) % 1200;
+      const raw = (((sc - idealPc) % 1200) + 1200) % 1200;
       const diff = Math.min(raw, 1200 - raw);
       if (diff < bestDiff) bestDiff = diff;
     }
@@ -1028,7 +1058,7 @@ function scoreBranchExtentFromScaleCents(candidate, scaleCents, ctxTol, primeLim
     if (seriesMemberPrimeLimit(identity) > primeLimit) continue;
 
     // Implied root: where would harmonic 1 be if candidate is harmonic `k`?
-    const rootCents = ((candidate.cents - identity.cents) % 1200 + 1200) % 1200;
+    const rootCents = (((candidate.cents - identity.cents) % 1200) + 1200) % 1200;
 
     const score = scoreBranchFromRoot(rootCents, identity, scaleCents, ctxTol, primeLimit);
     if (score > bestScore) bestScore = score;
@@ -1057,7 +1087,13 @@ export function contextualConsonanceScore(candidate, context, options = {}) {
   return { total, best, bestRatio };
 }
 
-export function scoreRationalCandidate(candidate, context, options = {}, _scaleCents = null, _committedMonzos = null) {
+export function scoreRationalCandidate(
+  candidate,
+  context,
+  options = {},
+  _scaleCents = null,
+  _committedMonzos = null,
+) {
   // Combines local fit (radius/deviation) with scale context. This is the main
   // ranking boundary that future retuning work can replace or extend without
   // changing TuneCell's preview/commit mechanics.
@@ -1074,16 +1110,19 @@ export function scoreRationalCandidate(candidate, context, options = {}, _scaleC
   }
   // Collect committed monzos from workspace if not pre-computed.
   // Excludes the target degree itself so a degree doesn't self-reinforce.
-  const committedMonzos = _committedMonzos ?? (() => {
-    const byDegree = context?.workspace?.lookup?.byDegree;
-    if (!byDegree) return [];
-    const monzos = [];
-    for (const [degree, slot] of byDegree) {
-      if (degree === context.targetDegree) continue;
-      if (Array.isArray(slot?.committedIdentity?.monzo)) monzos.push(slot.committedIdentity.monzo);
-    }
-    return monzos;
-  })();
+  const committedMonzos =
+    _committedMonzos ??
+    (() => {
+      const byDegree = context?.workspace?.lookup?.byDegree;
+      if (!byDegree) return [];
+      const monzos = [];
+      for (const [degree, slot] of byDegree) {
+        if (degree === context.targetDegree) continue;
+        if (Array.isArray(slot?.committedIdentity?.monzo))
+          monzos.push(slot.committedIdentity.monzo);
+      }
+      return monzos;
+    })();
   const consistency = scorePrimeConsistency(candidate, committedMonzos);
 
   candidate.contextualConsonance = total;
@@ -1109,18 +1148,25 @@ export function rerankCandidatesInContext(candidates, context, options = {}) {
   // Pre-compute scaleCents and committedMonzos once per degree batch.
   // Both are static across all candidates for a given target degree.
   const byDegree = context?.workspace?.lookup?.byDegree;
-  const scaleCents = options._scaleCents ?? (byDegree
-    ? Array.from(byDegree.values()).filter((s) => s?.cents != null).map((s) => s.cents)
-    : null);
-  const committedMonzos = options._committedMonzos ?? (() => {
-    if (!byDegree) return [];
-    const monzos = [];
-    for (const [degree, slot] of byDegree) {
-      if (degree === context.targetDegree) continue;
-      if (Array.isArray(slot?.committedIdentity?.monzo)) monzos.push(slot.committedIdentity.monzo);
-    }
-    return monzos;
-  })();
+  const scaleCents =
+    options._scaleCents ??
+    (byDegree
+      ? Array.from(byDegree.values())
+          .filter((s) => s?.cents != null)
+          .map((s) => s.cents)
+      : null);
+  const committedMonzos =
+    options._committedMonzos ??
+    (() => {
+      if (!byDegree) return [];
+      const monzos = [];
+      for (const [degree, slot] of byDegree) {
+        if (degree === context.targetDegree) continue;
+        if (Array.isArray(slot?.committedIdentity?.monzo))
+          monzos.push(slot.committedIdentity.monzo);
+      }
+      return monzos;
+    })();
   const scored = candidates.map((candidate) =>
     scoreRationalCandidate({ ...candidate }, context, options, scaleCents, committedMonzos),
   );
@@ -1131,9 +1177,13 @@ export function rerankCandidatesInContext(candidates, context, options = {}) {
 export function chooseBestRationalCandidate(candidates, strategy = "harmonic_radius") {
   if (!candidates.length) return null;
   if (strategy === "aggregate_score") {
-    return [...candidates].sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => candidate.aggregateScore))[0];
+    return [...candidates].sort((a, b) =>
+      compareRationalCandidatesBy(a, b, (candidate) => candidate.aggregateScore),
+    )[0];
   }
-  return [...candidates].sort((a, b) => compareRationalCandidatesBy(a, b, (candidate) => candidate.harmonicRadius))[0];
+  return [...candidates].sort((a, b) =>
+    compareRationalCandidatesBy(a, b, (candidate) => candidate.harmonicRadius),
+  )[0];
 }
 
 export function findRationalCandidates(targetCents, options = {}) {
@@ -1147,10 +1197,8 @@ export function findRationalCandidates(targetCents, options = {}) {
     (candidate) => cheapBaseScore(candidate, merged),
   );
   if (!merged.workspace || merged.targetDegree == null) {
-    return sliceCandidatesWithPrimaryTies(
-      prefiltered,
-      merged.maxCandidates,
-      (candidate) => cheapBaseScore(candidate, merged),
+    return sliceCandidatesWithPrimaryTies(prefiltered, merged.maxCandidates, (candidate) =>
+      cheapBaseScore(candidate, merged),
     ).map((candidate) => {
       candidate.aggregateScore = cheapBaseScore(candidate, merged);
       candidate.globalScore = -candidate.aggregateScore;

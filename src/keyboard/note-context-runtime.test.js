@@ -18,15 +18,15 @@ describe("keyboard/note-context-runtime", () => {
       mode: "pending_settlement",
       oldFrame: { id: "frame-old" },
     };
-    expect(hasLegacyFrameNotes(modulationState, [
-      { onsetFrameId: "frame-old", source: "active" },
-    ])).toBe(true);
-    expect(hasLegacyFrameNotes(modulationState, [
-      { onsetFrameId: "frame-old", source: "sustained" },
-    ])).toBe(true);
-    expect(hasLegacyFrameNotes(modulationState, [
-      { onsetFrameId: "frame-new", source: "active" },
-    ])).toBe(false);
+    expect(
+      hasLegacyFrameNotes(modulationState, [{ onsetFrameId: "frame-old", source: "active" }]),
+    ).toBe(true);
+    expect(
+      hasLegacyFrameNotes(modulationState, [{ onsetFrameId: "frame-old", source: "sustained" }]),
+    ).toBe(true);
+    expect(
+      hasLegacyFrameNotes(modulationState, [{ onsetFrameId: "frame-new", source: "active" }]),
+    ).toBe(false);
   });
 
   it("evaluates whether pending modulation can settle", () => {
@@ -34,12 +34,16 @@ describe("keyboard/note-context-runtime", () => {
       mode: "pending_settlement",
       oldFrame: { id: "frame-old" },
     };
-    expect(evaluateSettlement(modulationState, [{ onsetFrameId: "frame-old", source: "active" }])).toEqual({
+    expect(
+      evaluateSettlement(modulationState, [{ onsetFrameId: "frame-old", source: "active" }]),
+    ).toEqual({
       pendingSettlement: true,
       hasLegacyNotes: true,
       canSettle: false,
     });
-    expect(evaluateSettlement(modulationState, [{ onsetFrameId: "frame-new", source: "active" }])).toEqual({
+    expect(
+      evaluateSettlement(modulationState, [{ onsetFrameId: "frame-new", source: "active" }]),
+    ).toEqual({
       pendingSettlement: true,
       hasLegacyNotes: false,
       canSettle: true,
@@ -52,10 +56,12 @@ describe("keyboard/note-context-runtime", () => {
   });
 
   it("normalizes Keys active/sustained containers into settlement snapshots", () => {
-    expect(normalizeSettlementNotes(
-      [{ _onsetFrameId: "frame-old" }],
-      [[{ _onsetFrameId: "frame-new" }, 0]],
-    )).toEqual([
+    expect(
+      normalizeSettlementNotes(
+        [{ _onsetFrameId: "frame-old" }],
+        [[{ _onsetFrameId: "frame-new" }, 0]],
+      ),
+    ).toEqual([
       { onsetFrameId: "frame-old", source: "active" },
       { onsetFrameId: "frame-new", source: "sustained" },
     ]);
@@ -67,10 +73,12 @@ describe("keyboard/note-context-runtime", () => {
       oldFrame: { id: "frame-old" },
     };
 
-    expect(classifyReleaseForSettlement(modulationState, {
-      suppressed: true,
-      notes: [],
-    })).toEqual({
+    expect(
+      classifyReleaseForSettlement(modulationState, {
+        suppressed: true,
+        notes: [],
+      }),
+    ).toEqual({
       suppressed: true,
       pendingSettlement: true,
       hasLegacyNotes: false,
@@ -78,10 +86,12 @@ describe("keyboard/note-context-runtime", () => {
       shouldRetrySettlement: false,
     });
 
-    expect(classifyReleaseForSettlement(modulationState, {
-      suppressed: false,
-      notes: [{ onsetFrameId: "frame-old", source: "active" }],
-    })).toEqual({
+    expect(
+      classifyReleaseForSettlement(modulationState, {
+        suppressed: false,
+        notes: [{ onsetFrameId: "frame-old", source: "active" }],
+      }),
+    ).toEqual({
       suppressed: false,
       pendingSettlement: true,
       hasLegacyNotes: true,

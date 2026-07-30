@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  buildSelectAllOnFirstPointerDown,
-  buildSelectOnFocus,
-} from "./field-props.js";
+import { buildSelectAllOnFirstPointerDown, buildSelectOnFocus } from "./field-props.js";
 
 describe("sequencer field props", () => {
   it("preserves whole-value selection on the first pointer focus", () => {
@@ -11,9 +8,12 @@ describe("sequencer field props", () => {
     input.type = "text";
     input.value = "0.375";
     document.body.append(input);
-    input.addEventListener("focus", buildSelectOnFocus({
-      setValue: () => "0.375000",
-    }));
+    input.addEventListener(
+      "focus",
+      buildSelectOnFocus({
+        setValue: () => "0.375000",
+      }),
+    );
 
     const preventDefault = vi.fn();
     buildSelectAllOnFirstPointerDown()({

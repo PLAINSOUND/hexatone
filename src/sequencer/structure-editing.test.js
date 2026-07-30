@@ -40,9 +40,18 @@ describe("structure editing", () => {
 
   it("leaves earlier structural markers untouched", () => {
     const result = shiftStructuralMarkersAfterSnapshotInsertion({
-      bars: [{ id: 1, position: 1 }, { id: 2, position: 3 }],
-      tempi: [{ id: 1, position: 1.5 }, { id: 2, position: 3 }],
-      repeats: [{ id: 1, position: 2.5, kind: "start", repeatCount: null }, { id: 2, position: 3, kind: "end", repeatCount: 3 }],
+      bars: [
+        { id: 1, position: 1 },
+        { id: 2, position: 3 },
+      ],
+      tempi: [
+        { id: 1, position: 1.5 },
+        { id: 2, position: 3 },
+      ],
+      repeats: [
+        { id: 1, position: 2.5, kind: "start", repeatCount: null },
+        { id: 2, position: 3, kind: "end", repeatCount: 3 },
+      ],
       insertionPosition: 3,
     });
 
@@ -53,8 +62,14 @@ describe("structure editing", () => {
 
   it("shifts structural markers by the full inserted block length", () => {
     const result = shiftStructuralMarkersAfterSnapshotInsertion({
-      bars: [{ id: 1, position: 1 }, { id: 2, position: 3 }],
-      tempi: [{ id: 1, position: 2.5 }, { id: 2, position: 3 }],
+      bars: [
+        { id: 1, position: 1 },
+        { id: 2, position: 3 },
+      ],
+      tempi: [
+        { id: 1, position: 2.5 },
+        { id: 2, position: 3 },
+      ],
       repeats: [{ id: 1, position: 3, kind: "start", repeatCount: null }],
       insertionPosition: 2,
       snapshotCount: 3,
@@ -101,7 +116,10 @@ describe("structure editing", () => {
 
   it("adds missing bars before snapshots and advances the bar id seed", () => {
     const result = addBarsBeforeSnapshots({
-      bars: [{ id: 1, position: 1 }, { id: 3, position: 3 }],
+      bars: [
+        { id: 1, position: 1 },
+        { id: 3, position: 3 },
+      ],
       snapshotCount: 4,
       nextBarId: 3,
     });
@@ -117,7 +135,17 @@ describe("structure editing", () => {
 
   it("adds a normalized tempo marker with the requested mode", () => {
     const result = addSequenceTempoMarker({
-      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }],
+      tempi: [
+        {
+          id: 1,
+          position: 1,
+          bpm: 60,
+          beatNumerator: 1,
+          beatDenominator: 4,
+          beatLength: 1,
+          mode: "immediate",
+        },
+      ],
       position: 2,
       bpm: 72,
       mode: "gradual",
@@ -135,17 +163,29 @@ describe("structure editing", () => {
 
   it("normalizes tempo marker updates", () => {
     const result = updateSequenceTempoMarker({
-      tempi: [{ id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1, mode: "immediate" }],
+      tempi: [
+        {
+          id: 1,
+          position: 1,
+          bpm: 60,
+          beatNumerator: 1,
+          beatDenominator: 4,
+          beatLength: 1,
+          mode: "immediate",
+        },
+      ],
       tempoId: 1,
       updates: { position: 1.5, bpm: 80, mode: "gradual" },
     });
 
-    expect(result).toEqual([expect.objectContaining({
-      id: 1,
-      position: 1.5,
-      bpm: 80,
-      mode: "gradual",
-    })]);
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 1,
+        position: 1.5,
+        bpm: 80,
+        mode: "gradual",
+      }),
+    ]);
   });
 
   it("materializes the implicit opening tempo when it is edited", () => {
@@ -200,11 +240,13 @@ describe("structure editing", () => {
       updates: { repeatCount: 1.2 },
     });
 
-    expect(result).toEqual([expect.objectContaining({
-      id: 2,
-      kind: "end",
-      repeatCount: 2,
-    })]);
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 2,
+        kind: "end",
+        repeatCount: 2,
+      }),
+    ]);
   });
 
   it("allows moving a bar to the implicit terminal position without treating it as a collision", () => {

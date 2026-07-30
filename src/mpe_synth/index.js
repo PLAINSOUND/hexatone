@@ -376,14 +376,10 @@ function MpeHex(
   const { note: noteGuess } = freqToMidiAndCents(freq, center_degree, 1, scale, mode);
   const bendGuess = deviationToBend((69 + 12 * Math.log2(freq / 440) - noteGuess) * 100, bendRange);
 
-  const {
-    slot,
-    allocationToken,
-    stolen,
-    stolenSlot,
-    stolenNote,
-    retrigger,
-  } = pool.noteOn(coords, bendGuess);
+  const { slot, allocationToken, stolen, stolenSlot, stolenNote, retrigger } = pool.noteOn(
+    coords,
+    bendGuess,
+  );
 
   this.channel = slot; // 1-based
   this.allocationToken = allocationToken;

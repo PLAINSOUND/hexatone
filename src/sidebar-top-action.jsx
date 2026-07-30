@@ -1,15 +1,10 @@
 import { useEffect, useState } from "preact/hooks";
 
-const SidebarTopAction = ({
-  scrollTargetRef,
-  threshold = 0,
-  thresholdRootRef,
-}) => {
+const SidebarTopAction = ({ scrollTargetRef, threshold = 0, thresholdRootRef }) => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const scrollTarget =
-      scrollTargetRef?.current ?? document.getElementById("sidebar");
+    const scrollTarget = scrollTargetRef?.current ?? document.getElementById("sidebar");
     if (!scrollTarget) return undefined;
 
     const updateVisibility = () => {
@@ -39,8 +34,7 @@ const SidebarTopAction = ({
           type="button"
           class="preset-action-btn"
           onClick={() => {
-            const scrollTarget =
-              scrollTargetRef?.current ?? document.getElementById("sidebar");
+            const scrollTarget = scrollTargetRef?.current ?? document.getElementById("sidebar");
             scrollTarget?.scrollTo({ top: 0, behavior: "smooth" });
           }}
         >

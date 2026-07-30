@@ -70,36 +70,36 @@ function displacedExactIdentity(steps, reducedDegree, runtime) {
   const scaleCents = Number(runtime?.scale?.[reducedDegree]);
   const equaveCents = Number(runtime?.equivInterval);
   if (
-    !interval?.ratio?.toFraction
-    || !equave?.ratio?.pow
-    || !Number.isFinite(scaleCents)
-    || !Number.isFinite(equaveCents)
-    || Math.abs(Number(interval.cents) - scaleCents) > 0.001
-    || Math.abs(Number(equave.cents) - equaveCents) > 0.001
+    !interval?.ratio?.toFraction ||
+    !equave?.ratio?.pow ||
+    !Number.isFinite(scaleCents) ||
+    !Number.isFinite(equaveCents) ||
+    Math.abs(Number(interval.cents) - scaleCents) > 0.001 ||
+    Math.abs(Number(equave.cents) - equaveCents) > 0.001
   ) {
     return null;
   }
 
   const scaleLength = runtime.scale.length;
   const equavePower = Math.floor(steps / scaleLength);
-  const ratio = equavePower > 0
-    ? interval.ratio.mul(equave.ratio.pow(equavePower))
-    : equavePower < 0
-      ? interval.ratio.div(equave.ratio.pow(Math.abs(equavePower)))
-      : interval.ratio;
+  const ratio =
+    equavePower > 0
+      ? interval.ratio.mul(equave.ratio.pow(equavePower))
+      : equavePower < 0
+        ? interval.ratio.div(equave.ratio.pow(Math.abs(equavePower)))
+        : interval.ratio;
   const ratioText = ratio.toFraction();
   const intervalMonzo = Array.isArray(interval.monzo) ? interval.monzo : null;
   const equaveMonzo = Array.isArray(equave.monzo) ? equave.monzo : null;
-  const monzo = intervalMonzo && equaveMonzo
-    ? Array.from(
-      { length: Math.max(intervalMonzo.length, equaveMonzo.length) },
-      (_, index) => (
-        (intervalMonzo[index] ?? 0) + equavePower * (equaveMonzo[index] ?? 0)
-      ),
-    )
-    : intervalMonzo
-      ? [...intervalMonzo]
-      : null;
+  const monzo =
+    intervalMonzo && equaveMonzo
+      ? Array.from(
+          { length: Math.max(intervalMonzo.length, equaveMonzo.length) },
+          (_, index) => (intervalMonzo[index] ?? 0) + equavePower * (equaveMonzo[index] ?? 0),
+        )
+      : intervalMonzo
+        ? [...intervalMonzo]
+        : null;
 
   return {
     ratioText: ratioText.includes("/") ? ratioText : `${ratioText}/1`,
@@ -111,9 +111,8 @@ export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
   const scale = Array.isArray(runtime?.scale) ? runtime.scale : [];
   const scaleLength = scale.length;
   if (!scaleLength) return note;
-  const sourceFrequency = Number(note?.frequency) > 0
-    ? Number(note.frequency)
-    : noteFrequency(note?.midicents);
+  const sourceFrequency =
+    Number(note?.frequency) > 0 ? Number(note.frequency) : noteFrequency(note?.midicents);
   const pitchCents = absoluteCentsForFrequency(sourceFrequency, runtime);
   if (!Number.isFinite(pitchCents)) return note;
   const nearest = findNearestDegree(

@@ -3,13 +3,7 @@ import FrequencyInput from "./frequency-input.js";
 
 describe("FrequencyInput", () => {
   it("shows the full six-decimal value while focused", () => {
-    render(
-      <FrequencyInput
-        ariaLabel="pitch frequency"
-        value={440.123456}
-        onCommit={() => {}}
-      />,
-    );
+    render(<FrequencyInput ariaLabel="pitch frequency" value={440.123456} onCommit={() => {}} />);
 
     const input = screen.getByLabelText("pitch frequency");
     expect(input.value).toBe("440.1");
@@ -19,13 +13,7 @@ describe("FrequencyInput", () => {
   });
 
   it("selects the complete expanded value on the first pointer focus", () => {
-    render(
-      <FrequencyInput
-        ariaLabel="pitch frequency"
-        value={440.123456}
-        onCommit={() => {}}
-      />,
-    );
+    render(<FrequencyInput ariaLabel="pitch frequency" value={440.123456} onCommit={() => {}} />);
 
     const input = screen.getByLabelText("pitch frequency");
     fireEvent.pointerDown(input);
@@ -36,13 +24,7 @@ describe("FrequencyInput", () => {
   });
 
   it("returns to one-decimal display on blur without changes", () => {
-    render(
-      <FrequencyInput
-        ariaLabel="pitch frequency"
-        value={440.123456}
-        onCommit={() => {}}
-      />,
-    );
+    render(<FrequencyInput ariaLabel="pitch frequency" value={440.123456} onCommit={() => {}} />);
 
     const input = screen.getByLabelText("pitch frequency");
     fireEvent.focus(input);

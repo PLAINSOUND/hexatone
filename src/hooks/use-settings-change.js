@@ -23,7 +23,13 @@ import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 
 // Keys whose changes are pushed imperatively to the live canvas before
 // setSettings fires, so color-picker drags are smooth without reconstruction.
-const COLOR_KEYS = new Set(["note_colors", "spectrum_colors", "fundamental_color", "auto_colors", "prime_family_colors"]);
+const COLOR_KEYS = new Set([
+  "note_colors",
+  "spectrum_colors",
+  "fundamental_color",
+  "auto_colors",
+  "prime_family_colors",
+]);
 const CONTROLLER_OUTPUT_OVERRIDE_KEYS = {
   exquis: "exquis_out_port",
   hakenaudio: "hakenaudio_out_port",
@@ -162,11 +168,14 @@ const useSettingsChange = (
       // so the first live instance is constructed with the right anchor/mode.
       // The derived-state effect in use-synth-wiring.js remains the long-term owner
       // for refresh, reconnect, and any future non-UI connect paths.
-      setSettings((prev) => ({
-        ...prev,
-        midiin_device: value,
-        ...(ctrl ? loadAnchorSettingsUpdate(ctrl, prev) : {}),
-      }), { updateUrl: false });
+      setSettings(
+        (prev) => ({
+          ...prev,
+          midiin_device: value,
+          ...(ctrl ? loadAnchorSettingsUpdate(ctrl, prev) : {}),
+        }),
+        { updateUrl: false },
+      );
       sessionStorage.setItem("midiin_device", value);
       return;
     }
@@ -174,19 +183,22 @@ const useSettingsChange = (
     if (key === "midiin_controller_override") {
       const ctrl = getConnectedController(s.midiin_device, m, value);
       const outputOverrideKey =
-        value === "auto" ? CONTROLLER_OUTPUT_OVERRIDE_KEYS[ctrl?.id] ?? null : null;
-      setSettings((prev) => ({
-        ...prev,
-        midiin_controller_override: value,
-        ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
-        ...(ctrl
-          ? loadAnchorSettingsUpdate(ctrl, {
-              ...prev,
-              midiin_controller_override: value,
-              ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
-            })
-          : {}),
-      }), { updateUrl: false });
+        value === "auto" ? (CONTROLLER_OUTPUT_OVERRIDE_KEYS[ctrl?.id] ?? null) : null;
+      setSettings(
+        (prev) => ({
+          ...prev,
+          midiin_controller_override: value,
+          ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
+          ...(ctrl
+            ? loadAnchorSettingsUpdate(ctrl, {
+                ...prev,
+                midiin_controller_override: value,
+                ...(outputOverrideKey ? { [outputOverrideKey]: null } : {}),
+              })
+            : {}),
+        }),
+        { updateUrl: false },
+      );
       sessionStorage.setItem("midiin_controller_override", value);
       if (outputOverrideKey) sessionStorage.removeItem(outputOverrideKey);
       return;
@@ -194,13 +206,16 @@ const useSettingsChange = (
 
     if (key === "tonalplexus_input_mode") {
       const ctrl = getConnectedController(s.midiin_device, m, s.midiin_controller_override);
-      setSettings((prev) => ({
-        ...prev,
-        tonalplexus_input_mode: value,
-        ...(ctrl?.id === "tonalplexus"
-          ? loadAnchorSettingsUpdate(ctrl, { ...prev, tonalplexus_input_mode: value })
-          : {}),
-      }), { updateUrl: false });
+      setSettings(
+        (prev) => ({
+          ...prev,
+          tonalplexus_input_mode: value,
+          ...(ctrl?.id === "tonalplexus"
+            ? loadAnchorSettingsUpdate(ctrl, { ...prev, tonalplexus_input_mode: value })
+            : {}),
+        }),
+        { updateUrl: false },
+      );
       return;
     }
 
@@ -258,9 +273,8 @@ const useSettingsChange = (
       // synchronously — setSettings is async (batched), so we derive the name
       // from the current settings snapshot rather than waiting for the update.
       const newScale = value;
-      const equivSteps = Array.isArray(newScale) && newScale.length > 0
-        ? newScale.length
-        : (s.equivSteps || 1);
+      const equivSteps =
+        Array.isArray(newScale) && newScale.length > 0 ? newScale.length : s.equivSteps || 1;
       const { rSteps, drSteps } = deriveImportedLayoutSteps(equivSteps);
       const equaveValue = newScale[newScale.length - 1];
       const isOctave =
@@ -318,7 +332,11 @@ const useSettingsChange = (
         fundamental_color: normalizedColors.fundamental_color,
       };
       keysRef.current.updateColors(colorUpdate);
-      if (key === "note_colors" && s.linnstrument_led_sync && keysRef.current.syncLinnstrumentLEDs) {
+      if (
+        key === "note_colors" &&
+        s.linnstrument_led_sync &&
+        keysRef.current.syncLinnstrumentLEDs
+      ) {
         keysRef.current.syncLinnstrumentLEDs();
       }
     }
@@ -355,7 +373,11 @@ const useSettingsChange = (
         fundamental_color: normalizedColors.fundamental_color,
       };
       keysRef.current.updateColors(colorUpdate);
-      if ("note_colors" in updates && s.linnstrument_led_sync && keysRef.current.syncLinnstrumentLEDs) {
+      if (
+        "note_colors" in updates &&
+        s.linnstrument_led_sync &&
+        keysRef.current.syncLinnstrumentLEDs
+      ) {
         keysRef.current.syncLinnstrumentLEDs();
       }
     }

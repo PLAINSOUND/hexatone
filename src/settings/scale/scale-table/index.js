@@ -70,10 +70,11 @@ const ScaleTable = (props) => {
     [props.liveScaleTableActivityOnly, liveActivityRowsByDegree],
   );
   const liveActiveDegreeSet = useMemo(
-    () => new Set([
-      ...Object.keys(liveActivityRowsByDegree),
-      ...(props.liveActiveDegrees ?? []).map((degree) => String(degree)),
-    ]),
+    () =>
+      new Set([
+        ...Object.keys(liveActivityRowsByDegree),
+        ...(props.liveActiveDegrees ?? []).map((degree) => String(degree)),
+      ]),
     [liveActivityRowsByDegree, props.liveActiveDegrees],
   );
   const { scale, equiv_interval } = useMemo(() => {
@@ -87,58 +88,58 @@ const ScaleTable = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- props.settings is a new object on every render; listing the specific keys that affect workspace output avoids unnecessary recomputation
     [props.settings.scale, props.settings.reference_degree, props.settings.fundamental],
   );
-  const autoColorSettings = useMemo(() => ({
-    scale: props.settings.scale,
-    note_names: props.settings.note_names,
-    note_colors: props.settings.note_colors,
-    key_labels: props.settings.key_labels,
-    reference_degree: props.settings.reference_degree,
-    fundamental: props.settings.fundamental,
-    name: props.settings.name,
-    short_description: props.settings.short_description,
-    heji_anchor_ratio: props.settings.heji_anchor_ratio,
-    heji_anchor_label: props.settings.heji_anchor_label,
-    heji_tempered_only: props.settings.heji_tempered_only,
-    heji_show_cents: props.settings.heji_show_cents,
-    prime_family_colors: props.settings.prime_family_colors,
-    heji_frame: props.settings.heji_frame,
-  }), [
-    props.settings.scale,
-    props.settings.note_names,
-    props.settings.note_colors,
-    props.settings.key_labels,
-    props.settings.reference_degree,
-    props.settings.fundamental,
-    props.settings.name,
-    props.settings.short_description,
-    props.settings.heji_anchor_ratio,
-    props.settings.heji_anchor_label,
-    props.settings.heji_tempered_only,
-    props.settings.heji_show_cents,
-    props.settings.prime_family_colors,
-    props.settings.heji_frame,
-  ]);
+  const autoColorSettings = useMemo(
+    () => ({
+      scale: props.settings.scale,
+      note_names: props.settings.note_names,
+      note_colors: props.settings.note_colors,
+      key_labels: props.settings.key_labels,
+      reference_degree: props.settings.reference_degree,
+      fundamental: props.settings.fundamental,
+      name: props.settings.name,
+      short_description: props.settings.short_description,
+      heji_anchor_ratio: props.settings.heji_anchor_ratio,
+      heji_anchor_label: props.settings.heji_anchor_label,
+      heji_tempered_only: props.settings.heji_tempered_only,
+      heji_show_cents: props.settings.heji_show_cents,
+      prime_family_colors: props.settings.prime_family_colors,
+      heji_frame: props.settings.heji_frame,
+    }),
+    [
+      props.settings.scale,
+      props.settings.note_names,
+      props.settings.note_colors,
+      props.settings.key_labels,
+      props.settings.reference_degree,
+      props.settings.fundamental,
+      props.settings.name,
+      props.settings.short_description,
+      props.settings.heji_anchor_ratio,
+      props.settings.heji_anchor_label,
+      props.settings.heji_tempered_only,
+      props.settings.heji_show_cents,
+      props.settings.prime_family_colors,
+      props.settings.heji_frame,
+    ],
+  );
   const autoColorOptions = useMemo(() => {
-    return buildResolvedAutoColorOptions(autoColorSettings, workspace, {
-      keyLabels: autoColorSettings.key_labels,
-      noteNames: autoColorSettings.note_names,
-      hejiTableNames: props.heji_names_table,
-      hejiNames: props.heji_names,
-    }, {
-      hejiFrame: autoColorSettings.heji_frame,
-    });
-  }, [
-    autoColorSettings,
-    workspace,
-    props.heji_names_table,
-    props.heji_names,
-  ]);
+    return buildResolvedAutoColorOptions(
+      autoColorSettings,
+      workspace,
+      {
+        keyLabels: autoColorSettings.key_labels,
+        noteNames: autoColorSettings.note_names,
+        hejiTableNames: props.heji_names_table,
+        hejiNames: props.heji_names,
+      },
+      {
+        hejiFrame: autoColorSettings.heji_frame,
+      },
+    );
+  }, [autoColorSettings, workspace, props.heji_names_table, props.heji_names]);
 
   const degrees = [...Array(scale.length).keys()];
-  const note_names = useMemo(
-    () => props.settings.note_names || [],
-    [props.settings.note_names],
-  );
+  const note_names = useMemo(() => props.settings.note_names || [], [props.settings.note_names]);
   const [draftNoteNames, setDraftNoteNames] = useState({});
   const isHeji = props.settings.key_labels === "heji";
   const heji_names = useMemo(
@@ -147,18 +148,14 @@ const ScaleTable = (props) => {
   );
 
   const autoColors = useMemo(
-    () => deriveAutoNoteColors(autoColorSettings, {
-      workspace,
-      heji_names: props.heji_names,
-      heji_names_table: props.heji_names_table,
-      hejiFrame: autoColorSettings.heji_frame,
-    }),
-    [
-      autoColorSettings,
-      workspace,
-      props.heji_names,
-      props.heji_names_table,
-    ],
+    () =>
+      deriveAutoNoteColors(autoColorSettings, {
+        workspace,
+        heji_names: props.heji_names,
+        heji_names_table: props.heji_names_table,
+        hejiFrame: autoColorSettings.heji_frame,
+      }),
+    [autoColorSettings, workspace, props.heji_names, props.heji_names_table],
   );
 
   let colors;
@@ -199,35 +196,51 @@ const ScaleTable = (props) => {
     props.onChange("note_colors", next);
   };
 
-  const applyColorPreview = useCallback((degreeIndex, colorHex) => {
-    if (!props.keysRef?.current?.updateColors || (props.settings.spectrum_colors && !props.settings.auto_colors)) return;
-    const next = [...(props.settings.note_colors || [])];
-    next[degreeIndex] = colorHex;
-    const normalized = normalizeColors({ ...props.settings, note_colors: next });
-    props.keysRef.current.updateColors({
-      note_colors: normalized.note_colors,
-      spectrum_colors: normalized.spectrum_colors,
-      fundamental_color: (props.settings.fundamental_color || "").replace(/#/, ""),
-    }, { preview: true, degreeIndex });
-  }, [props.keysRef, props.settings]);
+  const applyColorPreview = useCallback(
+    (degreeIndex, colorHex) => {
+      if (
+        !props.keysRef?.current?.updateColors ||
+        (props.settings.spectrum_colors && !props.settings.auto_colors)
+      )
+        return;
+      const next = [...(props.settings.note_colors || [])];
+      next[degreeIndex] = colorHex;
+      const normalized = normalizeColors({ ...props.settings, note_colors: next });
+      props.keysRef.current.updateColors(
+        {
+          note_colors: normalized.note_colors,
+          spectrum_colors: normalized.spectrum_colors,
+          fundamental_color: (props.settings.fundamental_color || "").replace(/#/, ""),
+        },
+        { preview: true, degreeIndex },
+      );
+    },
+    [props.keysRef, props.settings],
+  );
 
-  const previewColorAt = useCallback((degreeIndex, colorHex) => {
-    pendingColorPreviewRef.current = { degreeIndex, colorHex };
-    if (colorPreviewFrameRef.current != null) return;
-    colorPreviewFrameRef.current = window.requestAnimationFrame(() => {
-      colorPreviewFrameRef.current = null;
-      const pending = pendingColorPreviewRef.current;
-      pendingColorPreviewRef.current = null;
-      if (pending) applyColorPreview(pending.degreeIndex, pending.colorHex);
-    });
-  }, [applyColorPreview]);
+  const previewColorAt = useCallback(
+    (degreeIndex, colorHex) => {
+      pendingColorPreviewRef.current = { degreeIndex, colorHex };
+      if (colorPreviewFrameRef.current != null) return;
+      colorPreviewFrameRef.current = window.requestAnimationFrame(() => {
+        colorPreviewFrameRef.current = null;
+        const pending = pendingColorPreviewRef.current;
+        pendingColorPreviewRef.current = null;
+        if (pending) applyColorPreview(pending.degreeIndex, pending.colorHex);
+      });
+    },
+    [applyColorPreview],
+  );
 
-  useEffect(() => () => {
-    if (colorPreviewFrameRef.current != null) {
-      window.cancelAnimationFrame(colorPreviewFrameRef.current);
-      colorPreviewFrameRef.current = null;
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (colorPreviewFrameRef.current != null) {
+        window.cancelAnimationFrame(colorPreviewFrameRef.current);
+        colorPreviewFrameRef.current = null;
+      }
+    },
+    [],
+  );
 
   const nameChange = (e) => {
     setDraftNoteNames((prev) => ({
@@ -236,17 +249,20 @@ const ScaleTable = (props) => {
     }));
   };
 
-  const commitNameChange = useCallback((inputName, value) => {
-    const next = [...(props.settings.note_names || [])];
-    next[parseInt(inputName.replace(/name/, ""))] = value;
-    props.onChange("note_names", next);
-    setDraftNoteNames((prev) => {
-      if (!(inputName in prev)) return prev;
-      const nextDrafts = { ...prev };
-      delete nextDrafts[inputName];
-      return nextDrafts;
-    });
-  }, [props]);
+  const commitNameChange = useCallback(
+    (inputName, value) => {
+      const next = [...(props.settings.note_names || [])];
+      next[parseInt(inputName.replace(/name/, ""))] = value;
+      props.onChange("note_names", next);
+      setDraftNoteNames((prev) => {
+        if (!(inputName in prev)) return prev;
+        const nextDrafts = { ...prev };
+        delete nextDrafts[inputName];
+        return nextDrafts;
+      });
+    },
+    [props],
+  );
 
   const commitHejiNameAtDegree = (degreeIndex, value) => {
     if (degreeIndex <= 0) return;
@@ -326,51 +342,67 @@ const ScaleTable = (props) => {
   }, [props.settings.note_names]);
 
   const rowRuntimeByDegree = useMemo(
-    () => new Map(workspace.slots.map((slot) => [slot.degree, getRowRuntime(workspace, slot.degree)])),
+    () =>
+      new Map(workspace.slots.map((slot) => [slot.degree, getRowRuntime(workspace, slot.degree)])),
     [workspace],
   );
-  const getRowRuntimeAtDegree = useCallback((degreeIndex) => {
-    if (degreeIndex === scale.length) {
-      return {
-        committedInterval: workspace.baseScale.equaveInterval,
-        committedCents: workspace.baseScale.equaveCents,
-      };
-    }
-    return rowRuntimeByDegree.get(degreeIndex) ?? getRowRuntime(workspace, degreeIndex);
-  }, [rowRuntimeByDegree, scale.length, workspace]);
+  const getRowRuntimeAtDegree = useCallback(
+    (degreeIndex) => {
+      if (degreeIndex === scale.length) {
+        return {
+          committedInterval: workspace.baseScale.equaveInterval,
+          committedCents: workspace.baseScale.equaveCents,
+        };
+      }
+      return rowRuntimeByDegree.get(degreeIndex) ?? getRowRuntime(workspace, degreeIndex);
+    },
+    [rowRuntimeByDegree, scale.length, workspace],
+  );
 
-  const getCommittedCentsAtDegree = useCallback((degreeIndex) => {
-    return getRowRuntimeAtDegree(degreeIndex).committedCents;
-  }, [getRowRuntimeAtDegree]);
+  const getCommittedCentsAtDegree = useCallback(
+    (degreeIndex) => {
+      return getRowRuntimeAtDegree(degreeIndex).committedCents;
+    },
+    [getRowRuntimeAtDegree],
+  );
 
   const sortDegreesAscending = useCallback(() => {
     const updates = sortScaleDegreesAscending(props.settings);
     if (updates && props.onAtomicChange) props.onAtomicChange(updates);
   }, [props]);
 
-  const getDropInsertionDegree = useCallback((targetDegree, side) => {
-    const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
-    if (!sourceDegree || !targetDegree) return targetDegree;
-    if (side === "after") {
-      return sourceDegree < targetDegree ? targetDegree : targetDegree + 1;
-    }
-    return sourceDegree < targetDegree ? targetDegree - 1 : targetDegree;
-  }, [draggedDegree]);
+  const getDropInsertionDegree = useCallback(
+    (targetDegree, side) => {
+      const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
+      if (!sourceDegree || !targetDegree) return targetDegree;
+      if (side === "after") {
+        return sourceDegree < targetDegree ? targetDegree : targetDegree + 1;
+      }
+      return sourceDegree < targetDegree ? targetDegree - 1 : targetDegree;
+    },
+    [draggedDegree],
+  );
 
-  const commitDraggedDegree = useCallback((targetDegree, side) => {
-    const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
-    if (!sourceDegree || !targetDegree) return;
-    const insertionDegree = getDropInsertionDegree(targetDegree, side);
-    if (!insertionDegree || insertionDegree === sourceDegree) return;
-    const updates = moveScaleDegree(props.settings, sourceDegree, insertionDegree);
-    if (updates && props.onAtomicChange) props.onAtomicChange(updates);
-  }, [draggedDegree, getDropInsertionDegree, props]);
+  const commitDraggedDegree = useCallback(
+    (targetDegree, side) => {
+      const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
+      if (!sourceDegree || !targetDegree) return;
+      const insertionDegree = getDropInsertionDegree(targetDegree, side);
+      if (!insertionDegree || insertionDegree === sourceDegree) return;
+      const updates = moveScaleDegree(props.settings, sourceDegree, insertionDegree);
+      if (updates && props.onAtomicChange) props.onAtomicChange(updates);
+    },
+    [draggedDegree, getDropInsertionDegree, props],
+  );
 
-  const removeDegree = useCallback((degree) => {
-    const updates = deleteScaleDegree(props.settings, degree);
-    if (updates && props.onAtomicChange) props.onAtomicChange(updates);
-    setSelectedDegree(null);
-  }, [props]);
+  const removeDegree = useCallback(
+    (degree) => {
+      const updates = deleteScaleDegree(props.settings, degree);
+      if (updates && props.onAtomicChange) props.onAtomicChange(updates);
+      setSelectedDegree(null);
+    },
+    [props],
+  );
 
   const getDropSide = useCallback((event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -379,29 +411,38 @@ const ScaleTable = (props) => {
     return Number.isFinite(clientY) && clientY >= midY ? "after" : "before";
   }, []);
 
-  const resolveDropTarget = useCallback((event, degree) => {
-    const side = getDropSide(event);
-    if (side === "before" && degree > 1) {
-      return { degree: degree - 1, side: "after" };
-    }
-    return { degree, side };
-  }, [getDropSide]);
+  const resolveDropTarget = useCallback(
+    (event, degree) => {
+      const side = getDropSide(event);
+      if (side === "before" && degree > 1) {
+        return { degree: degree - 1, side: "after" };
+      }
+      return { degree, side };
+    },
+    [getDropSide],
+  );
 
-  const updateDropTarget = useCallback((event, degree) => {
-    const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
-    if (!sourceDegree || sourceDegree === degree) return;
-    const target = resolveDropTarget(event, degree);
-    dropTargetDegreeRef.current = target.degree;
-    dropTargetSideRef.current = target.side;
-    setDropTargetDegree(target.degree);
-    setDropTargetSide(target.side);
-  }, [draggedDegree, resolveDropTarget]);
+  const updateDropTarget = useCallback(
+    (event, degree) => {
+      const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
+      if (!sourceDegree || sourceDegree === degree) return;
+      const target = resolveDropTarget(event, degree);
+      dropTargetDegreeRef.current = target.degree;
+      dropTargetSideRef.current = target.side;
+      setDropTargetDegree(target.degree);
+      setDropTargetSide(target.side);
+    },
+    [draggedDegree, resolveDropTarget],
+  );
 
-  const frequencyAtDegree = useCallback((degreeIndex) => {
-    return getEffectiveFrequencyAtDegree(workspace, previewState, degreeIndex, {
-      modulationTranspositionCents,
-    });
-  }, [workspace, previewState, modulationTranspositionCents]);
+  const frequencyAtDegree = useCallback(
+    (degreeIndex) => {
+      return getEffectiveFrequencyAtDegree(workspace, previewState, degreeIndex, {
+        modulationTranspositionCents,
+      });
+    },
+    [workspace, previewState, modulationTranspositionCents],
+  );
 
   const liveRowAtDegree = useCallback(
     (degreeIndex) => liveRowsByDegree[String(degreeIndex)] ?? null,
@@ -414,122 +455,146 @@ const ScaleTable = (props) => {
   );
 
   const degreeGutterClass = useCallback(
-    (degreeIndex, extraClass = "") => [
-      "degree-gutter",
-      extraClass,
-      isDegreeActive(degreeIndex)
-        ? "degree-gutter--active"
-        : "",
-    ].filter(Boolean).join(" "),
+    (degreeIndex, extraClass = "") =>
+      ["degree-gutter", extraClass, isDegreeActive(degreeIndex) ? "degree-gutter--active" : ""]
+        .filter(Boolean)
+        .join(" "),
     [isDegreeActive],
   );
 
-  const liveDegreeLed = useCallback((degreeIndex) => (
-    isDegreeActive(degreeIndex)
-      ? <span class="degree-gutter__live-led" aria-hidden="true" />
-      : null
-  ), [isDegreeActive]);
+  const liveDegreeLed = useCallback(
+    (degreeIndex) =>
+      isDegreeActive(degreeIndex) ? (
+        <span class="degree-gutter__live-led" aria-hidden="true" />
+      ) : null,
+    [isDegreeActive],
+  );
 
-  const displayedFrequencyAtDegree = useCallback((degreeIndex) => {
-    const liveRow = liveRowAtDegree(degreeIndex);
-    if (liveRow && !liveRow.mixed && Number.isFinite(liveRow.frequencyHz)) return liveRow.frequencyHz;
-    return frequencyAtDegree(degreeIndex);
-  }, [frequencyAtDegree, liveRowAtDegree]);
+  const displayedFrequencyAtDegree = useCallback(
+    (degreeIndex) => {
+      const liveRow = liveRowAtDegree(degreeIndex);
+      if (liveRow && !liveRow.mixed && Number.isFinite(liveRow.frequencyHz))
+        return liveRow.frequencyHz;
+      return frequencyAtDegree(degreeIndex);
+    },
+    [frequencyAtDegree, liveRowAtDegree],
+  );
 
-  const displayedHejiNameAtDegree = useCallback((degreeIndex) => {
-    const liveRow = liveRowAtDegree(degreeIndex);
-    if (liveRow && !liveRow.mixed && liveRow.displayLabel) return liveRow.displayLabel;
-    return heji_names[degreeIndex] ?? "";
-  }, [heji_names, liveRowAtDegree]);
+  const displayedHejiNameAtDegree = useCallback(
+    (degreeIndex) => {
+      const liveRow = liveRowAtDegree(degreeIndex);
+      if (liveRow && !liveRow.mixed && liveRow.displayLabel) return liveRow.displayLabel;
+      return heji_names[degreeIndex] ?? "";
+    },
+    [heji_names, liveRowAtDegree],
+  );
 
-  const liveHejiTitleAtDegree = useCallback((degreeIndex) => {
-    const liveRow = liveRowAtDegree(degreeIndex);
-    if (!liveRow) return undefined;
-    if (liveRow.mixed) return `Mixed live notes (${liveRow.noteCount}) on this degree`;
-    const parts = [];
-    if (liveRow.ratioText) parts.push(`Live ratio ${liveRow.ratioText}`);
-    if (Array.isArray(liveRow.monzo)) parts.push(`monzo [${liveRow.monzo.join(", ")}]`);
-    if (liveRow.noteCount > 1) parts.push(`${liveRow.noteCount} live notes`);
-    return parts.length ? parts.join(" · ") : undefined;
-  }, [liveRowAtDegree]);
+  const liveHejiTitleAtDegree = useCallback(
+    (degreeIndex) => {
+      const liveRow = liveRowAtDegree(degreeIndex);
+      if (!liveRow) return undefined;
+      if (liveRow.mixed) return `Mixed live notes (${liveRow.noteCount}) on this degree`;
+      const parts = [];
+      if (liveRow.ratioText) parts.push(`Live ratio ${liveRow.ratioText}`);
+      if (Array.isArray(liveRow.monzo)) parts.push(`monzo [${liveRow.monzo.join(", ")}]`);
+      if (liveRow.noteCount > 1) parts.push(`${liveRow.noteCount} live notes`);
+      return parts.length ? parts.join(" · ") : undefined;
+    },
+    [liveRowAtDegree],
+  );
 
-  const liveAutoColorLabelAtDegree = useCallback((degreeIndex) => {
-    const liveRow = liveRowAtDegree(degreeIndex);
-    if (!liveRow || liveRow.mixed || !liveRow.displayLabel) return null;
-    return liveRow.displayLabel;
-  }, [liveRowAtDegree]);
+  const liveAutoColorLabelAtDegree = useCallback(
+    (degreeIndex) => {
+      const liveRow = liveRowAtDegree(degreeIndex);
+      if (!liveRow || liveRow.mixed || !liveRow.displayLabel) return null;
+      return liveRow.displayLabel;
+    },
+    [liveRowAtDegree],
+  );
 
-  const liveAutoColorMonzoAtDegree = useCallback((degreeIndex) => {
-    const liveRow = liveRowAtDegree(degreeIndex);
-    if (!liveRow || liveRow.mixed || !Array.isArray(liveRow.monzo)) return null;
-    return liveRow.monzo;
-  }, [liveRowAtDegree]);
+  const liveAutoColorMonzoAtDegree = useCallback(
+    (degreeIndex) => {
+      const liveRow = liveRowAtDegree(degreeIndex);
+      if (!liveRow || liveRow.mixed || !Array.isArray(liveRow.monzo)) return null;
+      return liveRow.monzo;
+    },
+    [liveRowAtDegree],
+  );
 
-  const getSuggestedColorAtDegree = useCallback((degreeIndex) => {
-    if (degreeIndex === 0) {
-      return {
-        screenHex: deriveAutoTonicColorFromPaletteWithPrime(
-          autoColors.slice(1),
-          getPrimeFamilyColorMap(props.settings.prime_family_colors)[1],
-        ),
-        familyPrime: null,
-        familyName: "tonic",
-        confidence: 1,
-        explanation: "Auto tonic highlight",
-        fifthsFrame: null,
-      };
-    }
-    const interval = getRowRuntimeAtDegree(degreeIndex).committedInterval;
-    const liveMonzo = liveAutoColorMonzoAtDegree(degreeIndex);
-    const monzo = liveMonzo ?? interval?.monzo;
-    if (!Array.isArray(monzo)) return null;
-    const label = liveAutoColorLabelAtDegree(degreeIndex)
-      ?? ((isHeji ? heji_names[degreeIndex] : note_names[degreeIndex]) ?? "");
-    const usingLiveRow = !!liveMonzo;
-    const rawDegreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
-    const degreeMetadata = isHeji || rawDegreeMetadata?.source === "note_names"
-      ? rawDegreeMetadata
-      : null;
-    const trimmedLabel = String(label ?? "").trim();
-    const hasExplicitLabel = trimmedLabel.length > 0;
-    const hasSimpleWesternPitchLabel = WESTERN_PITCH_LABEL_RE.test(trimmedLabel);
-    const inferredNotationSide = inferNotationSide(label);
-    const inferredNotationRole = inferNotationRole(label);
-    if (
-      !degreeMetadata
-      && !inferredNotationSide
-      && !inferredNotationRole
-      && hasExplicitLabel
-      && !hasSimpleWesternPitchLabel
-      && !isHeji
-      && props.settings.key_labels === "note_names"
-    ) {
-      return null;
-    }
-    return monzoToSuggestedColor(monzo, undefined, {
-      ...autoColorOptions,
-      notationSide: degreeMetadata?.notationSide ?? inferredNotationSide,
-      notationRole: degreeMetadata?.notationRole ?? inferredNotationRole,
-      chainRole: usingLiveRow ? null : inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
-    });
-  }, [
-    autoColorOptions,
-    autoColors,
-    getRowRuntimeAtDegree,
-    heji_names,
-    isHeji,
-    liveAutoColorLabelAtDegree,
-    liveAutoColorMonzoAtDegree,
-    note_names,
-    props.settings.key_labels,
-    props.settings.prime_family_colors,
-    workspace,
-  ]);
+  const getSuggestedColorAtDegree = useCallback(
+    (degreeIndex) => {
+      if (degreeIndex === 0) {
+        return {
+          screenHex: deriveAutoTonicColorFromPaletteWithPrime(
+            autoColors.slice(1),
+            getPrimeFamilyColorMap(props.settings.prime_family_colors)[1],
+          ),
+          familyPrime: null,
+          familyName: "tonic",
+          confidence: 1,
+          explanation: "Auto tonic highlight",
+          fifthsFrame: null,
+        };
+      }
+      const interval = getRowRuntimeAtDegree(degreeIndex).committedInterval;
+      const liveMonzo = liveAutoColorMonzoAtDegree(degreeIndex);
+      const monzo = liveMonzo ?? interval?.monzo;
+      if (!Array.isArray(monzo)) return null;
+      const label =
+        liveAutoColorLabelAtDegree(degreeIndex) ??
+        (isHeji ? heji_names[degreeIndex] : note_names[degreeIndex]) ??
+        "";
+      const usingLiveRow = !!liveMonzo;
+      const rawDegreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
+      const degreeMetadata =
+        isHeji || rawDegreeMetadata?.source === "note_names" ? rawDegreeMetadata : null;
+      const trimmedLabel = String(label ?? "").trim();
+      const hasExplicitLabel = trimmedLabel.length > 0;
+      const hasSimpleWesternPitchLabel = WESTERN_PITCH_LABEL_RE.test(trimmedLabel);
+      const inferredNotationSide = inferNotationSide(label);
+      const inferredNotationRole = inferNotationRole(label);
+      if (
+        !degreeMetadata &&
+        !inferredNotationSide &&
+        !inferredNotationRole &&
+        hasExplicitLabel &&
+        !hasSimpleWesternPitchLabel &&
+        !isHeji &&
+        props.settings.key_labels === "note_names"
+      ) {
+        return null;
+      }
+      return monzoToSuggestedColor(monzo, undefined, {
+        ...autoColorOptions,
+        notationSide: degreeMetadata?.notationSide ?? inferredNotationSide,
+        notationRole: degreeMetadata?.notationRole ?? inferredNotationRole,
+        chainRole: usingLiveRow
+          ? null
+          : inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
+      });
+    },
+    [
+      autoColorOptions,
+      autoColors,
+      getRowRuntimeAtDegree,
+      heji_names,
+      isHeji,
+      liveAutoColorLabelAtDegree,
+      liveAutoColorMonzoAtDegree,
+      note_names,
+      props.settings.key_labels,
+      props.settings.prime_family_colors,
+      workspace,
+    ],
+  );
 
-  const getDisplayedColorAtDegree = useCallback((degreeIndex) => {
-    if (!props.settings.auto_colors) return colors[degreeIndex] || "#ffffff";
-    return getSuggestedColorAtDegree(degreeIndex)?.screenHex ?? colors[degreeIndex] ?? "#ffffff";
-  }, [colors, getSuggestedColorAtDegree, props.settings.auto_colors]);
+  const getDisplayedColorAtDegree = useCallback(
+    (degreeIndex) => {
+      if (!props.settings.auto_colors) return colors[degreeIndex] || "#ffffff";
+      return getSuggestedColorAtDegree(degreeIndex)?.screenHex ?? colors[degreeIndex] ?? "#ffffff";
+    },
+    [colors, getSuggestedColorAtDegree, props.settings.auto_colors],
+  );
 
   const rootSuggestedColor = getSuggestedColorAtDegree(0);
 
@@ -556,7 +621,9 @@ const ScaleTable = (props) => {
     // Pre-compute scaleCents once — the pitch set is static across all degrees.
     const byDegree = workspace?.lookup?.byDegree;
     const scaleCents = byDegree
-      ? Array.from(byDegree.values()).filter((s) => s?.cents != null).map((s) => s.cents)
+      ? Array.from(byDegree.values())
+          .filter((s) => s?.cents != null)
+          .map((s) => s.cents)
       : null;
 
     // When existingRatios === "keep", degrees that already contain a ratio
@@ -669,10 +736,7 @@ const ScaleTable = (props) => {
     1200 *
       Math.log2(
         frequency /
-          (
-            props.settings.fundamental *
-            Math.pow(2, modulationTranspositionCents / 1200.0)
-          ),
+          (props.settings.fundamental * Math.pow(2, modulationTranspositionCents / 1200.0)),
       );
   // deviationCentsAtDegree: cents delta from committed value (for frequency colour)
   const deviationCentsAtDegree = (degreeIndex) => {
@@ -717,11 +781,7 @@ const ScaleTable = (props) => {
   return (
     <div class="scale-table-workspace">
       <div class="scale-table-toolbar">
-        <button
-          type="button"
-          class="scale-table-toolbar__sort"
-          onClick={sortDegreesAscending}
-        >
+        <button type="button" class="scale-table-toolbar__sort" onClick={sortDegreesAscending}>
           Sort Degrees Ascending
         </button>
         <div class="scale-table-toolbar__rationalisation-group">
@@ -796,7 +856,7 @@ const ScaleTable = (props) => {
                     if (next === "overtonal") {
                       // Zero out all undertonal bounds
                       const utZero = Object.fromEntries(
-                        Object.keys(prev.primeBoundsUt).map((k) => [k, "0"])
+                        Object.keys(prev.primeBoundsUt).map((k) => [k, "0"]),
                       );
                       return { ...prev, region: next, primeBoundsUt: utZero };
                     }
@@ -878,7 +938,7 @@ const ScaleTable = (props) => {
                         // (DEFAULT_PRIME_BOUNDS stores "0" for primes 23+ so we
                         // clamp to "1" to ensure the prime is actually searched)
                         const def = DEFAULT_PRIME_BOUNDS[prime];
-                        const restored = (!def || def === "0") ? "1" : def;
+                        const restored = !def || def === "0" ? "1" : def;
                         if (!ot[prime] || ot[prime] === "0") ot[prime] = restored;
                         if (!ut[prime] || ut[prime] === "0") ut[prime] = restored;
                       }
@@ -928,7 +988,9 @@ const ScaleTable = (props) => {
                       <span class="scale-search-prefs__prime-label">{prime}</span>
                       {isCustom ? (
                         <div class="scale-search-prefs__prime-pair">
-                          <span class="scale-search-prefs__prime-badge scale-search-prefs__prime-badge--ut">u</span>
+                          <span class="scale-search-prefs__prime-badge scale-search-prefs__prime-badge--ut">
+                            u
+                          </span>
                           <input
                             type="text"
                             inputMode="numeric"
@@ -959,7 +1021,9 @@ const ScaleTable = (props) => {
                             aria-label={`prime ${prime} overtonal steps`}
                             class="scale-search-prefs__prime-input"
                           />
-                          <span class="scale-search-prefs__prime-badge scale-search-prefs__prime-badge--ot">°</span>
+                          <span class="scale-search-prefs__prime-badge scale-search-prefs__prime-badge--ot">
+                            °
+                          </span>
                         </div>
                       ) : (
                         <input
@@ -991,7 +1055,6 @@ const ScaleTable = (props) => {
               </div>
             );
           })}
-
         </fieldset>
       )}
       <table>
@@ -1006,98 +1069,98 @@ const ScaleTable = (props) => {
           </tr>
         </thead>
         <tbody>
-        <tr
-          key={`0-${props.importCount}`}
-          class={
-            [
-              props.settings.reference_degree === 0 ? "reference-degree-row" : "",
-              props.settings.center_degree === 0 ? "center-degree-row" : "",
-            ]
-              .filter(Boolean)
-              .join(" ") || undefined
-          }
-        >
-          <td class="scale-data-col">
-            <div class="scale-degree-cell">
-              <span class={degreeGutterClass(0)} aria-label="scale degree gutter 0">
-                {liveDegreeLed(0)}
-                <span class="degree-gutter__number">{degrees[0]}</span>
-              </span>
-              <div class="freq-cell">
-                <input
-                  type="text"
-                  disabled
-                  value="1/1  |  0.0  |  0\n"
-                  aria-label="pitch value root"
-                />
-                <TuneCell
-                  key={`tune0-${props.importCount}`}
-                  scaleStr="0.0"
-                  degree={0}
-                  committedInterval={getRowRuntimeAtDegree(0).committedInterval}
-                  committedCents={getRowRuntimeAtDegree(0).committedCents}
-                  workspace={workspace}
-                  settings={props.settings}
-                  frequencyAtDegree={frequencyAtDegree}
-                  searchPrefs={searchPrefs}
-                  keysRef={props.keysRef}
-                  reference_degree={props.settings.reference_degree}
-                  fundamental={props.settings.fundamental}
-                  retuning_mode={props.settings.retuning_mode}
-                  previewState={previewState}
-                  onPreviewChange={onPreviewChange}
-                  hejiAnchorLabelEff={props.heji_anchor_label_eff}
-                  hejiAnchorRatioEff={props.heji_anchor_ratio_eff}
-                  colorSuggestionOptions={autoColorOptions}
-                  onDegree0Save={(delta) => {
-                    // delta: cents degree 0 moved up.
-                    // The equave is never touched — it is a period ratio, not a pitch.
-                    const oldScale = [...(props.settings.scale || [])];
-                    // Subtract delta from every degree except the equave so all
-                    // other notes stay at the same absolute Hz.
-                    const newScale = oldScale.map((str, idx) => {
-                      if (idx === oldScale.length - 1) return str; // equave unchanged
-                      const cents = scalaToCents(String(str));
-                      return (cents - delta).toFixed(6);
-                    });
-                    const ref = props.settings.reference_degree;
-                    if (ref === 0) {
-                      // Degree 0 is the reference: fundamental shifts up by delta.
-                      // Scale degrees (excl. equave) shift down by delta to keep
-                      // all other notes at the same Hz.
-                      const newFundamental =
-                        props.settings.fundamental * Math.pow(2, delta / 1200.0);
-                      props.onAtomicChange({ scale: newScale, fundamental: newFundamental });
-                    } else {
-                      // Another degree is the reference: fundamental stays.
-                      // Subtracting delta from all non-equave scale degrees keeps
-                      // every other note at the same Hz and shifts degree 0 up.
-                      props.onChange("scale", newScale);
-                    }
-                  }}
-                />
+          <tr
+            key={`0-${props.importCount}`}
+            class={
+              [
+                props.settings.reference_degree === 0 ? "reference-degree-row" : "",
+                props.settings.center_degree === 0 ? "center-degree-row" : "",
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
+          >
+            <td class="scale-data-col">
+              <div class="scale-degree-cell">
+                <span class={degreeGutterClass(0)} aria-label="scale degree gutter 0">
+                  {liveDegreeLed(0)}
+                  <span class="degree-gutter__number">{degrees[0]}</span>
+                </span>
+                <div class="freq-cell">
+                  <input
+                    type="text"
+                    disabled
+                    value="1/1  |  0.0  |  0\n"
+                    aria-label="pitch value root"
+                  />
+                  <TuneCell
+                    key={`tune0-${props.importCount}`}
+                    scaleStr="0.0"
+                    degree={0}
+                    committedInterval={getRowRuntimeAtDegree(0).committedInterval}
+                    committedCents={getRowRuntimeAtDegree(0).committedCents}
+                    workspace={workspace}
+                    settings={props.settings}
+                    frequencyAtDegree={frequencyAtDegree}
+                    searchPrefs={searchPrefs}
+                    keysRef={props.keysRef}
+                    reference_degree={props.settings.reference_degree}
+                    fundamental={props.settings.fundamental}
+                    retuning_mode={props.settings.retuning_mode}
+                    previewState={previewState}
+                    onPreviewChange={onPreviewChange}
+                    hejiAnchorLabelEff={props.heji_anchor_label_eff}
+                    hejiAnchorRatioEff={props.heji_anchor_ratio_eff}
+                    colorSuggestionOptions={autoColorOptions}
+                    onDegree0Save={(delta) => {
+                      // delta: cents degree 0 moved up.
+                      // The equave is never touched — it is a period ratio, not a pitch.
+                      const oldScale = [...(props.settings.scale || [])];
+                      // Subtract delta from every degree except the equave so all
+                      // other notes stay at the same absolute Hz.
+                      const newScale = oldScale.map((str, idx) => {
+                        if (idx === oldScale.length - 1) return str; // equave unchanged
+                        const cents = scalaToCents(String(str));
+                        return (cents - delta).toFixed(6);
+                      });
+                      const ref = props.settings.reference_degree;
+                      if (ref === 0) {
+                        // Degree 0 is the reference: fundamental shifts up by delta.
+                        // Scale degrees (excl. equave) shift down by delta to keep
+                        // all other notes at the same Hz.
+                        const newFundamental =
+                          props.settings.fundamental * Math.pow(2, delta / 1200.0);
+                        props.onAtomicChange({ scale: newScale, fundamental: newFundamental });
+                      } else {
+                        // Another degree is the reference: fundamental stays.
+                        // Subtracting delta from all non-equave scale degrees keeps
+                        // every other note at the same Hz and shifts degree 0 up.
+                        props.onChange("scale", newScale);
+                      }
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </td>
-          <td class="scale-frequency-col">
-            <FrequencyInput
-              ariaLabel="pitch frequency 0"
-              value={displayedFrequencyAtDegree(0)}
-              onCommit={(frequency) => commitFrequencyAtDegree(0, frequency)}
-              disabled
-              deviationCents={deviationCentsAtDegree(0)}
-              comparing={isComparingAtDegree(0)}
-              liveModulated={modulationDisplayActive || !!liveRowAtDegree(0)}
-            />
-          </td>
-          <td class="scale-name-col">
-            {isHeji ? (
-              <span
-                class={`heji-name-cell${modulationDisplayActive || liveRowAtDegree(0) ? " heji-name-cell--modulated" : ""}${liveRowAtDegree(0)?.mixed ? " heji-name-cell--mixed" : ""}`}
-                title={liveHejiTitleAtDegree(0)}
-              >
-                {displayedHejiNameAtDegree(0)}
-              </span>
+            </td>
+            <td class="scale-frequency-col">
+              <FrequencyInput
+                ariaLabel="pitch frequency 0"
+                value={displayedFrequencyAtDegree(0)}
+                onCommit={(frequency) => commitFrequencyAtDegree(0, frequency)}
+                disabled
+                deviationCents={deviationCentsAtDegree(0)}
+                comparing={isComparingAtDegree(0)}
+                liveModulated={modulationDisplayActive || !!liveRowAtDegree(0)}
+              />
+            </td>
+            <td class="scale-name-col">
+              {isHeji ? (
+                <span
+                  class={`heji-name-cell${modulationDisplayActive || liveRowAtDegree(0) ? " heji-name-cell--modulated" : ""}${liveRowAtDegree(0)?.mixed ? " heji-name-cell--mixed" : ""}`}
+                  title={liveHejiTitleAtDegree(0)}
+                >
+                  {displayedHejiNameAtDegree(0)}
+                </span>
               ) : (
                 <input
                   id="centered"
@@ -1118,283 +1181,300 @@ const ScaleTable = (props) => {
                   aria-label="pitch name 0"
                 />
               )}
-          </td>
-          <td class="scale-color-col">
-            <ColorCell
-              name="color0"
-              value={getDisplayedColorAtDegree(0)}
-              disabled={editable_colors}
-              onChange={colorChange}
-              suggestedColor={rootSuggestedColor?.screenHex ?? null}
-              suggestedLabel={rootSuggestedColor?.explanation ?? ""}
-              onApplySuggestion={(hex) => previewColorAt(0, hex)}
-              onPreviewColor={(hex) => previewColorAt(0, hex)}
-            />
-          </td>
-        </tr>
-        {rows.slice(1).map(([freq, degree, name], i) => (
+            </td>
+            <td class="scale-color-col">
+              <ColorCell
+                name="color0"
+                value={getDisplayedColorAtDegree(0)}
+                disabled={editable_colors}
+                onChange={colorChange}
+                suggestedColor={rootSuggestedColor?.screenHex ?? null}
+                suggestedLabel={rootSuggestedColor?.explanation ?? ""}
+                onApplySuggestion={(hex) => previewColorAt(0, hex)}
+                onPreviewColor={(hex) => previewColorAt(0, hex)}
+              />
+            </td>
+          </tr>
+          {rows.slice(1).map(([freq, degree, name], i) => (
+            <tr
+              key={`${i + 1}-${props.importCount}`}
+              class={
+                [
+                  props.settings.reference_degree === i + 1 ? "reference-degree-row" : "",
+                  props.settings.center_degree === i + 1 ? "center-degree-row" : "",
+                  dropTargetDegree === i + 1 ? "scale-row--drop-target" : "",
+                  dropTargetDegree === i + 1 && dropTargetSide === "before"
+                    ? "scale-row--drop-target-before"
+                    : "",
+                  dropTargetDegree === i + 1 && dropTargetSide === "after"
+                    ? "scale-row--drop-target-after"
+                    : "",
+                  selectedDegree === i + 1 ? "scale-row--selected" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
+              onDragOver={(e) => {
+                e.preventDefault();
+                updateDropTarget(e, i + 1);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                updateDropTarget(e, i + 1);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const rowDegree = i + 1;
+                const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
+                const cachedTargetDegree = dropTargetDegreeRef.current;
+                const useCachedTarget =
+                  cachedTargetDegree != null &&
+                  !(cachedTargetDegree === sourceDegree && rowDegree !== sourceDegree);
+                const targetDegree = useCachedTarget ? cachedTargetDegree : rowDegree;
+                const side =
+                  useCachedTarget && cachedTargetDegree === rowDegree
+                    ? dropTargetSideRef.current
+                    : getDropSide(e);
+                commitDraggedDegree(targetDegree, side);
+                draggedDegreeRef.current = null;
+                dropTargetDegreeRef.current = null;
+                dropTargetSideRef.current = "before";
+                setDraggedDegree(null);
+                setDropTargetDegree(null);
+                setDropTargetSide("before");
+              }}
+            >
+              <td class="scale-data-col">
+                <div class="scale-degree-cell">
+                  <span
+                    class={degreeGutterClass(
+                      i + 1,
+                      `degree-gutter--draggable${draggedDegree === i + 1 ? " degree-gutter--dragging" : ""}${selectedDegree === i + 1 ? " degree-gutter--selected" : ""}`,
+                    )}
+                    aria-label={`scale degree gutter ${i + 1}`}
+                    draggable="true"
+                    title="Drag to reorder this scale degree"
+                    onClick={() => {
+                      setSelectedDegree((prev) => (prev === i + 1 ? null : i + 1));
+                    }}
+                    onDragStart={(e) => {
+                      draggedDegreeRef.current = i + 1;
+                      dropTargetDegreeRef.current = null;
+                      dropTargetSideRef.current = "before";
+                      setDraggedDegree(i + 1);
+                      setDropTargetDegree(null);
+                      setDropTargetSide("before");
+                      setSelectedDegree(null);
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", String(i + 1));
+                    }}
+                    onDragEnd={() => {
+                      draggedDegreeRef.current = null;
+                      dropTargetDegreeRef.current = null;
+                      dropTargetSideRef.current = "before";
+                      setDraggedDegree(null);
+                      setDropTargetDegree(null);
+                      setDropTargetSide("before");
+                    }}
+                  >
+                    {liveDegreeLed(i + 1)}
+                    {selectedDegree === i + 1 && (
+                      <button
+                        type="button"
+                        class="degree-gutter__delete"
+                        aria-label={`delete scale degree ${i + 1}`}
+                        title={`Delete scale degree ${i + 1}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeDegree(i + 1);
+                        }}
+                      >
+                        <span class="degree-gutter__delete-glyph" aria-hidden="true">
+                          ×
+                        </span>
+                      </button>
+                    )}
+                    <span class="degree-gutter__number">{degree}</span>
+                  </span>
+                  <div class="freq-cell">
+                    <ScalaInput
+                      context="degree"
+                      commitNegative
+                      name={`scale${i}`}
+                      value={freq}
+                      onChange={(str) => scaleCommitAt(i, str, i + 1)}
+                      showCents={!String(freq).includes(".")}
+                      aria-label={`pitch value ${i}`}
+                    />
+                    <TuneCell
+                      key={`tune${i + 1}-${props.importCount}`}
+                      scaleStr={(props.settings.scale || [])[i] || String(freq)}
+                      degree={i + 1}
+                      committedInterval={getRowRuntimeAtDegree(i + 1).committedInterval}
+                      committedCents={getRowRuntimeAtDegree(i + 1).committedCents}
+                      workspace={workspace}
+                      settings={props.settings}
+                      frequencyAtDegree={frequencyAtDegree}
+                      searchPrefs={searchPrefs}
+                      keysRef={props.keysRef}
+                      reference_degree={props.settings.reference_degree}
+                      fundamental={props.settings.fundamental}
+                      retuning_mode={props.settings.retuning_mode}
+                      previewState={previewState}
+                      onPreviewChange={onPreviewChange}
+                      resetVersion={resetVersion[i + 1] ?? 0}
+                      hejiAnchorLabelEff={props.heji_anchor_label_eff}
+                      hejiAnchorRatioEff={props.heji_anchor_ratio_eff}
+                      colorSuggestionOptions={autoColorOptions}
+                      onChange={(newStr) => {
+                        const next = [...(props.settings.scale || [])];
+                        next[i] = newStr;
+                        props.onChange("scale", next);
+                      }}
+                      onFundamentalChange={(newFreq, newStr) => {
+                        if (newStr !== undefined) {
+                          const next = [...(props.settings.scale || [])];
+                          next[i] = newStr;
+                          props.onAtomicChange({ fundamental: newFreq, scale: next });
+                        } else {
+                          props.onChange("fundamental", newFreq);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </td>
+              <td class="scale-frequency-col">
+                <FrequencyInput
+                  ariaLabel={`pitch frequency ${i + 1}`}
+                  value={displayedFrequencyAtDegree(i + 1)}
+                  onCommit={(frequency) => commitFrequencyAtDegree(i + 1, frequency)}
+                  deviationCents={deviationCentsAtDegree(i + 1)}
+                  comparing={isComparingAtDegree(i + 1)}
+                  liveModulated={modulationDisplayActive || !!liveRowAtDegree(i + 1)}
+                />
+              </td>
+              <td class="scale-name-col">
+                {isHeji ? (
+                  <input
+                    key={`heji-name-${i + 1}-${displayedHejiNameAtDegree(i + 1)}`}
+                    type="text"
+                    class={`heji-name-cell heji-name-input${modulationDisplayActive || liveRowAtDegree(i + 1) ? " heji-name-cell--modulated" : ""}${liveRowAtDegree(i + 1)?.mixed ? " heji-name-cell--mixed" : ""}`}
+                    defaultValue={displayedHejiNameAtDegree(i + 1)}
+                    title={liveHejiTitleAtDegree(i + 1)}
+                    aria-label={`heji pitch name ${i + 1}`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    onBlur={(e) => {
+                      commitHejiNameAtDegree(i + 1, e.currentTarget.value);
+                    }}
+                  />
+                ) : (
+                  <input
+                    id="centered"
+                    type="text"
+                    name={`name${i + 1}`}
+                    value={draftNoteNames[`name${i + 1}`] ?? name}
+                    onInput={nameChange}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitNameChange(`name${i + 1}`, e.currentTarget.value);
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    onBlur={(e) => {
+                      commitNameChange(`name${i + 1}`, e.currentTarget.value);
+                    }}
+                    aria-label={`pitch name ${i + 1}`}
+                  />
+                )}
+              </td>
+              <td class="scale-color-col">
+                {(() => {
+                  const suggestion = getSuggestedColorAtDegree(i + 1);
+                  const displayedColor = getDisplayedColorAtDegree(i + 1);
+                  const showSuggestion =
+                    suggestion &&
+                    normaliseColorForCompare(suggestion.screenHex) !==
+                      normaliseColorForCompare(displayedColor);
+                  return (
+                    <ColorCell
+                      name={`color${i + 1}`}
+                      value={displayedColor}
+                      disabled={editable_colors}
+                      onChange={colorChange}
+                      suggestedColor={showSuggestion ? suggestion.screenHex : null}
+                      suggestedLabel={showSuggestion ? (suggestion.explanation ?? "") : ""}
+                      onPreviewColor={(previewHex) => previewColorAt(i + 1, previewHex)}
+                    />
+                  );
+                })()}
+              </td>
+            </tr>
+          ))}
           <tr
-            key={`${i + 1}-${props.importCount}`}
+            key={`equiv-${props.importCount}`}
             class={
-              [
-                props.settings.reference_degree === i + 1 ? "reference-degree-row" : "",
-                props.settings.center_degree === i + 1 ? "center-degree-row" : "",
-                dropTargetDegree === i + 1 ? "scale-row--drop-target" : "",
-                dropTargetDegree === i + 1 && dropTargetSide === "before" ? "scale-row--drop-target-before" : "",
-                dropTargetDegree === i + 1 && dropTargetSide === "after" ? "scale-row--drop-target-after" : "",
-                selectedDegree === i + 1 ? "scale-row--selected" : "",
-              ]
-                .filter(Boolean)
-                .join(" ") || undefined
+              props.settings.reference_degree === scale.length ? "reference-degree-row" : undefined
             }
-            onDragOver={(e) => {
-              e.preventDefault();
-              updateDropTarget(e, i + 1);
-            }}
-            onDragEnter={(e) => {
-              e.preventDefault();
-              updateDropTarget(e, i + 1);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              const rowDegree = i + 1;
-              const sourceDegree = draggedDegreeRef.current ?? draggedDegree;
-              const cachedTargetDegree = dropTargetDegreeRef.current;
-              const useCachedTarget = cachedTargetDegree != null
-                && !(cachedTargetDegree === sourceDegree && rowDegree !== sourceDegree);
-              const targetDegree = useCachedTarget ? cachedTargetDegree : rowDegree;
-              const side = useCachedTarget && cachedTargetDegree === rowDegree
-                ? dropTargetSideRef.current
-                : getDropSide(e);
-              commitDraggedDegree(targetDegree, side);
-              draggedDegreeRef.current = null;
-              dropTargetDegreeRef.current = null;
-              dropTargetSideRef.current = "before";
-              setDraggedDegree(null);
-              setDropTargetDegree(null);
-              setDropTargetSide("before");
-            }}
           >
             <td class="scale-data-col">
               <div class="scale-degree-cell">
                 <span
-                  class={degreeGutterClass(i + 1, `degree-gutter--draggable${draggedDegree === i + 1 ? " degree-gutter--dragging" : ""}${selectedDegree === i + 1 ? " degree-gutter--selected" : ""}`)}
-                  aria-label={`scale degree gutter ${i + 1}`}
-                  draggable="true"
-                  title="Drag to reorder this scale degree"
-                  onClick={() => {
-                    setSelectedDegree((prev) => (prev === i + 1 ? null : i + 1));
-                  }}
-                  onDragStart={(e) => {
-                    draggedDegreeRef.current = i + 1;
-                    dropTargetDegreeRef.current = null;
-                    dropTargetSideRef.current = "before";
-                    setDraggedDegree(i + 1);
-                    setDropTargetDegree(null);
-                    setDropTargetSide("before");
-                    setSelectedDegree(null);
-                    e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData("text/plain", String(i + 1));
-                  }}
-                  onDragEnd={() => {
-                    draggedDegreeRef.current = null;
-                    dropTargetDegreeRef.current = null;
-                    dropTargetSideRef.current = "before";
-                    setDraggedDegree(null);
-                    setDropTargetDegree(null);
-                    setDropTargetSide("before");
-                  }}
+                  class={degreeGutterClass(scale.length)}
+                  aria-label="scale degree gutter equave"
                 >
-                  {liveDegreeLed(i + 1)}
-                  {selectedDegree === i + 1 && (
-                    <button
-                      type="button"
-                      class="degree-gutter__delete"
-                      aria-label={`delete scale degree ${i + 1}`}
-                      title={`Delete scale degree ${i + 1}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeDegree(i + 1);
-                      }}
-                    >
-                      <span class="degree-gutter__delete-glyph" aria-hidden="true">×</span>
-                    </button>
-                  )}
-                  <span class="degree-gutter__number">{degree}</span>
+                  {liveDegreeLed(scale.length)}
+                  <span class="degree-gutter__number">{scale.length}</span>
                 </span>
                 <div class="freq-cell">
                   <ScalaInput
-                    context="degree"
+                    context="interval"
                     commitNegative
-                    name={`scale${i}`}
-                    value={freq}
-                    onChange={(str) => scaleCommitAt(i, str, i + 1)}
-                    showCents={!String(freq).includes(".")}
-                    aria-label={`pitch value ${i}`}
+                    name={`scale${scale.length - 1}`}
+                    value={equiv_interval}
+                    onChange={(str) => scaleCommitAt(scale.length - 1, str, scale.length)}
+                    showCents={!String(equiv_interval).includes(".")}
+                    aria-label={`pitch ${scale.length - 1}`}
                   />
-                  <TuneCell
-                    key={`tune${i + 1}-${props.importCount}`}
-                    scaleStr={(props.settings.scale || [])[i] || String(freq)}
-                    degree={i + 1}
-                    committedInterval={getRowRuntimeAtDegree(i + 1).committedInterval}
-                  committedCents={getRowRuntimeAtDegree(i + 1).committedCents}
-                  workspace={workspace}
-                  settings={props.settings}
-                  frequencyAtDegree={frequencyAtDegree}
-                  searchPrefs={searchPrefs}
-                  keysRef={props.keysRef}
-                  reference_degree={props.settings.reference_degree}
-                  fundamental={props.settings.fundamental}
-                  retuning_mode={props.settings.retuning_mode}
-                  previewState={previewState}
-                  onPreviewChange={onPreviewChange}
-                  resetVersion={resetVersion[i + 1] ?? 0}
-                  hejiAnchorLabelEff={props.heji_anchor_label_eff}
-                  hejiAnchorRatioEff={props.heji_anchor_ratio_eff}
-                  colorSuggestionOptions={autoColorOptions}
-                    onChange={(newStr) => {
-                      const next = [...(props.settings.scale || [])];
-                      next[i] = newStr;
-                      props.onChange("scale", next);
-                    }}
-                    onFundamentalChange={(newFreq, newStr) => {
-                      if (newStr !== undefined) {
-                        const next = [...(props.settings.scale || [])];
-                        next[i] = newStr;
-                        props.onAtomicChange({ fundamental: newFreq, scale: next });
-                      } else {
-                        props.onChange("fundamental", newFreq);
-                      }
-                    }}
-                  />
+                  <div class="tune-cell-spacer" aria-hidden="true" />
                 </div>
               </div>
             </td>
             <td class="scale-frequency-col">
               <FrequencyInput
-                ariaLabel={`pitch frequency ${i + 1}`}
-                value={displayedFrequencyAtDegree(i + 1)}
-                onCommit={(frequency) => commitFrequencyAtDegree(i + 1, frequency)}
-                deviationCents={deviationCentsAtDegree(i + 1)}
-                comparing={isComparingAtDegree(i + 1)}
-                liveModulated={modulationDisplayActive || !!liveRowAtDegree(i + 1)}
+                ariaLabel="equave frequency"
+                value={frequencyAtDegree(scale.length)}
+                onCommit={(frequency) => commitFrequencyAtDegree(scale.length, frequency)}
+                deviationCents={deviationCentsAtDegree(scale.length)}
+                comparing={isComparingAtDegree(scale.length)}
+                liveModulated={modulationDisplayActive}
               />
             </td>
             <td class="scale-name-col">
               {isHeji ? (
-                <input
-                  key={`heji-name-${i + 1}-${displayedHejiNameAtDegree(i + 1)}`}
-                  type="text"
-                  class={`heji-name-cell heji-name-input${modulationDisplayActive || liveRowAtDegree(i + 1) ? " heji-name-cell--modulated" : ""}${liveRowAtDegree(i + 1)?.mixed ? " heji-name-cell--mixed" : ""}`}
-                  defaultValue={displayedHejiNameAtDegree(i + 1)}
-                  title={liveHejiTitleAtDegree(i + 1)}
-                  aria-label={`heji pitch name ${i + 1}`}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.currentTarget.blur();
-                  }}
-                  onBlur={(e) => {
-                    commitHejiNameAtDegree(i + 1, e.currentTarget.value);
-                  }}
-                />
+                <span
+                  class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}
+                >
+                  {heji_names[0] ?? ""}
+                </span>
               ) : (
                 <input
                   id="centered"
                   type="text"
-                  name={`name${i + 1}`}
-                  value={draftNoteNames[`name${i + 1}`] ?? name}
-                  onInput={nameChange}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      commitNameChange(`name${i + 1}`, e.currentTarget.value);
-                      e.currentTarget.blur();
-                    }
-                  }}
-                  onBlur={(e) => {
-                    commitNameChange(`name${i + 1}`, e.currentTarget.value);
-                  }}
-                  aria-label={`pitch name ${i + 1}`}
+                  disabled
+                  class="equiv-cell"
+                  value={note_names[0] || ""}
+                  aria-label="pitch name equave"
                 />
               )}
             </td>
             <td class="scale-color-col">
-              {(() => {
-                const suggestion = getSuggestedColorAtDegree(i + 1);
-                const displayedColor = getDisplayedColorAtDegree(i + 1);
-                const showSuggestion =
-                  suggestion &&
-                  normaliseColorForCompare(suggestion.screenHex) !== normaliseColorForCompare(displayedColor);
-                return (
-              <ColorCell
-                name={`color${i + 1}`}
-                value={displayedColor}
-                disabled={editable_colors}
-                onChange={colorChange}
-                suggestedColor={showSuggestion ? suggestion.screenHex : null}
-                suggestedLabel={showSuggestion ? suggestion.explanation ?? "" : ""}
-                onPreviewColor={(previewHex) => previewColorAt(i + 1, previewHex)}
-              />
-                );
-              })()}
+              <span class="scale-table__equave-label">Equave</span>
             </td>
           </tr>
-        ))}
-        <tr
-          key={`equiv-${props.importCount}`}
-          class={
-            props.settings.reference_degree === scale.length ? "reference-degree-row" : undefined
-          }
-        >
-          <td class="scale-data-col">
-            <div class="scale-degree-cell">
-              <span class={degreeGutterClass(scale.length)} aria-label="scale degree gutter equave">
-                {liveDegreeLed(scale.length)}
-                <span class="degree-gutter__number">{scale.length}</span>
-              </span>
-              <div class="freq-cell">
-                <ScalaInput
-                  context="interval"
-                  commitNegative
-                  name={`scale${scale.length - 1}`}
-                  value={equiv_interval}
-                  onChange={(str) => scaleCommitAt(scale.length - 1, str, scale.length)}
-                  showCents={!String(equiv_interval).includes(".")}
-                  aria-label={`pitch ${scale.length - 1}`}
-                />
-                <div class="tune-cell-spacer" aria-hidden="true" />
-              </div>
-            </div>
-          </td>
-          <td class="scale-frequency-col">
-            <FrequencyInput
-              ariaLabel="equave frequency"
-              value={frequencyAtDegree(scale.length)}
-              onCommit={(frequency) => commitFrequencyAtDegree(scale.length, frequency)}
-              deviationCents={deviationCentsAtDegree(scale.length)}
-              comparing={isComparingAtDegree(scale.length)}
-              liveModulated={modulationDisplayActive}
-            />
-          </td>
-          <td class="scale-name-col">
-            {isHeji ? (
-              <span class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}>{heji_names[0] ?? ""}</span>
-            ) : (
-              <input
-                id="centered"
-                type="text"
-                disabled
-                class="equiv-cell"
-                value={note_names[0] || ""}
-                aria-label="pitch name equave"
-              />
-            )}
-          </td>
-          <td class="scale-color-col">
-            <span class="scale-table__equave-label">
-              Equave
-            </span>
-          </td>
-        </tr>
         </tbody>
       </table>
     </div>

@@ -92,19 +92,27 @@ export const deriveOscVolumes = (settings) => {
 };
 
 export const deriveOscQuickRelease = (settings) =>
-  Math.max(0, Math.min(1, localFloat(REGISTRY_BY_KEY.osc_quick_release.key, settings.osc_quick_release ?? 0.5)));
+  Math.max(
+    0,
+    Math.min(
+      1,
+      localFloat(REGISTRY_BY_KEY.osc_quick_release.key, settings.osc_quick_release ?? 0.5),
+    ),
+  );
 
 export const deriveOscQuickReleaseTime = (settings) =>
-  Math.max(0.001, localFloat(REGISTRY_BY_KEY.osc_quick_release_time.key, settings.osc_quick_release_time ?? 0.25));
+  Math.max(
+    0.001,
+    localFloat(REGISTRY_BY_KEY.osc_quick_release_time.key, settings.osc_quick_release_time ?? 0.25),
+  );
 
 export const deriveOscQuickReleaseRasterOnly = (settings) =>
-  localBool(REGISTRY_BY_KEY.osc_quick_release_raster_only.key, settings.osc_quick_release_raster_only ?? true);
+  localBool(
+    REGISTRY_BY_KEY.osc_quick_release_raster_only.key,
+    settings.osc_quick_release_raster_only ?? true,
+  );
 
-export const shouldFlushSoundingNotesForFreshOscActivation = (
-  keys,
-  wantOsc,
-  currentOscSynth,
-) => {
+export const shouldFlushSoundingNotesForFreshOscActivation = (keys, wantOsc, currentOscSynth) => {
   if (!wantOsc) return false;
   if (currentOscSynth) return false;
   return !!keys?.hasSoundingNotes?.();
@@ -183,29 +191,27 @@ export const resolveBidirectionalControllerOutputPort = (
   if (!controller) return null;
 
   const rankedOutputs = Array.from(outputs.values()).map((output, index) => ({ output, index }));
-  const detectedMatch = rankedOutputs
-    .filter(({ output }) => controller.detect(output.name?.toLowerCase() ?? ""))
-    .sort(
-      (a, b) =>
-        lumatonePortPriority(a.output, selectedInput) -
-          lumatonePortPriority(b.output, selectedInput) ||
-        midiPortNameSimilarity(b.output.name, selectedInput?.name) -
-          midiPortNameSimilarity(a.output.name, selectedInput?.name) ||
-        a.index - b.index,
-    )[0]?.output ?? null;
+  const detectedMatch =
+    rankedOutputs
+      .filter(({ output }) => controller.detect(output.name?.toLowerCase() ?? ""))
+      .sort(
+        (a, b) =>
+          lumatonePortPriority(a.output, selectedInput) -
+            lumatonePortPriority(b.output, selectedInput) ||
+          midiPortNameSimilarity(b.output.name, selectedInput?.name) -
+            midiPortNameSimilarity(a.output.name, selectedInput?.name) ||
+          a.index - b.index,
+      )[0]?.output ?? null;
   if (detectedMatch) return detectedMatch;
 
-  const bestNameMatch = rankedOutputs
-    .map(({ output, index }) => ({
-      output,
-      index,
-      similarity: midiPortNameSimilarity(output.name, selectedInput?.name),
-    }))
-    .sort(
-      (a, b) =>
-        b.similarity - a.similarity ||
-        a.index - b.index,
-    )[0] ?? null;
+  const bestNameMatch =
+    rankedOutputs
+      .map(({ output, index }) => ({
+        output,
+        index,
+        similarity: midiPortNameSimilarity(output.name, selectedInput?.name),
+      }))
+      .sort((a, b) => b.similarity - a.similarity || a.index - b.index)[0] ?? null;
 
   // If a manually selected controller geometry is routed through a generic USB
   // MIDI interface like UM-ONE, the output name may not identify the controller
@@ -567,14 +573,17 @@ const useSynthWiring = (
 
     ensureMidiAccess({ sysex: wantsSysex }).then((ok) => {
       if (cancelled || ok) return;
-      setSettings((prev) => {
-        if (!prev.webmidi_enabled && !prev.webmidi_sysex_enabled) return prev;
-        return {
-          ...prev,
-          webmidi_enabled: false,
-          webmidi_sysex_enabled: false,
-        };
-      }, { updateUrl: false });
+      setSettings(
+        (prev) => {
+          if (!prev.webmidi_enabled && !prev.webmidi_sysex_enabled) return prev;
+          return {
+            ...prev,
+            webmidi_enabled: false,
+            webmidi_sysex_enabled: false,
+          };
+        },
+        { updateUrl: false },
+      );
     });
 
     return () => {
@@ -933,9 +942,12 @@ const useSynthWiring = (
     const hakenMpeActive = activeInputControllerId === "hakenaudio";
     const effectiveMpeMode = hakenMpeActive ? "standard" : settings.mpe_mode;
     const effectiveMpePitchbendRange = hakenMpeActive ? 96 : (settings.mpe_pitchbend_range ?? 48);
-    const effectiveMpePitchbendRangeManager = hakenMpeActive ? 2 : (settings.mpe_pitchbend_range_manager ?? 2);
-    const allowMpePlaybackOnSelectedPort =
-      !(reservedHakenOutputId && settings.mpe_device === reservedHakenOutputId);
+    const effectiveMpePitchbendRangeManager = hakenMpeActive
+      ? 2
+      : (settings.mpe_pitchbend_range_manager ?? 2);
+    const allowMpePlaybackOnSelectedPort = !(
+      reservedHakenOutputId && settings.mpe_device === reservedHakenOutputId
+    );
     if (wantMpe && allowMpePlaybackOnSelectedPort) {
       const mpeKey = JSON.stringify([
         settings.mpe_device,
@@ -955,9 +967,7 @@ const useSynthWiring = (
       ]);
       if (mpeSynthRef.current.key === mpeKey && mpeSynthRef.current.synth) {
         mpeSynthRef.current.synth.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
-        mpeSynthRef.current.synth.setAutoGenerateMpeYzEnabled?.(
-          !!settings.mpe_auto_generate_yz,
-        );
+        mpeSynthRef.current.synth.setAutoGenerateMpeYzEnabled?.(!!settings.mpe_auto_generate_yz);
         promises.push(Promise.resolve(mpeSynthRef.current.synth));
       } else {
         promises.push(
@@ -1107,9 +1117,7 @@ const useSynthWiring = (
   }, [settings.mpe_plus_output]);
 
   useEffect(() => {
-    mpeSynthRef.current.synth?.setAutoGenerateMpeYzEnabled?.(
-      !!settings.mpe_auto_generate_yz,
-    );
+    mpeSynthRef.current.synth?.setAutoGenerateMpeYzEnabled?.(!!settings.mpe_auto_generate_yz);
   }, [settings.mpe_auto_generate_yz]);
 
   // Keep synthRef in sync so volume control and preset loading can reach the
@@ -1131,7 +1139,10 @@ const useSynthWiring = (
   // cause the next notes to play at the wrong pitch.
   const isFirstSynthRef = useRef(true);
   useEffect(() => {
-    if (isFirstSynthRef.current) { isFirstSynthRef.current = false; return; }
+    if (isFirstSynthRef.current) {
+      isFirstSynthRef.current = false;
+      return;
+    }
     resetOctave();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resetOctave is stable
   }, [synth]);
@@ -1291,14 +1302,17 @@ const useSynthWiring = (
     if (!input) return;
     const ctrl = resolveControllerPrefsTarget(input, settings.midiin_controller_override);
     if (!ctrl) return;
-    setSettings((s) => {
-      const loadedControllerSettings = loadAnchorSettingsUpdate(ctrl, s);
-      const nextAnchorSettings = hasExplicitPresetControllerAnchor(s, ctrl.id)
-        ? applyPresetControllerAnchor(s, ctrl.id, loadedControllerSettings)
-        : loadedControllerSettings;
-      const changed = Object.entries(nextAnchorSettings).some(([key, value]) => s[key] !== value);
-      return changed ? { ...s, ...nextAnchorSettings } : s;
-    }, { updateUrl: false });
+    setSettings(
+      (s) => {
+        const loadedControllerSettings = loadAnchorSettingsUpdate(ctrl, s);
+        const nextAnchorSettings = hasExplicitPresetControllerAnchor(s, ctrl.id)
+          ? applyPresetControllerAnchor(s, ctrl.id, loadedControllerSettings)
+          : loadedControllerSettings;
+        const changed = Object.entries(nextAnchorSettings).some(([key, value]) => s[key] !== value);
+        return changed ? { ...s, ...nextAnchorSettings } : s;
+      },
+      { updateUrl: false },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable state setter; settingsRef is a stable ref
   }, [
     midi,
@@ -1422,7 +1436,14 @@ const useSynthWiring = (
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override, settings.lumatone_out_port]); // midiTick forces re-run on device connect/disconnect
+  }, [
+    midi,
+    midiTick,
+    midiAccess,
+    settings.midiin_device,
+    settings.midiin_controller_override,
+    settings.lumatone_out_port,
+  ]); // midiTick forces re-run on device connect/disconnect
 
   // When the active MIDI input is an Exquis, resolve both raw Web MIDI ports.
   // Output is needed for SysEx sends (LED colors, dev mode).
@@ -1443,7 +1464,14 @@ const useSynthWiring = (
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, midiAccess, settings.midiin_device, settings.midiin_controller_override, settings.exquis_out_port]); // midiTick forces re-run on device connect/disconnect
+  }, [
+    midi,
+    midiTick,
+    midiAccess,
+    settings.midiin_device,
+    settings.midiin_controller_override,
+    settings.exquis_out_port,
+  ]); // midiTick forces re-run on device connect/disconnect
 
   // When the active MIDI input is a LinnStrument 128, resolve the matching raw
   // Web MIDI output port for NRPN configuration sends and CC LED updates.
@@ -1463,7 +1491,13 @@ const useSynthWiring = (
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override, settings.linnstrument_out_port]); // midiTick forces re-run on device connect/disconnect
+  }, [
+    midi,
+    midiTick,
+    settings.midiin_device,
+    settings.midiin_controller_override,
+    settings.linnstrument_out_port,
+  ]); // midiTick forces re-run on device connect/disconnect
 
   const hakenRawPorts = useMemo(() => {
     if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return null;
@@ -1480,7 +1514,13 @@ const useSynthWiring = (
     if (!rawOut) return null;
     return { input: rawIn, output: rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [midi, midiTick, settings.midiin_device, settings.midiin_controller_override, settings.hakenaudio_out_port]);
+  }, [
+    midi,
+    midiTick,
+    settings.midiin_device,
+    settings.midiin_controller_override,
+    settings.hakenaudio_out_port,
+  ]);
 
   return {
     synth,

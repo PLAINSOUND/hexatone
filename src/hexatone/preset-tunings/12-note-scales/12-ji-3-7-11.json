@@ -19,20 +19,7 @@
   "short_description": "12-JI-3.7.11",
   "built_in_group": "12 Note Scales",
   "key_labels": "note_names",
-  "note_names": [
-    "C",
-    "C",
-    "D",
-    "E",
-    "F",
-    "F",
-    "F",
-    "G",
-    "A",
-    "A",
-    "B",
-    "B"
-  ],
+  "note_names": ["C", "C", "D", "E", "F", "F", "F", "G", "A", "A", "B", "B"],
   "note_colors": [
     "#ffa3a3",
     "#dfffd6",

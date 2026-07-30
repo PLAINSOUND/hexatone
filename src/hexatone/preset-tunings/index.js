@@ -59,10 +59,7 @@ export function buildFilePresetTuningGroups({
   const registryOrder = registryCategories
     .map((entry) => entry?.slug)
     .filter((slug) => typeof slug === "string");
-  const discoveredSlugs = new Set([
-    ...presetsByCategory.keys(),
-    ...registryBySlug.keys(),
-  ]);
+  const discoveredSlugs = new Set([...presetsByCategory.keys(), ...registryBySlug.keys()]);
 
   const categoryEntries = [...discoveredSlugs].map((slug) => {
     const metadata = registryBySlug.get(slug);
@@ -86,8 +83,12 @@ export function buildFilePresetTuningGroups({
     const orderIndex = new Map(entry.order.map((slug, index) => [slug, index]));
     const settings = [...(presetsByCategory.get(entry.slug) ?? [])]
       .sort((a, b) => {
-        const aIndex = orderIndex.has(a.__fileSlug) ? orderIndex.get(a.__fileSlug) : Number.POSITIVE_INFINITY;
-        const bIndex = orderIndex.has(b.__fileSlug) ? orderIndex.get(b.__fileSlug) : Number.POSITIVE_INFINITY;
+        const aIndex = orderIndex.has(a.__fileSlug)
+          ? orderIndex.get(a.__fileSlug)
+          : Number.POSITIVE_INFINITY;
+        const bIndex = orderIndex.has(b.__fileSlug)
+          ? orderIndex.get(b.__fileSlug)
+          : Number.POSITIVE_INFINITY;
         if (aIndex !== bIndex) return aIndex - bIndex;
         return a.name.localeCompare(b.name);
       })
@@ -120,9 +121,13 @@ export function findPresetTuningByName(name) {
 }
 
 export const defaultTuningRecord =
-  presetTuningGroups.flatMap((group) => group.settings)[0] ?? normalizeTuningRecord({
-    name: "Untitled Tuning",
-    description: "",
-    scale: ["2/1"],
-    key_colors_mode: "auto",
-  }, { allowEmptyScale: false });
+  presetTuningGroups.flatMap((group) => group.settings)[0] ??
+  normalizeTuningRecord(
+    {
+      name: "Untitled Tuning",
+      description: "",
+      scale: ["2/1"],
+      key_colors_mode: "auto",
+    },
+    { allowEmptyScale: false },
+  );

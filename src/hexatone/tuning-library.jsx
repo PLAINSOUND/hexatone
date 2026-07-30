@@ -75,46 +75,46 @@ const TuningLibrary = ({
 
   const builtInValue = activeBuiltInName || "";
   const userValue = activeUserName || "";
-  const orderedUserTunings = useMemo(
-    () => orderPresetsByName(userTunings),
-    [userTunings],
+  const orderedUserTunings = useMemo(() => orderPresetsByName(userTunings), [userTunings]);
+  const workspaceRecord = useMemo(
+    () =>
+      settingsToTuningRecord(settings, {
+        modulation_library: currentModulationLibrary,
+      }),
+    [currentModulationLibrary, settings],
   );
-  const workspaceRecord = useMemo(() => settingsToTuningRecord(settings, {
-    modulation_library: currentModulationLibrary,
-  }), [currentModulationLibrary, settings]);
   const existingUserTuning = useMemo(
     () => userTunings.find((entry) => entry.name === tuningName) ?? null,
     [tuningName, userTunings],
   );
   const attachedUserTuning = useMemo(
-    () => (
+    () =>
       activeSource === "user" && activePresetName
-        ? userTunings.find((entry) => entry.name === activePresetName) ?? null
-        : null
-    ),
+        ? (userTunings.find((entry) => entry.name === activePresetName) ?? null)
+        : null,
     [activePresetName, activeSource, userTunings],
   );
   const showWorkspaceActions = !!activeSource || (hasWorkspace && !!tuningName);
-  const saveLabel = activeSource === "builtin"
-    ? "Save current settings in user library"
-    : existingUserTuning && (!attachedUserTuning || existingUserTuning.name !== attachedUserTuning.name)
-      ? "Save current settings and overwrite user preset"
-    : "Save current settings";
-  const hasUnsavedWorkspace = !!workspaceRecord && (
-    (!activeSource && !!tuningName) ||
-    (activeSource === "builtin" && !!isPresetDirty) ||
-    (activeSource === "user" && (
-      (activePresetName ? !!isPresetDirty : !!tuningName)
-      || activePresetName !== tuningName
-    ))
-  );
+  const saveLabel =
+    activeSource === "builtin"
+      ? "Save current settings in user library"
+      : existingUserTuning &&
+          (!attachedUserTuning || existingUserTuning.name !== attachedUserTuning.name)
+        ? "Save current settings and overwrite user preset"
+        : "Save current settings";
+  const hasUnsavedWorkspace =
+    !!workspaceRecord &&
+    ((!activeSource && !!tuningName) ||
+      (activeSource === "builtin" && !!isPresetDirty) ||
+      (activeSource === "user" &&
+        ((activePresetName ? !!isPresetDirty : !!tuningName) || activePresetName !== tuningName)));
 
   const handleBuiltInSelect = (e) => {
     const nextName = e.currentTarget.value;
     if (!nextName) return;
-    const target = presetGroups
-      .flatMap((group) => group.settings)
-      .find((entry) => entry.name === nextName) ?? null;
+    const target =
+      presetGroups.flatMap((group) => group.settings).find((entry) => entry.name === nextName) ??
+      null;
     if (!target) return;
     if (
       hasUnsavedWorkspace &&
@@ -158,9 +158,8 @@ const TuningLibrary = ({
       return;
     }
     const attachedName = attachedUserTuning?.name ?? "";
-    const conflictingTuning = userTunings.find(
-      (entry) => entry.name === tuningName && entry.name !== attachedName,
-    ) ?? null;
+    const conflictingTuning =
+      userTunings.find((entry) => entry.name === tuningName && entry.name !== attachedName) ?? null;
 
     if (
       conflictingTuning &&
@@ -200,25 +199,28 @@ const TuningLibrary = ({
     onSaveActionStateChange?.(
       showWorkspaceActions
         ? {
-          visible: true,
-          label: saveLabel,
-          action: handleSave,
-        }
+            visible: true,
+            label: saveLabel,
+            action: handleSave,
+          }
         : {
-          visible: false,
-          label: "",
-          action: null,
-        },
+            visible: false,
+            label: "",
+            action: null,
+          },
     );
   }, [handleSave, onSaveActionStateChange, saveLabel, showWorkspaceActions]);
 
-  useEffect(() => () => {
-    onSaveActionStateChange?.({
-      visible: false,
-      label: "",
-      action: null,
-    });
-  }, [onSaveActionStateChange]);
+  useEffect(
+    () => () => {
+      onSaveActionStateChange?.({
+        visible: false,
+        label: "",
+        action: null,
+      });
+    },
+    [onSaveActionStateChange],
+  );
 
   useEffect(() => {
     if (typeof onPrimarySaveVisibilityChange !== "function") return undefined;
@@ -273,9 +275,11 @@ const TuningLibrary = ({
   };
 
   const handleExport = () => {
-    const json = serializeTuningRecord(settingsToTuningRecord(settings, {
-      modulation_library: currentModulationLibrary,
-    }));
+    const json = serializeTuningRecord(
+      settingsToTuningRecord(settings, {
+        modulation_library: currentModulationLibrary,
+      }),
+    );
     if (!json) {
       setError("There is no valid tuning to export.");
       return;
@@ -307,8 +311,9 @@ const TuningLibrary = ({
   };
 
   const handleImportFiles = async (e) => {
-    const files = Array.from(e.currentTarget?.files ?? e.target?.files ?? [])
-      .filter((file) => /\.(scl|ascl|json)$/i.test(file.name));
+    const files = Array.from(e.currentTarget?.files ?? e.target?.files ?? []).filter((file) =>
+      /\.(scl|ascl|json)$/i.test(file.name),
+    );
     if (!files.length) return;
 
     if (
@@ -369,7 +374,8 @@ const TuningLibrary = ({
     for (const file of files) {
       const parsed = await parseImportedFile(file);
       for (const record of parsed) {
-        const baseName = String(record?.name ?? "").trim() || file.name.replace(/\.(json|scl|ascl)$/i, "");
+        const baseName =
+          String(record?.name ?? "").trim() || file.name.replace(/\.(json|scl|ascl)$/i, "");
         const taken = [...userTunings, ...imported];
         const needsRename = taken.some((entry) => entry.name === baseName);
         const name = needsRename ? uniqueTuningName(baseName, taken) : baseName;
@@ -417,11 +423,7 @@ const TuningLibrary = ({
           <b>Built-in Tunings</b>
         </legend>
         <label class="preset-selector-row">
-          <select
-            aria-label="Built-in tunings"
-            value={builtInValue}
-            onChange={handleBuiltInSelect}
-          >
+          <select aria-label="Built-in tunings" value={builtInValue} onChange={handleBuiltInSelect}>
             <option value="">Choose a built-in tuning:</option>
             {presetGroups.map((group) => (
               <optgroup key={group.name} label={group.name}>
@@ -508,11 +510,10 @@ const TuningLibrary = ({
             <select aria-label="User tunings" value={userValue} onChange={handleUserSelect}>
               <option value="">Choose a user tuning:</option>
               {orderedUserTunings.map((entry) => {
-                const isDirtyActivePreset = (
+                const isDirtyActivePreset =
                   activeSource === "user" &&
                   entry.name === activePresetName &&
-                  (isPresetDirty || tuningName !== activePresetName)
-                );
+                  (isPresetDirty || tuningName !== activePresetName);
                 return (
                   <option key={entry.name} value={entry.name}>
                     {isDirtyActivePreset ? `${entry.name} *` : entry.name}
@@ -542,10 +543,18 @@ const TuningLibrary = ({
               {confirmClear ? (
                 <span class="preset-actions__confirm">
                   <em class="preset-actions__confirm-text">Clear all user tunings?</em>
-                  <button type="button" class="delete-btn preset-utility-btn settings-form__inline-button--nowrap" onClick={handleClearConfirmed}>
+                  <button
+                    type="button"
+                    class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
+                    onClick={handleClearConfirmed}
+                  >
                     Yes, clear
                   </button>
-                  <button type="button" class="preset-utility-btn settings-form__inline-button--nowrap" onClick={() => setConfirmClear(false)}>
+                  <button
+                    type="button"
+                    class="preset-utility-btn settings-form__inline-button--nowrap"
+                    onClick={() => setConfirmClear(false)}
+                  >
                     Cancel
                   </button>
                 </span>
@@ -581,7 +590,11 @@ const TuningLibrary = ({
               )}
             </span>
             <span class="settings-form__action-group settings-form__action-group--tuning-export">
-              <button type="button" class="preset-utility-btn settings-form__utility-btn--export" onClick={handleExport}>
+              <button
+                type="button"
+                class="preset-utility-btn settings-form__utility-btn--export"
+                onClick={handleExport}
+              >
                 Export .json
               </button>
             </span>

@@ -27,10 +27,7 @@ const clampContinuous7 = (value) => Math.max(0, Math.min(127, Number(value) || 0
 
 export function velocityTarget(velocity, range, center) {
   const normalizedRange = Math.max(0, Math.min(1, Number(range) || 0));
-  return clamp7(
-    clamp7(velocity) * normalizedRange +
-    (1 - normalizedRange) * clamp7(center),
-  );
+  return clamp7(clamp7(velocity) * normalizedRange + (1 - normalizedRange) * clamp7(center));
 }
 
 export function pressureTarget(pressure, velocityBase, range) {
@@ -48,8 +45,7 @@ export function releaseRampDuration(
   factor = AUTO_MPE_YZ_DEFAULTS.releaseVelocityLagFactor,
   pivot = AUTO_MPE_YZ_DEFAULTS.releaseVelocityPivot,
 ) {
-  return Math.max(0, clamp7(pivot) - clamp7(velocity)) *
-    Math.max(0, Number(factor) || 0);
+  return Math.max(0, clamp7(pivot) - clamp7(velocity)) * Math.max(0, Number(factor) || 0);
 }
 
 function rampValue(ramp, at) {
@@ -241,27 +237,22 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
         generation,
       });
       const safeDuration = Math.max(0, Number(duration) || 0);
-      const firstSampleAt =
-        Math.floor(requestedAt / sampleMs) * sampleMs + sampleMs;
+      const firstSampleAt = Math.floor(requestedAt / sampleMs) * sampleMs + sampleMs;
       if (timestampFirstSample && safeDuration > 0 && firstSampleAt < requestedAt + safeDuration) {
         const progress = (firstSampleAt - requestedAt) / safeDuration;
-        sendTimestamped({
-          channel,
-          generation,
-          y: clamp7(from.y + (clamp7(y) - from.y) * progress),
-          z: clamp7(from.z + (clamp7(z) - from.z) * progress),
-        }, firstSampleAt);
+        sendTimestamped(
+          {
+            channel,
+            generation,
+            y: clamp7(from.y + (clamp7(y) - from.y) * progress),
+            z: clamp7(from.z + (clamp7(z) - from.z) * progress),
+          },
+          firstSampleAt,
+        );
       }
       return;
     }
-    const active = fallbackEngine.schedule(
-      channel,
-      y,
-      z,
-      duration,
-      requestedAt,
-      generation,
-    );
+    const active = fallbackEngine.schedule(channel, y, z, duration, requestedAt, generation);
     if (active) startFallbackTimer();
   };
 
@@ -367,13 +358,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
         AUTO_MPE_YZ_DEFAULTS.zCenter,
       );
       const duration = velocityRampDuration(velocity);
-      scheduleDirect(
-        channel,
-        y,
-        z,
-        duration,
-        start,
-      );
+      scheduleDirect(channel, y, z, duration, start);
     },
 
     pressure(channel, pressure, velocity, at) {
@@ -404,8 +389,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       const onsetAt = onsetTimes.get(channel);
       const lookbackMs = Math.max(
         0,
-        Number(options.releaseStateLookbackMs ??
-          AUTO_MPE_YZ_DEFAULTS.releaseStateLookbackMs) || 0,
+        Number(options.releaseStateLookbackMs ?? AUTO_MPE_YZ_DEFAULTS.releaseStateLookbackMs) || 0,
       );
       const canLookBack = Number.isFinite(onsetAt) && start - onsetAt >= lookbackMs;
       // Release velocity controls a steeper curve than onset velocity. Values

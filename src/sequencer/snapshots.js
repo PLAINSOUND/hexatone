@@ -20,11 +20,11 @@ const normalize14Bit = (value) => {
   return Math.max(0, Math.min(16256, Math.round(n)));
 };
 
-const timbreToOnsetMod = (value, value14 = null) => 1 + (
-  Number.isFinite(value14)
+const timbreToOnsetMod = (value, value14 = null) =>
+  1 +
+  (Number.isFinite(value14)
     ? Math.max(0, Math.min(16256, Number(value14))) / 16256
-    : Math.max(0, Math.min(127, Number(value) || 0)) / 127
-);
+    : Math.max(0, Math.min(127, Number(value) || 0)) / 127);
 
 const snapshotPitchKey = (midicents) => {
   const n = Number(midicents);
@@ -68,18 +68,15 @@ function synthCentsForSnapshotNote(runtime, note) {
   const centsToRef = centsToReference(runtime.settings, runtime.tuning);
   const fundamental = Number(runtime?.settings?.fundamental);
   const frequency = 440 * Math.pow(2, (Number(note?.midicents) - 69) / 12);
-  if (!Number.isFinite(centsToRef) || !Number.isFinite(fundamental) || fundamental <= 0) return null;
+  if (!Number.isFinite(centsToRef) || !Number.isFinite(fundamental) || fundamental <= 0)
+    return null;
   if (!Number.isFinite(frequency) || frequency <= 0) return null;
   return centsToRef + Math.log2(frequency / fundamental) * 1200;
 }
 
 function attackVelocityOf(hex, settings) {
   return normalizeVelocity(
-    hex?.velocity_played ??
-      hex?.velocity ??
-      hex?._onVel ??
-      settings.midi_velocity ??
-      72,
+    hex?.velocity_played ?? hex?.velocity ?? hex?._onVel ?? settings.midi_velocity ?? 72,
   );
 }
 
@@ -113,22 +110,26 @@ export function captureSnapshot(runtime) {
 
     const displayLabel = String(
       hex?._noteContext?.displayLabel ??
-      runtime.getDisplayLabelAtCoords?.(hex?.coords, {
-        frame: runtime._frameForSoundingHex?.(hex),
-        geometryMode: runtime._geometryModeForSoundingHex?.(hex),
-        settings: runtime._labelSettingsForSoundingHex?.(hex),
-      }) ??
-      "",
+        runtime.getDisplayLabelAtCoords?.(hex?.coords, {
+          frame: runtime._frameForSoundingHex?.(hex),
+          geometryMode: runtime._geometryModeForSoundingHex?.(hex),
+          settings: runtime._labelSettingsForSoundingHex?.(hex),
+        }) ??
+        "",
     ).trim();
     if (displayLabel) entry.displayLabel = displayLabel;
 
-    const ratioText = String(hex?._noteContext?.scaleRatioText ?? hex?._noteContext?.ratioText ?? "").trim();
+    const ratioText = String(
+      hex?._noteContext?.scaleRatioText ?? hex?._noteContext?.ratioText ?? "",
+    ).trim();
     if (ratioText) entry.ratioText = ratioText;
-    if (Array.isArray(hex?._noteContext?.scaleMonzo)) entry.monzo = [...hex._noteContext.scaleMonzo];
+    if (Array.isArray(hex?._noteContext?.scaleMonzo))
+      entry.monzo = [...hex._noteContext.scaleMonzo];
     else if (Array.isArray(hex?._noteContext?.monzo)) entry.monzo = [...hex._noteContext.monzo];
     const modulationRatioText = String(hex?._noteContext?.ratioText ?? "").trim();
     if (modulationRatioText) entry.modulationRatioText = modulationRatioText;
-    if (Array.isArray(hex?._noteContext?.monzo)) entry.modulationMonzo = [...hex._noteContext.monzo];
+    if (Array.isArray(hex?._noteContext?.monzo))
+      entry.modulationMonzo = [...hex._noteContext.monzo];
 
     const pressure = normalize7Bit(hex?._lastAftertouch);
     const pressure14 = normalize14Bit(hex?._lastAftertouch14);
@@ -203,7 +204,7 @@ function applySnapshotExpression(runtime, hex, note) {
   const pressure = normalize7Bit(note.pressure);
   const pressure14 = normalize14Bit(note.pressure14);
   if (pressure != null || pressure14 != null) {
-    const value = pressure ?? (pressure14 >> 7);
+    const value = pressure ?? pressure14 >> 7;
     if (hex.applySnapshotPressure) {
       hex.applySnapshotPressure(value, pressure14);
     } else if (pressure14 != null) {
@@ -216,10 +217,9 @@ function applySnapshotExpression(runtime, hex, note) {
   const timbre = normalize7Bit(note.timbre);
   const timbre14 = normalize14Bit(note.timbre14);
   if (timbre != null || timbre14 != null) {
-    const value = timbre ?? (timbre14 >> 7);
+    const value = timbre ?? timbre14 >> 7;
     const synthRoutesOscModwheel =
-      runtime?.synth?.family === "osc" ||
-      runtime?.synth?.containsFamily?.("osc") === true;
+      runtime?.synth?.family === "osc" || runtime?.synth?.containsFamily?.("osc") === true;
     if (synthRoutesOscModwheel && hex.modwheel) {
       hex.modwheel(value);
       return;
@@ -238,7 +238,8 @@ function activeSnapshotHexesByInstance(runtime) {
   const byInstance = new Map();
   if (!runtime) return byInstance;
   for (const hex of runtime._snapshotHexes ?? []) {
-    const instanceKey = typeof hex?._snapshotInstanceKey === "string" ? hex._snapshotInstanceKey : null;
+    const instanceKey =
+      typeof hex?._snapshotInstanceKey === "string" ? hex._snapshotInstanceKey : null;
     if (instanceKey) byInstance.set(instanceKey, hex);
   }
   return byInstance;
@@ -300,7 +301,7 @@ function nextSnapshotCoords(runtime) {
 function setSnapshotPitchReference(hex, synthCents, noteMidicents, pitchOffsetCents = 0) {
   const safeOffset = Number.isFinite(Number(pitchOffsetCents)) ? Number(pitchOffsetCents) : 0;
   hex._snapshotSourceBaseCents = synthCents - safeOffset;
-  hex._snapshotSourceMidicents = Number(noteMidicents) - (safeOffset / 100);
+  hex._snapshotSourceMidicents = Number(noteMidicents) - safeOffset / 100;
   hex._snapshotAppliedPitchOffsetCents = safeOffset;
 }
 
@@ -374,13 +375,14 @@ export function attackSnapshotGestureNote(runtime, gestureId, note, options = {}
   let hex = null;
   let attacked = false;
   if (options.legato === true && pitchKey) {
-    hex = [...soundingSnapshotHexes(runtime)].find((candidate) => {
-      if (!candidate || candidate.release === true) return false;
-      const candidateKey = candidate._snapshotPitchKey
-        ?? snapshotPitchKey(candidate._snapshotMidicents);
-      const owners = voiceOwners.get(candidate);
-      return candidateKey === pitchKey && !owners?.has(gestureId);
-    }) ?? null;
+    hex =
+      [...soundingSnapshotHexes(runtime)].find((candidate) => {
+        if (!candidate || candidate.release === true) return false;
+        const candidateKey =
+          candidate._snapshotPitchKey ?? snapshotPitchKey(candidate._snapshotMidicents);
+        const owners = voiceOwners.get(candidate);
+        return candidateKey === pitchKey && !owners?.has(gestureId);
+      }) ?? null;
   }
 
   if (hex) {
@@ -463,7 +465,8 @@ export function playSnapshot(runtime, notes, options = {}) {
   const availableHexesByPitch = new Map();
   const availableHexesByInstance = new Map();
   for (const hex of runtime._snapshotHexes ?? []) {
-    const instanceKey = typeof hex?._snapshotInstanceKey === "string" ? hex._snapshotInstanceKey : null;
+    const instanceKey =
+      typeof hex?._snapshotInstanceKey === "string" ? hex._snapshotInstanceKey : null;
     if (instanceKey) availableHexesByInstance.set(instanceKey, hex);
     const key = hex?._snapshotPitchKey ?? snapshotPitchKey(hex?._snapshotMidicents);
     if (!key) continue;
@@ -476,13 +479,13 @@ export function playSnapshot(runtime, notes, options = {}) {
   for (const note of notes) {
     const key = snapshotPitchKey(note.midicents);
     const instanceKey = snapshotInstanceKey(note);
-    const reusedByInstance = instanceKey != null
-      ? (availableHexesByInstance.get(instanceKey) ?? null)
-      : null;
+    const reusedByInstance =
+      instanceKey != null ? (availableHexesByInstance.get(instanceKey) ?? null) : null;
     if (instanceKey != null) availableHexesByInstance.delete(instanceKey);
     let reusedHex = reusedByInstance;
     if (reusedHex) {
-      const previousKey = reusedHex?._snapshotPitchKey ?? snapshotPitchKey(reusedHex?._snapshotMidicents);
+      const previousKey =
+        reusedHex?._snapshotPitchKey ?? snapshotPitchKey(reusedHex?._snapshotMidicents);
       const previousAvailable = previousKey ? (availableHexesByPitch.get(previousKey) ?? []) : [];
       const reusedIndex = previousAvailable.indexOf(reusedHex);
       if (reusedIndex >= 0) previousAvailable.splice(reusedIndex, 1);
@@ -604,7 +607,7 @@ export function retuneActiveSnapshotHexes(runtime, pitchOffsetCents, options = {
     hex._snapshotAppliedPitchOffsetCents = safePitchOffsetCents;
     const sourceMidicents = Number(hex._snapshotSourceMidicents);
     if (Number.isFinite(sourceMidicents)) {
-      const nextMidicents = sourceMidicents + (safePitchOffsetCents / 100);
+      const nextMidicents = sourceMidicents + safePitchOffsetCents / 100;
       hex._snapshotMidicents = nextMidicents;
       hex._snapshotPitchKey = snapshotPitchKey(nextMidicents);
     }

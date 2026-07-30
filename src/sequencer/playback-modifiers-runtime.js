@@ -24,15 +24,13 @@ export function clampSequencePlaybackSpeed(value) {
 export function clampSequencePlaybackPitchCents(value) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return 0;
-  return clamp(
-    numeric,
-    MIN_SEQUENCE_PLAYBACK_PITCH_CENTS,
-    MAX_SEQUENCE_PLAYBACK_PITCH_CENTS,
-  );
+  return clamp(numeric, MIN_SEQUENCE_PLAYBACK_PITCH_CENTS, MAX_SEQUENCE_PLAYBACK_PITCH_CENTS);
 }
 
 export function parseSequencePlaybackSpeedInput(value) {
-  const trimmed = String(value ?? "").trim().replace(/x$/i, "");
+  const trimmed = String(value ?? "")
+    .trim()
+    .replace(/x$/i, "");
   const numeric = Number.parseFloat(trimmed);
   if (!Number.isFinite(numeric)) return null;
   return clampSequencePlaybackSpeed(numeric);
@@ -94,7 +92,7 @@ export function applyPlaybackPitchOffsetToNote(note, cents) {
 
   const currentMidicents = Number(note?.midicents);
   if (!Number.isFinite(currentMidicents)) return note;
-  const nextMidicents = currentMidicents + (offsetCents / 100);
+  const nextMidicents = currentMidicents + offsetCents / 100;
   const nextFrequency = frequencyFromMidicents(nextMidicents);
   if (!Number.isFinite(nextFrequency) || nextFrequency <= 0) return note;
 

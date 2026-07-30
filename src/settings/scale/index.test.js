@@ -14,10 +14,18 @@ import useSettingsChange from "../../hooks/use-settings-change.js";
 vi.mock("./fundamental-tune-cell.js", () => ({
   default: ({ onPreviewChange }) => (
     <div class="tune-cell--inline">
-      <button type="button" title="preview reference frequency" onClick={() => onPreviewChange?.(50, false)}>
+      <button
+        type="button"
+        title="preview reference frequency"
+        onClick={() => onPreviewChange?.(50, false)}
+      >
         preview
       </button>
-      <button type="button" title="compare reference frequency" onClick={() => onPreviewChange?.(50, true)}>
+      <button
+        type="button"
+        title="compare reference frequency"
+        onClick={() => onPreviewChange?.(50, true)}
+      >
         compare
       </button>
     </div>
@@ -98,12 +106,14 @@ describe("Scale panel — default state", () => {
       />,
     );
 
-    const scaleActions = screen.getByRole("button", { name: /edit scala file/i })
+    const scaleActions = screen
+      .getByRole("button", { name: /edit scala file/i })
       .closest(".settings-form__action-group");
     const stickySave = screen.getByRole("button", { name: "Save current settings" });
 
-    expect(scaleActions.compareDocumentPosition(stickySave) & Node.DOCUMENT_POSITION_FOLLOWING)
-      .toBeTruthy();
+    expect(
+      scaleActions.compareDocumentPosition(stickySave) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     fireEvent.click(stickySave);
     expect(save).toHaveBeenCalledTimes(1);
   });
@@ -237,10 +247,7 @@ describe("Scale panel — default state", () => {
             onImport={() => {}}
             keysRef={{ current: { updateColors } }}
           />
-          <button
-            type="button"
-            onClick={() => updateColors(colorSettings)}
-          >
+          <button type="button" onClick={() => updateColors(colorSettings)}>
             sync keyboard colors
           </button>
         </>
@@ -298,10 +305,7 @@ describe("Scale panel — default state", () => {
     expect(equaveInput.value).toBe("1/2");
     expect(onChange).toHaveBeenCalledWith(
       "scale",
-      expect.arrayContaining([
-        expect.any(String),
-        "1/2",
-      ]),
+      expect.arrayContaining([expect.any(String), "1/2"]),
     );
   });
 
@@ -337,13 +341,7 @@ describe("Scale panel — default state", () => {
   });
 
   it("live-updates the reference frequency and scale frequencies during a reference tune drag", () => {
-    render(
-      <Scale
-        settings={minimalSettings}
-        onChange={() => {}}
-        onImport={() => {}}
-      />,
-    );
+    render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
 
     let referenceInput = screen.getByLabelText("reference frequency");
     let degreeZeroComputedInput = screen.getByLabelText("degree 0 frequency");
@@ -365,13 +363,7 @@ describe("Scale panel — default state", () => {
   });
 
   it("shows the original reference frequency in dark red while comparing a tune preview", () => {
-    render(
-      <Scale
-        settings={minimalSettings}
-        onChange={() => {}}
-        onImport={() => {}}
-      />,
-    );
+    render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
 
     fireEvent.click(screen.getByTitle("preview reference frequency"));
     fireEvent.click(screen.getByTitle("compare reference frequency"));
@@ -384,12 +376,7 @@ describe("Scale panel — default state", () => {
 
   it("clears the reference tune preview when the scale reset token changes", () => {
     const { rerender } = render(
-      <Scale
-        settings={minimalSettings}
-        onChange={() => {}}
-        onImport={() => {}}
-        importCount={0}
-      />,
+      <Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} importCount={0} />,
     );
 
     fireEvent.click(screen.getByTitle("preview reference frequency"));
@@ -398,12 +385,7 @@ describe("Scale panel — default state", () => {
     expect(referenceInput.style.color).toBe("rgb(153, 0, 0)");
 
     rerender(
-      <Scale
-        settings={minimalSettings}
-        onChange={() => {}}
-        onImport={() => {}}
-        importCount={1}
-      />,
+      <Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} importCount={1} />,
     );
 
     referenceInput = screen.getByLabelText("reference frequency");

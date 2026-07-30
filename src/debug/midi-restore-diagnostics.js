@@ -38,9 +38,10 @@ export function pushMidiRestoreDiagnostic(state, entry = {}) {
     detail: entry.detail == null ? null : String(entry.detail),
     status: entry.status == null ? null : String(entry.status),
   };
-  const entries = diagnostics.entries.length >= diagnostics.limit
-    ? [...diagnostics.entries.slice(1), normalizedEntry]
-    : [...diagnostics.entries, normalizedEntry];
+  const entries =
+    diagnostics.entries.length >= diagnostics.limit
+      ? [...diagnostics.entries.slice(1), normalizedEntry]
+      : [...diagnostics.entries, normalizedEntry];
   return {
     ...diagnostics,
     entries,

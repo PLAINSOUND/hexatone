@@ -42,15 +42,15 @@ const Scale = (props) => {
 
   const [previewState, setPreviewState] = useState(() => createTuningPreviewState());
   const [liveScaleTableSnapshot, setLiveScaleTableSnapshot] = useState(null);
-  const workspace = useMemo(() => createScaleWorkspace({
-    scale: settingsScale,
-    reference_degree: referenceDegree,
-    fundamental,
-  }), [
-    settingsScale,
-    referenceDegree,
-    fundamental,
-  ]);
+  const workspace = useMemo(
+    () =>
+      createScaleWorkspace({
+        scale: settingsScale,
+        reference_degree: referenceDegree,
+        fundamental,
+      }),
+    [settingsScale, referenceDegree, fundamental],
+  );
 
   useEffect(() => {
     setPreviewState((prev) => clearAllTuningPreviews(prev));
@@ -106,12 +106,15 @@ const Scale = (props) => {
       setFundamentalComparing(setFundamentalPreview(prev, deltaCents), comparing),
     );
   }, []);
-  const handleDegree0FrequencyCommit = useCallback((degree0Frequency) => {
-    const referenceCents = getEffectiveDegreeCents(workspace, previewState, referenceDegree);
-    const nextFundamental = degree0Frequency * Math.pow(2, referenceCents / 1200);
-    setPreviewState((prev) => clearAllTuningPreviews(prev));
-    onChange("fundamental", nextFundamental);
-  }, [workspace, previewState, referenceDegree, onChange]);
+  const handleDegree0FrequencyCommit = useCallback(
+    (degree0Frequency) => {
+      const referenceCents = getEffectiveDegreeCents(workspace, previewState, referenceDegree);
+      const nextFundamental = degree0Frequency * Math.pow(2, referenceCents / 1200);
+      setPreviewState((prev) => clearAllTuningPreviews(prev));
+      onChange("fundamental", nextFundamental);
+    },
+    [workspace, previewState, referenceDegree, onChange],
+  );
 
   // Handle equave change - update the last element of scale array
   const handleEquaveChange = (str) => {
@@ -319,11 +322,7 @@ const Scale = (props) => {
             >
               Add Scale Degree
             </button>
-            <button
-              type="button"
-              class="preset-action-btn"
-              onClick={startImporting}
-            >
+            <button type="button" class="preset-action-btn" onClick={startImporting}>
               Edit Scala File
             </button>
           </div>
@@ -332,18 +331,18 @@ const Scale = (props) => {
       {!props.primaryTuningSaveVisible &&
         props.tuningSaveActionState?.visible &&
         typeof props.tuningSaveActionState.action === "function" && (
-        <div class="settings-form__action-row scale-fieldset__save-row">
-          <span class="settings-form__action-group settings-form__action-group--wrap">
-            <button
-              type="button"
-              class="preset-action-btn"
-              onClick={props.tuningSaveActionState.action}
-            >
-              {props.tuningSaveActionState.label}
-            </button>
-          </span>
-        </div>
-      )}
+          <div class="settings-form__action-row scale-fieldset__save-row">
+            <span class="settings-form__action-group settings-form__action-group--wrap">
+              <button
+                type="button"
+                class="preset-action-btn"
+                onClick={props.tuningSaveActionState.action}
+              >
+                {props.tuningSaveActionState.label}
+              </button>
+            </span>
+          </div>
+        )}
     </fieldset>
   );
 };

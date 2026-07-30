@@ -84,17 +84,16 @@ const LumatoneSettings = ({
       tuningRuntime,
     ],
   );
-  const snapshotFilters = useMemo(() => !showSnapshotFilters ? [] : deriveSnapshotFilterEntries(
-    snapshots,
-    filterRuntime,
-  ).map((entry) => ({
-    ...entry,
-    filter: formatLumatoneDegreeFilter(entry.degrees),
-  })), [
-    filterRuntime,
-    showSnapshotFilters,
-    snapshots,
-  ]);
+  const snapshotFilters = useMemo(
+    () =>
+      !showSnapshotFilters
+        ? []
+        : deriveSnapshotFilterEntries(snapshots, filterRuntime).map((entry) => ({
+            ...entry,
+            filter: formatLumatoneDegreeFilter(entry.degrees),
+          })),
+    [filterRuntime, showSnapshotFilters, snapshots],
+  );
   const matchingGeneratedFilter = useMemo(
     () => snapshotFilters.find((entry) => entry.filter === activeFilter) ?? null,
     [activeFilter, snapshotFilters],
@@ -107,11 +106,12 @@ const LumatoneSettings = ({
     () => snapshotFilters.find((entry) => entry.name === selectedSavedName) ?? null,
     [selectedSavedName, snapshotFilters],
   );
-  const selectedValue = settings.lumatone_degree_filter_mode === LUMATONE_COLOR_FILTER_DARK
-    ? LUMATONE_COLOR_FILTER_DARK
-    : filterActive
-    ? (matchingGeneratedFilter?.id ?? matchingSavedFilter?.name ?? LUMATONE_COLOR_FILTER_CUSTOM)
-    : LUMATONE_COLOR_FILTER_ALL;
+  const selectedValue =
+    settings.lumatone_degree_filter_mode === LUMATONE_COLOR_FILTER_DARK
+      ? LUMATONE_COLOR_FILTER_DARK
+      : filterActive
+        ? (matchingGeneratedFilter?.id ?? matchingSavedFilter?.name ?? LUMATONE_COLOR_FILTER_CUSTOM)
+        : LUMATONE_COLOR_FILTER_ALL;
 
   const applyFilter = (rawFilter, nextSavedName = selectedSavedName, shouldSync = true) => {
     const parsed = parseLumatoneDegreeFilter(rawFilter);
@@ -171,8 +171,9 @@ const LumatoneSettings = ({
       return;
     }
     if (value === LUMATONE_COLOR_FILTER_CUSTOM) return;
-    const entry = snapshotFilters.find((filter) => filter.id === value)
-      ?? savedFilters.find((filter) => filter.name === value);
+    const entry =
+      snapshotFilters.find((filter) => filter.id === value) ??
+      savedFilters.find((filter) => filter.name === value);
     if (!entry) return;
     setSelectedSavedName(entry.name);
     applyFilter(entry.filter, entry.name, true);
@@ -191,10 +192,7 @@ const LumatoneSettings = ({
     }
     const normalizedFilter = formatLumatoneDegreeFilter(parsed);
     const suggestedName = selectedSavedFilter?.name ?? "";
-    const nextName = window.prompt(
-      "Save Lumatone colour filter as:",
-      suggestedName,
-    );
+    const nextName = window.prompt("Save Lumatone colour filter as:", suggestedName);
     if (nextName == null) return;
     const trimmedName = nextName.trim();
     if (!trimmedName) return;
@@ -373,7 +371,9 @@ const LumatoneSettings = ({
                     <option value={LUMATONE_COLOR_FILTER_ALL}>All Degrees</option>
                     <option value={LUMATONE_COLOR_FILTER_DARK}>All Keys Dark</option>
                     {snapshotFilters.length > 0 && (
-                      <option value="__snapshot_separator__" disabled>──────── Snapshots ────────</option>
+                      <option value="__snapshot_separator__" disabled>
+                        ──────── Snapshots ────────
+                      </option>
                     )}
                     {snapshotFilters.map((entry) => (
                       <option key={entry.id} value={entry.id}>
@@ -381,7 +381,9 @@ const LumatoneSettings = ({
                       </option>
                     ))}
                     {savedFilters.length > 0 && (
-                      <option value="__separator__" disabled>──────── User Filters ────────</option>
+                      <option value="__separator__" disabled>
+                        ──────── User Filters ────────
+                      </option>
                     )}
                     {filterActive && selectedValue === LUMATONE_COLOR_FILTER_CUSTOM && (
                       <option value={LUMATONE_COLOR_FILTER_CUSTOM}>Current Custom Filter</option>
@@ -409,7 +411,9 @@ const LumatoneSettings = ({
                         class="preset-refresh-btn lumatone-filter-move-btn"
                         title="Move filter down"
                         aria-label="Move filter down"
-                        disabled={selectedSavedIndex < 0 || selectedSavedIndex >= savedFilters.length - 1}
+                        disabled={
+                          selectedSavedIndex < 0 || selectedSavedIndex >= savedFilters.length - 1
+                        }
                         onClick={() => moveSelectedFilter(1)}
                       >
                         ↓
@@ -424,13 +428,19 @@ const LumatoneSettings = ({
                   checked={showSnapshotFilters}
                   onChange={(e) => {
                     onChange("lumatone_degree_filter_snapshots", e.target.checked);
-                    saveControllerPref?.(null, "lumatone_degree_filter_snapshots", e.target.checked);
+                    saveControllerPref?.(
+                      null,
+                      "lumatone_degree_filter_snapshots",
+                      e.target.checked,
+                    );
                   }}
                 />
                 <em class="settings-form__helper-text">Auto-Generate from Snapshots</em>
               </label>
               <label class="settings-form__inline-label-row">
-                <span class="settings-form__inline-label settings-form__label-nowrap">Scale degrees</span>
+                <span class="settings-form__inline-label settings-form__label-nowrap">
+                  Scale degrees
+                </span>
                 <input
                   type="text"
                   class="sidebar-input settings-form__text-input--wide"

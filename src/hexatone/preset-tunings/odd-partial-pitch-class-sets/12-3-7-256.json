@@ -19,20 +19,7 @@
   "short_description": "OddPartials(3,7)",
   "built_in_group": "Odd Partial Pitch Class Sets",
   "key_labels": "note_names",
-  "note_names": [
-    "1",
-    "9",
-    "147",
-    "81",
-    "21",
-    "189",
-    "3",
-    "49",
-    "27",
-    "7",
-    "243",
-    "63"
-  ],
+  "note_names": ["1", "9", "147", "81", "21", "189", "3", "49", "27", "7", "243", "63"],
   "note_colors": [
     "#ff9b9b",
     "#ffffff",

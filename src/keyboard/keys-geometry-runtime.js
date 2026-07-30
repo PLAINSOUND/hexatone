@@ -16,15 +16,18 @@ export function deriveLiveHexPitch(basePitch, options = {}) {
   const transpositionCents = frame?.transpositionCents ?? 0;
   const scaleLength = options.scaleLength ?? scale.length ?? 1;
 
-  const centsIndex = geometryMode === "moveable_surface"
-    ? basePitch.reducedSteps
-    : labelDegreeFromFrame(basePitch.reducedSteps, { frame, geometryMode, scaleLength });
-  const centsIndexPrev = geometryMode === "moveable_surface"
-    ? basePitch.reducedStepsPrev
-    : labelDegreeFromFrame(basePitch.reducedStepsPrev, { frame, geometryMode, scaleLength });
-  const centsIndexNext = geometryMode === "moveable_surface"
-    ? basePitch.reducedStepsNext
-    : labelDegreeFromFrame(basePitch.reducedStepsNext, { frame, geometryMode, scaleLength });
+  const centsIndex =
+    geometryMode === "moveable_surface"
+      ? basePitch.reducedSteps
+      : labelDegreeFromFrame(basePitch.reducedSteps, { frame, geometryMode, scaleLength });
+  const centsIndexPrev =
+    geometryMode === "moveable_surface"
+      ? basePitch.reducedStepsPrev
+      : labelDegreeFromFrame(basePitch.reducedStepsPrev, { frame, geometryMode, scaleLength });
+  const centsIndexNext =
+    geometryMode === "moveable_surface"
+      ? basePitch.reducedStepsNext
+      : labelDegreeFromFrame(basePitch.reducedStepsNext, { frame, geometryMode, scaleLength });
   const liveReducedSteps = labelDegreeFromFrame(basePitch.reducedSteps, {
     frame,
     geometryMode,
@@ -33,9 +36,7 @@ export function deriveLiveHexPitch(basePitch, options = {}) {
 
   return {
     cents:
-      (basePitch.octs + octOff) * equivInterval +
-      (scale[centsIndex] ?? 0) +
-      transpositionCents,
+      (basePitch.octs + octOff) * equivInterval + (scale[centsIndex] ?? 0) + transpositionCents,
     liveReducedSteps,
     distance: basePitch.distance,
     octs: basePitch.octs,

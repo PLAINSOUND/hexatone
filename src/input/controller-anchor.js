@@ -311,7 +311,10 @@ export function saveAnchor(controller, note, settings = null, overrides = null) 
   const modeKey = getControllerMode(controller, settings, overrides, { preferStored: false });
   const storedNote = controller?.id === "lumatone" && modeKey === "bypass" ? 60 : note;
   if (isModeAwareController(controller)) {
-    localStorage.setItem(getModeScopedStorageKey(controller, modeKey, "anchor"), String(storedNote));
+    localStorage.setItem(
+      getModeScopedStorageKey(controller, modeKey, "anchor"),
+      String(storedNote),
+    );
     saveControllerMode(controller, modeKey);
     return;
   }

@@ -16,11 +16,12 @@ export function firstSnapshotIdForCueIndex(cueIndexOneBased, sequenceEvents = []
   if (!Number.isFinite(targetCueIndex) || targetCueIndex <= 0) return null;
   const snapshotIds = new Set(
     sequenceEvents
-      .filter((event) => (
-        event?.type === "note"
-        && Number(event?.cueIndex) === targetCueIndex
-        && event?.snapshotId != null
-      ))
+      .filter(
+        (event) =>
+          event?.type === "note" &&
+          Number(event?.cueIndex) === targetCueIndex &&
+          event?.snapshotId != null,
+      )
       .map((event) => event.snapshotId),
   );
   return firstSnapshotIdInSet(snapshotIds, snapshots);
@@ -36,13 +37,14 @@ export function mostRecentAttackSnapshotId({
   const constrainedEventIds = attackEventIds instanceof Set ? attackEventIds : null;
   const constrainedSnapshotIds = snapshotIds instanceof Set ? snapshotIds : null;
   const cueLimit = maxCueIndex == null ? null : Number(maxCueIndex);
-  const candidates = sequenceEvents.filter((event) => (
-    event?.type === "note"
-    && event?.kind === "attack"
-    && (!constrainedEventIds || constrainedEventIds.has(event.eventId))
-    && (!constrainedSnapshotIds || constrainedSnapshotIds.has(event.snapshotId))
-    && (cueLimit == null || !Number.isFinite(cueLimit) || Number(event.cueIndex) <= cueLimit)
-  ));
+  const candidates = sequenceEvents.filter(
+    (event) =>
+      event?.type === "note" &&
+      event?.kind === "attack" &&
+      (!constrainedEventIds || constrainedEventIds.has(event.eventId)) &&
+      (!constrainedSnapshotIds || constrainedSnapshotIds.has(event.snapshotId)) &&
+      (cueLimit == null || !Number.isFinite(cueLimit) || Number(event.cueIndex) <= cueLimit),
+  );
   if (candidates.length === 0) return null;
 
   const eventRank = (event) => {
@@ -66,7 +68,7 @@ export function contentSpanFitsViewport({
   stickyHeight = 0,
   gap = 6,
 } = {}) {
-  const usableHeight = Math.max(0, Number(viewportHeight) - Number(stickyHeight) - (2 * Number(gap)));
+  const usableHeight = Math.max(0, Number(viewportHeight) - Number(stickyHeight) - 2 * Number(gap));
   return Number.isFinite(Number(contentHeight)) && Number(contentHeight) <= usableHeight;
 }
 
@@ -85,18 +87,15 @@ export function deriveCueViewportModel({
     };
   }
 
-  const soundingIds = soundingAttackEventIds instanceof Set
-    ? soundingAttackEventIds
-    : new Set();
+  const soundingIds = soundingAttackEventIds instanceof Set ? soundingAttackEventIds : new Set();
   const events = sequenceEvents
     .map((event, sourceOrder) => ({ event, sourceOrder }))
-    .filter(({ event }) => (
-      event?.type === "note"
-      && (
-        Number(event?.cueIndex) === cueIndexOneBased
-        || (event?.kind === "attack" && soundingIds.has(event.eventId))
-      )
-    ))
+    .filter(
+      ({ event }) =>
+        event?.type === "note" &&
+        (Number(event?.cueIndex) === cueIndexOneBased ||
+          (event?.kind === "attack" && soundingIds.has(event.eventId))),
+    )
     // The rendered list groups by snapshot, then retains sequence-event order
     // inside each snapshot. Anchor selection must use that same visual order.
     .sort((left, right) => {
@@ -110,7 +109,9 @@ export function deriveCueViewportModel({
   const latestAttack = events.findLast((event) => event?.kind === "attack") ?? null;
   return {
     eventIds: events.map((event) => event.eventId).filter((eventId) => eventId != null),
-    snapshotIds: new Set(events.map((event) => event.snapshotId).filter((snapshotId) => snapshotId != null)),
+    snapshotIds: new Set(
+      events.map((event) => event.snapshotId).filter((snapshotId) => snapshotId != null),
+    ),
     firstEventId: events[0]?.eventId ?? null,
     // A release-only cue can have no surviving attack. In that case the last
     // cue row is the only deterministic overflow anchor available.
@@ -133,10 +134,7 @@ export function sequenceSoundingAttackEventIdsAtCueIndex(sequenceEvents = [], cu
   return [...activeAttacks.values()];
 }
 
-export function deriveCueViewportPlan({
-  cueIndexZeroBased,
-  sequenceEvents = [],
-} = {}) {
+export function deriveCueViewportPlan({ cueIndexZeroBased, sequenceEvents = [] } = {}) {
   const soundingAttackEventIds = new Set(
     sequenceSoundingAttackEventIdsAtCueIndex(sequenceEvents, cueIndexZeroBased),
   );
@@ -151,7 +149,13 @@ export function deriveCueViewportPlan({
   };
 }
 
-export function buildCueExpandedSnapshotIdsAt(cueIndexZeroBased, renderedSnapshots, sortedBars, sortedTempi, sequenceEvents) {
+export function buildCueExpandedSnapshotIdsAt(
+  cueIndexZeroBased,
+  renderedSnapshots,
+  sortedBars,
+  sortedTempi,
+  sequenceEvents,
+) {
   const cueIndexOneBased = Number(cueIndexZeroBased) + 1;
   if (!Number.isFinite(cueIndexOneBased) || cueIndexOneBased <= 0) return new Set();
   return deriveCueViewportPlan({
@@ -186,9 +190,10 @@ export function deriveSoundingAttackEventIds({
   if (playheadMarkerIndex != null) {
     return new Set(sequenceSoundingAttackEventIdsAtCueIndex(sequenceEvents, playheadMarkerIndex));
   }
-  const activeSnapshot = activeSnapshotId != null
-    ? renderedSnapshots.find((snapshot) => snapshot.id === activeSnapshotId)
-    : renderedSnapshots.find((snapshot) => snapshot.id === playingSnapshotId);
+  const activeSnapshot =
+    activeSnapshotId != null
+      ? renderedSnapshots.find((snapshot) => snapshot.id === activeSnapshotId)
+      : renderedSnapshots.find((snapshot) => snapshot.id === playingSnapshotId);
   if (!activeSnapshot) return new Set();
   return new Set(
     (activeSnapshot.notes ?? [])
@@ -267,10 +272,11 @@ export function deriveCueScrollAnchorTarget({
 }) {
   if (!Number.isFinite(activeCueIndex)) return null;
   const activeCueZeroBased = activeCueIndex - 1;
-  const activeRepeatSection = repeatSections.find((section) => (
-    activeCueZeroBased >= Number(section.startCueIndex) &&
-    activeCueZeroBased <= Number(section.endCueIndex)
-  ));
+  const activeRepeatSection = repeatSections.find(
+    (section) =>
+      activeCueZeroBased >= Number(section.startCueIndex) &&
+      activeCueZeroBased <= Number(section.endCueIndex),
+  );
   if (activeRepeatSection && activeCueZeroBased === Number(activeRepeatSection.startCueIndex)) {
     if (activeRepeatSection.startRepeatId != null) {
       return {

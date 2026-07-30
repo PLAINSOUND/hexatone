@@ -24,15 +24,17 @@ describe("transport intent runtime", () => {
   });
 
   it("arms an inserted or surviving snapshot at a workspace mutation point", () => {
-    expect(resolveWorkspaceMutationTransportState({
-      focus: {
-        kind: "snapshot",
-        snapshotIndex: 2,
-        snapshotId: 30,
-      },
-      snapshots: [{ id: 10 }, { id: 20 }, { id: 30 }],
-      bars: [{ position: 1 }, { position: 3 }],
-    })).toEqual({
+    expect(
+      resolveWorkspaceMutationTransportState({
+        focus: {
+          kind: "snapshot",
+          snapshotIndex: 2,
+          snapshotId: 30,
+        },
+        snapshots: [{ id: 10 }, { id: 20 }, { id: 30 }],
+        bars: [{ position: 1 }, { position: 3 }],
+      }),
+    ).toEqual({
       pendingTransportSelection: {
         snapshotIndex: 2,
         cueIndex: null,
@@ -56,13 +58,15 @@ describe("transport intent runtime", () => {
   });
 
   it("shows sequence end when a deletion leaves nothing at its boundary", () => {
-    expect(resolveWorkspaceMutationTransportState({
-      focus: {
-        kind: "end",
-        snapshotIndex: 2,
-      },
-      snapshots: [{ id: 10 }, { id: 20 }],
-    })).toEqual({
+    expect(
+      resolveWorkspaceMutationTransportState({
+        focus: {
+          kind: "end",
+          snapshotIndex: 2,
+        },
+        snapshots: [{ id: 10 }, { id: 20 }],
+      }),
+    ).toEqual({
       pendingTransportSelection: {
         snapshotIndex: null,
         cueIndex: null,
@@ -86,11 +90,13 @@ describe("transport intent runtime", () => {
   });
 
   it("builds timed playback reset state", () => {
-    expect(buildTimedPlaybackUiResetState({
-      barIndex: 3,
-      stepIndex: 7,
-      markerIndex: 9,
-    })).toEqual({
+    expect(
+      buildTimedPlaybackUiResetState({
+        barIndex: 3,
+        stepIndex: 7,
+        markerIndex: 9,
+      }),
+    ).toEqual({
       clockSeconds: -Infinity,
       stepIndex: 7,
       markerIndex: 9,
@@ -99,15 +105,17 @@ describe("transport intent runtime", () => {
   });
 
   it("builds committed playback state and clears pending intent", () => {
-    expect(buildCommittedSequencePlaybackState({
-      safeStepIndex: 2,
-      safeMarkerIndex: 4,
-      snapshot: { id: "s3" },
-      cueGroup: { snapshotIndex: 2, time: 3.5 },
-      normalizedNotes: [{ id: "n1" }],
-      barIndex: 1,
-      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
-    })).toEqual({
+    expect(
+      buildCommittedSequencePlaybackState({
+        safeStepIndex: 2,
+        safeMarkerIndex: 4,
+        snapshot: { id: "s3" },
+        cueGroup: { snapshotIndex: 2, time: 3.5 },
+        normalizedNotes: [{ id: "n1" }],
+        barIndex: 1,
+        snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+      }),
+    ).toEqual({
       pendingTransportSelection: {
         snapshotIndex: null,
         cueIndex: null,
@@ -128,15 +136,17 @@ describe("transport intent runtime", () => {
   });
 
   it("keeps an empty snapshot as the current stopped transport position", () => {
-    expect(buildCommittedSequencePlaybackState({
-      safeStepIndex: 19,
-      safeMarkerIndex: null,
-      snapshot: { id: "empty-s20" },
-      cueGroup: null,
-      normalizedNotes: [],
-      barIndex: 4,
-      snapshots: [],
-    })).toEqual({
+    expect(
+      buildCommittedSequencePlaybackState({
+        safeStepIndex: 19,
+        safeMarkerIndex: null,
+        snapshot: { id: "empty-s20" },
+        cueGroup: null,
+        normalizedNotes: [],
+        barIndex: 4,
+        snapshots: [],
+      }),
+    ).toEqual({
       pendingTransportSelection: {
         snapshotIndex: null,
         cueIndex: null,
@@ -154,12 +164,14 @@ describe("transport intent runtime", () => {
   });
 
   it("resolves pending snapshot transport selection", () => {
-    expect(resolvePendingSnapshotTransportState({
-      targetIndex: 1,
-      snapshots: [{ id: "s1" }, { id: "s2" }],
-      sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 1 }],
-      barIndexForTime: () => 5,
-    })).toEqual({
+    expect(
+      resolvePendingSnapshotTransportState({
+        targetIndex: 1,
+        snapshots: [{ id: "s1" }, { id: "s2" }],
+        sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 1 }],
+        barIndexForTime: () => 5,
+      }),
+    ).toEqual({
       pendingTransportSelection: {
         snapshotIndex: 1,
         cueIndex: 1,
@@ -177,19 +189,19 @@ describe("transport intent runtime", () => {
   });
 
   it("resolves pending cue transport to the earliest expanded sounding snapshot", () => {
-    expect(resolvePendingCueTransportState({
-      targetCueIndex: 1,
-      sequenceCueGroups: [
-        { snapshotIndex: 0, time: 1 },
-        { snapshotIndex: 2, time: 13.5 },
-      ],
-      sequenceEvents: [
-        { type: "note", cueIndex: 13, snapshotId: "s3", eventId: "e1" },
-      ],
-      snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }],
-      previewExpandedIds: new Set(["s1", "s3"]),
-      barIndexForTime: () => 8,
-    })).toEqual({
+    expect(
+      resolvePendingCueTransportState({
+        targetCueIndex: 1,
+        sequenceCueGroups: [
+          { snapshotIndex: 0, time: 1 },
+          { snapshotIndex: 2, time: 13.5 },
+        ],
+        sequenceEvents: [{ type: "note", cueIndex: 13, snapshotId: "s3", eventId: "e1" }],
+        snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }, { id: "s4" }],
+        previewExpandedIds: new Set(["s1", "s3"]),
+        barIndexForTime: () => 8,
+      }),
+    ).toEqual({
       pendingTransportSelection: {
         snapshotIndex: 0,
         cueIndex: 1,

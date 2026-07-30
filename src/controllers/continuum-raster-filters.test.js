@@ -43,9 +43,11 @@ describe("continuumRasterFilterSetFromRuntime", () => {
   });
 
   it("returns a Set of active degrees when filtering is enabled", () => {
-    expect([...continuumRasterFilterSetFromRuntime({
-      hakenRasterFilterMode: "filter",
-      hakenRasterFilter: "0,4,7",
-    })]).toEqual([0, 4, 7]);
+    expect([
+      ...continuumRasterFilterSetFromRuntime({
+        hakenRasterFilterMode: "filter",
+        hakenRasterFilter: "0,4,7",
+      }),
+    ]).toEqual([0, 4, 7]);
   });
 });

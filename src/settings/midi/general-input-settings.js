@@ -39,9 +39,7 @@ const GeneralInputSettings = ({
       >
         <option value="OFF">OFF</option>
         {midi &&
-          Array.from(midi.inputs.values()).map((m) => (
-            <option value={m.id}>{m.name}</option>
-          ))}
+          Array.from(midi.inputs.values()).map((m) => <option value={m.id}>{m.name}</option>)}
       </select>
     </label>
 
@@ -92,13 +90,9 @@ const GeneralInputSettings = ({
           }
           onChange("midiin_mapping_target", e.target.value);
           if (controller) {
-            saveControllerPref(
-              controller,
-              "midiin_mapping_target",
-              e.target.value,
-              settings,
-              { midiin_mapping_target: e.target.value },
-            );
+            saveControllerPref(controller, "midiin_mapping_target", e.target.value, settings, {
+              midiin_mapping_target: e.target.value,
+            });
           }
         }}
       >

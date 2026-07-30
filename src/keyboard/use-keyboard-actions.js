@@ -91,8 +91,7 @@ const useKeyboardActions = (keysRef) => {
    * Used by TuneCell while dragging non-zero degrees.
    */
   const updateScaleDegree = (degree, targetCents) => {
-    if (keysRef.current?.updateScaleDegree)
-      keysRef.current.updateScaleDegree(degree, targetCents);
+    if (keysRef.current?.updateScaleDegree) keysRef.current.updateScaleDegree(degree, targetCents);
   };
 
   /**
@@ -109,7 +108,7 @@ const useKeyboardActions = (keysRef) => {
    * after drag ends). Returns false if the canvas is not mounted.
    */
   const isEscHeld = () => {
-    return !!(keysRef.current?.state?.escHeld);
+    return !!keysRef.current?.state?.escHeld;
   };
 
   // ── Fundamental / MTS ───────────────────────────────────────────────────────

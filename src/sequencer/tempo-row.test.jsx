@@ -35,9 +35,7 @@ describe("TempoRow", () => {
     fireEvent.click(deleteButtons[1]);
     expect(onDeleteTempo).toHaveBeenCalledWith(2);
 
-    rerender(
-      <TempoRow tempo={stacked[0]} timing={timingFor([stacked[0]])} editing={editing} />,
-    );
+    rerender(<TempoRow tempo={stacked[0]} timing={timingFor([stacked[0]])} editing={editing} />);
     expect(screen.queryByRole("button", { name: "delete tempo marker" })).toBeNull();
   });
 });

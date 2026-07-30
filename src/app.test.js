@@ -231,7 +231,10 @@ describe("Loading", () => {
 describe("applyReloadPersistencePolicy", () => {
   it("clears the query string on reload when restore-on-reload is disabled", () => {
     history.replaceState({}, "", "http://localhost/?scale=3/2,2/1&instrument=WMRIByzantineST");
-    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({ snapshots: [{ id: 1 }] }));
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({ snapshots: [{ id: 1 }] }),
+    );
 
     applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist: false });
 
@@ -398,23 +401,19 @@ describe("commitModulationHistoryToPreset", () => {
 describe("modulationCurrentSummaryDisplay", () => {
   it("renders the actual current monzo without equave-offset suffixes", () => {
     expect(
-      modulationCurrentSummaryDisplay(
-        {
-          ratioText: "7/8",
-          cents: parseExactInterval("7/8").cents,
-        },
-      ),
+      modulationCurrentSummaryDisplay({
+        ratioText: "7/8",
+        cents: parseExactInterval("7/8").cents,
+      }),
     ).toBe("[-3 0 0 1> (-231¢)");
   });
 
   it("renders cents only when the current ratio is not exact", () => {
     expect(
-      modulationCurrentSummaryDisplay(
-        {
-          ratioText: null,
-          cents: 12.345,
-        },
-      ),
+      modulationCurrentSummaryDisplay({
+        ratioText: null,
+        cents: 12.345,
+      }),
     ).toBe("+12¢");
   });
 });
@@ -750,41 +749,46 @@ describe("App input runtime", () => {
       expect(deactivateLinnstrumentUserFirmware).toHaveBeenCalledWith(
         synthWiringState.linnstrumentRawPorts.output,
         keys,
-      ));
+      ),
+    );
   });
 });
 
 describe("App workspace tabs", () => {
   it("uses manual arpeggiation when PLAY FROM starts a snapshot", async () => {
     localStorage.setItem("hexatone_persist_on_reload", "true");
-    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
-      snapshots: [{
-        id: 1,
-        length: 1,
-        notes: [
-          { id: "first", midicents: 60, start: 0, attackVelocity: 90 },
-          { id: "second", midicents: 64, start: 0.5, attackVelocity: 90 },
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        snapshots: [
+          {
+            id: 1,
+            length: 1,
+            notes: [
+              { id: "first", midicents: 60, start: 0, attackVelocity: 90 },
+              { id: "second", midicents: 64, start: 0.5, attackVelocity: 90 },
+            ],
+          },
+          {
+            id: 2,
+            length: 1,
+            notes: [{ id: "next", midicents: 67, start: 0, attackVelocity: 90 }],
+          },
         ],
-      }, {
-        id: 2,
-        length: 1,
-        notes: [
-          { id: "next", midicents: 67, start: 0, attackVelocity: 90 },
-        ],
-      }],
-      bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
-      tempi: [],
-      repeats: [],
-      manualArpeggiation: {
-        mode: "all",
-        initialSpreadMs: 1000,
-        spreadVariation: 0,
-        timingVariation: 0,
-        decayMode: "immediate",
-        decayMs: 5000,
-        decayVariation: 0,
-      },
-    }));
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        tempi: [],
+        repeats: [],
+        manualArpeggiation: {
+          mode: "all",
+          initialSpreadMs: 1000,
+          spreadVariation: 0,
+          timingVariation: 0,
+          decayMode: "immediate",
+          decayMs: 5000,
+          decayVariation: 0,
+        },
+      }),
+    );
     const { unmount } = render(<App />);
     const keys = {
       settings: {
@@ -809,10 +813,7 @@ describe("App workspace tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     fireEvent.click(await screen.findByLabelText("play current sequence position"));
 
-    expect(keys.beginSnapshotGesture).toHaveBeenCalledWith(
-      expect.any(Number),
-      { replace: false },
-    );
+    expect(keys.beginSnapshotGesture).toHaveBeenCalledWith(expect.any(Number), { replace: false });
     expect(keys.attackSnapshotGestureNote).toHaveBeenCalledTimes(1);
     expect(keys.attackSnapshotGestureNote.mock.calls[0][1].id).toBe("first");
 
@@ -852,14 +853,10 @@ describe("App workspace tabs", () => {
     });
 
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
-    const pitchSlider = await screen.findByRole(
-      "slider",
-      { name: "sequence playback pitch slider" },
-    );
-    fireEvent.keyDown(
-      pitchSlider,
-      { key: "ArrowRight" },
-    );
+    const pitchSlider = await screen.findByRole("slider", {
+      name: "sequence playback pitch slider",
+    });
+    fireEvent.keyDown(pitchSlider, { key: "ArrowRight" });
 
     expect(soundingHex.sequenceRetune).toHaveBeenCalledWith(1);
   });
@@ -905,9 +902,7 @@ describe("App workspace tabs", () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole("tab", { name: "MANUAL" }));
-    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
-      "About",
-    );
+    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe("About");
     await user.click(screen.getByRole("button", { name: "Select Quick Start" }));
     await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
     await user.click(screen.getByRole("tab", { name: "MANUAL" }));
@@ -923,9 +918,7 @@ describe("App workspace tabs", () => {
     expect(screen.getByRole("tab", { name: "HEXATONE" }).getAttribute("aria-selected")).toBe(
       "true",
     );
-    expect(screen.getByRole("tab", { name: "MANUAL" }).getAttribute("aria-selected")).toBe(
-      "false",
-    );
+    expect(screen.getByRole("tab", { name: "MANUAL" }).getAttribute("aria-selected")).toBe("false");
     expect(screen.getByRole("heading", { name: "PLAINSOUND HEXATONE" })).not.toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Select Quick Start" }));
@@ -1031,9 +1024,7 @@ describe("App keyboard lifecycle", () => {
         mode: "awaiting_target",
         sourceDegree: 0,
         currentRoute: null,
-        history: [
-          { sourceDegree: 0, targetDegree: 7, count: 1, transpositionDeltaCents: 500 },
-        ],
+        history: [{ sourceDegree: 0, targetDegree: 7, count: 1, transpositionDeltaCents: 500 }],
       });
     });
 
@@ -1044,9 +1035,7 @@ describe("App keyboard lifecycle", () => {
         mode: "idle",
         sourceDegree: null,
         currentRoute: { sourceDegree: 0, targetDegree: 7, count: 1, transpositionDeltaCents: 500 },
-        history: [
-          { sourceDegree: 0, targetDegree: 7, count: 1, transpositionDeltaCents: 500 },
-        ],
+        history: [{ sourceDegree: 0, targetDegree: 7, count: 1, transpositionDeltaCents: 500 }],
       });
     });
 

@@ -5,7 +5,11 @@
 import { Fraction } from "xen-dev-utils";
 import { monzoToFractionOnBasis, parseExactInterval } from "../tuning/interval.js";
 import { addMonzos, parseHejiPitchClassLabel, subtractMonzos } from "./heji.js";
-import { createPitchStructure, parseHejiToStructure, pitchStructureToMonzo } from "./pitch-structure.js";
+import {
+  createPitchStructure,
+  parseHejiToStructure,
+  pitchStructureToMonzo,
+} from "./pitch-structure.js";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
 
 // HEJI glyph codepoints used for deriving anchor defaults.
@@ -234,7 +238,8 @@ function deriveTemperedAFromExplicitTemperedDegree(rawName, degreeText) {
   if (!structure?.letter) return null;
   const degreeCents = scalaToCents(String(degreeText ?? "1/1"));
   if (!Number.isFinite(degreeCents)) return null;
-  const sourceSemitones = (LETTER_TO_SEMITONE[structure.letter] ?? 0) + (structure.accidentalCount ?? 0);
+  const sourceSemitones =
+    (LETTER_TO_SEMITONE[structure.letter] ?? 0) + (structure.accidentalCount ?? 0);
   const anchorCents = normalizePitchClassCents(degreeCents + (9 - sourceSemitones) * 100);
   return {
     ratio: anchorCents.toFixed(6),
@@ -314,7 +319,7 @@ function deriveAFromNaturalLetter(letter, degreeText = "1/1") {
   if (!letter || !HEJI_NATURAL_LABELS[letter]) return null;
   const exactA = deriveExactAFromExplicitHejiDegree(HEJI_NATURAL_LABELS[letter], degreeText);
   if (exactA) {
-    const desiredCents = (((9 - (LETTER_TO_SEMITONE[letter] ?? 9)) % 12) + 12) % 12 * 100;
+    const desiredCents = ((((9 - (LETTER_TO_SEMITONE[letter] ?? 9)) % 12) + 12) % 12) * 100;
     const currentCents = scalaToCents(String(exactA.ratio ?? ""));
     const preferUpperHalf = desiredCents > 600;
     const currentUpperHalf = Number.isFinite(currentCents) && currentCents > 600;
@@ -363,7 +368,8 @@ function noteNamesLackSpellingClues(noteNames) {
 }
 
 function deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, fundamental) {
-  if (!Number.isFinite(referenceDegree) || referenceDegree < 0 || !fundamental || fundamental <= 0) return null;
+  if (!Number.isFinite(referenceDegree) || referenceDegree < 0 || !fundamental || fundamental <= 0)
+    return null;
   if (inferNaturalLetterFromReferenceFrequency(fundamental) !== "A") return null;
   const exactDegree = parseExactDegreeInterval(degreeTexts?.[referenceDegree] ?? "1/1");
   if (!exactDegree) return null;
@@ -407,13 +413,24 @@ function deriveExactAFromAnyDegreeFrequency(
       ? scalaToCents(String(degreeTexts?.[referenceDegree] ?? "1/1"))
       : null;
   let best = null;
-  const degreeCount = Math.max(degreeTexts?.length ?? 0, degreeFrequencies.length, noteNames?.length ?? 0);
+  const degreeCount = Math.max(
+    degreeTexts?.length ?? 0,
+    degreeFrequencies.length,
+    noteNames?.length ?? 0,
+  );
   for (let degree = 0; degree < degreeCount; degree += 1) {
-    const rawInterval = degreeTexts?.[degree]
-      ?? (String(noteNames?.[degree] ?? "").includes("/") ? String(noteNames?.[degree]) : "1/1");
+    const rawInterval =
+      degreeTexts?.[degree] ??
+      (String(noteNames?.[degree] ?? "").includes("/") ? String(noteNames?.[degree]) : "1/1");
     const exactDegree = parseExactDegreeInterval(rawInterval);
     let hz = degreeFrequencies[degree];
-    if ((!hz || hz <= 0) && exactDegree && referenceInterval && fundamental > 0 && Number.isFinite(referenceCents)) {
+    if (
+      (!hz || hz <= 0) &&
+      exactDegree &&
+      referenceInterval &&
+      fundamental > 0 &&
+      Number.isFinite(referenceCents)
+    ) {
       const degreeCents = scalaToCents(String(rawInterval));
       if (Number.isFinite(degreeCents)) {
         hz = fundamental * Math.pow(2, (degreeCents - referenceCents) / 1200);
@@ -427,8 +444,9 @@ function deriveExactAFromAnyDegreeFrequency(
     for (let index = 0; index < KNOWN_A_FREQUENCIES.length; index += 1) {
       const candidateDistance = centsDistanceToNearestOctave(hz, KNOWN_A_FREQUENCIES[index]);
       if (
-        candidateDistance < distanceCents - 1e-9
-        || (Math.abs(candidateDistance - distanceCents) <= 1e-9 && (bestTargetIndex < 0 || index < bestTargetIndex))
+        candidateDistance < distanceCents - 1e-9 ||
+        (Math.abs(candidateDistance - distanceCents) <= 1e-9 &&
+          (bestTargetIndex < 0 || index < bestTargetIndex))
       ) {
         distanceCents = candidateDistance;
         bestTargetIndex = index;
@@ -436,9 +454,9 @@ function deriveExactAFromAnyDegreeFrequency(
     }
     if (distanceCents > NAMED_A_C_MAX_DISTANCE_CENTS) continue;
     if (
-      !best
-      || distanceCents < best.distanceCents - 1e-9
-      || (Math.abs(distanceCents - best.distanceCents) <= 1e-9 && bestTargetIndex < best.targetIndex)
+      !best ||
+      distanceCents < best.distanceCents - 1e-9 ||
+      (Math.abs(distanceCents - best.distanceCents) <= 1e-9 && bestTargetIndex < best.targetIndex)
     ) {
       best = {
         ratio: formatPitchClassRatioFromMonzo(exactDegree.monzo),
@@ -473,7 +491,13 @@ function deriveExactAFromAnyDegreeFrequency(
  * @param {number[]}          scaleCents      - Full committed cents list, including degree 0.
  * @returns {{ ratio: string, label: string }}  Always returns a value (never null).
  */
-export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundamental, scaleCents = []) {
+export function deriveHejiAnchor(
+  referenceDegree,
+  noteNames,
+  degreeTexts,
+  fundamental,
+  scaleCents = [],
+) {
   const degreeFrequencies = buildDegreeFrequencies({
     scaleCents,
     fundamental,
@@ -499,32 +523,38 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
   if (degreeZeroExactA) return degreeZeroExactA;
 
   if (noteNames?.length) {
-    const exactHejiPriority = [
-      referenceDegree,
-      0,
-      ...noteNames.map((_, index) => index),
-    ].filter((value, index, array) => Number.isFinite(value) && array.indexOf(value) === index);
+    const exactHejiPriority = [referenceDegree, 0, ...noteNames.map((_, index) => index)].filter(
+      (value, index, array) => Number.isFinite(value) && array.indexOf(value) === index,
+    );
     for (const degree of exactHejiPriority) {
-      const exactA = deriveExactAFromExplicitHejiDegree(noteNames[degree], degreeTexts[degree] ?? "1/1");
+      const exactA = deriveExactAFromExplicitHejiDegree(
+        noteNames[degree],
+        degreeTexts[degree] ?? "1/1",
+      );
       if (exactA) return exactA;
     }
   }
 
   // --- Strategy 3: explicit tempered HEJI clues already present ---
   if (noteNames?.length) {
-    const temperedHejiPriority = [
-      referenceDegree,
-      ...noteNames.map((_, index) => index),
-      0,
-    ].filter((value, index, array) => Number.isFinite(value) && array.indexOf(value) === index);
+    const temperedHejiPriority = [referenceDegree, ...noteNames.map((_, index) => index), 0].filter(
+      (value, index, array) => Number.isFinite(value) && array.indexOf(value) === index,
+    );
     for (const degree of temperedHejiPriority) {
-      const temperedA = deriveTemperedAFromExplicitTemperedDegree(noteNames[degree], degreeTexts[degree] ?? "1/1");
+      const temperedA = deriveTemperedAFromExplicitTemperedDegree(
+        noteNames[degree],
+        degreeTexts[degree] ?? "1/1",
+      );
       if (temperedA) return temperedA;
     }
   }
 
   // --- Strategy 4: exact rational reference degree at a known A frequency ---
-  const exactReferenceA = deriveExactAFromReferenceDegreeFrequency(referenceDegree, degreeTexts, fundamental);
+  const exactReferenceA = deriveExactAFromReferenceDegreeFrequency(
+    referenceDegree,
+    degreeTexts,
+    fundamental,
+  );
   if (exactReferenceA) return exactReferenceA;
 
   // --- Strategy 4b: any exact degree landing on a known A frequency ---
@@ -538,10 +568,9 @@ export function deriveHejiAnchor(referenceDegree, noteNames, degreeTexts, fundam
   if (exactScaleDegreeA) return exactScaleDegreeA;
 
   // --- Strategy 5: infer a natural note directly from the reference frequency ---
-  const inferredReferenceLetter =
-    noteNamesLackSpellingClues(noteNames)
-      ? inferNaturalLetterFromReferenceFrequency(fundamental)
-      : null;
+  const inferredReferenceLetter = noteNamesLackSpellingClues(noteNames)
+    ? inferNaturalLetterFromReferenceFrequency(fundamental)
+    : null;
   if (inferredReferenceLetter) {
     const inferredExactA = deriveAFromNaturalLetter(
       inferredReferenceLetter,

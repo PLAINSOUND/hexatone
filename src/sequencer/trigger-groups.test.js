@@ -111,18 +111,21 @@ describe("deriveSnapshotTriggerGroups", () => {
   });
 
   it("derives the active note set after a shared cue position", () => {
-    const notes = sequenceNotesAtCueTime([
-      {
-        id: 1,
-        length: 1,
-        notes: [{ id: "first", midicents: 69, start: 0, end: 1 }],
-      },
-      {
-        id: 2,
-        length: 1,
-        notes: [{ id: "second", midicents: 72, start: 0, end: 1 }],
-      },
-    ], 2);
+    const notes = sequenceNotesAtCueTime(
+      [
+        {
+          id: 1,
+          length: 1,
+          notes: [{ id: "first", midicents: 69, start: 0, end: 1 }],
+        },
+        {
+          id: 2,
+          length: 1,
+          notes: [{ id: "second", midicents: 72, start: 0, end: 1 }],
+        },
+      ],
+      2,
+    );
 
     expect(notes.map((note) => note.id)).toEqual(["second"]);
   });
@@ -140,13 +143,13 @@ describe("deriveSnapshotTriggerGroups", () => {
       {
         id: 2,
         length: 1,
-        notes: [
-          { id: "c", midicents: 76, start: 0.25, end: 1 },
-        ],
+        notes: [{ id: "c", midicents: 76, start: 0.25, end: 1 }],
       },
     ]);
 
-    expect(events.map((event) => [event.noteId, event.kind, event.absoluteTime, event.cueIndex])).toEqual([
+    expect(
+      events.map((event) => [event.noteId, event.kind, event.absoluteTime, event.cueIndex]),
+    ).toEqual([
       [undefined, "bar", 1, null],
       ["a", "attack", 1, 1],
       ["b", "attack", 1.5, 2],
@@ -171,9 +174,7 @@ describe("deriveSnapshotTriggerGroups", () => {
       {
         id: 2,
         length: 1,
-        notes: [
-          { id: "c", midicents: 76, start: 0.25, end: 1 },
-        ],
+        notes: [{ id: "c", midicents: 76, start: 0.25, end: 1 }],
       },
     ];
 
@@ -204,7 +205,9 @@ describe("deriveSnapshotTriggerGroups", () => {
 
     expect(sequenceNotesAtCueIndex(snapshots, 0).map((note) => note.midicents)).toEqual([60]);
     expect(sequenceNotesAtCueIndex(snapshots, 1).map((note) => note.midicents)).toEqual([64, 60]);
-    expect(sequenceNotesAtCueIndex(snapshots, 2).map((note) => note.midicents)).toEqual([67, 64, 60]);
+    expect(sequenceNotesAtCueIndex(snapshots, 2).map((note) => note.midicents)).toEqual([
+      67, 64, 60,
+    ]);
     expect(sequenceNotesAtCueIndex(snapshots, 3).map((note) => note.midicents)).toEqual([72]);
   });
 
@@ -295,14 +298,14 @@ describe("deriveSnapshotTriggerGroups", () => {
       {
         id: 2,
         length: 1,
-        notes: [
-          { id: "c", midicents: 67, start: 0.25, end: 1 },
-        ],
+        notes: [{ id: "c", midicents: 67, start: 0.25, end: 1 }],
       },
     ];
 
     expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 0)).toEqual(["a"]);
-    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 1)).toEqual(expect.arrayContaining(["a", "b"]));
+    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 1)).toEqual(
+      expect.arrayContaining(["a", "b"]),
+    );
     expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 1)).toHaveLength(2);
     expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 2)).toEqual(["a"]);
     expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 3)).toEqual(["c"]);
@@ -325,13 +328,15 @@ describe("deriveSnapshotTriggerGroups", () => {
       [{ id: 100, position: 2 }],
     );
 
-    expect(events.map((event) => [
-      event.type,
-      event.kind,
-      event.absoluteTime,
-      event.snapshotIndex,
-      event.cueIndex,
-    ])).toEqual([
+    expect(
+      events.map((event) => [
+        event.type,
+        event.kind,
+        event.absoluteTime,
+        event.snapshotIndex,
+        event.cueIndex,
+      ]),
+    ).toEqual([
       ["bar", "bar", 1, 0, null],
       ["note", "attack", 1, 0, 1],
       ["note", "release", 2, 0, 2],
@@ -369,13 +374,15 @@ describe("deriveSnapshotTriggerGroups", () => {
       ],
     );
 
-    expect(events.map((event) => [
-      event.type,
-      event.kind,
-      event.absoluteTime,
-      event.snapshotIndex,
-      event.cueIndex,
-    ])).toEqual([
+    expect(
+      events.map((event) => [
+        event.type,
+        event.kind,
+        event.absoluteTime,
+        event.snapshotIndex,
+        event.cueIndex,
+      ]),
+    ).toEqual([
       ["bar", "bar", 1, 0, null],
       ["note", "attack", 1, 0, 1],
       ["note", "release", 2, 0, 2],
@@ -409,7 +416,15 @@ describe("deriveSnapshotTriggerGroups", () => {
       [{ id: 100, position: 1 }],
       [
         { id: 200, position: 1, bpm: 60, beatLength: 1, mode: "immediate" },
-        { id: 201, position: 1.5, bpm: 72, beatNumerator: 3, beatDenominator: 16, beatLength: 0.75, mode: "gradual" },
+        {
+          id: 201,
+          position: 1.5,
+          bpm: 72,
+          beatNumerator: 3,
+          beatDenominator: 16,
+          beatLength: 0.75,
+          mode: "gradual",
+        },
       ],
       [],
     );

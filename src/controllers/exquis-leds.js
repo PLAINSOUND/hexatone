@@ -281,9 +281,7 @@ export class ExquisLEDs {
       (major === MIN_FIRMWARE.major && minor === MIN_FIRMWARE.minor && patch >= MIN_FIRMWARE.patch);
 
     if (!ok) {
-      warnLog(
-        `[ExquisLEDs] Firmware ${major}.${minor}.${patch} < 3.0.0 — App Mode not entered.`,
-      );
+      warnLog(`[ExquisLEDs] Firmware ${major}.${minor}.${patch} < 3.0.0 — App Mode not entered.`);
       if (this._onReady) this._onReady(false, `firmware ${major}.${minor}.${patch}`);
       return;
     }

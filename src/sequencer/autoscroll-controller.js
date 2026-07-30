@@ -8,10 +8,7 @@ import {
   isSequenceRuntimeDiagnosticsEnabled,
 } from "../debug/sequence-runtime-diagnostics.js";
 import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-crash-diagnostics.js";
-import {
-  deriveCueScrollAnchorTarget,
-  resolveCueAnchorSnapshotId,
-} from "./view-runtime.js";
+import { deriveCueScrollAnchorTarget, resolveCueAnchorSnapshotId } from "./view-runtime.js";
 import { visibleElementBounds } from "./viewport-geometry.js";
 
 export function derivePagedPanelScrollTop({
@@ -30,9 +27,7 @@ export function derivePagedPanelScrollTop({
   // Timed page following must turn the page when the active row reaches the
   // boundary, not one cue later after it has already crossed it.
   const targetIsVisible = targetTop >= visibleTop && targetBottom < visibleBottom;
-  const nextTop = targetIsVisible
-    ? scrollTop
-    : scrollTop + targetTop - visibleTop;
+  const nextTop = targetIsVisible ? scrollTop : scrollTop + targetTop - visibleTop;
 
   const maxTop = Math.max(0, scrollHeight - clientHeight);
   return Math.max(0, Math.min(maxTop, nextTop));
@@ -47,18 +42,16 @@ export function deriveTopAlignedPanelScrollTop({
   stickyTop = 0,
   gap = 6,
 }) {
-  const nextTop = Number(scrollTop)
-    + (Number(targetTop) - Number(panelTop))
-    - Number(stickyTop)
-    - Number(gap);
+  const nextTop =
+    Number(scrollTop) + (Number(targetTop) - Number(panelTop)) - Number(stickyTop) - Number(gap);
   const maxTop = Math.max(0, Number(scrollHeight) - Number(clientHeight));
   return Math.max(0, Math.min(maxTop, nextTop));
 }
 
 export function derivePreferredTargetBounds(targetRects = [], usableHeight = 0) {
-  const rects = targetRects.filter((rect) => (
-    Number.isFinite(Number(rect?.top)) && Number.isFinite(Number(rect?.bottom))
-  ));
+  const rects = targetRects.filter(
+    (rect) => Number.isFinite(Number(rect?.top)) && Number.isFinite(Number(rect?.bottom)),
+  );
   if (rects.length === 0) return null;
   const rangeTop = Math.min(...rects.map((rect) => Number(rect.top)));
   const rangeBottom = Math.max(...rects.map((rect) => Number(rect.bottom)));
@@ -71,10 +64,10 @@ export function derivePreferredTargetBounds(targetRects = [], usableHeight = 0) 
 
 export function isLiveSequencerScrollTarget(node, scrollPanel) {
   return (
-    node instanceof HTMLElement
-    && scrollPanel instanceof HTMLElement
-    && node.isConnected
-    && scrollPanel.contains(node)
+    node instanceof HTMLElement &&
+    scrollPanel instanceof HTMLElement &&
+    node.isConnected &&
+    scrollPanel.contains(node)
   );
 }
 
@@ -127,8 +120,9 @@ export default function useSequencerAutoscroll({
   const scrollNodesIntoPanel = useCallback((targetNodes) => {
     if (!autoScrollEnabledRef.current) return;
     const scrollPanel = scrollPanelRef.current;
-    const nodes = (Array.isArray(targetNodes) ? targetNodes : [targetNodes])
-      .filter((node) => node instanceof HTMLElement);
+    const nodes = (Array.isArray(targetNodes) ? targetNodes : [targetNodes]).filter(
+      (node) => node instanceof HTMLElement,
+    );
     if (!(scrollPanel instanceof HTMLElement) || nodes.length === 0) return;
 
     if (pendingAutoScrollFrameRef.current != null) {
@@ -137,22 +131,22 @@ export default function useSequencerAutoscroll({
     pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
       pendingAutoScrollFrameRef.current = null;
       if (!autoScrollEnabledRef.current) return;
-      const liveNodes = nodes.filter((node) => (
-        isLiveSequencerScrollTarget(node, scrollPanel)
-      ));
+      const liveNodes = nodes.filter((node) => isLiveSequencerScrollTarget(node, scrollPanel));
       if (liveNodes.length === 0) return;
       const scrollStartMs = performance.now();
       const visiblePanel = visibleElementBounds(scrollPanel);
       if (visiblePanel == null || visiblePanel.height <= 0) return;
-      const playbackRect = playbackRowRef.current instanceof HTMLElement
-        ? playbackRowRef.current.getBoundingClientRect()
-        : null;
+      const playbackRect =
+        playbackRowRef.current instanceof HTMLElement
+          ? playbackRowRef.current.getBoundingClientRect()
+          : null;
       const targetRects = liveNodes.map((node) => node.getBoundingClientRect());
       const gap = 6;
-      const stickyTransportOverlap = playbackRect == null
-        ? 0
-        : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
-      const usableHeight = Math.max(0, visiblePanel.height - stickyTransportOverlap - (2 * gap));
+      const stickyTransportOverlap =
+        playbackRect == null
+          ? 0
+          : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
+      const usableHeight = Math.max(0, visiblePanel.height - stickyTransportOverlap - 2 * gap);
       const targetBounds = derivePreferredTargetBounds(targetRects, usableHeight);
       if (targetBounds == null) return;
       const nextTop = derivePagedPanelScrollTop({
@@ -200,9 +194,12 @@ export default function useSequencerAutoscroll({
     });
   }, []);
 
-  const scrollNodeIntoPanel = useCallback((targetNode) => {
-    scrollNodesIntoPanel([targetNode]);
-  }, [scrollNodesIntoPanel]);
+  const scrollNodeIntoPanel = useCallback(
+    (targetNode) => {
+      scrollNodesIntoPanel([targetNode]);
+    },
+    [scrollNodesIntoPanel],
+  );
 
   const alignNodeToPanelTopNow = useCallback((targetNode) => {
     if (!autoScrollEnabledRef.current) return;
@@ -210,13 +207,15 @@ export default function useSequencerAutoscroll({
     if (!(scrollPanel instanceof HTMLElement) || !(targetNode instanceof HTMLElement)) return;
     const visiblePanel = visibleElementBounds(scrollPanel);
     if (visiblePanel == null || visiblePanel.height <= 0) return;
-    const playbackRect = playbackRowRef.current instanceof HTMLElement
-      ? playbackRowRef.current.getBoundingClientRect()
-      : null;
+    const playbackRect =
+      playbackRowRef.current instanceof HTMLElement
+        ? playbackRowRef.current.getBoundingClientRect()
+        : null;
     const targetRect = targetNode.getBoundingClientRect();
-    const stickyTransportOverlap = playbackRect == null
-      ? 0
-      : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
+    const stickyTransportOverlap =
+      playbackRect == null
+        ? 0
+        : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
     const nextTop = deriveTopAlignedPanelScrollTop({
       scrollTop: scrollPanel.scrollTop,
       scrollHeight: scrollPanel.scrollHeight,
@@ -230,52 +229,58 @@ export default function useSequencerAutoscroll({
     return delta;
   }, []);
 
-  const alignNodeToPanelTop = useCallback((targetNode) => {
-    if (!autoScrollEnabledRef.current) return;
-    if (pendingAutoScrollFrameRef.current != null) {
-      window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
-    }
-    pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
-      pendingAutoScrollFrameRef.current = null;
+  const alignNodeToPanelTop = useCallback(
+    (targetNode) => {
       if (!autoScrollEnabledRef.current) return;
-      alignNodeToPanelTopNow(targetNode);
-    });
-  }, [alignNodeToPanelTopNow]);
-
-  const alignSnapshotToPanelTop = useCallback((snapshotId) => {
-    // A queued alignment for the previous playhead must not be allowed to
-    // restore the old viewport while a distant virtual row is mounting.
-    if (pendingAutoScrollFrameRef.current != null) {
-      window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
-      pendingAutoScrollFrameRef.current = null;
-    }
-    if (pendingSnapshotAnchorFrameRef.current != null) {
-      window.cancelAnimationFrame(pendingSnapshotAnchorFrameRef.current);
-      pendingSnapshotAnchorFrameRef.current = null;
-    }
-    if (!autoScrollEnabledRef.current || snapshotId == null) return;
-    pendingSnapshotAnchorIdRef.current = snapshotId;
-    pendingSnapshotAnchorExpiresAtRef.current = performance.now() + 1500;
-
-    const tryAlign = (remainingFrames) => {
-      if (!autoScrollEnabledRef.current) return;
-      const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
-      if (snapshotRow instanceof HTMLElement) {
-        alignNodeToPanelTop(snapshotRow);
-        return;
+      if (pendingAutoScrollFrameRef.current != null) {
+        window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
       }
-      if (remainingFrames <= 0) return;
-      pendingSnapshotAnchorFrameRef.current = window.requestAnimationFrame(() => {
-        pendingSnapshotAnchorFrameRef.current = null;
-        tryAlign(remainingFrames - 1);
+      pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+        pendingAutoScrollFrameRef.current = null;
+        if (!autoScrollEnabledRef.current) return;
+        alignNodeToPanelTopNow(targetNode);
       });
-    };
+    },
+    [alignNodeToPanelTopNow],
+  );
 
-    // A distant virtualized row is mounted on the render following the
-    // viewport move. Retry only until it exists; later virtual-layout changes
-    // are reconciled by refreshPendingSnapshotAlignment.
-    tryAlign(3);
-  }, [alignNodeToPanelTop]);
+  const alignSnapshotToPanelTop = useCallback(
+    (snapshotId) => {
+      // A queued alignment for the previous playhead must not be allowed to
+      // restore the old viewport while a distant virtual row is mounting.
+      if (pendingAutoScrollFrameRef.current != null) {
+        window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
+        pendingAutoScrollFrameRef.current = null;
+      }
+      if (pendingSnapshotAnchorFrameRef.current != null) {
+        window.cancelAnimationFrame(pendingSnapshotAnchorFrameRef.current);
+        pendingSnapshotAnchorFrameRef.current = null;
+      }
+      if (!autoScrollEnabledRef.current || snapshotId == null) return;
+      pendingSnapshotAnchorIdRef.current = snapshotId;
+      pendingSnapshotAnchorExpiresAtRef.current = performance.now() + 1500;
+
+      const tryAlign = (remainingFrames) => {
+        if (!autoScrollEnabledRef.current) return;
+        const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
+        if (snapshotRow instanceof HTMLElement) {
+          alignNodeToPanelTop(snapshotRow);
+          return;
+        }
+        if (remainingFrames <= 0) return;
+        pendingSnapshotAnchorFrameRef.current = window.requestAnimationFrame(() => {
+          pendingSnapshotAnchorFrameRef.current = null;
+          tryAlign(remainingFrames - 1);
+        });
+      };
+
+      // A distant virtualized row is mounted on the render following the
+      // viewport move. Retry only until it exists; later virtual-layout changes
+      // are reconciled by refreshPendingSnapshotAlignment.
+      tryAlign(3);
+    },
+    [alignNodeToPanelTop],
+  );
 
   const cancelPendingSnapshotAlignment = useCallback(() => {
     pendingSnapshotAnchorIdRef.current = null;
@@ -302,16 +307,19 @@ export default function useSequencerAutoscroll({
     if (snapshotRow instanceof HTMLElement) alignNodeToPanelTopNow(snapshotRow);
   }, [alignNodeToPanelTopNow]);
 
-  useEffect(() => () => {
-    if (pendingAutoScrollFrameRef.current != null) {
-      window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
-      pendingAutoScrollFrameRef.current = null;
-    }
-    if (pendingSnapshotAnchorFrameRef.current != null) {
-      window.cancelAnimationFrame(pendingSnapshotAnchorFrameRef.current);
-      pendingSnapshotAnchorFrameRef.current = null;
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (pendingAutoScrollFrameRef.current != null) {
+        window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
+        pendingAutoScrollFrameRef.current = null;
+      }
+      if (pendingSnapshotAnchorFrameRef.current != null) {
+        window.cancelAnimationFrame(pendingSnapshotAnchorFrameRef.current);
+        pendingSnapshotAnchorFrameRef.current = null;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     const scrollPanel = scrollPanelRef.current;
@@ -326,92 +334,97 @@ export default function useSequencerAutoscroll({
     };
   }, [cancelPendingSnapshotAlignment]);
 
-  const armPendingSnapshot = useCallback((snapshotIndex, { viewportPrepared = false } = {}) => {
-    transportScrollTargetRef.current = "snapshot";
-    const nextSnapshotIndex = Number(snapshotIndex);
-    if (!Number.isFinite(nextSnapshotIndex)) return;
-    onCueSequenceSnapshot?.(nextSnapshotIndex);
-    if (viewportPrepared) return;
-    const snapshotId = snapshots[nextSnapshotIndex]?.id ?? null;
-    alignSnapshotToPanelTop(snapshotId);
-  }, [
-    alignSnapshotToPanelTop,
-    onCueSequenceSnapshot,
-    snapshots,
-  ]);
+  const armPendingSnapshot = useCallback(
+    (snapshotIndex, { viewportPrepared = false } = {}) => {
+      transportScrollTargetRef.current = "snapshot";
+      const nextSnapshotIndex = Number(snapshotIndex);
+      if (!Number.isFinite(nextSnapshotIndex)) return;
+      onCueSequenceSnapshot?.(nextSnapshotIndex);
+      if (viewportPrepared) return;
+      const snapshotId = snapshots[nextSnapshotIndex]?.id ?? null;
+      alignSnapshotToPanelTop(snapshotId);
+    },
+    [alignSnapshotToPanelTop, onCueSequenceSnapshot, snapshots],
+  );
 
-  const armPendingCue = useCallback((cueIndex, { viewportPrepared = false } = {}) => {
-    transportScrollTargetRef.current = "cue";
-    cancelPendingSnapshotAlignment();
-    const nextCueIndex = Number(cueIndex);
-    if (!Number.isFinite(nextCueIndex)) return;
-    const cueGroup = sequenceCueGroups[nextCueIndex];
-    if (!cueGroup) return;
-    const previewExpandedIds = cueExpandedSnapshotIdsAt(nextCueIndex);
-    const anchorSnapshotId = resolveCueAnchorSnapshotId({
-      activeCueIndex: nextCueIndex + 1,
-      sequenceCueGroups,
-      sequenceEvents,
-      snapshots,
-      cueExpandedSnapshotIds: previewExpandedIds,
-    });
-    onCueSequenceCue?.(nextCueIndex);
-    if (viewportPrepared) {
-      if (!showAllEvents && previewExpandedIds.size > 0) {
-        setExpandedIds(previewExpandedIds);
+  const armPendingCue = useCallback(
+    (cueIndex, { viewportPrepared = false } = {}) => {
+      transportScrollTargetRef.current = "cue";
+      cancelPendingSnapshotAlignment();
+      const nextCueIndex = Number(cueIndex);
+      if (!Number.isFinite(nextCueIndex)) return;
+      const cueGroup = sequenceCueGroups[nextCueIndex];
+      if (!cueGroup) return;
+      const previewExpandedIds = cueExpandedSnapshotIdsAt(nextCueIndex);
+      const anchorSnapshotId = resolveCueAnchorSnapshotId({
+        activeCueIndex: nextCueIndex + 1,
+        sequenceCueGroups,
+        sequenceEvents,
+        snapshots,
+        cueExpandedSnapshotIds: previewExpandedIds,
+      });
+      onCueSequenceCue?.(nextCueIndex);
+      if (viewportPrepared) {
+        if (!showAllEvents && previewExpandedIds.size > 0) {
+          setExpandedIds(previewExpandedIds);
+        }
+        suppressNextCueAutoScrollRef.current = true;
+        if (anchorSnapshotId != null) {
+          lastAutoScrolledCueTargetRef.current = `snapshot:${anchorSnapshotId}`;
+        }
+        return;
       }
-      suppressNextCueAutoScrollRef.current = true;
-      if (anchorSnapshotId != null) {
-        lastAutoScrolledCueTargetRef.current = `snapshot:${anchorSnapshotId}`;
+      const repeatStartKey = repeatStartKeyAtPosition(cueGroup.time);
+      if (repeatStartKey != null) {
+        const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
+        scrollNodeIntoPanel(repeatRow);
+        return;
       }
-      return;
-    }
-    const repeatStartKey = repeatStartKeyAtPosition(cueGroup.time);
-    if (repeatStartKey != null) {
-      const repeatRow = barRowRefs.current.get(repeatStartKey) ?? null;
-      scrollNodeIntoPanel(repeatRow);
-      return;
-    }
-    if (showAllEvents) {
-      if (anchorSnapshotId != null) {
-        const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
-        scrollNodeIntoPanel(snapshotRow);
-      }
-    } else {
-      if (previewExpandedIds.size > 0) {
-        setExpandedIds(previewExpandedIds);
+      if (showAllEvents) {
         if (anchorSnapshotId != null) {
           const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
           scrollNodeIntoPanel(snapshotRow);
         }
       } else {
-        const eventId = firstEventIdByCueIndex.get(nextCueIndex + 1) ?? null;
-        if (eventId != null) {
-          const eventRow = eventRowRefs.current.get(eventId) ?? null;
-          scrollNodeIntoPanel(eventRow);
+        if (previewExpandedIds.size > 0) {
+          setExpandedIds(previewExpandedIds);
+          if (anchorSnapshotId != null) {
+            const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
+            scrollNodeIntoPanel(snapshotRow);
+          }
+        } else {
+          const eventId = firstEventIdByCueIndex.get(nextCueIndex + 1) ?? null;
+          if (eventId != null) {
+            const eventRow = eventRowRefs.current.get(eventId) ?? null;
+            scrollNodeIntoPanel(eventRow);
+          }
         }
       }
-    }
-  }, [
-    cancelPendingSnapshotAlignment,
-    cueExpandedSnapshotIdsAt,
-    firstEventIdByCueIndex,
-    onCueSequenceCue,
-    repeatStartKeyAtPosition,
-    scrollNodeIntoPanel,
-    sequenceCueGroups,
-    sequenceEvents,
-    setExpandedIds,
-    showAllEvents,
-    snapshots,
-  ]);
+    },
+    [
+      cancelPendingSnapshotAlignment,
+      cueExpandedSnapshotIdsAt,
+      firstEventIdByCueIndex,
+      onCueSequenceCue,
+      repeatStartKeyAtPosition,
+      scrollNodeIntoPanel,
+      sequenceCueGroups,
+      sequenceEvents,
+      setExpandedIds,
+      showAllEvents,
+      snapshots,
+    ],
+  );
 
-  const ensureExpanded = useCallback((id) => {
-    setExpandedIds((prev) => {
-      if (prev.size === 1 && prev.has(id)) return prev;
-      return new Set([id]);
-    });
-  }, [setExpandedIds]);
+  const ensureExpanded = useCallback(
+    (id) => {
+      setExpandedIds((prev) => {
+        if (prev.size === 1 && prev.has(id)) return prev;
+        return new Set([id]);
+      });
+    },
+    [setExpandedIds],
+  );
 
   useEffect(() => {
     if (!isSequenceRuntimeDiagnosticsEnabled()) return undefined;
@@ -436,7 +449,8 @@ export default function useSequencerAutoscroll({
         step: "sequencer-scroll-response",
         latencyMs: now - lastScrollInputAtRef.current,
         scrollTop: nextScrollTop,
-        detail: delta > 0 ? "first scroll response after input" : "scroll input without position change",
+        detail:
+          delta > 0 ? "first scroll response after input" : "scroll input without position change",
       });
     };
 
@@ -471,9 +485,10 @@ export default function useSequencerAutoscroll({
       if (anchorTarget == null) return;
       const targetRefKey = `${anchorTarget.kind}:${anchorTarget.targetKey}`;
       if (lastAutoScrolledCueTargetRef.current === targetRefKey) return;
-      const targetNode = anchorTarget.kind === "structural"
-        ? (barRowRefs.current.get(anchorTarget.targetKey) ?? null)
-        : (snapshotRowRefs.current.get(anchorTarget.targetKey) ?? null);
+      const targetNode =
+        anchorTarget.kind === "structural"
+          ? (barRowRefs.current.get(anchorTarget.targetKey) ?? null)
+          : (snapshotRowRefs.current.get(anchorTarget.targetKey) ?? null);
       if (!(targetNode instanceof HTMLElement)) return;
 
       lastAutoScrolledCueTargetRef.current = targetRefKey;
@@ -481,7 +496,19 @@ export default function useSequencerAutoscroll({
       return;
     }
     lastAutoScrolledCueTargetRef.current = null;
-  }, [activeCueIndex, autoScrollEnabled, cancelPendingSnapshotAlignment, cueExpandedSnapshotIds, manageActiveCueViewport, scrollNodeIntoPanel, sequenceCueGroups, sequenceEvents, sequenceRepeatSections, showAllEvents, snapshots]);
+  }, [
+    activeCueIndex,
+    autoScrollEnabled,
+    cancelPendingSnapshotAlignment,
+    cueExpandedSnapshotIds,
+    manageActiveCueViewport,
+    scrollNodeIntoPanel,
+    sequenceCueGroups,
+    sequenceEvents,
+    sequenceRepeatSections,
+    showAllEvents,
+    snapshots,
+  ]);
 
   useEffect(() => {
     if (manageActiveSnapshotViewport) return;
@@ -502,7 +529,13 @@ export default function useSequencerAutoscroll({
 
     lastAutoScrolledSnapshotIdRef.current = snapshotId;
     alignNodeToPanelTop(snapshotRow);
-  }, [activeCueIndex, activeSnapshotId, alignNodeToPanelTop, autoScrollEnabled, manageActiveSnapshotViewport]);
+  }, [
+    activeCueIndex,
+    activeSnapshotId,
+    alignNodeToPanelTop,
+    autoScrollEnabled,
+    manageActiveSnapshotViewport,
+  ]);
 
   useEffect(() => {
     if (!autoScrollEnabled) return;
@@ -510,14 +543,19 @@ export default function useSequencerAutoscroll({
     if (!playheadIsOff || pendingTarget == null) return;
     pendingResetScrollTargetRef.current = null;
     if (pendingTarget === "__first_structural__") {
-      const keyedStructuralRow = firstStructuralScrollKey != null
-        ? (barRowRefs.current.get(firstStructuralScrollKey) ?? null)
-        : null;
-      const firstStructuralRow = keyedStructuralRow instanceof HTMLElement
-        ? keyedStructuralRow
-        : ([...barRowRefs.current.values()]
-          .filter((node) => node instanceof HTMLElement)
-          .sort((left, right) => left.getBoundingClientRect().top - right.getBoundingClientRect().top)[0] ?? null);
+      const keyedStructuralRow =
+        firstStructuralScrollKey != null
+          ? (barRowRefs.current.get(firstStructuralScrollKey) ?? null)
+          : null;
+      const firstStructuralRow =
+        keyedStructuralRow instanceof HTMLElement
+          ? keyedStructuralRow
+          : ([...barRowRefs.current.values()]
+              .filter((node) => node instanceof HTMLElement)
+              .sort(
+                (left, right) =>
+                  left.getBoundingClientRect().top - right.getBoundingClientRect().top,
+              )[0] ?? null);
       if (!(firstStructuralRow instanceof HTMLElement)) {
         const scrollPanel = scrollPanelRef.current;
         if (scrollPanel instanceof HTMLElement) {

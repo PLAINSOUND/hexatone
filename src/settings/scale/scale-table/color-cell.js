@@ -187,11 +187,14 @@ const ColorCell = ({
               comparingRef.current = nextComparing;
               onPreviewColor?.(nextComparing ? safeRef.current : draftRef.current);
               return nextComparing;
-            })}
+            })
+          }
           title="Compare with original colour"
           aria-label={`compare original colour for ${name}`}
         >
-          <span class="refresh-glyph" aria-hidden="true">⟳</span>
+          <span class="refresh-glyph" aria-hidden="true">
+            ⟳
+          </span>
         </button>
       )}
       {isDirty && (
@@ -214,7 +217,11 @@ const ColorCell = ({
             onPreviewColor?.(suggested);
             onApplySuggestion?.(suggested);
           }}
-          title={suggestedLabel ? `Apply suggested colour: ${suggestedLabel}` : `Apply suggested colour ${suggested}`}
+          title={
+            suggestedLabel
+              ? `Apply suggested colour: ${suggestedLabel}`
+              : `Apply suggested colour ${suggested}`
+          }
           aria-label={`apply suggested colour for ${name}`}
         >
           <span

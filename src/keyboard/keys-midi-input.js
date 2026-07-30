@@ -11,10 +11,7 @@ import {
   computeContinuumPitchBendCents,
   resolveHakenXGlideMode,
 } from "../input/keys-expression-runtime.js";
-import {
-  resolveNonScaleNoteOffCoords,
-  resolveNonScaleNoteOn,
-} from "./input-address-runtime.js";
+import { resolveNonScaleNoteOffCoords, resolveNonScaleNoteOn } from "./input-address-runtime.js";
 import { continuumRasterFilterSetFromRuntime } from "../controllers/continuum-raster-filters.js";
 
 function usesPerChannelExpression(runtime) {
@@ -61,27 +58,28 @@ function continuumFilteredRasterTargetStep(currentSteps, proposedSteps, filterSe
   const direction = Math.sign(proposedSteps - currentSteps);
   if (direction === 0) return currentSteps;
   let candidate = currentSteps;
-  for (let step = currentSteps + direction; direction > 0 ? step <= proposedSteps : step >= proposedSteps; step += direction) {
+  for (
+    let step = currentSteps + direction;
+    direction > 0 ? step <= proposedSteps : step >= proposedSteps;
+    step += direction
+  ) {
     if (continuumRasterStepAllowed(step, filterSet, equivSteps)) candidate = step;
   }
   return candidate;
 }
 
-function continuumFirstAllowedRasterTargetAfterEntry(entryTargetFloat, targetFloat, filterSet, equivSteps) {
+function continuumFirstAllowedRasterTargetAfterEntry(
+  entryTargetFloat,
+  targetFloat,
+  filterSet,
+  equivSteps,
+) {
   if (!Number.isFinite(entryTargetFloat) || !Number.isFinite(targetFloat)) return null;
   const direction = Math.sign(targetFloat - entryTargetFloat);
   if (direction === 0) return null;
-  const start = direction > 0
-    ? Math.floor(entryTargetFloat) + 1
-    : Math.ceil(entryTargetFloat) - 1;
-  const end = direction > 0
-    ? Math.floor(targetFloat)
-    : Math.ceil(targetFloat);
-  for (
-    let step = start;
-    direction > 0 ? step <= end : step >= end;
-    step += direction
-  ) {
+  const start = direction > 0 ? Math.floor(entryTargetFloat) + 1 : Math.ceil(entryTargetFloat) - 1;
+  const end = direction > 0 ? Math.floor(targetFloat) : Math.ceil(targetFloat);
+  for (let step = start; direction > 0 ? step <= end : step >= end; step += direction) {
     if (continuumRasterStepAllowed(step, filterSet, equivSteps)) return step;
   }
   return null;
@@ -104,7 +102,8 @@ function nearestContinuumFilteredScaleStep(keys, step, filterSet, equivSteps) {
   if (!filterSet || !Number.isFinite(step)) return step;
   const scaleLength = Math.max(1, keys.tuning.scale?.length ?? equivSteps ?? 1);
   const searchRadius = Math.max(scaleLength, equivSteps, 1);
-  const stepCents = (Math.floor(step / scaleLength) * (keys.tuning.equivInterval ?? 1200)) +
+  const stepCents =
+    Math.floor(step / scaleLength) * (keys.tuning.equivInterval ?? 1200) +
     (keys.tuning.scale[mod(step, scaleLength)] ?? 0);
   let bestStep = null;
   let bestDistance = Infinity;
@@ -112,14 +111,12 @@ function nearestContinuumFilteredScaleStep(keys, step, filterSet, equivSteps) {
   for (let delta = -searchRadius; delta <= searchRadius; delta += 1) {
     const candidate = step + delta;
     if (!continuumRasterStepAllowed(candidate, filterSet, equivSteps)) continue;
-    const candidateCents = (Math.floor(candidate / scaleLength) * (keys.tuning.equivInterval ?? 1200)) +
+    const candidateCents =
+      Math.floor(candidate / scaleLength) * (keys.tuning.equivInterval ?? 1200) +
       (keys.tuning.scale[mod(candidate, scaleLength)] ?? 0);
     const distance = Math.abs(candidateCents - stepCents);
     const absDelta = Math.abs(delta);
-    if (
-      distance < bestDistance ||
-      (distance === bestDistance && absDelta < bestAbsDelta)
-    ) {
+    if (distance < bestDistance || (distance === bestDistance && absDelta < bestAbsDelta)) {
       bestStep = candidate;
       bestDistance = distance;
       bestAbsDelta = absDelta;
@@ -137,9 +134,7 @@ function clearContinuumRasterExitHandoff(hex) {
 function finalizeContinuumRasterExitHandoff(keys, hex, entry, channel, bend14, steps) {
   if (!hex) return;
   const bend21 = keys._hakenMpeBend21ByChannel.get(channel) ?? null;
-  const [, , currentSteps] = hex.coords
-    ? keys.hexCoordsToCents(hex.coords)
-    : [null, null, steps];
+  const [, , currentSteps] = hex.coords ? keys.hexCoordsToCents(hex.coords) : [null, null, steps];
   clearContinuumRasterExitHandoff(hex);
   hex._continuumPitchAnchor14 = bend14;
   hex._continuumPitchAnchor21 = bend21;
@@ -155,11 +150,8 @@ function finalizeContinuumRasterExitHandoff(keys, hex, entry, channel, bend14, s
 function continuumRasterTargetFloat(keys, hex, channel, bend14, scaleMode) {
   const effectiveMode = resolveHakenXGlideMode(keys.inputRuntime);
   const rasterFollowingActive =
-    effectiveMode === "raster_to_notes" ||
-    !!hex?._continuumRasterPendingExitHandoff;
-  const useScaleFollowing =
-    rasterFollowingActive &&
-    keys.inputRuntime.layoutMode !== "sequential";
+    effectiveMode === "raster_to_notes" || !!hex?._continuumRasterPendingExitHandoff;
+  const useScaleFollowing = rasterFollowingActive && keys.inputRuntime.layoutMode !== "sequential";
   const bendRangeSemitones = keys.settings.midiin_scale_bend_range ?? 48;
   const semitoneFloatOffset = ((bend14 - 8192) * bendRangeSemitones) / 8192;
 
@@ -192,23 +184,20 @@ export function primeHakenRasterModeEntry(entry, channel) {
   const bend14 = this._mpeInputBendByChannel.get(channel);
   const bend21 = this._hakenMpeBend21ByChannel.get(channel) ?? null;
   const currentCenterCents = hex.coords ? this.hexCoordsToCents(hex.coords)?.[0] : null;
-  const currentBentCents = bend14 != null
-    ? computeContinuumPitchBendCents(this, entry, channel, bend14, bend21)
-    : (hex._lastPitchBendCents ?? hex.cents ?? currentCenterCents);
-  const entrySide = Number.isFinite(currentBentCents) && Number.isFinite(currentCenterCents)
-    ? Math.sign(currentBentCents - currentCenterCents)
-    : 0;
+  const currentBentCents =
+    bend14 != null
+      ? computeContinuumPitchBendCents(this, entry, channel, bend14, bend21)
+      : (hex._lastPitchBendCents ?? hex.cents ?? currentCenterCents);
+  const entrySide =
+    Number.isFinite(currentBentCents) && Number.isFinite(currentCenterCents)
+      ? Math.sign(currentBentCents - currentCenterCents)
+      : 0;
   hex._continuumRasterPendingHandoff = true;
   hex._continuumRasterPendingTargetSteps = null;
-  hex._continuumRasterEntryTargetFloat = bend14 != null
-    ? continuumRasterTargetFloat(
-      this,
-      hex,
-      channel,
-      bend14,
-      this.inputRuntime.target === "scale",
-    )
-    : null;
+  hex._continuumRasterEntryTargetFloat =
+    bend14 != null
+      ? continuumRasterTargetFloat(this, hex, channel, bend14, this.inputRuntime.target === "scale")
+      : null;
   hex._continuumRasterEntrySide = entrySide;
   hex._continuumRasterClampedAtCenter = entrySide === 0;
 }
@@ -259,7 +248,9 @@ function releaseContinuumRasterHex(keys, channel, hex, releaseVelocity, notePlay
     Math.min(100, Number(keys.inputRuntime.hakenNoteOffDelay ?? 0) || 0),
   );
   const startedAt = Number(hex?._rasterStartedAt);
-  const elapsedMs = Number.isFinite(startedAt) ? Math.max(0, Date.now() - startedAt) : minDurationMs;
+  const elapsedMs = Number.isFinite(startedAt)
+    ? Math.max(0, Date.now() - startedAt)
+    : minDurationMs;
   const remainingMs = Math.max(0, minDurationMs - elapsedMs);
   debugLog("osc", "releaseContinuumRasterHex", {
     channel,
@@ -343,9 +334,8 @@ function activeHexAtCoords(keys, coords) {
 
 function chooseAlternateCoordsForStep(keys, steps, inputAddress, preferredCoords) {
   const fullyVisible = keys.coordResolver.stepsToFullyVisibleCoords(steps);
-  const candidates = fullyVisible.length > 0
-    ? fullyVisible
-    : keys.coordResolver.stepsToVisibleCoords(steps);
+  const candidates =
+    fullyVisible.length > 0 ? fullyVisible : keys.coordResolver.stepsToVisibleCoords(steps);
   if (candidates.length <= 1) return preferredCoords;
 
   const available = candidates.filter((coords) => !keys._isCoordActive(coords));
@@ -437,8 +427,7 @@ function pitchHzForScaleInput(event) {
     return baseHz * Math.pow(2, (norm * bendRangeCents) / 1200);
   }
   return (
-    this._mtsInputTable.get(event.note.number) ??
-    440 * Math.pow(2, (event.note.number - 69) / 12)
+    this._mtsInputTable.get(event.note.number) ?? 440 * Math.pow(2, (event.note.number - 69) / 12)
   );
 }
 
@@ -501,15 +490,22 @@ export function midinoteOn(event) {
       channel: event.message.channel,
       note: event.note.number,
     };
-    const rasterFilter = (
+    const rasterFilter =
       this.controller?.id === "hakenaudio" &&
       this.inputRuntime.mpeInput &&
       resolveHakenXGlideMode(this.inputRuntime) === "raster_to_notes"
-    )
-      ? continuumRasterFilterSetFromRuntime(this.inputRuntime)
-      : null;
-    const equivSteps = Math.max(1, Number(this.tuning.equivSteps ?? this.settings.equivSteps ?? 1) || 1);
-    const onsetSteps = nearestContinuumFilteredScaleStep(this, result.steps, rasterFilter, equivSteps);
+        ? continuumRasterFilterSetFromRuntime(this.inputRuntime)
+        : null;
+    const equivSteps = Math.max(
+      1,
+      Number(this.tuning.equivSteps ?? this.settings.equivSteps ?? 1) || 1,
+    );
+    const onsetSteps = nearestContinuumFilteredScaleStep(
+      this,
+      result.steps,
+      rasterFilter,
+      equivSteps,
+    );
     rasterOnsetStepsOverride = onsetSteps;
     coords = this.coordResolver.coordForSteps(onsetSteps, inputAddress);
     coords = maybeResolveDistinctHakenCoords(this, coords, onsetSteps, inputAddress);
@@ -568,7 +564,10 @@ export function midinoteOn(event) {
         this._applyPolyAftertouch(hex, recentAftertouch);
       }
     }
-    const recentCC74 = recentPerChannelExpressionValue(this._mpeInputCC74ByChannel, event.message.channel);
+    const recentCC74 = recentPerChannelExpressionValue(
+      this._mpeInputCC74ByChannel,
+      event.message.channel,
+    );
     const recentCC74Entry = this._mpeInputCC74ByChannel.get(event.message.channel);
     if (recentCC74 != null) {
       if (recentCC74Entry?.value14 != null) {
@@ -581,10 +580,7 @@ export function midinoteOn(event) {
   // Raster mode initialisation: store the onset step so hakenRasterBend can
   // compute offsets from it, and seed _rasterSteps (the last-triggered position)
   // to semitone offset 0 so the first bend event doesn't cause a spurious retrigger.
-  if (
-    this.controller?.id === "hakenaudio" &&
-    this.inputRuntime.mpeInput
-  ) {
+  if (this.controller?.id === "hakenaudio" && this.inputRuntime.mpeInput) {
     hex._rasterStartedAt = Date.now();
     hex._rasterLastTriggerAt = hex._rasterStartedAt;
     if (this.inputRuntime.target === "scale" && coords !== null) {
@@ -789,9 +785,8 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   if (!Number.isFinite(targetStepFloat)) return;
   const pendingExitHandoff = !!hex._continuumRasterPendingExitHandoff;
 
-  const currentCoordsSteps = pendingExitHandoff && hex.coords
-    ? this.hexCoordsToCents(hex.coords)?.[2]
-    : null;
+  const currentCoordsSteps =
+    pendingExitHandoff && hex.coords ? this.hexCoordsToCents(hex.coords)?.[2] : null;
   const currentSteps = Number.isFinite(hex._rasterSteps)
     ? hex._rasterSteps
     : Number.isFinite(currentCoordsSteps)
@@ -803,7 +798,10 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
     this.inputRuntime.hakenRasterStability ?? 25,
   );
   const rasterFilter = continuumRasterFilterSetFromRuntime(this.inputRuntime);
-  const equivSteps = Math.max(1, Number(this.tuning.equivSteps ?? this.settings.equivSteps ?? 1) || 1);
+  const equivSteps = Math.max(
+    1,
+    Number(this.tuning.equivSteps ?? this.settings.equivSteps ?? 1) || 1,
+  );
   newSteps = continuumFilteredRasterTargetStep(currentSteps, newSteps, rasterFilter, equivSteps);
 
   if (hex._continuumRasterPendingHandoff) {
@@ -832,11 +830,13 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
       return;
     }
     if (pendingTarget === currentSteps) {
-      if (!continuumRasterEntryTargetReached(
-        hex._continuumRasterEntryTargetFloat,
-        targetStepFloat,
-        pendingTarget,
-      )) {
+      if (
+        !continuumRasterEntryTargetReached(
+          hex._continuumRasterEntryTargetFloat,
+          targetStepFloat,
+          pendingTarget,
+        )
+      ) {
         retuneDuringHandoff();
         return;
       }
@@ -855,11 +855,13 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
       hex._continuumRasterClampedAtCenter = false;
       return;
     }
-    if (!continuumRasterEntryTargetReached(
-      hex._continuumRasterEntryTargetFloat,
-      targetStepFloat,
-      pendingTarget,
-    )) {
+    if (
+      !continuumRasterEntryTargetReached(
+        hex._continuumRasterEntryTargetFloat,
+        targetStepFloat,
+        pendingTarget,
+      )
+    ) {
       retuneDuringHandoff();
       return;
     }
@@ -884,10 +886,7 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
 
   // No crossing yet — nothing to retrigger.
   if (currentSteps === newSteps) {
-    if (
-      pendingExitHandoff &&
-      Math.abs(targetStepFloat - currentSteps) < 0.000001
-    ) {
+    if (pendingExitHandoff && Math.abs(targetStepFloat - currentSteps) < 0.000001) {
       finalizeContinuumRasterExitHandoff(this, hex, entry, channel, bend14, currentSteps);
     }
     return;
@@ -971,7 +970,7 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   newHex._velocityPlayed = originalVelocity;
   newHex._rasterStartedAt = now;
   newHex._rasterOnsetSteps = hex._rasterOnsetSteps; // fixed onset — never changes during a hold
-  newHex._rasterSteps = newSteps;                   // current triggered position
+  newHex._rasterSteps = newSteps; // current triggered position
   newHex._rasterLastTriggerAt = now;
   newHex._continuumRasterPendingHandoff = false;
   newHex._continuumRasterPendingTargetSteps = null;
@@ -1007,7 +1006,8 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
   // immediately at onset so the rebuilt note does not jump in timbre or
   // pressure response while waiting for the next incoming Y/Z update.
   if (hex._lastAftertouch != null) {
-    if (hex._lastAftertouch14 != null) this._applyPolyAftertouch(newHex, hex._lastAftertouch, hex._lastAftertouch14);
+    if (hex._lastAftertouch14 != null)
+      this._applyPolyAftertouch(newHex, hex._lastAftertouch, hex._lastAftertouch14);
     else this._applyPolyAftertouch(newHex, hex._lastAftertouch);
   }
   if (hex._lastCC74 != null) {

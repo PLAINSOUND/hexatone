@@ -119,14 +119,12 @@ describe("LumatoneSettings", () => {
           reference_degree: 9,
           fundamental: 440,
         }}
-        snapshots={[{
-          id: 1,
-          notes: [
-            { midicents: 69 },
-            { midicents: 64 },
-            { midicents: 60 },
-          ],
-        }]}
+        snapshots={[
+          {
+            id: 1,
+            notes: [{ midicents: 69 }, { midicents: 64 }, { midicents: 60 }],
+          },
+        ]}
         rawPorts={{ output: { id: "lumatone", name: "Lumatone MIDI" } }}
         midiOutputs={new Map()}
         keysRef={keysRef}
@@ -171,14 +169,12 @@ describe("LumatoneSettings", () => {
           reference_degree: 9,
           fundamental: 440,
         }}
-        snapshots={[{
-          id: 1,
-          notes: [
-            { midicents: 69 },
-            { midicents: 64 },
-            { midicents: 60 },
-          ],
-        }]}
+        snapshots={[
+          {
+            id: 1,
+            notes: [{ midicents: 69 }, { midicents: 64 }, { midicents: 60 }],
+          },
+        ]}
         rawPorts={{ output: { id: "lumatone", name: "Lumatone MIDI" } }}
         midiOutputs={new Map()}
         keysRef={keysRef}
@@ -231,12 +227,7 @@ describe("LumatoneSettings", () => {
       onChange,
     };
 
-    const { rerender } = render(
-      <LumatoneSettings
-        {...props}
-        snapshots={[]}
-      />,
-    );
+    const { rerender } = render(<LumatoneSettings {...props} snapshots={[]} />);
 
     let select = screen.getByRole("combobox", { name: "Lumatone Colour Filter" });
     expect([...select.querySelectorAll("option")].map((option) => option.textContent)).toEqual([
@@ -247,14 +238,12 @@ describe("LumatoneSettings", () => {
     rerender(
       <LumatoneSettings
         {...props}
-        snapshots={[{
-          id: 1,
-          notes: [
-            { midicents: 69 },
-            { midicents: 64 },
-            { midicents: 60 },
-          ],
-        }]}
+        snapshots={[
+          {
+            id: 1,
+            notes: [{ midicents: 69 }, { midicents: 64 }, { midicents: 60 }],
+          },
+        ]}
       />,
     );
 
@@ -285,7 +274,20 @@ describe("LumatoneSettings", () => {
           lumatone_degree_filter_mode: "all",
           lumatone_degree_filter: "",
           lumatone_degree_filter_snapshots: true,
-          scale: ["100.0", "200.0", "300.0", "400.0", "500.0", "600.0", "700.0", "800.0", "900.0", "1000.0", "1100.0", "2/1"],
+          scale: [
+            "100.0",
+            "200.0",
+            "300.0",
+            "400.0",
+            "500.0",
+            "600.0",
+            "700.0",
+            "800.0",
+            "900.0",
+            "1000.0",
+            "1100.0",
+            "2/1",
+          ],
           equivInterval: 1200,
           reference_degree: 9,
           fundamental: 440,
@@ -296,14 +298,12 @@ describe("LumatoneSettings", () => {
           referenceDegree: 9,
           fundamental: 440,
         }}
-        snapshots={[{
-          id: 1,
-          notes: [
-            { midicents: 69 },
-            { midicents: 64 },
-            { midicents: 60 },
-          ],
-        }]}
+        snapshots={[
+          {
+            id: 1,
+            notes: [{ midicents: 69 }, { midicents: 64 }, { midicents: 60 }],
+          },
+        ]}
         rawPorts={{ output: { id: "lumatone", name: "Lumatone MIDI" } }}
         midiOutputs={new Map()}
         keysRef={keysRef}

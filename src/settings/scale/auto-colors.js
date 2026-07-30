@@ -35,7 +35,9 @@ function clamp01(value) {
 }
 
 function hexToRgb(hex) {
-  const normalized = String(hex ?? "").trim().replace(/^#/, "");
+  const normalized = String(hex ?? "")
+    .trim()
+    .replace(/^#/, "");
   if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return null;
   return [
     Number.parseInt(normalized.slice(0, 2), 16),
@@ -46,7 +48,11 @@ function hexToRgb(hex) {
 
 function rgbToHex([r, g, b]) {
   return `#${[r, g, b]
-    .map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, "0"))
+    .map((channel) =>
+      Math.max(0, Math.min(255, Math.round(channel)))
+        .toString(16)
+        .padStart(2, "0"),
+    )
     .join("")}`;
 }
 
@@ -59,9 +65,7 @@ function mixHex(a, b, t) {
 }
 
 function averageHexColors(colors = []) {
-  const samples = colors
-    .map((color) => hexToRgb(color))
-    .filter(Boolean);
+  const samples = colors.map((color) => hexToRgb(color)).filter(Boolean);
   if (!samples.length) return null;
   const totals = samples.reduce(
     (sum, sample) => sum.map((value, index) => value + sample[index]),
@@ -71,7 +75,11 @@ function averageHexColors(colors = []) {
 }
 
 function deriveTraditionalTemperedChromaticPalette() {
-  const baseChromatic = mixHex(TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR, TEMPERED_CHROMATIC_AUTO_COLOR, 0.8);
+  const baseChromatic = mixHex(
+    TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR,
+    TEMPERED_CHROMATIC_AUTO_COLOR,
+    0.8,
+  );
   const sharp = mixHex(baseChromatic, TRADITIONAL_TEMPERED_SHARP_TINT, 0.45);
   const flat = mixHex(baseChromatic, TRADITIONAL_TEMPERED_FLAT_TINT, 0.45);
   const mixed = mixHex(sharp, flat, 0.5);
@@ -82,11 +90,18 @@ export function deriveAutoTonicColorFromPalette(colors = []) {
   return deriveAutoTonicColorFromPaletteWithPrime(colors, DEFAULT_PRIME_FAMILY_COLORS[1]);
 }
 
-export function deriveAutoTonicColorFromPaletteWithPrime(colors = [], intenseTonicColor = DEFAULT_PRIME_FAMILY_COLORS[1]) {
+export function deriveAutoTonicColorFromPaletteWithPrime(
+  colors = [],
+  intenseTonicColor = DEFAULT_PRIME_FAMILY_COLORS[1],
+) {
   const strongTonic = intenseTonicColor || DEFAULT_PRIME_FAMILY_COLORS[1];
   const useDefaultTonicPoles = strongTonic.toLowerCase() === DEFAULT_PRIME_FAMILY_COLORS[1];
-  const softTonic = useDefaultTonicPoles ? AUTO_TONIC_COLOR_SOFT : mixHex("#ffffff", strongTonic, 0.28);
-  const roseHeavyTonic = useDefaultTonicPoles ? AUTO_TONIC_COLOR_ROSE_HEAVY : mixHex(strongTonic, "#ffffff", 0.34);
+  const softTonic = useDefaultTonicPoles
+    ? AUTO_TONIC_COLOR_SOFT
+    : mixHex("#ffffff", strongTonic, 0.28);
+  const roseHeavyTonic = useDefaultTonicPoles
+    ? AUTO_TONIC_COLOR_ROSE_HEAVY
+    : mixHex(strongTonic, "#ffffff", 0.34);
   const samples = colors
     .map((color) => hexToRgb(color))
     .filter(Boolean)
@@ -105,44 +120,49 @@ export function deriveAutoTonicColorFromPaletteWithPrime(colors = [], intenseTon
 
   if (!samples.length) return softTonic;
 
-  const averageVividness = samples.reduce((sum, sample) => sum + sample.vividness, 0) / samples.length;
+  const averageVividness =
+    samples.reduce((sum, sample) => sum + sample.vividness, 0) / samples.length;
   const vividRatio = samples.reduce((sum, sample) => sum + sample.vivid, 0) / samples.length;
   const neutralRatio = samples.reduce((sum, sample) => sum + sample.neutral, 0) / samples.length;
   const roseRatio = samples.reduce((sum, sample) => sum + sample.rose, 0) / samples.length;
   const paleRoseRatio = samples.reduce((sum, sample) => sum + sample.paleRose, 0) / samples.length;
-  const vividRoseRatio = samples.reduce((sum, sample) => sum + sample.vividRose, 0) / samples.length;
+  const vividRoseRatio =
+    samples.reduce((sum, sample) => sum + sample.vividRose, 0) / samples.length;
   const vividSamples = samples.filter((sample) => sample.vivid);
   const vividHueDiversity = vividSamples.length
     ? new Set(vividSamples.map((sample) => Math.floor(sample.hue * 6) % 6)).size / 6
     : 0;
-  const intensity = clamp01(
-    ((averageVividness - 0.03) / 0.12) * 0.45
-      + (vividRatio * 0.35)
-      + (vividHueDiversity * 0.28),
-  ) * (1 - neutralRatio * 0.8);
+  const intensity =
+    clamp01(
+      ((averageVividness - 0.03) / 0.12) * 0.45 + vividRatio * 0.35 + vividHueDiversity * 0.28,
+    ) *
+    (1 - neutralRatio * 0.8);
   let base = mixHex(softTonic, strongTonic, intensity);
-  const subduedPalette = clamp01((0.22 - averageVividness) / 0.18)
-    * (1 - clamp01(roseRatio / 0.18))
-    * (1 - vividHueDiversity);
+  const subduedPalette =
+    clamp01((0.22 - averageVividness) / 0.18) *
+    (1 - clamp01(roseRatio / 0.18)) *
+    (1 - vividHueDiversity);
   base = mixHex(base, softTonic, subduedPalette * 0.45);
   const paleRoseBoost = clamp01((paleRoseRatio - 0.05) / 0.12);
   base = mixHex(base, strongTonic, paleRoseBoost * 0.52);
   const roseBoost = clamp01((roseRatio - 0.3) / 0.45);
   base = mixHex(base, roseHeavyTonic, roseBoost);
-  const competitiveRoseBoost = clamp01((vividRoseRatio - 0.08) / 0.2)
-    * clamp01((vividHueDiversity - 0.18) / 0.45);
+  const competitiveRoseBoost =
+    clamp01((vividRoseRatio - 0.08) / 0.2) * clamp01((vividHueDiversity - 0.18) / 0.45);
   return mixHex(base, strongTonic, competitiveRoseBoost * 0.42);
 }
 
 export function getAutoColorOptions(settings) {
   const short = String(settings?.short_description ?? "");
-  const text = [settings?.name, settings?.short_description]
-    .filter(Boolean)
-    .join(" ");
+  const text = [settings?.name, settings?.short_description].filter(Boolean).join(" ");
   if (/Hamilton/i.test(text)) return { structuralOverlay: "fifths" };
   if (/(Odd Partial|OddPartials|OddPart)/i.test(text)) return { structuralOverlay: "none" };
-  if (/^(\d+-)?HS([_-]|$)|^(\d+-)?HSS([_-]|$)|^(\d+-)?SHS([_-]|$)|Partials|partial row/i.test(short)
-    || /Partials|partial row/i.test(String(settings?.name ?? ""))) {
+  if (
+    /^(\d+-)?HS([_-]|$)|^(\d+-)?HSS([_-]|$)|^(\d+-)?SHS([_-]|$)|Partials|partial row/i.test(
+      short,
+    ) ||
+    /Partials|partial row/i.test(String(settings?.name ?? ""))
+  ) {
     return { structuralOverlay: "none" };
   }
   return { structuralOverlay: "fifths" };
@@ -197,7 +217,9 @@ function parseExplicitHejiClassificationLabel(label, { allowImplicitNatural = fa
 }
 
 function parseTraditionalNotationLabel(label) {
-  const source = String(label ?? "").trim().replace(/\s+/g, "");
+  const source = String(label ?? "")
+    .trim()
+    .replace(/\s+/g, "");
   if (!source) return null;
   const match = source.match(/^([♭b#♯]*)([A-Ga-g])([♭b#♯]*)$/u);
   if (!match) return null;
@@ -362,8 +384,10 @@ export function inferNotationSide(label, options = {}) {
     if (traditional.accidentalCount < 0) return "flat";
     if (traditional.accidentalCount > 0) return "sharp";
     if (traditional.letter === "D") return "core";
-    if (traditional.letter === "F" || traditional.letter === "C" || traditional.letter === "G") return "flat";
-    if (traditional.letter === "A" || traditional.letter === "E" || traditional.letter === "B") return "sharp";
+    if (traditional.letter === "F" || traditional.letter === "C" || traditional.letter === "G")
+      return "flat";
+    if (traditional.letter === "A" || traditional.letter === "E" || traditional.letter === "B")
+      return "sharp";
   }
   return null;
 }
@@ -375,7 +399,9 @@ export function inferNotationRole(label, options = {}) {
   }
   const parsed = parseExplicitHejiClassificationLabel(label, options);
   if (parsed) {
-    const hasHigherPrimeInflection = Object.values(parsed.primeExponents ?? {}).some((value) => value !== 0);
+    const hasHigherPrimeInflection = Object.values(parsed.primeExponents ?? {}).some(
+      (value) => value !== 0,
+    );
     if (hasHigherPrimeInflection) return "chromatic";
     if ((parsed.accidentalCount ?? 0) !== 0) return "chromatic";
     if ((parsed.syntonic ?? 0) === 0) return "diatonic";
@@ -419,7 +445,9 @@ function inferEnharmonicHejiTemperedAutoColor(label, options = {}) {
   if (tokens.length <= 1) return null;
   const allTemperedEnharmonicTokens = tokens.every((token) => {
     const primeEntries = Object.entries(token.primeExponents ?? {});
-    return primeEntries.every(([primeText, value]) => Number(primeText) === 7 && Number(value) !== 0);
+    return primeEntries.every(
+      ([primeText, value]) => Number(primeText) === 7 && Number(value) !== 0,
+    );
   });
   if (!allTemperedEnharmonicTokens) return null;
   const palette = deriveTraditionalTemperedChromaticPalette();
@@ -435,7 +463,9 @@ function inferEqualDivisionHejiTemperedAutoColor(label, { isEqualDivision = fals
   const tokens = parseExplicitHejiClassificationTokens(label);
   if (tokens.length !== 1) return null;
   const [token] = tokens;
-  const hasHigherPrimeInflection = Object.values(token.primeExponents ?? {}).some((value) => value !== 0);
+  const hasHigherPrimeInflection = Object.values(token.primeExponents ?? {}).some(
+    (value) => value !== 0,
+  );
   if (hasHigherPrimeInflection) return null;
   if ((token.accidentalCount ?? 0) === 0 && (token.syntonic ?? 0) < 0) {
     return EDO_HEJI_SYNTONIC_NATURAL_AUTO_COLOR;
@@ -448,7 +478,7 @@ function inferEqualDivisionHejiHybridAutoColor(label, { isEqualDivision = false 
   const tokens = parseExplicitHejiClassificationTokens(label);
   if (tokens.length <= 1) return null;
   const hasHigherPrimeInflection = tokens.some((token) =>
-    Object.values(token.primeExponents ?? {}).some((value) => value !== 0)
+    Object.values(token.primeExponents ?? {}).some((value) => value !== 0),
   );
   if (hasHigherPrimeInflection) return null;
   const accidentalToken = tokens.find(
@@ -475,7 +505,9 @@ function inferTemperedAutoColorFromStructure(structure) {
 function hasExplicitHejiOrTemperedSpelling(label) {
   const source = String(label ?? "").trim();
   if (!source) return false;
-  return /[\uE260-\uE2FF\uEE50-\uEE59]|\*[nfs]|^(?:n|b|#|bb|##)[A-Ga-g]$|^[A-Ga-g](?:n|b|#|bb|##)$/.test(source);
+  return /[\uE260-\uE2FF\uEE50-\uEE59]|\*[nfs]|^(?:n|b|#|bb|##)[A-Ga-g]$|^[A-Ga-g](?:n|b|#|bb|##)$/.test(
+    source,
+  );
 }
 
 function isPurePrimeLimitMonzo(monzo, basis, targetPrime) {
@@ -493,20 +525,20 @@ function isPurePrimeLimitMonzo(monzo, basis, targetPrime) {
 function getAnalysisMonzo(monzo, basis, options = {}) {
   if (!Array.isArray(monzo)) return null;
   const centerMonzo = Array.isArray(options.centerMonzo) ? options.centerMonzo : null;
-  const colorMonzoOffset = Array.isArray(options.colorMonzoOffset) ? options.colorMonzoOffset : null;
+  const colorMonzoOffset = Array.isArray(options.colorMonzoOffset)
+    ? options.colorMonzoOffset
+    : null;
   if (!centerMonzo && !colorMonzoOffset) return monzo;
   return basis.map(
-    (_, index) => (monzo[index] ?? 0) - (centerMonzo?.[index] ?? 0) - (colorMonzoOffset?.[index] ?? 0),
+    (_, index) =>
+      (monzo[index] ?? 0) - (centerMonzo?.[index] ?? 0) - (colorMonzoOffset?.[index] ?? 0),
   );
 }
 
 function getChainThreeExponent(monzo, options = {}) {
   const absoluteThree = monzo?.[1] ?? 0;
   if (Array.isArray(options.centerMonzo)) return absoluteThree - (options.centerMonzo[1] ?? 0);
-  if (
-    Number.isFinite(options.centerAbsoluteFifthSteps)
-    && options.centerAbsoluteFifthSteps !== 2
-  ) {
+  if (Number.isFinite(options.centerAbsoluteFifthSteps) && options.centerAbsoluteFifthSteps !== 2) {
     return absoluteThree - options.centerAbsoluteFifthSteps;
   }
   return absoluteThree;
@@ -538,14 +570,18 @@ export function inferPrimeChainRole(workspace, degreeIndex, autoColorOptions = {
     const entries = (workspace.slots || [])
       .map((candidate, candidateDegree) => {
         const candidateBasis = candidate?.committedIdentity?.basis;
-        const candidateMonzo = getAnalysisMonzo(candidate?.committedIdentity?.monzo, candidateBasis, autoColorOptions);
+        const candidateMonzo = getAnalysisMonzo(
+          candidate?.committedIdentity?.monzo,
+          candidateBasis,
+          autoColorOptions,
+        );
         if (!isPurePrimeLimitMonzo(candidateMonzo, candidateBasis, prime)) return null;
         if ((candidateMonzo[primeIndex] ?? 0) !== targetExponent) return null;
         const fallbackLabel =
-          autoColorOptions?.noteRoleLabels?.[candidateDegree]
-          ?? candidate?.committedIdentity?.displayName
-          ?? candidate?.exactRole?.displayName
-          ?? candidate?.displayName;
+          autoColorOptions?.noteRoleLabels?.[candidateDegree] ??
+          candidate?.committedIdentity?.displayName ??
+          candidate?.exactRole?.displayName ??
+          candidate?.displayName;
         const explicitRole = inferExplicitPrimeChainRole(
           prime,
           autoColorOptions?.degreeMetadata?.[candidateDegree] ?? null,
@@ -594,14 +630,14 @@ export function inferCenterMonzoCandidate(workspace, labels = [], degreeMetadata
   for (let degree = 0; degree < workspace.slots.length; degree += 1) {
     const metadata = degreeMetadata?.[degree] ?? null;
     const parsed = metadata?.parsed ?? null;
-    const monzo = workspace.slots[degree]?.exactRole?.monzo
-      ?? (parsed ? pitchStructureToMonzo(parsed) : null);
+    const monzo =
+      workspace.slots[degree]?.exactRole?.monzo ?? (parsed ? pitchStructureToMonzo(parsed) : null);
     if (!Array.isArray(monzo)) continue;
     const pitchInfo = extractPitchClassInfo(labels[degree]);
     const isStructuralD = parsed?.letter === "D";
     const isLabelD = pitchInfo.pitchClass === "D";
     if (!isStructuralD && !isLabelD) continue;
-    const absoluteFifthSteps = metadata?.absoluteFifthSteps ?? (monzo[1] ?? 0);
+    const absoluteFifthSteps = metadata?.absoluteFifthSteps ?? monzo[1] ?? 0;
     const nonThreeComplexity = monzo.reduce((sum, exp, index) => {
       if (index === 0 || index === 1) return sum;
       return sum + Math.abs(exp ?? 0);
@@ -610,9 +646,14 @@ export function inferCenterMonzoCandidate(workspace, labels = [], degreeMetadata
       ? String(metadata.pitchClassLabel).replace(/[A-Ga-g]/g, "").length
       : pitchInfo.modifierWeight;
     const plainnessWeight = parsed
-      ? (((parsed.accidentalCount ?? 0) === 0 && (parsed.syntonic ?? 0) === 0
-        && Object.values(parsed.primeExponents ?? {}).every((value) => value === 0)) ? 0 : 1)
-      : (accidentalWeight === 0 ? 0 : 1);
+      ? (parsed.accidentalCount ?? 0) === 0 &&
+        (parsed.syntonic ?? 0) === 0 &&
+        Object.values(parsed.primeExponents ?? {}).every((value) => value === 0)
+        ? 0
+        : 1
+      : accidentalWeight === 0
+        ? 0
+        : 1;
     const pureThreeWeight = nonThreeComplexity === 0 ? 0 : 1;
     candidates.push({
       monzo,
@@ -632,13 +673,15 @@ export function inferCenterMonzoCandidate(workspace, labels = [], degreeMetadata
     pool = naturalCandidates;
   }
   const finalPool = pureThreeCandidates.length ? pureThreeCandidates : pool;
-  finalPool.sort((a, b) =>
-    a.pureThreeWeight - b.pureThreeWeight
-    || a.plainnessWeight - b.plainnessWeight
-    || a.distanceFromDefault - b.distanceFromDefault
-    || a.nonThreeComplexity - b.nonThreeComplexity
-    || a.accidentalWeight - b.accidentalWeight
-    || a.absoluteFifthSteps - b.absoluteFifthSteps);
+  finalPool.sort(
+    (a, b) =>
+      a.pureThreeWeight - b.pureThreeWeight ||
+      a.plainnessWeight - b.plainnessWeight ||
+      a.distanceFromDefault - b.distanceFromDefault ||
+      a.nonThreeComplexity - b.nonThreeComplexity ||
+      a.accidentalWeight - b.accidentalWeight ||
+      a.absoluteFifthSteps - b.absoluteFifthSteps,
+  );
   return finalPool[0] ?? null;
 }
 
@@ -652,7 +695,8 @@ export function inferChromaticOverlayPrimes(workspace) {
       const prime = basis[index];
       if (prime < 5) continue;
       const exponent = monzo[index] ?? 0;
-      if (!stats[prime]) stats[prime] = { hasPositive: false, hasNegative: false, hasPureNegative: false };
+      if (!stats[prime])
+        stats[prime] = { hasPositive: false, hasNegative: false, hasPureNegative: false };
       if (exponent > 0) stats[prime].hasPositive = true;
       if (exponent < 0) {
         stats[prime].hasNegative = true;
@@ -665,7 +709,7 @@ export function inferChromaticOverlayPrimes(workspace) {
   const byPrime = {};
   for (const [primeText, primeStats] of Object.entries(stats)) {
     const prime = Number(primeText);
-    byPrime[prime] = prime === 5 ? true : (primeStats.hasPositive && primeStats.hasPureNegative);
+    byPrime[prime] = prime === 5 ? true : primeStats.hasPositive && primeStats.hasPureNegative;
   }
   return byPrime;
 }
@@ -739,7 +783,9 @@ function bigintGcd(a, b) {
 }
 
 function parseRawRatioDenominator(text) {
-  const match = String(text ?? "").trim().match(/^(\d+)\s*\/\s*(\d+)$/);
+  const match = String(text ?? "")
+    .trim()
+    .match(/^(\d+)\s*\/\s*(\d+)$/);
   if (!match) return null;
   try {
     return BigInt(match[2]);
@@ -791,10 +837,14 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
   const chromaticOverlayPrimes = inferChromaticOverlayPrimes(workspace);
   const fallbackColorMonzoOffset = inferColorMonzoOffset(workspace, settings);
   const primeFamilyColorMap = getPrimeFamilyColorMap(settings?.prime_family_colors);
-  const centerLabelSources = getCenterLabelSources(labelSourcesConfig)
-    .map((labels) => alignLabelsToWorkspaceSlots(labels, workspace));
+  const centerLabelSources = getCenterLabelSources(labelSourcesConfig).map((labels) =>
+    alignLabelsToWorkspaceSlots(labels, workspace),
+  );
   const noteRoleLabels = centerLabelSources.find((labels) => labels?.length) ?? [];
-  const degreeTexts = ["1/1", ...(Array.isArray(settings?.scale) ? settings.scale.slice(0, -1) : [])];
+  const degreeTexts = [
+    "1/1",
+    ...(Array.isArray(settings?.scale) ? settings.scale.slice(0, -1) : []),
+  ];
   const workspaceMonzos = (workspace?.slots ?? []).map((slot) => slot?.exactRole?.monzo ?? null);
   let hejiFrame = extra.hejiFrame ?? settings?.heji_frame ?? null;
   if (!hejiFrame) {
@@ -829,9 +879,10 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
     ? inferCenterMonzoCandidate(workspace, effectiveNoteRoleLabels, hejiFrame.degreeMetadata)
     : null;
   if (structuralCenterCandidate?.monzo) {
-    const notationCentering = resolvedBase.structuralOverlay === "none"
-      ? {}
-      : pickNotationCenter(explicitHejiCenter, structuralCenterCandidate);
+    const notationCentering =
+      resolvedBase.structuralOverlay === "none"
+        ? {}
+        : pickNotationCenter(explicitHejiCenter, structuralCenterCandidate);
     return {
       ...resolvedBase,
       ...notationCentering,
@@ -844,11 +895,16 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
   }
   for (const labels of centerLabelSources) {
     if (!labels?.length) continue;
-    const centerCandidate = inferCenterMonzoCandidate(workspace, labels, hejiFrame?.degreeMetadata ?? null);
+    const centerCandidate = inferCenterMonzoCandidate(
+      workspace,
+      labels,
+      hejiFrame?.degreeMetadata ?? null,
+    );
     if (centerCandidate?.monzo) {
-      const notationCentering = resolvedBase.structuralOverlay === "none"
-        ? {}
-        : pickNotationCenter(explicitHejiCenter, centerCandidate);
+      const notationCentering =
+        resolvedBase.structuralOverlay === "none"
+          ? {}
+          : pickNotationCenter(explicitHejiCenter, centerCandidate);
       return {
         ...resolvedBase,
         ...notationCentering,
@@ -875,32 +931,48 @@ export function buildResolvedAutoColorOptions(settings, workspace, labelSourcesC
 
 export function deriveAutoNoteColors(settings, extra = {}) {
   const workspace = extra.workspace ?? createScaleWorkspace(settings);
-  const autoColorOptions = buildResolvedAutoColorOptions(settings, workspace, {
-    keyLabels: settings?.key_labels,
-    noteNames: settings?.note_names,
-    hejiTableNames: extra.heji_names_table ?? extra.hejiNamesTable ?? settings?.heji_names_table,
-    hejiNames: extra.heji_names ?? extra.hejiNames ?? settings?.heji_names,
-  }, {
-    hejiFrame: extra.hejiFrame ?? settings?.heji_frame ?? null,
-  });
+  const autoColorOptions = buildResolvedAutoColorOptions(
+    settings,
+    workspace,
+    {
+      keyLabels: settings?.key_labels,
+      noteNames: settings?.note_names,
+      hejiTableNames: extra.heji_names_table ?? extra.hejiNamesTable ?? settings?.heji_names_table,
+      hejiNames: extra.heji_names ?? extra.hejiNames ?? settings?.heji_names,
+    },
+    {
+      hejiFrame: extra.hejiFrame ?? settings?.heji_frame ?? null,
+    },
+  );
   const noteNames = alignLabelsToWorkspaceSlots(
     Array.isArray(settings?.note_names) ? settings.note_names : [],
     workspace,
   );
   const hejiNames = alignLabelsToWorkspaceSlots(
-    Array.isArray(extra.heji_names_table ?? extra.heji_names ?? settings?.heji_names_table ?? settings?.heji_names)
-      ? (extra.heji_names_table ?? extra.heji_names ?? settings?.heji_names_table ?? settings?.heji_names)
+    Array.isArray(
+      extra.heji_names_table ??
+        extra.heji_names ??
+        settings?.heji_names_table ??
+        settings?.heji_names,
+    )
+      ? (extra.heji_names_table ??
+          extra.heji_names ??
+          settings?.heji_names_table ??
+          settings?.heji_names)
       : [],
     workspace,
   );
   const storedColors = Array.isArray(settings?.note_colors) ? settings.note_colors : [];
-  const primeFamilyColorMap = autoColorOptions.primeFamilyColorMap ?? getPrimeFamilyColorMap(settings?.prime_family_colors);
+  const primeFamilyColorMap =
+    autoColorOptions.primeFamilyColorMap ?? getPrimeFamilyColorMap(settings?.prime_family_colors);
   const useHeji = settings?.key_labels === "heji";
-  const isEqualDivision = Number.isFinite(settings?.equivSteps)
-    && Array.isArray(settings?.scale)
-    && settings.scale.length === settings.equivSteps;
-  const isTonalPlexus205 = /205ed2/i.test(String(settings?.name ?? ""))
-    || /205ed2/i.test(String(settings?.short_description ?? ""));
+  const isEqualDivision =
+    Number.isFinite(settings?.equivSteps) &&
+    Array.isArray(settings?.scale) &&
+    settings.scale.length === settings.equivSteps;
+  const isTonalPlexus205 =
+    /205ed2/i.test(String(settings?.name ?? "")) ||
+    /205ed2/i.test(String(settings?.short_description ?? ""));
   if (isTonalPlexus205 && storedColors.length === workspace.slots.length) {
     return storedColors.slice();
   }
@@ -913,57 +985,71 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     const fallbackColor = storedColors[degreeIndex] ?? "#ffffff";
     const label = (useHeji ? hejiNames[degreeIndex] : noteNames[degreeIndex]) ?? "";
     const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
-    const inheritedNotationColor = inferInheritedNotationPaletteColor(label, inheritedNotationPaletteMap);
-    const equalDivisionHejiAutoColor = inferEqualDivisionHejiTemperedAutoColor(label, { isEqualDivision });
-    const equalDivisionHejiHybridAutoColor = inferEqualDivisionHejiHybridAutoColor(label, { isEqualDivision });
+    const inheritedNotationColor = inferInheritedNotationPaletteColor(
+      label,
+      inheritedNotationPaletteMap,
+    );
+    const equalDivisionHejiAutoColor = inferEqualDivisionHejiTemperedAutoColor(label, {
+      isEqualDivision,
+    });
+    const equalDivisionHejiHybridAutoColor = inferEqualDivisionHejiHybridAutoColor(label, {
+      isEqualDivision,
+    });
     const temperedAutoColor =
-      inheritedNotationColor
-      ??
-      equalDivisionHejiAutoColor
-      ?? equalDivisionHejiHybridAutoColor
-      ?? inferTemperedAutoColor(label)
-      ?? inferTraditionalTemperedAutoColor(label)
-      ?? inferEnharmonicHejiTemperedAutoColor(label)
-      ?? inferTemperedAutoColorFromStructure(degreeMetadata?.parsed);
+      inheritedNotationColor ??
+      equalDivisionHejiAutoColor ??
+      equalDivisionHejiHybridAutoColor ??
+      inferTemperedAutoColor(label) ??
+      inferTraditionalTemperedAutoColor(label) ??
+      inferEnharmonicHejiTemperedAutoColor(label) ??
+      inferTemperedAutoColorFromStructure(degreeMetadata?.parsed);
     if (temperedAutoColor) return temperedAutoColor;
-    const syntheticMonzo = (
-      !Array.isArray(interval?.monzo)
-      && degreeMetadata?.parsed
-      && hasExplicitHejiOrTemperedSpelling(label)
-      && Object.values(degreeMetadata.parsed.primeExponents ?? {}).every((value) => value === 0)
-    ) ? pitchStructureToMonzo(degreeMetadata.parsed) : null;
+    const syntheticMonzo =
+      !Array.isArray(interval?.monzo) &&
+      degreeMetadata?.parsed &&
+      hasExplicitHejiOrTemperedSpelling(label) &&
+      Object.values(degreeMetadata.parsed.primeExponents ?? {}).every((value) => value === 0)
+        ? pitchStructureToMonzo(degreeMetadata.parsed)
+        : null;
     const analysisMonzo = interval?.monzo ?? syntheticMonzo;
     if (!Array.isArray(analysisMonzo)) return fallbackColor;
-    const notationRoleOverride = (
-      !Array.isArray(interval?.monzo)
-      && isEqualDivision
-      && degreeMetadata?.parsed
-      && (degreeMetadata.parsed.syntonic ?? 0) !== 0
-      && Object.values(degreeMetadata.parsed.primeExponents ?? {}).every((value) => value === 0)
-    ) ? "chromatic" : undefined;
-    return monzoToSuggestedColor(analysisMonzo, undefined, {
-      ...autoColorOptions,
-      notationSide: degreeMetadata?.notationSide ?? inferNotationSide(label),
-      notationRole: notationRoleOverride ?? degreeMetadata?.notationRole ?? inferNotationRole(label),
-      chainRole: inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
-    })?.screenHex ?? fallbackColor;
+    const notationRoleOverride =
+      !Array.isArray(interval?.monzo) &&
+      isEqualDivision &&
+      degreeMetadata?.parsed &&
+      (degreeMetadata.parsed.syntonic ?? 0) !== 0 &&
+      Object.values(degreeMetadata.parsed.primeExponents ?? {}).every((value) => value === 0)
+        ? "chromatic"
+        : undefined;
+    return (
+      monzoToSuggestedColor(analysisMonzo, undefined, {
+        ...autoColorOptions,
+        notationSide: degreeMetadata?.notationSide ?? inferNotationSide(label),
+        notationRole:
+          notationRoleOverride ?? degreeMetadata?.notationRole ?? inferNotationRole(label),
+        chainRole: inferPrimeChainRole(workspace, degreeIndex, autoColorOptions),
+      })?.screenHex ?? fallbackColor
+    );
   });
   const nonTonicColors = derivedColors.slice(1).filter(Boolean);
-  const isPureTemperedPalette = nonTonicColors.length > 0
-    && nonTonicColors.every((color) => (
-      color === TEMPERED_DIATONIC_AUTO_COLOR
-      || color === TEMPERED_CHROMATIC_AUTO_COLOR
-      || color === TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR
-      || color === deriveTraditionalTemperedChromaticPalette().sharp
-      || color === deriveTraditionalTemperedChromaticPalette().flat
-      || color === deriveTraditionalTemperedChromaticPalette().mixed
-    ))
-    && nonTonicColors.some((color) => (
-      color === TEMPERED_CHROMATIC_AUTO_COLOR
-      || color === deriveTraditionalTemperedChromaticPalette().sharp
-      || color === deriveTraditionalTemperedChromaticPalette().flat
-      || color === deriveTraditionalTemperedChromaticPalette().mixed
-    ));
+  const isPureTemperedPalette =
+    nonTonicColors.length > 0 &&
+    nonTonicColors.every(
+      (color) =>
+        color === TEMPERED_DIATONIC_AUTO_COLOR ||
+        color === TEMPERED_CHROMATIC_AUTO_COLOR ||
+        color === TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR ||
+        color === deriveTraditionalTemperedChromaticPalette().sharp ||
+        color === deriveTraditionalTemperedChromaticPalette().flat ||
+        color === deriveTraditionalTemperedChromaticPalette().mixed,
+    ) &&
+    nonTonicColors.some(
+      (color) =>
+        color === TEMPERED_CHROMATIC_AUTO_COLOR ||
+        color === deriveTraditionalTemperedChromaticPalette().sharp ||
+        color === deriveTraditionalTemperedChromaticPalette().flat ||
+        color === deriveTraditionalTemperedChromaticPalette().mixed,
+    );
   derivedColors[0] = isPureTemperedPalette
     ? TEMPERED_TONIC_AUTO_COLOR
     : deriveAutoTonicColorFromPaletteWithPrime(nonTonicColors, primeFamilyColorMap[1]);

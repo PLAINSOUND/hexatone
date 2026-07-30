@@ -3,7 +3,11 @@
 // with ratio, cents, frequency, and display information for the UI.
 
 import { addMonzos, subtractMonzos } from "./heji.js";
-import { createPitchStructure, parseHejiToStructure, pitchStructureToMonzo } from "./pitch-structure.js";
+import {
+  createPitchStructure,
+  parseHejiToStructure,
+  pitchStructureToMonzo,
+} from "./pitch-structure.js";
 import { getCommittedInterval, getWorkspaceSlot } from "../tuning/workspace.js";
 import { monzoToFractionOnBasis, parseExactInterval } from "../tuning/interval.js";
 import { normaliseHejiAnchorRatio } from "../settings/scale/parse-scale.js";
@@ -68,9 +72,9 @@ function buildDegreePitch(frame, slot) {
       : null;
   const referenceSlot = getWorkspaceSlot(frame.workspace, frame.referenceDegree);
   const frequencyHz =
-    Number.isFinite(frame.referenceFrequencyHz)
-      && Number.isFinite(slot.cents)
-      && Number.isFinite(referenceSlot?.cents)
+    Number.isFinite(frame.referenceFrequencyHz) &&
+    Number.isFinite(slot.cents) &&
+    Number.isFinite(referenceSlot?.cents)
       ? frame.referenceFrequencyHz * Math.pow(2, (slot.cents - referenceSlot.cents) / 1200)
       : null;
 
@@ -79,22 +83,28 @@ function buildDegreePitch(frame, slot) {
     degreeInterval,
     notationToDegreeInterval,
     notationToDegreeMonzo: cloneMonzo(notationToDegreeInterval?.monzo),
-    notationToDegreeRatioText: notationToDegreeInterval?.ratioText ?? intervalRatioText(notationToDegreeInterval),
+    notationToDegreeRatioText:
+      notationToDegreeInterval?.ratioText ?? intervalRatioText(notationToDegreeInterval),
     notationToDegreeCents,
     frequencyHz,
   };
 }
 
 export function buildPitchFrame(settings, workspace) {
-  const notationZeroStructure = parseHejiToStructure(settings?.heji_anchor_label || "") ?? createPitchStructure({
-    letter: "A",
-  });
+  const notationZeroStructure =
+    parseHejiToStructure(settings?.heji_anchor_label || "") ??
+    createPitchStructure({
+      letter: "A",
+    });
   const notationZeroAbsoluteMonzo = pitchStructureToMonzo(notationZeroStructure);
   const degree0ToNotationZeroInterval = parseExactInterval(
     normaliseHejiAnchorRatio(settings?.heji_anchor_ratio || "") || "1/1",
   );
   const notationZeroToDegree0Interval = invertExactInterval(degree0ToNotationZeroInterval);
-  const degree0ToReferenceInterval = getCommittedInterval(workspace, settings?.reference_degree ?? 0);
+  const degree0ToReferenceInterval = getCommittedInterval(
+    workspace,
+    settings?.reference_degree ?? 0,
+  );
   const notationZeroToReferenceInterval = combineExactIntervals(
     notationZeroToDegree0Interval,
     degree0ToReferenceInterval,
@@ -138,9 +148,9 @@ export function resolveStructurePitch(frame, structure) {
   const referenceSlot = getWorkspaceSlot(frame.workspace, frame.referenceDegree);
   const degreeRelativeCents = degreeRelative?.cents ?? null;
   const frequencyHz =
-    Number.isFinite(frame.referenceFrequencyHz)
-      && Number.isFinite(degreeRelativeCents)
-      && Number.isFinite(referenceSlot?.cents)
+    Number.isFinite(frame.referenceFrequencyHz) &&
+    Number.isFinite(degreeRelativeCents) &&
+    Number.isFinite(referenceSlot?.cents)
       ? frame.referenceFrequencyHz * Math.pow(2, (degreeRelativeCents - referenceSlot.cents) / 1200)
       : null;
 
@@ -158,9 +168,7 @@ export function resolveStructurePitch(frame, structure) {
 }
 
 export function pitchToDisplayRatio(pitch) {
-  return pitch?.notationToDegreeRatioText
-    ?? pitch?.notationRelativeInterval?.ratioText
-    ?? null;
+  return pitch?.notationToDegreeRatioText ?? pitch?.notationRelativeInterval?.ratioText ?? null;
 }
 
 export function pitchToDisplayCents(pitch) {

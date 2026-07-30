@@ -20,10 +20,12 @@ function resolveControllerCoords(keys, channel, note, rawChannel = channel) {
 }
 
 function resolveGenericCoords(keys, channel, note) {
-  return keys._modulatedControllerCoords(keys.coordResolver.coordForSteps(
-    keys.coordResolver.noteToSteps(note, channel),
-    { channel, note },
-  ));
+  return keys._modulatedControllerCoords(
+    keys.coordResolver.coordForSteps(keys.coordResolver.noteToSteps(note, channel), {
+      channel,
+      note,
+    }),
+  );
 }
 
 export function coordsForLiveInputAddress(keys, inputAddress) {
@@ -61,7 +63,12 @@ export function resolveNonScaleNoteOn(keys, event) {
         note: event.note.number,
         rawChannel: event.message.channel,
       },
-      coords: resolveControllerCoords(keys, lookupChannel, event.note.number, event.message.channel),
+      coords: resolveControllerCoords(
+        keys,
+        lookupChannel,
+        event.note.number,
+        event.message.channel,
+      ),
     };
   }
 
@@ -79,9 +86,9 @@ export function resolveNonScaleNoteOffCoords(keys, channel, note, rawChannel = c
   if (keys.inputRuntime.layoutMode === "sequential" || !keys.controllerMap) {
     const normalized = keys._normalizeInputAddress(rawChannel, note);
     return normalized
-      ? keys.coordResolver.stepsToVisibleCoords(
-          keys.coordResolver.noteToSteps(normalized.note, normalized.channel),
-        ).map((coords) => keys._modulatedControllerCoords(coords))
+      ? keys.coordResolver
+          .stepsToVisibleCoords(keys.coordResolver.noteToSteps(normalized.note, normalized.channel))
+          .map((coords) => keys._modulatedControllerCoords(coords))
       : [];
   }
 

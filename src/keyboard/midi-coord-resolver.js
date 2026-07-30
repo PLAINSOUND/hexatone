@@ -258,10 +258,7 @@ export class MidiCoordResolver {
         const screen = this._displayScreen(coords);
         const vertical = Math.abs(screen.y - cy);
         const horizontal = Math.abs(screen.x - cx);
-        if (
-          vertical < bestVertical ||
-          (vertical === bestVertical && horizontal < bestHorizontal)
-        ) {
+        if (vertical < bestVertical || (vertical === bestVertical && horizontal < bestHorizontal)) {
           bestVertical = vertical;
           bestHorizontal = horizontal;
           best = coords;
@@ -290,13 +287,13 @@ export class MidiCoordResolver {
 
   _preferredAnchorPoint(inputAddress) {
     const key = this._inputAddressKey(inputAddress);
-    const sticky = key ? this.lastCoordsByInputAddress.get(key) ?? null : null;
+    const sticky = key ? (this.lastCoordsByInputAddress.get(key) ?? null) : null;
     return sticky ?? this.lastMidiCoords;
   }
 
   _stickyAnchorPoint(inputAddress) {
     const key = this._inputAddressKey(inputAddress);
-    return key ? this.lastCoordsByInputAddress.get(key) ?? null : null;
+    return key ? (this.lastCoordsByInputAddress.get(key) ?? null) : null;
   }
 
   rememberCoordsForInputAddress(inputAddress, coords) {
@@ -376,8 +373,7 @@ export class MidiCoordResolver {
 
     if (denom === 0) return basePoint;
 
-    const kReal =
-      ((anchorX - baseScreen.x) * stepX + (anchorY - baseScreen.y) * stepY) / denom;
+    const kReal = ((anchorX - baseScreen.x) * stepX + (anchorY - baseScreen.y) * stepY) / denom;
     const kBase = Math.round(kReal);
 
     let best = null;
@@ -398,7 +394,9 @@ export class MidiCoordResolver {
   }
 
   coordForSteps(steps, inputAddress = null) {
-    return this.bestVisibleCoord(steps, inputAddress) ?? this.fallbackCoordForSteps(steps, inputAddress);
+    return (
+      this.bestVisibleCoord(steps, inputAddress) ?? this.fallbackCoordForSteps(steps, inputAddress)
+    );
   }
 
   // ── Best-coord selection ─────────────────────────────────────────────────────
@@ -422,9 +420,8 @@ export class MidiCoordResolver {
    */
   bestVisibleCoord(steps, inputAddress = null) {
     const fullyVisibleCandidates = this.stepsToFullyVisibleCoords(steps);
-    const candidates = fullyVisibleCandidates.length > 0
-      ? fullyVisibleCandidates
-      : this.stepsToVisibleCoords(steps);
+    const candidates =
+      fullyVisibleCandidates.length > 0 ? fullyVisibleCandidates : this.stepsToVisibleCoords(steps);
     if (candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0];
 

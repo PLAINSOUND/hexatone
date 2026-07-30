@@ -38,8 +38,9 @@ export function createManualSnapshotGestureRuntime({
       cancelled: false,
       timers: new Set(),
       callbacks,
-      attackEvents: (Array.isArray(plan?.events) ? plan.events : [])
-        .filter((event) => event?.type !== "release"),
+      attackEvents: (Array.isArray(plan?.events) ? plan.events : []).filter(
+        (event) => event?.type !== "release",
+      ),
       closedEventIds: new Set(),
       releaseScheduled: false,
       remainingReleaseEvents: 0,

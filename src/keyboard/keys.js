@@ -11,10 +11,7 @@ import Euclid from "./euclidean";
 import { WebMidi } from "webmidi";
 import { RecencyStack } from "../polyphony/recency-stack.js";
 import { MidiCoordResolver } from "./midi-coord-resolver.js";
-import {
-  degree0ToRef,
-  computeNaturalAnchor,
-} from "../tuning/center-anchor.js";
+import { degree0ToRef, computeNaturalAnchor } from "../tuning/center-anchor.js";
 import { mtsTuningMap } from "../tuning/tuning-map.js";
 import { resolveBulkDumpName } from "../tuning/mts-format.js";
 import {
@@ -99,13 +96,15 @@ function ratioTextForModulationDelta(tuning, sourceDegree, targetDegree, transpo
   }
 
   const reducedDelta = (tuning?.scale?.[sourceDegree] ?? 0) - (tuning?.scale?.[targetDegree] ?? 0);
-  const equavePower = Number.isFinite(equaveCents) && Math.abs(equaveCents) > 0
-    ? Math.round((transpositionDeltaCents - reducedDelta) / equaveCents)
-    : 0;
+  const equavePower =
+    Number.isFinite(equaveCents) && Math.abs(equaveCents) > 0
+      ? Math.round((transpositionDeltaCents - reducedDelta) / equaveCents)
+      : 0;
   const ratio = sourceRatio.div(targetRatio);
-  const displacedRatio = equavePower >= 0
-    ? ratio.mul(equaveRatio.pow(equavePower))
-    : ratio.div(equaveRatio.pow(Math.abs(equavePower)));
+  const displacedRatio =
+    equavePower >= 0
+      ? ratio.mul(equaveRatio.pow(equavePower))
+      : ratio.div(equaveRatio.pow(Math.abs(equavePower)));
   return displacedRatio?.toFraction ? displacedRatio.toFraction() : null;
 }
 
@@ -160,13 +159,11 @@ class Keys {
       equivSteps: tuningRuntime?.equivSteps ?? settings.equivSteps ?? settings.scale?.length ?? 0,
       degreeIntervals: tuningRuntime?.degreeIntervals ?? null,
       equaveInterval: tuningRuntime?.equaveInterval ?? null,
-      equaveCents: tuningRuntime?.equaveCents ?? tuningRuntime?.equivInterval ?? settings.equivInterval,
+      equaveCents:
+        tuningRuntime?.equaveCents ?? tuningRuntime?.equivInterval ?? settings.equivInterval,
       degree0toRef_asArray:
         tuningRuntime?.degree0toRefAsArray ??
-        degree0ToRef(
-          settings.reference_degree,
-          tuningRuntime?.scale ?? settings.scale,
-        ),
+        degree0ToRef(settings.reference_degree, tuningRuntime?.scale ?? settings.scale),
     };
     this.settings = {
       hexHeight: settings.hexSize * 2,
@@ -191,7 +188,9 @@ class Keys {
       layoutMode:
         settings.midiin_controller_override === "hakenaudio"
           ? "controller_geometry"
-          : (settings.midi_passthrough ? "sequential" : "controller_geometry"),
+          : settings.midi_passthrough
+            ? "sequential"
+            : "controller_geometry",
       mpeInput: false,
       seqAnchorNote: settings.midiin_anchor_note ?? 60,
       seqAnchorChannel: settings.midiin_anchor_channel ?? 1,
@@ -236,7 +235,12 @@ class Keys {
       if (isTextEntryElement(document.activeElement) && viewport) {
         const viewportWidth = Math.max(1, Math.round(viewport.width ?? window.innerWidth));
         const viewportOffsetLeft = Math.round(viewport.offsetLeft ?? 0);
-        const currentWidth = Math.max(1, Math.round(this.state.viewportWidth || cssPx(this.state.canvas.style.width) || window.innerWidth));
+        const currentWidth = Math.max(
+          1,
+          Math.round(
+            this.state.viewportWidth || cssPx(this.state.canvas.style.width) || window.innerWidth,
+          ),
+        );
         const currentOffsetLeft = Math.round(cssPx(this.state.canvas.style.left));
         if (viewportWidth === currentWidth && viewportOffsetLeft === currentOffsetLeft) return;
       }
@@ -379,8 +383,10 @@ class Keys {
     }
     this._refreshCachedModulationIdentity();
     if (this.settings.modulation_style === "fixed_do") {
-      this.settings.runtime_display_offset_x = this._modulationState.currentFrame?.geometryShiftRSteps ?? 0;
-      this.settings.runtime_display_offset_y = this._modulationState.currentFrame?.geometryShiftDrSteps ?? 0;
+      this.settings.runtime_display_offset_x =
+        this._modulationState.currentFrame?.geometryShiftRSteps ?? 0;
+      this.settings.runtime_display_offset_y =
+        this._modulationState.currentFrame?.geometryShiftDrSteps ?? 0;
     }
 
     // The tuning map anchor is always derived from the musical content (fundamental,
@@ -596,7 +602,9 @@ class Keys {
 
   setModulationRouteCount = (routeIndex, count) => {
     if (this._modulationState.mode !== "idle") return false;
-    const history = Array.isArray(this._modulationState.history) ? this._modulationState.history.map((entry) => ({ ...entry })) : [];
+    const history = Array.isArray(this._modulationState.history)
+      ? this._modulationState.history.map((entry) => ({ ...entry }))
+      : [];
     if (routeIndex < 0 || routeIndex >= history.length) return false;
     history[routeIndex].count = Number.isFinite(count) ? Math.trunc(count) : 0;
     const nextFrame = this._frameForHistory(history);
@@ -622,7 +630,9 @@ class Keys {
     const route = this._modulationState.history?.[routeIndex];
     if (!route || (Number.isFinite(route.count) ? Math.trunc(route.count) : 0) !== 0) return false;
     const history = Array.isArray(this._modulationState.history)
-      ? this._modulationState.history.filter((_, index) => index !== routeIndex).map((entry) => ({ ...entry }))
+      ? this._modulationState.history
+          .filter((_, index) => index !== routeIndex)
+          .map((entry) => ({ ...entry }))
       : [];
     const nextFrame = this._frameForHistory(history);
     this._applyModulationStateTransition(
@@ -639,14 +649,11 @@ class Keys {
   clearModulationHistory = () => {
     if ((this._modulationState.historyIndex ?? 0) !== 0) return false;
     const homeFrame = this._modulationState.homeFrame ?? this._frameForHistoryIndex(0);
-    this._applyModulationStateTransition(
-      clearModulationHistory(this._modulationState, homeFrame),
-      {
-        refreshRuntimeDisplayOffset: true,
-        redraw: "immediate",
-        syncControllerColors: true,
-      },
-    );
+    this._applyModulationStateTransition(clearModulationHistory(this._modulationState, homeFrame), {
+      refreshRuntimeDisplayOffset: true,
+      redraw: "immediate",
+      syncControllerColors: true,
+    });
     return true;
   };
 
@@ -699,9 +706,7 @@ class Keys {
 
   armModulation = (strategy = this._selectedModulationStrategy()) => {
     const sourceHex = this.recencyStack.front ?? null;
-    const sourceDegree = sourceHex
-      ? this._degreeForHex(sourceHex)
-      : null;
+    const sourceDegree = sourceHex ? this._degreeForHex(sourceHex) : null;
     this._modulationState = beginModulation(this._modulationState, {
       currentFrame: this._harmonicFrame,
       sourceHex,
@@ -755,15 +760,13 @@ class Keys {
       transpositionCents: extra.transpositionCents ?? 0,
       geometryShiftRSteps: extra.geometryShiftRSteps ?? 0,
       geometryShiftDrSteps: extra.geometryShiftDrSteps ?? 0,
-      effectiveFundamental:
-        extra.effectiveFundamental ?? this.settings.fundamental,
+      effectiveFundamental: extra.effectiveFundamental ?? this.settings.fundamental,
     });
   }
 
   _rebaseFrameFundamental(frame, fundamental = this.settings.fundamental) {
     if (!frame) return frame;
-    const effectiveFundamental =
-      fundamental * Math.pow(2, (frame.transpositionCents ?? 0) / 1200);
+    const effectiveFundamental = fundamental * Math.pow(2, (frame.transpositionCents ?? 0) / 1200);
     if (frame.effectiveFundamental === effectiveFundamental) return frame;
     return {
       ...frame,
@@ -824,7 +827,10 @@ class Keys {
     this._modulationIdentity = deriveModulationIdentityForHistory(history);
   }
 
-  _createNoteContext(frame = this._activeFrame(), geometryMode = this._modulationState?.geometryMode) {
+  _createNoteContext(
+    frame = this._activeFrame(),
+    geometryMode = this._modulationState?.geometryMode,
+  ) {
     if (!frame) return null;
     this._refreshCachedModulationIdentity();
     const modulationIdentity = this._modulationIdentity;
@@ -860,9 +866,11 @@ class Keys {
   }
 
   _frameForSoundingHex(hex) {
-    return this._frameForNoteContext(hex?._noteContext) ??
+    return (
+      this._frameForNoteContext(hex?._noteContext) ??
       this._frameById(hex?._onsetFrameId) ??
-      this._activeFrame();
+      this._activeFrame()
+    );
   }
 
   _geometryModeForSoundingHex(hex) {
@@ -882,9 +890,10 @@ class Keys {
     this._liveScaleTableVersion += 1;
     if (this._liveScaleTableNotifyQueued) return;
     this._liveScaleTableNotifyQueued = true;
-    const schedule = typeof queueMicrotask === "function"
-      ? queueMicrotask
-      : (callback) => Promise.resolve().then(callback);
+    const schedule =
+      typeof queueMicrotask === "function"
+        ? queueMicrotask
+        : (callback) => Promise.resolve().then(callback);
     schedule(() => {
       this._liveScaleTableNotifyQueued = false;
       if (this._liveScaleTableListeners.size === 0) return;
@@ -908,7 +917,8 @@ class Keys {
 
   _frequencyForHex(hex) {
     if (!hex) return null;
-    const fundamental = hex.fundamental ?? hex._noteContext?.effectiveFundamental ?? this.settings.fundamental;
+    const fundamental =
+      hex.fundamental ?? hex._noteContext?.effectiveFundamental ?? this.settings.fundamental;
     const degree0ToReferenceCents = this.tuning.degree0toRef_asArray?.[0] ?? 0;
     if (!Number.isFinite(fundamental) || !Number.isFinite(hex.cents)) return null;
     return fundamental * Math.pow(2, (hex.cents - degree0ToReferenceCents) / 1200);
@@ -1010,15 +1020,16 @@ class Keys {
         }),
         noteContext: hex._noteContext
           ? {
-            frameId: hex._noteContext.frameId ?? null,
-            frame: hex._noteContext.frame ?? null,
-            transpositionCents: hex._noteContext.transpositionCents ?? 0,
-            effectiveFundamental: hex._noteContext.effectiveFundamental ?? this.settings.fundamental,
-            ratioText: hex._noteContext.ratioText ?? null,
-            monzo: Array.isArray(hex._noteContext.monzo) ? [...hex._noteContext.monzo] : null,
-            geometryMode: hex._noteContext.geometryMode ?? null,
-            displayLabel: hex._noteContext.displayLabel ?? null,
-          }
+              frameId: hex._noteContext.frameId ?? null,
+              frame: hex._noteContext.frame ?? null,
+              transpositionCents: hex._noteContext.transpositionCents ?? 0,
+              effectiveFundamental:
+                hex._noteContext.effectiveFundamental ?? this.settings.fundamental,
+              ratioText: hex._noteContext.ratioText ?? null,
+              monzo: Array.isArray(hex._noteContext.monzo) ? [...hex._noteContext.monzo] : null,
+              geometryMode: hex._noteContext.geometryMode ?? null,
+              displayLabel: hex._noteContext.displayLabel ?? null,
+            }
           : null,
       });
     };
@@ -1059,12 +1070,8 @@ class Keys {
     if (!this.controller) return null;
     if (this.controller.multiChannel) {
       return {
-        channel:
-          this.settings.midiin_anchor_channel ??
-          this.controller.anchorChannelDefault ??
-          1,
-        note:
-          this.settings.midiin_anchor_note ?? this.controller.anchorDefault ?? 60,
+        channel: this.settings.midiin_anchor_channel ?? this.controller.anchorChannelDefault ?? 1,
+        note: this.settings.midiin_anchor_note ?? this.controller.anchorDefault ?? 60,
       };
     }
     return {
@@ -1120,11 +1127,7 @@ class Keys {
   }
 
   _normalizedFixedDoTargetCoords(sourceCoords, targetCoords) {
-    if (
-      this.inputRuntime.layoutMode !== "sequential" ||
-      !sourceCoords ||
-      !targetCoords
-    ) {
+    if (this.inputRuntime.layoutMode !== "sequential" || !sourceCoords || !targetCoords) {
       return targetCoords;
     }
     const sourceRaw = this._rawStepsForCoords(sourceCoords);
@@ -1156,12 +1159,8 @@ class Keys {
     if (!this.controller) return null;
     if (this.controller.multiChannel) {
       return {
-        channel:
-          settingsLike.midiin_anchor_channel ??
-          this.controller.anchorChannelDefault ??
-          1,
-        note:
-          settingsLike.midiin_anchor_note ?? this.controller.anchorDefault ?? 60,
+        channel: settingsLike.midiin_anchor_channel ?? this.controller.anchorChannelDefault ?? 1,
+        note: settingsLike.midiin_anchor_note ?? this.controller.anchorDefault ?? 60,
       };
     }
     return {
@@ -1204,23 +1203,28 @@ class Keys {
 
     const rawOffsets = this.controller.multiChannel
       ? this.controller.buildMap(anchorNote, anchorChannel, this.controller.defaultCols)
-      : this.controller.buildMap(anchorNote, anchorChannel, settingsLike.rSteps, settingsLike.drSteps);
+      : this.controller.buildMap(
+          anchorNote,
+          anchorChannel,
+          settingsLike.rSteps,
+          settingsLike.drSteps,
+        );
     const anchorAddress = this._controllerAnchorAddressForSettings(settingsLike);
-    const virtualAnchorCoords = (
+    const virtualAnchorCoords =
       Number.isFinite(settingsLike.controller_virtual_anchor_x) &&
       Number.isFinite(settingsLike.controller_virtual_anchor_y)
-    )
-      ? new Point(settingsLike.controller_virtual_anchor_x, settingsLike.controller_virtual_anchor_y)
-      : null;
+        ? new Point(
+            settingsLike.controller_virtual_anchor_x,
+            settingsLike.controller_virtual_anchor_y,
+          )
+        : null;
     const actualAnchorCoords = anchorAddress
-      ? rawOffsets.get(`${anchorAddress.channel}.${anchorAddress.note}`) ?? null
+      ? (rawOffsets.get(`${anchorAddress.channel}.${anchorAddress.note}`) ?? null)
       : null;
-    const virtualDx = virtualAnchorCoords && actualAnchorCoords
-      ? virtualAnchorCoords.x - actualAnchorCoords.x
-      : 0;
-    const virtualDy = virtualAnchorCoords && actualAnchorCoords
-      ? virtualAnchorCoords.y - actualAnchorCoords.y
-      : 0;
+    const virtualDx =
+      virtualAnchorCoords && actualAnchorCoords ? virtualAnchorCoords.x - actualAnchorCoords.x : 0;
+    const virtualDy =
+      virtualAnchorCoords && actualAnchorCoords ? virtualAnchorCoords.y - actualAnchorCoords.y : 0;
     const ox = settingsLike.centerHexOffset.x;
     const oy = settingsLike.centerHexOffset.y;
     const controllerMap = new Map();
@@ -1236,7 +1240,10 @@ class Keys {
       Number.isFinite(settingsLike.controller_virtual_anchor_x) &&
       Number.isFinite(settingsLike.controller_virtual_anchor_y)
     ) {
-      return new Point(settingsLike.controller_virtual_anchor_x, settingsLike.controller_virtual_anchor_y);
+      return new Point(
+        settingsLike.controller_virtual_anchor_x,
+        settingsLike.controller_virtual_anchor_y,
+      );
     }
     const anchorAddress = this._controllerAnchorAddressForSettings(settingsLike);
     const anchorCoords = controllerMap.get(`${anchorAddress.channel}.${anchorAddress.note}`);
@@ -1248,8 +1255,12 @@ class Keys {
   }
 
   _virtualAnchorSettingsForSurfaceDelta(anchorSettings, surfaceDelta) {
-    if (!this.controller || typeof this.controller.translateVirtualAnchor !== "function") return null;
-    const anchorAddress = this._controllerAnchorAddressForSettings({ ...this.settings, ...anchorSettings });
+    if (!this.controller || typeof this.controller.translateVirtualAnchor !== "function")
+      return null;
+    const anchorAddress = this._controllerAnchorAddressForSettings({
+      ...this.settings,
+      ...anchorSettings,
+    });
     if (!anchorAddress) return null;
     const nextAddress = this.controller.translateVirtualAnchor(
       anchorAddress.note,
@@ -1326,14 +1337,20 @@ class Keys {
     }
 
     if (this.inputRuntime.layoutMode !== "sequential") {
-      const controllerMap = this._buildControllerMapForSettings({ ...this.settings, ...anchorSettings });
+      const controllerMap = this._buildControllerMapForSettings({
+        ...this.settings,
+        ...anchorSettings,
+      });
       if (controllerMap && this.controller) {
-        const virtualUpdate = this._virtualAnchorSettingsForSurfaceDelta(anchorSettings, { x: dx, y: dy });
+        const virtualUpdate = this._virtualAnchorSettingsForSurfaceDelta(anchorSettings, {
+          x: dx,
+          y: dy,
+        });
         if (this.controller.id === "lumatone" && virtualUpdate) return virtualUpdate;
-        const anchorCoords = this._controllerAnchorCoordsForSettings(
-          controllerMap,
-          { ...this.settings, ...anchorSettings },
-        );
+        const anchorCoords = this._controllerAnchorCoordsForSettings(controllerMap, {
+          ...this.settings,
+          ...anchorSettings,
+        });
         if (anchorCoords) {
           const desiredAnchorCoords = new Point(anchorCoords.x - dx, anchorCoords.y - dy);
           for (const [key, coords] of controllerMap.entries()) {
@@ -1367,25 +1384,29 @@ class Keys {
     const equaveOffset = this._routeEquaveOffset(entry);
     const scaleLength = this.tuning.scale.length || 1;
     const sourceDegree = direction >= 0 ? entry?.sourceDegree : entry?.targetDegree;
-    const targetDegree = direction >= 0
-      ? (entry?.targetDegree ?? 0) + equaveOffset * scaleLength
-      : (entry?.sourceDegree ?? 0) - equaveOffset * scaleLength;
+    const targetDegree =
+      direction >= 0
+        ? (entry?.targetDegree ?? 0) + equaveOffset * scaleLength
+        : (entry?.sourceDegree ?? 0) - equaveOffset * scaleLength;
     if (sourceDegree == null || targetDegree == null) return anchorSettings;
     const stepDelta = sourceDegree - targetDegree;
 
     if (this.inputRuntime.layoutMode !== "sequential") {
-      const controllerMap = this._buildControllerMapForSettings({ ...this.settings, ...anchorSettings });
+      const controllerMap = this._buildControllerMapForSettings({
+        ...this.settings,
+        ...anchorSettings,
+      });
       if (controllerMap && this.controller) {
-        const anchorCoords = this._controllerAnchorCoordsForSettings(
-          controllerMap,
-          { ...this.settings, ...anchorSettings },
-        );
+        const anchorCoords = this._controllerAnchorCoordsForSettings(controllerMap, {
+          ...this.settings,
+          ...anchorSettings,
+        });
         const sourceCoords = anchorCoords
           ? this._findNearestControllerCoordsForDegree(
-            controllerMap,
-            ((sourceDegree % scaleLength) + scaleLength) % scaleLength,
-            anchorCoords,
-          )
+              controllerMap,
+              ((sourceDegree % scaleLength) + scaleLength) % scaleLength,
+              anchorCoords,
+            )
           : null;
         if (anchorCoords && sourceCoords) {
           const sourceRaw = this._rawStepsForCoords(sourceCoords);
@@ -1409,7 +1430,10 @@ class Keys {
             targetCoords.x - sourceCoords.x,
             targetCoords.y - sourceCoords.y,
           );
-          const virtualUpdate = this._virtualAnchorSettingsForSurfaceDelta(anchorSettings, surfaceDelta);
+          const virtualUpdate = this._virtualAnchorSettingsForSurfaceDelta(
+            anchorSettings,
+            surfaceDelta,
+          );
           if (virtualUpdate) return virtualUpdate;
         }
       }
@@ -1482,7 +1506,10 @@ class Keys {
 
   _deriveFixedDoAnchorRewrite(surfaceDelta) {
     if (!surfaceDelta) return null;
-    const update = this._anchorUpdateForSurfaceDelta(surfaceDelta, this._extractCurrentAnchorSettings());
+    const update = this._anchorUpdateForSurfaceDelta(
+      surfaceDelta,
+      this._extractCurrentAnchorSettings(),
+    );
     if (!update) return null;
     return { update, controller: this.controller ?? null };
   }
@@ -1610,10 +1637,7 @@ class Keys {
   }
 
   _settlementNotesSnapshot() {
-    return normalizeSettlementNotes(
-      [...this._allActiveHexes()],
-      this.state.sustainedNotes,
-    );
+    return normalizeSettlementNotes([...this._allActiveHexes()], this.state.sustainedNotes);
   }
 
   _maybeSettleModulation() {
@@ -1652,7 +1676,8 @@ class Keys {
   // (so colours update), and retunes any sounding/sustained notes.
   shiftOctave = (dir, deferred = false) => {
     this.settings.octave_offset = (this.settings.octave_offset || 0) + dir;
-    const isStaticMtsBulk = this.settings.output_mts_bulk && this.settings.mts_bulk_mode === "static";
+    const isStaticMtsBulk =
+      this.settings.output_mts_bulk && this.settings.mts_bulk_mode === "static";
     const isStaticMtsBulkDeferred = deferred && isStaticMtsBulk;
 
     // In deferred mode, sounding notes keep their current pitch — the shift
@@ -1895,7 +1920,8 @@ class Keys {
     });
     const nextRouteKey = JSON.stringify({
       device: nextSettings?.midiin_device ?? this.settings.midiin_device,
-      override: nextSettings?.midiin_controller_override ?? this.settings.midiin_controller_override,
+      override:
+        nextSettings?.midiin_controller_override ?? this.settings.midiin_controller_override,
       passthrough: !!(nextSettings?.midi_passthrough ?? this.settings.midi_passthrough),
       tonalplexusMode: nextSettings?.tonalplexus_input_mode ?? this.settings.tonalplexus_input_mode,
       target: nextRuntime?.target ?? this.inputRuntime?.target,
@@ -1936,11 +1962,7 @@ class Keys {
           currentSelectedInput = null;
         }
       }
-      if (
-        currentSelectedInput &&
-        this.midiin_data &&
-        currentSelectedInput !== this.midiin_data
-      ) {
+      if (currentSelectedInput && this.midiin_data && currentSelectedInput !== this.midiin_data) {
         InputMidiListeners.rebindMidiInput.call(this);
         return;
       }
@@ -2003,9 +2025,10 @@ class Keys {
   }
 
   stopSnapshot() {
-    const soundingHexes = this._soundingSnapshotHexes instanceof Set
-      ? [...this._soundingSnapshotHexes]
-      : this._snapshotHexes;
+    const soundingHexes =
+      this._soundingSnapshotHexes instanceof Set
+        ? [...this._soundingSnapshotHexes]
+        : this._snapshotHexes;
     SequencerSnapshots.stopSnapshot(soundingHexes, this);
     this._snapshotHexes = [];
     this._snapshotNotes = [];
@@ -2370,8 +2393,8 @@ class Keys {
   };
 
   _hakenRasterBend(entry, channel, bend14, scaleMode) {
-  return KeysMidiInput.hakenRasterBend.call(this, entry, channel, bend14, scaleMode);
-  };
+    return KeysMidiInput.hakenRasterBend.call(this, entry, channel, bend14, scaleMode);
+  }
 
   _primeHakenRasterModeEntry(entry, channel) {
     return KeysMidiInput.primeHakenRasterModeEntry.call(this, entry, channel);
@@ -2950,23 +2973,26 @@ class Keys {
       reducedSteps_next += scaleLength;
       octs_next -= 1;
     }
-    const live = deriveLiveHexPitch({
-      reducedSteps,
-      reducedStepsPrev: reducedSteps_prev,
-      reducedStepsNext: reducedSteps_next,
-      distance,
-      octs,
-      octsPrev: octs_prev,
-      octsNext: octs_next,
-    }, {
-      scale,
-      scaleLength,
-      equivSteps: this.tuning.equivSteps,
-      equivInterval: previewRuntime.equivInterval,
-      octaveOffset: this.settings.octave_offset || 0,
-      frame,
-      geometryMode,
-    });
+    const live = deriveLiveHexPitch(
+      {
+        reducedSteps,
+        reducedStepsPrev: reducedSteps_prev,
+        reducedStepsNext: reducedSteps_next,
+        distance,
+        octs,
+        octsPrev: octs_prev,
+        octsNext: octs_next,
+      },
+      {
+        scale,
+        scaleLength,
+        equivSteps: this.tuning.equivSteps,
+        equivInterval: previewRuntime.equivInterval,
+        octaveOffset: this.settings.octave_offset || 0,
+        frame,
+        geometryMode,
+      },
+    );
     const previewFundamentalDelta = getFundamentalPreviewDeltaCents(this._tuningPreviewState);
     if (includeFundamentalPreview && Math.abs(previewFundamentalDelta) > 0.000001) {
       live.cents += previewFundamentalDelta;

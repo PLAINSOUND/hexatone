@@ -25,13 +25,15 @@ export function buildEventSequenceDraft(snapshotNumber, relativeTime, meta = {})
 }
 
 export function updateEventSequenceDrafts(drafts, { draftKey, field, value, meta, snapshotCount }) {
-  const current = drafts[draftKey] ?? buildEventSequenceDraft(meta.snapshotNumber, meta.relativeTime);
+  const current =
+    drafts[draftKey] ?? buildEventSequenceDraft(meta.snapshotNumber, meta.relativeTime);
   if (field === "snapshotNumber") {
     const currentSnapshotNumber = Number(current.snapshotNumber);
     const currentOffset = Number(current.offset);
-    const currentAbsoluteTime = Number.isFinite(currentSnapshotNumber) && Number.isFinite(currentOffset)
-      ? normalizeSequenceNumber(currentSnapshotNumber + currentOffset)
-      : normalizeSequenceNumber(Number(meta.snapshotNumber) + Number(meta.relativeTime));
+    const currentAbsoluteTime =
+      Number.isFinite(currentSnapshotNumber) && Number.isFinite(currentOffset)
+        ? normalizeSequenceNumber(currentSnapshotNumber + currentOffset)
+        : normalizeSequenceNumber(Number(meta.snapshotNumber) + Number(meta.relativeTime));
     const nextSnapshotNumber = Math.max(1, Math.min(snapshotCount, Math.round(Number(value) || 1)));
     return {
       ...drafts,
@@ -90,15 +92,10 @@ function draftFieldName(field) {
   return field;
 }
 
-export function updateBarRelativeDrafts(drafts, {
-  draftKey,
-  barBeat,
-  field,
-  value,
-  meta,
-  scopePrefix,
-  beatsPerBarForBarNumber,
-}) {
+export function updateBarRelativeDrafts(
+  drafts,
+  { draftKey, barBeat, field, value, meta, scopePrefix, beatsPerBarForBarNumber },
+) {
   const draftField = draftFieldName(field);
   const current = drafts[draftKey] ?? buildBarRelativeDraft(barBeat);
   const nextDraft = {
@@ -108,10 +105,13 @@ export function updateBarRelativeDrafts(drafts, {
     scope: `${scopePrefix}:${draftKey}`,
   };
   const resolvedDraft = { ...nextDraft };
-  const draftBarNumber = Math.round(Number(resolvedDraft.barNumber) || Number(barBeat?.barNumber) || 1);
-  const beatsPerBar = typeof beatsPerBarForBarNumber === "function"
-    ? Math.max(1, Math.round(Number(beatsPerBarForBarNumber(draftBarNumber)) || 1))
-    : Math.max(1, Math.round(Number(barBeat?.beatsPerBar) || 1));
+  const draftBarNumber = Math.round(
+    Number(resolvedDraft.barNumber) || Number(barBeat?.barNumber) || 1,
+  );
+  const beatsPerBar =
+    typeof beatsPerBarForBarNumber === "function"
+      ? Math.max(1, Math.round(Number(beatsPerBarForBarNumber(draftBarNumber)) || 1))
+      : Math.max(1, Math.round(Number(barBeat?.beatsPerBar) || 1));
   if (draftField === "beat" && beatsPerBar > 0) {
     const parsedBeat = Math.round(Number(resolvedDraft.beat) || 1);
     resolvedDraft.beat = String(Math.max(1, Math.min(beatsPerBar, parsedBeat)));
@@ -124,7 +124,10 @@ export function updateBarRelativeDrafts(drafts, {
 
 export function resolveEventSequenceDraftTarget(draft, snapshots) {
   if (!draft) return null;
-  const snapshotNumber = Math.max(1, Math.min(snapshots.length, Math.round(Number(draft.snapshotNumber) || 1)));
+  const snapshotNumber = Math.max(
+    1,
+    Math.min(snapshots.length, Math.round(Number(draft.snapshotNumber) || 1)),
+  );
   const targetSnapshot = snapshots[snapshotNumber - 1];
   const nextOffset = Number(draft.offset);
   if (!targetSnapshot || !Number.isFinite(nextOffset)) return null;
@@ -138,12 +141,16 @@ export function resolveEventSequenceDraftTarget(draft, snapshots) {
 
 export function resolveBarRelativeDraftPosition(draft, bars, terminalBarlinePosition = null) {
   if (!draft) return null;
-  return barBeatToAbsolutePosition({
-    barNumber: Number(draft.barNumber),
-    beat: Number(draft.beat),
-    numerator: Number(draft.numerator),
-    denominator: Number(draft.denominator),
-  }, bars, terminalBarlinePosition);
+  return barBeatToAbsolutePosition(
+    {
+      barNumber: Number(draft.barNumber),
+      beat: Number(draft.beat),
+      numerator: Number(draft.numerator),
+      denominator: Number(draft.denominator),
+    },
+    bars,
+    terminalBarlinePosition,
+  );
 }
 
 export function resolveDraftScopeTarget(event, scopeAttribute) {

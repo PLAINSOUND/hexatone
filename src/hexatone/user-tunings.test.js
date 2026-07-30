@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./preset-tunings/index.js", () => ({
-  findPresetTuningByName: vi.fn((name) => (
+  findPresetTuningByName: vi.fn((name) =>
     name === "Pauline Oliveros: Heart of Tones"
       ? { name: "Pauline Oliveros: Heart of Tones", scale: ["1.", "2."] }
-      : null
-  )),
+      : null,
+  ),
 }));
 import {
   USER_TUNINGS_STORAGE_KEY,
@@ -24,17 +24,20 @@ describe("user tunings store", () => {
   });
 
   it("loads and normalizes stored user tunings", () => {
-    localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([
-      {
-        name: "Alpha",
-        scale: ["100.", "1200."],
-        auto_colors: true,
-      },
-      {
-        name: "",
-        scale: ["200."],
-      },
-    ]));
+    localStorage.setItem(
+      USER_TUNINGS_STORAGE_KEY,
+      JSON.stringify([
+        {
+          name: "Alpha",
+          scale: ["100.", "1200."],
+          auto_colors: true,
+        },
+        {
+          name: "",
+          scale: ["200."],
+        },
+      ]),
+    );
 
     expect(loadUserTunings()).toEqual([
       expect.objectContaining({
@@ -46,28 +49,36 @@ describe("user tunings store", () => {
   });
 
   it("upserts and deletes canonical tuning records", () => {
-    let next = upsertUserTuning({
-      name: "Alpha",
-      scale: ["100.", "1200."],
-      modulation_library: [{ sourceDegree: 5, targetDegree: 7 }],
-    }, []);
+    let next = upsertUserTuning(
+      {
+        name: "Alpha",
+        scale: ["100.", "1200."],
+        modulation_library: [{ sourceDegree: 5, targetDegree: 7 }],
+      },
+      [],
+    );
 
     expect(next).toEqual([
       expect.objectContaining({
         name: "Alpha",
-        modulation_library: [{
-          sourceDegree: 5,
-          targetDegree: 7,
-          count: 0,
-          strategy: "retune_surface_to_source",
-        }],
+        modulation_library: [
+          {
+            sourceDegree: 5,
+            targetDegree: 7,
+            count: 0,
+            strategy: "retune_surface_to_source",
+          },
+        ],
       }),
     ]);
 
-    next = upsertUserTuning({
-      name: "Alpha",
-      scale: ["200.", "1200."],
-    }, next);
+    next = upsertUserTuning(
+      {
+        name: "Alpha",
+        scale: ["200.", "1200."],
+      },
+      next,
+    );
 
     expect(next).toEqual([
       expect.objectContaining({
@@ -88,16 +99,22 @@ describe("user tunings store", () => {
 
     expect(uniqueTuningName("User Tuning")).toBe("User Tuning 3");
     expect(uniqueTuningName("User Tuning 2")).toBe("User Tuning 3");
-    expect(uniqueTuningName("Pauline Oliveros: Heart of Tones")).toBe("Pauline Oliveros: Heart of Tones 3");
+    expect(uniqueTuningName("Pauline Oliveros: Heart of Tones")).toBe(
+      "Pauline Oliveros: Heart of Tones 3",
+    );
   });
 
   it("parses canonical tuning json payloads", () => {
-    expect(parseTuningJson(JSON.stringify({
-      name: "JSON tuning",
-      scale: ["100.", "1200."],
-      lumatone_anchor_note: 12,
-      lumatone_anchor_channel: 2,
-    }))).toEqual([
+    expect(
+      parseTuningJson(
+        JSON.stringify({
+          name: "JSON tuning",
+          scale: ["100.", "1200."],
+          lumatone_anchor_note: 12,
+          lumatone_anchor_channel: 2,
+        }),
+      ),
+    ).toEqual([
       expect.objectContaining({
         name: "JSON tuning",
         lumatone_anchor_note: 12,

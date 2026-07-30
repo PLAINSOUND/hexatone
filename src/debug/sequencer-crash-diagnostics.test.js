@@ -70,10 +70,9 @@ describe("sequencer crash diagnostics", () => {
         this.values.set(key, value);
       },
     };
-    let diagnostics = pushSequencerCrashDiagnostic(
-      createSequencerCrashDiagnostics(10),
-      { type: "sequencer-autoscroll-requested" },
-    );
+    let diagnostics = pushSequencerCrashDiagnostic(createSequencerCrashDiagnostics(10), {
+      type: "sequencer-autoscroll-requested",
+    });
     bufferSequencerCrashDiagnostics(diagnostics, storage);
     diagnostics = pushSequencerCrashDiagnostic(diagnostics, {
       type: "sequencer-autoscroll-applied",

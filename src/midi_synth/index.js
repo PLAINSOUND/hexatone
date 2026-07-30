@@ -40,10 +40,7 @@ export const create_midi_synth = async ({
     pitchBendRange = 2,
   } = outputMode;
   const { fundamental, degree0toRefAsArray, scale, equivInterval, name } = tuningContext;
-  const {
-    midiin_device,
-    midiin_anchor_note,
-  } = legacyInput;
+  const { midiin_device, midiin_anchor_note } = legacyInput;
 
   // ── Voice pools — one instance per synth, reset on each create_midi_synth call ──
   // MTS1: all 128 MIDI notes available as carriers
@@ -183,7 +180,7 @@ export const create_midi_synth = async ({
           pool_mts2_high,
           sysex_rt,
           sysex_dev_id,
-          mapNumber
+          mapNumber,
         );
       }
       activeHexes.add(hex);
@@ -205,7 +202,11 @@ export const create_midi_synth = async ({
       if (!midi_output || channel == null || channel < 0) return;
       const ccValues = state.ccValues || {};
       for (const [cc, value] of Object.entries(ccValues)) {
-        safeSend(midi_output, [0xb0 + channel, Number(cc) & 0x7f, Math.max(0, Math.min(127, value))]);
+        safeSend(midi_output, [
+          0xb0 + channel,
+          Number(cc) & 0x7f,
+          Math.max(0, Math.min(127, value)),
+        ]);
       }
       if (state.channelPressure != null) {
         safeSend(midi_output, [0xd0 + channel, Math.max(0, Math.min(127, state.channelPressure))]);
@@ -259,7 +260,7 @@ function MidiHex(
   pool_mts2_high,
   sysex_rt,
   sysex_dev_id,
-  mapNumber
+  mapNumber,
 ) {
   let anchorMidiNote = midiin_anchor_note;
   if (anchorMidiNote > 127) anchorMidiNote = 127;
@@ -301,7 +302,12 @@ function MidiHex(
       }
 
       // Note-number-aware allocation!
-      const { slot, stolen, distance: _distance, retrigger: _retrigger } = pool.noteOn(coords, targetMIDIFloat);
+      const {
+        slot,
+        stolen,
+        distance: _distance,
+        retrigger: _retrigger,
+      } = pool.noteOn(coords, targetMIDIFloat);
 
       // If voice was stolen, send noteOff on that slot
       if (stolen !== null) {

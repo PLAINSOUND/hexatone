@@ -1,23 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  advanceCueIndexWithRepeats,
-  deriveRepeatSections,
-} from "./repeat-playback-runtime.js";
+import { advanceCueIndexWithRepeats, deriveRepeatSections } from "./repeat-playback-runtime.js";
 
 describe("repeat playback runtime", () => {
   it("pairs repeat markers to cue ranges", () => {
-    const cueGroups = [
-      { time: 1 },
-      { time: 1.5 },
-      { time: 2 },
-      { time: 3 },
-    ];
+    const cueGroups = [{ time: 1 }, { time: 1.5 }, { time: 2 }, { time: 3 }];
 
-    expect(deriveRepeatSections(cueGroups, [
-      { id: "start", position: 1.5, kind: "start" },
-      { id: "end", position: 2, kind: "end", repeatCount: 3 },
-    ])).toEqual([
+    expect(
+      deriveRepeatSections(cueGroups, [
+        { id: "start", position: 1.5, kind: "start" },
+        { id: "end", position: 2, kind: "end", repeatCount: 3 },
+      ]),
+    ).toEqual([
       {
         repeatId: "end",
         startRepeatId: "start",
@@ -83,14 +77,16 @@ describe("repeat playback runtime", () => {
   });
 
   it("skips a disabled repeat without forgetting earlier completed passes", () => {
-    const repeatSections = [{
-      repeatId: "end",
-      startCueIndex: 0,
-      endCueIndex: 1,
-      startPosition: 1,
-      endPosition: 2,
-      repeatCount: 4,
-    }];
+    const repeatSections = [
+      {
+        repeatId: "end",
+        startCueIndex: 0,
+        endCueIndex: 1,
+        startPosition: 1,
+        endPosition: 2,
+        repeatCount: 4,
+      },
+    ];
     const cueGroups = [{ time: 1 }, { time: 1.5 }, { time: 2 }, { time: 3 }];
     const first = advanceCueIndexWithRepeats({
       currentCueIndex: 1,
@@ -137,13 +133,15 @@ describe("repeat playback runtime", () => {
       },
     ];
 
-    expect(advanceCueIndexWithRepeats({
-      currentCueIndex: 1,
-      cueCount: 4,
-      cueGroups: [{ time: 1 }, { time: 1.5 }, { time: 2.25 }, { time: 3 }],
-      repeatSections,
-      repeatPlaybackState: {},
-    })).toEqual({
+    expect(
+      advanceCueIndexWithRepeats({
+        currentCueIndex: 1,
+        cueCount: 4,
+        cueGroups: [{ time: 1 }, { time: 1.5 }, { time: 2.25 }, { time: 3 }],
+        repeatSections,
+        repeatPlaybackState: {},
+      }),
+    ).toEqual({
       nextCueIndex: 0,
       nextRepeatPlaybackState: { end: 0 },
       didLoop: true,
@@ -216,13 +214,15 @@ describe("repeat playback runtime", () => {
       },
     ];
 
-    expect(advanceCueIndexWithRepeats({
-      currentCueIndex: 2,
-      cueCount: 4,
-      cueGroups: [{ time: 1 }, { time: 1.5 }, { time: 2.25 }, { time: 3 }],
-      repeatSections,
-      repeatPlaybackState: {},
-    })).toEqual({
+    expect(
+      advanceCueIndexWithRepeats({
+        currentCueIndex: 2,
+        cueCount: 4,
+        cueGroups: [{ time: 1 }, { time: 1.5 }, { time: 2.25 }, { time: 3 }],
+        repeatSections,
+        repeatPlaybackState: {},
+      }),
+    ).toEqual({
       nextCueIndex: 3,
       nextRepeatPlaybackState: {},
       didLoop: false,
@@ -230,17 +230,14 @@ describe("repeat playback runtime", () => {
   });
 
   it("excludes a cue exactly at the repeat-end position because the end marker fires first", () => {
-    const cueGroups = [
-      { time: 1 },
-      { time: 1.5 },
-      { time: 2 },
-      { time: 3 },
-    ];
+    const cueGroups = [{ time: 1 }, { time: 1.5 }, { time: 2 }, { time: 3 }];
 
-    expect(deriveRepeatSections(cueGroups, [
-      { id: "start", position: 1, kind: "start" },
-      { id: "end", position: 2, kind: "end", repeatCount: 2 },
-    ])).toEqual([
+    expect(
+      deriveRepeatSections(cueGroups, [
+        { id: "start", position: 1, kind: "start" },
+        { id: "end", position: 2, kind: "end", repeatCount: 2 },
+      ]),
+    ).toEqual([
       {
         repeatId: "end",
         startRepeatId: "start",
@@ -254,19 +251,15 @@ describe("repeat playback runtime", () => {
   });
 
   it("reuses the previous start marker when a later start is deleted", () => {
-    const cueGroups = [
-      { time: 1 },
-      { time: 2 },
-      { time: 3 },
-      { time: 4 },
-      { time: 5 },
-    ];
+    const cueGroups = [{ time: 1 }, { time: 2 }, { time: 3 }, { time: 4 }, { time: 5 }];
 
-    expect(deriveRepeatSections(cueGroups, [
-      { id: "start-a", position: 1, kind: "start" },
-      { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
-      { id: "end-b", position: 5, kind: "end", repeatCount: 2 },
-    ])).toEqual([
+    expect(
+      deriveRepeatSections(cueGroups, [
+        { id: "start-a", position: 1, kind: "start" },
+        { id: "end-a", position: 3, kind: "end", repeatCount: 2 },
+        { id: "end-b", position: 5, kind: "end", repeatCount: 2 },
+      ]),
+    ).toEqual([
       {
         repeatId: "end-a",
         startRepeatId: "start-a",

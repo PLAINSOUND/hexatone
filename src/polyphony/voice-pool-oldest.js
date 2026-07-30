@@ -212,8 +212,8 @@ export class VoicePool {
   completeRelease(slot, allocationToken) {
     const state = this._state.get(slot);
     if (
-      (state !== "RELEASING" && state !== "IDLE")
-      || this._releaseToken.get(slot) !== allocationToken
+      (state !== "RELEASING" && state !== "IDLE") ||
+      this._releaseToken.get(slot) !== allocationToken
     ) {
       return false;
     }
@@ -252,10 +252,7 @@ export class VoicePool {
    */
   owns(coords, slot, allocationToken) {
     const entry = this._active.get(coordsKey(coords));
-    return (
-      entry?.slot === slot &&
-      entry?.allocationToken === allocationToken
-    );
+    return entry?.slot === slot && entry?.allocationToken === allocationToken;
   }
 
   get activeCount() {

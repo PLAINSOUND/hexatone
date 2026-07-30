@@ -39,9 +39,8 @@ export function normalizeSequenceRecord(record) {
   const name = String(record.name ?? "").trim();
   if (!name) return null;
   const snapshots = cloneSnapshots(record.snapshots).map(normalizeSnapshotManualTrigger);
-  const rawBars = Array.isArray(record.bars) && record.bars.length > 0
-    ? record.bars
-    : record.meters;
+  const rawBars =
+    Array.isArray(record.bars) && record.bars.length > 0 ? record.bars : record.meters;
   const bars = normalizeBarMarkers(cloneBars(rawBars), { includeDefault: false });
   const repeats = normalizeRepeatMarkers(record.repeats);
   if (!Array.isArray(snapshots)) return null;
@@ -157,10 +156,7 @@ const SequenceLibrary = ({
   onPrimarySaveVisibilityChange,
 }) => {
   const [savedSequences, setSavedSequences] = useState(loadUserSequences);
-  const orderedSavedSequences = useMemo(
-    () => orderPresetsByName(savedSequences),
-    [savedSequences],
-  );
+  const orderedSavedSequences = useMemo(() => orderPresetsByName(savedSequences), [savedSequences]);
   const [error, setError] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const [loadedBuiltInSequence, setLoadedBuiltInSequence] = useState(null);
@@ -173,23 +169,32 @@ const SequenceLibrary = ({
   const activeBuiltInName = String(activeSequenceBuiltInName ?? "").trim();
   const savedSequenceName = String(activeSequenceSavedName ?? "").trim();
   const snapshotsPresent = (snapshots?.length ?? 0) > 0;
-  const metadataPresent = (
-    sequenceName.length > 0 ||
-    String(activeSequenceDescription ?? "").trim().length > 0
-  );
+  const metadataPresent =
+    sequenceName.length > 0 || String(activeSequenceDescription ?? "").trim().length > 0;
   const workspaceRecord = useMemo(
-    () => normalizeSequenceRecord({
-      name: sequenceName || "User Sequence",
-      description: activeSequenceDescription,
-      snapshotLabelMode,
+    () =>
+      normalizeSequenceRecord({
+        name: sequenceName || "User Sequence",
+        description: activeSequenceDescription,
+        snapshotLabelMode,
+        autoCreateBars,
+        manualArpeggiation,
+        tempi,
+        snapshots,
+        bars,
+        repeats,
+      }),
+    [
+      activeSequenceDescription,
       autoCreateBars,
-      manualArpeggiation,
-      tempi,
-      snapshots,
       bars,
+      manualArpeggiation,
       repeats,
-    }),
-    [activeSequenceDescription, autoCreateBars, bars, manualArpeggiation, repeats, sequenceName, snapshotLabelMode, snapshots, tempi],
+      sequenceName,
+      snapshotLabelMode,
+      snapshots,
+      tempi,
+    ],
   );
   const workspaceHasContent = useMemo(() => {
     return snapshotsPresent || metadataPresent;
@@ -199,13 +204,12 @@ const SequenceLibrary = ({
     [savedSequences, savedSequenceName],
   );
   const activeBuiltInSequence = useMemo(
-    () => (
+    () =>
       activeSource === "builtin" && activeBuiltInName
         ? loadedBuiltInSequence?.name === activeBuiltInName
           ? loadedBuiltInSequence
           : findPresetSequenceByName(activeBuiltInName)
-        : null
-    ),
+        : null,
     [activeBuiltInName, activeSource, loadedBuiltInSequence],
   );
 
@@ -223,45 +227,54 @@ const SequenceLibrary = ({
     if (!workspaceRecord || !workspaceHasContent) return false;
     if (activeSource === "builtin") {
       return activeBuiltInSequence
-        ? sequenceRecordContentKey(workspaceRecord)
-          !== sequenceRecordContentKey(normalizeSequenceRecord(activeBuiltInSequence))
+        ? sequenceRecordContentKey(workspaceRecord) !==
+            sequenceRecordContentKey(normalizeSequenceRecord(activeBuiltInSequence))
         : false;
     }
     if (!activeSavedSequence) return true;
-    return sequenceRecordKey({ ...workspaceRecord, name: activeSavedSequence.name })
-      !== sequenceRecordKey(activeSavedSequence);
-  }, [activeBuiltInSequence, activeSavedSequence, activeSource, workspaceHasContent, workspaceRecord]);
+    return (
+      sequenceRecordKey({ ...workspaceRecord, name: activeSavedSequence.name }) !==
+      sequenceRecordKey(activeSavedSequence)
+    );
+  }, [
+    activeBuiltInSequence,
+    activeSavedSequence,
+    activeSource,
+    workspaceHasContent,
+    workspaceRecord,
+  ]);
   const nameCollision = useMemo(
-    () => (
+    () =>
       !!sequenceName &&
       savedSequences.some((sequence) => sequence.name === sequenceName) &&
-      sequenceName !== savedSequenceName
-    ),
+      sequenceName !== savedSequenceName,
     [savedSequences, savedSequenceName, sequenceName],
   );
   const workspaceStatus = !workspaceHasContent
     ? "empty"
     : activeSource === "builtin" && activeBuiltInSequence && !hasUnsavedChanges
       ? "builtin-clean"
-    : !activeSavedSequence
-      ? "draft"
-      : hasUnsavedChanges
-        ? "saved-dirty"
-        : "saved-clean";
+      : !activeSavedSequence
+        ? "draft"
+        : hasUnsavedChanges
+          ? "saved-dirty"
+          : "saved-clean";
   const showDraftOption = activeSource !== "builtin" && workspaceStatus === "draft";
-  const menuValue = activeSource === "builtin"
-    ? ""
-    : activeSavedSequence
-    ? savedSequenceName
-    : workspaceHasContent
-      ? DRAFT_SEQUENCE_VALUE
-      : "";
+  const menuValue =
+    activeSource === "builtin"
+      ? ""
+      : activeSavedSequence
+        ? savedSequenceName
+        : workspaceHasContent
+          ? DRAFT_SEQUENCE_VALUE
+          : "";
   const builtInMenuValue = activeSource === "builtin" ? activeBuiltInName : "";
-  const saveLabel = activeSource === "builtin"
-    ? "Save current sequence in user library"
-    : nameCollision
-      ? "Save current sequence and overwrite"
-      : "Save current sequence";
+  const saveLabel =
+    activeSource === "builtin"
+      ? "Save current sequence in user library"
+      : nameCollision
+        ? "Save current sequence and overwrite"
+        : "Save current sequence";
 
   const commitSequences = useCallback((next) => {
     saveUserSequences(next);
@@ -282,26 +295,30 @@ const SequenceLibrary = ({
     }
   }, []);
 
-  const buildWorkspaceRecord = useCallback((name) => normalizeSequenceRecord({
-    name,
-    description: activeSequenceDescription,
-    snapshotLabelMode,
-    autoCreateBars,
-    manualArpeggiation,
-    tempi,
-    snapshots,
-    bars,
-    repeats,
-  }), [
-    activeSequenceDescription,
-    autoCreateBars,
-    bars,
-    manualArpeggiation,
-    repeats,
-    snapshotLabelMode,
-    snapshots,
-    tempi,
-  ]);
+  const buildWorkspaceRecord = useCallback(
+    (name) =>
+      normalizeSequenceRecord({
+        name,
+        description: activeSequenceDescription,
+        snapshotLabelMode,
+        autoCreateBars,
+        manualArpeggiation,
+        tempi,
+        snapshots,
+        bars,
+        repeats,
+      }),
+    [
+      activeSequenceDescription,
+      autoCreateBars,
+      bars,
+      manualArpeggiation,
+      repeats,
+      snapshotLabelMode,
+      snapshots,
+      tempi,
+    ],
+  );
 
   const loadSequenceByName = (name) => {
     if (!name) return;
@@ -324,7 +341,10 @@ const SequenceLibrary = ({
     ) {
       return;
     }
-    if (workspaceRecord && sequenceRecordContentKey(workspaceRecord) === sequenceRecordContentKey(targetSequence)) {
+    if (
+      workspaceRecord &&
+      sequenceRecordContentKey(workspaceRecord) === sequenceRecordContentKey(targetSequence)
+    ) {
       setError("");
       onLoadSequence(targetSequence, { source: "user" });
       return;
@@ -351,9 +371,9 @@ const SequenceLibrary = ({
       return;
     }
     const attachedName = activeSavedSequence?.name ?? "";
-    const conflictingSequence = savedSequences.find(
-      (entry) => entry.name === sequenceName && entry.name !== attachedName,
-    ) ?? null;
+    const conflictingSequence =
+      savedSequences.find((entry) => entry.name === sequenceName && entry.name !== attachedName) ??
+      null;
 
     if (
       conflictingSequence &&
@@ -388,7 +408,10 @@ const SequenceLibrary = ({
 
   const handleSaveCopy = useCallback(() => {
     const baseName = sequenceName || "User Sequence";
-    const uniqueName = uniqueSequenceName(baseName, new Set(savedSequences.map((entry) => entry.name)));
+    const uniqueName = uniqueSequenceName(
+      baseName,
+      new Set(savedSequences.map((entry) => entry.name)),
+    );
     const record = buildWorkspaceRecord(uniqueName);
     if (!record) {
       setError("There is no valid sequence to save.");
@@ -397,13 +420,7 @@ const SequenceLibrary = ({
     commitSequences([...savedSequences, record]);
     setError("");
     onSequenceSaved?.(record.name);
-  }, [
-    buildWorkspaceRecord,
-    commitSequences,
-    onSequenceSaved,
-    savedSequences,
-    sequenceName,
-  ]);
+  }, [buildWorkspaceRecord, commitSequences, onSequenceSaved, savedSequences, sequenceName]);
 
   const handleExport = () => {
     if (!sequenceName) {
@@ -422,25 +439,28 @@ const SequenceLibrary = ({
     onSaveActionStateChange?.(
       workspaceHasContent
         ? {
-          visible: true,
-          label: saveLabel,
-          action: handleSave,
-        }
+            visible: true,
+            label: saveLabel,
+            action: handleSave,
+          }
         : {
-          visible: false,
-          label: "",
-          action: null,
-        },
+            visible: false,
+            label: "",
+            action: null,
+          },
     );
   }, [handleSave, onSaveActionStateChange, saveLabel, workspaceHasContent]);
 
-  useEffect(() => () => {
-    onSaveActionStateChange?.({
-      visible: false,
-      label: "",
-      action: null,
-    });
-  }, [onSaveActionStateChange]);
+  useEffect(
+    () => () => {
+      onSaveActionStateChange?.({
+        visible: false,
+        label: "",
+        action: null,
+      });
+    },
+    [onSaveActionStateChange],
+  );
 
   useEffect(() => {
     if (typeof onPrimarySaveVisibilityChange !== "function") return undefined;
@@ -590,11 +610,7 @@ const SequenceLibrary = ({
             ))}
           </select>
           {activeSource === "builtin" && activeBuiltInName && (
-            <button
-              type="button"
-              class="preset-refresh-btn"
-              onClick={handleReloadBuiltIn}
-            >
+            <button type="button" class="preset-refresh-btn" onClick={handleReloadBuiltIn}>
               <span class="preset-refresh-glyph">⟳</span>
             </button>
           )}
@@ -626,76 +642,83 @@ const SequenceLibrary = ({
         </div>
 
         {(savedSequences.length > 0 || showDraftOption) && (
-        <label class="preset-selector-row">
-          <select aria-label="User sequences" value={menuValue} onChange={handleSelect}>
-            <option value="">Choose a user sequence:</option>
-            {showDraftOption && (
-              <option value={DRAFT_SEQUENCE_VALUE}>Unsaved sequence</option>
+          <label class="preset-selector-row">
+            <select aria-label="User sequences" value={menuValue} onChange={handleSelect}>
+              <option value="">Choose a user sequence:</option>
+              {showDraftOption && <option value={DRAFT_SEQUENCE_VALUE}>Unsaved sequence</option>}
+              {orderedSavedSequences.map((sequence) => {
+                const isDirtyActiveSequence =
+                  sequence.name === savedSequenceName &&
+                  (hasUnsavedChanges || sequenceName !== savedSequenceName);
+                return (
+                  <option key={sequence.name} value={sequence.name}>
+                    {isDirtyActiveSequence ? `${sequence.name}*` : sequence.name}
+                  </option>
+                );
+              })}
+            </select>
+            {savedSequenceName && (
+              <button
+                type="button"
+                class="preset-refresh-btn"
+                onClick={() => {
+                  beginLoadSequence(savedSequenceName);
+                }}
+              >
+                <span class="preset-refresh-glyph">⟳</span>
+              </button>
             )}
-            {orderedSavedSequences.map((sequence) => {
-              const isDirtyActiveSequence = (
-                sequence.name === savedSequenceName &&
-                (hasUnsavedChanges || sequenceName !== savedSequenceName)
-              );
-              return (
-                <option key={sequence.name} value={sequence.name}>
-                  {isDirtyActiveSequence ? `${sequence.name}*` : sequence.name}
-                </option>
-              );
-            })}
-          </select>
-          {savedSequenceName && (
-            <button
-              type="button"
-              class="preset-refresh-btn"
-              onClick={() => {
-                beginLoadSequence(savedSequenceName);
-              }}
-            >
-              <span class="preset-refresh-glyph">⟳</span>
-            </button>
-          )}
-          {savedSequenceName && (
-            <button
-              type="button"
-              class="delete-btn preset-utility-btn preset-actions__clear-trigger"
-              onClick={handleDelete}
-            >
-              Delete
-            </button>
-          )}
-        </label>
+            {savedSequenceName && (
+              <button
+                type="button"
+                class="delete-btn preset-utility-btn preset-actions__clear-trigger"
+                onClick={handleDelete}
+              >
+                Delete
+              </button>
+            )}
+          </label>
         )}
 
         <div class="preset-actions preset-actions--library">
-          {savedSequences.length > 0 &&
-            (
-              <span class="preset-actions__clear-slot">
-                {confirmClear ? (
-                  <span class="preset-actions__confirm">
-                    <em class="preset-actions__confirm-text">Clear all user sequences?</em>
-                    <button type="button" class="delete-btn preset-utility-btn settings-form__inline-button--nowrap" onClick={handleClearConfirmed}>
-                      Yes, clear
-                    </button>
-                    <button type="button" class="preset-utility-btn settings-form__inline-button--nowrap" onClick={() => setConfirmClear(false)}>
-                      Cancel
-                    </button>
-                  </span>
-                ) : (
+          {savedSequences.length > 0 && (
+            <span class="preset-actions__clear-slot">
+              {confirmClear ? (
+                <span class="preset-actions__confirm">
+                  <em class="preset-actions__confirm-text">Clear all user sequences?</em>
                   <button
                     type="button"
-                    class="delete-btn preset-utility-btn preset-actions__clear-trigger"
-                    onClick={() => setConfirmClear(true)}
+                    class="delete-btn preset-utility-btn settings-form__inline-button--nowrap"
+                    onClick={handleClearConfirmed}
                   >
-                    Clear All
+                    Yes, clear
                   </button>
-                )}
-              </span>
-            )}
+                  <button
+                    type="button"
+                    class="preset-utility-btn settings-form__inline-button--nowrap"
+                    onClick={() => setConfirmClear(false)}
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  class="delete-btn preset-utility-btn preset-actions__clear-trigger"
+                  onClick={() => setConfirmClear(true)}
+                >
+                  Clear All
+                </button>
+              )}
+            </span>
+          )}
         </div>
 
         {workspaceHasContent && (
-          <div ref={primarySaveRowRef} class="settings-form__action-row settings-form__action-row--top">
+          <div
+            ref={primarySaveRowRef}
+            class="settings-form__action-row settings-form__action-row--top"
+          >
             <span class="settings-form__action-group settings-form__action-group--wrap">
               <button type="button" class="preset-action-btn" onClick={handleSave}>
                 {saveLabel}
