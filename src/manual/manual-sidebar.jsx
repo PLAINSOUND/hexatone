@@ -64,7 +64,7 @@ const ManualSidebar = ({
     <div class="manual-sidebar">
       <fieldset class="settings-panel settings-panel--manual">
         <legend>
-          <b>Manual</b>
+          <b>App</b>
         </legend>
         {onClose ? (
           <button

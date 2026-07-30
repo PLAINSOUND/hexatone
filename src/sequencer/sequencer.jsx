@@ -2292,7 +2292,7 @@ const Sequencer = ({
         </legend>
         <p>
           <em>
-            ENTER stores currently sounding notes, including attack / release velocity, pressure, and timbre data if available. The Sequence panel, below, allows snapshots to be played, re-ordered, and edited. Changing the global or bar-relative position of events automatically creates cues that may be triggered one-by-one. By adding bars with time signatures, tempo markers, repeats, and empty snapshots where needed, users can generate a musical score and automate timed playback.           
+            SHIFT+ENTER stores currently sounding notes, including expression data if available. The panels below allow snapshots to be played, re-ordered, copied, and edited. Changing global or bar-relative event positions automatically creates cues that may be triggered one-by-one. Adding bars with time signatures, tempo markers, repeats, and empty snapshots where needed generates a musical score with automated timed playback.           
           </em>
         </p>
         <div class="preset-actions preset-actions--library">
