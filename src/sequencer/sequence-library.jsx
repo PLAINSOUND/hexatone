@@ -6,6 +6,7 @@
 import { createRef } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { cloneJsonValue } from "../persistence/clone-json-value.js";
 import { orderPresetsByName } from "../persistence/preset-name-order.js";
 import {
   normalizeBarMarkers,
@@ -26,11 +27,11 @@ import {
 const STORAGE_KEY = "hexatone_user_sequences";
 
 function cloneSnapshots(snapshots) {
-  return JSON.parse(JSON.stringify(Array.isArray(snapshots) ? snapshots : []));
+  return cloneJsonValue(Array.isArray(snapshots) ? snapshots : []);
 }
 
 function cloneBars(bars) {
-  return JSON.parse(JSON.stringify(Array.isArray(bars) ? bars : []));
+  return cloneJsonValue(Array.isArray(bars) ? bars : []);
 }
 
 export function normalizeSequenceRecord(record) {

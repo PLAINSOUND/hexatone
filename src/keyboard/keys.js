@@ -2190,10 +2190,10 @@ class Keys {
     for (const [hex, vel] of this.state.sustainedNotes) {
       hex.noteOff(vel);
     }
-    // Belt-and-suspenders: send CC123 on all output channels. Covers the case
-    // where notes were held on a physical controller at the moment of refresh —
-    // the MIDI input listener is torn down before noteOff can fire normally.
-    if (this.synth?.allSoundOff) this.synth.allSoundOff();
+    // Do not send CC123 here. Rebuilding Keys is a routine operation during
+    // tuning and output changes, so an implicit all-notes-off can truncate
+    // unrelated release tails. Explicit PANIC remains the recovery path for
+    // genuinely untracked output notes.
     this.state.activeMouse = null;
     this.state.activeTouch.clear();
     this.state.activeKeyboard.clear();

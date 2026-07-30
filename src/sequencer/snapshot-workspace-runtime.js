@@ -3,6 +3,7 @@
 // keeping bars, tempi, repeats, and related workspace state aligned.
 
 import { buildSnapshotDescription } from "./labels.js";
+import { cloneJsonValue } from "../persistence/clone-json-value.js";
 import {
   normalizeManualArpeggiation,
   normalizeManualSnapshotTrigger,
@@ -15,7 +16,7 @@ import {
 import { normalizeTempoMode } from "./transport.js";
 
 function clone(value) {
-  return JSON.parse(JSON.stringify(value));
+  return cloneJsonValue(value);
 }
 
 function normalizeSnapshotPosition(value, snapshotCount = 0, fallback = 1) {

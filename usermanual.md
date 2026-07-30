@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-07-28
+Updated: 2026-07-30
 
 ## About
 

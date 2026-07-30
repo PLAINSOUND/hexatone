@@ -10,9 +10,10 @@ import {
   normalizeManualArpeggiation,
   normalizeSnapshotManualTrigger,
 } from "./manual-snapshot-arpeggiation.js";
+import { cloneJsonValue } from "../persistence/clone-json-value.js";
 
 function cloneSequenceRecords(records) {
-  return Array.isArray(records) ? JSON.parse(JSON.stringify(records)) : [];
+  return Array.isArray(records) ? cloneJsonValue(records) : [];
 }
 
 export function defaultSequenceBars() {

@@ -11,11 +11,12 @@ import {
   normalizeManualArpeggiation,
   normalizeSnapshotManualTrigger,
 } from "./manual-snapshot-arpeggiation.js";
+import { cloneJsonValue } from "../persistence/clone-json-value.js";
 
 export const SEQUENCE_WORKSPACE_STORAGE_KEY = "hexatone_sequence_workspace";
 
 function clone(value) {
-  return JSON.parse(JSON.stringify(value));
+  return cloneJsonValue(value);
 }
 
 export function serializeSequenceWorkspace(workspace = {}) {

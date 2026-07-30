@@ -12,6 +12,7 @@ import { normalizeModulationHistory } from "../tuning/modulation-runtime.js";
 import { resolveKeyColorsMode } from "../settings/scale/key-colors-mode.js";
 import { derivePresetControllerAnchorFields } from "../settings/scale/parse-scale.js";
 import { CONTROLLER_PRESET_ANCHOR_FIELDS } from "../controllers/preset-anchors.js";
+import { cloneJsonValue } from "../persistence/clone-json-value.js";
 
 const CONTROLLER_ANCHOR_FIELDS = [
   ...CONTROLLER_PRESET_ANCHOR_FIELDS,
@@ -99,7 +100,7 @@ const SETTINGS_RECORD_FIELDS = [
 ];
 
 function clone(value) {
-  return JSON.parse(JSON.stringify(value));
+  return cloneJsonValue(value);
 }
 
 function copyIfFinite(target, source, key) {

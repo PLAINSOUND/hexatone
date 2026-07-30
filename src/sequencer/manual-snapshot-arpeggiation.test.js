@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MANUAL_ARPEGGIATION,
   effectiveManualSnapshotArticulation,
+  manualArpeggiationDecayDisplay,
+  manualArpeggiationDecayFromSlider,
+  manualArpeggiationDecaySliderValue,
   normalizeManualArpeggiation,
   normalizeManualSnapshotTrigger,
+  SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE,
 } from "./manual-snapshot-arpeggiation.js";
 
 describe("manual snapshot arpeggiation settings", () => {
@@ -53,5 +57,24 @@ describe("manual snapshot arpeggiation settings", () => {
       "arpeggiate",
     );
     expect(stored).toEqual({ articulation: "arpeggiate" });
+  });
+
+  it("maps immediate, timed, and sustain decay values to the slider boundary", () => {
+    expect(manualArpeggiationDecaySliderValue({ decayMode: "immediate" })).toBe(0);
+    expect(manualArpeggiationDecaySliderValue({ decayMode: "timed", decayMs: 700 })).toBe(700);
+    expect(manualArpeggiationDecaySliderValue({ decayMode: "sustain" })).toBe(
+      SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE,
+    );
+    expect(manualArpeggiationDecayFromSlider(0)).toEqual({ decayMode: "immediate" });
+    expect(manualArpeggiationDecayFromSlider(700)).toEqual({
+      decayMode: "timed",
+      decayMs: 700,
+    });
+    expect(
+      manualArpeggiationDecayFromSlider(SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE),
+    ).toEqual({ decayMode: "sustain" });
+    expect(manualArpeggiationDecayDisplay({ decayMode: "timed", decayMs: 700 })).toBe(
+      "700 ms",
+    );
   });
 });

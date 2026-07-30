@@ -573,6 +573,7 @@ const App = () => {
   const [manualSectionTitles, setManualSectionTitles] = useState(
     MANUAL_VIEW_DEFAULT_SECTIONS,
   );
+  const sidebarRef = useRef(null);
   const manualScrollPositionsRef = useRef({
     main: 0,
     hexatone: 0,
@@ -598,7 +599,7 @@ const App = () => {
   // Session / lifecycle bootstrap.
   const rememberManualScrollPosition = useCallback(() => {
     if (!activeManualView) return;
-    const sidebar = document.getElementById("sidebar");
+    const sidebar = sidebarRef.current;
     if (sidebar) manualScrollPositionsRef.current[activeManualView] = sidebar.scrollTop;
   }, [activeManualView]);
   const switchWorkspaceTab = useCallback((nextTab) => {
@@ -728,7 +729,7 @@ const App = () => {
 
   useEffect(() => {
     if (!activeManualView) return;
-    const sidebar = document.getElementById("sidebar");
+    const sidebar = sidebarRef.current;
     if (sidebar) sidebar.scrollTop = manualScrollPositionsRef.current[activeManualView] ?? 0;
   }, [activeManualView]);
 
@@ -1226,7 +1227,7 @@ const App = () => {
     sequenceBarIdRef.current = workspace.ids.barId;
   }, []);
 
-  useEffect(() => {
+  const persistSequenceWorkspace = useCallback((overrides = {}) => {
     saveSequenceWorkspaceToSession({
       snapshots,
       bars: sequenceBars,
@@ -1242,6 +1243,7 @@ const App = () => {
       snapSequenceToCurrentTuning,
       sequenceAutoCreateBars,
       manualArpeggiation,
+      ...overrides,
     });
   }, [
     activeSequenceDescription,
@@ -1259,6 +1261,13 @@ const App = () => {
     snapshotLabelMode,
     snapshots,
   ]);
+
+  // State changes are persisted here; mutation handlers also call the same
+  // helper with their freshly computed results so a reload between the event
+  // and the next render cannot lose an edit.
+  useEffect(() => {
+    persistSequenceWorkspace();
+  }, [persistSequenceWorkspace]);
 
   // Sequencer workspace derivation and playback-ready snapshot views.
   const currentSequenceSnapRuntime = (() => {
@@ -2592,21 +2601,11 @@ const App = () => {
     sequenceBarIdRef.current = result.ids.barId;
     snapshotsRef.current = result.snapshots;
     sequenceBarsRef.current = result.bars;
-    saveSequenceWorkspaceToSession({
+    persistSequenceWorkspace({
       snapshots: result.snapshots,
       bars: result.bars,
       tempi: result.tempi,
       repeats: result.repeats,
-      snapshotLabelMode,
-      activeSequenceSource,
-      activeSequenceBuiltInName,
-      activeSequenceName,
-      activeSequenceSavedName,
-      activeSequenceDescription,
-      sequenceLegato,
-      snapSequenceToCurrentTuning,
-      sequenceAutoCreateBars,
-      manualArpeggiation,
     });
     setSnapshots(result.snapshots);
     setSequenceBars(result.bars);
@@ -2616,22 +2615,14 @@ const App = () => {
     setSelectedSnapshotMarker(result.selectedSnapshotMarker);
     return null;
   }, [
-    activeSequenceBuiltInName,
-    activeSequenceDescription,
-    activeSequenceName,
-    activeSequenceSavedName,
-    activeSequenceSource,
-    sequenceAutoCreateBars,
+    persistSequenceWorkspace,
     sequenceBars,
-    sequenceLegato,
-    manualArpeggiation,
     sequenceRepeats,
     sequenceTempi,
-    snapSequenceToCurrentTuning,
-    snapshotLabelMode,
   ]);
 
   const onResetSnapshotRangeNoteOffsetsInPlace = useCallback((selection) => {
+    const snapshotCountBefore = snapshotsRef.current.length;
     appendPersistedSequencerCrashDiagnostic({
       type: "snapshot-range-reset-requested",
       detail: "Requested in-place reset of note offsets for snapshot range",
@@ -2669,21 +2660,9 @@ const App = () => {
       return result.error;
     }
     snapshotsRef.current = result.snapshots;
-    saveSequenceWorkspaceToSession({
+    persistSequenceWorkspace({
       snapshots: result.snapshots,
       bars: sequenceBarsRef.current,
-      tempi: sequenceTempi,
-      repeats: sequenceRepeats,
-      snapshotLabelMode,
-      activeSequenceSource,
-      activeSequenceBuiltInName,
-      activeSequenceName,
-      activeSequenceSavedName,
-      activeSequenceDescription,
-      sequenceLegato,
-      snapSequenceToCurrentTuning,
-      sequenceAutoCreateBars,
-      manualArpeggiation,
     });
     setSnapshots(result.snapshots);
     appendPersistedSequencerCrashDiagnostic({
@@ -2694,7 +2673,7 @@ const App = () => {
         startPosition: result.range?.startPosition ?? null,
         endPosition: result.range?.endPosition ?? null,
         includeBars: result.range?.includeBars === true,
-        snapshotCountBefore: snapshotsRef.current.length,
+        snapshotCountBefore,
         snapshotCountAfter: result.snapshots.length,
         selectedSnapshotId,
         workspaceTab,
@@ -2702,19 +2681,8 @@ const App = () => {
     });
     return result;
   }, [
-    activeSequenceBuiltInName,
-    activeSequenceDescription,
-    activeSequenceName,
-    activeSequenceSavedName,
-    activeSequenceSource,
+    persistSequenceWorkspace,
     selectedSnapshotId,
-    sequenceAutoCreateBars,
-    sequenceLegato,
-    manualArpeggiation,
-    sequenceRepeats,
-    sequenceTempi,
-    snapSequenceToCurrentTuning,
-    snapshotLabelMode,
     workspaceTab,
   ]);
 
@@ -2729,38 +2697,13 @@ const App = () => {
     });
     if (result.error) return result.error;
     snapshotsRef.current = result.snapshots;
-    saveSequenceWorkspaceToSession({
+    persistSequenceWorkspace({
       snapshots: result.snapshots,
       bars: sequenceBarsRef.current,
-      tempi: sequenceTempi,
-      repeats: sequenceRepeats,
-      snapshotLabelMode,
-      activeSequenceSource,
-      activeSequenceBuiltInName,
-      activeSequenceName,
-      activeSequenceSavedName,
-      activeSequenceDescription,
-      sequenceLegato,
-      snapSequenceToCurrentTuning,
-      sequenceAutoCreateBars,
-      manualArpeggiation,
     });
     setSnapshots(result.snapshots);
     return result;
-  }, [
-    activeSequenceBuiltInName,
-    activeSequenceDescription,
-    activeSequenceName,
-    activeSequenceSavedName,
-    activeSequenceSource,
-    sequenceAutoCreateBars,
-    sequenceLegato,
-    manualArpeggiation,
-    sequenceRepeats,
-    sequenceTempi,
-    snapSequenceToCurrentTuning,
-    snapshotLabelMode,
-  ]);
+  }, [persistSequenceWorkspace]);
 
   const onRestoreSnapshotRangeChanges = useCallback((replacements) => {
     const result = restoreSnapshotsInWorkspace({
@@ -2769,38 +2712,13 @@ const App = () => {
     });
     if (result.error) return result.error;
     snapshotsRef.current = result.snapshots;
-    saveSequenceWorkspaceToSession({
+    persistSequenceWorkspace({
       snapshots: result.snapshots,
       bars: sequenceBarsRef.current,
-      tempi: sequenceTempi,
-      repeats: sequenceRepeats,
-      snapshotLabelMode,
-      activeSequenceSource,
-      activeSequenceBuiltInName,
-      activeSequenceName,
-      activeSequenceSavedName,
-      activeSequenceDescription,
-      sequenceLegato,
-      snapSequenceToCurrentTuning,
-      sequenceAutoCreateBars,
-      manualArpeggiation,
     });
     setSnapshots(result.snapshots);
     return result;
-  }, [
-    activeSequenceBuiltInName,
-    activeSequenceDescription,
-    activeSequenceName,
-    activeSequenceSavedName,
-    activeSequenceSource,
-    sequenceAutoCreateBars,
-    sequenceLegato,
-    manualArpeggiation,
-    sequenceRepeats,
-    sequenceTempi,
-    snapSequenceToCurrentTuning,
-    snapshotLabelMode,
-  ]);
+  }, [persistSequenceWorkspace]);
 
   const onDeleteSnapshotRange = useCallback((selection) => {
     appendPersistedSequencerCrashDiagnostic({
@@ -2852,21 +2770,11 @@ const App = () => {
     const snapshotCountBefore = snapshotsRef.current.length;
     snapshotsRef.current = result.snapshots;
     sequenceBarsRef.current = result.bars;
-    saveSequenceWorkspaceToSession({
+    persistSequenceWorkspace({
       snapshots: result.snapshots,
       bars: result.bars,
       tempi: result.tempi,
       repeats: result.repeats,
-      snapshotLabelMode,
-      activeSequenceSource,
-      activeSequenceBuiltInName,
-      activeSequenceName,
-      activeSequenceSavedName,
-      activeSequenceDescription,
-      sequenceLegato,
-      snapSequenceToCurrentTuning,
-      sequenceAutoCreateBars,
-      manualArpeggiation,
     });
     setSnapshots(result.snapshots);
     setSequenceBars(result.bars);
@@ -2892,20 +2800,11 @@ const App = () => {
     });
     return result;
   }, [
-    activeSequenceBuiltInName,
-    activeSequenceDescription,
-    activeSequenceName,
-    activeSequenceSavedName,
-    activeSequenceSource,
+    persistSequenceWorkspace,
     selectedSnapshotId,
     selectedSnapshotMarker,
-    sequenceAutoCreateBars,
-    sequenceLegato,
-    manualArpeggiation,
     sequenceRepeats,
     sequenceTempi,
-    snapSequenceToCurrentTuning,
-    snapshotLabelMode,
     workspaceTab,
   ]);
 
@@ -2946,37 +2845,13 @@ const App = () => {
       },
     });
     snapshotsRef.current = nextSnapshots;
-    saveSequenceWorkspaceToSession({
+    persistSequenceWorkspace({
       snapshots: nextSnapshots,
-      bars: sequenceBars,
-      tempi: sequenceTempi,
-      repeats: sequenceRepeats,
-      snapshotLabelMode,
-      activeSequenceSource,
-      activeSequenceBuiltInName,
-      activeSequenceName,
-      activeSequenceSavedName,
-      activeSequenceDescription,
-      sequenceLegato,
-      snapSequenceToCurrentTuning,
-      sequenceAutoCreateBars,
-      manualArpeggiation,
     });
     setSnapshots(nextSnapshots);
   }, [
-    activeSequenceBuiltInName,
-    activeSequenceDescription,
-    activeSequenceName,
-    activeSequenceSavedName,
-    activeSequenceSource,
+    persistSequenceWorkspace,
     selectedSnapshotId,
-    sequenceAutoCreateBars,
-    sequenceBars,
-    sequenceLegato,
-    manualArpeggiation,
-    sequenceRepeats,
-    sequenceTempi,
-    snapSequenceToCurrentTuning,
     snapshotLabelMode,
     workspaceTab,
   ]);
@@ -4748,7 +4623,7 @@ const App = () => {
         </div>
       )}
 
-      <nav id="sidebar">
+      <nav id="sidebar" ref={sidebarRef}>
         <div class="workspace-tabs" role="tablist" aria-label="Workspace">
           <button
             type="button"
@@ -4790,24 +4665,26 @@ const App = () => {
           <p class="sidebar-intro">
             <em>
               Capture chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining as SNAPSHOTS. Build step sequences and trigger them event by event. EDIT start and stop times within a chord to make CUES that sound a melody or arpeggiation. Create bars, repeats, and tempo markers to generate an automated timed playback.{" "}
-              <span
+              <button
+                type="button"
                 className="app-shell__intro-more"
                 onClick={() => openInlineManual("sequencer")}
               >
                 … more
-              </span>
+              </button>
             </em>
           </p>
         ) : workspaceTab === "hexatone" ? (
           <p class="sidebar-intro">
             <em>
               TO PLAY, choose a tuning, click or touch notes, attach a MIDI keyboard or an isomorphic controller like Lumatone or Exquis. Use internal sounds or retune external synths using MTS, MPE, OSC. Edit the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER takes snapshots across tunings; build a sequence.{" "}
-              <span
+              <button
+                type="button"
                 className="app-shell__intro-more"
                 onClick={() => openInlineManual("hexatone")}
               >
                 … more
-              </span>
+              </button>
             </em>
           </p>
         ) : null}
@@ -4819,6 +4696,7 @@ const App = () => {
               initialSectionTitle={manualSectionTitles[activeManualView]}
               onSectionChange={rememberManualSection}
               onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
+              scrollContainerRef={sidebarRef}
             />
           ) : workspaceTab === "sequencer" ? (
             <Sequencer

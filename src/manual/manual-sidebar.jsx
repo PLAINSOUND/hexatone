@@ -1,12 +1,11 @@
 /**
  * src/manual/manual-sidebar.jsx
  *
- * Inline manual surface used inside the app sidebar.
+ * Manual surface shared by contextual help and the MANUAL workspace tab.
  *
- * The full browser manual still has its own Vite entrypoint, but this sidebar
- * version lets the user open contextual help without leaving the current
- * Hexatone or Sequencer workspace. It renders a section picker plus the
- * selected manual sections below it.
+ * The standalone browser manual still has its own Vite entrypoint. This version
+ * renders the common section picker and, intentionally, the selected section
+ * plus every following section so the reader can continue scrolling naturally.
  */
 import { useEffect, useRef, useState } from "preact/hooks";
 import { MANUAL_INTRO } from "./content.js";
@@ -27,6 +26,7 @@ const ManualSidebar = ({
   onClose,
   initialSectionTitle = "About",
   onSectionChange,
+  scrollContainerRef,
 }) => {
   const [selectedSectionId, setSelectedSectionId] = useState(() =>
     getInitialSectionId(initialSectionTitle),
@@ -37,10 +37,12 @@ const ManualSidebar = ({
     0,
     sections.findIndex((section) => section.id === selectedSectionId),
   );
+  // Starting at the selection keeps earlier material out of the scroll path
+  // while allowing uninterrupted reading through all subsequent sections.
   const visibleSections = sections.slice(selectedIndex);
 
   useEffect(() => {
-    const sidebar = document.getElementById("sidebar");
+    const sidebar = scrollContainerRef?.current ?? document.getElementById("sidebar");
     if (!sidebar) return undefined;
 
     const updateTopButton = () => {
@@ -58,7 +60,7 @@ const ManualSidebar = ({
       sidebar.removeEventListener("scroll", updateTopButton);
       window.removeEventListener("resize", updateTopButton);
     };
-  }, []);
+  }, [scrollContainerRef]);
 
   return (
     <div class="manual-sidebar">
@@ -130,7 +132,8 @@ const ManualSidebar = ({
               type="button"
               class="preset-action-btn"
               onClick={() => {
-                const sidebar = document.getElementById("sidebar");
+                const sidebar =
+                  scrollContainerRef?.current ?? document.getElementById("sidebar");
                 if (sidebar) sidebar.scrollTo({ top: 0, behavior: "smooth" });
               }}
             >

@@ -44,7 +44,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-ExtraLight.woff2") format("woff2");
   font-weight: 200;
   font-style: normal;
@@ -52,7 +52,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-ExtraLightItalic.woff2") format("woff2");
   font-weight: 200;
   font-style: italic;
@@ -60,7 +60,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-Light.woff2") format("woff2");
   font-weight: 300;
   font-style: normal;
@@ -68,7 +68,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-LightItalic.woff2") format("woff2");
   font-weight: 300;
   font-style: italic;
@@ -76,7 +76,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-Regular.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
@@ -84,7 +84,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-Italic.woff2") format("woff2");
   font-weight: 400;
   font-style: italic;
@@ -92,7 +92,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-Medium.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
@@ -100,7 +100,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-MediumItalic.woff2") format("woff2");
   font-weight: 500;
   font-style: italic;
@@ -108,7 +108,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-SemiBold.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
@@ -116,7 +116,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-SemiBoldItalic.woff2") format("woff2");
   font-weight: 600;
   font-style: italic;
@@ -124,7 +124,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-Bold.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
@@ -132,7 +132,7 @@
 }
 
 @font-face {
-  font-family: "Plainsound";
+  font-family: Plainsound;
   src: url("./fonts/Plainsound-BoldItalic.woff2") format("woff2");
   font-weight: 700;
   font-style: italic;
@@ -1499,5 +1499,9 @@ a:hover {
 }
 
 .app-shell__intro-more {
+  padding: 0;
+  border: 0;
+  background: none;
   color: #990000;
+  font: inherit;
 }

@@ -1,6 +1,6 @@
 // Pure formation planning for manually triggered snapshot arpeggios.
-// It preserves event-list order for tied positions and keeps the final attack
-// at the requested total spread after timing variation.
+// Tied positions rise by pitch (then preserve source order for exact ties), and
+// the final attack remains at the requested total spread after variation.
 
 function finiteStart(note) {
   const start = Number(note?.start);
@@ -18,6 +18,8 @@ function variedDuration(centerMs, variation, random) {
   if (centerMs <= 0 || variation <= 0) return centerMs;
   const randomValue = Math.min(1, Math.max(0, Number(random()) || 0));
   const maximumFactor = 1 + variation;
+  // Use a logarithmically balanced multiplicative range rather than ordinary
+  // ± percentage: variation .333 spans center/1.333 through center*1.333.
   return centerMs * Math.exp((randomValue * 2 - 1) * Math.log(maximumFactor));
 }
 

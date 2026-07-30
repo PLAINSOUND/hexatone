@@ -7,7 +7,9 @@ import {
   EAGAN_BRIGHTNESS_EVENT,
   EAGAN_MATRIX_CONTROLS,
 } from "../../mpe_synth/eagan-matrix.js";
+import { sendMpeZonePitchBendRange } from "../../midi/rpn.js";
 import CustomRangeSlider from "../shared/range-slider.jsx";
+import OutputPortPicker from "./output-port-picker.js";
 
 const voiceChannels = (masterCh) => {
   if (masterCh === "1") return Array.from({ length: 15 }, (_, i) => i + 2);
@@ -52,15 +54,6 @@ const readEaganCc = (name, fallback = 64) => {
   return clampMidiCc(Number.isFinite(stored) ? stored : fallback);
 };
 
-const sendRpn = (output, channel0, msb, lsb, dataMsb, dataLsb = 0) => {
-  output.send([0xb0 + channel0, 101, msb & 0x7f]);
-  output.send([0xb0 + channel0, 100, lsb & 0x7f]);
-  output.send([0xb0 + channel0, 6, dataMsb & 0x7f]);
-  output.send([0xb0 + channel0, 38, dataLsb & 0x7f]);
-  output.send([0xb0 + channel0, 101, 127]);
-  output.send([0xb0 + channel0, 100, 127]);
-};
-
 // Send MPE pitch bend range RPN to all voice channels
 const sendMpePitchBendRange = (
   output,
@@ -77,79 +70,16 @@ const sendMpePitchBendRange = (
   const actualBendRange = mpeMode === "Ableton_workaround" ? 48 : bendRange || 48;
   const managerBendRange = mpeMode === "Ableton_workaround" ? 2 : bendRangeManager || 2;
 
-  // Send MPE zone configuration RPN on master channel
-  if (masterChNum !== null) {
-    const numVoices = hiCh - loCh + 1;
-    sendRpn(output, masterChNum, 0, 6, numVoices, 0);
-    sendRpn(output, masterChNum, 0, 0, managerBendRange, 0);
-  }
-
-  // Send pitch bend range RPN on all voice channels
-  // RPN 0x0000 (pitch bend range)
-  for (let ch = loCh; ch <= hiCh; ch++) {
-    const c = ch - 1; // 0-based
-    sendRpn(output, c, 0, 0, actualBendRange, 0);
-  }
+  sendMpeZonePitchBendRange(output, {
+    managerChannel0: masterChNum ?? -1,
+    memberChannels0: Array.from(
+      { length: hiCh - loCh + 1 },
+      (_, index) => loCh - 1 + index,
+    ),
+    memberBendRange: actualBendRange,
+    managerBendRange,
+  });
 };
-
-/**
- * Inline clickable port-name for FluidSynth output selection.
- * Renders as a single <span> so it can sit alongside a button in a flex row.
- * When a port is auto-detected its name is shown in green.
- * Clicking switches to a <select> listing all available outputs so the
- * user can pick an alternate port (e.g. on Windows where port names differ).
- * Choosing "Auto detect" clears the override and reverts to name-based detection.
- */
-function OutputPortPicker({ label, portName, outputs, overridePortId, onChange }) {
-  const [picking, setPicking] = useState(false);
-  const connected = !!portName;
-  const isOverride = !!overridePortId;
-
-  if (picking) {
-    return (
-        <span class="settings-form__inline-label">
-        <span class="settings-form__label-nowrap">{label}</span>
-        <select
-          class="settings-form__value--compact settings-form__value--grow"
-          value={overridePortId ?? "__auto__"}
-          onChange={(e) => {
-            const val = e.target.value === "__auto__" ? null : e.target.value;
-            onChange(val);
-            setPicking(false);
-          }}
-          onBlur={() => setPicking(false)}
-          ref={(el) => el && setTimeout(() => el.focus(), 0)}
-        >
-          <option value="__auto__">Auto detect</option>
-          {outputs && Array.from(outputs.values()).map((o) => (
-            <option key={o.id} value={o.id}>{o.name}</option>
-          ))}
-        </select>
-      </span>
-    );
-  }
-
-  return (
-    <span
-      class="settings-form__picker-inline settings-form__picker-row"
-      title="Click to choose a different output port"
-      onClick={() => setPicking(true)}
-    >
-      <span>{label}</span>
-      <span
-        class={`settings-form__status-value ${
-          connected
-            ? "settings-form__status-value--connected"
-            : "settings-form__status-value--missing"
-        }`}
-      >
-        {connected
-          ? `${isOverride ? "▸ " : ""}${portName}`
-          : "Not found — click to choose"}
-      </span>
-    </span>
-  );
-}
 
 const MidiOutputs = (props) => {
   // midiTick is unused directly — its presence as a changing prop forces
@@ -245,10 +175,11 @@ const MidiOutputs = (props) => {
     const handleBrightness = (event) => {
       const next = clampMidiCc(event.detail?.value);
       setEaganCcDrafts((prev) => ({ ...prev, mpe_eagan_brightness: next }));
+      onChange("mpe_eagan_brightness", next);
     };
     window.addEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
     return () => window.removeEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
-  }, []);
+  }, [onChange]);
 
   const sendEaganMatrixCc = (cc, value) => {
     const output =
@@ -427,6 +358,7 @@ const MidiOutputs = (props) => {
                   outputs={props.midi?.outputs}
                   overridePortId={settings.fluidsynth_out_port ?? null}
                   onChange={(portId) => onChange("fluidsynth_out_port", portId)}
+                  inline
                 />
                 <button
                   type="button"

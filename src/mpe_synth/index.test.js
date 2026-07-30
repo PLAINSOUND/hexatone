@@ -192,6 +192,63 @@ describe("mpe_synth startup state", () => {
     const laterCalls = midi_output.send.mock.calls.slice(callsBeforeTimeout);
     expect(laterCalls).not.toEqual(expect.arrayContaining([[[activePbStatus, 0, 64]]]));
   });
+
+  it("centers a released channel once its release guard has elapsed", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      48,
+      2,
+      12,
+      2,
+      500,
+    );
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+    vi.advanceTimersByTime(500);
+    midi_output.send.mockClear();
+
+    hex.noteOff(64);
+    vi.advanceTimersByTime(510);
+
+    expect(midi_output.send).toHaveBeenCalledWith([0xe0 + 1, 0, 64]);
+  });
+
+  it("cancels deferred pitch resets when the synth shuts down", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      48,
+      2,
+      12,
+      2,
+      500,
+    );
+    midi_output.send.mockClear();
+
+    synth.shutdown();
+    midi_output.send.mockClear();
+    vi.advanceTimersByTime(1000);
+
+    expect(midi_output.send).not.toHaveBeenCalled();
+  });
 });
 
 describe("mpe_synth first-note ordering", () => {

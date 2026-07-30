@@ -340,5 +340,6 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByRole("slider", { name: "Brightness" }).getAttribute("aria-valuenow")).toBe(
       "103",
     );
+    expect(onChange).toHaveBeenCalledWith("mpe_eagan_brightness", 103);
   });
 });

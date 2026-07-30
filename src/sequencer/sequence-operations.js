@@ -10,6 +10,7 @@ import {
   sortSnapshotNotes,
   stableSequencerNoteId,
 } from "./value-runtime.js";
+import { cloneJsonValue } from "../persistence/clone-json-value.js";
 
 export function applyNoteUpdateToSnapshot(targetSnapshot, buildNotes) {
   if (!targetSnapshot) return null;
@@ -38,7 +39,7 @@ export function buildTransferredNote({
   const targetLength = Number.isFinite(Number(targetSnapshot?.length)) ? Number(targetSnapshot.length) : 1;
   const identity = typeof noteRef === "string" ? noteRef : (noteRef?.noteKey ?? note?.id ?? noteIdentity(note, sourceLength));
   const baseMovedNote = {
-    ...JSON.parse(JSON.stringify(note)),
+    ...cloneJsonValue(note),
     id: note?.id ?? stableSequencerNoteId(identity),
     start: normalizeSequenceNumber(absoluteStart - targetSnapshotNumber),
     end: normalizeSequenceNumber(absoluteEnd - targetSnapshotNumber),

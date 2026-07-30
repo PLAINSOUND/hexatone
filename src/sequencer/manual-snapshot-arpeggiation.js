@@ -9,6 +9,8 @@ export const MANUAL_ARPEGGIATION_MODES = Object.freeze([
 ]);
 
 export const MAX_MANUAL_ARPEGGIATION_DECAY_MS = 10000;
+export const SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE =
+  MAX_MANUAL_ARPEGGIATION_DECAY_MS + 100;
 
 export const DEFAULT_MANUAL_ARPEGGIATION = Object.freeze({
   mode: "off",
@@ -47,6 +49,8 @@ export function normalizeManualArpeggiation(value = {}) {
   const source = value && typeof value === "object" ? value : {};
   const styleId = String(source.styleId ?? DEFAULT_MANUAL_ARPEGGIATION.styleId).trim();
   const legacyDecayMs = Number(source.decayMs);
+  // Before decayMode existed, zero meant "never schedule an automatic release";
+  // preserve that stored-session meaning by migrating it to sustain.
   const decayMode = VALID_DECAY_MODES.has(source.decayMode)
     ? source.decayMode
     : (Number.isFinite(legacyDecayMs) && legacyDecayMs === 0 ? "sustain" : "timed");
@@ -114,4 +118,32 @@ export function effectiveManualSnapshotArticulation(mode, snapshotTrigger) {
   if (normalizedMode === "off") return "chord";
   if (normalizedMode === "all") return "arpeggiate";
   return normalizeManualSnapshotTrigger(snapshotTrigger).articulation;
+}
+
+export function manualArpeggiationDecaySliderValue(value) {
+  const normalized = normalizeManualArpeggiation(value);
+  if (normalized.decayMode === "immediate") return 0;
+  if (normalized.decayMode === "sustain") {
+    return SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE;
+  }
+  return normalized.decayMs;
+}
+
+export function manualArpeggiationDecayDisplay(value) {
+  const normalized = normalizeManualArpeggiation(value);
+  if (normalized.decayMode === "immediate") return "immediate";
+  if (normalized.decayMode === "sustain") return "sustain";
+  return `${normalized.decayMs} ms`;
+}
+
+export function manualArpeggiationDecayFromSlider(value) {
+  const numeric = Number(value);
+  if (numeric <= 0) return { decayMode: "immediate" };
+  if (numeric >= SUSTAIN_MANUAL_ARPEGGIATION_DECAY_SLIDER_VALUE) {
+    return { decayMode: "sustain" };
+  }
+  return {
+    decayMode: "timed",
+    decayMs: Math.min(MAX_MANUAL_ARPEGGIATION_DECAY_MS, Math.max(100, numeric)),
+  };
 }

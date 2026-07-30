@@ -4,6 +4,10 @@
 const SAMPLE_MS = 0.5;
 const AFTERTOUCH_RAMP_MS = 40;
 
+// Empirical calibration against the Max/Eagan Matrix reference stream.
+// Centers and ranges are 7-bit MIDI values; lag factors convert velocity
+// distance into milliseconds. Keep these together until they become exposed
+// musical parameters so changes can be compared as one calibration set.
 export const AUTO_MPE_YZ_DEFAULTS = Object.freeze({
   yVelocityRange: 0.5,
   yCenter: 38,
@@ -162,25 +166,23 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
   let worker = null;
   let fallbackTimer = null;
 
-  const send = ({ channel, generation, y, z }) => {
+  const sendValues = ({ channel, generation, y, z }, timestamp = null) => {
     if (generations.get(channel) !== generation) return;
     const previous = lastValues.get(channel);
     if (previous?.y === y && previous?.z === z) return;
     lastValues.set(channel, { y, z });
     const channel0 = channel - 1;
-    midiOutput.send([0xb0 + channel0, 74, y]);
-    midiOutput.send([0xd0 + channel0, z]);
+    if (timestamp == null) {
+      midiOutput.send([0xb0 + channel0, 74, y]);
+      midiOutput.send([0xd0 + channel0, z]);
+    } else {
+      midiOutput.send([0xb0 + channel0, 74, y], timestamp);
+      midiOutput.send([0xd0 + channel0, z], timestamp);
+    }
   };
 
-  const sendTimestamped = ({ channel, generation, y, z }, timestamp) => {
-    if (generations.get(channel) !== generation) return;
-    const previous = lastValues.get(channel);
-    if (previous?.y === y && previous?.z === z) return;
-    lastValues.set(channel, { y, z });
-    const channel0 = channel - 1;
-    midiOutput.send([0xb0 + channel0, 74, y], timestamp);
-    midiOutput.send([0xd0 + channel0, z], timestamp);
-  };
+  const send = (values) => sendValues(values);
+  const sendTimestamped = (values, timestamp) => sendValues(values, timestamp);
 
   const fallbackEngine = createAutoMpeYzRampEngine(send);
   const stopFallbackTimer = () => {
@@ -263,6 +265,12 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     if (active) startFallbackTimer();
   };
 
+  /**
+   * Pre-schedule only the short velocity/release envelopes directly into Web
+   * MIDI to preserve their dense sub-millisecond shape. Timestamped packets
+   * already accepted by Web MIDI cannot be cancelled, so longer pressure ramps
+   * use schedule() and its generation-safe worker/fallback path instead.
+   */
   const scheduleDirect = (
     channel,
     y,

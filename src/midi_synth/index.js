@@ -7,19 +7,11 @@ import { VoicePool } from "../polyphony/voice-pool-nearest";
 import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
 import { buildTuningMapEntries } from "../tuning/tuning-map.js";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
+import { sendRpn } from "../midi/rpn.js";
 
 function safeSend(midi_output, bytes) {
   if (!midi_output || typeof midi_output.send !== "function") return;
   midi_output.send(bytes);
-}
-
-function sendRpn(midi_output, channel0, msb, lsb, dataMsb, dataLsb = 0) {
-  safeSend(midi_output, [0xb0 + channel0, 101, msb & 0x7f]);
-  safeSend(midi_output, [0xb0 + channel0, 100, lsb & 0x7f]);
-  safeSend(midi_output, [0xb0 + channel0, 6, dataMsb & 0x7f]);
-  safeSend(midi_output, [0xb0 + channel0, 38, dataLsb & 0x7f]);
-  safeSend(midi_output, [0xb0 + channel0, 101, 127]);
-  safeSend(midi_output, [0xb0 + channel0, 100, 127]);
 }
 
 export const tuningmap = new Array(128);

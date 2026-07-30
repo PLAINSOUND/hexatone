@@ -24,6 +24,7 @@
 import { VoicePool } from "../polyphony/voice-pool-oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
+import { sendMpeZonePitchBendRange } from "../midi/rpn.js";
 import { createAutoMpeYzScheduler } from "./auto-yz.js";
 
 // PB and noteOn are sent in the same synchronous call — the MIDI driver
@@ -135,17 +136,6 @@ function send14BitChannelPressure(midi_output, channel0, value14) {
   midi_output.send([0xd0 + channel0, (value14 >> 7) & 0x7f]);
 }
 
-function sendRpn(midi_output, channel0, msb, lsb, dataMsb, dataLsb = 0) {
-  midi_output.send([0xb0 + channel0, 101, msb & 0x7f]);
-  midi_output.send([0xb0 + channel0, 100, lsb & 0x7f]);
-  midi_output.send([0xb0 + channel0, 6, dataMsb & 0x7f]);
-  midi_output.send([0xb0 + channel0, 38, dataLsb & 0x7f]);
-  // Null RPN selection so later Data Entry messages cannot accidentally keep
-  // editing the previously selected parameter on stricter hardware synths.
-  midi_output.send([0xb0 + channel0, 101, 127]);
-  midi_output.send([0xb0 + channel0, 100, 127]);
-}
-
 export const create_mpe_synth = async (
   midi_output,
   master_ch,
@@ -175,6 +165,16 @@ export const create_mpe_synth = async (
   for (let ch = lo_ch; ch <= hi_ch; ch++) voiceIds.push(ch);
 
   const pool = new VoicePool(voiceIds, releaseGuardMs, closestPitchSteal);
+  const deferredTimers = new Set();
+  let shuttingDown = false;
+  const scheduleDeferred = (callback, delayMs) => {
+    const timerId = setTimeout(() => {
+      deferredTimers.delete(timerId);
+      if (!shuttingDown) callback();
+    }, delayMs);
+    deferredTimers.add(timerId);
+    return timerId;
+  };
 
   const freqAtCentral = calculateFreqAtCentralDegree(
     fundamental,
@@ -184,29 +184,22 @@ export const create_mpe_synth = async (
   );
   const midiNoteForDegree0 = midiin_anchor_note;
 
-  // MPE configuration RPN message on manager channel
-  if (masterCh !== -1) {
-    const numVoices = hi_ch - lo_ch + 1;
-    sendRpn(midi_output, masterCh, 0, 6, numVoices, 0);
-    sendRpn(midi_output, masterCh, 0, 0, managerBendRange, 0);
-  }
+  // Send MPE-zone and pitch-bend configuration immediately.
+  sendMpeZonePitchBendRange(midi_output, {
+    managerChannel0: masterCh,
+    memberChannels0: voiceIds.map((channel) => channel - 1),
+    memberBendRange: actualBendRange,
+    managerBendRange,
+  });
 
-  // Send pitch-bend range RPN on every voice channel immediately —
-  // this is configuration data, not audio, so no artifact.
-  // Also send an immediate PB centre reset on startup so the first note after
-  // re-enabling MPE cannot inherit stale bend from a previous MPE session.
-  // Keep the deferred reset as well so any old release tails are eventually
-  // cleaned up once the guard window has passed.
-  // Delay the PB centre reset by RELEASE_GUARD_MS so any release tails
-  // from the previous Keys instance can decay undisturbed at their own
-  // pitch before the channel is reset.
+  // Centre every member channel on startup so the first note cannot inherit a
+  // stale bend from an earlier MPE session.
   for (const ch of voiceIds) {
     const c = ch - 1;
-    sendRpn(midi_output, c, 0, 0, actualBendRange, 0);
     midi_output.send([0xe0 + c, 0, 64]); // 8192 = centred
   }
   // PB centre reset — deferred so old release tails finish first
-  setTimeout(() => {
+  scheduleDeferred(() => {
     for (const ch of voiceIds) {
       const c = ch - 1;
       if (pool.getChannelState(ch) === "IDLE") {
@@ -260,6 +253,7 @@ export const create_mpe_synth = async (
         mpePlusPitchBendScheduler,
         autoGenerateMpeYzDefault,
         autoMpeYzScheduler,
+        scheduleDeferred,
       );
       activeHexes.add(hex);
       const originalNoteOff = hex.noteOff.bind(hex);
@@ -301,6 +295,9 @@ export const create_mpe_synth = async (
 
     shutdown: () => {
       for (const hex of [...activeHexes]) hex.noteOff(0);
+      shuttingDown = true;
+      for (const timerId of deferredTimers) clearTimeout(timerId);
+      deferredTimers.clear();
       mpePlusPitchBendScheduler.clear();
       for (const channel of voiceIds) {
         const channel0 = channel - 1;
@@ -341,6 +338,7 @@ function MpeHex(
   mpePlusPitchBendScheduler,
   autoGenerateMpeYzEnabled,
   autoMpeYzScheduler,
+  scheduleDeferred,
 ) {
   this.coords = coords;
   this.cents = cents;
@@ -362,6 +360,7 @@ function MpeHex(
   this.mpePlusPitchBendScheduler = mpePlusPitchBendScheduler;
   this.autoGeneratesMpeYZ = autoGenerateMpeYzEnabled === true;
   this.autoMpeYzScheduler = autoMpeYzScheduler;
+  this.scheduleDeferred = scheduleDeferred;
   this._lastSentBend = null;
   this._lastSentBend21 = null;
   this._lastSentAftertouch = null;
@@ -383,7 +382,6 @@ function MpeHex(
     stolen,
     stolenSlot,
     stolenNote,
-    stolenWasReleasing: _stolenWasReleasing,
     retrigger,
   } = pool.noteOn(coords, bendGuess);
 
@@ -483,15 +481,15 @@ MpeHex.prototype.noteOff = function (release_velocity) {
   // Guard against aftertouch arriving after release
   this.release = true;
 
-  // After the release tail decays, reset PB to centre — but only if the
-  // channel is still IDLE (not reallocated to a new note in the meantime).
-  // This keeps channels clean for monitoring and for synths that retain PB
-  // state across notes.
+  // After the release tail decays, reset PB to centre only if this exact
+  // allocation generation still owns the pending release. This keeps channels
+  // clean without resetting one that was reallocated in the meantime.
   const channel = this.channel;
+  const allocationToken = this.allocationToken;
   const pool = this.pool;
   const midi_out = this.midi_output;
-  setTimeout(() => {
-    if (pool.getChannelState(channel) === "IDLE") {
+  this.scheduleDeferred(() => {
+    if (pool.completeRelease(channel, allocationToken)) {
       midi_out.send([0xe0 + c, 0, 64]); // PB centred (8192)
     }
   }, pool._releaseGuardMs + 10);

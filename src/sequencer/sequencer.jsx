@@ -1661,15 +1661,27 @@ const Sequencer = ({
     resetDraftEditingState();
   }, [resetDraftEditingState, snapshots.length, sortedBars.length, sortedTempi.length]);
 
-  const handleResetSnapshotRangeNoteOffsetsInPlace = useCallback(() => {
-    if (!resolvedCopyRange?.valid) {
-      setCopyInsertStatus("Choose a valid snapshot range first.");
-      return;
-    }
-    const undoSnapshots = snapshots.slice(
+  const requireValidCopyRange = useCallback(() => {
+    if (resolvedCopyRange?.valid) return true;
+    setCopyInsertStatus("Choose a valid snapshot range first.");
+    return false;
+  }, [resolvedCopyRange?.valid]);
+
+  const buildRangeEditUndo = useCallback((extra = {}) => {
+    const rangeSnapshots = snapshots.slice(
       resolvedCopyRange.startPosition - 1,
       resolvedCopyRange.endPosition,
     );
+    return {
+      snapshots: rangeSnapshots,
+      snapshotIds: rangeSnapshots.map((snapshot) => snapshot.id),
+      ...extra,
+    };
+  }, [resolvedCopyRange, snapshots]);
+
+  const handleResetSnapshotRangeNoteOffsetsInPlace = useCallback(() => {
+    if (!requireValidCopyRange()) return;
+    const undo = buildRangeEditUndo();
     resetDraftEditingState();
     const result = onResetSnapshotRangeNoteOffsetsInPlace?.({
       startPosition: copyRangeStart,
@@ -1680,10 +1692,7 @@ const Sequencer = ({
       setCopyInsertStatus("Unable to reset note offsets for the selected range.");
       return;
     }
-    setRangeEditUndo({
-      snapshots: undoSnapshots,
-      snapshotIds: undoSnapshots.map((snapshot) => snapshot.id),
-    });
+    setRangeEditUndo(undo);
     setCopyInsertStatus(
       `Reset note offsets in ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}.`,
     );
@@ -1694,14 +1703,12 @@ const Sequencer = ({
     onResetSnapshotRangeNoteOffsetsInPlace,
     resetDraftEditingState,
     resolvedCopyRange,
-    snapshots,
+    buildRangeEditUndo,
+    requireValidCopyRange,
   ]);
 
   const handleDeleteSnapshotRange = useCallback(() => {
-    if (!resolvedCopyRange?.valid) {
-      setCopyInsertStatus("Choose a valid snapshot range first.");
-      return;
-    }
+    if (!requireValidCopyRange()) return;
     resetDraftEditingState();
     const result = onDeleteSnapshotRange?.({
       startPosition: copyRangeStart,
@@ -1729,19 +1736,16 @@ const Sequencer = ({
     copyRangeEnd,
     copyRangeStart,
     onDeleteSnapshotRange,
+    requireValidCopyRange,
     resetDraftEditingState,
     resolvedCopyRange,
   ]);
 
   const handleSetSnapshotRangeArticulation = useCallback((articulation) => {
-    if (!resolvedCopyRange?.valid) {
-      setCopyInsertStatus("Choose a valid snapshot range first.");
-      return;
-    }
-    const undoSnapshots = snapshots.slice(
-      resolvedCopyRange.startPosition - 1,
-      resolvedCopyRange.endPosition,
-    );
+    if (!requireValidCopyRange()) return;
+    const undo = buildRangeEditUndo({
+      manualArpeggiationMode: normalizedManualArpeggiation.mode,
+    });
     const result = onSetSnapshotRangeArticulation?.({
       startPosition: copyRangeStart,
       endPosition: copyRangeEnd,
@@ -1751,11 +1755,7 @@ const Sequencer = ({
       setCopyInsertStatus("Unable to set arpeggiation for the selected range.");
       return;
     }
-    setRangeEditUndo({
-      snapshots: undoSnapshots,
-      snapshotIds: undoSnapshots.map((snapshot) => snapshot.id),
-      manualArpeggiationMode: normalizedManualArpeggiation.mode,
-    });
+    setRangeEditUndo(undo);
     if (normalizedManualArpeggiation.mode !== "per-snapshot") {
       onManualArpeggiationChange?.({ mode: "per-snapshot" });
     }
@@ -1764,14 +1764,15 @@ const Sequencer = ({
       + ` to ${articulation === "arpeggiate" ? "arp" : "chord"}.`,
     );
   }, [
+    buildRangeEditUndo,
     copyIncludeBars,
     copyRangeEnd,
     copyRangeStart,
     normalizedManualArpeggiation.mode,
     onManualArpeggiationChange,
     onSetSnapshotRangeArticulation,
+    requireValidCopyRange,
     resolvedCopyRange,
-    snapshots,
   ]);
 
   const handleRevertSnapshotRangeChanges = useCallback(() => {
@@ -1849,12 +1850,9 @@ const Sequencer = ({
   }, [onUpdateTempo]);
 
   const updateBarTimeSignatureField = useCallback((barId, field, rawValue) => {
+    if (field !== "numerator" && field !== "denominator") return;
     const parsed = Math.round(Number(rawValue) || 0);
-    const numeric = field === "numerator"
-      ? Math.max(1, parsed)
-      : Math.max(1, parsed);
-    if (!Number.isFinite(numeric)) return;
-    if (field !== "numerator" && numeric <= 0) return;
+    const numeric = Math.max(1, parsed);
     onUpdateBar?.(barId, { [field]: numeric });
   }, [onUpdateBar]);
 
