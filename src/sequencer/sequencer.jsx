@@ -228,6 +228,7 @@ const Sequencer = ({
   const pendingTimedVisualNotificationRef = useRef(null);
   const timedVisualNotificationFrameRef = useRef(null);
   const navigationAutoscrollIntentRef = useRef(null);
+  const workspaceMutationViewportRef = useRef(null);
   const cueStepViewportRequestedRef = useRef(false);
   const cueViewportGenerationRef = useRef(0);
   const editPlayLayoutReanchorRef = useRef(null);
@@ -646,6 +647,7 @@ const Sequencer = ({
       setCopyInsertStatus("Unable to insert the copied snapshot block.");
       return;
     }
+    workspaceMutationViewportRef.current = result?.focus ?? null;
     setCopyRangeStart(String(position));
     setCopyRangeEnd(String(position + copiedSnapshotBlock.length - 1));
     setRangeEditUndo(null);
@@ -1273,6 +1275,34 @@ const Sequencer = ({
   ]);
 
   useLayoutEffect(() => {
+    const focus = workspaceMutationViewportRef.current;
+    if (focus == null || focus.snapshotCount !== snapshots.length) return;
+    if (timedPlaybackOwnsViewport || !autoScrollEnabledRef.current) {
+      workspaceMutationViewportRef.current = null;
+      return;
+    }
+    if (focus.kind === "end") {
+      workspaceMutationViewportRef.current = null;
+      const scrollPanel = scrollPanelRef.current;
+      if (scrollPanel instanceof HTMLElement) {
+        scrollPanel.scrollTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
+      }
+      return;
+    }
+    const renderedIndex = renderedSnapshotIndexById.get(focus.snapshotId);
+    if (renderedIndex == null) return;
+    workspaceMutationViewportRef.current = null;
+    prepareSnapshotViewport(renderedIndex);
+  }, [
+    prepareSnapshotViewport,
+    renderedSnapshotIndexById,
+    scrollPanelRef,
+    snapshots.length,
+    timedPlaybackOwnsViewport,
+    virtualSequenceLayout,
+  ]);
+
+  useLayoutEffect(() => {
     if (!timedPlaybackOwnsViewport) return;
     cueViewportGenerationRef.current += 1;
     setCueViewportTransaction(null);
@@ -1721,6 +1751,7 @@ const Sequencer = ({
       setCopyInsertStatus("Unable to delete the selected range.");
       return;
     }
+    workspaceMutationViewportRef.current = result?.focus ?? null;
     setCopiedSnapshotBlock(null);
     setRangeEditUndo(null);
     setCopyInsertStatus(
@@ -1740,6 +1771,11 @@ const Sequencer = ({
     resetDraftEditingState,
     resolvedCopyRange,
   ]);
+
+  const handleDeleteSnapshot = useCallback((snapshotId) => {
+    const result = onDeleteSnapshot?.(snapshotId);
+    workspaceMutationViewportRef.current = result?.focus ?? null;
+  }, [onDeleteSnapshot]);
 
   const handleSetSnapshotRangeArticulation = useCallback((articulation) => {
     if (!requireValidCopyRange()) return;
@@ -2232,7 +2268,7 @@ const Sequencer = ({
     onSnapshotRowClick: handleSnapshotRowClick,
     onSelectSnapshot: selectSnapshotForEditing,
     toggleExpanded,
-    onDeleteSnapshot,
+    onDeleteSnapshot: handleDeleteSnapshot,
     ensureExpanded,
     onUpdateSnapshot,
     onResetSnapshotDescription,
@@ -2243,7 +2279,7 @@ const Sequencer = ({
     ensureExpanded,
     handleSnapshotRowClick,
     moveEventNoteToSnapshot,
-    onDeleteSnapshot,
+    handleDeleteSnapshot,
     onDuplicateSnapshot,
     onMoveSnapshot,
     onPlaySnapshot,

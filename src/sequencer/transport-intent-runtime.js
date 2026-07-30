@@ -97,6 +97,51 @@ export function resolvePendingSnapshotTransportState({
   };
 }
 
+export function resolveWorkspaceMutationTransportState({
+  focus = null,
+  snapshots = [],
+  bars = [],
+} = {}) {
+  if (focus?.kind === "end") {
+    return {
+      pendingTransportSelection: clearPendingTransportSelection(),
+      timedPlaybackUi: buildTimedPlaybackUiResetState({
+        stepIndex: snapshots.length,
+      }),
+      ...buildStoppedSequenceTransportState({
+        stepIndex: snapshots.length,
+      }),
+    };
+  }
+
+  const snapshotIndex = Number(focus?.snapshotIndex);
+  const snapshot = Number.isInteger(snapshotIndex)
+    ? snapshots[snapshotIndex] ?? null
+    : null;
+  if (!snapshot || (focus?.snapshotId != null && snapshot.id !== focus.snapshotId)) {
+    return null;
+  }
+
+  let barIndex = 0;
+  for (let index = 0; index < bars.length; index += 1) {
+    if ((Number(bars[index]?.position) || 0) <= snapshotIndex + 1) barIndex = index;
+    else break;
+  }
+
+  return {
+    pendingTransportSelection: armPendingSnapshotSelection(snapshotIndex),
+    timedPlaybackUi: buildTimedPlaybackUiResetState({
+      barIndex,
+      stepIndex: snapshotIndex,
+    }),
+    ...buildStoppedSequenceTransportState({
+      barIndex,
+      stepIndex: snapshotIndex,
+      selectedSnapshotId: snapshot.id,
+    }),
+  };
+}
+
 export function resolvePendingCueTransportState({
   targetCueIndex,
   sequenceCueGroups = [],

@@ -83,37 +83,39 @@ function buildVoicedRatios(notes = []) {
   return ratios;
 }
 
-function ratiosToIntegerProportion(ratios = [], { sort = false } = {}) {
-  if (!Array.isArray(ratios) || ratios.length === 0) return "";
-  if (ratios.some((ratio) => ratio == null)) return "";
-
-  let integers = ratios.map((ratio) => ratio);
-  if (sort) {
-    integers = [...integers].sort(compareRatios);
-  }
-
-  const commonDenominator = integers.reduce(
+function ratiosToIntegerValues(ratios = []) {
+  if (!Array.isArray(ratios) || ratios.length === 0) return [];
+  if (ratios.some((ratio) => ratio == null)) return [];
+  const commonDenominator = ratios.reduce(
     (current, ratio) => lcm(current, ratio.denominator),
     1n,
   );
-  const scaledIntegers = integers.map((ratio) => ratio.numerator * (commonDenominator / ratio.denominator));
+  const scaledIntegers = ratios.map(
+    (ratio) => ratio.numerator * (commonDenominator / ratio.denominator),
+  );
   const commonFactor = scaledIntegers.reduce((current, value) => gcd(current, value));
-  const normalized = scaledIntegers
-    .map((value) => value / commonFactor)
-    .map((value) => value.toString());
+  return scaledIntegers.map((value) => value / commonFactor);
+}
+
+function integerValuesToProportion(integers = [], { sort = false } = {}) {
+  const ordered = sort
+    ? [...integers].sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
+    : integers;
+  const normalized = ordered.map((value) => value.toString());
   const unique = normalized.filter((value, index) => normalized.indexOf(value) === index);
   return unique.join(":");
 }
 
-function reduceRatioToOddPartial(ratio) {
-  let numerator = ratio.numerator;
-  while (numerator % 2n === 0n && numerator > 0n) {
-    numerator /= 2n;
+function ratiosToIntegerProportion(ratios = []) {
+  return integerValuesToProportion(ratiosToIntegerValues(ratios));
+}
+
+function reduceIntegerToOddPartial(value) {
+  let partial = value;
+  while (partial % 2n === 0n && partial > 0n) {
+    partial /= 2n;
   }
-  return {
-    numerator,
-    denominator: 1n,
-  };
+  return partial;
 }
 
 export function buildChordProportion(notes = []) {
@@ -123,8 +125,9 @@ export function buildChordProportion(notes = []) {
 
 export function buildOddPartialProportion(notes = []) {
   if (!Array.isArray(notes) || notes.length === 0) return "";
-  const oddRatios = buildVoicedRatios(notes).map(reduceRatioToOddPartial);
-  return ratiosToIntegerProportion(oddRatios, { sort: true });
+  const chordPartials = ratiosToIntegerValues(buildVoicedRatios(notes));
+  const oddPartials = chordPartials.map(reduceIntegerToOddPartial);
+  return integerValuesToProportion(oddPartials, { sort: true });
 }
 
 function buildChordIntervals(notes = []) {

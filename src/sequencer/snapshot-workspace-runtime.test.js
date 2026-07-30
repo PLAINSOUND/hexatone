@@ -84,7 +84,7 @@ describe("snapshot workspace runtime", () => {
     expect(result.bars.map((bar) => bar.position)).toEqual([1, 2]);
     expect(result.tempi.map((tempo) => tempo.position)).toEqual([2]);
     expect(result.repeats.map((repeat) => repeat.position)).toEqual([2]);
-    expect(result.selectedSnapshotId).toBe(1);
+    expect(result.selectedSnapshotId).toBe(3);
     expect(result.selectedSnapshotMarker).toBeNull();
   });
 
@@ -484,5 +484,52 @@ describe("snapshot workspace runtime", () => {
     expect(result.repeats.map((repeat) => repeat.position)).toEqual([1, 1]);
     expect(result.selectedSnapshotId).toBe(5);
     expect(result.selectedSnapshotMarker).toBeNull();
+    expect(result.focus).toEqual({
+      kind: "snapshot",
+      snapshotIndex: 0,
+      snapshotId: 5,
+      snapshotCount: 1,
+    });
+  });
+
+  it("focuses the insertion point and the deletion boundary", () => {
+    const inserted = insertSnapshotCopyBlock({
+      snapshots: [{ id: 1 }, { id: 2 }],
+      block: {
+        length: 1,
+        snapshots: [{ id: 1 }],
+      },
+      insertionPosition: 2,
+      nextSnapshotId: 3,
+    });
+    expect(inserted.focus).toEqual({
+      kind: "snapshot",
+      snapshotIndex: 1,
+      snapshotId: 3,
+      snapshotCount: 3,
+    });
+
+    const deletedMiddle = deleteSnapshotFromWorkspace({
+      snapshots: [{ id: 1 }, { id: 2 }, { id: 3 }],
+      snapshotId: 2,
+    });
+    expect(deletedMiddle.focus).toEqual({
+      kind: "snapshot",
+      snapshotIndex: 1,
+      snapshotId: 3,
+      snapshotCount: 2,
+    });
+
+    const deletedEnd = deleteSnapshotFromWorkspace({
+      snapshots: [{ id: 1 }, { id: 2 }],
+      snapshotId: 2,
+    });
+    expect(deletedEnd.focus).toEqual({
+      kind: "end",
+      snapshotIndex: 1,
+      snapshotId: null,
+      snapshotCount: 1,
+    });
+    expect(deletedEnd.selectedSnapshotId).toBeNull();
   });
 });

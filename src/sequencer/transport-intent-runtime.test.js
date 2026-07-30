@@ -5,6 +5,7 @@ import {
   buildTimedPlaybackUiResetState,
   resolvePendingCueTransportState,
   resolvePendingSnapshotTransportState,
+  resolveWorkspaceMutationTransportState,
 } from "./transport-intent-runtime.js";
 
 describe("transport intent runtime", () => {
@@ -16,6 +17,68 @@ describe("transport intent runtime", () => {
       playhead: {
         barIndex: 0,
         stepIndex: -1,
+        markerIndex: null,
+        stopped: true,
+      },
+    });
+  });
+
+  it("arms an inserted or surviving snapshot at a workspace mutation point", () => {
+    expect(resolveWorkspaceMutationTransportState({
+      focus: {
+        kind: "snapshot",
+        snapshotIndex: 2,
+        snapshotId: 30,
+      },
+      snapshots: [{ id: 10 }, { id: 20 }, { id: 30 }],
+      bars: [{ position: 1 }, { position: 3 }],
+    })).toEqual({
+      pendingTransportSelection: {
+        snapshotIndex: 2,
+        cueIndex: null,
+      },
+      timedPlaybackUi: {
+        clockSeconds: -Infinity,
+        stepIndex: 2,
+        markerIndex: null,
+        barIndex: 1,
+      },
+      playingSnapshotId: null,
+      selectedSnapshotId: 30,
+      selectedSnapshotMarker: null,
+      playhead: {
+        barIndex: 1,
+        stepIndex: 2,
+        markerIndex: null,
+        stopped: true,
+      },
+    });
+  });
+
+  it("shows sequence end when a deletion leaves nothing at its boundary", () => {
+    expect(resolveWorkspaceMutationTransportState({
+      focus: {
+        kind: "end",
+        snapshotIndex: 2,
+      },
+      snapshots: [{ id: 10 }, { id: 20 }],
+    })).toEqual({
+      pendingTransportSelection: {
+        snapshotIndex: null,
+        cueIndex: null,
+      },
+      timedPlaybackUi: {
+        clockSeconds: -Infinity,
+        stepIndex: 2,
+        markerIndex: null,
+        barIndex: 0,
+      },
+      playingSnapshotId: null,
+      selectedSnapshotId: null,
+      selectedSnapshotMarker: null,
+      playhead: {
+        barIndex: 0,
+        stepIndex: 2,
         markerIndex: null,
         stopped: true,
       },

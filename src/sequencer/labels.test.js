@@ -76,6 +76,18 @@ describe("sequencer snapshot labels", () => {
     ])).toBe("1:3:29:37:43");
   });
 
+  it("preserves odd identities after deriving the voiced integer proportion", () => {
+    expect(buildOddPartialProportion([
+      { midicents: 69, ratioText: "3/2" },
+      { midicents: 83.7, ratioText: "7/2" },
+    ])).toBe("3:7");
+
+    expect(buildOddPartialProportion([
+      { midicents: 69, ratioText: "5/3" },
+      { midicents: 81.8, ratioText: "7/2" },
+    ])).toBe("5:21");
+  });
+
   it("derives chord interval cents from the lowest MIDIcents value", () => {
     expect(buildSnapshotDescription([
       { midicents: 76.5 },

@@ -345,6 +345,12 @@ export function insertSnapshotCopyBlock({
     },
     selectedSnapshotId: insertedSnapshots[0]?.id ?? null,
     selectedSnapshotMarker: null,
+    focus: {
+      kind: "snapshot",
+      snapshotIndex: insertIndex,
+      snapshotId: insertedSnapshots[0]?.id ?? null,
+      snapshotCount: nextSnapshots.length,
+    },
     error: null,
   };
 }
@@ -504,9 +510,6 @@ export function deleteSnapshotRangeFromWorkspace({
 
   const startIndex = range.startPosition - 1;
   const endIndex = range.endPosition - 1;
-  const removedIds = new Set(
-    (snapshots ?? []).slice(startIndex, endIndex + 1).map((snapshot) => snapshot.id),
-  );
   const nextSnapshots = (snapshots ?? []).filter((_, index) => index < startIndex || index > endIndex);
   const shifted = shiftStructuralMarkersAfterSnapshotRangeDeletion({
     bars,
@@ -519,19 +522,29 @@ export function deleteSnapshotRangeFromWorkspace({
     deleteRepeatsInRange: includeRepeats === true,
   });
 
-  const replacementIndex = nextSnapshots.length <= 0
-    ? -1
-    : Math.max(0, Math.min(startIndex - 1, nextSnapshots.length - 1));
-  const replacementSnapshotId = replacementIndex >= 0 ? nextSnapshots[replacementIndex]?.id ?? null : null;
-  const markerRemoved = removedIds.has(selectedSnapshotMarker?.snapshotId);
+  const snapshotAtDeletionPoint = nextSnapshots[startIndex] ?? null;
+  const focus = snapshotAtDeletionPoint == null
+    ? {
+      kind: "end",
+      snapshotIndex: nextSnapshots.length,
+      snapshotId: null,
+      snapshotCount: nextSnapshots.length,
+    }
+    : {
+      kind: "snapshot",
+      snapshotIndex: startIndex,
+      snapshotId: snapshotAtDeletionPoint.id,
+      snapshotCount: nextSnapshots.length,
+    };
 
   return {
     snapshots: nextSnapshots,
     bars: shifted.bars,
     tempi: shifted.tempi,
     repeats: shifted.repeats,
-    selectedSnapshotId: removedIds.has(selectedSnapshotId) ? replacementSnapshotId : selectedSnapshotId,
-    selectedSnapshotMarker: markerRemoved ? null : selectedSnapshotMarker,
+    selectedSnapshotId: focus.snapshotId,
+    selectedSnapshotMarker: null,
+    focus,
     range,
     changed: true,
     error: null,
@@ -608,13 +621,33 @@ export function deleteSnapshotFromWorkspace({
     nextRepeats = shifted.repeats;
   }
 
+  const snapshotAtDeletionPoint = deletedSnapshotIndex < 0
+    ? null
+    : nextSnapshots[deletedSnapshotIndex] ?? null;
+  const focus = deletedSnapshotIndex < 0
+    ? null
+    : snapshotAtDeletionPoint == null
+      ? {
+        kind: "end",
+        snapshotIndex: nextSnapshots.length,
+        snapshotId: null,
+        snapshotCount: nextSnapshots.length,
+      }
+      : {
+        kind: "snapshot",
+        snapshotIndex: deletedSnapshotIndex,
+        snapshotId: snapshotAtDeletionPoint.id,
+        snapshotCount: nextSnapshots.length,
+      };
+
   return {
     snapshots: nextSnapshots,
     bars: nextBars,
     tempi: nextTempi,
     repeats: nextRepeats,
-    selectedSnapshotId: selectedSnapshotId === snapshotId ? (nextSnapshots[0]?.id ?? null) : selectedSnapshotId,
-    selectedSnapshotMarker: selectedSnapshotMarker?.snapshotId === snapshotId ? null : selectedSnapshotMarker,
+    selectedSnapshotId: focus == null ? selectedSnapshotId : focus.snapshotId,
+    selectedSnapshotMarker: focus == null ? selectedSnapshotMarker : null,
+    focus,
   };
 }
 

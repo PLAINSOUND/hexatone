@@ -151,6 +151,7 @@ import {
   buildTimedPlaybackUiResetState,
   resolvePendingCueTransportState,
   resolvePendingSnapshotTransportState,
+  resolveWorkspaceMutationTransportState,
 } from "./sequencer/transport-intent-runtime.js";
 import {
   applyPlaybackPitchOffsetToNotes,
@@ -2473,6 +2474,22 @@ const App = () => {
     sequencePlaybackNotesAtPosition,
   ]);
 
+  const applySequenceWorkspaceMutationFocus = useCallback((result) => {
+    const nextState = resolveWorkspaceMutationTransportState({
+      focus: result?.focus,
+      snapshots: result?.snapshots,
+      bars: result?.bars,
+    });
+    if (!nextState) return;
+    manualGestureRuntimeRef.current.cancelAll();
+    keysRef.current?.stopSnapshot();
+    sequenceRepeatPlaybackStateRef.current = {};
+    pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+    resetTimedPlaybackUi(nextState.timedPlaybackUi);
+    applyStoppedSequenceTransportState(nextState);
+    setManualPlayingSnapshotIds([]);
+  }, [applyStoppedSequenceTransportState, resetTimedPlaybackUi]);
+
   const onDeleteSnapshot = useCallback(
     (id) => {
       const manualGestureIds = [
@@ -2494,14 +2511,18 @@ const App = () => {
         selectedSnapshotId,
         selectedSnapshotMarker,
       });
+      snapshotsRef.current = result.snapshots;
+      sequenceBarsRef.current = result.bars;
       setSequenceBars(result.bars);
       setSequenceTempi(result.tempi);
       setSequenceRepeats(result.repeats);
       setSnapshots(result.snapshots);
       setSelectedSnapshotId(result.selectedSnapshotId);
       setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+      applySequenceWorkspaceMutationFocus(result);
+      return result;
     },
-    [playingSnapshotId, selectedSnapshotId, selectedSnapshotMarker, sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
+    [applySequenceWorkspaceMutationFocus, playingSnapshotId, selectedSnapshotId, selectedSnapshotMarker, sequenceBars, sequenceRepeats, sequenceTempi, snapshots],
   );
 
   const onDeleteAllSnapshots = useCallback(() => {
@@ -2613,8 +2634,10 @@ const App = () => {
     setSequenceRepeats(result.repeats);
     setSelectedSnapshotId(result.selectedSnapshotId);
     setSelectedSnapshotMarker(result.selectedSnapshotMarker);
-    return null;
+    applySequenceWorkspaceMutationFocus(result);
+    return result;
   }, [
+    applySequenceWorkspaceMutationFocus,
     persistSequenceWorkspace,
     sequenceBars,
     sequenceRepeats,
@@ -2782,6 +2805,7 @@ const App = () => {
     setSequenceRepeats(result.repeats);
     setSelectedSnapshotId(result.selectedSnapshotId);
     setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+    applySequenceWorkspaceMutationFocus(result);
     appendPersistedSequencerCrashDiagnostic({
       type: "snapshot-range-delete-applied",
       detail: "Applied deletion of snapshot range",
@@ -2800,6 +2824,7 @@ const App = () => {
     });
     return result;
   }, [
+    applySequenceWorkspaceMutationFocus,
     persistSequenceWorkspace,
     selectedSnapshotId,
     selectedSnapshotMarker,
