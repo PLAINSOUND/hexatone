@@ -25,6 +25,40 @@ describe("mpe_synth startup state", () => {
     vi.useRealTimers();
   });
 
+  it("clears the manager and every member channel before configuring a fresh MPE session", async () => {
+    const midi_output = { send: vi.fn() };
+
+    await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      4,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      12,
+      2,
+      12,
+      2,
+      500,
+    );
+
+    expect(midi_output.send.mock.calls.slice(0, 8)).toEqual([
+      [[0xb0, 123, 0]],
+      [[0xb0, 120, 0]],
+      [[0xb1, 123, 0]],
+      [[0xb1, 120, 0]],
+      [[0xb2, 123, 0]],
+      [[0xb2, 120, 0]],
+      [[0xb3, 123, 0]],
+      [[0xb3, 120, 0]],
+    ]);
+    expect(midi_output.send.mock.calls[8][0]).toEqual([0xb0, 101, 0]);
+  });
+
   it("centers every voice channel immediately when the MPE synth is created", async () => {
     const midi_output = { send: vi.fn() };
 

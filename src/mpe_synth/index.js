@@ -136,6 +136,18 @@ function send14BitChannelPressure(midi_output, channel0, value14) {
   midi_output.send([0xd0 + channel0, (value14 >> 7) & 0x7f]);
 }
 
+function sendMpePanic(midi_output, masterChannel0, voiceIds) {
+  if (!midi_output) return;
+  const channels = new Set([
+    ...(masterChannel0 >= 0 ? [masterChannel0] : []),
+    ...voiceIds.map((channel) => channel - 1),
+  ]);
+  for (const channel0 of channels) {
+    midi_output.send([0xb0 + channel0, 123, 0]); // All Notes Off
+    midi_output.send([0xb0 + channel0, 120, 0]); // All Sound Off
+  }
+}
+
 export const create_mpe_synth = async (
   midi_output,
   master_ch,
@@ -183,6 +195,11 @@ export const create_mpe_synth = async (
     scale,
   );
   const midiNoteForDegree0 = midiin_anchor_note;
+
+  // A browser renderer crash cannot run beforeunload or component teardown.
+  // Clear the configured MPE zone on every fresh session so an external synth
+  // cannot retain note-ons whose owning browser process no longer exists.
+  sendMpePanic(midi_output, masterCh, voiceIds);
 
   // Send MPE-zone and pitch-bend configuration immediately.
   sendMpeZonePitchBendRange(midi_output, {
@@ -264,17 +281,9 @@ export const create_mpe_synth = async (
       return hex;
     },
 
-    /**
-     * Send CC123 (All Notes Off) on every voice channel and the manager channel.
-     * Uses the raw midi_output directly — no hex state, no WebMidi dependency.
-     * Safe to call at any time, including during deconstruct and page unload.
-     */
+    /** Clear every voice channel and the manager channel with CC123 + CC120. */
     allSoundOff: () => {
-      if (!midi_output) return;
-      for (const ch of voiceIds) {
-        midi_output.send([0xb0 + (ch - 1), 123, 0]);
-      }
-      if (masterCh >= 0) midi_output.send([0xb0 + masterCh, 123, 0]);
+      sendMpePanic(midi_output, masterCh, voiceIds);
     },
 
     applyControllerState: (state = {}) => {
