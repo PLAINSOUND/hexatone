@@ -1541,6 +1541,17 @@ describe("inferNotationRole", () => {
     expect(inferNotationRole("♯c")).toBe("chromatic");
     expect(inferNotationRole("♭e")).toBe("chromatic");
   });
+
+  it("classifies accidentals by sounding white-key pitch rather than by the symbol alone", () => {
+    expect(inferNotationRole("F")).toBe("diatonic");
+    expect(inferNotationRole("C")).toBe("diatonic");
+    expect(inferNotationRole("E")).toBe("diatonic");
+    expect(inferNotationRole("B")).toBe("diatonic");
+    expect(inferNotationRole("F")).toBe("chromatic");
+    expect(inferNotationRole("B")).toBe("chromatic");
+    expect(inferNotationRole("Fb")).toBe("diatonic");
+    expect(inferNotationRole("E#")).toBe("diatonic");
+  });
 });
 
 describe("inferNotationSide", () => {

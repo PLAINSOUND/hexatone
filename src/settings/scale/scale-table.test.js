@@ -135,6 +135,67 @@ describe("ScaleTable — key labels: heji", () => {
     expect(screen.getByText("HEJI")).toBeTruthy();
     expect(screen.queryByText("Name")).toBeNull();
   });
+
+  it("replaces a stored note spelling when its HEJI spelling is committed", () => {
+    const onChange = vi.fn();
+    const onAtomicChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settings,
+          scale: ["9/8", "2/1"],
+          note_names: ["C", "D"],
+          reference_degree: 0,
+          fundamental: 440,
+        }}
+        heji_names={["C", "D"]}
+        heji_anchor_label_eff="C"
+        heji_anchor_ratio_eff="1/1"
+        onChange={onChange}
+        onAtomicChange={onAtomicChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("heji pitch name 1"), {
+      target: { value: "D" },
+    });
+    fireEvent.blur(screen.getByLabelText("heji pitch name 1"));
+
+    expect(onAtomicChange).toHaveBeenCalledWith({
+      scale: ["9/8", "2/1"],
+      note_names: ["C", "D"],
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("preserves an arbitrary stored name when a HEJI spelling is committed", () => {
+    const onChange = vi.fn();
+    const onAtomicChange = vi.fn();
+    render(
+      <ScaleTable
+        settings={{
+          ...settings,
+          scale: ["9/8", "2/1"],
+          note_names: ["root", "degree 1"],
+          reference_degree: 0,
+          fundamental: 440,
+        }}
+        heji_names={["C", "D"]}
+        heji_anchor_label_eff="C"
+        heji_anchor_ratio_eff="1/1"
+        onChange={onChange}
+        onAtomicChange={onAtomicChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("heji pitch name 1"), {
+      target: { value: "D" },
+    });
+    fireEvent.blur(screen.getByLabelText("heji pitch name 1"));
+
+    expect(onChange).toHaveBeenCalledWith("scale", ["9/8", "2/1"]);
+    expect(onAtomicChange).not.toHaveBeenCalled();
+  });
 });
 
 // ── Scale values ──────────────────────────────────────────────────────────────
