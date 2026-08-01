@@ -9,7 +9,7 @@ import {
 } from "../debug/sequence-runtime-diagnostics.js";
 import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-crash-diagnostics.js";
 import { deriveCueScrollAnchorTarget, resolveCueAnchorSnapshotId } from "./view-runtime.js";
-import { visibleElementBounds } from "./viewport-geometry.js";
+import { bottomOcclusionHeight, visibleElementBounds } from "./viewport-geometry.js";
 
 export function derivePagedPanelScrollTop({
   scrollTop,
@@ -20,10 +20,11 @@ export function derivePagedPanelScrollTop({
   targetTop,
   targetBottom,
   stickyTop = 0,
+  stickyBottom = 0,
   gap = 6,
 }) {
   const visibleTop = panelTop + stickyTop + gap;
-  const visibleBottom = Math.max(visibleTop, panelBottom - gap);
+  const visibleBottom = Math.max(visibleTop, panelBottom - stickyBottom - gap);
   // Timed page following must turn the page when the active row reaches the
   // boundary, not one cue later after it has already crossed it.
   const targetIsVisible = targetTop >= visibleTop && targetBottom < visibleBottom;
@@ -92,6 +93,7 @@ export default function useSequencerAutoscroll({
   onCueSequenceSnapshot,
   onCueSequenceCue,
   onResetSequencePlayhead,
+  bottomOverlayRef,
   recordTimedTransportDiagnostic,
 } = {}) {
   const playbackRowRef = useRef(null);
@@ -145,7 +147,14 @@ export default function useSequencerAutoscroll({
         playbackRect == null
           ? 0
           : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
-      const usableHeight = Math.max(0, visiblePanel.height - stickyTransportOverlap - 2 * gap);
+      const stickyBottomOverlap = bottomOcclusionHeight(
+        visiblePanel,
+        bottomOverlayRef?.current,
+      );
+      const usableHeight = Math.max(
+        0,
+        visiblePanel.height - stickyTransportOverlap - stickyBottomOverlap - 2 * gap,
+      );
       const targetBounds = derivePreferredTargetBounds(targetRects, usableHeight);
       if (targetBounds == null) return;
       const nextTop = derivePagedPanelScrollTop({
@@ -157,6 +166,7 @@ export default function useSequencerAutoscroll({
         targetTop: targetBounds.top,
         targetBottom: targetBounds.bottom,
         stickyTop: stickyTransportOverlap,
+        stickyBottom: stickyBottomOverlap,
         gap,
       });
       if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
@@ -191,7 +201,7 @@ export default function useSequencerAutoscroll({
         });
       }
     });
-  }, []);
+  }, [bottomOverlayRef]);
 
   const scrollNodeIntoPanel = useCallback(
     (targetNode) => {

@@ -33,6 +33,7 @@ import {
   SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK,
 } from "./timed-playback-visual-presenter.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
+import { bottomOcclusionHeight, visibleElementBounds } from "./viewport-geometry.js";
 import {
   loadSequencerAutoScrollPreference,
   saveSequencerAutoScrollPreference,
@@ -190,6 +191,7 @@ const Sequencer = ({
     action: null,
   });
   const [topSequenceSaveVisible, setTopSequenceSaveVisible] = useState(false);
+  const sequenceSaveRowRef = useRef(null);
   const [newBarPosition, setNewBarPosition] = useState("1");
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
   const [newRepeatPosition, setNewRepeatPosition] = useState("1.000000");
@@ -974,8 +976,14 @@ const Sequencer = ({
     onCueSequenceCue,
     onSelectSequenceBar,
     onResetSequencePlayhead,
+    bottomOverlayRef: sequenceSaveRowRef,
     recordTimedTransportDiagnostic,
   });
+
+  const measureSequenceBottomOcclusion = useCallback(() => {
+    const visiblePanel = visibleElementBounds(scrollPanelRef.current);
+    return bottomOcclusionHeight(visiblePanel, sequenceSaveRowRef.current);
+  }, [scrollPanelRef]);
 
   const virtualSequenceItems = useMemo(
     () =>
@@ -1146,6 +1154,7 @@ const Sequencer = ({
       return scrollVirtualSequenceIndexIntoView(numericIndex, {
         align: "start",
         topOffset: stickyTransportOverlap + 6,
+        bottomOffset: measureSequenceBottomOcclusion(),
         targetIndexes: [numericIndex],
         materializedIndexes,
         retainedIndexes: materializedIndexes,
@@ -1159,6 +1168,7 @@ const Sequencer = ({
       releaseVirtualSequenceAnchor,
       scrollPanelRef,
       scrollVirtualSequenceIndexIntoView,
+      measureSequenceBottomOcclusion,
       timedPlaybackOwnsViewport,
     ],
   );
@@ -1169,6 +1179,7 @@ const Sequencer = ({
     releaseVirtualSequenceAnchor();
     return scrollVirtualSequenceIndexIntoView(lastIndex, {
       align: "end",
+      bottomOffset: measureSequenceBottomOcclusion(),
       targetIndexes: [lastIndex],
       materializedIndexes,
       retainedIndexes: materializedIndexes,
@@ -1177,6 +1188,7 @@ const Sequencer = ({
     });
   }, [
     materializeVirtualViewport,
+    measureSequenceBottomOcclusion,
     releaseVirtualSequenceAnchor,
     renderedSnapshots.length,
     scrollVirtualSequenceIndexIntoView,
@@ -1220,6 +1232,7 @@ const Sequencer = ({
       return scrollVirtualSequenceIndexIntoView(virtualIndex, {
         align: "start",
         topOffset: 6,
+        bottomOffset: measureSequenceBottomOcclusion(),
         targetIndexes: [virtualIndex],
         materializedIndexes,
         retainedIndexes: materializedIndexes,
@@ -1232,6 +1245,7 @@ const Sequencer = ({
     [
       releaseVirtualSequenceAnchor,
       materializeVirtualViewport,
+      measureSequenceBottomOcclusion,
       renderedSnapshots.length,
       scrollVirtualSequenceIndexIntoView,
       sortedBars,
@@ -1269,6 +1283,7 @@ const Sequencer = ({
       return scrollVirtualSequenceIndexIntoView(snapshotIndex, {
         align: "start",
         topOffset: 6,
+        bottomOffset: measureSequenceBottomOcclusion(),
         targetIndexes: [snapshotIndex],
         materializedIndexes,
         retainedIndexes: materializedIndexes,
@@ -1280,6 +1295,7 @@ const Sequencer = ({
     },
     [
       materializeVirtualViewport,
+      measureSequenceBottomOcclusion,
       releaseVirtualSequenceAnchor,
       renderedSnapshots.length,
       scrollVirtualSequenceIndexIntoView,
@@ -1407,6 +1423,7 @@ const Sequencer = ({
       return scrollVirtualSequenceIndexIntoView(recentSnapshotIndex, {
         align: "start",
         topOffset: stickyTransportOverlap + 6,
+        bottomOffset: measureSequenceBottomOcclusion(),
         // Mount the complete physical interval. No estimated spacer is then
         // allowed between the first and last relevant event row.
         targetIndexes: relevantIndexes,
@@ -1428,6 +1445,7 @@ const Sequencer = ({
     [
       playbackRowRef,
       materializeVirtualViewport,
+      measureSequenceBottomOcclusion,
       renderedSnapshotIndexById,
       renderedSnapshots.length,
       scrollPanelRef,
@@ -3322,7 +3340,10 @@ const Sequencer = ({
         {!topSequenceSaveVisible &&
           sequenceSaveActionState.visible &&
           typeof sequenceSaveActionState.action === "function" && (
-            <div class="settings-form__action-row sequencer-fieldset__save-row">
+            <div
+              ref={sequenceSaveRowRef}
+              class="settings-form__action-row sequencer-fieldset__save-row"
+            >
               <span class="settings-form__action-group settings-form__action-group--wrap">
                 <button
                   type="button"

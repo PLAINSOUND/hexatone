@@ -510,7 +510,10 @@ export function useSequenceVirtualization({
             bottom: rangeBottom,
             height: rangeBottom - rangeTop,
           };
-          const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
+          const usableHeight = Math.max(
+            0,
+            visiblePanel.height - anchor.topOffset - anchor.bottomOffset - 6,
+          );
           alignToBottom = rangeBottom - rangeTop > usableHeight;
         } else {
           const preferredNode = structuralNodesByKey.get(String(anchor.preferredStructuralKey));
@@ -522,7 +525,10 @@ export function useSequenceVirtualization({
         }
       } else if (anchor.targetEventIds.length > 0) {
         if (allEventsMeasured) {
-          const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
+          const usableHeight = Math.max(
+            0,
+            visiblePanel.height - anchor.topOffset - anchor.bottomOffset - 6,
+          );
           const rangeTop = Math.min(...mountedEventRects.map((rect) => rect.top));
           const rangeBottom = Math.max(...mountedEventRects.map((rect) => rect.bottom));
           if (rangeBottom - rangeTop <= usableHeight) {
@@ -563,7 +569,10 @@ export function useSequenceVirtualization({
         );
         const rangeTop = Math.min(...mountedTargetRects.map((rect) => rect.top));
         const rangeBottom = Math.max(...mountedTargetRects.map((rect) => rect.bottom));
-        const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
+        const usableHeight = Math.max(
+          0,
+          visiblePanel.height - anchor.topOffset - anchor.bottomOffset - 6,
+        );
         if (anchor.alignment === "end") {
           mountedTargetRect = mountedTargetRects.at(-1);
           alignToBottom = true;
@@ -586,7 +595,11 @@ export function useSequenceVirtualization({
       let targetContentTop;
       if (mountedTargetRect != null && mountedTargetRect.height > 0) {
         targetContentTop = alignToBottom
-          ? panel.scrollTop + mountedTargetRect.bottom - visiblePanel.bottom + 6
+          ? panel.scrollTop +
+            mountedTargetRect.bottom -
+            visiblePanel.bottom +
+            anchor.bottomOffset +
+            6
           : panel.scrollTop + mountedTargetRect.top - visiblePanel.top - anchor.topOffset;
       } else {
         const top = activeLayout?.offsets?.[anchor.preferredIndex];
@@ -799,6 +812,7 @@ export function useSequenceVirtualization({
       {
         align = "nearest",
         topOffset = 0,
+        bottomOffset = 0,
         targetIndexes = null,
         materializedIndexes = null,
         retainedIndexes = null,
@@ -857,6 +871,7 @@ export function useSequenceVirtualization({
             ),
           ],
           topOffset: Math.max(0, Number(topOffset) || 0),
+          bottomOffset: Math.max(0, Number(bottomOffset) || 0),
           overflowAlignment,
           preferredEventId,
           targetEventIds: Array.isArray(targetEventIds)
