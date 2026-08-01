@@ -86,6 +86,13 @@ describe("sequencer autoscroll geometry", () => {
         { top: 520, bottom: 580 },
       ),
     ).toBe(80);
+    expect(
+      bottomOcclusionHeight(
+        { top: 100, bottom: 500 },
+        { top: 520, bottom: 580 },
+        64,
+      ),
+    ).toBe(64);
   });
 
   it("reveals a target hidden behind the sticky transport", () => {

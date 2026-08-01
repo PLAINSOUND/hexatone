@@ -987,8 +987,12 @@ const Sequencer = ({
 
   const measureSequenceBottomOcclusion = useCallback(() => {
     const visiblePanel = visibleElementBounds(scrollPanelRef.current);
-    return bottomOcclusionHeight(visiblePanel, sequenceSaveRowRef.current);
-  }, [scrollPanelRef]);
+    return bottomOcclusionHeight(
+      visiblePanel,
+      sequenceSaveRowRef.current,
+      sequenceSaveFooterClearance,
+    );
+  }, [scrollPanelRef, sequenceSaveFooterClearance]);
   useLayoutEffect(() => {
     const saveRow = sequenceSaveRowRef.current;
     if (!(saveRow instanceof HTMLElement)) {

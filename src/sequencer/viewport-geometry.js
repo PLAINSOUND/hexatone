@@ -51,24 +51,24 @@ export function visibleElementBounds(element) {
   );
 }
 
-export function bottomOcclusionHeight(containerBounds, occluder) {
+export function bottomOcclusionHeight(containerBounds, occluder, minimumOcclusion = 0) {
   const containerTop = Number(containerBounds?.top);
   const containerBottom = Number(containerBounds?.bottom);
   const occluderRect =
     occluder instanceof HTMLElement ? occluder.getBoundingClientRect() : occluder;
   const occluderTop = Number(occluderRect?.top);
   const occluderBottom = Number(occluderRect?.bottom);
+  const minimum = Math.max(0, Number(minimumOcclusion) || 0);
   if (
     !Number.isFinite(containerTop) ||
     !Number.isFinite(containerBottom) ||
     !Number.isFinite(occluderTop) ||
-    !Number.isFinite(occluderBottom) ||
-    occluderTop >= containerBottom ||
-    occluderBottom <= containerTop
+    !Number.isFinite(occluderBottom)
   )
     return 0;
+  if (occluderTop >= containerBottom || occluderBottom <= containerTop) return minimum;
   // A bottom-sticky action also blocks its inset and fade below the element.
   // Treat the complete strip from its top to the visible panel bottom as
   // occluded rather than measuring only the button row's border box.
-  return Math.max(0, containerBottom - Math.max(containerTop, occluderTop));
+  return Math.max(minimum, containerBottom - Math.max(containerTop, occluderTop));
 }
