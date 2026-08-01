@@ -192,6 +192,7 @@ const Sequencer = ({
     action: null,
   });
   const [topSequenceSaveVisible, setTopSequenceSaveVisible] = useState(false);
+  const [sequenceSaveFooterClearance, setSequenceSaveFooterClearance] = useState(0);
   const sequenceSaveRowRef = useRef(null);
   const [newBarPosition, setNewBarPosition] = useState("1");
   const [newTempoPosition, setNewTempoPosition] = useState("1.000000");
@@ -988,6 +989,45 @@ const Sequencer = ({
     const visiblePanel = visibleElementBounds(scrollPanelRef.current);
     return bottomOcclusionHeight(visiblePanel, sequenceSaveRowRef.current);
   }, [scrollPanelRef]);
+  useLayoutEffect(() => {
+    const saveRow = sequenceSaveRowRef.current;
+    if (!(saveRow instanceof HTMLElement)) {
+      setSequenceSaveFooterClearance(0);
+      return undefined;
+    }
+    const updateClearance = () => {
+      const rect = saveRow.getBoundingClientRect();
+      const style = window.getComputedStyle(saveRow);
+      const rowHeight = Math.max(
+        0,
+        Number(rect.height) || Number(saveRow.offsetHeight) || Number(saveRow.clientHeight) || 0,
+      );
+      const bottomInset = Math.max(0, Number.parseFloat(style.bottom) || 0);
+      // Include the footer's ::after fade, whose CSS height is 0.6rem, and the
+      // same small visual gap used by row alignment. This is scrollable space,
+      // not a guessed occlusion offset; live geometry still chooses the target.
+      const fadeAndGap = 0.6 * (Number.parseFloat(style.fontSize) || 16) + 6;
+      const nextClearance = Math.ceil(rowHeight + bottomInset + fadeAndGap);
+      setSequenceSaveFooterClearance((current) =>
+        current === nextClearance ? current : nextClearance,
+      );
+    };
+    updateClearance();
+    const resizeObserver =
+      typeof ResizeObserver === "function" ? new ResizeObserver(updateClearance) : null;
+    resizeObserver?.observe(saveRow);
+    window.addEventListener("resize", updateClearance);
+    window.visualViewport?.addEventListener?.("resize", updateClearance);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateClearance);
+      window.visualViewport?.removeEventListener?.("resize", updateClearance);
+    };
+  }, [
+    sequenceSaveActionState.label,
+    sequenceSaveActionState.visible,
+    topSequenceSaveVisible,
+  ]);
   const stopSnapshotDragAutoscroll = useCallback(() => {
     if (dragAutoscrollFrameRef.current != null) {
       window.cancelAnimationFrame(dragAutoscrollFrameRef.current);
@@ -3413,6 +3453,13 @@ const Sequencer = ({
                   ),
                 )}
               </div>
+              {sequenceSaveFooterClearance > 0 && (
+                <div
+                  class="sequencer-scroll-end-clearance"
+                  style={{ height: `${sequenceSaveFooterClearance}px` }}
+                  aria-hidden="true"
+                />
+              )}
             </div>
           )}
         </div>
