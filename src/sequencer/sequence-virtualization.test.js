@@ -126,12 +126,13 @@ describe("sequence virtualization", () => {
     act(() =>
       virtualization.scrollIndexIntoView(39, {
         align: "end",
+        bottomOffset: 50,
         targetIndexes: [39],
       }),
     );
 
-    expect(scrollTop).toBe(1006);
-    expect(finalGroup.getBoundingClientRect().bottom).toBe(194);
+    expect(scrollTop).toBe(1056);
+    expect(finalGroup.getBoundingClientRect().bottom).toBe(144);
   });
 
   it("keeps the largest suffix of recent sounding events that fits", () => {
@@ -578,6 +579,22 @@ describe("sequence virtualization", () => {
     expect(
       virtualization.layout.rows.filter((row) => row.type === "item").map((row) => row.index),
     ).toEqual(expect.arrayContaining([10, 12]));
+
+    act(() =>
+      virtualization.scrollIndexIntoView(12, {
+        align: "start",
+        topOffset: 6,
+        bottomOffset: 50,
+        targetIndexes: [10, 12],
+        overflowAlignment: "end",
+        preferredEventId: "recent",
+        targetEventIds: ["early", "middle", "recent", "release-after-recent"],
+      }),
+    );
+    // The sticky footer starts at 150px, so the preferred cue row must end at
+    // 144px rather than underneath it at the panel's physical bottom.
+    expect(scrollTop).toBe(986);
+    expect(recentEvent.getBoundingClientRect().bottom).toBe(144);
 
     early.getBoundingClientRect = () => ({
       top: 500 - scrollTop,

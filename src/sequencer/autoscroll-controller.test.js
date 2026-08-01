@@ -5,6 +5,7 @@ import {
   deriveTopAlignedPanelScrollTop,
   isLiveSequencerScrollTarget,
 } from "./autoscroll-controller.js";
+import { bottomOcclusionHeight } from "./viewport-geometry.js";
 
 const baseGeometry = {
   scrollTop: 400,
@@ -68,6 +69,23 @@ describe("sequencer autoscroll geometry", () => {
         targetBottom: 594,
       }),
     ).toBe(778);
+  });
+
+  it("treats the sticky save footer as an unusable bottom strip", () => {
+    expect(
+      derivePagedPanelScrollTop({
+        ...baseGeometry,
+        stickyBottom: 80,
+        targetTop: 520,
+        targetBottom: 570,
+      }),
+    ).toBe(764);
+    expect(
+      bottomOcclusionHeight(
+        { top: 100, bottom: 600 },
+        { top: 520, bottom: 580 },
+      ),
+    ).toBe(80);
   });
 
   it("reveals a target hidden behind the sticky transport", () => {
