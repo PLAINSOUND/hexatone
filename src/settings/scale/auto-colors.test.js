@@ -1552,6 +1552,25 @@ describe("inferNotationRole", () => {
     expect(inferNotationRole("Fb")).toBe("diatonic");
     expect(inferNotationRole("E#")).toBe("diatonic");
   });
+
+  it("keeps traditional white-key enharmonics white in the final EDO palette", () => {
+    const scale = Array.from({ length: 12 }, (_, index) => `${(index + 1) * 100}.0`);
+    const noteNames = ["C", "C#", "D", "D#", "Fb", "E#", "F#", "G", "G#", "A", "A#", "Cb"];
+    const colors = deriveAutoNoteColors({
+      scale,
+      equivSteps: 12,
+      note_names: noteNames,
+      note_colors: noteNames.map((name) => (name.includes("b") ? "#777777" : "#ffffff")),
+      key_labels: "note_names",
+      reference_degree: 0,
+      fundamental: 440,
+    });
+
+    expect(colors[4]).toBe("#ffffff");
+    expect(colors[5]).toBe("#ffffff");
+    expect(colors[11]).toBe("#ffffff");
+    expect(colors[6]).not.toBe("#ffffff");
+  });
 });
 
 describe("inferNotationSide", () => {

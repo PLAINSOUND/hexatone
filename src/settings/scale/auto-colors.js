@@ -334,6 +334,26 @@ function inferNotationFamilyKey(label) {
   return null;
 }
 
+function isPlainWhiteKeySpelling(label) {
+  const hejiTokens = parseExplicitHejiClassificationTokens(label);
+  if (
+    hejiTokens.length > 0 &&
+    hejiTokens.every(
+      (token) =>
+        (token.syntonic ?? 0) === 0 &&
+        Object.values(token.primeExponents ?? {}).every((value) => value === 0) &&
+        isWhiteKeyPitchStructure(token),
+    )
+  ) {
+    return true;
+  }
+  const traditionalTokens = parseTraditionalNotationTokens(label);
+  return (
+    traditionalTokens.length > 0 &&
+    traditionalTokens.every((token) => isWhiteKeyPitchStructure(token))
+  );
+}
+
 function buildInheritedNotationPaletteMap(noteNames = [], storedColors = []) {
   const families = new Map();
   noteNames.forEach((label, index) => {
@@ -354,6 +374,7 @@ function buildInheritedNotationPaletteMap(noteNames = [], storedColors = []) {
 
 function inferInheritedNotationPaletteColor(label, paletteMap) {
   if (!(paletteMap instanceof Map) || paletteMap.size === 0) return null;
+  if (isPlainWhiteKeySpelling(label)) return null;
   const familyKey = inferNotationFamilyKey(label);
   if (!familyKey) return null;
   const direct = paletteMap.get(familyKey);
@@ -461,7 +482,9 @@ function inferTemperedAutoColor(label) {
 function inferTraditionalTemperedAutoColor(label) {
   const tokens = parseTraditionalNotationTokens(label);
   if (!tokens.length) return null;
-  if (tokens.every((token) => token.isNatural)) return TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR;
+  if (tokens.every((token) => isWhiteKeyPitchStructure(token))) {
+    return TRADITIONAL_TEMPERED_DIATONIC_AUTO_COLOR;
+  }
   const palette = deriveTraditionalTemperedChromaticPalette();
   const chromaticSides = new Set(
     tokens
@@ -531,7 +554,7 @@ function inferTemperedAutoColorFromStructure(structure) {
   if (!structure?.useTemperedAccidentals) return null;
   if ((structure.syntonic ?? 0) !== 0) return null;
   if (Object.values(structure.primeExponents ?? {}).some((value) => value !== 0)) return null;
-  return (structure.accidentalCount ?? 0) === 0
+  return isWhiteKeyPitchStructure(structure)
     ? TEMPERED_DIATONIC_AUTO_COLOR
     : TEMPERED_CHROMATIC_AUTO_COLOR;
 }
