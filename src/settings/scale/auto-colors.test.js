@@ -1560,7 +1560,9 @@ describe("inferNotationRole", () => {
       scale,
       equivSteps: 12,
       note_names: noteNames,
-      note_colors: noteNames.map((name) => (name.includes("b") ? "#777777" : "#ffffff")),
+      note_colors: noteNames.map((name) =>
+        name.includes("b") || name.includes("#") ? "#777777" : "#ffffff",
+      ),
       key_labels: "note_names",
       reference_degree: 0,
       fundamental: 440,

@@ -358,6 +358,7 @@ function buildInheritedNotationPaletteMap(noteNames = [], storedColors = []) {
   const families = new Map();
   noteNames.forEach((label, index) => {
     if (index === 0) return;
+    if (isPlainWhiteKeySpelling(label)) return;
     const familyKey = inferNotationFamilyKey(label);
     const color = storedColors[index];
     if (!familyKey || !color) return;
