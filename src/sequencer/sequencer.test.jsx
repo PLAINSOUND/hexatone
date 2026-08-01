@@ -697,7 +697,7 @@ describe("Sequencer", () => {
     await waitFor(() => expect(onCueSequenceSnapshot).toHaveBeenCalledWith(3));
   });
 
-  it("applies articulation to a snapshot range and inserts or moves its copied block", () => {
+  it("applies articulation to a snapshot range and inserts or moves its copied range", () => {
     const onInsertSnapshotCopyBlock = vi.fn(() => null);
     const onMoveSnapshotRange = vi.fn(() => ({
       changed: true,
@@ -828,7 +828,7 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
     expect(screen.getByText("Snapshots 1-2 copied.")).toBeTruthy();
     expect(screen.queryByText("Copied 2 snapshots.")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Insert Copied Block" }));
+    fireEvent.click(screen.getByRole("button", { name: "Insert Copied Range" }));
 
     expect(onInsertSnapshotCopyBlock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -851,8 +851,8 @@ describe("Sequencer", () => {
       target: { value: "2" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
-    const moveButton = screen.getByRole("button", { name: "Move Copied Block" });
-    const insertButton = screen.getByRole("button", { name: "Insert Copied Block" });
+    const moveButton = screen.getByRole("button", { name: "Move Copied Range" });
+    const insertButton = screen.getByRole("button", { name: "Insert Copied Range" });
     expect(moveButton.parentElement.children[0]).toBe(moveButton);
     expect(moveButton.parentElement.children[1]).toBe(insertButton);
     fireEvent.click(moveButton);

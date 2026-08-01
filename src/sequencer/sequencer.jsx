@@ -741,7 +741,7 @@ const Sequencer = ({
 
   const handleInsertSnapshotBlock = useCallback(() => {
     if (!copiedSnapshotBlock) {
-      setCopyInsertStatus("Copy a snapshot block first.");
+      setCopyInsertStatus("Copy a snapshot range first.");
       return;
     }
     const position = Math.round(Number(copyInsertPosition) || 0);
@@ -757,7 +757,7 @@ const Sequencer = ({
       return;
     }
     if (typeof result === "string" && result) {
-      setCopyInsertStatus("Unable to insert the copied snapshot block.");
+      setCopyInsertStatus("Unable to insert the copied snapshot range.");
       return;
     }
     workspaceMutationViewportRef.current = result?.focus ?? null;
@@ -777,7 +777,7 @@ const Sequencer = ({
 
   const handleMoveSnapshotBlock = useCallback(() => {
     if (!copiedSnapshotBlock || copiedSelectionSignature !== currentCopySelectionSignature) {
-      setCopyInsertStatus("Copy the selected snapshot block first.");
+      setCopyInsertStatus("Copy the selected snapshot range first.");
       return;
     }
     const position = Math.round(Number(copyInsertPosition) || 0);
@@ -802,7 +802,7 @@ const Sequencer = ({
       return;
     }
     if (typeof result === "string" && result) {
-      setCopyInsertStatus("Unable to move the copied snapshot block.");
+      setCopyInsertStatus("Unable to move the copied snapshot range.");
       return;
     }
     const movedPosition = result?.insertionPosition ?? copiedSnapshotBlock.range.startPosition;
@@ -821,7 +821,7 @@ const Sequencer = ({
     setRangeEditUndo(null);
     setCopyInsertStatus(
       result?.changed === false
-        ? "The copied block is already at that position."
+        ? "The copied range is already at that position."
         : `Moved ${copiedSnapshotBlock.length} snapshot${copiedSnapshotBlock.length === 1 ? "" : "s"} to slot ${movedPosition}.`,
     );
   }, [
