@@ -121,8 +121,10 @@ import {
 } from "./debug/sequence-runtime-diagnostics.js";
 import {
   appendPersistedSequencerCrashDiagnostic,
+  getActiveSequencerDiagnosticTransaction,
   isSequencerCrashDiagnosticsEnabled,
   loadPersistedSequencerCrashDiagnostics,
+  readSequencerDiagnosticMemory,
 } from "./debug/sequencer-crash-diagnostics.js";
 import { buildSnapshotDescription } from "./sequencer/labels.js";
 import { sequenceNotesAtCueIndex } from "./sequencer/trigger-groups.js";
@@ -149,6 +151,7 @@ import {
 } from "./sequencer/playback-modifiers-runtime.js";
 import { advanceCueIndexWithRepeats } from "./sequencer/repeat-playback-runtime.js";
 import { buildDependencyToken } from "./sequencer/dependency-token.js";
+import { reuseEquivalentDisplaySnapshots } from "./sequencer/display-snapshot-stability.js";
 import { retuneActiveSnapshotHexes, retuneSnapshotHexes } from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
@@ -1293,6 +1296,7 @@ const App = () => {
       hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
     });
   }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshots]);
+  const previousSequenceDisplaySnapshotsRef = useRef(null);
   const sequenceDisplaySnapshots = useMemo(() => {
     const keys = keysRef.current;
     const displayedSnapshots =
@@ -1302,7 +1306,7 @@ const App = () => {
             noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
             hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
           });
-    return displayedSnapshots.map((snapshot) =>
+    const nextDisplaySnapshots = displayedSnapshots.map((snapshot) =>
       snapshot?.descriptionManual
         ? snapshot
         : {
@@ -1310,6 +1314,12 @@ const App = () => {
             description: buildSnapshotDescription(snapshot?.notes ?? [], snapshotLabelMode),
           },
     );
+    const stableDisplaySnapshots = reuseEquivalentDisplaySnapshots(
+      previousSequenceDisplaySnapshotsRef.current,
+      nextDisplaySnapshots,
+    );
+    previousSequenceDisplaySnapshotsRef.current = stableDisplaySnapshots;
+    return stableDisplaySnapshots;
   }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshotLabelMode, snapshots]);
   const sequencePlaybackRuntimeToken = useMemo(
     () =>
@@ -1411,6 +1421,9 @@ const App = () => {
       detail: "Rebuilt sequence runtime model after snapshot update",
       context: {
         source: "sequencer",
+        transactionId: lastEntry.context?.transactionId,
+        commitKind: lastEntry.context?.commitKind,
+        ...readSequencerDiagnosticMemory(),
         snapshotCountBefore: lastEntry.context?.snapshotCountBefore ?? null,
         snapshotCountAfter: snapshots.length,
         selectedSnapshotId,
@@ -2960,11 +2973,14 @@ const App = () => {
 
   const onUpdateSnapshot = useCallback(
     (id, updates) => {
+      const diagnosticContext = getActiveSequencerDiagnosticTransaction() ?? {};
       appendPersistedSequencerCrashDiagnostic({
         type: "snapshot-update-requested",
         detail: "Requested snapshot workspace update",
         context: {
           source: "sequencer",
+          transactionId: diagnosticContext.transactionId,
+          commitKind: diagnosticContext.commitKind,
           snapshotId: id,
           selectedSnapshotId,
           snapshotCountBefore: snapshotsRef.current.length,
@@ -2986,6 +3002,8 @@ const App = () => {
         detail: "Applied snapshot workspace update",
         context: {
           source: "sequencer",
+          transactionId: diagnosticContext.transactionId,
+          commitKind: diagnosticContext.commitKind,
           snapshotId: id,
           selectedSnapshotId,
           snapshotCountBefore: snapshotsRef.current.length,

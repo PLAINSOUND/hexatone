@@ -158,7 +158,16 @@ const ScalaImport = (props) => {
         <button
           type="button"
           onClick={() =>
-            downloadFile(settingsToPresetJson(props.settings), `${name}.json`, "application/json")
+            downloadFile(
+              settingsToPresetJson(
+                props.settings,
+                props.settings.key_labels === "heji" && props.heji_names?.length
+                  ? { note_names: props.heji_names }
+                  : {},
+              ),
+              `${name}.json`,
+              "application/json",
+            )
           }
         >
           Save .json
@@ -173,6 +182,7 @@ ScalaImport.propTypes = {
   onImport: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
   settings: PropTypes.object.isRequired,
+  heji_names: PropTypes.arrayOf(PropTypes.string),
 };
 
 export default ScalaImport;

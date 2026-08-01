@@ -518,6 +518,21 @@ describe("settingsToPresetJson", () => {
     expect(parsed.spectrum_colors).toBeUndefined();
   });
 
+  it("allows generated HEJI names to replace stale persisted names on export", () => {
+    const json = settingsToPresetJson(
+      {
+        name: "HEJI Export",
+        scale: ["9/8", "2/1"],
+        equivSteps: 2,
+        key_labels: "heji",
+        note_names: ["stale C", "stale D"],
+      },
+      { note_names: ["C", "D"] },
+    );
+
+    expect(JSON.parse(json).note_names).toEqual(["C", "D"]);
+  });
+
   it("can include saved modulation-library metadata alongside settings", () => {
     const json = settingsToPresetJson(
       {

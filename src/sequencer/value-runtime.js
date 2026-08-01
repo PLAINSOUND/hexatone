@@ -182,9 +182,10 @@ export function structuralEventInstanceKey(item) {
 }
 
 export function commitTextInput(target, commit) {
-  if (!(target instanceof HTMLInputElement)) return;
+  if (!(target instanceof HTMLInputElement)) return { committed: false, metadata: null };
   const value = target.value;
-  if (target.dataset.lastCommittedValue === value) return;
-  commit(value);
+  if (target.dataset.lastCommittedValue === value) return { committed: false, metadata: null };
+  const metadata = commit(value) ?? null;
   target.dataset.lastCommittedValue = value;
+  return { committed: true, metadata };
 }

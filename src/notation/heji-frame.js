@@ -14,6 +14,7 @@ import {
 } from "./heji-normalization.js";
 import { spelledHejiLabel } from "./key-label.js";
 import {
+  isWhiteKeyPitchStructure,
   parseHejiToStructure,
   pitchStructureToBaseId,
   pitchStructureToMonzo,
@@ -36,7 +37,10 @@ function inferDegreeNotationRole(structure) {
     (value) => value !== 0,
   );
   if (hasHigherPrimeInflection) return "chromatic";
-  return (structure.accidentalCount ?? 0) === 0 ? "diatonic" : "chromatic";
+  if ((structure.accidentalCount ?? 0) !== 0) {
+    return isWhiteKeyPitchStructure(structure) ? "diatonic" : "chromatic";
+  }
+  return "diatonic";
 }
 
 function inferDegreeNotationSide(structure) {

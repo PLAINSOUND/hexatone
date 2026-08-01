@@ -4,7 +4,11 @@
 
 import { createScaleWorkspace } from "../../tuning/workspace.js";
 import { buildHejiNotationFrame } from "../../notation/heji-frame.js";
-import { parseHejiToStructure, pitchStructureToMonzo } from "../../notation/pitch-structure.js";
+import {
+  isWhiteKeyPitchStructure,
+  parseHejiToStructure,
+  pitchStructureToMonzo,
+} from "../../notation/pitch-structure.js";
 import {
   DEFAULT_PRIME_FAMILY_COLORS,
   getPrimeFamilyColorMap,
@@ -184,6 +188,32 @@ function alignLabelsToWorkspaceSlots(labels, workspace) {
   if (!slotCount || !normalized.length) return normalized;
   if (normalized.length === slotCount - 1) return ["", ...normalized];
   return normalized;
+}
+
+function isEqualDivisionScale(settings, workspace) {
+  const stepCount = Number(settings?.equivSteps);
+  const slots = workspace?.slots;
+  const equaveCents = workspace?.baseScale?.equaveCents;
+  if (
+    !Number.isInteger(stepCount) ||
+    stepCount <= 0 ||
+    !Array.isArray(slots) ||
+    slots.length !== stepCount ||
+    !Number.isFinite(equaveCents)
+  ) {
+    return false;
+  }
+
+  // `equivSteps` is also the ordinary scale-size field, so matching it to the
+  // number of degrees does not prove that a tuning is an equal division.  In
+  // particular, rationalising an EDO preserves the scale size.  Validate the
+  // actual pitch positions before enabling EDO-specific label palettes.
+  const centsTolerance = 0.11;
+  return slots.every((slot, degree) => {
+    const cents = slot?.cents;
+    const expectedCents = (degree * equaveCents) / stepCount;
+    return Number.isFinite(cents) && Math.abs(cents - expectedCents) <= centsTolerance;
+  });
 }
 
 export function extractPitchClassInfo(label) {
@@ -403,7 +433,9 @@ export function inferNotationRole(label, options = {}) {
       (value) => value !== 0,
     );
     if (hasHigherPrimeInflection) return "chromatic";
-    if ((parsed.accidentalCount ?? 0) !== 0) return "chromatic";
+    if ((parsed.accidentalCount ?? 0) !== 0) {
+      return isWhiteKeyPitchStructure(parsed) ? "diatonic" : "chromatic";
+    }
     if ((parsed.syntonic ?? 0) === 0) return "diatonic";
     return null;
   }
@@ -548,7 +580,7 @@ function inferExplicitPrimeChainRole(prime, degreeMetadata, fallbackLabel) {
   const parsed = degreeMetadata?.parsed ?? null;
   if (prime === 7 && parsed) {
     if ((parsed.accidentalCount ?? 0) !== 0) {
-      return "chromatic";
+      return isWhiteKeyPitchStructure(parsed) ? "diatonic" : "chromatic";
     }
     if ((parsed.syntonic ?? 0) === 0) {
       return "diatonic";
@@ -966,10 +998,7 @@ export function deriveAutoNoteColors(settings, extra = {}) {
   const primeFamilyColorMap =
     autoColorOptions.primeFamilyColorMap ?? getPrimeFamilyColorMap(settings?.prime_family_colors);
   const useHeji = settings?.key_labels === "heji";
-  const isEqualDivision =
-    Number.isFinite(settings?.equivSteps) &&
-    Array.isArray(settings?.scale) &&
-    settings.scale.length === settings.equivSteps;
+  const isEqualDivision = isEqualDivisionScale(settings, workspace);
   const isTonalPlexus205 =
     /205ed2/i.test(String(settings?.name ?? "")) ||
     /205ed2/i.test(String(settings?.short_description ?? ""));

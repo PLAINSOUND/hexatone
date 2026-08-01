@@ -73,6 +73,11 @@ import {
   updateEventFieldInSnapshot,
 } from "./sequence-mutations.js";
 import { normalizeManualArpeggiation } from "./manual-snapshot-arpeggiation.js";
+import {
+  appendPersistedSequencerCrashDiagnostic,
+  createSequencerDiagnosticTransactionId,
+  readSequencerDiagnosticMemory,
+} from "../debug/sequencer-crash-diagnostics.js";
 import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 
 /**
@@ -769,7 +774,7 @@ const Sequencer = ({
     );
   }, [copiedSnapshotBlock, copyInsertPosition, onInsertSnapshotCopyBlock, snapshots.length]);
 
-  const { editCommitTick, notifyEditCommitted, runTransportAction } =
+  const { editCommitTick, editCommitContext, notifyEditCommitted, runTransportAction } =
     useEditCommitTransportController({
       snapshots,
     });
@@ -1791,6 +1796,7 @@ const Sequencer = ({
 
   useSequencerPostCommitDiagnostics({
     editCommitTick,
+    editCommitContext,
     sequenceEvents,
     sortedBars,
     terminalBarlinePosition,
@@ -2130,7 +2136,27 @@ const Sequencer = ({
     (tempoId, rawValue) => {
       const numeric = Number(rawValue);
       if (!Number.isFinite(numeric)) return;
-      onUpdateTempo?.(tempoId, { position: Math.round(numeric * 1000000) / 1000000 });
+      const position = Math.round(numeric * 1000000) / 1000000;
+      const commitKind = "tempo-position";
+      const transactionId = createSequencerDiagnosticTransactionId(commitKind);
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "tempo-position-commit",
+          detail: "Committed sequencer tempo position",
+          context: {
+            source: "sequencer",
+            transactionId,
+            commitKind,
+            tempoId,
+            absoluteTime: position,
+            ...readSequencerDiagnosticMemory(),
+          },
+        },
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
+      onUpdateTempo?.(tempoId, { position });
+      return { transactionId, commitKind };
     },
     [onUpdateTempo],
   );
@@ -2375,8 +2401,8 @@ const Sequencer = ({
     (e, commit) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
-      commitTextInput(e.currentTarget, commit);
-      notifyEditCommitted();
+      const result = commitTextInput(e.currentTarget, commit);
+      if (result.committed) notifyEditCommitted(result.metadata ?? {});
       e.currentTarget.blur();
     },
     [notifyEditCommitted],
@@ -2384,9 +2410,9 @@ const Sequencer = ({
 
   const handleBlurCommit = useCallback(
     (e, commit, afterCommit = null) => {
-      commitTextInput(e.currentTarget, commit);
+      const result = commitTextInput(e.currentTarget, commit);
       if (typeof afterCommit === "function") afterCommit();
-      notifyEditCommitted();
+      if (result.committed) notifyEditCommitted(result.metadata ?? {});
     },
     [notifyEditCommitted],
   );
@@ -3182,7 +3208,6 @@ const Sequencer = ({
               </div>
             </div>
           )}
-
         </div>
 
         {!topSequenceSaveVisible &&

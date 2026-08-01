@@ -337,6 +337,28 @@ describe("inferPrimeChainRole", () => {
   });
 });
 
+describe("auto-colour label mode consistency", () => {
+  it("does not treat a rational scale as an EDO merely because equivSteps matches its size", () => {
+    const settings = {
+      scale: ["7/6", "3/2", "7/4", "2/1"],
+      equivSteps: 4,
+      note_names: ["C", "E", "G", "B"],
+      note_colors: ["#ffffff", "#d3c6c5", "#ffffff", "#ffe5e5"],
+      reference_degree: 0,
+      fundamental: 440,
+      heji_anchor_ratio: "1/1",
+      heji_anchor_label: "C",
+    };
+
+    const hejiColors = deriveAutoNoteColors({ ...settings, key_labels: "heji" });
+    const nameColors = deriveAutoNoteColors({ ...settings, key_labels: "note_names" });
+
+    expect(nameColors).toEqual(hejiColors);
+    expect(nameColors[1]).toBe("#ffe5e5");
+    expect(nameColors[3]).toBe("#ffe5e5");
+  });
+});
+
 describe("inferCenterMonzoCandidate", () => {
   it("prefers a pure-3 D candidate over a plainer non-3-limit D in Taylor-style labels", () => {
     const workspace = {

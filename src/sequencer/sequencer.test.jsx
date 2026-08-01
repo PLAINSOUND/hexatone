@@ -4430,6 +4430,7 @@ describe("Sequencer", () => {
       expect(derivedEntry).not.toBeNull();
       expect(derivedEntry?.context).toMatchObject({
         snapshotId: "10",
+        commitKind: "event-bar-relative",
         noteId: "a",
         resolvedNoteId: "a",
         eventAbsoluteTime: 1.3125,
@@ -4438,6 +4439,14 @@ describe("Sequencer", () => {
         derivedNumerator: 1,
         derivedDenominator: 4,
       });
+      expect(derivedEntry?.context?.transactionId).toMatch(/^event-bar-relative:/);
+      expect(
+        (persisted?.state?.entries ?? []).filter(
+          (entry) =>
+            entry?.type === "event-derived-post-commit" &&
+            entry?.context?.transactionId === derivedEntry?.context?.transactionId,
+        ),
+      ).toHaveLength(1);
     });
 
     localStorage.removeItem("hexatone_debug_sequencer_crash");

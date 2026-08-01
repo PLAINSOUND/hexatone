@@ -3,9 +3,15 @@
 // stepping/play commands do not race against in-row event edits.
 
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { createSequencerDiagnosticTransactionId } from "../debug/sequencer-crash-diagnostics.js";
 
 export default function useEditCommitTransportController({ snapshots } = {}) {
-  const [editCommitTick, setEditCommitTick] = useState(0);
+  const [editCommitContext, setEditCommitContext] = useState({
+    tick: 0,
+    transactionId: null,
+    commitKind: null,
+    committedAtMs: null,
+  });
   const pendingTransportActionRef = useRef(null);
   const editCommitPendingRef = useRef(false);
 
@@ -15,10 +21,20 @@ export default function useEditCommitTransportController({ snapshots } = {}) {
     pendingTransportActionRef.current = null;
     editCommitPendingRef.current = false;
     action?.();
-  }, [editCommitTick, snapshots]);
+  }, [editCommitContext.tick, snapshots]);
 
-  const notifyEditCommitted = useCallback(() => {
-    setEditCommitTick((value) => value + 1);
+  const notifyEditCommitted = useCallback((metadata = {}) => {
+    const commitKind = metadata?.commitKind ?? "field-edit";
+    const transactionId =
+      metadata?.transactionId ?? createSequencerDiagnosticTransactionId(commitKind);
+    const committedAtMs = globalThis.performance?.now?.() ?? null;
+    setEditCommitContext((previous) => ({
+      tick: previous.tick + 1,
+      transactionId,
+      commitKind,
+      committedAtMs,
+    }));
+    return transactionId;
   }, []);
 
   const runTransportAction = useCallback((action) => {
@@ -41,7 +57,8 @@ export default function useEditCommitTransportController({ snapshots } = {}) {
   }, []);
 
   return {
-    editCommitTick,
+    editCommitTick: editCommitContext.tick,
+    editCommitContext,
     notifyEditCommitted,
     runTransportAction,
   };

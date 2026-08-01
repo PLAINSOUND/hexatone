@@ -47,6 +47,7 @@ import {
 } from "../auto-colors.js";
 import { getPrimeFamilyColorMap } from "../monzo-color.js";
 import { resolveTypedHejiLabel } from "../../../notation/heji-frame.js";
+import { canonicalHejiLabel } from "../../../notation/heji-normalization.js";
 import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 
 // ScaleTable is the UI workspace for rationalisation. It derives committed row
@@ -55,6 +56,11 @@ import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 
 // sidebar display of the scala file, degrees, note names, colors in an html table format
 const WESTERN_PITCH_LABEL_RE = /^[A-G](?:##|bb|#|b)?$/i;
+const RENDERED_CENTS_SUFFIX_RE = /[+\-\u2212]\d+(?:\.\d+)?$/;
+
+function canonicalPitchClassLabel(value) {
+  return canonicalHejiLabel(String(value ?? "").trim().replace(RENDERED_CENTS_SUFFIX_RE, ""));
+}
 
 const ScaleTable = (props) => {
   const previewState = props.previewState ?? createTuningPreviewState();
@@ -277,7 +283,19 @@ const ScaleTable = (props) => {
       pitchFrame: props.settings.pitch_frame,
     });
     if (!resolved) return;
-    scaleCommitAt(degreeIndex - 1, resolved.scaleText, degreeIndex);
+    const nextScale = [...(props.settings.scale || [])];
+    nextScale[degreeIndex - 1] = resolved.scaleText;
+    const oldName = props.settings.note_names?.[degreeIndex] ?? "";
+    const nextPitchClassName = canonicalPitchClassLabel(value);
+    const shouldReplaceStoredName = !!canonicalPitchClassLabel(oldName) && !!nextPitchClassName;
+    if (shouldReplaceStoredName && props.onAtomicChange) {
+      const nextNames = [...(props.settings.note_names || [])];
+      nextNames[degreeIndex] = nextPitchClassName;
+      props.onAtomicChange({ scale: nextScale, note_names: nextNames });
+    } else {
+      props.onChange("scale", nextScale);
+    }
+    bumpResetVersion(degreeIndex);
   };
 
   const editable_colors = props.settings.spectrum_colors || props.settings.auto_colors;

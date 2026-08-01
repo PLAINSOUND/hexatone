@@ -30,6 +30,17 @@ const DOUBLE_SEPTIMAL_GLYPHS = {
   negative: "",
 };
 
+const NATURAL_SEMITONE_BY_LETTER = {
+  C: 0,
+  D: 2,
+  E: 4,
+  F: 5,
+  G: 7,
+  A: 9,
+  B: 11,
+};
+const WHITE_KEY_SEMITONES = new Set([0, 2, 4, 5, 7, 9, 11]);
+
 function makeBaseId(chromatic, syntonic) {
   return `${chromatic}:${syntonic}`;
 }
@@ -65,6 +76,14 @@ export function createPitchStructure(overrides = {}) {
     useDoubleSeptimals: overrides.useDoubleSeptimals ?? true,
     useTemperedAccidentals: overrides.useTemperedAccidentals ?? false,
   };
+}
+
+export function isWhiteKeyPitchStructure(structure) {
+  const naturalSemitone = NATURAL_SEMITONE_BY_LETTER[structure?.letter?.toUpperCase?.()];
+  if (!Number.isFinite(naturalSemitone)) return false;
+  const soundingSemitone =
+    ((naturalSemitone + (structure?.accidentalCount ?? 0)) % 12 + 12) % 12;
+  return WHITE_KEY_SEMITONES.has(soundingSemitone);
 }
 
 export function pitchStructureToBaseId(structure) {

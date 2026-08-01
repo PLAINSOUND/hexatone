@@ -4,7 +4,12 @@
 // bookkeeping and commit/cancel wiring.
 
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
-import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-crash-diagnostics.js";
+import {
+  appendPersistedSequencerCrashDiagnostic,
+  createSequencerDiagnosticTransactionId,
+  readSequencerDiagnosticMemory,
+  runWithSequencerDiagnosticTransaction,
+} from "../debug/sequencer-crash-diagnostics.js";
 import { timingBarAtNumber } from "./transport.js";
 import {
   applyEventBarRelativeDraftToSnapshot,
@@ -130,6 +135,8 @@ export default function useDraftEditingController({
 
   const commitNoteTransfer = useCallback(
     (sourceSnapshotId, noteRef, targetSnapshotId, mutateNote, options = {}) => {
+      const commitKind = options.duplicate === true ? "event-note-duplicate" : "event-note-move";
+      const transactionId = createSequencerDiagnosticTransactionId(commitKind);
       appendPersistedSequencerCrashDiagnostic({
         type: "event-note-transfer-requested",
         detail:
@@ -138,6 +145,9 @@ export default function useDraftEditingController({
             : "Requested sequencer event note move",
         context: {
           source: "sequencer",
+          transactionId,
+          commitKind,
+          ...readSequencerDiagnosticMemory(),
           snapshotId: sourceSnapshotId,
           targetSnapshotId,
           selectedSnapshotId: targetSnapshotId,
@@ -181,43 +191,52 @@ export default function useDraftEditingController({
       });
       if (!applied) return;
 
-      appendPersistedSequencerCrashDiagnostic({
-        type: "event-note-transfer-applied",
-        detail:
-          options.duplicate === true
-            ? "Applied sequencer event note duplication"
-            : "Applied sequencer event note move",
-        context: {
-          source: "sequencer",
-          snapshotId: sourceSnapshotId,
-          targetSnapshotId,
-          selectedSnapshotId: applied.selectedSnapshotId ?? targetSnapshotId,
-          noteId: noteRef?.noteId ?? note?.id ?? null,
-          resolvedNoteId: movedNote?.id ?? null,
-          noteKey: noteRef?.noteKey ?? noteRef ?? null,
-          kind: options.selectKind ?? null,
-          transferKind: options.duplicate === true ? "duplicate" : "move",
-          duplicate: options.duplicate === true,
-          previousStart: note?.start,
-          previousEnd: note?.end,
-          nextStart: movedNote?.start,
-          nextEnd: movedNote?.end,
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "event-note-transfer-applied",
+          detail:
+            options.duplicate === true
+              ? "Applied sequencer event note duplication"
+              : "Applied sequencer event note move",
+          context: {
+            source: "sequencer",
+            transactionId,
+            commitKind,
+            ...readSequencerDiagnosticMemory(),
+            snapshotId: sourceSnapshotId,
+            targetSnapshotId,
+            selectedSnapshotId: applied.selectedSnapshotId ?? targetSnapshotId,
+            noteId: noteRef?.noteId ?? note?.id ?? null,
+            resolvedNoteId: movedNote?.id ?? null,
+            noteKey: noteRef?.noteKey ?? noteRef ?? null,
+            kind: options.selectKind ?? null,
+            transferKind: options.duplicate === true ? "duplicate" : "move",
+            duplicate: options.duplicate === true,
+            previousStart: note?.start,
+            previousEnd: note?.end,
+            nextStart: movedNote?.start,
+            nextEnd: movedNote?.end,
+          },
         },
-      });
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
 
-      if (applied.sourceNotes != null) {
-        onUpdateSnapshot(sourceSnapshot.id, { notes: applied.sourceNotes });
-      }
-      if (applied.targetNotes != null) {
-        onUpdateSnapshot(targetSnapshot.id, { notes: applied.targetNotes });
-      }
+      runWithSequencerDiagnosticTransaction({ transactionId, commitKind }, () => {
+        if (applied.sourceNotes != null) {
+          onUpdateSnapshot(sourceSnapshot.id, { notes: applied.sourceNotes });
+        }
+        if (applied.targetNotes != null) {
+          onUpdateSnapshot(targetSnapshot.id, { notes: applied.targetNotes });
+        }
+      });
 
       onSelectSnapshot?.(applied.selectedSnapshotId);
       onSelectMarker?.(
         applied.selectedSnapshotId,
         options.selectKind === "release" ? movedNote.end : movedNote.start,
       );
-      notifyEditCommitted?.();
+      notifyEditCommitted?.({ transactionId, commitKind });
     },
     [
       findNoteInSnapshot,
@@ -310,9 +329,32 @@ export default function useDraftEditingController({
         terminalBarlinePositionRef.current,
       );
       if (position == null) return;
+      const commitKind = "tempo-bar-relative";
+      const transactionId = createSequencerDiagnosticTransactionId(commitKind);
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "tempo-bar-relative-commit",
+          detail: "Committed sequencer bar-relative tempo position",
+          context: {
+            source: "sequencer",
+            transactionId,
+            commitKind,
+            tempoId: draft.tempoId,
+            draftKey: draft.draftKey,
+            barNumber: draft.barNumber,
+            beat: draft.beat,
+            numerator: draft.numerator,
+            denominator: draft.denominator,
+            absoluteTime: position,
+            ...readSequencerDiagnosticMemory(),
+          },
+        },
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
       onUpdateTempo?.(draft.tempoId, { position });
       setTempoBarRelativeDraftsState((prev) => removeDraftEntry(prev, draft.draftKey));
-      notifyEditCommitted?.();
+      notifyEditCommitted?.({ transactionId, commitKind });
     },
     [notifyEditCommitted, onUpdateTempo, setTempoBarRelativeDraftsState],
   );
@@ -325,9 +367,32 @@ export default function useDraftEditingController({
         terminalBarlinePositionRef.current,
       );
       if (position == null) return;
+      const commitKind = "repeat-bar-relative";
+      const transactionId = createSequencerDiagnosticTransactionId(commitKind);
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "repeat-bar-relative-commit",
+          detail: "Committed sequencer bar-relative repeat position",
+          context: {
+            source: "sequencer",
+            transactionId,
+            commitKind,
+            repeatId: draft.repeatId,
+            draftKey: draft.draftKey,
+            barNumber: draft.barNumber,
+            beat: draft.beat,
+            numerator: draft.numerator,
+            denominator: draft.denominator,
+            absoluteTime: position,
+            ...readSequencerDiagnosticMemory(),
+          },
+        },
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
       onUpdateRepeat?.(draft.repeatId, { position });
       setRepeatBarRelativeDraftsState((prev) => removeDraftEntry(prev, draft.draftKey));
-      notifyEditCommitted?.();
+      notifyEditCommitted?.({ transactionId, commitKind });
     },
     [notifyEditCommitted, onUpdateRepeat, setRepeatBarRelativeDraftsState],
   );
@@ -343,6 +408,8 @@ export default function useDraftEditingController({
         terminalBarlinePositionRef.current,
       );
       if (absoluteTime == null) return;
+      const commitKind = "event-bar-relative";
+      const transactionId = createSequencerDiagnosticTransactionId(commitKind);
       const notes = applyEventBarRelativeDraftToSnapshot(
         snapshot,
         draft,
@@ -359,35 +426,44 @@ export default function useDraftEditingController({
       const previousNote =
         previousNoteIndex >= 0 ? ((snapshot.notes ?? [])[previousNoteIndex] ?? null) : null;
       const nextNote = previousNoteIndex >= 0 ? ((notes ?? [])[previousNoteIndex] ?? null) : null;
-      appendPersistedSequencerCrashDiagnostic({
-        type: "event-bar-relative-commit",
-        detail: "Committed sequencer bar-relative event timing",
-        context: {
-          source: "sequencer",
-          snapshotId: draft.snapshotId,
-          noteId: draft.noteId ?? previousNote?.id ?? null,
-          resolvedNoteId: nextNote?.id ?? draft.noteId ?? previousNote?.id ?? null,
-          noteKey: draft.noteKey,
-          kind: draft.kind,
-          draftKey: draft.draftKey,
-          barNumber: draft.barNumber,
-          beat: draft.beat,
-          numerator: draft.numerator,
-          denominator: draft.denominator,
-          absoluteTime,
-          snapshotTime: absoluteTime - snapshotNumber,
-          snapshotLength: snapshot?.length,
-          previousStart: previousNote?.start,
-          previousEnd: previousNote?.end,
-          nextStart: nextNote?.start,
-          nextEnd: nextNote?.end,
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "event-bar-relative-commit",
+          detail: "Committed sequencer bar-relative event timing",
+          context: {
+            source: "sequencer",
+            transactionId,
+            commitKind,
+            ...readSequencerDiagnosticMemory(),
+            snapshotId: draft.snapshotId,
+            noteId: draft.noteId ?? previousNote?.id ?? null,
+            resolvedNoteId: nextNote?.id ?? draft.noteId ?? previousNote?.id ?? null,
+            noteKey: draft.noteKey,
+            kind: draft.kind,
+            draftKey: draft.draftKey,
+            barNumber: draft.barNumber,
+            beat: draft.beat,
+            numerator: draft.numerator,
+            denominator: draft.denominator,
+            absoluteTime,
+            snapshotTime: absoluteTime - snapshotNumber,
+            snapshotLength: snapshot?.length,
+            previousStart: previousNote?.start,
+            previousEnd: previousNote?.end,
+            nextStart: nextNote?.start,
+            nextEnd: nextNote?.end,
+          },
         },
-      });
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
       appendPersistedSequencerCrashDiagnostic({
         type: "event-bar-relative-update-dispatched",
         detail: "Dispatching snapshot update after bar-relative event commit",
         context: {
           source: "sequencer",
+          transactionId,
+          commitKind,
           snapshotId: draft.snapshotId,
           noteId: draft.noteId ?? previousNote?.id ?? null,
           resolvedNoteId: nextNote?.id ?? draft.noteId ?? previousNote?.id ?? null,
@@ -399,9 +475,11 @@ export default function useDraftEditingController({
           noteCountAfter: notes?.length ?? null,
         },
       });
-      onUpdateSnapshot(snapshot.id, { notes });
+      runWithSequencerDiagnosticTransaction({ transactionId, commitKind }, () => {
+        onUpdateSnapshot(snapshot.id, { notes });
+      });
       setBarRelativeDraftsState((prev) => removeDraftEntry(prev, draft.draftKey));
-      notifyEditCommitted?.();
+      notifyEditCommitted?.({ transactionId, commitKind });
     },
     [notifyEditCommitted, onUpdateSnapshot, setBarRelativeDraftsState],
   );

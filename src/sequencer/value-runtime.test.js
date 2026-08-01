@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clamp,
+  commitTextInput,
   displayValue,
   formatDisplaySequenceOffset,
   formatEditableFrequency,
@@ -36,6 +37,19 @@ describe("sequencer value runtime", () => {
     expect(normalizeSequenceNumber(1.23456789)).toBe(1.234568);
     expect(isOutOfSnapshotRange({ length: 1 }, -0.1)).toBe(true);
     expect(isOutOfSnapshotRange({ length: 1 }, 0.5)).toBe(false);
+  });
+
+  it("reports whether an input value produced a new commit", () => {
+    const input = document.createElement("input");
+    input.value = "12";
+    const commit = vi.fn(() => ({ transactionId: "tempo-position:1" }));
+
+    expect(commitTextInput(input, commit)).toEqual({
+      committed: true,
+      metadata: { transactionId: "tempo-position:1" },
+    });
+    expect(commitTextInput(input, commit)).toEqual({ committed: false, metadata: null });
+    expect(commit).toHaveBeenCalledTimes(1);
   });
 
   it("derives note identity, note ordering, and midicents from frequency", () => {

@@ -25,12 +25,50 @@ function readSequencerCrashDiagnosticsFlag() {
 }
 
 export const SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY = "hexatone_sequencer_crash_diagnostics";
+export const SEQUENCER_CRASH_LIFECYCLE_STORAGE_KEY = "hexatone_sequencer_crash_lifecycle";
 export const SEQUENCER_CRASH_DIAGNOSTICS_PERSIST_INTERVAL_MS = 2000;
+export const SEQUENCER_CRASH_HEARTBEAT_INTERVAL_MS = 5000;
 let cachedPersistedSequencerCrashDiagnostics = null;
 let hasLoadedPersistedSequencerCrashDiagnostics = false;
 let bufferedDiagnosticsState = null;
 let bufferedDiagnosticsStorage = null;
 let pendingPersistenceTimer = null;
+let nextTransactionId = 1;
+let activeTransactionContext = null;
+
+export function createSequencerDiagnosticTransactionId(kind = "edit") {
+  const normalizedKind = String(kind || "edit").replace(/[^a-z0-9-]+/gi, "-");
+  const id = nextTransactionId;
+  nextTransactionId += 1;
+  return `${normalizedKind}:${Date.now()}:${id}`;
+}
+
+export function getActiveSequencerDiagnosticTransaction() {
+  return activeTransactionContext;
+}
+
+export function runWithSequencerDiagnosticTransaction(context, callback) {
+  const previousContext = activeTransactionContext;
+  activeTransactionContext = context ?? null;
+  try {
+    return callback?.();
+  } finally {
+    activeTransactionContext = previousContext;
+  }
+}
+
+export function readSequencerDiagnosticMemory(performanceObject = globalThis?.performance) {
+  const memory = performanceObject?.memory;
+  if (!memory) return {};
+  const metrics = {
+    heapUsedBytes: Number(memory.usedJSHeapSize),
+    heapTotalBytes: Number(memory.totalJSHeapSize),
+    heapLimitBytes: Number(memory.jsHeapSizeLimit),
+  };
+  return Object.fromEntries(
+    Object.entries(metrics).filter(([, value]) => Number.isFinite(value) && value >= 0),
+  );
+}
 
 export function isSequencerCrashDiagnosticsEnabled() {
   return readSequencerCrashDiagnosticsFlag();
@@ -61,11 +99,15 @@ function normalizeContext(context) {
     selectedSnapshotId:
       context.selectedSnapshotId == null ? null : String(context.selectedSnapshotId),
     targetSnapshotId: context.targetSnapshotId == null ? null : String(context.targetSnapshotId),
+    tempoId: context.tempoId == null ? null : String(context.tempoId),
+    repeatId: context.repeatId == null ? null : String(context.repeatId),
     noteId: context.noteId == null ? null : String(context.noteId),
     resolvedNoteId: context.resolvedNoteId == null ? null : String(context.resolvedNoteId),
     noteKey: context.noteKey == null ? null : String(context.noteKey),
     kind: context.kind == null ? null : String(context.kind),
     transferKind: context.transferKind == null ? null : String(context.transferKind),
+    transactionId: context.transactionId == null ? null : String(context.transactionId),
+    commitKind: context.commitKind == null ? null : String(context.commitKind),
     draftKey: context.draftKey == null ? null : String(context.draftKey),
     captureStage: context.captureStage == null ? null : String(context.captureStage),
     navigationStage: context.navigationStage == null ? null : String(context.navigationStage),
@@ -73,12 +115,22 @@ function normalizeContext(context) {
       ? Number(context.navigationDirection)
       : null,
     workspaceTab: context.workspaceTab == null ? null : String(context.workspaceTab),
+    pageId: context.pageId == null ? null : String(context.pageId),
+    previousPageId: context.previousPageId == null ? null : String(context.previousPageId),
+    navigationType: context.navigationType == null ? null : String(context.navigationType),
+    visibilityState: context.visibilityState == null ? null : String(context.visibilityState),
     barNumber: Number.isFinite(Number(context.barNumber)) ? Number(context.barNumber) : null,
     beat: Number.isFinite(Number(context.beat)) ? Number(context.beat) : null,
     numerator: Number.isFinite(Number(context.numerator)) ? Number(context.numerator) : null,
     denominator: Number.isFinite(Number(context.denominator)) ? Number(context.denominator) : null,
     captureNoteCount: Number.isFinite(Number(context.captureNoteCount))
       ? Number(context.captureNoteCount)
+      : null,
+    noteCountBefore: Number.isFinite(Number(context.noteCountBefore))
+      ? Number(context.noteCountBefore)
+      : null,
+    noteCountAfter: Number.isFinite(Number(context.noteCountAfter))
+      ? Number(context.noteCountAfter)
       : null,
     snapshotCountBefore: Number.isFinite(Number(context.snapshotCountBefore))
       ? Number(context.snapshotCountBefore)
@@ -125,6 +177,22 @@ function normalizeContext(context) {
       : null,
     scrollTop: roundMetric(context.scrollTop),
     targetTop: roundMetric(context.targetTop),
+    commitToEffectMs: roundMetric(context.commitToEffectMs, 3),
+    commitToFrameMs: roundMetric(context.commitToFrameMs, 3),
+    uptimeMs: roundMetric(context.uptimeMs, 3),
+    timeSincePreviousHeartbeatMs: roundMetric(context.timeSincePreviousHeartbeatMs, 3),
+    heapUsedBytes: Number.isFinite(Number(context.heapUsedBytes))
+      ? Number(context.heapUsedBytes)
+      : null,
+    heapTotalBytes: Number.isFinite(Number(context.heapTotalBytes))
+      ? Number(context.heapTotalBytes)
+      : null,
+    heapLimitBytes: Number.isFinite(Number(context.heapLimitBytes))
+      ? Number(context.heapLimitBytes)
+      : null,
+    updateKeys: Array.isArray(context.updateKeys)
+      ? context.updateKeys.map((key) => String(key))
+      : null,
     effectStage: context.effectStage == null ? null : String(context.effectStage),
     targetKind: context.targetKind == null ? null : String(context.targetKind),
     targetKey: context.targetKey == null ? null : String(context.targetKey),
@@ -133,6 +201,12 @@ function normalizeContext(context) {
     duplicate: context.duplicate === true,
     autoScrollEnabled: context.autoScrollEnabled === true,
     showAllEvents: context.showAllEvents === true,
+    cleanExit: context.cleanExit == null ? null : context.cleanExit === true,
+    previousCleanExit:
+      context.previousCleanExit == null ? null : context.previousCleanExit === true,
+    previousLifecyclePresent:
+      context.previousLifecyclePresent == null ? null : context.previousLifecyclePresent === true,
+    wasDiscarded: context.wasDiscarded == null ? null : context.wasDiscarded === true,
     derivedBarNumber: Number.isFinite(Number(context.derivedBarNumber))
       ? Number(context.derivedBarNumber)
       : null,
@@ -145,8 +219,16 @@ function normalizeContext(context) {
       : null,
     timestamp: context.timestamp == null ? null : String(context.timestamp),
   };
+  const meaningfulFalseFields = new Set([
+    "cleanExit",
+    "previousCleanExit",
+    "previousLifecyclePresent",
+    "wasDiscarded",
+  ]);
   return Object.fromEntries(
-    Object.entries(normalized).filter(([, value]) => value !== null && value !== false),
+    Object.entries(normalized).filter(
+      ([key, value]) => value !== null && (value !== false || meaningfulFalseFields.has(key)),
+    ),
   );
 }
 
@@ -288,6 +370,125 @@ export function appendPersistedSequencerCrashDiagnostic(
 let listenersInstalled = false;
 let errorListener = null;
 let rejectionListener = null;
+let pageHideListener = null;
+let lifecycleHeartbeatTimer = null;
+
+function readLifecycleMarker(storage = globalThis?.sessionStorage) {
+  try {
+    const raw = storage?.getItem?.(SEQUENCER_CRASH_LIFECYCLE_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLifecycleMarker(marker, storage = globalThis?.sessionStorage) {
+  try {
+    storage?.setItem?.(SEQUENCER_CRASH_LIFECYCLE_STORAGE_KEY, JSON.stringify(marker));
+  } catch {
+    // Diagnostics must never interfere with the sequencer itself.
+  }
+}
+
+function navigationType(performanceObject = globalThis?.performance) {
+  try {
+    return performanceObject?.getEntriesByType?.("navigation")?.[0]?.type ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function buildSequencerLifecycleStartContext({
+  previousMarker = null,
+  pageId,
+  now = Date.now(),
+  performanceObject = globalThis?.performance,
+  documentObject = globalThis?.document,
+} = {}) {
+  const previousHeartbeatAt = Number(previousMarker?.lastHeartbeatAt);
+  return {
+    source: "lifecycle",
+    pageId,
+    previousPageId: previousMarker?.pageId ?? null,
+    previousLifecyclePresent: previousMarker != null,
+    previousCleanExit: previousMarker == null ? null : previousMarker.cleanExit === true,
+    navigationType: navigationType(performanceObject),
+    wasDiscarded: documentObject?.wasDiscarded === true,
+    visibilityState: documentObject?.visibilityState ?? null,
+    uptimeMs: Number(performanceObject?.now?.()),
+    timeSincePreviousHeartbeatMs: Number.isFinite(previousHeartbeatAt)
+      ? Math.max(0, now - previousHeartbeatAt)
+      : null,
+    ...readSequencerDiagnosticMemory(performanceObject),
+  };
+}
+
+function stopLifecycleHeartbeat() {
+  if (lifecycleHeartbeatTimer != null) globalThis.clearInterval?.(lifecycleHeartbeatTimer);
+  lifecycleHeartbeatTimer = null;
+}
+
+function startSequencerCrashLifecycleDiagnostics() {
+  const storage = globalThis?.sessionStorage;
+  if (!storage?.setItem) return;
+  const now = Date.now();
+  const previousMarker = readLifecycleMarker(storage);
+  const pageId = `page:${now}:${Math.random().toString(36).slice(2, 10)}`;
+  const marker = {
+    pageId,
+    startedAt: now,
+    lastHeartbeatAt: now,
+    cleanExit: false,
+  };
+  writeLifecycleMarker(marker, storage);
+  appendPersistedSequencerCrashDiagnostic(
+    {
+      type:
+        previousMarker && previousMarker.cleanExit !== true
+          ? "lifecycle-unclean-restart"
+          : "lifecycle-start",
+      detail:
+        previousMarker && previousMarker.cleanExit !== true
+          ? "Started after a page that did not report a clean exit"
+          : "Started sequencer crash lifecycle diagnostics",
+      context: buildSequencerLifecycleStartContext({
+        previousMarker,
+        pageId,
+        now,
+      }),
+    },
+    storage,
+    { immediate: true },
+  );
+  stopLifecycleHeartbeat();
+  lifecycleHeartbeatTimer = globalThis.setInterval?.(() => {
+    marker.lastHeartbeatAt = Date.now();
+    writeLifecycleMarker(marker, storage);
+  }, SEQUENCER_CRASH_HEARTBEAT_INTERVAL_MS);
+  pageHideListener = () => {
+    marker.lastHeartbeatAt = Date.now();
+    marker.cleanExit = true;
+    writeLifecycleMarker(marker, storage);
+    appendPersistedSequencerCrashDiagnostic(
+      {
+        type: "lifecycle-clean-exit",
+        detail: "Page emitted pagehide",
+        context: {
+          source: "lifecycle",
+          pageId,
+          cleanExit: true,
+          visibilityState: globalThis.document?.visibilityState ?? null,
+          uptimeMs: globalThis.performance?.now?.(),
+          ...readSequencerDiagnosticMemory(),
+        },
+      },
+      storage,
+      { immediate: true },
+    );
+    stopLifecycleHeartbeat();
+  };
+  globalThis.addEventListener?.("pagehide", pageHideListener, { once: true });
+}
 
 function installSequencerCrashDiagnosticsGlobal() {
   if (typeof globalThis === "undefined") return;
@@ -301,6 +502,7 @@ function installSequencerCrashDiagnosticsGlobal() {
     listenersInstalled = false;
     errorListener = null;
     rejectionListener = null;
+    stopLifecycleHeartbeat();
     return;
   }
 
@@ -330,6 +532,7 @@ function installSequencerCrashDiagnosticsGlobal() {
     globalThis.addEventListener("error", errorListener);
     globalThis.addEventListener("unhandledrejection", rejectionListener);
     listenersInstalled = true;
+    startSequencerCrashLifecycleDiagnostics();
   }
 
   globalThis.__hexatoneSequencerCrashDiagnostics = {
@@ -347,7 +550,3 @@ function installSequencerCrashDiagnosticsGlobal() {
 }
 
 installSequencerCrashDiagnosticsGlobal();
-
-if (isSequencerCrashDiagnosticsEnabled() && typeof globalThis.addEventListener === "function") {
-  globalThis.addEventListener("pagehide", flushPersistedSequencerCrashDiagnostics);
-}

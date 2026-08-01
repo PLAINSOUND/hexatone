@@ -11,11 +11,13 @@ import {
   appendPersistedSequencerCrashDiagnostic,
   isSequencerCrashDiagnosticsEnabled,
   loadPersistedSequencerCrashDiagnostics,
+  readSequencerDiagnosticMemory,
 } from "../debug/sequencer-crash-diagnostics.js";
 import { absolutePositionToBarBeat } from "./transport.js";
 
 export default function useSequencerPostCommitDiagnostics({
   editCommitTick,
+  editCommitContext,
   sequenceEvents,
   sortedBars,
   terminalBarlinePosition,
@@ -30,15 +32,21 @@ export default function useSequencerPostCommitDiagnostics({
   showAllEvents,
 } = {}) {
   const lastPostCommitFrameLoggedRef = useRef(0);
+  const lastUiCommitLoggedRef = useRef(0);
+  const lastDerivedTransactionIdRef = useRef(null);
   const commitPerformanceStartRef = useRef(0);
 
   useEffect(() => {
     if (!isSequenceRuntimeDiagnosticsEnabled()) return;
     if (editCommitTick <= 0) return;
-    commitPerformanceStartRef.current = performance.now();
+    if (lastUiCommitLoggedRef.current === editCommitTick) return;
+    lastUiCommitLoggedRef.current = editCommitTick;
+    const now = performance.now();
+    commitPerformanceStartRef.current = editCommitContext?.committedAtMs ?? now;
     appendPersistedSequenceRuntimeDiagnostic({
       type: "ui-commit",
       step: "sequencer-post-commit-state",
+      durationMs: Math.max(0, now - commitPerformanceStartRef.current),
       snapshotCount: snapshotIndexById.size,
       eventCount: sequenceEvents.length,
       cueCount: sequenceCueGroups.length,
@@ -47,6 +55,7 @@ export default function useSequencerPostCommitDiagnostics({
     });
   }, [
     editCommitTick,
+    editCommitContext?.committedAtMs,
     expandedIds.size,
     sequenceCueGroups.length,
     sequenceEvents.length,
@@ -55,11 +64,17 @@ export default function useSequencerPostCommitDiagnostics({
 
   useEffect(() => {
     if (!isSequencerCrashDiagnosticsEnabled()) return;
+    const transactionId = editCommitContext?.transactionId ?? null;
+    if (!transactionId || lastDerivedTransactionIdRef.current === transactionId) return;
     const persisted = loadPersistedSequencerCrashDiagnostics();
     const lastCommitEntry =
       [...(persisted?.state?.entries ?? [])]
         .reverse()
-        .find((entry) => entry?.type === "event-bar-relative-commit") ?? null;
+        .find(
+          (entry) =>
+            entry?.type === "event-bar-relative-commit" &&
+            entry?.context?.transactionId === transactionId,
+        ) ?? null;
     if (!lastCommitEntry) return;
     const context = lastCommitEntry.context ?? null;
     if (!context?.snapshotId || !context?.kind) return;
@@ -80,6 +95,7 @@ export default function useSequencerPostCommitDiagnostics({
               : false)),
       ) ?? null;
     if (!matchingEvent) return;
+    lastDerivedTransactionIdRef.current = transactionId;
     const barBeat = absolutePositionToBarBeat(
       matchingEvent.absoluteTime,
       sortedBars,
@@ -98,6 +114,11 @@ export default function useSequencerPostCommitDiagnostics({
       detail: "Derived sequencer event after bar-relative commit",
       context: {
         ...context,
+        commitToEffectMs: Math.max(
+          0,
+          performance.now() - (editCommitContext?.committedAtMs ?? performance.now()),
+        ),
+        ...readSequencerDiagnosticMemory(),
         eventRelativeTime: matchingEvent.relativeTime,
         eventAbsoluteTime: matchingEvent.absoluteTime,
         snapshotIndex: (snapshotIndexById.get(matchingEvent.snapshotId) ?? 1) - 1,
@@ -112,6 +133,8 @@ export default function useSequencerPostCommitDiagnostics({
     });
   }, [
     editCommitTick,
+    editCommitContext?.committedAtMs,
+    editCommitContext?.transactionId,
     firstSnapshotCueEventIds,
     sequenceEvents,
     snapshotIndexById,
@@ -129,6 +152,13 @@ export default function useSequencerPostCommitDiagnostics({
       detail: "Derived sequencer UI state after edit commit",
       context: {
         source: "sequencer",
+        transactionId: editCommitContext?.transactionId,
+        commitKind: editCommitContext?.commitKind,
+        commitToEffectMs: Math.max(
+          0,
+          performance.now() - (editCommitContext?.committedAtMs ?? performance.now()),
+        ),
+        ...readSequencerDiagnosticMemory(),
         effectStage: "state",
         selectedSnapshotId,
         activeCueIndex,
@@ -158,6 +188,13 @@ export default function useSequencerPostCommitDiagnostics({
         detail: "Reached first animation frame after edit commit",
         context: {
           source: "sequencer",
+          transactionId: editCommitContext?.transactionId,
+          commitKind: editCommitContext?.commitKind,
+          commitToFrameMs: Math.max(
+            0,
+            performance.now() - (editCommitContext?.committedAtMs ?? performance.now()),
+          ),
+          ...readSequencerDiagnosticMemory(),
           effectStage: "frame",
           selectedSnapshotId,
           activeCueIndex,
@@ -174,6 +211,9 @@ export default function useSequencerPostCommitDiagnostics({
   }, [
     activeCueIndex,
     editCommitTick,
+    editCommitContext?.commitKind,
+    editCommitContext?.committedAtMs,
+    editCommitContext?.transactionId,
     expandedIds,
     playheadStepIndex,
     selectedBarIndex,

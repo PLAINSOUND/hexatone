@@ -78,12 +78,21 @@ const Settings = ({
     }),
     [settings],
   );
+  const effectiveTuningLibrarySettings = useMemo(() => {
+    if (settings.key_labels !== "heji" || !Array.isArray(heji_names) || !heji_names.length) {
+      return settings;
+    }
+    // In HEJI mode the visible labels are derived from the current anchor and
+    // scale. Persist those effective labels rather than an unrelated, stale
+    // note_names array left over from an earlier spelling frame.
+    return { ...settings, note_names: [...heji_names] };
+  }, [heji_names, settings]);
 
   return (
     <div autoComplete="off" role="group" aria-label="Hexatone settings">
       <TuningLibrary
         presetGroups={presetTuningGroups}
-        settings={settings}
+        settings={effectiveTuningLibrarySettings}
         currentModulationLibrary={currentModulationLibrary}
         activeSource={activeSource}
         activePresetName={activePresetName}

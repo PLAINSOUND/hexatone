@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildSequencerLifecycleStartContext,
   bufferSequencerCrashDiagnostics,
   createSequencerCrashDiagnostics,
   flushPersistedSequencerCrashDiagnostics,
+  getActiveSequencerDiagnosticTransaction,
   loadPersistedSequencerCrashDiagnostics,
   pushSequencerCrashDiagnostic,
+  readSequencerDiagnosticMemory,
+  runWithSequencerDiagnosticTransaction,
 } from "./sequencer-crash-diagnostics.js";
 
 afterEach(() => {
@@ -55,6 +59,78 @@ describe("sequencer crash diagnostics", () => {
       targetTop: 240,
       autoScrollEnabled: true,
     });
+  });
+
+  it("preserves transaction, lifecycle, and heap context", () => {
+    const next = pushSequencerCrashDiagnostic(createSequencerCrashDiagnostics(), {
+      type: "sequencer-post-commit-frame",
+      context: {
+        source: "sequencer",
+        transactionId: "event-note-move:1",
+        commitKind: "event-note-move",
+        commitToFrameMs: 18.25,
+        heapUsedBytes: 1234,
+        previousCleanExit: false,
+        wasDiscarded: false,
+      },
+    });
+
+    expect(next.entries[0].context).toMatchObject({
+      transactionId: "event-note-move:1",
+      commitKind: "event-note-move",
+      commitToFrameMs: 18.25,
+      heapUsedBytes: 1234,
+      previousCleanExit: false,
+      wasDiscarded: false,
+    });
+  });
+
+  it("describes an unclean previous lifecycle and available heap metrics", () => {
+    const performanceObject = {
+      now: () => 250,
+      getEntriesByType: () => [{ type: "reload" }],
+      memory: {
+        usedJSHeapSize: 100,
+        totalJSHeapSize: 200,
+        jsHeapSizeLimit: 1000,
+      },
+    };
+    const context = buildSequencerLifecycleStartContext({
+      previousMarker: {
+        pageId: "page:old",
+        cleanExit: false,
+        lastHeartbeatAt: 900,
+      },
+      pageId: "page:new",
+      now: 1000,
+      performanceObject,
+      documentObject: { wasDiscarded: false, visibilityState: "visible" },
+    });
+
+    expect(context).toMatchObject({
+      pageId: "page:new",
+      previousPageId: "page:old",
+      previousLifecyclePresent: true,
+      previousCleanExit: false,
+      navigationType: "reload",
+      wasDiscarded: false,
+      uptimeMs: 250,
+      timeSincePreviousHeartbeatMs: 100,
+      heapUsedBytes: 100,
+      heapTotalBytes: 200,
+      heapLimitBytes: 1000,
+    });
+    expect(readSequencerDiagnosticMemory({})).toEqual({});
+  });
+
+  it("scopes transaction context to synchronous workspace callbacks", () => {
+    const transaction = { transactionId: "event-note-move:1", commitKind: "event-note-move" };
+
+    expect(getActiveSequencerDiagnosticTransaction()).toBeNull();
+    runWithSequencerDiagnosticTransaction(transaction, () => {
+      expect(getActiveSequencerDiagnosticTransaction()).toBe(transaction);
+    });
+    expect(getActiveSequencerDiagnosticTransaction()).toBeNull();
   });
 
   it("batches crash-context persistence and writes only the latest state", () => {
