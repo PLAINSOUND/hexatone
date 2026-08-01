@@ -514,7 +514,8 @@ export function useSequenceVirtualization({
             0,
             visiblePanel.height - anchor.topOffset - anchor.bottomOffset - 6,
           );
-          alignToBottom = rangeBottom - rangeTop > usableHeight;
+          alignToBottom =
+            anchor.alignment === "end" || rangeBottom - rangeTop > usableHeight;
         } else {
           const preferredNode = structuralNodesByKey.get(String(anchor.preferredStructuralKey));
           const preferredRect =

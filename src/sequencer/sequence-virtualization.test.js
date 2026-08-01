@@ -797,6 +797,20 @@ describe("sequence virtualization", () => {
     expect(tempoRow.getBoundingClientRect().top).toBe(6);
     expect(barRow.getBoundingClientRect().bottom).toBe(66);
 
+    act(() =>
+      virtualization.scrollIndexIntoView(20, {
+        align: "end",
+        bottomOffset: 50,
+        targetIndexes: [20],
+        preferredStructuralKey: "tempo:22",
+        targetStructuralKeys: ["tempo:22", "bar:22"],
+      }),
+    );
+
+    expect(scrollTop).toBe(926);
+    expect(tempoRow.getBoundingClientRect().top).toBe(84);
+    expect(barRow.getBoundingClientRect().bottom).toBe(144);
+
     view.unmount();
   });
 

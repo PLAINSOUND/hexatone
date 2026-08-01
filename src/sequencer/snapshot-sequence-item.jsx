@@ -119,6 +119,7 @@ const SnapshotSequenceItem = ({
             dragState.barDragIdRef.current = null;
             return;
           }
+          dragState.stopSnapshotDragAutoscroll?.();
           dragState.setDragOverId(null);
           dragState.setDraggedId(null);
           const side = actions.resolveDropSide(e);
@@ -130,6 +131,7 @@ const SnapshotSequenceItem = ({
           dragState.dragIdRef.current = null;
         }}
         onDragEnd={() => {
+          dragState.stopSnapshotDragAutoscroll?.();
           dragState.setDragOverId(null);
           dragState.setDraggedId(null);
           dragState.setDraggedEventId(null);
@@ -171,6 +173,7 @@ const SnapshotSequenceItem = ({
               e.dataTransfer.effectAllowed = "copyMove";
             }}
             onDragEnd={() => {
+              dragState.stopSnapshotDragAutoscroll?.();
               dragState.setDragOverId(null);
               dragState.setDraggedId(null);
               dragState.dragIdRef.current = null;

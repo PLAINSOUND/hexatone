@@ -34,6 +34,7 @@ import {
 } from "./timed-playback-visual-presenter.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
 import { bottomOcclusionHeight, visibleElementBounds } from "./viewport-geometry.js";
+import { deriveDragAutoscrollVelocity } from "./drag-autoscroll.js";
 import {
   loadSequencerAutoScrollPreference,
   saveSequencerAutoScrollPreference,
@@ -227,6 +228,9 @@ const Sequencer = ({
   const [copyInsertStatus, setCopyInsertStatus] = useState("");
   const [rangeEditUndo, setRangeEditUndo] = useState(null);
   const dragIdRef = useRef(null);
+  const dragAutoscrollFrameRef = useRef(null);
+  const dragAutoscrollPointerYRef = useRef(null);
+  const dragAutoscrollPreviousTimeRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
   const timedVisualCueHandlerRef = useRef(null);
@@ -984,6 +988,61 @@ const Sequencer = ({
     const visiblePanel = visibleElementBounds(scrollPanelRef.current);
     return bottomOcclusionHeight(visiblePanel, sequenceSaveRowRef.current);
   }, [scrollPanelRef]);
+  const stopSnapshotDragAutoscroll = useCallback(() => {
+    if (dragAutoscrollFrameRef.current != null) {
+      window.cancelAnimationFrame(dragAutoscrollFrameRef.current);
+    }
+    dragAutoscrollFrameRef.current = null;
+    dragAutoscrollPointerYRef.current = null;
+    dragAutoscrollPreviousTimeRef.current = null;
+  }, []);
+  const updateSnapshotDragAutoscroll = useCallback(
+    (pointerY) => {
+      if (dragIdRef.current == null || !Number.isFinite(Number(pointerY))) return;
+      dragAutoscrollPointerYRef.current = Number(pointerY);
+      if (dragAutoscrollFrameRef.current != null) return;
+      const step = (timestamp) => {
+        dragAutoscrollFrameRef.current = null;
+        if (dragIdRef.current == null) {
+          stopSnapshotDragAutoscroll();
+          return;
+        }
+        const panel = scrollPanelRef.current;
+        const visiblePanel = visibleElementBounds(panel);
+        if (!(panel instanceof HTMLElement) || visiblePanel == null || visiblePanel.height <= 0) {
+          stopSnapshotDragAutoscroll();
+          return;
+        }
+        const bottomOcclusion = measureSequenceBottomOcclusion();
+        const velocity = deriveDragAutoscrollVelocity({
+          pointerY: dragAutoscrollPointerYRef.current,
+          visibleTop: visiblePanel.top,
+          visibleBottom: Math.max(visiblePanel.top, visiblePanel.bottom - bottomOcclusion),
+        });
+        if (velocity === 0) {
+          dragAutoscrollPreviousTimeRef.current = null;
+          return;
+        }
+        const previousTime = dragAutoscrollPreviousTimeRef.current;
+        const elapsedMs =
+          previousTime == null ? 16 : Math.min(40, Math.max(8, timestamp - previousTime));
+        dragAutoscrollPreviousTimeRef.current = timestamp;
+        const previousTop = panel.scrollTop;
+        const maximumTop = Math.max(0, panel.scrollHeight - panel.clientHeight);
+        const nextTop = Math.max(
+          0,
+          Math.min(maximumTop, previousTop + (velocity * elapsedMs) / 1000),
+        );
+        if (Math.abs(nextTop - previousTop) < 0.25) return;
+        panel.scrollTop = nextTop;
+        dragAutoscrollFrameRef.current = window.requestAnimationFrame(step);
+      };
+      dragAutoscrollFrameRef.current = window.requestAnimationFrame(step);
+    },
+    [measureSequenceBottomOcclusion, scrollPanelRef, stopSnapshotDragAutoscroll],
+  );
+
+  useEffect(() => stopSnapshotDragAutoscroll, [stopSnapshotDragAutoscroll]);
 
   const virtualSequenceItems = useMemo(
     () =>
@@ -1226,11 +1285,14 @@ const Sequencer = ({
       const bar = sortedBars[numericBarIndex] ?? null;
       const virtualIndex = barDisplayBucket(bar?.position);
       if (virtualIndex < 0 || virtualIndex >= renderedSnapshots.length) return false;
+      const alignAtSequenceEnd =
+        virtualIndex === renderedSnapshots.length - 1 &&
+        Number(bar?.position) >= snapshots.length + 1;
       const structuralKeys = structuralScrollKeysAtPosition(bar.position);
       const materializedIndexes = materializeVirtualViewport(virtualIndex);
       releaseVirtualSequenceAnchor();
       return scrollVirtualSequenceIndexIntoView(virtualIndex, {
-        align: "start",
+        align: alignAtSequenceEnd ? "end" : "start",
         topOffset: 6,
         bottomOffset: measureSequenceBottomOcclusion(),
         targetIndexes: [virtualIndex],
@@ -1248,6 +1310,7 @@ const Sequencer = ({
       measureSequenceBottomOcclusion,
       renderedSnapshots.length,
       scrollVirtualSequenceIndexIntoView,
+      snapshots.length,
       sortedBars,
       structuralScrollKeysAtPosition,
       timedPlaybackOwnsViewport,
@@ -1276,12 +1339,14 @@ const Sequencer = ({
         Math.min(renderedSnapshots.length - 1, Math.floor(time) - 1),
       );
       if (renderedSnapshots.length === 0) return false;
+      const alignAtSequenceEnd =
+        snapshotIndex === renderedSnapshots.length - 1 && time >= snapshots.length + 1;
       const structuralKeys = structuralScrollKeysAtPosition(time);
       if (structuralKeys.length === 0) return false;
       const materializedIndexes = materializeVirtualViewport(snapshotIndex);
       releaseVirtualSequenceAnchor();
       return scrollVirtualSequenceIndexIntoView(snapshotIndex, {
-        align: "start",
+        align: alignAtSequenceEnd ? "end" : "start",
         topOffset: 6,
         bottomOffset: measureSequenceBottomOcclusion(),
         targetIndexes: [snapshotIndex],
@@ -1299,6 +1364,7 @@ const Sequencer = ({
       releaseVirtualSequenceAnchor,
       renderedSnapshots.length,
       scrollVirtualSequenceIndexIntoView,
+      snapshots.length,
       structuralScrollKeysAtPosition,
       timedPlaybackOwnsViewport,
     ],
@@ -2783,8 +2849,16 @@ const Sequencer = ({
       setDraggedEventId,
       setDraggedBarId,
       onMoveBar,
+      stopSnapshotDragAutoscroll,
     }),
-    [dragOverId, dragOverSide, draggedId, onMoveBar, snapshotRowRefs],
+    [
+      dragOverId,
+      dragOverSide,
+      draggedId,
+      onMoveBar,
+      snapshotRowRefs,
+      stopSnapshotDragAutoscroll,
+    ],
   );
 
   const sharedStructure = useMemo(
@@ -3261,7 +3335,13 @@ const Sequencer = ({
           terminalSequenceTarget={terminalSequenceTarget}
         />
 
-        <div ref={scrollPanelRef} class="sequencer-scroll-panel">
+        <div
+          ref={scrollPanelRef}
+          class="sequencer-scroll-panel"
+          onDragOver={(event) => {
+            if (dragIdRef.current != null) updateSnapshotDragAutoscroll(event.clientY);
+          }}
+        >
           {snapshots.length === 0 ? (
             <p>
               <em>No snapshots captured yet.</em>
