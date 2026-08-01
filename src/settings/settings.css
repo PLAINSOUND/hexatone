@@ -2481,6 +2481,10 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-copy-block__insert-actions .preset-action-btn {
+  margin-left: 0;
+}
+
+.sequencer-copy-block__insert-actions .preset-action-btn:first-child {
   margin-left: auto;
 }
 

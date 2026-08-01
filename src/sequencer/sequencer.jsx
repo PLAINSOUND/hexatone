@@ -161,6 +161,7 @@ const Sequencer = ({
   onMoveSnapshot,
   onDuplicateSnapshot,
   onInsertSnapshotCopyBlock,
+  onMoveSnapshotRange,
   onResetSnapshotRangeNoteOffsetsInPlace,
   onSetSnapshotRangeArticulation,
   onRestoreSnapshotRangeChanges,
@@ -773,6 +774,64 @@ const Sequencer = ({
       `Inserted ${copiedSnapshotBlock.length} snapshot${copiedSnapshotBlock.length === 1 ? "" : "s"} at slot ${position}.`,
     );
   }, [copiedSnapshotBlock, copyInsertPosition, onInsertSnapshotCopyBlock, snapshots.length]);
+
+  const handleMoveSnapshotBlock = useCallback(() => {
+    if (!copiedSnapshotBlock || copiedSelectionSignature !== currentCopySelectionSignature) {
+      setCopyInsertStatus("Copy the selected snapshot block first.");
+      return;
+    }
+    const position = Math.round(Number(copyInsertPosition) || 0);
+    if (!Number.isFinite(position) || position < 1 || position > snapshots.length + 1) {
+      setCopyInsertStatus("Choose a valid insert slot.");
+      return;
+    }
+    const result = onMoveSnapshotRange?.(
+      {
+        startPosition: copiedSnapshotBlock.range.startPosition,
+        endPosition: copiedSnapshotBlock.range.endPosition,
+        includeBars: copiedSnapshotBlock.includeBars,
+        includeTempi: copiedSnapshotBlock.includeTempi,
+        includeRepeats: copiedSnapshotBlock.includeRepeats,
+      },
+      position,
+    );
+    if (result === "bar-boundary-required") {
+      setCopyInsertStatus(
+        "Bar-inclusive movement must start at a bar marker, the beginning, or the end.",
+      );
+      return;
+    }
+    if (typeof result === "string" && result) {
+      setCopyInsertStatus("Unable to move the copied snapshot block.");
+      return;
+    }
+    const movedPosition = result?.insertionPosition ?? copiedSnapshotBlock.range.startPosition;
+    workspaceMutationViewportRef.current = result?.focus ?? null;
+    if (result?.focus?.kind === "snapshot") {
+      copyRangeSelectionKeyRef.current = JSON.stringify([
+        result.focus.snapshotId,
+        result.focus.snapshotIndex,
+      ]);
+    }
+    setCopyRangeStart(String(movedPosition));
+    setCopyRangeEnd(String(movedPosition + copiedSnapshotBlock.length - 1));
+    setCopyInsertPosition(String(movedPosition));
+    setCopiedSnapshotBlock(null);
+    setCopiedSelectionSignature(null);
+    setRangeEditUndo(null);
+    setCopyInsertStatus(
+      result?.changed === false
+        ? "The copied block is already at that position."
+        : `Moved ${copiedSnapshotBlock.length} snapshot${copiedSnapshotBlock.length === 1 ? "" : "s"} to slot ${movedPosition}.`,
+    );
+  }, [
+    copiedSelectionSignature,
+    copiedSnapshotBlock,
+    copyInsertPosition,
+    currentCopySelectionSignature,
+    onMoveSnapshotRange,
+    snapshots.length,
+  ]);
 
   const { editCommitTick, editCommitContext, notifyEditCommitted, runTransportAction } =
     useEditCommitTransportController({
@@ -3022,12 +3081,24 @@ const Sequencer = ({
           <button
             type="button"
             class="preset-action-btn"
+            onClick={handleMoveSnapshotBlock}
+            disabled={
+              !copiedSnapshotBlock ||
+              copiedSelectionSignature !== currentCopySelectionSignature ||
+              (copiedSnapshotBlock.includeBars && !copyInsertAtBarBoundary)
+            }
+          >
+            Move Copied Range
+          </button>
+          <button
+            type="button"
+            class="preset-action-btn"
             onClick={handleInsertSnapshotBlock}
             disabled={
               !copiedSnapshotBlock || (copiedSnapshotBlock.includeBars && !copyInsertAtBarBoundary)
             }
           >
-            Insert Copied Block
+            Insert Copied Range
           </button>
         </div>
       </fieldset>

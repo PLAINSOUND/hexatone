@@ -104,6 +104,7 @@ import {
   deleteSnapshotFromWorkspace,
   duplicateSnapshotInWorkspace,
   insertSnapshotCopyBlock,
+  moveSnapshotRangeInWorkspace,
   moveSnapshotInWorkspace,
   resetSnapshotRangeNoteOffsetsInWorkspace,
   resetSnapshotDescriptionInWorkspace,
@@ -2774,6 +2775,88 @@ const App = () => {
     ],
   );
 
+  const onMoveSnapshotRange = useCallback(
+    (selection, insertionPosition) => {
+      const snapshotCountBefore = snapshotsRef.current.length;
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-range-move-requested",
+        detail: "Requested move of snapshot range",
+        context: {
+          source: "sequencer",
+          startPosition: selection?.startPosition ?? null,
+          endPosition: selection?.endPosition ?? null,
+          insertionPosition,
+          includeBars: selection?.includeBars === true,
+          includeTempi: selection?.includeTempi === true,
+          includeRepeats: selection?.includeRepeats === true,
+          snapshotCountBefore,
+          selectedSnapshotId,
+          workspaceTab,
+        },
+      });
+      const result = moveSnapshotRangeInWorkspace({
+        snapshots: snapshotsRef.current,
+        bars: sequenceBarsRef.current,
+        tempi: sequenceTempi,
+        repeats: sequenceRepeats,
+        startPosition: selection?.startPosition,
+        endPosition: selection?.endPosition,
+        insertionPosition,
+        includeBars: selection?.includeBars === true,
+        includeTempi: selection?.includeTempi === true,
+        includeRepeats: selection?.includeRepeats === true,
+        selectedSnapshotId,
+        selectedSnapshotMarker,
+        nextSnapshotId: snapshotIdRef.current + 1,
+        nextBarId: sequenceBarIdRef.current,
+      });
+      if (result.error) return result.error;
+      if (!result.changed) return result;
+      snapshotsRef.current = result.snapshots;
+      sequenceBarsRef.current = result.bars;
+      persistSequenceWorkspace({
+        snapshots: result.snapshots,
+        bars: result.bars,
+        tempi: result.tempi,
+        repeats: result.repeats,
+      });
+      setSnapshots(result.snapshots);
+      setSequenceBars(result.bars);
+      setSequenceTempi(result.tempi);
+      setSequenceRepeats(result.repeats);
+      setSelectedSnapshotId(result.selectedSnapshotId);
+      setSelectedSnapshotMarker(result.selectedSnapshotMarker);
+      applySequenceWorkspaceMutationFocus(result);
+      appendPersistedSequencerCrashDiagnostic({
+        type: "snapshot-range-move-applied",
+        detail: "Applied move of snapshot range",
+        context: {
+          source: "sequencer",
+          startPosition: result.range?.startPosition ?? null,
+          endPosition: result.range?.endPosition ?? null,
+          insertionPosition: result.insertionPosition ?? null,
+          includeBars: selection?.includeBars === true,
+          includeTempi: selection?.includeTempi === true,
+          includeRepeats: selection?.includeRepeats === true,
+          snapshotCountBefore,
+          snapshotCountAfter: result.snapshots.length,
+          selectedSnapshotId: result.selectedSnapshotId,
+          workspaceTab,
+        },
+      });
+      return result;
+    },
+    [
+      applySequenceWorkspaceMutationFocus,
+      persistSequenceWorkspace,
+      selectedSnapshotId,
+      selectedSnapshotMarker,
+      sequenceRepeats,
+      sequenceTempi,
+      workspaceTab,
+    ],
+  );
+
   const onResetSnapshotRangeNoteOffsetsInPlace = useCallback(
     (selection) => {
       const snapshotCountBefore = snapshotsRef.current.length;
@@ -4987,6 +5070,7 @@ const App = () => {
               onMoveSnapshot={onMoveSnapshot}
               onDuplicateSnapshot={onDuplicateSnapshot}
               onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
+              onMoveSnapshotRange={onMoveSnapshotRange}
               onResetSnapshotRangeNoteOffsetsInPlace={onResetSnapshotRangeNoteOffsetsInPlace}
               onSetSnapshotRangeArticulation={onSetSnapshotRangeArticulation}
               onRestoreSnapshotRangeChanges={onRestoreSnapshotRangeChanges}

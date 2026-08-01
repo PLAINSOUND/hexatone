@@ -697,8 +697,13 @@ describe("Sequencer", () => {
     await waitFor(() => expect(onCueSequenceSnapshot).toHaveBeenCalledWith(3));
   });
 
-  it("applies articulation to a snapshot range and inserts its copied block", () => {
+  it("applies articulation to a snapshot range and inserts or moves its copied block", () => {
     const onInsertSnapshotCopyBlock = vi.fn(() => null);
+    const onMoveSnapshotRange = vi.fn(() => ({
+      changed: true,
+      insertionPosition: 2,
+      focus: { kind: "snapshot", snapshotId: 1, snapshotIndex: 1, snapshotCount: 3 },
+    }));
     const onSetSnapshotRangeArticulation = vi.fn(() => null);
     const onRestoreSnapshotRangeChanges = vi.fn(() => null);
     const onManualArpeggiationChange = vi.fn();
@@ -773,6 +778,7 @@ describe("Sequencer", () => {
         onMoveSnapshot={vi.fn()}
         onDuplicateSnapshot={vi.fn()}
         onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
+        onMoveSnapshotRange={onMoveSnapshotRange}
         onSetSnapshotRangeArticulation={onSetSnapshotRangeArticulation}
         onRestoreSnapshotRangeChanges={onRestoreSnapshotRangeChanges}
         onUpdateSnapshot={vi.fn()}
@@ -835,6 +841,35 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("copy snapshot range start").value).toBe("4");
     expect(screen.getByLabelText("copy snapshot range end").value).toBe("5");
     expect(screen.getByText("Inserted 2 snapshots at slot 4.")).toBeTruthy();
+
+    fireEvent.input(screen.getByLabelText("copy snapshot range start"), {
+      currentTarget: { value: "1" },
+      target: { value: "1" },
+    });
+    fireEvent.input(screen.getByLabelText("copy snapshot range end"), {
+      currentTarget: { value: "2" },
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Copy Selection" }));
+    const moveButton = screen.getByRole("button", { name: "Move Copied Block" });
+    const insertButton = screen.getByRole("button", { name: "Insert Copied Block" });
+    expect(moveButton.parentElement.children[0]).toBe(moveButton);
+    expect(moveButton.parentElement.children[1]).toBe(insertButton);
+    fireEvent.click(moveButton);
+
+    expect(onMoveSnapshotRange).toHaveBeenCalledWith(
+      {
+        startPosition: 1,
+        endPosition: 2,
+        includeBars: false,
+        includeTempi: false,
+        includeRepeats: false,
+      },
+      4,
+    );
+    expect(screen.getByLabelText("copy snapshot range start").value).toBe("2");
+    expect(screen.getByLabelText("copy snapshot range end").value).toBe("3");
+    expect(screen.getByText("Moved 2 snapshots to slot 2.")).toBeTruthy();
   });
 
   it("renders a derived gradual cue and toggles tempo mode by clicking its label", () => {

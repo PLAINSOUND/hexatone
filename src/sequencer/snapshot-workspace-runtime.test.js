@@ -9,6 +9,7 @@ import {
   duplicateSnapshotInWorkspace,
   insertSnapshotCopyBlock,
   moveSnapshotInWorkspace,
+  moveSnapshotRangeInWorkspace,
   resetSnapshotRangeNoteOffsetsInWorkspace,
   resolveSnapshotCopyRange,
   resetSnapshotDescriptionInWorkspace,
@@ -346,6 +347,88 @@ describe("snapshot workspace runtime", () => {
     expect(result.tempi.map((tempo) => tempo.position)).toEqual([5]);
     expect(result.repeats.map((repeat) => repeat.position)).toEqual([4.5]);
     expect(result.selectedSnapshotId).toBe(20);
+  });
+
+  it("moves a copied range to the right while preserving identities and correcting marker positions", () => {
+    const result = moveSnapshotRangeInWorkspace({
+      snapshots: [1, 2, 3, 4, 5, 6].map((id) => ({ id, description: String(id), notes: [] })),
+      bars: [
+        { id: 10, position: 1, numerator: 4, denominator: 4 },
+        { id: 11, position: 2, numerator: 3, denominator: 4 },
+        { id: 12, position: 4, numerator: 5, denominator: 4 },
+        { id: 13, position: 6, numerator: 2, denominator: 4 },
+      ],
+      tempi: [
+        { id: 20, position: 2.5, bpm: 72 },
+        { id: 21, position: 4.5, bpm: 90 },
+      ],
+      repeats: [
+        { id: 30, position: 3, kind: "end", repeatCount: 2 },
+        { id: 31, position: 5, kind: "start", repeatCount: null },
+      ],
+      startPosition: 2,
+      endPosition: 3,
+      insertionPosition: 6,
+      includeBars: true,
+      includeTempi: true,
+      includeRepeats: true,
+      nextSnapshotId: 7,
+      nextBarId: 13,
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.changed).toBe(true);
+    expect(result.insertionPosition).toBe(4);
+    expect(result.snapshots.map((snapshot) => snapshot.id)).toEqual([1, 4, 5, 2, 3, 6]);
+    expect(result.bars.map(({ id, position }) => ({ id, position }))).toEqual([
+      { id: 10, position: 1 },
+      { id: 12, position: 2 },
+      { id: 11, position: 4 },
+      { id: 13, position: 6 },
+    ]);
+    expect(result.tempi.map(({ id, position }) => ({ id, position }))).toEqual([
+      { id: 21, position: 2.5 },
+      { id: 20, position: 4.5 },
+    ]);
+    expect(result.repeats.map(({ id, position }) => ({ id, position }))).toEqual([
+      { id: 31, position: 3 },
+      { id: 30, position: 5 },
+    ]);
+    expect(result.selectedSnapshotId).toBe(2);
+  });
+
+  it("moves a copied range to the left and treats destinations within it as unchanged", () => {
+    const workspace = {
+      snapshots: [1, 2, 3, 4, 5].map((id) => ({ id, notes: [] })),
+      bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+      tempi: [{ id: 2, position: 3.5, bpm: 80 }],
+      repeats: [{ id: 3, position: 4, kind: "start", repeatCount: null }],
+    };
+    const moved = moveSnapshotRangeInWorkspace({
+      ...workspace,
+      startPosition: 4,
+      endPosition: 5,
+      insertionPosition: 2,
+      nextSnapshotId: 6,
+      nextBarId: 1,
+    });
+
+    expect(moved.snapshots.map((snapshot) => snapshot.id)).toEqual([1, 4, 5, 2, 3]);
+    expect(moved.insertionPosition).toBe(2);
+    expect(moved.tempi.map((tempo) => tempo.position)).toEqual([5.5]);
+    expect(moved.repeats.map((repeat) => repeat.position)).toEqual([6]);
+
+    const unchanged = moveSnapshotRangeInWorkspace({
+      ...workspace,
+      startPosition: 2,
+      endPosition: 3,
+      insertionPosition: 3,
+      nextSnapshotId: 6,
+      nextBarId: 1,
+    });
+    expect(unchanged.changed).toBe(false);
+    expect(unchanged.snapshots).toBe(workspace.snapshots);
+    expect(unchanged.insertionPosition).toBe(2);
   });
 
   it("inserts a bar-bounded copied block with copied bars, tempi, and repeats", () => {
