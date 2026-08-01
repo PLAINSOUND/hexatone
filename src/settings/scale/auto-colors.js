@@ -335,7 +335,16 @@ function inferNotationFamilyKey(label) {
 }
 
 function isPlainWhiteKeySpelling(label) {
-  const hejiTokens = parseExplicitHejiClassificationTokens(label);
+  const sourceTokens = String(label ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const usesOnlyHejiBaseAccidentals =
+    sourceTokens.length > 0 &&
+    sourceTokens.every((token) => /^(?:[\uE260-\uE264]|[\uE2F1\uE2F3])[A-Ga-g]$/u.test(token));
+  const hejiTokens = usesOnlyHejiBaseAccidentals
+    ? parseExplicitHejiClassificationTokens(label)
+    : [];
   if (
     hejiTokens.length > 0 &&
     hejiTokens.every(
@@ -349,7 +358,7 @@ function isPlainWhiteKeySpelling(label) {
   }
   const traditionalTokens = parseTraditionalNotationTokens(label);
   return (
-    traditionalTokens.length > 0 &&
+    traditionalTokens.length === sourceTokens.length &&
     traditionalTokens.every((token) => isWhiteKeyPitchStructure(token))
   );
 }
@@ -1040,6 +1049,7 @@ export function deriveAutoNoteColors(settings, extra = {}) {
     const fallbackColor = storedColors[degreeIndex] ?? "#ffffff";
     const label = (useHeji ? hejiNames[degreeIndex] : noteNames[degreeIndex]) ?? "";
     const degreeMetadata = autoColorOptions.degreeMetadata?.[degreeIndex] ?? null;
+    if (isEqualDivision && isPlainWhiteKeySpelling(label)) return "#ffffff";
     const inheritedNotationColor = inferInheritedNotationPaletteColor(
       label,
       inheritedNotationPaletteMap,

@@ -620,7 +620,7 @@ describe("deriveAutoNoteColors", () => {
       "#cfdad8",
       "#d2cfe1",
       "#ffffff",
-      "#d1d5dd",
+      "#ffffff",
       "#ffffff",
       "#cfdad8",
       "#d2cfe1",
@@ -631,7 +631,7 @@ describe("deriveAutoNoteColors", () => {
       "#cfdad8",
       "#d2cfe1",
       "#ffffff",
-      "#d1d5dd",
+      "#ffffff",
     ]);
   });
 
@@ -846,10 +846,10 @@ describe("deriveAutoNoteColors", () => {
     const workspace = createScaleWorkspace(settings);
     const colors = deriveAutoNoteColors(settings, { workspace });
 
-    expect(colors[1]).toBe("#eff4e7");
+    expect(colors[1]).toBe("#ffffff");
     expect(colors[3]).toBe("#e2dfcf");
-    expect(colors[4]).toBe("#dddae2");
-    expect(colors[30]).toBe("#eee9d3");
+    expect(colors[4]).toBe("#ffffff");
+    expect(colors[30]).toBe("#ffffff");
   });
 
   it("inherits quartertone accidental families and hybrids for 31edo quartertone notation", () => {
@@ -1025,7 +1025,7 @@ describe("deriveAutoNoteColors", () => {
     expect(colors[1]).toBe("#eff4e7");
     expect(colors[3]).toBe("#e2dfcf");
     expect(colors[4]).toBe("#dddae2");
-    expect(colors[30]).toBe("#eee9d3");
+    expect(colors[30]).toBe("#ffffff");
   });
 
   it("inherits triple-rank traditional accidental families for 43edo notation", () => {
@@ -1134,7 +1134,7 @@ describe("deriveAutoNoteColors", () => {
     const workspace = createScaleWorkspace(settings);
     const colors = deriveAutoNoteColors(settings, { workspace });
 
-    expect(colors[1]).toBe("#ffe5e5");
+    expect(colors[1]).toBe("#ffffff");
     expect(colors[5]).toBe("#cee3e2");
     expect(colors[9]).toBe("#e4fbe6");
     expect(colors[10]).toBe("#dee2da");
@@ -1270,10 +1270,10 @@ describe("deriveAutoNoteColors", () => {
     const workspace = createScaleWorkspace(settings);
     const colors = deriveAutoNoteColors(settings, { workspace });
 
-    expect(colors[2]).toBe("#e4fbe6");
-    expect(colors[7]).toBe("#f8ffeb");
-    expect(colors[16]).toBe("#cee3e2");
-    expect(colors[48]).toBe("#cee3e2");
+    expect(colors[2]).toBe("#ffffff");
+    expect(colors[7]).toBe("#ffffff");
+    expect(colors[16]).toBe("#ffffff");
+    expect(colors[48]).toBe("#ffffff");
   });
 
   it("keeps committed auto colours stable when 43edo accidental families are re-derived", () => {
@@ -1551,6 +1551,12 @@ describe("inferNotationRole", () => {
     expect(inferNotationRole("B")).toBe("chromatic");
     expect(inferNotationRole("Fb")).toBe("diatonic");
     expect(inferNotationRole("E#")).toBe("diatonic");
+    expect(inferNotationRole("D")).toBe("diatonic");
+    expect(inferNotationRole("C")).toBe("diatonic");
+    expect(inferNotationRole("F")).toBe("diatonic");
+    expect(inferNotationRole("E")).toBe("diatonic");
+    expect(inferNotationRole("B")).toBe("chromatic");
+    expect(inferNotationRole("C")).toBe("chromatic");
   });
 
   it("keeps traditional white-key enharmonics white in the final EDO palette", () => {
@@ -1572,6 +1578,36 @@ describe("inferNotationRole", () => {
     expect(colors[5]).toBe("#ffffff");
     expect(colors[11]).toBe("#ffffff");
     expect(colors[6]).not.toBe("#ffffff");
+  });
+
+  it("keeps exact and tempered HEJI white-key enharmonics white", () => {
+    const scale = Array.from({ length: 12 }, (_, index) => `${(index + 1) * 100}.0`);
+    const noteNames = [
+      "C",
+      "F",
+      "D",
+      "E",
+      "C",
+      "F",
+      "E",
+      "B",
+      "C",
+      "B",
+      "C",
+      "B",
+    ];
+    const colors = deriveAutoNoteColors({
+      scale,
+      equivSteps: 12,
+      note_names: noteNames,
+      note_colors: noteNames.map(() => "#777777"),
+      key_labels: "note_names",
+      reference_degree: 0,
+      fundamental: 440,
+    });
+
+    for (const degree of [1, 2, 3, 4, 5, 6]) expect(colors[degree]).toBe("#ffffff");
+    for (const degree of [7, 8, 9, 10]) expect(colors[degree]).not.toBe("#ffffff");
   });
 });
 
