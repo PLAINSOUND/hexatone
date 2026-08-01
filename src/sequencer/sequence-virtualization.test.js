@@ -68,6 +68,72 @@ describe("sequence virtualization", () => {
     expect(mountedIndexes).not.toContain(96);
   });
 
+  it("bottom-aligns the measured final sequence group when explicitly targeting the end", () => {
+    const items = Array.from({ length: 40 }, (_, index) => ({
+      key: `item-${index}`,
+      estimatedSize: 30,
+    }));
+    let virtualization = null;
+    function Probe() {
+      const scrollPanelRef = useRef(null);
+      const contentRef = useRef(null);
+      virtualization = useSequenceVirtualization({
+        scrollPanelRef,
+        contentRef,
+        items,
+        pinnedIndexes: [items.length - 1],
+        measureRows: false,
+      });
+      return h(
+        "div",
+        { ref: scrollPanelRef },
+        h(
+          "div",
+          { ref: contentRef },
+          virtualization.layout.rows.map((row) =>
+            row.type === "item"
+              ? h("div", {
+                  key: row.key,
+                  "data-sequence-virtual-index": row.index,
+                })
+              : h("div", { key: row.key }),
+          ),
+        ),
+      );
+    }
+
+    const view = render(h(Probe));
+    const panel = view.container.firstElementChild;
+    const content = panel.firstElementChild;
+    const finalGroup = content.querySelector('[data-sequence-virtual-index="39"]');
+    let scrollTop = 0;
+    Object.defineProperty(panel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(panel, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = value;
+      },
+    });
+    panel.getBoundingClientRect = () => ({ top: 0, bottom: 200, height: 200 });
+    content.getBoundingClientRect = () => ({ top: -scrollTop });
+    finalGroup.getBoundingClientRect = () => ({
+      top: 1170 - scrollTop,
+      bottom: 1200 - scrollTop,
+      height: 30,
+    });
+
+    act(() =>
+      virtualization.scrollIndexIntoView(39, {
+        align: "end",
+        targetIndexes: [39],
+      }),
+    );
+
+    expect(scrollTop).toBe(1006);
+    expect(finalGroup.getBoundingClientRect().bottom).toBe(194);
+  });
+
   it("keeps the largest suffix of recent sounding events that fits", () => {
     expect(
       deriveRecentFittingEventBounds(

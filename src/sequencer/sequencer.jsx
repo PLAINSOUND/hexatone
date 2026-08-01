@@ -948,7 +948,6 @@ const Sequencer = ({
     armPendingCue,
     ensureExpanded,
     resetSequencePlayheadAndScrollTop,
-    jumpSequencePlayheadToEndAndScrollBottom,
     scrollNodeIntoPanel,
     scrollNodesIntoPanel,
     cancelNavigationAutoscroll,
@@ -975,7 +974,6 @@ const Sequencer = ({
     onCueSequenceCue,
     onSelectSequenceBar,
     onResetSequencePlayhead,
-    onJumpSequenceEnd,
     recordTimedTransportDiagnostic,
   });
 
@@ -1164,6 +1162,46 @@ const Sequencer = ({
       timedPlaybackOwnsViewport,
     ],
   );
+  const prepareSequenceEndViewport = useCallback(() => {
+    const lastIndex = renderedSnapshots.length - 1;
+    if (lastIndex < 0) return false;
+    const materializedIndexes = materializeVirtualViewport(lastIndex);
+    releaseVirtualSequenceAnchor();
+    return scrollVirtualSequenceIndexIntoView(lastIndex, {
+      align: "end",
+      targetIndexes: [lastIndex],
+      materializedIndexes,
+      retainedIndexes: materializedIndexes,
+      requireMeasuredLayout: true,
+      applyOnce: true,
+    });
+  }, [
+    materializeVirtualViewport,
+    releaseVirtualSequenceAnchor,
+    renderedSnapshots.length,
+    scrollVirtualSequenceIndexIntoView,
+  ]);
+  const jumpSequencePlayheadToEndAndScrollBottom = useCallback(() => {
+    transportScrollTargetRef.current = "bar";
+    cancelNavigationAutoscroll();
+    // Move into the estimated final window immediately, then let the measured
+    // end-anchor above correct the viewport to the actual last rendered row.
+    const scrollPanel = scrollPanelRef.current;
+    if (scrollPanel instanceof HTMLElement) {
+      scrollPanel.scrollTop = Math.max(
+        0,
+        scrollPanel.scrollHeight - scrollPanel.clientHeight,
+      );
+    }
+    prepareSequenceEndViewport();
+    onJumpSequenceEnd?.();
+  }, [
+    cancelNavigationAutoscroll,
+    onJumpSequenceEnd,
+    prepareSequenceEndViewport,
+    scrollPanelRef,
+    transportScrollTargetRef,
+  ]);
   const prepareBarViewport = useCallback(
     (barIndex) => {
       const numericBarIndex = Number(barIndex);

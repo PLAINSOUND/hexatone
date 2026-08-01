@@ -92,7 +92,6 @@ export default function useSequencerAutoscroll({
   onCueSequenceSnapshot,
   onCueSequenceCue,
   onResetSequencePlayhead,
-  onJumpSequenceEnd,
   recordTimedTransportDiagnostic,
 } = {}) {
   const playbackRowRef = useRef(null);
@@ -589,16 +588,6 @@ export default function useSequencerAutoscroll({
     onResetSequencePlayhead?.();
   }, [onResetSequencePlayhead]);
 
-  const jumpSequencePlayheadToEndAndScrollBottom = useCallback(() => {
-    transportScrollTargetRef.current = "bar";
-    pendingResetScrollTargetRef.current = null;
-    const scrollPanel = scrollPanelRef.current;
-    if (scrollPanel instanceof HTMLElement) {
-      scrollPanel.scrollTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
-    }
-    onJumpSequenceEnd?.();
-  }, [onJumpSequenceEnd]);
-
   return {
     playbackRowRef,
     scrollPanelRef,
@@ -610,7 +599,6 @@ export default function useSequencerAutoscroll({
     armPendingCue,
     ensureExpanded,
     resetSequencePlayheadAndScrollTop,
-    jumpSequencePlayheadToEndAndScrollBottom,
     scrollNodeIntoPanel,
     scrollNodesIntoPanel,
     cancelNavigationAutoscroll: cancelPendingSnapshotAlignment,

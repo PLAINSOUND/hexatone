@@ -564,7 +564,10 @@ export function useSequenceVirtualization({
         const rangeTop = Math.min(...mountedTargetRects.map((rect) => rect.top));
         const rangeBottom = Math.max(...mountedTargetRects.map((rect) => rect.bottom));
         const usableHeight = Math.max(0, visiblePanel.height - anchor.topOffset - 6);
-        if (rangeBottom - rangeTop <= usableHeight) {
+        if (anchor.alignment === "end") {
+          mountedTargetRect = mountedTargetRects.at(-1);
+          alignToBottom = true;
+        } else if (rangeBottom - rangeTop <= usableHeight) {
           mountedTargetRect = topmostRect;
         } else if (anchor.overflowAlignment === "end") {
           const preferredEventNode = [
@@ -817,7 +820,7 @@ export function useSequenceVirtualization({
       const bottom = layoutRef.current?.offsets?.[numeric + 1];
       if (!Number.isFinite(top) || !Number.isFinite(bottom)) return false;
       const viewportHeight = panel.clientHeight || 640;
-      if (align === "start") {
+      if (align === "start" || align === "end") {
         const normalizedTargetIndexes = [
           ...new Set(
             (Array.isArray(targetIndexes) ? targetIndexes : [numeric])
@@ -839,6 +842,7 @@ export function useSequenceVirtualization({
           ),
         ];
         const anchor = {
+          alignment: align,
           preferredIndex: numeric,
           targetIndexes: normalizedTargetIndexes,
           materializedIndexes: normalizedMaterializedIndexes,
