@@ -33,7 +33,6 @@ export function serializeSequenceWorkspace(workspace = {}) {
     activeSequenceSavedName: String(workspace.activeSequenceSavedName ?? ""),
     activeSequenceDescription: String(workspace.activeSequenceDescription ?? ""),
     sequenceLegato: workspace.sequenceLegato !== false,
-    snapSequenceToCurrentTuning: workspace.snapSequenceToCurrentTuning === true,
     sequenceAutoCreateBars: workspace.sequenceAutoCreateBars !== false,
     manualArpeggiation: normalizeManualArpeggiation(workspace.manualArpeggiation),
   };
@@ -56,7 +55,6 @@ export function normalizeSequenceWorkspaceRecord(record) {
     activeSequenceSavedName: String(record.activeSequenceSavedName ?? ""),
     activeSequenceDescription: String(record.activeSequenceDescription ?? ""),
     sequenceLegato: record.sequenceLegato !== false,
-    snapSequenceToCurrentTuning: record.snapSequenceToCurrentTuning === true,
     sequenceAutoCreateBars: record.sequenceAutoCreateBars !== false,
     manualArpeggiation: normalizeManualArpeggiation(record.manualArpeggiation),
   };

@@ -131,7 +131,7 @@ describe("workspace runtime", () => {
       activeSequenceSavedName: "Mine",
       activeSequenceDescription: "saved",
       sequenceLegato: false,
-      snapSequenceToCurrentTuning: true,
+      snapSequenceToCurrentTuning: false,
       sequenceAutoCreateBars: false,
       ids: {
         snapshotId: 2,

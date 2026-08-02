@@ -42,7 +42,7 @@ describe("sequencer session persistence", () => {
       activeSequenceSavedName: "FALL",
       activeSequenceDescription: "demo",
       sequenceLegato: true,
-      snapSequenceToCurrentTuning: false,
+      snapSequenceToCurrentTuning: true,
       sequenceAutoCreateBars: true,
       manualArpeggiation: {
         mode: "per-snapshot",
@@ -85,7 +85,6 @@ describe("sequencer session persistence", () => {
       activeSequenceSavedName: "FALL",
       activeSequenceDescription: "demo",
       sequenceLegato: true,
-      snapSequenceToCurrentTuning: false,
       sequenceAutoCreateBars: true,
       manualArpeggiation: {
         mode: "per-snapshot",

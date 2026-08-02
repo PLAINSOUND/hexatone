@@ -1284,7 +1284,6 @@ const App = () => {
         activeSequenceSavedName,
         activeSequenceDescription,
         sequenceLegato,
-        snapSequenceToCurrentTuning,
         sequenceAutoCreateBars,
         manualArpeggiation,
         ...overrides,
@@ -1302,7 +1301,6 @@ const App = () => {
       manualArpeggiation,
       sequenceRepeats,
       sequenceTempi,
-      snapSequenceToCurrentTuning,
       snapshotLabelMode,
       snapshots,
     ],
@@ -4718,6 +4716,7 @@ const App = () => {
               {snapshots.map((snap, index) => {
                 const isPlaying =
                   snap.id === playingSnapshotId || manualPlayingSnapshotIds.includes(snap.id);
+                const isEmpty = !Array.isArray(snap.notes) || snap.notes.length === 0;
                 const isDragOver = dragOverId === snap.id;
                 return (
                   <div
@@ -4756,8 +4755,11 @@ const App = () => {
                     </span>
                     <button
                       class="snapshot-play-btn"
-                      title="Play snapshot"
-                      aria-label={`Play snapshot ${index + 1}`}
+                      title={isEmpty ? "Empty snapshot" : "Play snapshot"}
+                      aria-label={
+                        isEmpty ? `Snapshot ${index + 1} is empty` : `Play snapshot ${index + 1}`
+                      }
+                      disabled={isEmpty}
                       onPointerDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();

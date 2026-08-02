@@ -82,7 +82,9 @@ export function buildRestoredSequenceWorkspace(restoredSequence) {
     activeSequenceSavedName: String(restoredSequence?.activeSequenceSavedName ?? ""),
     activeSequenceDescription: String(restoredSequence?.activeSequenceDescription ?? ""),
     sequenceLegato: restoredSequence?.sequenceLegato !== false,
-    snapSequenceToCurrentTuning: restoredSequence?.snapSequenceToCurrentTuning === true,
+    // Tuning snap is an audition aid, not part of a saved/restored workspace.
+    // Always reopen at the snapshots' own stored pitches.
+    snapSequenceToCurrentTuning: false,
     sequenceAutoCreateBars: restoredSequence?.sequenceAutoCreateBars !== false,
     manualArpeggiation: normalizeManualArpeggiation(restoredSequence?.manualArpeggiation),
     ids,
