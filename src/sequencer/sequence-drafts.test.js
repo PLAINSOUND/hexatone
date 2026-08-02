@@ -40,6 +40,33 @@ describe("sequencer sequence drafts", () => {
     });
   });
 
+  it("keeps an edited snapshot number while the offset is subsequently adjusted", () => {
+    const meta = { snapshotNumber: 2, relativeTime: 0.5, snapshotId: "s2" };
+    const moved = updateEventSequenceDrafts(
+      {},
+      {
+        draftKey: "s2:e1:attack",
+        field: "snapshotNumber",
+        value: "1",
+        meta,
+        snapshotCount: 3,
+      },
+    );
+    const adjusted = updateEventSequenceDrafts(moved, {
+      draftKey: "s2:e1:attack",
+      field: "offset",
+      value: "1.250000",
+      meta,
+      snapshotCount: 3,
+    });
+
+    expect(adjusted["s2:e1:attack"]).toMatchObject({
+      snapshotNumber: "1",
+      offset: "1.250000",
+      snapshotId: "s2",
+    });
+  });
+
   it("normalizes bar-relative drafts when bar changes and preserves numerator when beat changes", () => {
     expect(
       buildBarRelativeDraft({ barNumber: 2, beat: 3, numerator: 5, denominator: 8 }, "bar"),

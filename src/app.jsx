@@ -148,7 +148,6 @@ import {
   applyPlaybackPitchOffsetToNotes,
   clampSequencePlaybackPitchCents,
   clampSequencePlaybackSpeed,
-  shouldRetuneSequencePlaybackInPlace,
 } from "./sequencer/playback-modifiers-runtime.js";
 import { advanceCueIndexWithRepeats } from "./sequencer/repeat-playback-runtime.js";
 import { buildDependencyToken } from "./sequencer/dependency-token.js";
@@ -1041,8 +1040,10 @@ const App = () => {
   const modulationPaletteDragRef = useRef(null);
   const modulationPaletteUserMovedRef = useRef(false);
   const snapshotPaletteRef = useRef(null);
+  const snapshotPaletteBodyRef = useRef(null);
   const snapshotPaletteDragRef = useRef(null);
   const snapshotPaletteUserMovedRef = useRef(false);
+  const previousSnapshotPaletteCollapsedRef = useRef(snapshotPaletteCollapsed);
 
   useEffect(() => {
     snapshotsRef.current = snapshots;
@@ -1051,6 +1052,25 @@ const App = () => {
   useEffect(() => {
     sequenceBarsRef.current = sequenceBars;
   }, [sequenceBars]);
+
+  useEffect(() => {
+    const wasCollapsed = previousSnapshotPaletteCollapsedRef.current;
+    previousSnapshotPaletteCollapsedRef.current = snapshotPaletteCollapsed;
+    if (!wasCollapsed || snapshotPaletteCollapsed) return;
+
+    const soundingSnapshotId = manualPlayingSnapshotIds.at(-1) ?? playingSnapshotId;
+    const body = snapshotPaletteBodyRef.current;
+    if (soundingSnapshotId == null || !body) return;
+    const row = [...body.querySelectorAll(".snapshot-row")].find(
+      (candidate) => candidate.dataset.snapshotId === String(soundingSnapshotId),
+    );
+    if (!row) return;
+
+    const bodyRect = body.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    const rowTop = rowRect.top - bodyRect.top + body.scrollTop;
+    body.scrollTop = Math.max(0, rowTop - (body.clientHeight - rowRect.height) / 2);
+  }, [manualPlayingSnapshotIds, playingSnapshotId, snapshotPaletteCollapsed]);
 
   const appendSequenceSnapshot = useCallback(
     (notes = []) => {
@@ -1782,26 +1802,18 @@ const App = () => {
       sequencePlayhead.markerIndex,
     );
     if (currentNotes.length > 0) {
-      if (
-        shouldRetuneSequencePlaybackInPlace({
-          sequenceLegato,
-          snapSequenceToCurrentTuning,
-        })
-      ) {
-        const retunedHexes = retuneSnapshotHexes(keysRef.current, currentNotes, {
-          bendOnly: true,
-          sequencePitch: true,
-          pitchOffsetCents: sequencePlaybackPitchOffset,
-        });
-        retuneActiveSnapshotHexes(keysRef.current, sequencePlaybackPitchOffset, {
-          skipHexes: retunedHexes,
-        });
-      } else {
-        keysRef.current?.playSnapshot(currentNotes, {
-          legato: false,
-          pitchOffsetCents: sequencePlaybackPitchOffset,
-        });
-      }
+      // SNAP and playback-pitch changes only alter the tuning of the notes at
+      // the current playhead position. Keep their existing voice instances so
+      // toggling either modifier bends smoothly instead of rearticulating the
+      // snapshot. Sequence Legato still governs transitions between cues.
+      const retunedHexes = retuneSnapshotHexes(keysRef.current, currentNotes, {
+        bendOnly: true,
+        sequencePitch: true,
+        pitchOffsetCents: sequencePlaybackPitchOffset,
+      });
+      retuneActiveSnapshotHexes(keysRef.current, sequencePlaybackPitchOffset, {
+        skipHexes: retunedHexes,
+      });
     } else {
       keysRef.current?.stopSnapshot();
     }
@@ -4680,9 +4692,29 @@ const App = () => {
                 aria-hidden="true"
               />
             </button>
+            {!snapshotPaletteCollapsed && (
+              <label
+                className="snapshot-palette-snap-toggle"
+                title="Retune saved snapshots to the nearest pitches in the current tuning"
+                onPointerDown={(e) => {
+                  // The rest of the header is the palette drag handle. Keep the
+                  // checkbox interactive without beginning a palette drag.
+                  e.stopPropagation();
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  checked={snapSequenceToCurrentTuning}
+                  aria-label="Snap palette snapshots to current tuning"
+                  onChange={(e) => setSnapSequenceToCurrentTuning(e.currentTarget.checked)}
+                />
+                <span>Snap to current tuning</span>
+              </label>
+            )}
           </div>
           {!snapshotPaletteCollapsed && (
-            <div className="snapshot-palette-body">
+            <div className="snapshot-palette-body" ref={snapshotPaletteBodyRef}>
               {snapshots.map((snap, index) => {
                 const isPlaying =
                   snap.id === playingSnapshotId || manualPlayingSnapshotIds.includes(snap.id);
@@ -4690,6 +4722,7 @@ const App = () => {
                 return (
                   <div
                     key={snap.id}
+                    data-snapshot-id={String(snap.id)}
                     class={`snapshot-row${isPlaying ? " snapshot-playing" : ""}${isDragOver ? " snapshot-drag-over" : ""}`}
                     draggable={true}
                     onDragStart={(e) => {

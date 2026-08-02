@@ -652,6 +652,7 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 9.8rem;
   min-width: 9.8rem;
   max-width: min(15.75rem, calc(100vw - 1rem));
   max-height: calc(62vh);
@@ -673,8 +674,36 @@ a:hover {
   }
 }
 
-.snapshot-palette-header {
+#snapshot-palette .snapshot-palette-header {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  row-gap: 0.35px;
   color: #7f2525;
+}
+
+.snapshot-palette-snap-toggle {
+  display: flex;
+  flex: 0 0 100%;
+  align-items: center;
+  gap: 0.38rem;
+  box-sizing: border-box;
+  padding: 0 0 0.25rem 1rem;
+  color: #6f3737;
+  font-size: 0.82em;
+  font-weight: 400;
+  line-height: 1.15;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.snapshot-palette-snap-toggle input[type="checkbox"] {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  flex: 0 0 auto;
 }
 
 .snapshot-palette-body {
@@ -682,6 +711,7 @@ a:hover {
   flex-direction: column;
   flex: 1 1 auto;
   gap: 4px;
+  margin-top: 0.22rem;
   min-height: 0;
   max-height: none;
   overflow-y: auto;

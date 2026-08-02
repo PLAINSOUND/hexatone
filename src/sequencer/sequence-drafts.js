@@ -50,8 +50,11 @@ export function updateEventSequenceDrafts(drafts, { draftKey, field, value, meta
   return {
     ...drafts,
     [draftKey]: {
-      ...current,
       ...meta,
+      // Row metadata describes the committed event and therefore still carries
+      // its original snapshot number. Keep the live draft authoritative when
+      // another placement field is edited before commit.
+      ...current,
       draftKey,
       scope: `event-sequence:${draftKey}`,
       [field]: value,

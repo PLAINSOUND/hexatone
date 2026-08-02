@@ -73,13 +73,6 @@ export function formatSequencePlaybackPitchCourtesy(value) {
   return `${sign}${cents.toFixed(1)}¢`;
 }
 
-export function shouldRetuneSequencePlaybackInPlace({
-  sequenceLegato,
-  snapSequenceToCurrentTuning,
-}) {
-  return sequenceLegato === true && snapSequenceToCurrentTuning !== true;
-}
-
 function frequencyFromMidicents(midicents) {
   const pitch = Number(midicents);
   if (!Number.isFinite(pitch)) return null;

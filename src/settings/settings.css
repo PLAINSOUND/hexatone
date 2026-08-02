@@ -1354,8 +1354,10 @@ td.scale-color-col .color-input {
 .sequencer-item {
   --sequencer-delete-col: 1.15em;
   --sequencer-number-col: 1.55em;
-  --sequencer-event-snapshot-col: var(--sequencer-event-value-col);
-  --sequencer-event-position-col: minmax(0, 1.36fr);
+  /* Keep SNAP legible into three-digit sequences without widening the table:
+     its extra share is transferred directly from OFFSET. */
+  --sequencer-event-snapshot-col: minmax(0, 1.02fr);
+  --sequencer-event-position-col: minmax(0, 1.16fr);
   --sequencer-event-kind-col: minmax(0, 0.44fr);
   --sequencer-event-pitch-col: minmax(0, 1fr);
   --sequencer-event-value-col: minmax(0, 0.82fr);
@@ -4428,8 +4430,8 @@ td.scale-color-col .color-input {
 @media (max-width: 480px) and (orientation: portrait) {
   .sequencer-item {
     --sequencer-number-col: 1.35em;
-    --sequencer-event-snapshot-col: 2.15em;
-    --sequencer-event-position-col: 3.45em;
+    --sequencer-event-snapshot-col: 2.7em;
+    --sequencer-event-position-col: 2.9em;
     --sequencer-event-kind-col: 1.55em;
     --sequencer-event-pitch-col: 3.1em;
     --sequencer-event-value-col: 2.2em;

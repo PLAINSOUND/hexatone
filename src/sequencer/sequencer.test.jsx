@@ -3813,11 +3813,18 @@ describe("Sequencer", () => {
       currentTarget: { value: "1" },
       target: { value: "1" },
     });
+    fireEvent.focus(screen.getByLabelText("snapshot 2 attack offset"));
+    expect(screen.getByLabelText("snapshot 2 attack offset").value).toBe("1.500000");
+    fireEvent.input(screen.getByLabelText("snapshot 2 attack offset"), {
+      currentTarget: { value: "1.250000" },
+      target: { value: "1.250000" },
+    });
+    expect(screen.getByLabelText("snapshot 2 attack snapshot").value).toBe("1");
     fireEvent.click(screen.getByLabelText("commit snapshot 2 attack sequence placement"));
 
     expect(screen.queryByLabelText("snapshot 2 attack snapshot")).toBeNull();
     expect(screen.getByLabelText("snapshot 1 attack snapshot").value).toBe("1");
-    expect(screen.getByLabelText("snapshot 1 attack offset").value).toBe("1.500");
+    expect(screen.getByLabelText("snapshot 1 attack offset").value).toBe("1.250");
   });
 
   it("moves an anonymous captured event to another snapshot without duplicating it", () => {

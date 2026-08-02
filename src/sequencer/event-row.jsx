@@ -63,6 +63,11 @@ const renderCueTransport = ({
   </span>
 );
 
+export function shouldShowCourtesyCueDot(cueIndex) {
+  const displayedCueNumber = Number(cueIndex);
+  return !Number.isFinite(displayedCueNumber) || Math.abs(Math.trunc(displayedCueNumber)) < 1000;
+}
+
 const renderCueMarker = ({ snapshot, event, sequenceTime, firstSnapshotCueEventIds }) => {
   if (event.cueDisplayLead) {
     return (
@@ -92,7 +97,9 @@ const renderCueMarker = ({ snapshot, event, sequenceTime, firstSnapshotCueEventI
           <span class="sequencer-event__cue-number">{event.cueIndex}</span>
           <span class="sequencer-event__cue-bracket">)</span>
         </span>
-        <span class="sequencer-event__cue-dot" aria-hidden="true" />
+        {shouldShowCourtesyCueDot(event.cueIndex) ? (
+          <span class="sequencer-event__cue-dot" aria-hidden="true" />
+        ) : null}
       </span>
     </span>
   );
