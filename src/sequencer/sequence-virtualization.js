@@ -10,7 +10,17 @@ export const SEQUENCE_VIRTUALIZATION_PLAYBACK_OVERSCAN_PX = 900;
 export const SEQUENCE_VIRTUALIZATION_EDITING_OVERSCAN_PX = 1800;
 export const SEQUENCE_VIRTUALIZATION_OVERSCAN_PX = SEQUENCE_VIRTUALIZATION_PLAYBACK_OVERSCAN_PX;
 
-export function sequenceVirtualizationMode(timedPlaybackOwnsViewport = false) {
+export function sequenceVirtualizationMode(
+  timedPlaybackOwnsViewport = false,
+  snapshotDragActive = false,
+) {
+  if (snapshotDragActive) {
+    return {
+      name: "dragging",
+      measureRows: false,
+      overscan: SEQUENCE_VIRTUALIZATION_PLAYBACK_OVERSCAN_PX,
+    };
+  }
   return timedPlaybackOwnsViewport
     ? {
         name: "playback",

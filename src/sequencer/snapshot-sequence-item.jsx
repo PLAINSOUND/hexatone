@@ -13,6 +13,10 @@ import {
   effectiveManualSnapshotArticulation,
   normalizeManualSnapshotTrigger,
 } from "./manual-snapshot-arpeggiation.js";
+import {
+  appendPersistedSequencerCrashDiagnostic,
+  readSequencerDiagnosticMemory,
+} from "../debug/sequencer-crash-diagnostics.js";
 
 const SnapshotSequenceItem = ({
   snapshot,
@@ -40,6 +44,29 @@ const SnapshotSequenceItem = ({
   );
   const manualArticulationEditable = manualArpeggiationMode === "per-snapshot";
   const snapshotEvents = structure.snapshotEventsById.get(snapshot.id) ?? [];
+  const recordSnapshotDrag = (dragStage, event, targetSnapshotId = null) => {
+    const panel = event?.currentTarget?.closest?.(".sequencer-scroll-panel");
+    appendPersistedSequencerCrashDiagnostic(
+      {
+        type: `snapshot-drag-${dragStage}`,
+        detail: `Snapshot drag ${dragStage}`,
+        context: {
+          source: "sequencer",
+          snapshotId: dragState.dragIdRef.current ?? snapshot.id,
+          targetSnapshotId,
+          snapshotIndex: index,
+          captureNoteCount: snapshot.notes.length,
+          dragStage,
+          pointerY: event?.clientY,
+          scrollTop: panel?.scrollTop,
+          duplicate: event?.altKey === true,
+          ...readSequencerDiagnosticMemory(),
+        },
+      },
+      globalThis.sessionStorage,
+      { immediate: true },
+    );
+  };
   const snapshotStructuralKeys = new Set(
     snapshotEvents
       .filter(
@@ -111,15 +138,18 @@ const SnapshotSequenceItem = ({
             dragState.setDragOverId(null);
             dragState.setDraggedEventId(null);
             dragState.eventDragRef.current = null;
+            dragState.settleDragRendering?.();
             return;
           }
           if (dragState.barDragIdRef.current != null) {
             dragState.onMoveBar?.(dragState.barDragIdRef.current, index + 1);
             dragState.setDraggedBarId(null);
             dragState.barDragIdRef.current = null;
+            dragState.settleDragRendering?.();
             return;
           }
           dragState.stopSnapshotDragAutoscroll?.();
+          recordSnapshotDrag("drop", e, snapshot.id);
           dragState.setDragOverId(null);
           dragState.setDraggedId(null);
           const side = actions.resolveDropSide(e);
@@ -129,14 +159,17 @@ const SnapshotSequenceItem = ({
             else actions.onMoveSnapshot(dragState.dragIdRef.current, snapshot.id, side);
           }
           dragState.dragIdRef.current = null;
+          dragState.settleDragRendering?.();
         }}
         onDragEnd={() => {
+          recordSnapshotDrag("end", null);
           dragState.stopSnapshotDragAutoscroll?.();
           dragState.setDragOverId(null);
           dragState.setDraggedId(null);
           dragState.setDraggedEventId(null);
           dragState.dragIdRef.current = null;
           dragState.eventDragRef.current = null;
+          dragState.settleDragRendering?.();
         }}
       >
         <div
@@ -171,12 +204,14 @@ const SnapshotSequenceItem = ({
               dragState.dragIdRef.current = snapshot.id;
               dragState.setDraggedId(snapshot.id);
               e.dataTransfer.effectAllowed = "copyMove";
+              recordSnapshotDrag("start", e);
             }}
             onDragEnd={() => {
               dragState.stopSnapshotDragAutoscroll?.();
               dragState.setDragOverId(null);
               dragState.setDraggedId(null);
               dragState.dragIdRef.current = null;
+              dragState.settleDragRendering?.();
             }}
           >
             <span class="sequencer-gutter__number">{index + 1}</span>

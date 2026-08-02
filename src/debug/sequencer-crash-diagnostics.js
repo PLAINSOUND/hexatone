@@ -150,6 +150,10 @@ function normalizeContext(context) {
     snapshotIndex: Number.isFinite(Number(context.snapshotIndex))
       ? Number(context.snapshotIndex)
       : null,
+    fromPosition: Number.isFinite(Number(context.fromPosition))
+      ? Number(context.fromPosition)
+      : null,
+    toPosition: Number.isFinite(Number(context.toPosition)) ? Number(context.toPosition) : null,
     cueIndex: Number.isFinite(Number(context.cueIndex)) ? Number(context.cueIndex) : null,
     currentCueIndex: Number.isFinite(Number(context.currentCueIndex))
       ? Number(context.currentCueIndex)
@@ -181,6 +185,17 @@ function normalizeContext(context) {
     commitToFrameMs: roundMetric(context.commitToFrameMs, 3),
     uptimeMs: roundMetric(context.uptimeMs, 3),
     timeSincePreviousHeartbeatMs: roundMetric(context.timeSincePreviousHeartbeatMs, 3),
+    previousHeartbeatHeapUsedBytes: Number.isFinite(Number(context.previousHeartbeatHeapUsedBytes))
+      ? Number(context.previousHeartbeatHeapUsedBytes)
+      : null,
+    previousHeartbeatHeapTotalBytes: Number.isFinite(
+      Number(context.previousHeartbeatHeapTotalBytes),
+    )
+      ? Number(context.previousHeartbeatHeapTotalBytes)
+      : null,
+    previousPeakHeapUsedBytes: Number.isFinite(Number(context.previousPeakHeapUsedBytes))
+      ? Number(context.previousPeakHeapUsedBytes)
+      : null,
     heapUsedBytes: Number.isFinite(Number(context.heapUsedBytes))
       ? Number(context.heapUsedBytes)
       : null,
@@ -196,6 +211,11 @@ function normalizeContext(context) {
     effectStage: context.effectStage == null ? null : String(context.effectStage),
     targetKind: context.targetKind == null ? null : String(context.targetKind),
     targetKey: context.targetKey == null ? null : String(context.targetKey),
+    dragStage: context.dragStage == null ? null : String(context.dragStage),
+    pointerY: roundMetric(context.pointerY),
+    scrollVelocity: roundMetric(context.scrollVelocity),
+    scrollDelta: roundMetric(context.scrollDelta),
+    dragDurationMs: roundMetric(context.dragDurationMs, 3),
     cueDisplayLead: context.cueDisplayLead === true,
     courtesyStart: context.courtesyStart === true,
     duplicate: context.duplicate === true,
@@ -419,6 +439,9 @@ export function buildSequencerLifecycleStartContext({
     timeSincePreviousHeartbeatMs: Number.isFinite(previousHeartbeatAt)
       ? Math.max(0, now - previousHeartbeatAt)
       : null,
+    previousHeartbeatHeapUsedBytes: Number(previousMarker?.lastMemory?.heapUsedBytes),
+    previousHeartbeatHeapTotalBytes: Number(previousMarker?.lastMemory?.heapTotalBytes),
+    previousPeakHeapUsedBytes: Number(previousMarker?.peakHeapUsedBytes),
     ...readSequencerDiagnosticMemory(performanceObject),
   };
 }
@@ -439,7 +462,10 @@ function startSequencerCrashLifecycleDiagnostics() {
     startedAt: now,
     lastHeartbeatAt: now,
     cleanExit: false,
+    lastMemory: readSequencerDiagnosticMemory(),
+    peakHeapUsedBytes: null,
   };
+  marker.peakHeapUsedBytes = marker.lastMemory.heapUsedBytes ?? null;
   writeLifecycleMarker(marker, storage);
   appendPersistedSequencerCrashDiagnostic(
     {
@@ -463,6 +489,11 @@ function startSequencerCrashLifecycleDiagnostics() {
   stopLifecycleHeartbeat();
   lifecycleHeartbeatTimer = globalThis.setInterval?.(() => {
     marker.lastHeartbeatAt = Date.now();
+    marker.lastMemory = readSequencerDiagnosticMemory();
+    const heapUsedBytes = Number(marker.lastMemory.heapUsedBytes);
+    if (Number.isFinite(heapUsedBytes)) {
+      marker.peakHeapUsedBytes = Math.max(Number(marker.peakHeapUsedBytes) || 0, heapUsedBytes);
+    }
     writeLifecycleMarker(marker, storage);
   }, SEQUENCER_CRASH_HEARTBEAT_INTERVAL_MS);
   pageHideListener = () => {

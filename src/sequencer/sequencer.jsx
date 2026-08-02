@@ -213,6 +213,7 @@ const Sequencer = ({
   const [draggedId, setDraggedId] = useState(null);
   const [draggedBarId, setDraggedBarId] = useState(null);
   const [draggedEventId, setDraggedEventId] = useState(null);
+  const [dragRenderSettling, setDragRenderSettling] = useState(false);
   const [eventPane, setEventPane] = useState("timing");
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(loadSequencerAutoScrollPreference);
   const [cueViewportTransaction, setCueViewportTransaction] = useState(null);
@@ -233,6 +234,10 @@ const Sequencer = ({
   const dragAutoscrollFrameRef = useRef(null);
   const dragAutoscrollPointerYRef = useRef(null);
   const dragAutoscrollPreviousTimeRef = useRef(null);
+  const dragAutoscrollDiagnosticActiveRef = useRef(false);
+  const dragAutoscrollDiagnosticStartedAtRef = useRef(null);
+  const dragAutoscrollDiagnosticStartTopRef = useRef(null);
+  const dragRenderSettlementFrameRef = useRef(null);
   const barDragIdRef = useRef(null);
   const eventDragRef = useRef(null);
   const timedVisualCueHandlerRef = useRef(null);
@@ -1040,7 +1045,38 @@ const Sequencer = ({
     dragAutoscrollFrameRef.current = null;
     dragAutoscrollPointerYRef.current = null;
     dragAutoscrollPreviousTimeRef.current = null;
-  }, []);
+    if (dragAutoscrollDiagnosticActiveRef.current) {
+      const panel = scrollPanelRef.current;
+      const currentTop = panel instanceof HTMLElement ? panel.scrollTop : null;
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "snapshot-drag-edge-scroll-stopped",
+          detail: "Stopped snapshot drag edge scrolling",
+          context: {
+            source: "sequencer",
+            snapshotId: dragIdRef.current,
+            dragStage: "edge-scroll-stopped",
+            scrollTop: currentTop,
+            scrollDelta:
+              currentTop == null || dragAutoscrollDiagnosticStartTopRef.current == null
+                ? null
+                : currentTop - dragAutoscrollDiagnosticStartTopRef.current,
+            dragDurationMs:
+              dragAutoscrollDiagnosticStartedAtRef.current == null
+                ? null
+                : performance.now() - dragAutoscrollDiagnosticStartedAtRef.current,
+            snapshotCountBefore: snapshots.length,
+            ...readSequencerDiagnosticMemory(),
+          },
+        },
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
+    }
+    dragAutoscrollDiagnosticActiveRef.current = false;
+    dragAutoscrollDiagnosticStartedAtRef.current = null;
+    dragAutoscrollDiagnosticStartTopRef.current = null;
+  }, [scrollPanelRef, snapshots.length]);
   const updateSnapshotDragAutoscroll = useCallback(
     (pointerY) => {
       if (dragIdRef.current == null || !Number.isFinite(Number(pointerY))) return;
@@ -1073,6 +1109,29 @@ const Sequencer = ({
           previousTime == null ? 16 : Math.min(40, Math.max(8, timestamp - previousTime));
         dragAutoscrollPreviousTimeRef.current = timestamp;
         const previousTop = panel.scrollTop;
+        if (!dragAutoscrollDiagnosticActiveRef.current) {
+          dragAutoscrollDiagnosticActiveRef.current = true;
+          dragAutoscrollDiagnosticStartedAtRef.current = performance.now();
+          dragAutoscrollDiagnosticStartTopRef.current = previousTop;
+          appendPersistedSequencerCrashDiagnostic(
+            {
+              type: "snapshot-drag-edge-scroll-started",
+              detail: "Started snapshot drag edge scrolling",
+              context: {
+                source: "sequencer",
+                snapshotId: dragIdRef.current,
+                dragStage: "edge-scroll-started",
+                pointerY: dragAutoscrollPointerYRef.current,
+                scrollTop: previousTop,
+                scrollVelocity: velocity,
+                snapshotCountBefore: snapshots.length,
+                ...readSequencerDiagnosticMemory(),
+              },
+            },
+            globalThis.sessionStorage,
+            { immediate: true },
+          );
+        }
         const maximumTop = Math.max(0, panel.scrollHeight - panel.clientHeight);
         const nextTop = Math.max(
           0,
@@ -1084,10 +1143,32 @@ const Sequencer = ({
       };
       dragAutoscrollFrameRef.current = window.requestAnimationFrame(step);
     },
-    [measureSequenceBottomOcclusion, scrollPanelRef, stopSnapshotDragAutoscroll],
+    [measureSequenceBottomOcclusion, scrollPanelRef, snapshots.length, stopSnapshotDragAutoscroll],
   );
 
   useEffect(() => stopSnapshotDragAutoscroll, [stopSnapshotDragAutoscroll]);
+
+  const settleDragRendering = useCallback(() => {
+    setDragRenderSettling(true);
+    if (dragRenderSettlementFrameRef.current != null) {
+      window.cancelAnimationFrame(dragRenderSettlementFrameRef.current);
+    }
+    dragRenderSettlementFrameRef.current = window.requestAnimationFrame(() => {
+      dragRenderSettlementFrameRef.current = window.requestAnimationFrame(() => {
+        dragRenderSettlementFrameRef.current = null;
+        setDragRenderSettling(false);
+      });
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (dragRenderSettlementFrameRef.current != null) {
+        window.cancelAnimationFrame(dragRenderSettlementFrameRef.current);
+      }
+    },
+    [],
+  );
 
   const virtualSequenceItems = useMemo(
     () =>
@@ -1176,7 +1257,10 @@ const Sequencer = ({
     selectedSnapshotId,
     sortedBars,
   ]);
-  const virtualSequenceMode = sequenceVirtualizationMode(timedPlaybackOwnsViewport);
+  const virtualSequenceMode = sequenceVirtualizationMode(
+    timedPlaybackOwnsViewport,
+    draggedId != null || draggedEventId != null || draggedBarId != null || dragRenderSettling,
+  );
   const sequenceVirtualization = useSequenceVirtualization({
     scrollPanelRef,
     contentRef: virtualSequenceListRef,
@@ -2898,6 +2982,7 @@ const Sequencer = ({
       setDraggedEventId,
       setDraggedBarId,
       onMoveBar,
+      settleDragRendering,
       stopSnapshotDragAutoscroll,
     }),
     [
@@ -2905,6 +2990,7 @@ const Sequencer = ({
       dragOverSide,
       draggedId,
       onMoveBar,
+      settleDragRendering,
       snapshotRowRefs,
       stopSnapshotDragAutoscroll,
     ],

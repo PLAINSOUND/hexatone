@@ -109,6 +109,7 @@ export default function useSequencerAutoscroll({
   const lastScrollInputAtRef = useRef(0);
   const awaitingScrollResponseRef = useRef(false);
   const lastObservedScrollTopRef = useRef(0);
+  const lastRecordedScrollResponseAtRef = useRef(0);
   const pendingAutoScrollFrameRef = useRef(null);
   const pendingSnapshotAnchorFrameRef = useRef(null);
   const pendingSnapshotAnchorIdRef = useRef(null);
@@ -453,10 +454,14 @@ export default function useSequencerAutoscroll({
       lastObservedScrollTopRef.current = nextScrollTop;
       if (!awaitingScrollResponseRef.current) return;
       awaitingScrollResponseRef.current = false;
+      const latencyMs = now - lastScrollInputAtRef.current;
+      const periodicSampleDue = now - lastRecordedScrollResponseAtRef.current >= 2000;
+      if (latencyMs < 16 && !periodicSampleDue) return;
+      lastRecordedScrollResponseAtRef.current = now;
       appendPersistedSequenceRuntimeDiagnostic({
         type: "scroll-hitch",
         step: "sequencer-scroll-response",
-        latencyMs: now - lastScrollInputAtRef.current,
+        latencyMs,
         scrollTop: nextScrollTop,
         detail:
           delta > 0 ? "first scroll response after input" : "scroll input without position change",

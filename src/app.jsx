@@ -122,6 +122,7 @@ import {
 } from "./debug/sequence-runtime-diagnostics.js";
 import {
   appendPersistedSequencerCrashDiagnostic,
+  createSequencerDiagnosticTransactionId,
   getActiveSequencerDiagnosticTransaction,
   isSequencerCrashDiagnosticsEnabled,
   loadPersistedSequencerCrashDiagnostics,
@@ -1446,6 +1447,8 @@ const App = () => {
     if (!lastEntry) return;
     if (
       lastEntry.type !== "snapshot-update-applied" &&
+      lastEntry.type !== "snapshot-move-applied" &&
+      lastEntry.type !== "snapshot-range-move-applied" &&
       lastEntry.type !== "event-bar-relative-update-dispatched"
     ) {
       return;
@@ -2761,9 +2764,66 @@ const App = () => {
 
   const onMoveSnapshot = useCallback(
     (fromId, toId, side = "before") => {
-      setSnapshots(moveSnapshotInWorkspace({ snapshots, fromId, toId, side }));
+      const currentSnapshots = snapshotsRef.current;
+      const fromIndex = currentSnapshots.findIndex((snapshot) => snapshot.id === fromId);
+      const toIndex = currentSnapshots.findIndex((snapshot) => snapshot.id === toId);
+      const transactionId = createSequencerDiagnosticTransactionId("snapshot-move");
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "snapshot-move-requested",
+          detail: "Requested snapshot reposition",
+          context: {
+            source: "sequencer",
+            snapshotId: fromId,
+            targetSnapshotId: toId,
+            transactionId,
+            commitKind: "snapshot-move",
+            targetKind: side,
+            fromPosition: fromIndex < 0 ? null : fromIndex + 1,
+            toPosition: toIndex < 0 ? null : toIndex + 1,
+            snapshotCountBefore: currentSnapshots.length,
+            workspaceTab,
+            ...readSequencerDiagnosticMemory(),
+          },
+        },
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
+      const nextSnapshots = moveSnapshotInWorkspace({
+        snapshots: currentSnapshots,
+        fromId,
+        toId,
+        side,
+      });
+      if (nextSnapshots === currentSnapshots) return;
+      const nextIndex = nextSnapshots.findIndex((snapshot) => snapshot.id === fromId);
+      snapshotsRef.current = nextSnapshots;
+      persistSequenceWorkspace({ snapshots: nextSnapshots });
+      setSnapshots(nextSnapshots);
+      appendPersistedSequencerCrashDiagnostic(
+        {
+          type: "snapshot-move-applied",
+          detail: "Applied snapshot reposition",
+          context: {
+            source: "sequencer",
+            snapshotId: fromId,
+            targetSnapshotId: toId,
+            transactionId,
+            commitKind: "snapshot-move",
+            targetKind: side,
+            fromPosition: fromIndex + 1,
+            toPosition: nextIndex < 0 ? null : nextIndex + 1,
+            snapshotCountBefore: currentSnapshots.length,
+            snapshotCountAfter: nextSnapshots.length,
+            workspaceTab,
+            ...readSequencerDiagnosticMemory(),
+          },
+        },
+        globalThis.sessionStorage,
+        { immediate: true },
+      );
     },
-    [snapshots],
+    [persistSequenceWorkspace, workspaceTab],
   );
 
   const onDuplicateSnapshot = useCallback(

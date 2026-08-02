@@ -15,9 +15,15 @@ describe("sequence virtualization", () => {
   it("uses measured wider virtualization while editing and modest estimates during playback", () => {
     const editing = sequenceVirtualizationMode(false);
     const playback = sequenceVirtualizationMode(true);
+    const dragging = sequenceVirtualizationMode(false, true);
 
     expect(editing).toMatchObject({ name: "editing", measureRows: true });
     expect(playback).toMatchObject({ name: "playback", measureRows: false });
+    expect(dragging).toMatchObject({
+      name: "dragging",
+      measureRows: false,
+      overscan: playback.overscan,
+    });
     expect(editing.overscan).toBeGreaterThan(playback.overscan);
   });
 
