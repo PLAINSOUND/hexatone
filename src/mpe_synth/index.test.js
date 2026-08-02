@@ -16,6 +16,10 @@ const scale12 = [
   "1200.",
 ];
 
+beforeEach(() => {
+  sessionStorage.clear();
+});
+
 describe("mpe_synth startup state", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -83,6 +87,36 @@ describe("mpe_synth startup state", () => {
     expect(midi_output.send).toHaveBeenCalledWith([0xe0 + 1, 0, 64]);
     expect(midi_output.send).toHaveBeenCalledWith([0xe0 + 2, 0, 64]);
     expect(midi_output.send).toHaveBeenCalledWith([0xe0 + 3, 0, 64]);
+  });
+
+  it("explicitly releases persisted voices when a new MPE session starts", async () => {
+    const firstOutput = { id: "reload-output", send: vi.fn() };
+    const firstSynth = await create_mpe_synth(
+      firstOutput,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      12,
+      2,
+    );
+    const soundingHex = firstSynth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+
+    const reloadedOutput = { id: "reload-output", send: vi.fn() };
+    await create_mpe_synth(reloadedOutput, "1", 2, 2, 440, 0, 0, 60, scale12, "standard", 12, 2);
+
+    expect(reloadedOutput.send.mock.calls[0][0]).toEqual([
+      0x80 + soundingHex.channel - 1,
+      soundingHex.note,
+      0,
+    ]);
+    expect(reloadedOutput.send).toHaveBeenCalledWith([0xb0 + soundingHex.channel - 1, 123, 0]);
+    expect(reloadedOutput.send).toHaveBeenCalledWith([0xb0 + soundingHex.channel - 1, 120, 0]);
   });
 
   it("sends full RPN sequences for manager and member pitch-bend setup", async () => {

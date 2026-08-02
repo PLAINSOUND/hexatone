@@ -13,6 +13,7 @@ export function buildStoppedSequenceTransportState({
   barIndex = 0,
   stepIndex = -1,
   markerIndex = null,
+  preStart = false,
   selectedSnapshotId = null,
   selectedSnapshotMarker = null,
   playingSnapshotId = null,
@@ -25,6 +26,7 @@ export function buildStoppedSequenceTransportState({
       barIndex,
       stepIndex,
       markerIndex,
+      ...(preStart ? { preStart: true } : {}),
       stopped: true,
     },
   };

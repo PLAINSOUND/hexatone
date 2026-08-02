@@ -31,6 +31,69 @@ import { createAutoMpeYzScheduler } from "./auto-yz.js";
 // processes them in FIFO order, so PB always arrives before noteOn.
 // noteOff is NEVER delayed — delaying it risks stuck notes.
 const RELEASE_GUARD_MS = 500;
+const ACTIVE_MPE_NOTES_STORAGE_PREFIX = "hexatone_active_mpe_notes:";
+
+function activeMpeNotesStorageKey(midiOutput) {
+  const outputIdentity = midiOutput?.id ?? midiOutput?.name ?? "default";
+  return `${ACTIVE_MPE_NOTES_STORAGE_PREFIX}${String(outputIdentity)}`;
+}
+
+function readPersistedMpeNotes(midiOutput) {
+  try {
+    const stored = globalThis.sessionStorage?.getItem(activeMpeNotesStorageKey(midiOutput));
+    const parsed = stored ? JSON.parse(stored) : {};
+    if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(([channel, note]) => {
+        const channel0 = Number(channel);
+        return (
+          Number.isInteger(channel0) &&
+          channel0 >= 0 &&
+          channel0 <= 15 &&
+          Number.isInteger(note) &&
+          note >= 0 &&
+          note <= 127
+        );
+      }),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writePersistedMpeNotes(midiOutput, notesByChannel) {
+  try {
+    const storage = globalThis.sessionStorage;
+    if (!storage) return;
+    const key = activeMpeNotesStorageKey(midiOutput);
+    if (Object.keys(notesByChannel).length === 0) storage.removeItem(key);
+    else storage.setItem(key, JSON.stringify(notesByChannel));
+  } catch {
+    // MIDI output must remain usable when storage is unavailable or full.
+  }
+}
+
+function rememberMpeNoteOn(midiOutput, channel0, note) {
+  const notesByChannel = readPersistedMpeNotes(midiOutput);
+  notesByChannel[channel0] = note;
+  writePersistedMpeNotes(midiOutput, notesByChannel);
+}
+
+function forgetMpeNote(midiOutput, channel0, note) {
+  const notesByChannel = readPersistedMpeNotes(midiOutput);
+  if (Number(notesByChannel[channel0]) !== note) return;
+  delete notesByChannel[channel0];
+  writePersistedMpeNotes(midiOutput, notesByChannel);
+}
+
+function releasePersistedMpeNotes(midiOutput) {
+  if (!midiOutput) return;
+  const notesByChannel = readPersistedMpeNotes(midiOutput);
+  for (const [channel, note] of Object.entries(notesByChannel)) {
+    midiOutput.send([0x80 + Number(channel), note, 0]);
+  }
+  writePersistedMpeNotes(midiOutput, {});
+}
 
 function calculateFreqAtCentralDegree(fundamental, reference_degree, center_degree, scale) {
   let ref_cents = 0;
@@ -138,6 +201,10 @@ function send14BitChannelPressure(midi_output, channel0, value14) {
 
 function sendMpePanic(midi_output, masterChannel0, voiceIds) {
   if (!midi_output) return;
+  // Some MPE receivers do not treat channel-mode CC120/123 as a complete
+  // zone clear. Release the exact voices retained from this page (or a crashed
+  // predecessor) before sending the standard channel-mode fallback.
+  releasePersistedMpeNotes(midi_output);
   const channels = new Set([
     ...(masterChannel0 >= 0 ? [masterChannel0] : []),
     ...voiceIds.map((channel) => channel - 1),
@@ -431,6 +498,7 @@ function MpeHex(
     });
   }
   midi_output.send([0x90 + c, this.note, this.velocity]);
+  rememberMpeNoteOn(midi_output, c, this.note);
   traceMidiOutput("mpeNoteOn", {
     family: "mpe",
     channel: this.channel,
@@ -472,6 +540,7 @@ MpeHex.prototype.noteOff = function (release_velocity) {
   this.mpePlusPitchBendScheduler?.cancel(this);
   // Send noteOff immediately — no PB reset during the release tail
   this.midi_output.send([0x80 + c, this.note, vel]);
+  forgetMpeNote(this.midi_output, c, this.note);
   traceMidiOutput("mpeNoteOff", {
     family: "mpe",
     channel: this.channel,
@@ -574,6 +643,7 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
       });
     }
     this.midi_output.send([0x90 + c, this.note, this.velocity]);
+    rememberMpeNoteOn(this.midi_output, c, this.note);
     traceMidiOutput("mpeNoteOn", {
       family: "mpe",
       channel: this.channel,

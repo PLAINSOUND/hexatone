@@ -100,6 +100,7 @@ export function deriveTransportSelectionState({
 }) {
   const rawPlayheadStepIndex = Number.isFinite(playhead?.stepIndex) ? playhead.stepIndex : -1;
   const playheadIsOff = rawPlayheadStepIndex < 0 || snapshots.length === 0;
+  const playheadIsPreStart = playheadIsOff && playhead?.preStart === true;
   const playheadIsEnd = !playheadIsOff && rawPlayheadStepIndex >= snapshots.length;
   const playheadStepIndex =
     playheadIsOff || playheadIsEnd
@@ -132,9 +133,7 @@ export function deriveTransportSelectionState({
     ? Number(sequenceCueGroups[armedCueIndex]?.time)
     : NaN;
   const armedSnapshotTime = armedSnapshotIndex == null ? null : armedSnapshotIndex + 1;
-  const armedTransportTime = Number.isFinite(armedCueTime)
-    ? armedCueTime
-    : armedSnapshotTime;
+  const armedTransportTime = Number.isFinite(armedCueTime) ? armedCueTime : armedSnapshotTime;
   const selectedBarIndex =
     findBarIndexAtOrBeforeTime(sortedBars, armedTransportTime) ?? playheadBarIndex;
   const selectedBarTime =
@@ -163,7 +162,8 @@ export function deriveTransportSelectionState({
           ? pendingTransportSelection.snapshotIndex
           : null
         : playheadIsOff
-          ? normalizedNextSnapshotIndexFromBar >= 0 &&
+          ? !playheadIsPreStart &&
+            normalizedNextSnapshotIndexFromBar >= 0 &&
             normalizedNextSnapshotIndexFromBar < snapshots.length
             ? normalizedNextSnapshotIndexFromBar
             : null
@@ -174,7 +174,9 @@ export function deriveTransportSelectionState({
       : armedSnapshotIndex != null
         ? findFirstCueIndexForSnapshot(armedSnapshotIndex, sequenceCueGroups)
         : playheadIsOff
-          ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
+          ? !playheadIsPreStart &&
+            nextCueIndexFromBar >= 0 &&
+            nextCueIndexFromBar < sequenceCueGroups.length
             ? nextCueIndexFromBar
             : null
           : null;
@@ -186,20 +188,22 @@ export function deriveTransportSelectionState({
         ? String(armedSnapshotIndex)
         : armedCueIndex != null && Number.isFinite(pendingTransportSelection?.snapshotIndex)
           ? String(pendingTransportSelection.snapshotIndex)
-          : playheadIsEnd
-            ? snapshots.length > 0
-              ? TERMINAL_SEQUENCE_TARGET
-              : ""
-            : playheadStepIndex >= 0
-              ? String(playheadStepIndex)
-              : playheadIsOff || playheadStepIndex < 0
-                ? normalizedNextSnapshotIndexFromBar >= 0 &&
-                  normalizedNextSnapshotIndexFromBar < snapshots.length
-                  ? String(normalizedNextSnapshotIndexFromBar)
-                  : snapshots.length > 0
-                    ? String(snapshots.length - 1)
-                    : ""
-                : "";
+          : playheadIsPreStart
+            ? ""
+            : playheadIsEnd
+              ? snapshots.length > 0
+                ? TERMINAL_SEQUENCE_TARGET
+                : ""
+              : playheadStepIndex >= 0
+                ? String(playheadStepIndex)
+                : playheadIsOff || playheadStepIndex < 0
+                  ? normalizedNextSnapshotIndexFromBar >= 0 &&
+                    normalizedNextSnapshotIndexFromBar < snapshots.length
+                    ? String(normalizedNextSnapshotIndexFromBar)
+                    : snapshots.length > 0
+                      ? String(snapshots.length - 1)
+                      : ""
+                  : "";
   const cueSelectValue =
     pendingCueJumpIndex !== ""
       ? pendingCueJumpIndex
@@ -213,25 +217,27 @@ export function deriveTransportSelectionState({
               );
               return firstCueIndex != null ? String(firstCueIndex) : "";
             })()
-          : playheadIsEnd
-            ? sequenceCueGroups.length > 0
-              ? TERMINAL_SEQUENCE_TARGET
-              : ""
-            : playheadMarkerIndex != null
-              ? String(playheadMarkerIndex)
-              : playheadStepIndex >= 0 &&
-                  nextCueIndexFromSnapshot >= 0 &&
-                  nextCueIndexFromSnapshot < sequenceCueGroups.length
-                ? String(nextCueIndexFromSnapshot)
-                : playheadIsOff || (playheadMarkerIndex == null && sequenceCueGroups.length === 0)
-                  ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
-                    ? String(nextCueIndexFromBar)
+          : playheadIsPreStart
+            ? ""
+            : playheadIsEnd
+              ? sequenceCueGroups.length > 0
+                ? TERMINAL_SEQUENCE_TARGET
+                : ""
+              : playheadMarkerIndex != null
+                ? String(playheadMarkerIndex)
+                : playheadStepIndex >= 0 &&
+                    nextCueIndexFromSnapshot >= 0 &&
+                    nextCueIndexFromSnapshot < sequenceCueGroups.length
+                  ? String(nextCueIndexFromSnapshot)
+                  : playheadIsOff || (playheadMarkerIndex == null && sequenceCueGroups.length === 0)
+                    ? nextCueIndexFromBar >= 0 && nextCueIndexFromBar < sequenceCueGroups.length
+                      ? String(nextCueIndexFromBar)
+                      : sequenceCueGroups.length > 0
+                        ? String(sequenceCueGroups.length - 1)
+                        : ""
                     : sequenceCueGroups.length > 0
                       ? String(sequenceCueGroups.length - 1)
-                      : ""
-                  : sequenceCueGroups.length > 0
-                    ? String(sequenceCueGroups.length - 1)
-                    : "";
+                      : "";
   const impliedPendingSnapshotIndex =
     pendingSnapshotJumpIndex !== ""
       ? pendingSnapshotJumpIndex
@@ -255,6 +261,7 @@ export function deriveTransportSelectionState({
 
   return {
     playheadIsOff,
+    playheadIsPreStart,
     playheadIsEnd,
     playheadStepIndex,
     playheadMarkerIndex,

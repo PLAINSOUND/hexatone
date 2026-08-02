@@ -988,6 +988,19 @@ describe("App keyboard lifecycle", () => {
     });
   });
 
+  it("panics the live keyboard synchronously when the page reloads", async () => {
+    render(<App />);
+    const keys = { panic: vi.fn() };
+
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => {
+      lastKeyboardProps.onKeysReady(keys);
+    });
+    window.dispatchEvent(new Event("beforeunload"));
+
+    expect(keys.panic).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the keyboard mounted while loading is nonzero", async () => {
     const { rerender } = render(<App />);
     await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());

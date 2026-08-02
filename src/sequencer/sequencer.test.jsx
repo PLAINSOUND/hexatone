@@ -5850,6 +5850,74 @@ describe("Sequencer", () => {
     expect(onJumpSequenceCue).toHaveBeenCalledWith(0);
   });
 
+  it("keeps both Previous buttons enabled on item 1 until explicit pre-start", () => {
+    const onStepSequence = vi.fn();
+    const onStepSequenceMarker = vi.fn();
+    const commonProps = {
+      snapshots: [
+        {
+          id: 10,
+          length: 1,
+          description: "A",
+          notes: [{ id: "a", midicents: 69, start: 0, end: 1 }],
+        },
+      ],
+      bars: [{ id: 1, position: 1 }],
+      snapshotLabelMode: "labels",
+      selectedSnapshotId: 10,
+      selectedMarker: null,
+      playingSnapshotId: 10,
+      onTakeSnapshot: vi.fn(),
+      onSetSnapshotLabelMode: vi.fn(),
+      onSelectSnapshot: vi.fn(),
+      onSelectMarker: vi.fn(),
+      onPlaySnapshot: vi.fn(),
+      onStopSnapshot: vi.fn(),
+      onSelectSequenceBar: vi.fn(),
+      onStepSequence,
+      onStepSequenceMarker,
+      onPlaySequence: vi.fn(),
+      onPlayCue: vi.fn(),
+      onResetSequencePlayhead: vi.fn(),
+      onAddBar: vi.fn(),
+      onAddBarsBeforeSnapshots: vi.fn(),
+      onDeleteBar: vi.fn(),
+      onUpdateBar: vi.fn(),
+      onMoveBar: vi.fn(),
+      onDeleteSnapshot: vi.fn(),
+      onMoveSnapshot: vi.fn(),
+      onUpdateSnapshot: vi.fn(),
+      onResetSnapshotDescription: vi.fn(),
+    };
+
+    const { rerender } = render(
+      <Sequencer
+        {...commonProps}
+        playhead={{ barIndex: 0, stepIndex: 0, markerIndex: 0, stopped: false }}
+      />,
+    );
+
+    const previousSnapshot = screen.getByLabelText("previous sequence step");
+    const previousCue = screen.getByLabelText("previous sequence marker");
+    expect(previousSnapshot.disabled).toBe(false);
+    expect(previousCue.disabled).toBe(false);
+    fireEvent.click(previousSnapshot);
+    fireEvent.click(previousCue);
+    expect(onStepSequence).toHaveBeenCalledWith(-1);
+    expect(onStepSequenceMarker).toHaveBeenCalledWith(-1);
+
+    rerender(
+      <Sequencer
+        {...commonProps}
+        selectedSnapshotId={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: -1, markerIndex: null, preStart: true, stopped: true }}
+      />,
+    );
+    expect(screen.getByLabelText("previous sequence step").disabled).toBe(true);
+    expect(screen.getByLabelText("previous sequence marker").disabled).toBe(true);
+  });
+
   it("shows the next snapshot and cue in brackets when a bar is selected", () => {
     const onStepSequence = vi.fn();
     const onStepSequenceMarker = vi.fn();

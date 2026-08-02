@@ -340,14 +340,9 @@ const SequenceControls = ({
   const decayVariationPercent = Math.round(normalizedManualArpeggiation.decayVariation * 100);
   const decaySliderValue = manualArpeggiationDecaySliderValue(normalizedManualArpeggiation);
   const decayDisplayValue = manualArpeggiationDecayDisplay(normalizedManualArpeggiation);
-  const snapshotBackAvailable =
-    snapshotSelectValue === terminalSequenceTarget
-      ? snapshots.length > 0
-      : Number.isFinite(Number(snapshotSelectValue)) && Number(snapshotSelectValue) > 0;
-  const cueBackAvailable =
-    cueSelectValue === terminalSequenceTarget
-      ? sequenceCueGroups.length > 0
-      : Number.isFinite(Number(cueSelectValue)) && Number(cueSelectValue) > 0;
+  // Item 1 is not the beginning of the transport: Previous first reaches the
+  // rewound state with item 1 prepared, then reaches explicit pre-start.
+  const transportBackAvailable = snapshots.length > 0 && playhead?.preStart !== true;
 
   return (
     <>
@@ -768,7 +763,7 @@ const SequenceControls = ({
               class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="previous sequence step"
               title="Previous step"
-              disabled={snapshots.length === 0 || !snapshotBackAvailable}
+              disabled={!transportBackAvailable}
               onClick={() => {
                 setPlayFromTarget("snapshot");
                 runTransportAction(() => onStepSequence?.(-1));
@@ -844,7 +839,7 @@ const SequenceControls = ({
               class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
               aria-label="previous sequence marker"
               title="Previous marker"
-              disabled={snapshots.length === 0 || !cueBackAvailable}
+              disabled={!transportBackAvailable}
               onClick={() => {
                 setPlayFromTarget("cue");
                 runTransportAction(() => onStepSequenceMarker?.(-1));

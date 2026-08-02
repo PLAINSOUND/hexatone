@@ -9,6 +9,16 @@ import {
 } from "./transport-intent-runtime.js";
 
 describe("transport intent runtime", () => {
+  it("builds an explicit pre-start playhead state", () => {
+    expect(buildStoppedSequenceTransportState({ preStart: true }).playhead).toEqual({
+      barIndex: 0,
+      stepIndex: -1,
+      markerIndex: null,
+      preStart: true,
+      stopped: true,
+    });
+  });
+
   it("builds stopped transport state with stable defaults", () => {
     expect(buildStoppedSequenceTransportState()).toEqual({
       playingSnapshotId: null,

@@ -25,6 +25,22 @@ describe("sequencer playhead runtime", () => {
     expect(state.impliedPendingCueIndex).toBe("1");
   });
 
+  it("leaves every cue and snapshot unprepared at explicit sequence pre-start", () => {
+    const state = derivePlayheadNavigationState({
+      playhead: { stepIndex: -1, markerIndex: null, barIndex: 0, preStart: true },
+      sortedBars: [{ id: "bar-1", position: 1 }],
+      sequenceCueGroups: [{ snapshotIndex: 0, time: 1 }],
+      snapshots: [{ id: "s1" }],
+    });
+
+    expect(state.playheadIsOff).toBe(true);
+    expect(state.playheadIsPreStart).toBe(true);
+    expect(state.snapshotSelectValue).toBe("");
+    expect(state.cueSelectValue).toBe("");
+    expect(state.impliedPendingSnapshotIndex).toBe("");
+    expect(state.impliedPendingCueIndex).toBe("");
+  });
+
   it("prefers pending jump selections over derived playhead state", () => {
     const state = derivePlayheadNavigationState({
       playhead: { stepIndex: 0, markerIndex: 0, barIndex: 0 },

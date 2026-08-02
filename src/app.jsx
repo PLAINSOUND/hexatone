@@ -954,6 +954,21 @@ const App = () => {
 
   const { panic: guardianPanic } = useMidiGuardian(midi, settings);
 
+  useEffect(() => {
+    const panicLiveKeyboardOnUnload = () => {
+      // The MIDI guardian sends channel-mode panic messages independently.
+      // The live keyboard additionally releases exact MPE channel/note pairs,
+      // which is required by receivers that ignore CC120/CC123 for an MPE zone.
+      keysRef.current?.panic?.();
+    };
+    window.addEventListener("pagehide", panicLiveKeyboardOnUnload);
+    window.addEventListener("beforeunload", panicLiveKeyboardOnUnload);
+    return () => {
+      window.removeEventListener("pagehide", panicLiveKeyboardOnUnload);
+      window.removeEventListener("beforeunload", panicLiveKeyboardOnUnload);
+    };
+  }, []);
+
   const [active, setActive] = useState(false);
   const [latch, setLatch] = useState(false);
   const [modulationPalettePos, setModulationPalettePos] = useState(getDefaultModulationPalettePos);
@@ -1683,16 +1698,23 @@ const App = () => {
     setSequencePlaybackPitchOffset(nextPitchOffset);
   }, []);
 
+  const setSequenceBeforeStart = useCallback(
+    ({ preStart = false } = {}) => {
+      pendingTransportSelectionRef.current = clearPendingTransportSelection();
+      cancelManualSnapshotGestures();
+      keysRef.current?.stopSnapshot();
+      sequenceRepeatPlaybackStateRef.current = {};
+      resetTimedPlaybackUi();
+      applyStoppedSequenceTransportState({ preStart });
+    },
+    [applyStoppedSequenceTransportState, cancelManualSnapshotGestures, resetTimedPlaybackUi],
+  );
+
   const playSequencePosition = useCallback(
     (stepIndex, markerIndex = null, options = {}) => {
       const hardRestart = options?.hardRestart === true;
       if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
-        pendingTransportSelectionRef.current = clearPendingTransportSelection();
-        cancelManualSnapshotGestures();
-        keysRef.current?.stopSnapshot();
-        sequenceRepeatPlaybackStateRef.current = {};
-        resetTimedPlaybackUi();
-        applyStoppedSequenceTransportState();
+        setSequenceBeforeStart();
         return;
       }
 
@@ -1736,6 +1758,7 @@ const App = () => {
       sequenceCueGroups,
       sequencePlaybackNotesAtPosition,
       snapshots,
+      setSequenceBeforeStart,
     ],
   );
 
@@ -2116,6 +2139,10 @@ const App = () => {
     (direction) => {
       sequenceRepeatPlaybackStateRef.current = {};
       if (!snapshots.length) return;
+      if (sequencePlayhead.preStart === true) {
+        if (direction > 0) setSequenceBeforeStart();
+        return;
+      }
       const pendingSnapshotIndex = pendingTransportSelectionRef.current.snapshotIndex;
       if (
         sequencePlayhead.stopped === true &&
@@ -2135,7 +2162,7 @@ const App = () => {
       if (current < 0) {
         const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
         if (target < 0) {
-          playSequencePosition(-1, null);
+          setSequenceBeforeStart({ preStart: direction < 0 });
           return;
         }
         if (target >= snapshots.length) {
@@ -2153,10 +2180,12 @@ const App = () => {
       playManualSnapshotAtIndex,
       playSequencePosition,
       sequencePlayhead.barIndex,
+      sequencePlayhead.preStart,
       sequencePlayhead.stepIndex,
       sequencePlayhead.stopped,
       snapshotIndexNearBar,
       snapshots.length,
+      setSequenceBeforeStart,
     ],
   );
 
@@ -2205,6 +2234,18 @@ const App = () => {
           return;
         }
 
+        if (sequencePlayhead.preStart === true) {
+          recordCueNavigation(
+            "cue-navigation-resolved",
+            direction > 0
+              ? "Prepared the first cue from sequence pre-start"
+              : "Kept cue navigation at sequence pre-start",
+            { navigationStage: "resolved", nextCueIndex: -1, preStart: direction <= 0 },
+          );
+          if (direction > 0) setSequenceBeforeStart();
+          return;
+        }
+
         const cueCount = sequenceCueGroups.length;
         if (cueCount === 0) {
           const currentStep = playheadStepIndex ?? -1;
@@ -2216,7 +2257,7 @@ const App = () => {
                 "Resolved cue navigation to sequence start",
                 { navigationStage: "resolved", nextCueIndex: -1 },
               );
-              playSequencePosition(-1, null);
+              setSequenceBeforeStart({ preStart: direction < 0 });
               return;
             }
             if (target >= snapshots.length) {
@@ -2302,7 +2343,7 @@ const App = () => {
                 "Resolved previous cue navigation to off state",
                 { navigationStage: "resolved", nextCueIndex: -1 },
               );
-              playSequencePosition(-1, null);
+              setSequenceBeforeStart({ preStart: true });
               return;
             }
             recordCueNavigation(
@@ -2436,10 +2477,12 @@ const App = () => {
       sequencePlayRepeats,
       sequencePlayhead.barIndex,
       sequencePlayhead.markerIndex,
+      sequencePlayhead.preStart,
       sequencePlayhead.stepIndex,
       sequencePlayhead.stopped,
       snapshotIndexNearBar,
       snapshots,
+      setSequenceBeforeStart,
       workspaceTab,
     ],
   );
