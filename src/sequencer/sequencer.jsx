@@ -114,6 +114,7 @@ const Sequencer = ({
   pendingTransportSelection = null,
   playingSnapshotId,
   playingSnapshotIds = [],
+  scrollPositionRef = null,
   playhead,
   onTakeSnapshot,
   onAddEmptySnapshot,
@@ -990,6 +991,37 @@ const Sequencer = ({
     bottomOverlayRef: sequenceSaveRowRef,
     recordTimedTransportDiagnostic,
   });
+
+  const bindScrollPanel = useCallback(
+    (node) => {
+      const previousPanel = scrollPanelRef.current;
+      if (!(node instanceof HTMLElement) && previousPanel instanceof HTMLElement) {
+        if (scrollPositionRef) scrollPositionRef.current = previousPanel.scrollTop;
+      }
+      scrollPanelRef.current = node;
+      if (node instanceof HTMLElement && scrollPositionRef) {
+        const restoredTop = Number(scrollPositionRef.current);
+        node.scrollTop = Number.isFinite(restoredTop) ? Math.max(0, restoredTop) : 0;
+      }
+    },
+    [scrollPanelRef, scrollPositionRef],
+  );
+  const rememberScrollPosition = useCallback(
+    (event) => {
+      if (!scrollPositionRef) return;
+      scrollPositionRef.current = Math.max(0, Number(event.currentTarget?.scrollTop) || 0);
+    },
+    [scrollPositionRef],
+  );
+  useLayoutEffect(() => {
+    const panel = scrollPanelRef.current;
+    if (!(panel instanceof HTMLElement) || !scrollPositionRef) return undefined;
+    const restoredTop = Number(scrollPositionRef.current);
+    panel.scrollTop = Number.isFinite(restoredTop) ? Math.max(0, restoredTop) : 0;
+    return () => {
+      scrollPositionRef.current = panel.scrollTop;
+    };
+  }, [scrollPanelRef, scrollPositionRef]);
 
   const measureSequenceBottomOcclusion = useCallback(() => {
     const visiblePanel = visibleElementBounds(scrollPanelRef.current);
@@ -3471,8 +3503,9 @@ const Sequencer = ({
         />
 
         <div
-          ref={scrollPanelRef}
+          ref={bindScrollPanel}
           class="sequencer-scroll-panel"
+          onScroll={rememberScrollPosition}
           onDragOver={(event) => {
             if (dragIdRef.current != null) updateSnapshotDragAutoscroll(event.clientY);
           }}

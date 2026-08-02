@@ -183,6 +183,60 @@ describe("Sequencer", () => {
     });
   });
 
+  it("restores and remembers the event-table scroll position across remounts", () => {
+    const scrollPositionRef = { current: 275 };
+    const props = {
+      snapshots: [{ id: 1, length: 1, notes: [], description: "" }],
+      bars: [{ id: 1, position: 1 }],
+      snapshotLabelMode: "labels",
+      selectedSnapshotId: null,
+      selectedMarker: null,
+      playingSnapshotId: null,
+      playhead: { barIndex: 0, stepIndex: -1, markerIndex: null, stopped: true },
+      scrollPositionRef,
+      onTakeSnapshot: vi.fn(),
+      onLoadSequence: vi.fn(),
+      onSequenceNameChange: vi.fn(),
+      onSequenceDescriptionChange: vi.fn(),
+      onSequenceLegatoChange: vi.fn(),
+      onSetSnapshotLabelMode: vi.fn(),
+      onSelectSnapshot: vi.fn(),
+      onSelectMarker: vi.fn(),
+      onPlaySnapshot: vi.fn(),
+      onStopSnapshot: vi.fn(),
+      onSelectSequenceBar: vi.fn(),
+      onStepSequence: vi.fn(),
+      onStepSequenceMarker: vi.fn(),
+      onPlaySequence: vi.fn(),
+      onPlayCue: vi.fn(),
+      onResetSequencePlayhead: vi.fn(),
+      onAddBar: vi.fn(),
+      onAddTempo: vi.fn(),
+      onAddBarsBeforeSnapshots: vi.fn(),
+      onDeleteBar: vi.fn(),
+      onDeleteTempo: vi.fn(),
+      onUpdateBar: vi.fn(),
+      onUpdateTempo: vi.fn(),
+      onMoveBar: vi.fn(),
+      onDeleteSnapshot: vi.fn(),
+      onMoveSnapshot: vi.fn(),
+      onUpdateSnapshot: vi.fn(),
+      onResetSnapshotDescription: vi.fn(),
+    };
+
+    const first = render(<Sequencer {...props} />);
+    const firstPanel = first.container.querySelector(".sequencer-scroll-panel");
+    expect(firstPanel.scrollTop).toBe(275);
+
+    firstPanel.scrollTop = 640;
+    fireEvent.scroll(firstPanel);
+    expect(scrollPositionRef.current).toBe(640);
+    first.unmount();
+
+    const second = render(<Sequencer {...props} />);
+    expect(second.container.querySelector(".sequencer-scroll-panel").scrollTop).toBe(640);
+  });
+
   it("resets note offsets in place from the Copy & Insert controls", () => {
     const Harness = () => {
       const [snapshots, setSnapshots] = useState([

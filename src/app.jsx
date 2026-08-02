@@ -1006,6 +1006,7 @@ const App = () => {
   const [sequenceTempi, setSequenceTempi] = useState(defaultSequenceTempi);
   const [sequenceRepeats, setSequenceRepeats] = useState([]);
   const [sequencePlayRepeats, setSequencePlayRepeats] = useState(true);
+  const sequencerScrollPositionRef = useRef(0);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -5195,6 +5196,7 @@ const App = () => {
               pendingTransportSelection={pendingTransportSelectionRef.current}
               playingSnapshotId={playingSnapshotId}
               playingSnapshotIds={manualPlayingSnapshotIds}
+              scrollPositionRef={sequencerScrollPositionRef}
               playhead={sequencePlayhead}
               onTakeSnapshot={onTakeSnapshot}
               onAddEmptySnapshot={onAddEmptySnapshot}
