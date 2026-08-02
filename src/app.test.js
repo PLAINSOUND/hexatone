@@ -927,6 +927,12 @@ describe("App workspace tabs", () => {
     expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(200, 6);
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
 
+    fireEvent.click(
+      screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"),
+    );
+    expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(150, 6);
+    expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
+
     unmount();
     localStorage.removeItem("hexatone_persist_on_reload");
     sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
