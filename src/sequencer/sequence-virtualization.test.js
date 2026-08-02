@@ -7,10 +7,20 @@ import {
   deriveRecentFittingEventBounds,
   estimateSequenceGroupHeight,
   isSequenceAnchorTargetReady,
+  sequenceVirtualizationMode,
   useSequenceVirtualization,
 } from "./sequence-virtualization.js";
 
 describe("sequence virtualization", () => {
+  it("uses measured wider virtualization while editing and modest estimates during playback", () => {
+    const editing = sequenceVirtualizationMode(false);
+    const playback = sequenceVirtualizationMode(true);
+
+    expect(editing).toMatchObject({ name: "editing", measureRows: true });
+    expect(playback).toMatchObject({ name: "playback", measureRows: false });
+    expect(editing.overscan).toBeGreaterThan(playback.overscan);
+  });
+
   it("renders the viewport, overscan, and disjoint pinned items with exact spacers", () => {
     const items = Array.from({ length: 10 }, (_, index) => ({
       key: `item-${index}`,

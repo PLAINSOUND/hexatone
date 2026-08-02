@@ -46,6 +46,7 @@ import useTimedUiDiagnostics from "./timed-ui-diagnostics.js";
 import {
   estimateSequenceGroupHeight,
   SEQUENCE_VIRTUALIZATION_OVERSCAN_PX,
+  sequenceVirtualizationMode,
   useSequenceVirtualization,
 } from "./sequence-virtualization.js";
 import {
@@ -1175,15 +1176,19 @@ const Sequencer = ({
     selectedSnapshotId,
     sortedBars,
   ]);
+  const virtualSequenceMode = sequenceVirtualizationMode(timedPlaybackOwnsViewport);
   const sequenceVirtualization = useSequenceVirtualization({
     scrollPanelRef,
     contentRef: virtualSequenceListRef,
     items: virtualSequenceItems,
     pinnedIndexes: virtualPinnedIndexes,
     revision: sequenceRuntime.runtimeInstanceId,
-    // Cue transactions measure their complete target interval explicitly.
-    // Ordinary scrolling must not mutate spacer geometry after rows mount.
-    measureRows: false,
+    // Manual editing gets a wider, measured window so structural changes such
+    // as snapshot deletion promptly rebuild accurate spacer geometry. Timed
+    // playback keeps the smaller estimate-only path to avoid measurement and
+    // mount churn on the main thread while cues advance.
+    measureRows: virtualSequenceMode.measureRows,
+    overscan: virtualSequenceMode.overscan,
   });
   const {
     layout: virtualSequenceLayout,

@@ -6,7 +6,23 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { visibleElementBounds } from "./viewport-geometry.js";
 
 export const SEQUENCE_VIRTUALIZATION_MIN_ITEMS = 40;
-export const SEQUENCE_VIRTUALIZATION_OVERSCAN_PX = 900;
+export const SEQUENCE_VIRTUALIZATION_PLAYBACK_OVERSCAN_PX = 900;
+export const SEQUENCE_VIRTUALIZATION_EDITING_OVERSCAN_PX = 1800;
+export const SEQUENCE_VIRTUALIZATION_OVERSCAN_PX = SEQUENCE_VIRTUALIZATION_PLAYBACK_OVERSCAN_PX;
+
+export function sequenceVirtualizationMode(timedPlaybackOwnsViewport = false) {
+  return timedPlaybackOwnsViewport
+    ? {
+        name: "playback",
+        measureRows: false,
+        overscan: SEQUENCE_VIRTUALIZATION_PLAYBACK_OVERSCAN_PX,
+      }
+    : {
+        name: "editing",
+        measureRows: true,
+        overscan: SEQUENCE_VIRTUALIZATION_EDITING_OVERSCAN_PX,
+      };
+}
 
 export function estimateSequenceGroupHeight({
   eventCount = 0,
@@ -171,6 +187,7 @@ export function useSequenceVirtualization({
   pinnedIndexes = [],
   revision = null,
   measureRows = true,
+  overscan = SEQUENCE_VIRTUALIZATION_OVERSCAN_PX,
 } = {}) {
   const enabled = items.length >= SEQUENCE_VIRTUALIZATION_MIN_ITEMS;
   const observedNodesRef = useRef(new Map());
@@ -229,11 +246,15 @@ export function useSequenceVirtualization({
 
   const measureItem = useCallback(
     (key, node) => {
-      if (!measureRows) return;
       const previousNode = observedNodesRef.current.get(key) ?? null;
       if (previousNode && previousNode !== node)
         resizeObserverRef.current?.unobserve?.(previousNode);
       if (!(node instanceof HTMLElement)) {
+        observedNodesRef.current.delete(key);
+        pendingMeasurementsRef.current.delete(key);
+        return;
+      }
+      if (!measureRows) {
         observedNodesRef.current.delete(key);
         pendingMeasurementsRef.current.delete(key);
         return;
@@ -244,6 +265,16 @@ export function useSequenceVirtualization({
     },
     [measureRows, queueMeasurement],
   );
+
+  useLayoutEffect(() => {
+    if (measureRows) return;
+    // Timed playback deliberately uses immutable estimated geometry. Do not
+    // retain live DOM rows from the richer editing mode: playback continually
+    // remounts a small moving window, and observing that churn is exactly the
+    // main-thread work this mode is intended to avoid.
+    observedNodesRef.current.clear();
+    pendingMeasurementsRef.current.clear();
+  }, [measureRows]);
 
   useLayoutEffect(() => {
     if (!enabled || !measureRows || typeof ResizeObserver !== "function") return undefined;
@@ -370,6 +401,7 @@ export function useSequenceVirtualization({
       measuredSizes: activeMeasurements,
       scrollTop: viewport.scrollTop,
       viewportHeight: viewport.height,
+      overscan,
       pinnedIndexes: [
         ...pinnedIndexes,
         ...stabilizedIndexes,
@@ -382,6 +414,7 @@ export function useSequenceVirtualization({
     enabled,
     items,
     measuredSizes,
+    overscan,
     pinnedIndexes,
     revisionChanged,
     stabilizedIndexes,
@@ -629,9 +662,8 @@ export function useSequenceVirtualization({
     (anchor, activeLayout) => {
       const anchorTop = activeLayout?.offsets?.[anchor.preferredIndex];
       if (!Number.isFinite(anchorTop)) return;
-      const windowStart = Math.max(0, anchorTop - SEQUENCE_VIRTUALIZATION_OVERSCAN_PX);
-      const windowEnd =
-        anchorTop + Math.max(1, Number(viewport.height) || 1) + SEQUENCE_VIRTUALIZATION_OVERSCAN_PX;
+      const windowStart = Math.max(0, anchorTop - overscan);
+      const windowEnd = anchorTop + Math.max(1, Number(viewport.height) || 1) + overscan;
       const retainedIndexes = new Set(
         anchor.retainedIndexes.length > 0 ? anchor.retainedIndexes : anchor.targetIndexes,
       );
@@ -660,7 +692,7 @@ export function useSequenceVirtualization({
           .map((row) => row.index),
       );
     },
-    [viewport.height],
+    [overscan, viewport.height],
   );
 
   const commitAnchorMeasurements = useCallback(
@@ -917,10 +949,7 @@ export function useSequenceVirtualization({
       const absoluteTop = contentTop + top;
       const absoluteBottom = contentTop + bottom;
       if (absoluteTop >= panel.scrollTop && absoluteBottom <= viewportBottom) return false;
-      const nextTop = Math.max(
-        0,
-        absoluteTop - Math.min(120, SEQUENCE_VIRTUALIZATION_OVERSCAN_PX / 2),
-      );
+      const nextTop = Math.max(0, absoluteTop - Math.min(120, overscan / 2));
       panel.scrollTop = nextTop;
       setViewport({ scrollTop: panel.scrollTop, height: viewportHeight });
       return true;
@@ -931,6 +960,7 @@ export function useSequenceVirtualization({
       contentRef,
       enabled,
       items.length,
+      overscan,
       retainAnchorWindow,
       scrollPanelRef,
     ],
