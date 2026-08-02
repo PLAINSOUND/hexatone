@@ -352,6 +352,24 @@ describe("monzoToSuggestedColor", () => {
     ).toBe("#e9ecc1");
   });
 
+  it("treats powers of 3 as colour-neutral when a higher-prime family is present", () => {
+    const thirteenSquared = [0, 0, 0, 0, 0, 2];
+    const shiftedUpByThree = [0, 1, 0, 0, 0, 2];
+    const shiftedDownByThreeSquared = [0, -2, 0, 0, 0, 2];
+
+    expect(monzoToSuggestedColor(thirteenSquared).screenHex).toBe("#dbb3ff");
+    expect(monzoToSuggestedColor(shiftedUpByThree).screenHex).toBe("#dbb3ff");
+    expect(monzoToSuggestedColor(shiftedDownByThreeSquared).screenHex).toBe("#dbb3ff");
+  });
+
+  it("keeps the structural Bosanquet exceptions sensitive to powers of 3", () => {
+    expect(monzoToSuggestedColor([0, 5]).screenHex).toBe("#ffffff");
+    expect(monzoToSuggestedColor([0, 6]).screenHex).toBe("#dee2da");
+
+    expect(monzoToSuggestedColor([0, 0, 1]).screenHex).toBe("#fffae5");
+    expect(monzoToSuggestedColor([0, 3, 1]).screenHex).toBe("#e6e0cb");
+  });
+
   it("does not let a positive odd branch override undertonal prime families in subharmonic mode", () => {
     const u5a = monzoToSuggestedColor([1, 1, -1], undefined, {
       structuralOverlay: "none",

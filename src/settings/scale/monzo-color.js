@@ -993,10 +993,13 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
   const structuralOverlay = options.structuralOverlay ?? "fifths";
   const activePrimeEntries = getActivePrimeEntries(analysisMonzo, basis);
   const activeHigherPrimeEntries = activePrimeEntries.filter(({ prime }) => prime > 3);
+  const colorIdentityMonzo = activeHigherPrimeEntries.length
+    ? analysisMonzo.map((exponent, index) => (basis[index] === 3 ? 0 : exponent))
+    : analysisMonzo;
   const hasMixedHigherPrimeFamily =
     new Set(activeHigherPrimeEntries.map(({ prime }) => prime)).size > 1;
-  const branch = getOddBranchProducts(analysisMonzo, basis);
-  const higherPrimeBranch = getOddBranchProductsAboveThree(analysisMonzo, basis);
+  const branch = getOddBranchProducts(colorIdentityMonzo, basis);
+  const higherPrimeBranch = getOddBranchProductsAboveThree(colorIdentityMonzo, basis);
   const hasUndertonalPrime = activePrimeEntries.some(({ exponent }) => exponent < 0);
   const hasActivePrimeOverride = hasAnyActivePrimeOverride(analysisMonzo, basis, options);
 
@@ -1011,11 +1014,14 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
     if (septimal) return septimal;
   }
 
-  const exactOddPartial = getExactOvertoneOddPartial(analysisMonzo, basis);
-  const exactOddPartialAboveThree = getExactOvertoneOddPartialAboveThree(analysisMonzo, basis);
+  const exactOddPartial = getExactOvertoneOddPartial(colorIdentityMonzo, basis);
+  const exactOddPartialAboveThree = getExactOvertoneOddPartialAboveThree(
+    colorIdentityMonzo,
+    basis,
+  );
   const dominant = dominantPrimeFromMonzo(analysisMonzo, basis);
   if (hasActivePrimeOverride && exactOddPartial && !hasMixedHigherPrimeFamily) {
-    const templateColor = getExactOvertonalTemplateColor(analysisMonzo, basis, options);
+    const templateColor = getExactOvertonalTemplateColor(colorIdentityMonzo, basis, options);
     if (templateColor) {
       return {
         screenHex: templateColor,
@@ -1063,24 +1069,6 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
       fifthsFrame,
     };
   }
-  if (
-    !hasActivePrimeOverride &&
-    exactOddPartialAboveThree &&
-    !getExactOddPartialColor(exactOddPartial, options) &&
-    getExactOddPartialColor(exactOddPartialAboveThree, options)
-  ) {
-    return {
-      screenHex: getExactOddPartialColor(exactOddPartialAboveThree, options),
-      familyPrime: dominant?.prime ?? null,
-      familyName: dominant
-        ? (getFamilyForPrime(dominant.prime, options)?.familyName ?? "neutral")
-        : "neutral",
-      confidence: 0.98,
-      explanation: `Exact higher-prime branch ${exactOddPartialAboveThree}°`,
-      fifthsFrame,
-    };
-  }
-
   if (
     !hasActivePrimeOverride &&
     !hasUndertonalPrime &&
