@@ -923,7 +923,7 @@ describe("App workspace tabs", () => {
       screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"),
     );
 
-    await waitFor(() => expect(soundingHex.sequenceRetune).toHaveBeenCalled());
+    expect(soundingHex.sequenceRetune).toHaveBeenCalled();
     expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(200, 6);
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
 
