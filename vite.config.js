@@ -37,24 +37,10 @@ function resolveDevHttpsConfig() {
   };
 }
 
-function manualChunks(id) {
-  const normalized = id.split(path.sep).join('/');
-
-  if (normalized.includes('/node_modules/')) {
-    if (normalized.includes('/preact/')) return 'vendor-preact';
-    if (normalized.includes('/webmidi/')) return 'vendor-webmidi';
-    return 'vendor';
-  }
-
-  if (normalized.includes('/src/settings/')) return 'settings';
-
-  return null;
-}
-
 export default defineConfig({
   plugins: [
     preact({
-      devToolsEnabled: process.env.VITE_PREACT_DEVTOOLS !== 'false',
+      devToolsEnabled: process.env.VITE_PREACT_DEVTOOLS === 'true',
       // Prefresh retains detached virtualized sequencer rows as they are replaced
       // during scrolling. Keep long-running development sessions leak-free by
       // default; `yarn start:hmr` remains available for short HMR sessions.
@@ -79,8 +65,8 @@ export default defineConfig({
   ],
 
   optimizeDeps: {
-    esbuildOptions: {
-      loader: { '.js': 'jsx' },
+    rolldownOptions: {
+      moduleTypes: { '.js': 'jsx' },
     },
   },
 
@@ -105,14 +91,32 @@ export default defineConfig({
     outDir: 'build',
     sourcemap: true,
     chunkSizeWarningLimit: 600,
-    rollupOptions: {
+    rolldownOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
         retune: path.resolve(__dirname, 'retune.html'),
         usermanual: path.resolve(__dirname, 'usermanual.html'),
       },
       output: {
-        manualChunks,
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-preact',
+              test: /node_modules[\\/]preact[\\/]/,
+              priority: 2,
+            },
+            {
+              name: 'vendor-webmidi',
+              test: /node_modules[\\/]webmidi[\\/]/,
+              priority: 2,
+            },
+            {
+              name: 'settings',
+              test: /src[\\/]settings[\\/]/,
+              priority: 1,
+            },
+          ],
+        },
       },
     },
   },
