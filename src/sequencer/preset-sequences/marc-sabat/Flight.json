@@ -30692,7 +30692,7 @@
           ],
           "pressure14": 0,
           "start": 0,
-          "end": 6,
+          "end": 5.666667,
           "startFractionDenominator": 1,
           "id": "__seq__:72.276221932877:0:1",
           "__selectedTime": 6,
@@ -30721,7 +30721,8 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "endFractionDenominator": 7
         }
       ]
     },
@@ -30789,7 +30790,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:32.99999999999999:0:1",
+          "end": 1.555556,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 37.98044999134612,
@@ -30845,7 +30849,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:37.98044999134612:0:1",
+          "end": 2.333333,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 44.99999999999999,
@@ -30901,7 +30908,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:44.99999999999999:0:1",
+          "end": 1.555556,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 47.66870905603738,
@@ -30957,7 +30967,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:47.66870905603738:0:1",
+          "end": 1.555556,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 58.38572660903924,
@@ -31013,7 +31026,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:58.38572660903924:0:1",
+          "end": 2.333333,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 61.98044999134612,
@@ -31069,7 +31085,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "end": 2.333333,
+          "endFractionDenominator": 1,
+          "id": "__seq__:61.98044999134612:0:1.555556"
         }
       ]
     },
@@ -31138,7 +31157,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": 0.555556,
+          "end": 2.111111,
+          "startFractionDenominator": 7,
+          "id": "__seq__:52.01955000865387:0.555556:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -31206,7 +31230,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": 0.333333,
+          "end": 1.111111,
+          "startFractionDenominator": 7,
+          "id": "__seq__:49.98044999134612:0.333333:1",
+          "endFractionDenominator": 7
         },
         {
           "midicents": 57,
@@ -31262,7 +31291,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:57:0:1",
+          "start": 0.333333,
+          "end": 2.666667,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 63.0300040863502,
@@ -31318,7 +31352,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:63.0300040863502:0:1",
+          "start": 0.333333,
+          "end": 2.666667,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -31387,7 +31426,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:37.98044999134612:0:1",
+          "start": 0.111111,
+          "end": 0.888889,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 58.38572660903924,
@@ -31443,7 +31487,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": 0.111111,
+          "end": 0.888889,
+          "startFractionDenominator": 7,
+          "id": "__seq__:58.38572660903924:0.111111:1",
+          "endFractionDenominator": 7
         }
       ]
     },
@@ -31512,7 +31561,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:32.99999999999999:0:1",
+          "start": -0.111111,
+          "end": 0.666667,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 59.66870905603737,
@@ -31568,7 +31622,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.111111,
+          "end": 0.666667,
+          "startFractionDenominator": 7,
+          "id": "__seq__:59.66870905603737:-0.111111:1",
+          "endFractionDenominator": 7
         }
       ]
     },
@@ -31637,7 +31696,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:47.03910001730774:0:1",
+          "start": -0.333333,
+          "end": 1.222222,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 52.01955000865387,
@@ -31693,7 +31757,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:52.01955000865387:0:1",
+          "start": -0.333333,
+          "end": 1.222222,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 59.039100017307746,
@@ -31749,7 +31818,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:59.039100017307746:0:1",
+          "start": -0.333333,
+          "end": 1.222222,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 61.707809073345125,
@@ -31804,7 +31878,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:61.707809073345125:0:1",
+          "start": -0.333333,
+          "end": 1.222222,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 64.01955000865388,
@@ -31860,7 +31939,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:64.01955000865388:0:1",
+          "start": -0.333333,
+          "end": 1.222222,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 72.42482662634698,
@@ -31916,7 +32000,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.333333,
+          "end": 1.222222,
+          "startFractionDenominator": 7,
+          "id": "__seq__:72.42482662634698:-0.333333:1",
+          "endFractionDenominator": 7
         }
       ]
     },
@@ -31985,7 +32074,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:72.276221932877:0:1",
+          "start": 0.222222,
+          "end": 1,
+          "startFractionDenominator": 7
         },
         {
           "midicents": 63.0300040863502,
@@ -32041,7 +32134,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:63.0300040863502:0:1",
+          "start": 0.222222,
+          "end": 1,
+          "startFractionDenominator": 7
         },
         {
           "midicents": 59.66870905603737,
@@ -32097,7 +32194,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:59.66870905603737:0:1",
+          "start": 0.222222,
+          "end": 1,
+          "startFractionDenominator": 7
         },
         {
           "midicents": 57,
@@ -32153,7 +32254,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:57:0:1",
+          "start": 0.222222,
+          "end": 1,
+          "startFractionDenominator": 7
         },
         {
           "midicents": 32.99999999999999,
@@ -32209,7 +32314,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": 0.222222,
+          "end": 1,
+          "startFractionDenominator": 1,
+          "id": "__seq__:32.99999999999999:0.222222:1"
         }
       ]
     },
@@ -32278,7 +32387,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "end": 1.333333,
+          "endFractionDenominator": 2,
+          "id": "__seq__:47.03910001730774:0:1.333333"
         },
         {
           "midicents": 52.01955000865387,
@@ -32334,7 +32446,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:52.01955000865387:0:1",
+          "end": 35,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 59.039100017307746,
@@ -32390,7 +32505,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:59.039100017307746:0:1",
+          "end": 1.333333,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 61.707809073345125,
@@ -32445,7 +32563,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:61.707809073345125:0:1",
+          "end": 1.333333,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 64.01955000865388,
@@ -32501,7 +32622,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:64.01955000865388:0:1",
+          "end": 1.333333,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 72.42482662634698,
@@ -32557,7 +32681,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:72.42482662634698:0:1",
+          "end": 1.333333,
+          "endFractionDenominator": 2
         }
       ]
     },
@@ -32626,7 +32753,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": 0.333333,
+          "end": 0.777778,
+          "startFractionDenominator": 2,
+          "id": "__seq__:72.276221932877:0.333333:1",
+          "endFractionDenominator": 4
         },
         {
           "midicents": 66.68825906469125,
@@ -32682,7 +32814,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:66.68825906469125:0:1",
+          "start": 0.333333,
+          "end": 0.777778,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 57,
@@ -32738,7 +32875,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:57:0:1",
+          "start": 0.333333,
+          "end": 0.777778,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 49.98044999134612,
@@ -32794,7 +32936,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:49.98044999134612:0:1",
+          "start": 0.333333,
+          "end": 0.777778,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 4
         }
       ]
     },
@@ -32864,7 +33011,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.222222,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 64.01955000865388,
@@ -32921,7 +33072,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.222222,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 61.707809073345125,
@@ -32977,7 +33132,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.222222,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 59.039100017307746,
@@ -33034,7 +33193,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.222222,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 47.03910001730774,
@@ -33091,7 +33254,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.222222,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         }
       ]
     },
@@ -33160,7 +33327,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.333333,
+          "end": 0.555556,
+          "startFractionDenominator": 8,
+          "id": "__seq__:72.276221932877:-0.333333:1",
+          "endFractionDenominator": 2
         },
         {
           "midicents": 66.68825906469125,
@@ -33216,7 +33388,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:66.68825906469125:0:1",
+          "start": -0.333333,
+          "end": 0.555556,
+          "startFractionDenominator": 8,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 57,
@@ -33272,7 +33449,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:57:0:1",
+          "start": -0.333333,
+          "end": 0.555556,
+          "startFractionDenominator": 8,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 49.98044999134612,
@@ -33328,14 +33510,19 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:49.98044999134612:0:1",
+          "start": -0.333333,
+          "end": 0.555556,
+          "startFractionDenominator": 8,
+          "endFractionDenominator": 2
         }
       ]
     },
     {
       "id": 232,
       "length": 1,
-      "description": "1:3:7:13",
+      "description": "1:9:21:39",
       "descriptionManual": false,
       "manualTrigger": {
         "articulation": "chord",
@@ -33398,20 +33585,24 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.444444,
+          "end": 1.333333,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 8
         },
         {
-          "midicents": 64.01955000865388,
+          "midicents": 69,
           "attackVelocity": 63,
           "releaseVelocity": 53,
           "velocity": 63,
           "pressure": 0,
           "timbre": 73,
-          "displayLabel": "E",
-          "ratioText": "81/64",
+          "displayLabel": "*nA",
+          "ratioText": "27/16",
           "monzo": [
-            -6,
-            4,
+            -4,
+            3,
             0,
             0,
             0,
@@ -33455,7 +33646,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.444444,
+          "end": 1.333333,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 61.707809073345125,
@@ -33511,7 +33706,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.444444,
+          "end": 0.444444,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 59.039100017307746,
@@ -33568,7 +33767,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.444444,
+          "end": 0.444444,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 47.03910001730774,
@@ -33625,7 +33828,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.444444,
+          "end": 0.444444,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 8
         }
       ]
     },
@@ -33694,7 +33901,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.555556,
+          "end": 0.333333,
+          "startFractionDenominator": 8,
+          "id": "__seq__:66.05865002596163:-0.555556:1",
+          "endFractionDenominator": 4
         }
       ]
     },
@@ -33763,7 +33975,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:44.99999999999999:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 49.98044999134612,
@@ -33819,7 +34036,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:49.98044999134612:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 59.66870905603737,
@@ -33875,7 +34097,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:59.66870905603737:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 68.26319346403028,
@@ -33930,7 +34157,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:68.26319346403028:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 72.276221932877,
@@ -33986,7 +34218,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 4,
+          "id": "__seq__:72.276221932877:-0.666667:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -34055,7 +34292,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8,
+          "id": "__seq__:72.42482662634698:-0.777778:1"
         },
         {
           "midicents": 69,
@@ -34111,7 +34352,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:69:0:1",
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8
         },
         {
           "midicents": 66.05865002596163,
@@ -34167,7 +34412,11 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:66.05865002596163:0:1",
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8
         }
       ]
     },
@@ -34236,7 +34485,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "end": 5.333333,
+          "endFractionDenominator": 1,
+          "id": "__seq__:72.276221932877:0:0.888889"
         },
         {
           "midicents": 68.26319346403028,
@@ -34292,7 +34544,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:68.26319346403028:0:1",
+          "end": 5.333333,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 59.66870905603737,
@@ -34348,7 +34603,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:59.66870905603737:0:1",
+          "end": 0.888889,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 49.98044999134612,
@@ -34404,7 +34662,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:49.98044999134612:0:1",
+          "end": 0.888889,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 44.99999999999999,
@@ -34460,7 +34721,10 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:44.99999999999999:0:1",
+          "end": 3.555556,
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -34529,7 +34793,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:32.99999999999999:0:1",
+          "start": -0.111111,
+          "end": 0.777778,
+          "startFractionDenominator": 8,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 37.98044999134612,
@@ -34585,7 +34854,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:37.98044999134612:0:1",
+          "start": -0.111111,
+          "end": 2.555556,
+          "startFractionDenominator": 8,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 47.66870905603738,
@@ -34641,7 +34915,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:47.66870905603738:0:1",
+          "start": -0.111111,
+          "end": 0.777778,
+          "startFractionDenominator": 8,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 61.98044999134612,
@@ -34697,7 +34976,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.111111,
+          "end": 0.777778,
+          "startFractionDenominator": 8,
+          "id": "__seq__:61.98044999134612:-0.111111:1",
+          "endFractionDenominator": 4
         }
       ]
     },
@@ -34766,7 +35050,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:58.38572660903924:0:1",
+          "start": -0.222222,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 63.0300040863502,
@@ -34822,7 +35111,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.222222,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "id": "__seq__:63.0300040863502:-0.222222:1",
+          "endFractionDenominator": 8
         }
       ]
     },
@@ -34891,7 +35185,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:32.99999999999999:0:1",
+          "start": -0.333333,
+          "end": 0.555556,
+          "startFractionDenominator": 8,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 47.66870905603738,
@@ -34947,7 +35246,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:47.66870905603738:0:1",
+          "start": -0.333333,
+          "end": 0.555556,
+          "startFractionDenominator": 8,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 61.98044999134612,
@@ -35003,7 +35307,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.333333,
+          "end": 0.555556,
+          "startFractionDenominator": 8,
+          "id": "__seq__:61.98044999134612:-0.333333:1",
+          "endFractionDenominator": 2
         }
       ]
     },
@@ -35072,7 +35381,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:59.66870905603737:0:1",
+          "start": -0.444444,
+          "end": 0.888889,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 63.0300040863502,
@@ -35128,7 +35442,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.444444,
+          "end": 0.888889,
+          "startFractionDenominator": 2,
+          "id": "__seq__:63.0300040863502:-0.444444:1",
+          "endFractionDenominator": 2
         }
       ]
     },
@@ -35197,7 +35516,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "id": "__seq__:49.98044999134612:0:1",
+          "start": -0.111111,
+          "end": 0.333333,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 52.01955000865387,
@@ -35253,7 +35577,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.111111,
+          "end": 0.333333,
+          "startFractionDenominator": 2,
+          "id": "__seq__:52.01955000865387:-0.111111:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -35322,7 +35651,12 @@
             ],
             "midiCentsOffset": 7194.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 1,
+          "id": "__seq__:72.42482662634698:0.222222:1",
+          "endFractionDenominator": 8
         },
         {
           "midicents": 68.31017406407088,
@@ -35378,7 +35712,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:68.31017406407088:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 66.05865002596163,
@@ -35434,7 +35773,12 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:66.05865002596163:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 64.01955000865388,
@@ -35490,7 +35834,12 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:64.01955000865388:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 62.31532195018474,
@@ -35546,7 +35895,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:62.31532195018474:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 48.42482662634698,
@@ -35602,7 +35956,12 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:48.42482662634698:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 37.707809073345125,
@@ -35658,7 +36017,12 @@
             ],
             "midiCentsOffset": 3594.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:37.707809073345125:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 8
         },
         {
           "midicents": 35.03910001730774,
@@ -35714,7 +36078,12 @@
             ],
             "midiCentsOffset": 2394.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:35.03910001730774:0:1",
+          "start": -0.666667,
+          "end": 0.222222,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 8
         }
       ]
     },
@@ -35783,7 +36152,11 @@
             ],
             "midiCentsOffset": 7194.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8,
+          "id": "__seq__:72.276221932877:-0.777778:1"
         },
         {
           "midicents": 68.26319346403028,
@@ -35839,7 +36212,11 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:68.26319346403028:0:1",
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8
         },
         {
           "midicents": 64.95558015266914,
@@ -35895,7 +36272,11 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:64.95558015266914:0:1",
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8
         },
         {
           "midicents": 61.98044999134612,
@@ -35951,7 +36332,11 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:61.98044999134612:0:1",
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8
         },
         {
           "midicents": 44.99999999999999,
@@ -36007,7 +36392,11 @@
             ],
             "midiCentsOffset": 3594.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:44.99999999999999:0:1",
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8
         },
         {
           "midicents": 37.98044999134612,
@@ -36063,7 +36452,11 @@
             ],
             "midiCentsOffset": 3594.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:37.98044999134612:0:1",
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8
         },
         {
           "midicents": 32.99999999999999,
@@ -36119,7 +36512,11 @@
             ],
             "midiCentsOffset": 2394.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:32.99999999999999:0:1",
+          "start": -0.777778,
+          "end": 1,
+          "startFractionDenominator": 8
         }
       ]
     },
@@ -36188,7 +36585,10 @@
             ],
             "midiCentsOffset": 2394.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:35.03910001730774:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 37.707809073345125,
@@ -36243,7 +36643,10 @@
               0
             ],
             "midiCentsOffset": 3594.134997403837
-          }
+          },
+          "id": "__seq__:37.707809073345125:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 48.42482662634698,
@@ -36299,7 +36702,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:48.42482662634698:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 52.01955000865387,
@@ -36355,7 +36761,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.01955000865387:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 64.01955000865388,
@@ -36411,7 +36820,10 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:64.01955000865388:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 62.31532195018474,
@@ -36467,7 +36879,10 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:62.31532195018474:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 68.31017406407088,
@@ -36523,7 +36938,10 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:68.31017406407088:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 66.05865002596163,
@@ -36579,7 +36997,10 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:66.05865002596163:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 72.42482662634698,
@@ -36635,7 +37056,10 @@
             ],
             "midiCentsOffset": 7194.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 0.666667,
+          "endFractionDenominator": 2,
+          "id": "__seq__:72.42482662634698:0:0.777778"
         }
       ]
     },
@@ -36705,7 +37129,10 @@
             "midiCentsOffset": 7194.1349974038385
           },
           "pressure14": 0,
-          "id": "__seq__:72.276221932877:0:1"
+          "id": "__seq__:72.276221932877:0:1",
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 68.26319346403028,
@@ -36762,7 +37189,10 @@
             "midiCentsOffset": 5994.134997403837
           },
           "pressure14": 0,
-          "id": "__seq__:68.26319346403028:0:1"
+          "id": "__seq__:68.26319346403028:0:1",
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 64.95558015266914,
@@ -36819,7 +37249,10 @@
             "midiCentsOffset": 5994.134997403837
           },
           "pressure14": 0,
-          "id": "__seq__:64.95558015266914:0:1"
+          "id": "__seq__:64.95558015266914:0:1",
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 61.98044999134612,
@@ -36876,7 +37309,10 @@
             "midiCentsOffset": 5994.134997403837
           },
           "pressure14": 0,
-          "id": "__seq__:61.98044999134612:0:1"
+          "id": "__seq__:61.98044999134612:0:1",
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 44.99999999999999,
@@ -36933,7 +37369,10 @@
             "midiCentsOffset": 3594.1349974038367
           },
           "pressure14": 0,
-          "id": "__seq__:44.99999999999999:0:1"
+          "id": "__seq__:44.99999999999999:0:1",
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 37.98044999134612,
@@ -36990,7 +37429,10 @@
             "midiCentsOffset": 3594.134997403837
           },
           "pressure14": 0,
-          "id": "__seq__:37.98044999134612:0:1"
+          "id": "__seq__:37.98044999134612:0:1",
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 32.99999999999999,
@@ -37047,7 +37489,10 @@
             "midiCentsOffset": 2394.1349974038367
           },
           "pressure14": 0,
-          "id": "__seq__:32.99999999999999:0:1"
+          "id": "__seq__:32.99999999999999:0:1",
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 2
         }
       ]
     },
@@ -37116,7 +37561,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.01955000865387:0:1",
+          "end": 1.111111,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 59.039100017307746,
@@ -37172,7 +37620,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:59.039100017307746:0:1",
+          "end": 1.111111,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 61.707809073345125,
@@ -37228,7 +37679,10 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:61.707809073345125:0:1",
+          "end": 1.111111,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 64.01955000865388,
@@ -37284,7 +37738,10 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:64.01955000865388:0:1",
+          "end": 1.111111,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 72.42482662634698,
@@ -37340,21 +37797,12 @@
             ],
             "midiCentsOffset": 7194.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 1.111111,
+          "endFractionDenominator": 5,
+          "id": "__seq__:72.42482662634698:0:1.111111"
         }
       ]
-    },
-    {
-      "id": 251,
-      "length": 1,
-      "description": "",
-      "descriptionManual": false,
-      "manualTrigger": {
-        "articulation": "chord",
-        "styleId": null,
-        "styleParameters": null
-      },
-      "notes": []
     },
     {
       "id": 248,
@@ -37421,7 +37869,12 @@
             ],
             "midiCentsOffset": 3594.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:37.98044999134612:0:1",
+          "start": 0.666667,
+          "end": 1.222222,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 52.01955000865387,
@@ -37477,7 +37930,12 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.01955000865387:0:1",
+          "start": 0.666667,
+          "end": 4.777778,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 57,
@@ -37533,7 +37991,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57:0:1",
+          "start": 0.666667,
+          "end": 1.222222,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 58.38572660903924,
@@ -37589,7 +38052,12 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:58.38572660903924:0:1",
+          "start": 0.666667,
+          "end": 1.222222,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 63.0300040863502,
@@ -37645,7 +38113,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:63.0300040863502:0:1",
+          "start": 0.666667,
+          "end": 1.222222,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 72.276221932877,
@@ -37701,7 +38174,330 @@
             ],
             "midiCentsOffset": 7194.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": 0.666667,
+          "end": 1.222222,
+          "startFractionDenominator": 5,
+          "id": "__seq__:72.276221932877:-0.333333:1",
+          "endFractionDenominator": 1
+        }
+      ]
+    },
+    {
+      "id": 268,
+      "length": 1,
+      "description": "1:3:7:13",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 52.01955000865387,
+          "attackVelocity": 82,
+          "releaseVelocity": 46,
+          "velocity": 82,
+          "pressure": 0,
+          "timbre": 77,
+          "displayLabel": "E",
+          "ratioText": "81/64",
+          "monzo": [
+            -6,
+            4,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403837
+          },
+          "pressure14": 0,
+          "id": "__seq__:52.01955000865387:0:1",
+          "end": 0.777778,
+          "endFractionDenominator": 5,
+          "start": 0.222222,
+          "startFractionDenominator": 1
+        },
+        {
+          "midicents": 59.039100017307746,
+          "attackVelocity": 60,
+          "releaseVelocity": 34,
+          "velocity": 60,
+          "pressure": 0,
+          "timbre": 77,
+          "displayLabel": "B",
+          "ratioText": "243/128",
+          "monzo": [
+            -7,
+            5,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403838
+          },
+          "pressure14": 0,
+          "id": "__seq__:59.039100017307746:0:1",
+          "end": 0.777778,
+          "endFractionDenominator": 5,
+          "start": 0.222222,
+          "startFractionDenominator": 1
+        },
+        {
+          "midicents": 61.707809073345125,
+          "attackVelocity": 63,
+          "releaseVelocity": 53,
+          "velocity": 63,
+          "pressure": 0,
+          "timbre": 77,
+          "displayLabel": "D",
+          "ratioText": "567/512",
+          "monzo": [
+            -9,
+            4,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 5994.134997403837
+          },
+          "pressure14": 0,
+          "id": "__seq__:61.707809073345125:0:1",
+          "end": 0.777778,
+          "endFractionDenominator": 5,
+          "start": 0.222222,
+          "startFractionDenominator": 1
+        },
+        {
+          "midicents": 64.01955000865388,
+          "attackVelocity": 53,
+          "releaseVelocity": 32,
+          "velocity": 53,
+          "pressure": 0,
+          "timbre": 77,
+          "displayLabel": "E",
+          "ratioText": "81/64",
+          "monzo": [
+            -6,
+            4,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 5994.134997403838
+          },
+          "pressure14": 0,
+          "id": "__seq__:64.01955000865388:0:1",
+          "end": 0.777778,
+          "endFractionDenominator": 5,
+          "start": 0.222222,
+          "startFractionDenominator": 1
+        },
+        {
+          "midicents": 72.42482662634698,
+          "attackVelocity": 51,
+          "releaseVelocity": 44,
+          "velocity": 51,
+          "pressure": 0,
+          "timbre": 77,
+          "displayLabel": "C",
+          "ratioText": "1053/1024",
+          "monzo": [
+            -10,
+            4,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 7194.134997403838
+          },
+          "pressure14": 0,
+          "end": 0.777778,
+          "endFractionDenominator": 5,
+          "id": "__seq__:72.42482662634698:0:1.111111",
+          "start": 0.222222,
+          "startFractionDenominator": 1
         }
       ]
     },
@@ -37769,7 +38565,12 @@
               0
             ],
             "midiCentsOffset": 4794.134997403837
-          }
+          },
+          "id": "__seq__:49.98044999134612:0:1",
+          "start": -0.222222,
+          "end": 0.333333,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 57,
@@ -37825,7 +38626,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57:0:1",
+          "start": -0.222222,
+          "end": 0.333333,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 66.68825906469125,
@@ -37881,7 +38687,12 @@
             ],
             "midiCentsOffset": 5994.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:66.68825906469125:0:1",
+          "start": -0.222222,
+          "end": 0.333333,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 72.276221932877,
@@ -37937,7 +38748,12 @@
             ],
             "midiCentsOffset": 7194.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.222222,
+          "end": 0.333333,
+          "startFractionDenominator": 5,
+          "id": "__seq__:72.276221932877:-0.555556:1",
+          "endFractionDenominator": 2
         }
       ]
     },
@@ -38006,7 +38822,11 @@
             ],
             "midiCentsOffset": 3594.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:47.03910001730774:0:1",
+          "start": -0.666667,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 59.039100017307746,
@@ -38062,7 +38882,11 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:59.039100017307746:0:1",
+          "start": -0.666667,
+          "end": 1,
+          "startFractionDenominator": 1
         },
         {
           "midicents": 61.707809073345125,
@@ -38118,7 +38942,11 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:61.707809073345125:0:1",
+          "start": -0.666667,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 69,
@@ -38174,7 +39002,11 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:69:0:1",
+          "start": -0.666667,
+          "end": 1,
+          "startFractionDenominator": 2
         },
         {
           "midicents": 72.42482662634698,
@@ -38230,7 +39062,11 @@
             ],
             "midiCentsOffset": 7194.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.666667,
+          "end": 1,
+          "startFractionDenominator": 2,
+          "id": "__seq__:72.42482662634698:-0.666667:1"
         }
       ]
     },
@@ -38299,7 +39135,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57:0:1",
+          "end": 0.777778,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 49.98044999134612,
@@ -38355,7 +39194,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:49.98044999134612:0:1",
+          "end": 0.777778,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 66.68825906469125,
@@ -38411,7 +39253,10 @@
             ],
             "midiCentsOffset": 5994.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:66.68825906469125:0:1",
+          "end": 0.777778,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 72.276221932877,
@@ -38467,14 +39312,17 @@
             ],
             "midiCentsOffset": 7194.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 4.666667,
+          "endFractionDenominator": 7,
+          "id": "__seq__:72.276221932877:0:4.666667"
         }
       ]
     },
     {
       "id": 253,
       "length": 1,
-      "description": "1:3:13:19:23:29",
+      "description": "1:3:13:19:23",
       "descriptionManual": false,
       "manualTrigger": {
         "articulation": "chord",
@@ -38483,131 +39331,20 @@
       },
       "notes": [
         {
-          "midicents": 37.98044999134612,
-          "attackVelocity": 99,
-          "releaseVelocity": 89,
-          "velocity": 99,
+          "midicents": 68.26319347771593,
+          "attackVelocity": 16,
+          "releaseVelocity": 42,
+          "velocity": 16,
           "pressure": 0,
           "timbre": 56,
-          "displayLabel": "D",
-          "ratioText": "9/8",
+          "displayLabel": "G",
+          "ratioText": "207/128",
           "monzo": [
-            -3,
+            -7,
             2,
             0,
             0,
             0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ],
-          "rationalContext": {
-            "version": 1,
-            "anchorLabel": null,
-            "anchorRatioText": null,
-            "anchorOctave": 4,
-            "globalOffsetMonzo": [
-              -4,
-              3,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "midiCentsOffset": 3594.134997403837
-          },
-          "pressure14": 0,
-          "id": "__seq__:37.98044999134612:0:1"
-        },
-        {
-          "midicents": 44.99999999999999,
-          "attackVelocity": 63,
-          "releaseVelocity": 58,
-          "velocity": 63,
-          "pressure": 0,
-          "timbre": 56,
-          "displayLabel": "A",
-          "ratioText": "27/16",
-          "monzo": [
-            -4,
-            3,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ],
-          "rationalContext": {
-            "version": 1,
-            "anchorLabel": null,
-            "anchorRatioText": null,
-            "anchorOctave": 4,
-            "globalOffsetMonzo": [
-              -4,
-              3,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "midiCentsOffset": 3594.1349974038367
-          },
-          "pressure14": 0,
-          "id": "__seq__:44.99999999999999:0:1"
-        },
-        {
-          "midicents": 58.38572660903924,
-          "attackVelocity": 36,
-          "releaseVelocity": 35,
-          "velocity": 36,
-          "pressure": 0,
-          "timbre": 56,
-          "displayLabel": "B",
-          "ratioText": "117/64",
-          "monzo": [
-            -6,
-            2,
             0,
             0,
             0,
@@ -38619,9 +39356,6 @@
             0,
             0,
             0,
-            0,
-            0,
-            0,
             0
           ],
           "rationalContext": {
@@ -38648,10 +39382,14 @@
               0,
               0
             ],
-            "midiCentsOffset": 4794.1349974038385
+            "midiCentsOffset": 5994.134997403837
           },
           "pressure14": 0,
-          "id": "__seq__:58.38572660903924:0:1"
+          "id": "__seq__:68.26319347771593:0:1",
+          "start": -0.222222,
+          "end": 0.555556,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 64.95558015266914,
@@ -38708,27 +39446,31 @@
             "midiCentsOffset": 5994.134997403837
           },
           "pressure14": 0,
-          "id": "__seq__:64.95558015266914:0:1"
+          "id": "__seq__:64.95558015266914:0:1",
+          "start": -0.222222,
+          "end": 0.555556,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
-          "midicents": 68.26319347771593,
-          "attackVelocity": 16,
-          "releaseVelocity": 42,
-          "velocity": 16,
+          "midicents": 58.38572660903924,
+          "attackVelocity": 36,
+          "releaseVelocity": 35,
+          "velocity": 36,
           "pressure": 0,
           "timbre": 56,
-          "displayLabel": "G",
-          "ratioText": "207/128",
+          "displayLabel": "B",
+          "ratioText": "117/64",
           "monzo": [
-            -7,
+            -6,
             2,
             0,
             0,
             0,
-            0,
-            0,
-            0,
             1,
+            0,
+            0,
+            0,
             0,
             0,
             0,
@@ -38762,23 +39504,27 @@
               0,
               0
             ],
-            "midiCentsOffset": 5994.134997403837
+            "midiCentsOffset": 4794.1349974038385
           },
           "pressure14": 0,
-          "id": "__seq__:68.26319347771593:0:1"
+          "id": "__seq__:58.38572660903924:0:1",
+          "start": -0.222222,
+          "end": 2.111111,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
-          "midicents": 72.276221932877,
-          "attackVelocity": 43,
-          "releaseVelocity": 51,
-          "velocity": 43,
+          "midicents": 44.99999999999999,
+          "attackVelocity": 63,
+          "releaseVelocity": 58,
+          "velocity": 63,
           "pressure": 0,
           "timbre": 56,
-          "displayLabel": "C",
-          "ratioText": "261/256",
+          "displayLabel": "A",
+          "ratioText": "27/16",
           "monzo": [
-            -8,
-            2,
+            -4,
+            3,
             0,
             0,
             0,
@@ -38786,7 +39532,7 @@
             0,
             0,
             0,
-            1,
+            0,
             0,
             0,
             0,
@@ -38819,10 +39565,75 @@
               0,
               0
             ],
-            "midiCentsOffset": 7194.1349974038385
+            "midiCentsOffset": 3594.1349974038367
           },
           "pressure14": 0,
-          "id": "__seq__:72.276221932877:0:1"
+          "id": "__seq__:44.99999999999999:0:1",
+          "start": -0.222222,
+          "end": 0.555556,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
+        },
+        {
+          "midicents": 37.98044999134612,
+          "attackVelocity": 99,
+          "releaseVelocity": 89,
+          "velocity": 99,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "D",
+          "ratioText": "9/8",
+          "monzo": [
+            -3,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.134997403837
+          },
+          "pressure14": 0,
+          "id": "__seq__:37.98044999134612:0:1",
+          "start": -0.222222,
+          "end": 0.555556,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         }
       ]
     },
@@ -38891,7 +39702,12 @@
             ],
             "midiCentsOffset": 2394.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:32.99999999999999:0:1",
+          "start": -0.444444,
+          "end": 1.111111,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 49.98044999134612,
@@ -38946,7 +39762,12 @@
               0
             ],
             "midiCentsOffset": 4794.134997403837
-          }
+          },
+          "id": "__seq__:49.98044999134612:0:1",
+          "start": -0.444444,
+          "end": -0.055556,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 64.01955000865388,
@@ -39002,7 +39823,12 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:64.01955000865388:0:1",
+          "start": -0.444444,
+          "end": 1.111111,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 70.38572660903924,
@@ -39057,7 +39883,12 @@
               0
             ],
             "midiCentsOffset": 5994.1349974038385
-          }
+          },
+          "start": -0.444444,
+          "end": -0.055556,
+          "startFractionDenominator": 7,
+          "id": "__seq__:70.38572660903924:-0.444444:1",
+          "endFractionDenominator": 2
         }
       ]
     },
@@ -39126,7 +39957,12 @@
             ],
             "midiCentsOffset": 2394.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:25.98044999134612:0:1",
+          "start": -1.055556,
+          "end": 1.666667,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 37.98044999134612,
@@ -39182,7 +40018,12 @@
             ],
             "midiCentsOffset": 3594.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:37.98044999134612:0:1",
+          "start": -1.055556,
+          "end": 1.666667,
+          "startFractionDenominator": 2,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 71.03910001730775,
@@ -39238,7 +40079,12 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -1.055556,
+          "end": 1.666667,
+          "startFractionDenominator": 2,
+          "id": "__seq__:71.03910001730775:-1.055556:1",
+          "endFractionDenominator": 7
         }
       ]
     },
@@ -39307,7 +40153,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57:0:1",
+          "start": -0.888889,
+          "end": 0.666667,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 61.98044999134612,
@@ -39363,7 +40214,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:61.98044999134612:0:1",
+          "start": -0.888889,
+          "end": 0.666667,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 71.66870905603737,
@@ -39419,7 +40275,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.888889,
+          "end": 0.666667,
+          "startFractionDenominator": 7,
+          "id": "__seq__:71.66870905603737:-0.777778:1",
+          "endFractionDenominator": 7
         }
       ]
     },
@@ -39488,7 +40349,12 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.01955000865387:0:1",
+          "start": -0.333333,
+          "end": 2.416667,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 47.03910001730774,
@@ -39544,7 +40410,12 @@
             ],
             "midiCentsOffset": 3594.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:47.03910001730774:0:1",
+          "start": -0.333333,
+          "end": 0.444444,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 59.039100017307746,
@@ -39600,7 +40471,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:59.039100017307746:0:1",
+          "start": -0.333333,
+          "end": 2,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 61.707809073345125,
@@ -39656,7 +40532,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:61.707809073345125:0:1",
+          "start": -0.333333,
+          "end": 2,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 69,
@@ -39712,7 +40593,12 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:69:0:1",
+          "start": -0.333333,
+          "end": 0.444444,
+          "startFractionDenominator": 7,
+          "endFractionDenominator": 7
         },
         {
           "midicents": 72.42482662634698,
@@ -39768,7 +40654,12 @@
             ],
             "midiCentsOffset": 7194.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.333333,
+          "end": 2,
+          "startFractionDenominator": 7,
+          "id": "__seq__:72.42482662634698:-0.333333:1",
+          "endFractionDenominator": 7
         }
       ]
     },
@@ -39837,7 +40728,11 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.555556,
+          "end": 1,
+          "startFractionDenominator": 7,
+          "id": "__seq__:64.01955000865388:-0.555556:1"
         }
       ]
     },
@@ -39906,7 +40801,10 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:63.0300040863502:0:1",
+          "end": 0.416667,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 72.276221932877,
@@ -39962,7 +40860,10 @@
             ],
             "midiCentsOffset": 7194.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 1.666667,
+          "endFractionDenominator": 5,
+          "id": "__seq__:72.276221932877:0:1.666667"
         },
         {
           "midicents": 58.38572660903924,
@@ -40018,7 +40919,10 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:58.38572660903924:0:1",
+          "end": 1.666667,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 57,
@@ -40074,7 +40978,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57:0:1",
+          "end": 0.416667,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 37.98044999134612,
@@ -40130,7 +41037,10 @@
             ],
             "midiCentsOffset": 3594.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:37.98044999134612:0:1",
+          "end": 1.666667,
+          "endFractionDenominator": 4
         }
       ]
     },
@@ -40199,7 +41109,12 @@
             ],
             "midiCentsOffset": 2394.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:32.99999999999999:0:1",
+          "start": -0.583333,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 44.99999999999999,
@@ -40255,7 +41170,12 @@
             ],
             "midiCentsOffset": 3594.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:44.99999999999999:0:1",
+          "start": -0.583333,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 47.66870905603738,
@@ -40311,7 +41231,12 @@
             ],
             "midiCentsOffset": 3594.1349974038376
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:47.66870905603738:0:1",
+          "start": -0.583333,
+          "end": 0.666667,
+          "startFractionDenominator": 4,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 61.98044999134612,
@@ -40367,7 +41292,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.583333,
+          "end": 4,
+          "startFractionDenominator": 4,
+          "id": "__seq__:61.98044999134612:-0.583333:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -40436,7 +41366,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57:0:1",
+          "start": -0.333333,
+          "end": 3,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 64.01955000865388,
@@ -40492,7 +41427,12 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:64.01955000865388:0:1",
+          "start": -0.333333,
+          "end": 1.333333,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 5
         },
         {
           "midicents": 71.66870905603737,
@@ -40548,7 +41488,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.333333,
+          "end": 3,
+          "startFractionDenominator": 5,
+          "id": "__seq__:71.66870905603737:-0.333333:1",
+          "endFractionDenominator": 5
         }
       ]
     },
@@ -40616,7 +41561,12 @@
               0
             ],
             "midiCentsOffset": 4794.134997403837
-          }
+          },
+          "id": "__seq__:49.98044999134612:0:1",
+          "start": 0.333333,
+          "end": 1.583333,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 52.01955000865387,
@@ -40672,7 +41622,12 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.01955000865387:0:1",
+          "start": 0.333333,
+          "end": 2,
+          "startFractionDenominator": 5,
+          "endFractionDenominator": 4
         },
         {
           "midicents": 63.0300040863502,
@@ -40728,7 +41683,12 @@
             ],
             "midiCentsOffset": 5994.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": 0.333333,
+          "end": 2,
+          "startFractionDenominator": 5,
+          "id": "__seq__:63.0300040863502:0.333333:1",
+          "endFractionDenominator": 4
         }
       ]
     },
@@ -40797,7 +41757,11 @@
             ],
             "midiCentsOffset": 3594.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:37.98044999134612:0:1",
+          "start": 0.583333,
+          "end": 1,
+          "startFractionDenominator": 4
         },
         {
           "midicents": 44.99999999999999,
@@ -40853,7 +41817,11 @@
             ],
             "midiCentsOffset": 3594.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:44.99999999999999:0:1",
+          "start": 0.583333,
+          "end": 1,
+          "startFractionDenominator": 4
         },
         {
           "midicents": 58.38572660903924,
@@ -40909,7 +41877,11 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": 0.583333,
+          "end": 1,
+          "startFractionDenominator": 4,
+          "id": "__seq__:58.38572660903924:0.583333:1"
         }
       ]
     },
@@ -40978,7 +41950,10 @@
             ],
             "midiCentsOffset": 2394.1349974038376
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:30.960899982692247:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 42.96089998269225,
@@ -41034,7 +42009,8 @@
             ],
             "midiCentsOffset": 3594.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:42.96089998269225:0:1"
         },
         {
           "midicents": 47.941349974038374,
@@ -41090,7 +42066,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:47.941349974038374:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 57.629609038729626,
@@ -41146,7 +42125,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57.629609038729626:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 62.9164801353614,
@@ -41202,7 +42184,10 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:62.9164801353614:0:1",
+          "end": 4,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 71.94134997403837,
@@ -41258,7 +42243,10 @@
             ],
             "midiCentsOffset": 7194.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 4,
+          "endFractionDenominator": 1,
+          "id": "__seq__:71.94134997403837:0:1"
         }
       ]
     },
@@ -41327,7 +42315,12 @@
             ],
             "midiCentsOffset": 3594.1349974038376
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:35.941349974038374:0:1",
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 49.98044999134612,
@@ -41383,7 +42376,12 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:49.98044999134612:0:1",
+          "start": -0.333333,
+          "end": 0,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 56.34662659173148,
@@ -41439,7 +42437,12 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.333333,
+          "end": 0,
+          "startFractionDenominator": 1,
+          "id": "__seq__:56.34662659173148:-0.333333:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -41508,7 +42511,12 @@
             ],
             "midiCentsOffset": 3594.1349974038376
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:35.941349974038374:0:1",
+          "start": -1,
+          "end": 2,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 45.629609038729626,
@@ -41564,7 +42572,12 @@
             ],
             "midiCentsOffset": 3594.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:45.629609038729626:0:1",
+          "start": -1,
+          "end": 0,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 54.96089998269225,
@@ -41620,7 +42633,12 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -1,
+          "end": 0,
+          "startFractionDenominator": 1,
+          "id": "__seq__:54.96089998269225:-1:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -41635,6 +42653,66 @@
         "styleParameters": null
       },
       "notes": [
+        {
+          "midicents": 59.941349974038374,
+          "attackVelocity": 53,
+          "releaseVelocity": 47,
+          "velocity": 53,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "C",
+          "ratioText": "1/1",
+          "monzo": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 5994.134997403838
+          },
+          "start": -1,
+          "end": 1,
+          "startFractionDenominator": 1,
+          "id": "__seq__:59.941349974038374:-1:1",
+          "endFractionDenominator": 1
+        },
         {
           "midicents": 47.941349974038374,
           "attackVelocity": 71,
@@ -41689,13 +42767,43 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
-        },
+          "pressure14": 0,
+          "id": "__seq__:47.941349974038374:0:1",
+          "start": -1,
+          "end": 6,
+          "startFractionDenominator": 1,
+          "__selectedTime": 6
+        }
+      ]
+    },
+    {
+      "id": 269,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
+    },
+    {
+      "id": 270,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
         {
-          "midicents": 59.941349974038374,
-          "attackVelocity": 53,
-          "releaseVelocity": 47,
-          "velocity": 53,
+          "midicents": 35.941349974038374,
+          "attackVelocity": 109,
+          "releaseVelocity": 63,
+          "velocity": 109,
           "pressure": 0,
           "timbre": 56,
           "displayLabel": "C",
@@ -41743,10 +42851,2384 @@
               0,
               0
             ],
-            "midiCentsOffset": 5994.134997403838
+            "midiCentsOffset": 3594.1349974038376
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 271,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 40.921799965384494,
+          "attackVelocity": 82,
+          "releaseVelocity": 46,
+          "velocity": 82,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 272,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 28.921799965384494,
+          "attackVelocity": 99,
+          "releaseVelocity": 51,
+          "velocity": 99,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 273,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
+    },
+    {
+      "id": 274,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 40.921799965384494,
+          "attackVelocity": 33,
+          "releaseVelocity": 39,
+          "velocity": 33,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 275,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
+    },
+    {
+      "id": 276,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 33.90224995673062,
+          "attackVelocity": 66,
+          "releaseVelocity": 46,
+          "velocity": 66,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "B",
+          "ratioText": "16/9",
+          "monzo": [
+            4,
+            -2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.134997403837
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 277,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 28.921799965384494,
+          "attackVelocity": 82,
+          "releaseVelocity": 49,
+          "velocity": 82,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 278,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 33.90224995673062,
+          "attackVelocity": 89,
+          "releaseVelocity": 60,
+          "velocity": 89,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "B",
+          "ratioText": "16/9",
+          "monzo": [
+            4,
+            -2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.134997403837
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 279,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 35.941349974038374,
+          "attackVelocity": 71,
+          "releaseVelocity": 49,
+          "velocity": 71,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "C",
+          "ratioText": "1/1",
+          "monzo": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038376
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 281,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
+    },
+    {
+      "id": 282,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 33.90224995673062,
+          "attackVelocity": 63,
+          "releaseVelocity": 60,
+          "velocity": 63,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "B",
+          "ratioText": "16/9",
+          "monzo": [
+            4,
+            -2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.134997403837
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 283,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 38.88269994807675,
+          "attackVelocity": 71,
+          "releaseVelocity": 49,
+          "velocity": 71,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "E",
+          "ratioText": "32/27",
+          "monzo": [
+            5,
+            -3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.134997403837
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 284,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 40.921799965384494,
+          "attackVelocity": 66,
+          "releaseVelocity": 39,
+          "velocity": 66,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 285,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 28.921799965384494,
+          "attackVelocity": 94,
+          "releaseVelocity": 53,
+          "velocity": 94,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 286,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 35.941349974038374,
+          "attackVelocity": 51,
+          "releaseVelocity": 40,
+          "velocity": 51,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "C",
+          "ratioText": "1/1",
+          "monzo": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038376
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 287,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
+    },
+    {
+      "id": 289,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 30.960899982692247,
+          "attackVelocity": 94,
+          "releaseVelocity": 50,
+          "velocity": 94,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "G",
+          "ratioText": "3/2",
+          "monzo": [
+            -1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038376
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 290,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 26.610059030075746,
+          "attackVelocity": 99,
+          "releaseVelocity": 42,
+          "velocity": 99,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "E",
+          "ratioText": "7/6",
+          "monzo": [
+            -1,
+            -1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 291,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 33.62960903872962,
+          "attackVelocity": 77,
+          "releaseVelocity": 50,
+          "velocity": 77,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "B",
+          "ratioText": "7/4",
+          "monzo": [
+            -2,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 292,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 31.590509021421866,
+          "attackVelocity": 71,
+          "releaseVelocity": 33,
+          "velocity": 71,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "A",
+          "ratioText": "14/9",
+          "monzo": [
+            1,
+            -2,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 293,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 28.921799965384494,
+          "attackVelocity": 89,
+          "releaseVelocity": 47,
+          "velocity": 89,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 294,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 35.941349974038374,
+          "attackVelocity": 63,
+          "releaseVelocity": 53,
+          "velocity": 63,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "C",
+          "ratioText": "1/1",
+          "monzo": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038376
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 295,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 40.921799965384494,
+          "attackVelocity": 60,
+          "releaseVelocity": 44,
+          "velocity": 60,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 296,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
+    },
+    {
+      "id": 297,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 38.610059030075746,
+          "attackVelocity": 60,
+          "releaseVelocity": 53,
+          "velocity": 60,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "E",
+          "ratioText": "7/6",
+          "monzo": [
+            -1,
+            -1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 298,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 33.90224995673062,
+          "attackVelocity": 63,
+          "releaseVelocity": 53,
+          "velocity": 63,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "B",
+          "ratioText": "16/9",
+          "monzo": [
+            4,
+            -2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.134997403837
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 299,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 38.88269994807675,
+          "attackVelocity": 34,
+          "releaseVelocity": 38,
+          "velocity": 34,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "E",
+          "ratioText": "32/27",
+          "monzo": [
+            5,
+            -3,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.134997403837
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 300,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
+    },
+    {
+      "id": 301,
+      "length": 1,
+      "description": "1:7",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 40.921799965384494,
+          "attackVelocity": 47,
+          "releaseVelocity": 41,
+          "velocity": 47,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038367
+          },
+          "pressure14": 0,
+          "id": "__seq__:40.921799965384494:0:1"
+        },
+        {
+          "midicents": 50.610059030075746,
+          "attackVelocity": 60,
+          "releaseVelocity": 20,
+          "velocity": 60,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "E",
+          "ratioText": "7/6",
+          "monzo": [
+            -1,
+            -1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403837
+          },
+          "pressure14": 0,
+          "id": "__seq__:50.610059030075746:0:1",
+          "start": 0.5,
+          "end": 2
+        }
+      ]
+    },
+    {
+      "id": 303,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 31.590509021421866,
+          "attackVelocity": 105,
+          "releaseVelocity": 44,
+          "velocity": 105,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "A",
+          "ratioText": "14/9",
+          "monzo": [
+            1,
+            -2,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 305,
+      "length": 1,
+      "description": "1:7",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 52.921799965384494,
+          "attackVelocity": 45,
+          "releaseVelocity": 28,
+          "velocity": 45,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403838
+          },
+          "pressure14": 0
+        },
+        {
+          "midicents": 31.23354090069325,
+          "attackVelocity": 77,
+          "releaseVelocity": 56,
+          "velocity": 77,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "G",
+          "ratioText": "32/21",
+          "monzo": [
+            5,
+            -1,
+            0,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038376
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 306,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 28.921799965384494,
+          "attackVelocity": 77,
+          "releaseVelocity": 54,
+          "velocity": 77,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 307,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 50.610059030075746,
+          "attackVelocity": 49,
+          "releaseVelocity": 40,
+          "velocity": 49,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "E",
+          "ratioText": "7/6",
+          "monzo": [
+            -1,
+            -1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403837
+          },
+          "pressure14": 0,
+          "id": "__seq__:50.610059030075746:0:1",
+          "start": 0,
+          "end": 1,
+          "__selectedTime": 1
+        },
+        {
+          "midicents": 38.610059030075746,
+          "attackVelocity": 49,
+          "releaseVelocity": 39,
+          "velocity": 49,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "E",
+          "ratioText": "7/6",
+          "monzo": [
+            -1,
+            -1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.1349974038367
+          },
+          "pressure14": 0,
+          "id": "__seq__:38.610059030075746:0:1"
+        }
+      ]
+    },
+    {
+      "id": 309,
+      "length": 1,
+      "description": "1",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 31.590509021421866,
+          "attackVelocity": 66,
+          "releaseVelocity": 51,
+          "velocity": 66,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "A",
+          "ratioText": "14/9",
+          "monzo": [
+            1,
+            -2,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
           }
         }
       ]
+    },
+    {
+      "id": 311,
+      "length": 1,
+      "description": "1:3:7",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": [
+        {
+          "midicents": 38.25309090934712,
+          "attackVelocity": 56,
+          "releaseVelocity": 43,
+          "velocity": 56,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "D",
+          "ratioText": "8/7",
+          "monzo": [
+            3,
+            0,
+            0,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 3594.134997403837
+          },
+          "pressure14": 0
+        },
+        {
+          "midicents": 31.23354090069325,
+          "attackVelocity": 58,
+          "releaseVelocity": 54,
+          "velocity": 58,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "G",
+          "ratioText": "32/21",
+          "monzo": [
+            5,
+            -1,
+            0,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038376
+          },
+          "pressure14": 0
+        },
+        {
+          "midicents": 52.921799965384494,
+          "attackVelocity": 38,
+          "releaseVelocity": 26,
+          "velocity": 38,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403838
+          },
+          "pressure14": 0
+        }
+      ]
+    },
+    {
+      "id": 312,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
     }
   ],
   "bars": [
@@ -42151,6 +45633,96 @@
       "position": 247,
       "numerator": 12,
       "denominator": 8
+    },
+    {
+      "id": 75,
+      "position": 251,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 76,
+      "position": 253,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 77,
+      "position": 256,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 78,
+      "position": 258,
+      "numerator": 4,
+      "denominator": 2
+    },
+    {
+      "id": 79,
+      "position": 261,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 80,
+      "position": 262,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 82,
+      "position": 265,
+      "numerator": 6,
+      "denominator": 2
+    },
+    {
+      "id": 83,
+      "position": 271,
+      "numerator": 6,
+      "denominator": 2
+    },
+    {
+      "id": 84,
+      "position": 275,
+      "numerator": 6,
+      "denominator": 2
+    },
+    {
+      "id": 85,
+      "position": 278,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 86,
+      "position": 281,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 87,
+      "position": 283,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 88,
+      "position": 285,
+      "numerator": 3,
+      "denominator": 2
+    },
+    {
+      "id": 89,
+      "position": 286,
+      "numerator": 6,
+      "denominator": 2
+    },
+    {
+      "id": 90,
+      "position": 289,
+      "numerator": 4,
+      "denominator": 2
     }
   ],
   "repeats": []

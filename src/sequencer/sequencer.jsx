@@ -1317,6 +1317,20 @@ const Sequencer = ({
     () => new Map(renderedSnapshots.map((snapshot, index) => [snapshot.id, index])),
     [renderedSnapshots],
   );
+  const redirectPlaybackSelectWheel = useCallback(
+    (event) => {
+      const deltaY = Number(event.deltaY) || 0;
+      if (Math.abs(deltaY) < Math.abs(Number(event.deltaX) || 0)) return;
+      if (event.cancelable) event.preventDefault();
+      event.currentTarget.blur();
+      cancelVirtualSequenceAnchor();
+      const panel = scrollPanelRef.current;
+      if (!(panel instanceof HTMLElement) || deltaY === 0) return;
+      const multiplier = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? panel.clientHeight : 1;
+      panel.scrollTop += deltaY * multiplier;
+    },
+    [cancelVirtualSequenceAnchor, scrollPanelRef],
+  );
   const materializeVirtualViewport = useCallback(
     (firstIndex, lastIndex = firstIndex) => {
       if (virtualSequenceItems.length === 0) return [];
@@ -3499,6 +3513,7 @@ const Sequencer = ({
           getTimedTransportDisplay={getTimedTransportDisplay}
           onTimedTransportPlayPause={handleTimedTransportPlayPause}
           onTimedTransportStop={handleTimedTransportStop}
+          onPlaybackSelectWheel={redirectPlaybackSelectWheel}
           terminalSequenceTarget={terminalSequenceTarget}
         />
 

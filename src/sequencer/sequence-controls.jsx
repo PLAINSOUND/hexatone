@@ -329,6 +329,7 @@ const SequenceControls = ({
   getTimedTransportDisplay,
   onTimedTransportPlayPause,
   onTimedTransportStop,
+  onPlaybackSelectWheel,
   terminalSequenceTarget,
 }) => {
   const [playFromTarget, setPlayFromTarget] = useState(
@@ -734,9 +735,11 @@ const SequenceControls = ({
             <select
               class="sidebar-input sequencer-playback-select"
               data-timed-transport-field="bar"
+              onWheel={onPlaybackSelectWheel}
               value={timedBarSelectValue ?? selectedBarIndex ?? playhead?.barIndex ?? 0}
               onChange={(e) => {
                 const selectedBarIndex = Number(e.currentTarget.value);
+                e.currentTarget.blur();
                 setPlayFromTarget("cue");
                 stopTimedTransportBefore(
                   () => {
@@ -776,9 +779,11 @@ const SequenceControls = ({
               aria-label="next snapshot target"
               data-play-from-active={playFromTarget === "snapshot" ? "true" : "false"}
               data-timed-transport-field="snapshot"
+              onWheel={onPlaybackSelectWheel}
               value={snapshotSelectValue}
               onChange={(e) => {
                 const selectedSnapshotValue = e.currentTarget.value;
+                e.currentTarget.blur();
                 setPlayFromTarget("snapshot");
                 stopTimedTransportBefore(
                   () => {
@@ -852,9 +857,11 @@ const SequenceControls = ({
               aria-label="next cue target"
               data-play-from-active={playFromTarget === "cue" ? "true" : "false"}
               data-timed-transport-field="cue"
+              onWheel={onPlaybackSelectWheel}
               value={cueSelectValue}
               onChange={(e) => {
                 const selectedCueValue = e.currentTarget.value;
+                e.currentTarget.blur();
                 setPlayFromTarget("cue");
                 stopTimedTransportBefore(
                   () => {

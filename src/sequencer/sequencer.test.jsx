@@ -2750,9 +2750,18 @@ describe("Sequencer", () => {
       height: 30,
     });
 
-    fireEvent.change(screen.getByLabelText("next snapshot target"), { target: { value: "1" } });
+    const snapshotTarget = screen.getByLabelText("next snapshot target");
+    snapshotTarget.focus();
+    expect(document.activeElement).toBe(snapshotTarget);
+    fireEvent.change(snapshotTarget, { target: { value: "1" } });
 
     expect(scrollTopValue).toBe(414);
+    expect(document.activeElement).not.toBe(snapshotTarget);
+
+    snapshotTarget.focus();
+    fireEvent.wheel(snapshotTarget, { deltaY: 80, deltaMode: 0 });
+    expect(scrollTopValue).toBe(494);
+    expect(document.activeElement).not.toBe(snapshotTarget);
 
     scrollTopValue = 300;
     fireEvent.click(screen.getByLabelText("next sequence step"));
