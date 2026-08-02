@@ -137,6 +137,42 @@ describe("sequencer snapshots", () => {
     });
   });
 
+  it("captures the per-note HEJI reference needed to rebuild edited rational identity", () => {
+    const globalOffsetMonzo = new Array(17).fill(0);
+    globalOffsetMonzo[0] = -4;
+    globalOffsetMonzo[1] = 3;
+    const runtime = makeRuntime({
+      _allActiveHexes: () => [
+        {
+          cents: 0,
+          velocity: 113,
+          _noteContext: {
+            displayLabel: "A",
+            scaleRatioText: "1/1",
+            scaleMonzo: new Array(17).fill(0),
+            frame: {
+              referenceFrame: {
+                anchorLabel: "A",
+                anchorRatioText: "1/1",
+                anchorOctave: 4,
+                globalOffsetMonzo,
+              },
+            },
+          },
+        },
+      ],
+    });
+
+    expect(captureSnapshot(runtime)[0].rationalContext).toEqual({
+      version: 1,
+      anchorLabel: "A",
+      anchorRatioText: "1/1",
+      anchorOctave: 4,
+      globalOffsetMonzo,
+      midiCentsOffset: 6900,
+    });
+  });
+
   it("captures sounded pitch from the live hex frequency helper when present", () => {
     const runtime = makeRuntime({
       _frequencyForHex: () => 441,

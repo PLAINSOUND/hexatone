@@ -10,6 +10,19 @@ import {
   noteMatchesReference,
   sortSnapshotNotes,
 } from "./value-runtime.js";
+import {
+  buildSnapshotRationalContext,
+  rebuildSnapshotRationalIdentity,
+} from "./snapshot-rational-identity.js";
+
+function rationalContextBeforeEdit(note) {
+  return buildSnapshotRationalContext({
+    displayLabel: note?.originalDisplayLabel ?? note?.displayLabel,
+    monzo: note?.monzo,
+    midicents: note?.originalMidicents ?? note?.midicents,
+    existingContext: note?.rationalContext,
+  });
+}
 
 export function deleteEventNoteFromSnapshot(snapshot, noteRef) {
   if (!snapshot) return null;
@@ -72,6 +85,7 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
           originalDisplayLabel,
           displayLabel: nextLabel,
           displayLabelEdited: true,
+          rationalContext: rationalContextBeforeEdit(note) ?? note.rationalContext,
         };
       }),
       length,
@@ -100,6 +114,7 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
           originalDisplayLabel,
           displayLabel: "edited",
           displayLabelEdited: true,
+          rationalContext: rationalContextBeforeEdit(note) ?? note.rationalContext,
         };
       }
       if (field === "frequency") {
@@ -112,6 +127,7 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
           originalDisplayLabel,
           displayLabel: "edited",
           displayLabelEdited: true,
+          rationalContext: rationalContextBeforeEdit(note) ?? note.rationalContext,
         };
       }
       if (field === "attackVelocity") {
@@ -138,12 +154,33 @@ export function commitEventPitchLabelInSnapshot(snapshot, noteKey) {
   return assignStableSequencerNoteIds(
     (snapshot.notes ?? []).map((note) => {
       if (!noteMatchesReference(note, noteKey, length)) return note;
+      const pitchChanged =
+        Number.isFinite(Number(note.originalMidicents)) &&
+        Math.abs(Number(note.originalMidicents) - Number(note.midicents)) >= 0.0000005;
+      const rebuilt = rebuildSnapshotRationalIdentity(note);
       const {
         originalMidicents: _originalMidicents,
         originalDisplayLabel: _originalDisplayLabel,
         displayLabelEdited: _displayLabelEdited,
         ...rest
       } = note;
+      if (rebuilt?.pitchMatches) {
+        return {
+          ...rest,
+          ratioText: rebuilt.ratioText,
+          monzo: rebuilt.monzo,
+          rationalContext: rebuilt.rationalContext,
+        };
+      }
+      if (pitchChanged || (rebuilt && !rebuilt.pitchMatches)) {
+        const {
+          ratioText: _ratioText,
+          monzo: _monzo,
+          rationalContext: _rationalContext,
+          ...withoutStaleIdentity
+        } = rest;
+        return withoutStaleIdentity;
+      }
       return rest;
     }),
     length,

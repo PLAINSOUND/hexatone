@@ -133,6 +133,7 @@ describe("runtime-pitch-map", () => {
     });
     expect(captured[0]).not.toHaveProperty("modulationRatioText");
     expect(captured[0]).not.toHaveProperty("modulationMonzo");
+    expect(captured[0]).not.toHaveProperty("rationalContext");
   });
 
   it("removes stale exact identities when the destination degree is not exact", () => {

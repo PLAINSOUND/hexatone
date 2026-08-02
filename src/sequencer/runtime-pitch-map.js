@@ -137,6 +137,9 @@ export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
     displayLabelEdited: false,
     ratioText: exactIdentity?.ratioText,
     monzo: exactIdentity?.monzo,
+    // The source note's HEJI equation belongs to its original tuning. A later
+    // capture can infer a fresh context from this remapped label and monzo.
+    rationalContext: undefined,
     // Source-frame modulation identities do not describe the newly snapped
     // pitch. Capture should omit them unless a future mapper can derive the
     // destination frame identity explicitly.

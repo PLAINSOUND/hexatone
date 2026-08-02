@@ -4,6 +4,7 @@
 // sequencing timelines; it is the lightweight snapshot layer used by the app.
 
 import Point from "../keyboard/point.js";
+import { buildSnapshotRationalContext } from "./snapshot-rational-identity.js";
 
 const normalizeVelocity = (value, fallback = 72) =>
   Math.max(1, Math.min(127, Math.round(value ?? fallback)));
@@ -126,6 +127,13 @@ export function captureSnapshot(runtime) {
     if (Array.isArray(hex?._noteContext?.scaleMonzo))
       entry.monzo = [...hex._noteContext.scaleMonzo];
     else if (Array.isArray(hex?._noteContext?.monzo)) entry.monzo = [...hex._noteContext.monzo];
+    const rationalContext = buildSnapshotRationalContext({
+      displayLabel: entry.displayLabel,
+      monzo: entry.monzo,
+      midicents,
+      referenceFrame: hex?._noteContext?.frame?.referenceFrame,
+    });
+    if (rationalContext) entry.rationalContext = rationalContext;
     const modulationRatioText = String(hex?._noteContext?.ratioText ?? "").trim();
     if (modulationRatioText) entry.modulationRatioText = modulationRatioText;
     if (Array.isArray(hex?._noteContext?.monzo))
@@ -167,6 +175,13 @@ export function captureSnapshot(runtime) {
     const ratioText = String(note?.ratioText ?? "").trim();
     if (ratioText) entry.ratioText = ratioText;
     if (Array.isArray(note?.monzo)) entry.monzo = [...note.monzo];
+    const rationalContext = buildSnapshotRationalContext({
+      displayLabel: entry.displayLabel,
+      monzo: entry.monzo,
+      midicents,
+      existingContext: note?.rationalContext,
+    });
+    if (rationalContext) entry.rationalContext = rationalContext;
     const modulationRatioText = String(note?.modulationRatioText ?? "").trim();
     if (modulationRatioText) entry.modulationRatioText = modulationRatioText;
     if (Array.isArray(note?.modulationMonzo)) entry.modulationMonzo = [...note.modulationMonzo];
