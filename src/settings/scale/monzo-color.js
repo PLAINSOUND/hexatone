@@ -1063,6 +1063,23 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
       fifthsFrame,
     };
   }
+  if (
+    !hasActivePrimeOverride &&
+    exactOddPartialAboveThree &&
+    !getExactOddPartialColor(exactOddPartial, options) &&
+    getExactOddPartialColor(exactOddPartialAboveThree, options)
+  ) {
+    return {
+      screenHex: getExactOddPartialColor(exactOddPartialAboveThree, options),
+      familyPrime: dominant?.prime ?? null,
+      familyName: dominant
+        ? (getFamilyForPrime(dominant.prime, options)?.familyName ?? "neutral")
+        : "neutral",
+      confidence: 0.98,
+      explanation: `Exact higher-prime branch ${exactOddPartialAboveThree}°`,
+      fifthsFrame,
+    };
+  }
 
   if (
     !hasActivePrimeOverride &&

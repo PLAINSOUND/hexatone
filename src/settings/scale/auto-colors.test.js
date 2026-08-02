@@ -357,6 +357,23 @@ describe("auto-colour label mode consistency", () => {
     expect(nameColors[1]).toBe("#ffe5e5");
     expect(nameColors[3]).toBe("#ffe5e5");
   });
+
+  it("gives a 3-transposed 13-squared degree the curated 169-degree colour", () => {
+    const settings = {
+      scale: ["9/8", "507/256", "2/1"],
+      note_names: ["C", "D", "C"],
+      note_colors: ["#ffffff", "#ffffff", "#ebdbff"],
+      key_labels: "note_names",
+      reference_degree: 0,
+      fundamental: 440,
+      heji_anchor_ratio: "1/1",
+      heji_anchor_label: "C",
+    };
+
+    const colors = deriveAutoNoteColors(settings);
+
+    expect(colors[2]).toBe("#dbb3ff");
+  });
 });
 
 describe("inferCenterMonzoCandidate", () => {
