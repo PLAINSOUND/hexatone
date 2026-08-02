@@ -49,6 +49,8 @@
 const ACK_TIMEOUT_MS = 300;
 const INITIAL_ACK_TIMEOUT_MS = 1200;
 const INITIAL_SEND_DELAY_MS = 600;
+const WAKE_SEND_DELAY_MS = 1500;
+const SLEEP_GAP_GRACE_MS = 2000;
 
 // Lumatone manufacturer ID (3 bytes after F0)
 const MFR = [0x00, 0x21, 0x50];
@@ -62,7 +64,9 @@ export class LumatoneLEDs {
     this._out = outputPort;
     this._in = inputPort;
     this._queue = []; // Array of { cmd, board:1-5, key:0-55, ... }
+    this._latestColorQueue = []; // Latest complete colour state, replayed after wake.
     this._pending = false; // True while awaiting an ACK for queue[0]
+    this._suspended = false;
     this._timer = null; // ACK-timeout handle (clearTimeout on ACK)
     this._readyTimer = null; // Initial reconnect delay before first send.
     this._readyAt = Date.now() + INITIAL_SEND_DELAY_MS;
@@ -91,6 +95,8 @@ export class LumatoneLEDs {
       retries: 0,
       ...this._parseHex(hexColor),
     }));
+    this._latestColorQueue = this._cloneQueue(nextQueue);
+    if (this._suspended) return;
     if (this._isDuplicateFullColorQueue(nextQueue)) return;
     this._queue = this._pending ? [this._queue[0], ...nextQueue] : nextQueue;
     this._refreshInitialSendDelay();
@@ -118,6 +124,14 @@ export class LumatoneLEDs {
    *   (e.g. [{ cmd: 0x0E, board: 0, value: 1 }] to enable aftertouch first).
    */
   sendLayout(entries, preamble = []) {
+    this._latestColorQueue = entries.map(({ board, key, hexColor }) => ({
+      cmd: 0x01,
+      board,
+      key,
+      retries: 0,
+      ...this._parseHex(hexColor),
+    }));
+    if (this._suspended) return;
     const nextQueue = [
       ...preamble,
       ...entries.flatMap(({ board, key, note, channel, hexColor, keyType = 0x01 }) => [
@@ -152,6 +166,15 @@ export class LumatoneLEDs {
       ...this._parseHex(hexColor),
     }));
 
+    for (const newEntry of parsed) {
+      const desiredIndex = this._latestColorQueue.findIndex(
+        (queued) => queued.board === newEntry.board && queued.key === newEntry.key,
+      );
+      if (desiredIndex >= 0) this._latestColorQueue[desiredIndex] = { ...newEntry };
+      else this._latestColorQueue.push({ ...newEntry });
+    }
+    if (this._suspended) return;
+
     // If an entry is in flight, leave index 0 alone — start replacement from 1.
     const startIdx = this._pending ? 1 : 0;
 
@@ -172,6 +195,25 @@ export class LumatoneLEDs {
 
   /** Drain the queue without sending anything further. */
   cancel() {
+    this._latestColorQueue = [];
+    this._clearActiveQueue();
+  }
+
+  /** Pause an in-flight transfer without retaining stale ACK state. */
+  suspend() {
+    if (this._suspended) return;
+    this._suspended = true;
+    this._clearActiveQueue();
+  }
+
+  /** Resume by sending one fresh copy of the latest complete colour state. */
+  resume() {
+    if (!this._suspended) return;
+    this._suspended = false;
+    this._restartLatestColorsAfterReconnect();
+  }
+
+  _clearActiveQueue() {
     this._queue = [];
     if (this._timer !== null) {
       clearTimeout(this._timer);
@@ -213,7 +255,7 @@ export class LumatoneLEDs {
    * No-op if the queue is empty or a send is already in flight.
    */
   _advance() {
-    if (this._out === null) return;
+    if (this._out === null || this._suspended) return;
     if (this._queue.length === 0) {
       this._pending = false;
       return;
@@ -286,9 +328,15 @@ export class LumatoneLEDs {
     this._out.send(msg);
 
     // Guard: if no ACK arrives within the timeout, skip this entry and continue.
+    const timeoutMs = this._currentAckTimeoutMs();
+    const timeoutStartedAt = Date.now();
     this._timer = setTimeout(() => {
       this._timer = null;
       this._pending = false;
+      if (Date.now() - timeoutStartedAt > timeoutMs + SLEEP_GAP_GRACE_MS) {
+        this._recoverFromLongTimerGap();
+        return;
+      }
       if (!this._hasReceivedAck && (entry.retries ?? 0) < 1) {
         entry.retries = (entry.retries ?? 0) + 1;
         this._advance();
@@ -317,7 +365,7 @@ export class LumatoneLEDs {
         skipped?.key,
       );
       this._advance();
-    }, this._currentAckTimeoutMs());
+    }, timeoutMs);
   }
 
   /**
@@ -398,6 +446,32 @@ export class LumatoneLEDs {
 
   _currentAckTimeoutMs() {
     return this._hasReceivedAck ? ACK_TIMEOUT_MS : INITIAL_ACK_TIMEOUT_MS;
+  }
+
+  _cloneQueue(queue) {
+    return queue.map((entry) => ({ ...entry, retries: 0 }));
+  }
+
+  _restartLatestColorsAfterReconnect() {
+    this._clearActiveQueue();
+    this._hasReceivedAck = false;
+    this._sentSinceConnect = false;
+    this._readyAt = Date.now() + WAKE_SEND_DELAY_MS;
+    this._queue = this._cloneQueue(this._latestColorQueue);
+    this._advance();
+  }
+
+  _recoverFromLongTimerGap() {
+    const pageIsHidden =
+      typeof document !== "undefined" &&
+      document.visibilityState &&
+      document.visibilityState !== "visible";
+    if (pageIsHidden) {
+      this._suspended = true;
+      this._clearActiveQueue();
+      return;
+    }
+    this._restartLatestColorsAfterReconnect();
   }
 
   _attachInputListener() {

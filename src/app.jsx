@@ -3970,6 +3970,13 @@ const App = () => {
     loadLumatoneLEDs().then(({ LumatoneLEDs }) => {
       if (disposed) return;
       const leds = new LumatoneLEDs(lumatoneRawPorts.output, lumatoneRawPorts.input);
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState &&
+        document.visibilityState !== "visible"
+      ) {
+        leds.suspend();
+      }
       if (disposed) {
         leds.destroy();
         return;
@@ -3986,6 +3993,37 @@ const App = () => {
       bindControllerLedRefs(keysRef.current, { lumatone: null }, { eagerSync: false });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lumatoneInputPort, lumatoneOutputPort]);
+
+  useEffect(() => {
+    if (
+      !lumatoneInputPort ||
+      !lumatoneOutputPort ||
+      typeof document === "undefined" ||
+      typeof window === "undefined"
+    ) {
+      return undefined;
+    }
+
+    const suspendLumatoneColors = () => lumatoneLedsRef.current?.suspend?.();
+    const resumeLumatoneColors = () => {
+      if (document.visibilityState && document.visibilityState !== "visible") return;
+      lumatoneLedsRef.current?.resume?.();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") suspendLumatoneColors();
+      else resumeLumatoneColors();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", suspendLumatoneColors);
+    window.addEventListener("pageshow", resumeLumatoneColors);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", suspendLumatoneColors);
+      window.removeEventListener("pageshow", resumeLumatoneColors);
+    };
   }, [lumatoneInputPort, lumatoneOutputPort]);
 
   // ── LinnStrument 128 lifecycle ────────────────────────────────────────────

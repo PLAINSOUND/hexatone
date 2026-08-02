@@ -175,4 +175,48 @@ describe("LumatoneLEDs", () => {
     });
     expect(output.send).toHaveBeenCalledTimes(3);
   });
+
+  it("discards an in-flight batch during sleep and resumes one fresh colour batch", () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+
+    leds.sendAll([{ board: 1, key: 2, hexColor: "#123456" }]);
+    vi.advanceTimersByTime(600);
+    expect(output.send).toHaveBeenCalledTimes(1);
+
+    leds.suspend();
+    vi.advanceTimersByTime(5000);
+    expect(output.send).toHaveBeenCalledTimes(1);
+
+    leds.resume();
+    vi.advanceTimersByTime(1499);
+    expect(output.send).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(output.send).toHaveBeenCalledTimes(2);
+  });
+
+  it("treats a substantially overdue ACK timer as wake recovery without warning", () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    leds.sendAll([
+      { board: 1, key: 2, hexColor: "#123456" },
+      { board: 1, key: 3, hexColor: "#abcdef" },
+    ]);
+    vi.advanceTimersByTime(600);
+    input.addEventListener.mock.calls[0][1]({
+      data: new Uint8Array([0xf0, 0x00, 0x21, 0x50, 1, 0x01, 0x01, 0xf7]),
+    });
+    expect(output.send).toHaveBeenCalledTimes(2);
+
+    vi.setSystemTime(Date.now() + 5000);
+    vi.advanceTimersByTime(300);
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(output.send).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(1500);
+    expect(output.send).toHaveBeenCalledTimes(3);
+    warnSpy.mockRestore();
+  });
 });
