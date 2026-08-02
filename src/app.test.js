@@ -861,6 +861,77 @@ describe("App workspace tabs", () => {
     expect(soundingHex.sequenceRetune).toHaveBeenCalledWith(1);
   });
 
+  it("snaps sounding timed-playback voices immediately while the navigation playhead is stopped", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        snapshots: [
+          {
+            id: 1,
+            length: 1,
+            notes: [{ id: "note", midicents: 70.5, start: 0, end: 1, attackVelocity: 90 }],
+          },
+        ],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        tempi: [
+          { id: 1, position: 1, bpm: 60, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ],
+        repeats: [],
+      }),
+    );
+
+    const soundingHex = {
+      _snapshotInstanceKey: null,
+      sequenceRetune: vi.fn(),
+    };
+    const tuningRuntime = {
+      scale: [0, 200, 1200],
+      referenceDegree: 0,
+      fundamental: 440,
+      equivInterval: 1200,
+    };
+    const keys = {
+      settings: {
+        fundamental: 440,
+        note_names: ["A", "B", "C"],
+        heji_names: [],
+      },
+      tuning: { degree0toRef_asArray: [0] },
+      _snapshotHexes: [],
+      _activeFrame: () => ({}),
+      _effectiveScaleRuntimeForFrame: () => tuningRuntime,
+      playSnapshot: vi.fn((notes) => {
+        soundingHex._snapshotInstanceKey = notes[0]?.instanceKey ?? null;
+        keys._snapshotHexes = [soundingHex];
+      }),
+      stopSnapshot: vi.fn(),
+      panic: vi.fn(),
+    };
+
+    const { unmount } = render(<App />);
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => {
+      lastKeyboardProps.onKeysReady(keys);
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    fireEvent.click(await screen.findByLabelText("play timed transport"));
+    await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalled());
+
+    fireEvent.click(
+      screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"),
+    );
+
+    await waitFor(() => expect(soundingHex.sequenceRetune).toHaveBeenCalled());
+    expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(200, 6);
+    expect(keys.stopSnapshot).not.toHaveBeenCalled();
+
+    unmount();
+    localStorage.removeItem("hexatone_persist_on_reload");
+    sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+  });
+
   it("resizes and redraws the keyboard after toggling the sidebar", async () => {
     vi.useFakeTimers();
     const { container } = render(<App />);

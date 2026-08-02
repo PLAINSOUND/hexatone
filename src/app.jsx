@@ -1796,11 +1796,19 @@ const App = () => {
       (previousPitch === sequencePlaybackPitchOffset || pitchAlreadyApplied)
     )
       return;
-    if (sequencePlayhead?.stopped) return;
-    if (!Number.isFinite(sequencePlayhead?.stepIndex) || sequencePlayhead.stepIndex < 0) return;
+    // Timed transport deliberately leaves the navigation playhead stopped and
+    // tracks its sounding position separately. SNAP must still bend the active
+    // timed voices immediately, just like the live playback-pitch control.
+    const timedPosition = timedPlaybackUiRef.current;
+    const activePosition =
+      sequencePlayhead?.stopped && Number.isFinite(timedPosition?.clockSeconds)
+        ? timedPosition
+        : sequencePlayhead;
+    if (activePosition?.stopped) return;
+    if (!Number.isFinite(activePosition?.stepIndex) || activePosition.stepIndex < 0) return;
     const currentNotes = sequencePlaybackNotesAtPosition(
-      sequencePlayhead.stepIndex,
-      sequencePlayhead.markerIndex,
+      activePosition.stepIndex,
+      activePosition.markerIndex,
     );
     if (currentNotes.length > 0) {
       // SNAP and playback-pitch changes only alter the tuning of the notes at
