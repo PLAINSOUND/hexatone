@@ -52,9 +52,13 @@ function manualChunks(id) {
 }
 
 export default defineConfig({
-
   plugins: [
     preact({
+      devToolsEnabled: process.env.VITE_PREACT_DEVTOOLS !== 'false',
+      // Prefresh retains detached virtualized sequencer rows as they are replaced
+      // during scrolling. Keep long-running development sessions leak-free by
+      // default; `yarn start:hmr` remains available for short HMR sessions.
+      prefreshEnabled: process.env.VITE_PREACT_PREFRESH === 'true',
       babel: {
         parserOpts: {
           plugins: ['jsx'],
