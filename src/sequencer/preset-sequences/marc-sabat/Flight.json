@@ -695,6 +695,24 @@
       "beatDenominator": 8,
       "beatLength": 0.5,
       "mode": "immediate"
+    },
+    {
+      "id": 82,
+      "position": 251,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 4,
+      "beatLength": 1,
+      "mode": "immediate"
+    },
+    {
+      "id": 81,
+      "position": 252,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
     }
   ],
   "snapshots": [
@@ -32448,7 +32466,7 @@
             "midiCentsOffset": 5994.1349974038385
           },
           "id": "__seq__:52.01955000865387:0:1",
-          "end": 35,
+          "end": 8.888889,
           "endFractionDenominator": 1
         },
         {
@@ -41759,7 +41777,7 @@
           },
           "pressure14": 0,
           "id": "__seq__:37.98044999134612:0:1",
-          "start": 0.583333,
+          "start": -11,
           "end": 1,
           "startFractionDenominator": 4
         },
@@ -42853,7 +42871,12 @@
             ],
             "midiCentsOffset": 3594.1349974038376
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": 0.333333,
+          "end": 6,
+          "startFractionDenominator": 2,
+          "id": "__seq__:35.941349974038374:0.333333:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -42922,7 +42945,10 @@
             ],
             "midiCentsOffset": 3594.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 2,
+          "endFractionDenominator": 1,
+          "id": "__seq__:40.921799965384494:0:2"
         }
       ]
     },
@@ -42991,7 +43017,10 @@
             ],
             "midiCentsOffset": 2394.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 2.666667,
+          "endFractionDenominator": 1,
+          "id": "__seq__:28.921799965384494:0:2.666667"
         }
       ]
     },
@@ -43072,7 +43101,10 @@
             ],
             "midiCentsOffset": 3594.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 3.5,
+          "endFractionDenominator": 2,
+          "id": "__seq__:40.921799965384494:0:3.5"
         }
       ]
     },
@@ -43153,7 +43185,10 @@
             ],
             "midiCentsOffset": 2394.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 0.75,
+          "endFractionDenominator": 3,
+          "id": "__seq__:33.90224995673062:0:0.75"
         }
       ]
     },
@@ -43222,7 +43257,12 @@
             ],
             "midiCentsOffset": 2394.1349974038367
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.25,
+          "end": 2,
+          "startFractionDenominator": 3,
+          "id": "__seq__:28.921799965384494:-0.25:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -43291,14 +43331,18 @@
             ],
             "midiCentsOffset": 2394.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.5,
+          "end": 1,
+          "startFractionDenominator": 3,
+          "id": "__seq__:33.90224995673062:-0.5:1"
         }
       ]
     },
     {
       "id": 279,
       "length": 1,
-      "description": "1",
+      "description": "1:3",
       "descriptionManual": false,
       "manualTrigger": {
         "articulation": "chord",
@@ -43360,7 +43404,70 @@
             ],
             "midiCentsOffset": 3594.1349974038376
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:35.941349974038374:0:1"
+        },
+        {
+          "midicents": 28.921799965384494,
+          "attackVelocity": 82,
+          "releaseVelocity": 49,
+          "velocity": 82,
+          "pressure": 0,
+          "timbre": 56,
+          "displayLabel": "F",
+          "ratioText": "4/3",
+          "monzo": [
+            2,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 2394.1349974038367
+          },
+          "pressure14": 0,
+          "start": 0,
+          "end": 3,
+          "startFractionDenominator": 3,
+          "id": "__seq__:28.921799965384494:-0.25:1:copy:1",
+          "endFractionDenominator": 1,
+          "__selectedTime": 1
         }
       ]
     },
