@@ -1018,6 +1018,13 @@ describe("Sequencer", () => {
   });
 
   it("duplicates the save current sequence action at the bottom of Edit & Play", () => {
+    const originalIntersectionObserver = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class {
+      observe() {}
+
+      disconnect() {}
+    };
+
     render(
       <Sequencer
         snapshots={[
@@ -1068,8 +1075,13 @@ describe("Sequencer", () => {
         sequenceAutoCreateBars
       />,
     );
+    globalThis.IntersectionObserver = originalIntersectionObserver;
 
-    expect(screen.getAllByRole("button", { name: "Save current sequence" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Save current sequence" })).toHaveLength(2);
+    const stickySaveRow = document.querySelector(".sequencer-fieldset__save-row");
+    expect(stickySaveRow?.querySelector(".sequencer-fieldset__save-status")?.textContent).toBe(
+      "Edited",
+    );
   });
 
   it("prefers the dedicated timed cue callback when timed transport dispatches a cue", () => {

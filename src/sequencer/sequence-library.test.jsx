@@ -26,6 +26,7 @@ function SequenceLibraryHarness({
   snapshotLabelMode = "labels",
   autoCreateBars = true,
   onLoadSpy = vi.fn(),
+  onSaveActionStateChange,
 }) {
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [bars, setBars] = useState(initialBars);
@@ -80,6 +81,7 @@ function SequenceLibraryHarness({
         setName(trimmed);
         setSavedName(trimmed);
       }}
+      onSaveActionStateChange={onSaveActionStateChange}
     />
   );
 }
@@ -164,6 +166,32 @@ describe("SequenceLibrary", () => {
       }),
       expect.objectContaining({ source: "user" }),
     );
+  });
+
+  it("reports edited and saved states for the sticky save action", async () => {
+    const onSaveActionStateChange = vi.fn();
+
+    render(
+      <SequenceLibraryHarness
+        initialSnapshots={[{ id: 10, notes: [] }]}
+        initialName="Save status"
+        onSaveActionStateChange={onSaveActionStateChange}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onSaveActionStateChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "Edited" }),
+      );
+    });
+
+    fireEvent.click(screen.getByText("Save current sequence"));
+
+    await waitFor(() => {
+      expect(onSaveActionStateChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: "Saved" }),
+      );
+    });
   });
 
   it("reloads the selected built-in sequence from the packaged library", async () => {

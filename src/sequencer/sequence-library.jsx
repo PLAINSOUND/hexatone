@@ -442,14 +442,16 @@ const SequenceLibrary = ({
             visible: true,
             label: saveLabel,
             action: handleSave,
+            status: workspaceStatus === "saved-clean" ? "Saved" : "Edited",
           }
         : {
             visible: false,
             label: "",
             action: null,
+            status: "",
           },
     );
-  }, [handleSave, onSaveActionStateChange, saveLabel, workspaceHasContent]);
+  }, [handleSave, onSaveActionStateChange, saveLabel, workspaceHasContent, workspaceStatus]);
 
   useEffect(
     () => () => {
@@ -457,6 +459,7 @@ const SequenceLibrary = ({
         visible: false,
         label: "",
         action: null,
+        status: "",
       });
     },
     [onSaveActionStateChange],

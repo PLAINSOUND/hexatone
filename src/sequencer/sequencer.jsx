@@ -192,6 +192,7 @@ const Sequencer = ({
     visible: false,
     label: "",
     action: null,
+    status: "",
   });
   const [topSequenceSaveVisible, setTopSequenceSaveVisible] = useState(false);
   const [sequenceSaveFooterClearance, setSequenceSaveFooterClearance] = useState(0);
@@ -3622,6 +3623,13 @@ const Sequencer = ({
                 >
                   {sequenceSaveActionState.label}
                 </button>
+                {sequenceSaveActionState.status && (
+                  <span class="sequencer-copy-block__summary sequencer-fieldset__save-status">
+                    <span class="sequencer-copy-block__summary-text">
+                      <em>{sequenceSaveActionState.status}</em>
+                    </span>
+                  </span>
+                )}
               </span>
             </div>
           )}
