@@ -3437,20 +3437,23 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-bar-gutter__number {
-  width: 1.35em;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 2.1em;
   height: 1.2em;
+  padding: 0 0.12em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(160, 140, 140, 0.55);
-  border-radius: 50%;
+  border-radius: 999px;
   background: var(--color-bg);
   color: #6f3535;
   font-size: 0.8em;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   font-weight: 800;
-  transform: translateX(-1em);
+  transform: translateX(-0.4em);
 }
 
 .sequencer-bar-row__line {
