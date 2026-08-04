@@ -1,6 +1,6 @@
 # Hexatone Developer Quickstart
 
-Updated: 2026-05-17
+Updated: 2026-08-04
 
 ## Requirements
 
@@ -11,6 +11,7 @@ This repo is configured for:
 
 - `node@24`
 - `yarn@4.14.1`
+- Yarn's `node-modules` linker (there is no npm or PnP install path)
 
 Tooling note:
 
@@ -19,10 +20,10 @@ Tooling note:
 - if commands like `yarn start`, `yarn start:https`, or config imports fail with
   missing `vite`, run `yarn install` in the repo first
 - on Windows, if `yarn` is not available as a global shim, use `corepack yarn ...`
-- if Vitest reports missing packages from `.yarn/__virtual__`, rerun `corepack yarn install --immutable`
+- if dependencies are missing or stale, rerun `corepack yarn install --immutable`
 - on Windows, open the workspace with the same path casing every time
-  (for example `D:\hexatone`, not `d:\hexatone`) so VS Code and Yarn PnP
-  do not resolve the repo through two different `.pnp.cjs` paths
+  (for example `D:\hexatone`, not `d:\hexatone`) so editor and build-tool
+  caches do not resolve the repo as two different workspaces
 
 ## Clone
 

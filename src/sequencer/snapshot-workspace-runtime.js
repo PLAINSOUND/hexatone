@@ -444,9 +444,7 @@ export function moveSnapshotRangeInWorkspace({
   const destinationAtBarBoundary =
     destination === 1 ||
     destination === snapshots.length + 1 ||
-    (bars ?? []).some(
-      (bar) => Math.abs((Number(bar?.position) || 0) - destination) < 1e-9,
-    );
+    (bars ?? []).some((bar) => Math.abs((Number(bar?.position) || 0) - destination) < 1e-9);
   if (block.includeBars && !destinationAtBarBoundary) {
     return {
       snapshots,

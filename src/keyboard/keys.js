@@ -2520,16 +2520,17 @@ class Keys {
     return LiveHexRuntime.latchToggle(this);
   }
 
-  /**************** Event Handlers ****************/
+  // Browser input and viewport lifecycle. MIDI input is delegated separately
+  // to input/keys-midi-listeners.js and the keyboard runtime adapters.
 
   motionScan = () => {
     const { x1, x2, y1, y2, z1, z2, lastShakeCount, lastShakeCheck } = this.state.shake;
-    let change = Math.abs(x1 - x2 + y1 - y2 + z1 - z2);
+    const change = Math.abs(x1 - x2 + y1 - y2 + z1 - z2);
 
     if (change > this.state.sensitivity) {
       if (lastShakeCheck - lastShakeCount >= 3) {
         this.state.shake.lastShakeCount = this.state.shake.lastShakeCheck;
-        if (this.state.sustain == true) {
+        if (this.state.sustain) {
           this.sustainOff();
         } else {
           this.sustainOn();
@@ -2593,8 +2594,8 @@ class Keys {
 
     // Find new centerpoint
 
-    let centerX = newWidth / 2;
-    let centerY = newHeight / 2;
+    const centerX = newWidth / 2;
+    const centerY = newHeight / 2;
     this.state.centerpoint = new Point(centerX, centerY);
 
     // Rotate about it
@@ -2609,8 +2610,10 @@ class Keys {
       this.state.centerpoint,
     );
 
-    // I don't know why these need to be the opposite sign of each other.
-    let m = calculateRotationMatrix(this.settings.rotation, this.state.centerpoint);
+    // Grid-to-canvas drawing uses the forward rotation. The separately cached
+    // inverse matrix above maps browser pointer coordinates back into grid
+    // space, hence the equal angles with opposite signs.
+    const m = calculateRotationMatrix(this.settings.rotation, this.state.centerpoint);
     this._canvasTransform = m;
     this.state.context.setTransform(
       pixelRatio * m[0],
@@ -2697,7 +2700,8 @@ class Keys {
     return KeysBrowserInput.handleTouchCancel.call(this, _e);
   };
 
-  /**************** Rendering ****************/
+  // Canvas rendering bridge. Geometry and paint operations live in the
+  // dedicated runtime modules; Keys retains cache ownership and scheduling.
 
   // Rendering bridge: the heavy canvas code lives in keys-renderer.js, while
   // Keys exposes the imperative surface used by the rest of the app runtime.
@@ -3040,16 +3044,6 @@ class Keys {
 
   hexCoordsToCents(coords) {
     const live = this._deriveHexPitch(coords, false);
-    /*  let dataArray = [
-      "cents = ", cents,
-      "reducedSteps = ", reducedSteps,
-      "distance = ", distance,
-      "octs = ", octs,
-      "equivSteps = ", equivSteps,
-      "cents_prev = ", cents_prev,
-      "cents_next = ", cents_next
-    ]
-    console.log("hexCoordsToCents at coords: ", coords, dataArray); */
     return [
       live.cents,
       live.liveReducedSteps,

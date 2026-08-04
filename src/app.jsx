@@ -76,7 +76,6 @@ import {
   updateSequenceRepeatMarker,
   updateSequenceTempoMarker,
 } from "./sequencer/structure-editing.js";
-import {} from "./sequencer/transport.js";
 import {
   SEQUENCE_WORKSPACE_STORAGE_KEY,
   loadSequenceWorkspaceFromSession,
@@ -3856,8 +3855,8 @@ const App = () => {
       if (typeof resetOctave === "function") resetOctave();
     }
     prevMusicalSurfaceRef.current = musicalSurfaceResetImpactKey;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [musicalSurfaceResetImpactKey]); // resetOctave and setLatch are stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the registry key is the complete reset boundary; callback identities and preset-library updates must not reset the musical surface.
+  }, [musicalSurfaceResetImpactKey]);
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
@@ -3909,8 +3908,8 @@ const App = () => {
       exquisLedsRef.current = null;
       bindControllerLedRefs(keysRef.current, { exquis: null });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [exquisRawPorts, inputRuntime?.target, settings.midi_passthrough]); // exquis_led_* are constructor args, intentionally not re-triggering
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- LED appearance settings update the existing driver; only port/routing changes own its lifecycle.
+  }, [exquisRawPorts, inputRuntime?.target, settings.midi_passthrough]);
 
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.
@@ -3993,7 +3992,7 @@ const App = () => {
       lumatoneLedsRef.current = null;
       bindControllerLedRefs(keysRef.current, { lumatone: null }, { eagerSync: false });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- raw port identity is the lifecycle boundary; colour settings synchronize through Keys without reconstructing the driver.
   }, [lumatoneInputPort, lumatoneOutputPort]);
 
   useEffect(() => {
@@ -4071,7 +4070,7 @@ const App = () => {
       bindControllerLedRefs(keysRef.current, { linnstrument: null });
       if (detach) detach();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- raw output identity and firmware eligibility own attachment; LED appearance updates are imperative.
   }, [linnstrumentOutput, linnstrumentUserFirmwareEligible]);
 
   useEffect(() => {

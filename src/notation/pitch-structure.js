@@ -81,8 +81,7 @@ export function createPitchStructure(overrides = {}) {
 export function isWhiteKeyPitchStructure(structure) {
   const naturalSemitone = NATURAL_SEMITONE_BY_LETTER[structure?.letter?.toUpperCase?.()];
   if (!Number.isFinite(naturalSemitone)) return false;
-  const soundingSemitone =
-    ((naturalSemitone + (structure?.accidentalCount ?? 0)) % 12 + 12) % 12;
+  const soundingSemitone = (((naturalSemitone + (structure?.accidentalCount ?? 0)) % 12) + 12) % 12;
   return WHITE_KEY_SEMITONES.has(soundingSemitone);
 }
 

@@ -1599,20 +1599,7 @@ describe("inferNotationRole", () => {
 
   it("keeps exact and tempered HEJI white-key enharmonics white", () => {
     const scale = Array.from({ length: 12 }, (_, index) => `${(index + 1) * 100}.0`);
-    const noteNames = [
-      "C",
-      "F",
-      "D",
-      "E",
-      "C",
-      "F",
-      "E",
-      "B",
-      "C",
-      "B",
-      "C",
-      "B",
-    ];
+    const noteNames = ["C", "F", "D", "E", "C", "F", "E", "B", "C", "B", "C", "B"];
     const colors = deriveAutoNoteColors({
       scale,
       equivSteps: 12,

@@ -1,10 +1,10 @@
 # Plainsound Hexatone
 
-[Run the keyboard](https://hexatone.plainsound.org)  
+[Run the keyboard](https://hexatone.plainsound.org)
 
 [Try the dev branch](https://plainsound.github.io/hexatone)
 
-[User Manual](./usermanual.md)  
+[User Manual](./usermanual.md)
 
 [Developer Quickstart](./DEVELOPER_QUICKSTART.md)
 
@@ -14,11 +14,11 @@ Initial development by James Fenn with additions and modifications from [Brandon
 Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
 
 MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3.3-beta (July 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release on `main`: 3.2.3. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
+Current version 3.3.0-rc.1 (August 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release on `main`: 3.2.3. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
 
 ## Current State
 
-Hexatone 3.3-beta is a live microtonal keyboard and scale workspace featuring:
+Hexatone 3.3 RC1 is a live microtonal keyboard and scale workspace featuring:
 
 - isomorphic hexagonal layout
 - rational / just intonation with automatic HEJI notation
@@ -61,6 +61,7 @@ See also [usermanual.md](./usermanual.md).
 For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELOPER_QUICKSTART.md).
 
 ## Isomorphic Keyboards
+
 [Wikipedia](https://en.wikipedia.org/wiki/Isomorphic_keyboard)
 
 [The Music Notation Project Wiki](http://musicnotation.org/wiki/instruments/isomorphic-instruments/)
@@ -69,9 +70,9 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ## Version history
 
-### 3.3-beta *(current beta branch)*
+### 3.3 RC1 _(current release candidate)_
 
-Hexatone 3.3-beta substantially expands the Sequencer and HEJI notation workspace.
+Hexatone 3.3 RC1 substantially expands the Sequencer and HEJI notation workspace.
 
 The Sequencer supports editable snapshots, cues, bars, tempo changes, and repeat markers in a unified event list. Captured snapshots can be expanded into individual note events whose snapshot membership, position offset, MIDI¢, Hz, displayed name, bar-relative position, and expression data can be edited directly. Bars and time signatures may be placed between snapshots,
 tempo markers support immediate and gradual changes, and repeat markers can loop between sequence positions.
@@ -158,7 +159,7 @@ The HEJI workspace has also been expanded significantly. Spelling is now tied to
 - reduced repeated HEJI parsing by reusing shared notation frame data in more paths
 - improved preset refresh behavior so keyboard canvas redraw stays in sync with refreshed label / colour settings
 
-### 3.2.3 *(current mainline feature set)*
+### 3.2.3 _(current mainline feature set)_
 
 **Live performance architecture**
 
@@ -254,7 +255,7 @@ yarn build
 yarn osc-bridge
 ```
 
-### 3.1 *(April 2026)*
+### 3.1 _(April 2026)_
 
 **WebMIDI and Sysex made User-Selectable**
 
@@ -262,7 +263,7 @@ yarn osc-bridge
 
 **TuneCell smoothing rebuilt**
 
-**MIDI input — scale target mode:** new Input Mode selector in MIDI settings: *MIDI to Hex Layout* (existing behaviour) or *MIDI to Nearest Scale Degree*. In scale mode, incoming MIDI pitch is matched to the closest degree of the active scale by cent distance, across any tuning or equave. User-configurable tolerance (default 25¢) and out-of-tolerance behaviour (Accept Best / Discard). Geometry, anchor, and transposition controls are hidden when scale mode is active.
+**MIDI input — scale target mode:** new Input Mode selector in MIDI settings: _MIDI to Hex Layout_ (existing behaviour) or _MIDI to Nearest Scale Degree_. In scale mode, incoming MIDI pitch is matched to the closest degree of the active scale by cent distance, across any tuning or equave. User-configurable tolerance (default 25¢) and out-of-tolerance behaviour (Accept Best / Discard). Geometry, anchor, and transposition controls are hidden when scale mode is active.
 
 **MTS output — Dynamic Bulk Dump:** new transport mode for synths that accept MTS bulk dumps but not single-note real-time SysEx. On each note-on, the carrier slot is patched in a maintained 128-note map and the full dump is sent before triggering the note. Shares carrier selection and MTS encoding with the existing real-time mode.
 
@@ -283,6 +284,7 @@ yarn osc-bridge
 **Under the hood fixes: refactored persistence and loading logic. Preparing for integration of scale math with xen-devs.**
 
 **Supported 2D isomorphic controller geometries (auto-detected by MIDI device name):**
+
 - **Lumatone** https://www.lumatone.io/ — 280-key isomorphic surface, 5 blocks × 56 keys, channels 1–5 encode block position (0-55)
 - **C-Thru AXIS-49** https://www.c-thru-music.com/cgi/?page=prod_axis-49 — 14×7 isomorphic hexes, selfless mode (ch 1, notes 1–98)
 - **TS41 MIDI Keyboard** https://tristanbay.com/gear/ts41-midi-keyboard/ — 41-EDO Bosanquet layout, single channel (ch 1, notes 1–126)
@@ -298,17 +300,22 @@ yarn osc-bridge
 
 ---
 
-### 3.0.2 *(March 2026)*
+### 3.0.2 _(March 2026)_
+
 Major reactivity fixes; MTS & MPE functionality expanded; scale resizing and Divide Octave/Equave features.
 
-### 3.0.1 *(early 2026)*
+### 3.0.1 _(early 2026)_
+
 Updated UX; added latch sustain; moveable central scale degree.
 
-### Version 3.0.0 *(early 2026)*
+### Version 3.0.0 _(early 2026)_
+
 Added Scala/JSON IO; user presets; polyphonic aftertouch response with built-in sounds.
 
-### Version 2 *(2022–2026)*
+### Version 2 _(2022–2026)_
+
 Marc Sabat forked Ashton Snelgrove's webpack rebuild with rudimentary MIDI and began Hexatone develpment from the former "Terpstra Keyboard". Renaming to acknowledge Erv Wilson's central contribution to the hexagonal 2D layout. Added full MIDI input and output path; Lumatone plug-and-play compatibility with channels-to-equaves logic; reshaped built-in presets; user-switchable Built-In/MTS/normal MIDI output options. Added and edited samples.
 
-### Version 1 *(2016)*
+### Version 1 _(2016)_
+
 [Terpstra Keyboard](http://terpstrakeyboard.com/) — hexagonal keyboard proof of concept that helped kickstart the Lumatone.

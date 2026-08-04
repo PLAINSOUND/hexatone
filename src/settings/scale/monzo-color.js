@@ -1015,10 +1015,7 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
   }
 
   const exactOddPartial = getExactOvertoneOddPartial(colorIdentityMonzo, basis);
-  const exactOddPartialAboveThree = getExactOvertoneOddPartialAboveThree(
-    colorIdentityMonzo,
-    basis,
-  );
+  const exactOddPartialAboveThree = getExactOvertoneOddPartialAboveThree(colorIdentityMonzo, basis);
   const dominant = dominantPrimeFromMonzo(analysisMonzo, basis);
   if (hasActivePrimeOverride && exactOddPartial && !hasMixedHigherPrimeFamily) {
     const templateColor = getExactOvertonalTemplateColor(colorIdentityMonzo, basis, options);

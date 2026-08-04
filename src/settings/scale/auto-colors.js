@@ -472,9 +472,7 @@ export function inferNotationRole(label, options = {}) {
   }
   const traditional = parseTraditionalNotationLabel(label);
   if (!traditional) return null;
-  return traditional.isNatural || isWhiteKeyPitchStructure(traditional)
-    ? "diatonic"
-    : "chromatic";
+  return traditional.isNatural || isWhiteKeyPitchStructure(traditional) ? "diatonic" : "chromatic";
 }
 
 function inferTemperedAutoColor(label) {

@@ -1,3 +1,11 @@
+/**
+ * Sequencer workspace coordinator.
+ *
+ * Stored sequence data remains owned by App. This component derives the event
+ * view, coordinates transport/edit/viewport controllers, and composes row
+ * components. Domain mutations and timing calculations belong in the imported
+ * runtime modules so virtualization never becomes a second source of truth.
+ */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
@@ -83,11 +91,6 @@ import {
 } from "../debug/sequencer-crash-diagnostics.js";
 import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 
-/**
- * Sequencer — sidebar workspace for building, editing, and auditioning
- * sequence structure from captured snapshots while keeping the live Hexatone
- * canvas active.
- */
 const Sequencer = ({
   snapshots,
   runtimeModel = null,
@@ -186,6 +189,8 @@ const Sequencer = ({
     return `${hours}:${minutes}:${secs}`;
   }, []);
 
+  // Local state is presentation or draft state only. Committed snapshots and
+  // structural markers flow back through the App-owned mutation callbacks.
   const [expandedIds, setExpandedIds] = useState(() => new Set());
   const [showAllEvents, setShowAllEvents] = useState(true);
   const [sequenceSaveActionState, setSequenceSaveActionState] = useState({
@@ -232,6 +237,8 @@ const Sequencer = ({
   const [copiedSelectionSignature, setCopiedSelectionSignature] = useState(null);
   const [copyInsertStatus, setCopyInsertStatus] = useState("");
   const [rangeEditUndo, setRangeEditUndo] = useState(null);
+  // Interaction refs intentionally avoid render-time updates during pointer
+  // movement, scroll presentation, and timed playback animation frames.
   const dragIdRef = useRef(null);
   const dragAutoscrollFrameRef = useRef(null);
   const dragAutoscrollPointerYRef = useRef(null);
@@ -270,7 +277,8 @@ const Sequencer = ({
     saveSequencerAutoScrollPreference(autoScrollEnabled);
   }, [autoScrollEnabled]);
 
-  // Derived sequence/timeline state.
+  // Canonical derived sequence/timeline state. A supplied App runtime model is
+  // reused; the fallback keeps isolated tests and embedders self-contained.
   const sequenceRuntime = useMemo(
     () =>
       runtimeModel ??
@@ -1066,11 +1074,7 @@ const Sequencer = ({
       window.removeEventListener("resize", updateClearance);
       window.visualViewport?.removeEventListener?.("resize", updateClearance);
     };
-  }, [
-    sequenceSaveActionState.label,
-    sequenceSaveActionState.visible,
-    topSequenceSaveVisible,
-  ]);
+  }, [sequenceSaveActionState.label, sequenceSaveActionState.visible, topSequenceSaveVisible]);
   const stopSnapshotDragAutoscroll = useCallback(() => {
     if (dragAutoscrollFrameRef.current != null) {
       window.cancelAnimationFrame(dragAutoscrollFrameRef.current);
@@ -1327,7 +1331,8 @@ const Sequencer = ({
       cancelVirtualSequenceAnchor();
       const panel = scrollPanelRef.current;
       if (!(panel instanceof HTMLElement) || deltaY === 0) return;
-      const multiplier = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? panel.clientHeight : 1;
+      const multiplier =
+        event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? panel.clientHeight : 1;
       panel.scrollTop += deltaY * multiplier;
     },
     [cancelVirtualSequenceAnchor, scrollPanelRef],
@@ -1439,10 +1444,7 @@ const Sequencer = ({
     // end-anchor above correct the viewport to the actual last rendered row.
     const scrollPanel = scrollPanelRef.current;
     if (scrollPanel instanceof HTMLElement) {
-      scrollPanel.scrollTop = Math.max(
-        0,
-        scrollPanel.scrollHeight - scrollPanel.clientHeight,
-      );
+      scrollPanel.scrollTop = Math.max(0, scrollPanel.scrollHeight - scrollPanel.clientHeight);
     }
     prepareSequenceEndViewport();
     onJumpSequenceEnd?.();

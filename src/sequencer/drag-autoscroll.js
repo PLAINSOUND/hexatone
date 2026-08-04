@@ -12,10 +12,7 @@ export function deriveDragAutoscrollVelocity({
   if (!Number.isFinite(y) || !Number.isFinite(top) || !Number.isFinite(bottom) || bottom <= top) {
     return 0;
   }
-  const edge = Math.min(
-    Math.max(24, Number(edgeSize) || 64),
-    Math.max(1, (bottom - top) / 2),
-  );
+  const edge = Math.min(Math.max(24, Number(edgeSize) || 64), Math.max(1, (bottom - top) / 2));
   let direction = 0;
   let penetration = 0;
   if (y < top + edge) {

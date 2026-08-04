@@ -119,90 +119,90 @@ export default function useSequencerAutoscroll({
   autoScrollEnabledRef.current = autoScrollEnabled;
   recordTimedTransportDiagnosticRef.current = recordTimedTransportDiagnostic;
 
-  const scrollNodesIntoPanel = useCallback((targetNodes) => {
-    if (!autoScrollEnabledRef.current) return;
-    const scrollPanel = scrollPanelRef.current;
-    const nodes = (Array.isArray(targetNodes) ? targetNodes : [targetNodes]).filter(
-      (node) => node instanceof HTMLElement,
-    );
-    if (!(scrollPanel instanceof HTMLElement) || nodes.length === 0) return;
-
-    if (pendingAutoScrollFrameRef.current != null) {
-      window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
-    }
-    pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
-      pendingAutoScrollFrameRef.current = null;
+  const scrollNodesIntoPanel = useCallback(
+    (targetNodes) => {
       if (!autoScrollEnabledRef.current) return;
-      const liveNodes = nodes.filter((node) => isLiveSequencerScrollTarget(node, scrollPanel));
-      if (liveNodes.length === 0) return;
-      const scrollStartMs = performance.now();
-      const visiblePanel = visibleElementBounds(scrollPanel);
-      if (visiblePanel == null || visiblePanel.height <= 0) return;
-      const playbackRect =
-        playbackRowRef.current instanceof HTMLElement
-          ? playbackRowRef.current.getBoundingClientRect()
-          : null;
-      const targetRects = liveNodes.map((node) => node.getBoundingClientRect());
-      const gap = 6;
-      const stickyTransportOverlap =
-        playbackRect == null
-          ? 0
-          : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
-      const stickyBottomOverlap = bottomOcclusionHeight(
-        visiblePanel,
-        bottomOverlayRef?.current,
+      const scrollPanel = scrollPanelRef.current;
+      const nodes = (Array.isArray(targetNodes) ? targetNodes : [targetNodes]).filter(
+        (node) => node instanceof HTMLElement,
       );
-      const usableHeight = Math.max(
-        0,
-        visiblePanel.height - stickyTransportOverlap - stickyBottomOverlap - 2 * gap,
-      );
-      const targetBounds = derivePreferredTargetBounds(targetRects, usableHeight);
-      if (targetBounds == null) return;
-      const nextTop = derivePagedPanelScrollTop({
-        scrollTop: scrollPanel.scrollTop,
-        scrollHeight: scrollPanel.scrollHeight,
-        clientHeight: scrollPanel.clientHeight,
-        panelTop: visiblePanel.top,
-        panelBottom: visiblePanel.bottom,
-        targetTop: targetBounds.top,
-        targetBottom: targetBounds.bottom,
-        stickyTop: stickyTransportOverlap,
-        stickyBottom: stickyBottomOverlap,
-        gap,
-      });
-      if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
-      appendPersistedSequencerCrashDiagnostic({
-        type: "sequencer-autoscroll-requested",
-        detail: "Requested sequencer autoscroll target",
-        context: {
-          source: "sequencer",
-          autoScrollEnabled: autoScrollEnabledRef.current,
-          scrollTop: scrollPanel.scrollTop,
-          targetTop: nextTop,
-        },
-      });
-      scrollPanel.scrollTop = nextTop;
-      appendPersistedSequencerCrashDiagnostic({
-        type: "sequencer-autoscroll-applied",
-        detail: "Applied sequencer autoscroll target",
-        context: {
-          source: "sequencer",
-          autoScrollEnabled: autoScrollEnabledRef.current,
-          scrollTop: scrollPanel.scrollTop,
-          targetTop: nextTop,
-        },
-      });
-      const durationMs = performance.now() - scrollStartMs;
-      if (durationMs > 8) {
-        recordTimedTransportDiagnosticRef.current?.({
-          type: "scroll",
-          clockSeconds: performance.now() / 1000,
-          durationMs,
-          detail: "scrollNodeIntoPanel",
-        });
+      if (!(scrollPanel instanceof HTMLElement) || nodes.length === 0) return;
+
+      if (pendingAutoScrollFrameRef.current != null) {
+        window.cancelAnimationFrame(pendingAutoScrollFrameRef.current);
       }
-    });
-  }, [bottomOverlayRef]);
+      pendingAutoScrollFrameRef.current = window.requestAnimationFrame(() => {
+        pendingAutoScrollFrameRef.current = null;
+        if (!autoScrollEnabledRef.current) return;
+        const liveNodes = nodes.filter((node) => isLiveSequencerScrollTarget(node, scrollPanel));
+        if (liveNodes.length === 0) return;
+        const scrollStartMs = performance.now();
+        const visiblePanel = visibleElementBounds(scrollPanel);
+        if (visiblePanel == null || visiblePanel.height <= 0) return;
+        const playbackRect =
+          playbackRowRef.current instanceof HTMLElement
+            ? playbackRowRef.current.getBoundingClientRect()
+            : null;
+        const targetRects = liveNodes.map((node) => node.getBoundingClientRect());
+        const gap = 6;
+        const stickyTransportOverlap =
+          playbackRect == null
+            ? 0
+            : Math.max(0, Math.min(playbackRect.bottom, visiblePanel.bottom) - visiblePanel.top);
+        const stickyBottomOverlap = bottomOcclusionHeight(visiblePanel, bottomOverlayRef?.current);
+        const usableHeight = Math.max(
+          0,
+          visiblePanel.height - stickyTransportOverlap - stickyBottomOverlap - 2 * gap,
+        );
+        const targetBounds = derivePreferredTargetBounds(targetRects, usableHeight);
+        if (targetBounds == null) return;
+        const nextTop = derivePagedPanelScrollTop({
+          scrollTop: scrollPanel.scrollTop,
+          scrollHeight: scrollPanel.scrollHeight,
+          clientHeight: scrollPanel.clientHeight,
+          panelTop: visiblePanel.top,
+          panelBottom: visiblePanel.bottom,
+          targetTop: targetBounds.top,
+          targetBottom: targetBounds.bottom,
+          stickyTop: stickyTransportOverlap,
+          stickyBottom: stickyBottomOverlap,
+          gap,
+        });
+        if (Math.abs(nextTop - scrollPanel.scrollTop) < 2) return;
+        appendPersistedSequencerCrashDiagnostic({
+          type: "sequencer-autoscroll-requested",
+          detail: "Requested sequencer autoscroll target",
+          context: {
+            source: "sequencer",
+            autoScrollEnabled: autoScrollEnabledRef.current,
+            scrollTop: scrollPanel.scrollTop,
+            targetTop: nextTop,
+          },
+        });
+        scrollPanel.scrollTop = nextTop;
+        appendPersistedSequencerCrashDiagnostic({
+          type: "sequencer-autoscroll-applied",
+          detail: "Applied sequencer autoscroll target",
+          context: {
+            source: "sequencer",
+            autoScrollEnabled: autoScrollEnabledRef.current,
+            scrollTop: scrollPanel.scrollTop,
+            targetTop: nextTop,
+          },
+        });
+        const durationMs = performance.now() - scrollStartMs;
+        if (durationMs > 8) {
+          recordTimedTransportDiagnosticRef.current?.({
+            type: "scroll",
+            clockSeconds: performance.now() / 1000,
+            durationMs,
+            detail: "scrollNodeIntoPanel",
+          });
+        }
+      });
+    },
+    [bottomOverlayRef],
+  );
 
   const scrollNodeIntoPanel = useCallback(
     (targetNode) => {

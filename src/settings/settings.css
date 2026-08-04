@@ -2198,7 +2198,8 @@ td.scale-color-col .color-input {
     margin-left: 0;
   }
 
-  #sidebar .sequencer-option-row.sequencer-option-row--tempo-position-inline
+  #sidebar
+    .sequencer-option-row.sequencer-option-row--tempo-position-inline
     > .sequencer-bars-add--tempo-position {
     width: 100%;
     margin-left: 0;

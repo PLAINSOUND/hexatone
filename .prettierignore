@@ -4,3 +4,7 @@ scales/
 osc-bridge/dist/
 *.scl
 *.ascl
+
+# Large authored sequence scores: preserve stable, reviewable musical-data diffs.
+src/sequencer/preset-sequences/marc-sabat/FALL.json
+src/sequencer/preset-sequences/marc-sabat/Flight.json

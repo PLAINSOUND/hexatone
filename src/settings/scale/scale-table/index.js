@@ -59,7 +59,11 @@ const WESTERN_PITCH_LABEL_RE = /^[A-G](?:##|bb|#|b)?$/i;
 const RENDERED_CENTS_SUFFIX_RE = /[+\-\u2212]\d+(?:\.\d+)?$/;
 
 function canonicalPitchClassLabel(value) {
-  return canonicalHejiLabel(String(value ?? "").trim().replace(RENDERED_CENTS_SUFFIX_RE, ""));
+  return canonicalHejiLabel(
+    String(value ?? "")
+      .trim()
+      .replace(RENDERED_CENTS_SUFFIX_RE, ""),
+  );
 }
 
 const ScaleTable = (props) => {

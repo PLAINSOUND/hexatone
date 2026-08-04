@@ -919,17 +919,13 @@ describe("App workspace tabs", () => {
     fireEvent.click(await screen.findByLabelText("play timed transport"));
     await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalled());
 
-    fireEvent.click(
-      screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"),
-    );
+    fireEvent.click(screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"));
 
     expect(soundingHex.sequenceRetune).toHaveBeenCalled();
     expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(200, 6);
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
 
-    fireEvent.click(
-      screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"),
-    );
+    fireEvent.click(screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"));
     expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(150, 6);
     expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
 
