@@ -48,6 +48,37 @@ const TempoRow = ({ tempo, timing, editing }) => {
       readNumericInput(row, ".sequencer-tempo-row__summary-input--fraction-den", 4),
     );
   };
+  const commitFocusedTempoField = (event) => {
+    const row = event.currentTarget.closest(".sequencer-tempo-row");
+    const focusedInput = document.activeElement;
+    if (!(focusedInput instanceof HTMLInputElement) || !row?.contains(focusedInput)) return;
+    if (
+      focusedInput.matches(
+        ".sequencer-tempo-row__summary-input--fraction-num, .sequencer-tempo-row__summary-input--fraction-den",
+      )
+    ) {
+      editing.handleBlurCommit({ currentTarget: focusedInput }, () =>
+        commitTempoBeatFraction(event),
+      );
+      return;
+    }
+    if (focusedInput.matches(".sequencer-tempo-row__summary-input--bpm")) {
+      editing.handleBlurCommit({ currentTarget: focusedInput }, (value) =>
+        editing.updateTempoBpm(tempoId, value),
+      );
+      return;
+    }
+    if (focusedInput.matches(".sequencer-event__position")) {
+      editing.handleBlurCommit({ currentTarget: focusedInput }, (value) =>
+        editing.updateTempoPosition(tempoId, value),
+      );
+    }
+  };
+  const commitTempoTimingDraft = (event) => {
+    event.stopPropagation();
+    commitFocusedTempoField(event);
+    editing.commitTempoBarRelativeDraft(tempoId, draftKey);
+  };
 
   return (
     <div
@@ -254,10 +285,11 @@ const TempoRow = ({ tempo, timing, editing }) => {
               class="sequencer-event__draft-btn"
               aria-label="commit tempo bar-relative timing"
               title="Commit timing edit"
-              onClick={(e) => {
-                e.stopPropagation();
-                editing.commitTempoBarRelativeDraft(tempoId, draftKey);
+              onPointerDown={(event) => {
+                event.preventDefault();
+                commitTempoTimingDraft(event);
               }}
+              onClick={commitTempoTimingDraft}
             >
               ✓
             </button>
