@@ -701,8 +701,8 @@
       "position": 251,
       "bpm": 36,
       "beatNumerator": 1,
-      "beatDenominator": 3,
-      "beatLength": 1.3333333333333333,
+      "beatDenominator": 4,
+      "beatLength": 1,
       "mode": "immediate"
     },
     {
@@ -743,7 +743,7 @@
     },
     {
       "id": 86,
-      "position": 262,
+      "position": 261.5,
       "bpm": 36,
       "beatNumerator": 1,
       "beatDenominator": 2,
@@ -788,7 +788,25 @@
     },
     {
       "id": 91,
-      "position": 284,
+      "position": 283.666667,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 132,
+      "position": 284.333333,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 131,
+      "position": 285,
       "bpm": 36,
       "beatNumerator": 1,
       "beatDenominator": 3,
@@ -797,7 +815,7 @@
     },
     {
       "id": 92,
-      "position": 285.333333,
+      "position": 285.666667,
       "bpm": 36,
       "beatNumerator": 1,
       "beatDenominator": 2,
@@ -806,7 +824,7 @@
     },
     {
       "id": 93,
-      "position": 286,
+      "position": 286.5,
       "bpm": 36,
       "beatNumerator": 1,
       "beatDenominator": 3,
@@ -821,6 +839,348 @@
       "beatDenominator": 2,
       "beatLength": 2,
       "mode": "immediate"
+    },
+    {
+      "id": 130,
+      "position": 288,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 129,
+      "position": 289.75,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 128,
+      "position": 290,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 127,
+      "position": 290.5,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 126,
+      "position": 291.5,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 125,
+      "position": 292,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 124,
+      "position": 293,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 123,
+      "position": 293.5,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 122,
+      "position": 294,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 121,
+      "position": 294.75,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 120,
+      "position": 295,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 119,
+      "position": 295.5,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 118,
+      "position": 296.5,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 117,
+      "position": 301,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 116,
+      "position": 302,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 115,
+      "position": 303.333333,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 114,
+      "position": 304.666667,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 112,
+      "position": 306,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 113,
+      "position": 307,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 111,
+      "position": 309,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 110,
+      "position": 309.5,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 109,
+      "position": 316,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 108,
+      "position": 316.666667,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 107,
+      "position": 318,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 106,
+      "position": 321,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 105,
+      "position": 322.333333,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 104,
+      "position": 323,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 103,
+      "position": 324,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 102,
+      "position": 327,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 101,
+      "position": 330.5,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 100,
+      "position": 331,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 99,
+      "position": 334,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 98,
+      "position": 337.333333,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 97,
+      "position": 339,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 96,
+      "position": 341,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "immediate"
+    },
+    {
+      "id": 95,
+      "position": 343.5,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 134,
+      "position": 357,
+      "bpm": 29,
+      "beatNumerator": 1,
+      "beatDenominator": 2,
+      "beatLength": 2,
+      "mode": "immediate"
+    },
+    {
+      "id": 133,
+      "position": 368,
+      "bpm": 36,
+      "beatNumerator": 1,
+      "beatDenominator": 3,
+      "beatLength": 1.3333333333333333,
+      "mode": "gradual"
     }
   ],
   "snapshots": [
@@ -46710,7 +47070,7 @@
           },
           "pressure14": 0,
           "id": "__seq__:28.921799965384494:0:1",
-          "end": 6,
+          "end": 5,
           "endFractionDenominator": 1
         },
         {
@@ -46900,7 +47260,7 @@
           },
           "pressure14": 0,
           "start": -0.5,
-          "end": 0,
+          "end": 0.5,
           "startFractionDenominator": 1,
           "id": "__seq__:40.921799965384494:-0.5:1",
           "endFractionDenominator": 1
@@ -48894,7 +49254,7 @@
           },
           "pressure14": 0,
           "start": 0.333333,
-          "end": 7.25,
+          "end": 8.5,
           "startFractionDenominator": 2,
           "id": "__seq__:47.941349974038374:0.333333:1",
           "endFractionDenominator": 2
@@ -49319,7 +49679,7 @@
           },
           "pressure14": 0,
           "start": -0.333333,
-          "end": 1.666667,
+          "end": 3,
           "startFractionDenominator": 1,
           "id": "__seq__:40.921799965384494:-0.333333:1",
           "endFractionDenominator": 1
@@ -49390,7 +49750,10 @@
               0
             ],
             "midiCentsOffset": 4794.134997403837
-          }
+          },
+          "end": 3,
+          "endFractionDenominator": 1,
+          "id": "__seq__:54.96089998269225:0:3"
         }
       ]
     },
@@ -49459,7 +49822,12 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": 0.5,
+          "end": 2,
+          "startFractionDenominator": 1,
+          "id": "__seq__:50.25309090934713:0.5:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -49596,7 +49964,10 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:50.25309090934713:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 43.23354090069326,
@@ -49652,7 +50023,10 @@
             ],
             "midiCentsOffset": 3594.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:43.23354090069326:0:1",
+          "end": 0.666667,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 52.9217999653845,
@@ -49708,7 +50082,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 0.666667,
+          "endFractionDenominator": 1,
+          "id": "__seq__:52.9217999653845:0:0.666667"
         }
       ]
     },
@@ -49776,7 +50153,11 @@
               0
             ],
             "midiCentsOffset": 3594.1349974038385
-          }
+          },
+          "id": "__seq__:43.23354090069326:0:1",
+          "start": -0.333333,
+          "end": 1.833333,
+          "startFractionDenominator": 1
         },
         {
           "midicents": 50.25309090934713,
@@ -49832,7 +50213,11 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:50.25309090934713:0:1",
+          "start": -0.333333,
+          "end": 4.333333,
+          "startFractionDenominator": 1
         },
         {
           "midicents": 55.23354090069325,
@@ -49888,7 +50273,11 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.333333,
+          "end": 1,
+          "startFractionDenominator": 1,
+          "id": "__seq__:55.23354090069325:-0.333333:1"
         }
       ]
     },
@@ -49957,7 +50346,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 2.5,
+          "endFractionDenominator": 5,
+          "id": "__seq__:57.272640918001:0:2.5"
         }
       ]
     },
@@ -50026,7 +50418,12 @@
             ],
             "midiCentsOffset": 3594.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.166667,
+          "end": 0.666667,
+          "startFractionDenominator": 5,
+          "id": "__seq__:45.90224995673062:-0.166667:1",
+          "endFractionDenominator": 5
         }
       ]
     },
@@ -50095,7 +50492,12 @@
             ],
             "midiCentsOffset": 3594.1349974038376
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.333333,
+          "end": 4.5,
+          "startFractionDenominator": 5,
+          "id": "__seq__:45.272640918001:-0.333333:1",
+          "endFractionDenominator": 5
         }
       ]
     },
@@ -50164,7 +50566,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.5,
+          "end": 0.333333,
+          "startFractionDenominator": 5,
+          "id": "__seq__:55.23354090069325:-0.5:1",
+          "endFractionDenominator": 5
         }
       ]
     },
@@ -50233,7 +50640,11 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.292190926654875:0:1",
+          "start": -0.666667,
+          "end": 1,
+          "startFractionDenominator": 5
         },
         {
           "midicents": 54.960899982692254,
@@ -50289,7 +50700,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.666667,
+          "end": 1,
+          "startFractionDenominator": 1,
+          "id": "__seq__:54.960899982692254:0.166667:1",
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -50358,7 +50774,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 0.75,
+          "endFractionDenominator": 3,
+          "id": "__seq__:54.60393186196362:0:0.75"
         }
       ]
     },
@@ -50427,7 +50846,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.25,
+          "end": 2,
+          "startFractionDenominator": 3,
+          "id": "__seq__:54.960899982692254:-0.25:1",
+          "endFractionDenominator": 3
         }
       ]
     },
@@ -50496,7 +50920,11 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:47.941349974038374:0:1",
+          "start": -0.5,
+          "end": 1,
+          "startFractionDenominator": 3
         },
         {
           "midicents": 57.629609038729626,
@@ -50552,7 +50980,11 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": -0.5,
+          "end": 1,
+          "startFractionDenominator": 3,
+          "id": "__seq__:57.629609038729626:-0.5:1"
         }
       ]
     },
@@ -50567,62 +50999,6 @@
         "styleParameters": null
       },
       "notes": [
-        {
-          "midicents": 47.941349974038374,
-          "attackVelocity": 54,
-          "releaseVelocity": 46,
-          "velocity": 54,
-          "pressure": 0,
-          "timbre": 64,
-          "displayLabel": "C",
-          "ratioText": "1/1",
-          "monzo": [
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-          ],
-          "rationalContext": {
-            "version": 1,
-            "anchorLabel": null,
-            "anchorRatioText": null,
-            "anchorOctave": 4,
-            "globalOffsetMonzo": [
-              -4,
-              3,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            "midiCentsOffset": 4794.134997403838
-          },
-          "pressure14": 0
-        },
         {
           "midicents": 54.96089998269225,
           "attackVelocity": 26,
@@ -50677,7 +51053,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 1.5,
+          "endFractionDenominator": 1,
+          "id": "__seq__:54.96089998269225:0:1.5"
         },
         {
           "midicents": 56.34662659173148,
@@ -50733,7 +51112,69 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:56.34662659173148:0:1",
+          "end": 2,
+          "endFractionDenominator": 1
+        },
+        {
+          "midicents": 47.941349974038374,
+          "attackVelocity": 54,
+          "releaseVelocity": 46,
+          "velocity": 54,
+          "pressure": 0,
+          "timbre": 64,
+          "displayLabel": "C",
+          "ratioText": "1/1",
+          "monzo": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403838
+          },
+          "pressure14": 0,
+          "id": "__seq__:47.941349974038374:0:1",
+          "end": 5,
+          "endFractionDenominator": 1
         }
       ]
     },
@@ -50802,14 +51243,19 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": 0.5,
+          "end": 6,
+          "startFractionDenominator": 1,
+          "id": "__seq__:52.9217999653845:0.5:1",
+          "endFractionDenominator": 1
         }
       ]
     },
     {
       "id": 369,
       "length": 1,
-      "description": "1",
+      "description": "1:9",
       "descriptionManual": false,
       "manualTrigger": {
         "articulation": "chord",
@@ -50817,6 +51263,66 @@
         "styleParameters": null
       },
       "notes": [
+        {
+          "midicents": 54.96089998269225,
+          "attackVelocity": 26,
+          "releaseVelocity": 51,
+          "velocity": 26,
+          "pressure": 0,
+          "timbre": 64,
+          "displayLabel": "G",
+          "ratioText": "3/2",
+          "monzo": [
+            -1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403837
+          },
+          "pressure14": 0,
+          "end": 11,
+          "endFractionDenominator": 1,
+          "id": "__seq__:54.96089998269225:0:1.5:copy:1",
+          "start": 0
+        },
         {
           "midicents": 40.921799965384494,
           "attackVelocity": 50,
@@ -50870,7 +51376,8 @@
               0
             ],
             "midiCentsOffset": 3594.1349974038367
-          }
+          },
+          "id": "__seq__:40.921799965384494:0:1"
         }
       ]
     },
@@ -51077,7 +51584,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57.629609038729626:0:1",
+          "end": 2,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 47.941349974038374,
@@ -51133,7 +51643,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 2,
+          "endFractionDenominator": 1,
+          "id": "__seq__:47.941349974038374:0:1.333333"
         }
       ]
     },
@@ -51202,7 +51715,11 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": 0.333333,
+          "end": 1,
+          "startFractionDenominator": 2,
+          "id": "__seq__:50.25309090934713:0.333333:1"
         }
       ]
     },
@@ -51271,7 +51788,10 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:49.98044999134613:0:1",
+          "end": 3,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 52.649159047383506,
@@ -51327,7 +51847,10 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.649159047383506:0:1",
+          "end": 3,
+          "endFractionDenominator": 2
         },
         {
           "midicents": 57.629609038729626,
@@ -51383,7 +51906,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 1.333333,
+          "endFractionDenominator": 2,
+          "id": "__seq__:57.629609038729626:0:1.333333"
         }
       ]
     },
@@ -51452,7 +51978,11 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "start": 0.333333,
+          "end": 1,
+          "startFractionDenominator": 2,
+          "id": "__seq__:57.272640918001:0.333333:1"
         }
       ]
     },
@@ -51521,7 +52051,8 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57:0:1"
         }
       ]
     },
@@ -51590,7 +52121,12 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.292190926654875:0:1",
+          "start": 0,
+          "end": 3,
+          "startFractionDenominator": 1,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 57.272640918001,
@@ -51646,7 +52182,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 12,
+          "endFractionDenominator": 1,
+          "id": "__seq__:57.272640918001:0:12"
         }
       ]
     },
@@ -51784,14 +52323,17 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 3,
+          "endFractionDenominator": 1,
+          "id": "__seq__:50.25309090934713:0:3"
         }
       ]
     },
     {
       "id": 380,
       "length": 1,
-      "description": "1",
+      "description": "1:7",
       "descriptionManual": false,
       "manualTrigger": {
         "articulation": "chord",
@@ -51799,6 +52341,66 @@
         "styleParameters": null
       },
       "notes": [
+        {
+          "midicents": 55.23354090069325,
+          "attackVelocity": 94,
+          "releaseVelocity": 53,
+          "velocity": 94,
+          "pressure": 0,
+          "timbre": 64,
+          "displayLabel": "G",
+          "ratioText": "32/21",
+          "monzo": [
+            5,
+            -1,
+            0,
+            -1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "rationalContext": {
+            "version": 1,
+            "anchorLabel": null,
+            "anchorRatioText": null,
+            "anchorOctave": 4,
+            "globalOffsetMonzo": [
+              -4,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "midiCentsOffset": 4794.134997403838
+          },
+          "pressure14": 0,
+          "id": "__seq__:55.23354090069325:0:1",
+          "start": 0,
+          "end": 2,
+          "__selectedTime": 2
+        },
         {
           "midicents": 52.9217999653845,
           "attackVelocity": 44,
@@ -51853,7 +52455,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:52.9217999653845:0:1",
+          "end": 2,
+          "endFractionDenominator": 2
         }
       ]
     },
@@ -51922,7 +52527,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 1,
+          "endFractionDenominator": 1,
+          "id": "__seq__:54.960899982692254:0:11.666667"
         }
       ]
     },
@@ -51991,7 +52599,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 2,
+          "endFractionDenominator": 1,
+          "id": "__seq__:52.292190926654875:0:2"
         }
       ]
     },
@@ -52060,7 +52671,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 7,
+          "endFractionDenominator": 1,
+          "id": "__seq__:59.66870905603738:0:7"
         },
         {
           "midicents": 54.68825906469125,
@@ -52116,7 +52730,8 @@
             ],
             "midiCentsOffset": 4794.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:54.68825906469125:0:1"
         }
       ]
     },
@@ -52185,7 +52800,10 @@
             ],
             "midiCentsOffset": 4794.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 8.666667,
+          "endFractionDenominator": 1,
+          "id": "__seq__:54.960899982692254:0:8.666667"
         }
       ]
     },
@@ -52254,7 +52872,10 @@
             ],
             "midiCentsOffset": 5994.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 7.666667,
+          "endFractionDenominator": 1,
+          "id": "__seq__:61.98044999134613:0:7.666667"
         }
       ]
     },
@@ -52323,7 +52944,10 @@
             ],
             "midiCentsOffset": 5994.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 3,
+          "endFractionDenominator": 1,
+          "id": "__seq__:64.29219092665488:0:3"
         }
       ]
     },
@@ -52392,7 +53016,10 @@
             ],
             "midiCentsOffset": 5994.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 3,
+          "endFractionDenominator": 1,
+          "id": "__seq__:66.68825906469125:0:3"
         }
       ]
     },
@@ -52461,7 +53088,10 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 2,
+          "endFractionDenominator": 1,
+          "id": "__seq__:69:0:2"
         }
       ]
     },
@@ -52530,7 +53160,10 @@
             ],
             "midiCentsOffset": 4794.134997403837
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:57.629609038729626:0:1",
+          "end": 3,
+          "endFractionDenominator": 1
         },
         {
           "midicents": 64.6491590473835,
@@ -52586,7 +53219,10 @@
             ],
             "midiCentsOffset": 5994.1349974038385
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 2,
+          "endFractionDenominator": 1,
+          "id": "__seq__:64.6491590473835:0:2"
         }
       ]
     },
@@ -52655,7 +53291,8 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:59.941349974038374:0:1"
         },
         {
           "midicents": 66.96089998269225,
@@ -52711,7 +53348,10 @@
             ],
             "midiCentsOffset": 5994.134997403838
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "end": 2.666667,
+          "endFractionDenominator": 1,
+          "id": "__seq__:66.96089998269225:0:2.666667"
         }
       ]
     },
@@ -52729,6 +53369,18 @@
     },
     {
       "id": 394,
+      "length": 1,
+      "description": "",
+      "descriptionManual": false,
+      "manualTrigger": {
+        "articulation": "chord",
+        "styleId": null,
+        "styleParameters": null
+      },
+      "notes": []
+    },
+    {
+      "id": 395,
       "length": 1,
       "description": "",
       "descriptionManual": false,
