@@ -16,7 +16,9 @@ export const AUTO_MPE_YZ_DEFAULTS = Object.freeze({
   zCenter: 69,
   zAftertouchRange: 0.69,
   velocityLagFactor: 0.08,
-  releaseVelocityPivot: 90,
+  // Max's VelToZY patch applies the same `115 - velocity` lag basis to
+  // release velocity as it does to attack velocity.
+  releaseVelocityPivot: 115,
   releaseVelocityLagFactor: 0.08,
   releaseStateLookbackMs: 3,
   aftertouchRampMs: AFTERTOUCH_RAMP_MS,
@@ -392,11 +394,11 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
         Number(options.releaseStateLookbackMs ?? AUTO_MPE_YZ_DEFAULTS.releaseStateLookbackMs) || 0,
       );
       const canLookBack = Number.isFinite(onsetAt) && start - onsetAt >= lookbackMs;
-      // Release velocity controls a steeper curve than onset velocity. Values
-      // at or above the release pivot snap to zero, while softer releases keep
-      // a short, densely sampled timbral fall. Sampling a few milliseconds
-      // behind the current state preserves the brighter edge that Max's signal
-      // ramp still carries into Note Off.
+      // Max's VelToZY patch uses the same 115-based lag calculation for attack
+      // and release velocity. Values at or above that pivot snap to zero, while
+      // softer releases keep a short, densely sampled timbral fall. Sampling a
+      // few milliseconds behind the current state preserves the brighter edge
+      // that Max's signal ramp still carries into Note Off.
       const duration = releaseRampDuration(releaseVelocity);
       // line~ begins at the next snapshot~ sample and preserves the current
       // signal value there when it has a nonzero duration. A zero-duration Max

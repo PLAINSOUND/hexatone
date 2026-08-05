@@ -8318,4 +8318,28 @@ describe("Keys MIDI input integration", () => {
     expect(output.sendSysex).toHaveBeenCalledTimes(128);
     expect(output.send).not.toHaveBeenCalled();
   });
+
+  it("registers one poly-pressure listener when real-time MTS output is enabled", () => {
+    const input = {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      name: "Lumatone",
+    };
+    const output = { id: "mts-out", send: vi.fn() };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+    vi.spyOn(WebMidi, "getOutputById").mockReturnValue(output);
+
+    createKeys({
+      midiin_device: "lumatone-in",
+      output_mts: true,
+      midi_device: "mts-out",
+      midi_channel: 0,
+      midi_mapping: "MTS1",
+    });
+
+    const keyAftertouchRegistrations = input.addListener.mock.calls.filter(
+      ([eventName]) => eventName === "keyaftertouch",
+    );
+    expect(keyAftertouchRegistrations).toHaveLength(1);
+  });
 });

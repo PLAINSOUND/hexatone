@@ -5,7 +5,7 @@
 
 import Point from "../keyboard/point.js";
 import { WebMidi } from "webmidi";
-import { keymap, notes } from "../midi_synth";
+import { notes } from "../midi_synth";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import { debugLog } from "../debug/logging.js";
 import { withMidiJitterInput } from "../debug/midi-jitter.js";
@@ -1029,55 +1029,11 @@ export function setupMidiInput() {
         // forward other MIDI data through to output (only when MTS is enabled)
         this.midiout_data = WebMidi.getOutputById(this.settings.midi_device);
 
-        // CC and channel-pressure passthrough is now handled by the universal
-        // controlchange / channelaftertouch listeners above (_passthroughCC /
-        // _passthroughChannelPressure).  Only per-mode pitchbend and keyaftertouch
-        // passthrough with note-remapping logic are kept here.
-
-        // Pitchbend passthrough is now handled universally by _passthroughPitchBend
-        // (called from the universal 'pitchbend' listener below).
-        // Only keyaftertouch listeners with note-remapping logic are kept here.
-
-        if (this.settings.midi_mapping == "multichannel") {
-          // Multichannel output — currently NOT USED, to be replaced by MTS bulk dump mode.
-          this.midiin_data.addListener("keyaftertouch", (e) => {
-            let note = e.message.dataBytes[0] + 128 * (e.message.channel - 1); // finds index of stored MTS data
-            this.midiout_data.sendKeyAftertouch(keymap[note][0], e.message.dataBytes[1], {
-              channels: keymap[note][6] + 1,
-              rawValue: true,
-            });
-          });
-        } else {
-          // Single-channel output.
-          if (this.settings.midi_mapping == "sequential") {
-            // Sequential — inactive, to be replaced by MTS bulk dump mode.
-            // Note-remapping: channel offset → equave shift → remapped output note.
-            // Note that the channels-to-equave-transposition logic here will need
-            // overhaul once static mapping per MIDI control surface is implemented.
-            this.midiin_data.addListener("keyaftertouch", (e) => {
-              // equaveShift: how many equaves this channel is transposed relative to
-              // the anchor channel. Range -4...+3, wrapping at 8 channels.
-              let equaveShift = e.message.channel - (this.settings.midiin_anchor_channel ?? 1);
-              equaveShift = ((equaveShift + 20) % 8) - 4;
-              // scaleStepShift: the same transposition expressed as scale degrees
-              // (equaveShift × equivSteps), used to remap the output note number.
-              const scaleStepShift = equaveShift * this.tuning.equivSteps;
-              let note = (e.message.dataBytes[0] + scaleStepShift + 16 * 128) % 128;
-              this.midiout_data.sendKeyAftertouch(note, e.message.dataBytes[1], {
-                channels: this.settings.midi_channel + 1,
-                rawValue: true,
-              });
-            });
-          } else if (this.settings.midi_mapping == "MTS1" || this.settings.midi_mapping == "MTS2") {
-            this.midiin_data.addListener("keyaftertouch", (e) => {
-              let note = e.message.dataBytes[0] + 128 * (e.message.channel - 1);
-              this.midiout_data.sendKeyAftertouch(keymap[note][0], e.message.dataBytes[1], {
-                channels: this.settings.midi_channel + 1,
-                rawValue: true,
-              });
-            });
-          }
-        }
+        // CC, channel pressure, pitch bend, and poly pressure are all handled
+        // by the universal listeners above. Poly pressure resolves the active
+        // hex and reaches MidiHex.aftertouch(), which owns remapping it onto the
+        // allocated MTS carrier note. A second raw keyaftertouch listener here
+        // used to send the same remapped packet twice.
       } // end if (output_mts)
       // Detect controller geometry and build a direct coordinate lookup map.
       if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();

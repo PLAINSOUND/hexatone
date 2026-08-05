@@ -21,9 +21,9 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(pressureTarget(127, 90, 0.69)).toBe(116);
     expect(velocityRampDuration(100)).toBeCloseTo(1.2);
     expect(velocityRampDuration(127)).toBe(0);
-    expect(releaseRampDuration(100)).toBe(0);
-    expect(releaseRampDuration(71)).toBeCloseTo(1.52);
-    expect(releaseRampDuration(0)).toBeCloseTo(7.2);
+    expect(releaseRampDuration(100)).toBeCloseTo(1.2);
+    expect(releaseRampDuration(71)).toBeCloseTo(3.52);
+    expect(releaseRampDuration(0)).toBeCloseTo(9.2);
   });
 
   it("catches a delayed worker command up without emitting its stale initial value", () => {
@@ -234,8 +234,8 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(calls[1]).toEqual([[0xd0 + 2, 45], 101]);
     expect(calls.at(-2)[0]).toEqual([0xb0 + 2, 74, 0]);
     expect(calls.at(-1)[0]).toEqual([0xd0 + 2, 0]);
-    expect(calls.at(-2)[1]).toBeCloseTo(102.52);
-    expect(calls.at(-1)[1]).toBeCloseTo(102.52);
+    expect(calls.at(-2)[1]).toBeCloseTo(104.5);
+    expect(calls.at(-1)[1]).toBeCloseTo(104.5);
   });
 
   it("starts release from the expression state three milliseconds earlier", () => {
@@ -285,12 +285,12 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(calls.slice(0, 4)).toEqual([
       [[0xb0 + 6, 74, 83], 201],
       [[0xd0 + 6, 109], 201],
-      [[0xb0 + 6, 74, 43], 201.5],
-      [[0xd0 + 6, 57], 201.5],
+      [[0xb0 + 6, 74, 69], 201.5],
+      [[0xd0 + 6, 91], 201.5],
     ]);
     expect(calls.at(-2)[0]).toEqual([0xb0 + 6, 74, 0]);
     expect(calls.at(-1)[0]).toEqual([0xd0 + 6, 0]);
-    expect(calls.at(-2)[1]).toBeCloseTo(202.04);
-    expect(calls.at(-1)[1]).toBeCloseTo(202.04);
+    expect(calls.at(-2)[1]).toBeCloseTo(204.04);
+    expect(calls.at(-1)[1]).toBeCloseTo(204.04);
   });
 });
