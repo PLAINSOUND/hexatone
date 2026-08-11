@@ -147,7 +147,7 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(replacement.at(-1)[0]).toEqual([0xd0 + 1, 28]);
   });
 
-  it("timestamps the first pressure sample without waiting for worker delivery", () => {
+  it("waits for pressure to cross the Max patch threshold before taking over", () => {
     class FakeWorker {
       constructor() {
         this.onmessage = null;
@@ -166,10 +166,37 @@ describe("automatic MPE Y/Z shaping", () => {
     midiOutput.send.mockClear();
     scheduler.pressure(4, 0, 127);
 
+    expect(midiOutput.send).not.toHaveBeenCalled();
+
+    scheduler.pressure(4, 1, 127);
+
     expect(midiOutput.send.mock.calls).toEqual([
       [[0xb0 + 3, 74, 82], 400.5],
       [[0xd0 + 3, 108], 400.5],
     ]);
+  });
+
+  it("continues processing pressure after activation when it returns to zero", () => {
+    class FakeWorker {
+      constructor() {
+        this.onmessage = null;
+      }
+
+      postMessage = vi.fn();
+      terminate = vi.fn();
+    }
+    vi.stubGlobal("Worker", FakeWorker);
+    const midiOutput = { send: vi.fn() };
+    let now = 400.2;
+    const scheduler = createAutoMpeYzScheduler(midiOutput, { now: () => now });
+
+    scheduler.onset(4, 127);
+    scheduler.pressure(4, 1, 127);
+    midiOutput.send.mockClear();
+    now = 410.2;
+    scheduler.pressure(4, 0, 127);
+
+    expect(midiOutput.send).toHaveBeenCalledTimes(2);
   });
 
   it("drops already-posted worker values from a superseded generation", () => {
@@ -238,7 +265,7 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(calls.at(-1)[1]).toBeCloseTo(104.5);
   });
 
-  it("starts release from the expression state three milliseconds earlier", () => {
+  it("keeps the velocity onset when pressure has not crossed the threshold", () => {
     class FakeWorker {
       constructor() {
         this.onmessage = null;
@@ -257,8 +284,8 @@ describe("automatic MPE Y/Z shaping", () => {
     scheduler.release(4, 71, 210);
 
     expect(midiOutput.send.mock.calls.slice(0, 2)).toEqual([
-      [[0xb0 + 3, 74, 68], 210.5],
-      [[0xd0 + 3, 96], 210.5],
+      [[0xb0 + 3, 74, 83], 210.5],
+      [[0xd0 + 3, 109], 210.5],
     ]);
   });
 

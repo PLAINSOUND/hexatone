@@ -22,6 +22,7 @@ let lastKeyboardProps = null;
 let lastUsePresetsOptions = null;
 let mockDetectedController = null;
 let mockControllerById = null;
+const { guardianPanicMock } = vi.hoisted(() => ({ guardianPanicMock: vi.fn() }));
 
 vi.mock("normalize.css", () => ({}));
 vi.mock("./hex-style.css", () => ({}));
@@ -171,7 +172,7 @@ vi.mock("./hooks/use-synth-wiring.js", () => ({
   default: () => synthWiringState,
 }));
 vi.mock("./hooks/use-midi-guardian.js", () => ({
-  useMidiGuardian: () => ({ panic: vi.fn() }),
+  useMidiGuardian: () => ({ panic: guardianPanicMock }),
 }));
 vi.mock("./persistence/settings-registry.js", () => ({
   buildQuerySpec: () => ({}),
@@ -1017,7 +1018,7 @@ describe("App workspace tabs", () => {
     });
   });
 
-  it("stops sequencer-owned playback when leaving the Sequencer tab", async () => {
+  it("stops sequencer-owned playback without interrupting live notes", async () => {
     render(<App />);
     const user = userEvent.setup();
     const keys = {
@@ -1037,7 +1038,8 @@ describe("App workspace tabs", () => {
     await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
 
     expect(keys.stopSnapshot).toHaveBeenCalledTimes(1);
-    expect(keys.panic).toHaveBeenCalledTimes(1);
+    expect(keys.panic).not.toHaveBeenCalled();
+    expect(guardianPanicMock).not.toHaveBeenCalled();
   });
 });
 

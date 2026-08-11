@@ -1974,10 +1974,12 @@ const App = () => {
     const previousTab = previousWorkspaceTabRef.current;
     previousWorkspaceTabRef.current = workspaceTab;
     if (previousTab !== "sequencer" || workspaceTab === "sequencer") return;
+    // Leaving the Sequencer should stop only voices owned by sequencer
+    // playback. Live MIDI/controller notes belong to the always-mounted Keys
+    // runtime and must survive workspace navigation just as they do when
+    // entering the Sequencer.
     onStopSnapshot();
-    guardianPanic();
-    keysRef.current?.panic?.();
-  }, [guardianPanic, onStopSnapshot, workspaceTab]);
+  }, [onStopSnapshot, workspaceTab]);
 
   const onSelectSequenceBar = useCallback(
     (barIndex) => {

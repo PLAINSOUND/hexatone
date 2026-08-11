@@ -44393,16 +44393,16 @@
       },
       "notes": [
         {
-          "midicents": 30.960899982692247,
+          "midicents": 42.9609,
           "attackVelocity": 94,
           "releaseVelocity": 50,
           "velocity": 94,
           "pressure": 0,
           "timbre": 56,
-          "displayLabel": "G",
-          "ratioText": "3/2",
+          "displayLabel": "*nG",
+          "ratioText": "3/1",
           "monzo": [
-            -1,
+            0,
             1,
             0,
             0,
@@ -44446,7 +44446,8 @@
             ],
             "midiCentsOffset": 2394.1349974038376
           },
-          "pressure14": 0
+          "pressure14": 0,
+          "id": "__seq__:42.9609:0:1"
         }
       ]
     },
@@ -44462,7 +44463,7 @@
       },
       "notes": [
         {
-          "midicents": 26.610059030075746,
+          "midicents": 38.610059,
           "attackVelocity": 99,
           "releaseVelocity": 42,
           "velocity": 99,
@@ -44518,7 +44519,10 @@
           "pressure14": 0,
           "end": 5,
           "endFractionDenominator": 1,
-          "id": "__seq__:26.610059030075746:0:5"
+          "id": "__seq__:26.610059030075746:0:5",
+          "originalMidicents": 26.610059030075746,
+          "originalDisplayLabel": "E",
+          "displayLabelEdited": true
         }
       ]
     },

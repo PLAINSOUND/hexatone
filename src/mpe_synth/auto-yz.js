@@ -21,6 +21,10 @@ export const AUTO_MPE_YZ_DEFAULTS = Object.freeze({
   releaseVelocityPivot: 115,
   releaseVelocityLagFactor: 0.08,
   releaseStateLookbackMs: 3,
+  // Max leaves the velocity-derived onset in place until incoming pressure
+  // becomes positive. Once crossed, pressure owns the envelope for the rest
+  // of that note, including any later return to zero.
+  pressureActivationThreshold: 0,
   aftertouchRampMs: AFTERTOUCH_RAMP_MS,
 });
 
@@ -160,6 +164,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
   const generations = new Map();
   const lastValues = new Map();
   const onsetTimes = new Map();
+  const pressureActiveChannels = new Set();
   const stateEngine = createAutoMpeYzRampEngine(() => {});
   let worker = null;
   let fallbackTimer = null;
@@ -349,6 +354,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     onset(channel, velocity, at) {
       const start = Number.isFinite(at) ? at : now();
       onsetTimes.set(channel, start);
+      pressureActiveChannels.delete(channel);
       const y = velocityTarget(
         velocity,
         AUTO_MPE_YZ_DEFAULTS.yVelocityRange,
@@ -364,6 +370,11 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     },
 
     pressure(channel, pressure, velocity, at) {
+      const pressure7 = clamp7(pressure);
+      if (!pressureActiveChannels.has(channel)) {
+        if (pressure7 <= AUTO_MPE_YZ_DEFAULTS.pressureActivationThreshold) return;
+        pressureActiveChannels.add(channel);
+      }
       const yBase = velocityTarget(
         velocity,
         AUTO_MPE_YZ_DEFAULTS.yVelocityRange,
@@ -376,8 +387,8 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       );
       schedule(
         channel,
-        pressureTarget(pressure, yBase, AUTO_MPE_YZ_DEFAULTS.yAftertouchRange),
-        pressureTarget(pressure, zBase, AUTO_MPE_YZ_DEFAULTS.zAftertouchRange),
+        pressureTarget(pressure7, yBase, AUTO_MPE_YZ_DEFAULTS.yAftertouchRange),
+        pressureTarget(pressure7, zBase, AUTO_MPE_YZ_DEFAULTS.zAftertouchRange),
         AUTO_MPE_YZ_DEFAULTS.aftertouchRampMs,
         at,
         null,
@@ -387,6 +398,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
 
     release(channel, releaseVelocity, at) {
       if (!Number.isFinite(channel) || channel < 1 || channel > 16) return;
+      pressureActiveChannels.delete(channel);
       const start = Number.isFinite(at) ? at : now();
       const onsetAt = onsetTimes.get(channel);
       const lookbackMs = Math.max(
@@ -412,6 +424,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
 
     reset(channel, at) {
       onsetTimes.delete(channel);
+      pressureActiveChannels.delete(channel);
       schedule(channel, 0, 0, 0, at, { y: 0, z: 0 });
     },
 
@@ -419,6 +432,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       generations.clear();
       lastValues.clear();
       onsetTimes.clear();
+      pressureActiveChannels.clear();
       stateEngine.clear();
       fallbackEngine.clear();
       stopFallbackTimer();
@@ -429,6 +443,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       generations.clear();
       lastValues.clear();
       onsetTimes.clear();
+      pressureActiveChannels.clear();
       stateEngine.clear();
       fallbackEngine.clear();
       stopFallbackTimer();
