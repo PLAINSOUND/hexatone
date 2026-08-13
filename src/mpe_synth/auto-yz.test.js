@@ -75,8 +75,8 @@ describe("automatic MPE Y/Z shaping", () => {
     scheduler.onset(4, 99);
 
     expect(midiOutput.send.mock.calls.slice(0, 2)).toEqual([
-      [[0xb0 + 3, 74, 16], 300.5],
-      [[0xd0 + 3, 21], 300.5],
+      [[0xb0 + 3, 74, 43], 301],
+      [[0xd0 + 3, 56], 301],
     ]);
     expect(midiOutput.send.mock.calls.at(-2)[0]).toEqual([0xb0 + 3, 74, 69]);
     expect(midiOutput.send.mock.calls.at(-1)[0]).toEqual([0xd0 + 3, 90]);
@@ -149,7 +149,10 @@ describe("automatic MPE Y/Z shaping", () => {
 
   it("waits for pressure to cross the Max patch threshold before taking over", () => {
     class FakeWorker {
+      static instance;
+
       constructor() {
+        FakeWorker.instance = this;
         this.onmessage = null;
       }
 
@@ -162,18 +165,30 @@ describe("automatic MPE Y/Z shaping", () => {
       now: () => 400.2,
     });
 
-    scheduler.onset(4, 127);
+    scheduler.onset(4, 112);
     midiOutput.send.mockClear();
-    scheduler.pressure(4, 0, 127);
+    FakeWorker.instance.postMessage.mockClear();
+    scheduler.pressure(4, 75, 112);
 
     expect(midiOutput.send).not.toHaveBeenCalled();
+    expect(FakeWorker.instance.postMessage).not.toHaveBeenCalled();
 
-    scheduler.pressure(4, 1, 127);
+    // Y's velocity base is 75 and Z's is 99. Crossing Y alone must leave Z
+    // at its velocity-derived value.
+    scheduler.pressure(4, 76, 112);
+    expect(FakeWorker.instance.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ channel: 4, y: 76, z: 99 }),
+    );
 
-    expect(midiOutput.send.mock.calls).toEqual([
-      [[0xb0 + 3, 74, 82], 400.5],
-      [[0xd0 + 3, 108], 400.5],
-    ]);
+    scheduler.pressure(4, 99, 112);
+    expect(FakeWorker.instance.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ channel: 4, y: 99, z: 99 }),
+    );
+
+    scheduler.pressure(4, 100, 112);
+    expect(FakeWorker.instance.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ channel: 4, y: 100, z: 100 }),
+    );
   });
 
   it("continues processing pressure after activation when it returns to zero", () => {
@@ -191,7 +206,7 @@ describe("automatic MPE Y/Z shaping", () => {
     const scheduler = createAutoMpeYzScheduler(midiOutput, { now: () => now });
 
     scheduler.onset(4, 127);
-    scheduler.pressure(4, 1, 127);
+    scheduler.pressure(4, 110, 127);
     midiOutput.send.mockClear();
     now = 410.2;
     scheduler.pressure(4, 0, 127);
@@ -257,12 +272,12 @@ describe("automatic MPE Y/Z shaping", () => {
     scheduler.release(3, 71);
 
     const calls = midiOutput.send.mock.calls;
-    expect(calls[0]).toEqual([[0xb0 + 2, 74, 34], 101]);
-    expect(calls[1]).toEqual([[0xd0 + 2, 45], 101]);
+    expect(calls[0]).toEqual([[0xb0 + 2, 74, 33], 101]);
+    expect(calls[1]).toEqual([[0xd0 + 2, 43], 101]);
     expect(calls.at(-2)[0]).toEqual([0xb0 + 2, 74, 0]);
     expect(calls.at(-1)[0]).toEqual([0xd0 + 2, 0]);
-    expect(calls.at(-2)[1]).toBeCloseTo(104.5);
-    expect(calls.at(-1)[1]).toBeCloseTo(104.5);
+    expect(calls.at(-2)[1]).toBeCloseTo(104.37);
+    expect(calls.at(-1)[1]).toBeCloseTo(104.37);
   });
 
   it("keeps the velocity onset when pressure has not crossed the threshold", () => {
@@ -284,8 +299,8 @@ describe("automatic MPE Y/Z shaping", () => {
     scheduler.release(4, 71, 210);
 
     expect(midiOutput.send.mock.calls.slice(0, 2)).toEqual([
-      [[0xb0 + 3, 74, 83], 210.5],
-      [[0xd0 + 3, 109], 210.5],
+      [[0xb0 + 3, 74, 59], 211],
+      [[0xd0 + 3, 78], 211],
     ]);
   });
 
@@ -305,19 +320,21 @@ describe("automatic MPE Y/Z shaping", () => {
 
     scheduler.onset(7, 127);
     midiOutput.send.mockClear();
-    now = 200.65;
+    now = 200.2;
     scheduler.release(7, 77);
 
     const calls = midiOutput.send.mock.calls;
-    expect(calls.slice(0, 4)).toEqual([
-      [[0xb0 + 6, 74, 83], 201],
-      [[0xd0 + 6, 109], 201],
-      [[0xb0 + 6, 74, 69], 201.5],
-      [[0xd0 + 6, 91], 201.5],
+    expect(calls.slice(0, 6)).toEqual([
+      [[0xb0 + 6, 74, 61], 201],
+      [[0xd0 + 6, 80], 201],
+      [[0xb0 + 6, 74, 34], 202],
+      [[0xd0 + 6, 44], 202],
+      [[0xb0 + 6, 74, 7], 203],
+      [[0xd0 + 6, 9], 203],
     ]);
     expect(calls.at(-2)[0]).toEqual([0xb0 + 6, 74, 0]);
     expect(calls.at(-1)[0]).toEqual([0xd0 + 6, 0]);
-    expect(calls.at(-2)[1]).toBeCloseTo(204.04);
-    expect(calls.at(-1)[1]).toBeCloseTo(204.04);
+    expect(calls.at(-2)[1]).toBeCloseTo(203.24);
+    expect(calls.at(-1)[1]).toBeCloseTo(203.24);
   });
 });

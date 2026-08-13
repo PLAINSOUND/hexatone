@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { beforeEach } from "vitest";
-import { EAGAN_BRIGHTNESS_EVENT } from "../../mpe_synth/eagan-matrix.js";
+import {
+  EAGAN_BRIGHTNESS_EVENT,
+  EAGAN_TILT_EQ_EVENT,
+} from "../../mpe_synth/eagan-matrix.js";
 import MidiOutputs from "./midioutputs.js";
 
 const makeProps = (overrides = {}) => ({
@@ -333,7 +336,7 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(onChange).toHaveBeenCalledWith("mpe_auto_generate_yz", true);
   });
 
-  it("enables Mod Wheel to Brightness and follows incoming CC1 values", async () => {
+  it("enables Mod Wheel to Brightness and Tilt EQ and follows incoming CC1 values", async () => {
     const onChange = vi.fn();
     render(
       <MidiOutputs
@@ -347,13 +350,17 @@ describe("MidiOutputs FluidSynth independence", () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText("Mod Wheel → Brightness"));
+    fireEvent.click(screen.getByLabelText("Mod Wheel → Brightness + Tilt EQ"));
     expect(onChange).toHaveBeenCalledWith("mpe_eagan_modwheel_brightness", true);
 
     fireEvent(window, new CustomEvent(EAGAN_BRIGHTNESS_EVENT, { detail: { value: 103 } }));
+    fireEvent(window, new CustomEvent(EAGAN_TILT_EQ_EVENT, { detail: { value: 103 } }));
 
     await waitFor(() => {
       expect(screen.getByRole("slider", { name: "Brightness" }).getAttribute("aria-valuenow")).toBe(
+        "103",
+      );
+      expect(screen.getByRole("slider", { name: "Tilt EQ" }).getAttribute("aria-valuenow")).toBe(
         "103",
       );
     });

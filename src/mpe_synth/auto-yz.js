@@ -1,7 +1,6 @@
-// A half-millisecond Web MIDI grid gives the EaganMatrix a denser onset and
-// release trajectory. Web MIDI timestamps accept fractional milliseconds even
-// when the worker timer used by longer pressure ramps is more coarsely clamped.
-const SAMPLE_MS = 0.5;
+// The Max reference samples its line~ ramps with snapshot~ 1., so its short
+// attack and release trajectories advance on an absolute one-millisecond grid.
+const SAMPLE_MS = 1;
 const AFTERTOUCH_RAMP_MS = 40;
 
 // Empirical calibration against the Max/Eagan Matrix reference stream.
@@ -20,11 +19,6 @@ export const AUTO_MPE_YZ_DEFAULTS = Object.freeze({
   // release velocity as it does to attack velocity.
   releaseVelocityPivot: 115,
   releaseVelocityLagFactor: 0.08,
-  releaseStateLookbackMs: 3,
-  // Max leaves the velocity-derived onset in place until incoming pressure
-  // becomes positive. Once crossed, pressure owns the envelope for the rest
-  // of that note, including any later return to zero.
-  pressureActivationThreshold: 0,
   aftertouchRampMs: AFTERTOUCH_RAMP_MS,
 });
 
@@ -163,8 +157,11 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
   const now = typeof options.now === "function" ? options.now : midiNow;
   const generations = new Map();
   const lastValues = new Map();
-  const onsetTimes = new Map();
-  const pressureActiveChannels = new Set();
+  // Max gates Y and Z independently. Each dimension retains its velocity-
+  // derived value until pressure strictly crosses that dimension's base, then
+  // follows pressure for the rest of the note (including a return to zero).
+  const pressureActiveYChannels = new Set();
+  const pressureActiveZChannels = new Set();
   const stateEngine = createAutoMpeYzRampEngine(() => {});
   let worker = null;
   let fallbackTimer = null;
@@ -265,7 +262,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
 
   /**
    * Pre-schedule only the short velocity/release envelopes directly into Web
-   * MIDI to preserve their dense sub-millisecond shape. Timestamped packets
+   * MIDI to preserve their one-millisecond snapshot~ shape. Timestamped packets
    * already accepted by Web MIDI cannot be cancelled, so longer pressure ramps
    * use schedule() and its generation-safe worker/fallback path instead.
    */
@@ -275,16 +272,14 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     z,
     duration,
     requestedAt = now(),
-    { preserveFirstSample = false, fromAt = null } = {},
   ) => {
     if (!Number.isFinite(channel) || channel < 1 || channel > 16) return;
     const generation = (generations.get(channel) ?? 0) + 1;
     generations.set(channel, generation);
     const start = Number.isFinite(requestedAt) ? requestedAt : now();
-    const sampleAt = Number.isFinite(fromAt) ? Math.min(start, fromAt) : start;
-    const from = stateEngine.sample(channel, sampleAt);
+    const from = stateEngine.sample(channel, start);
     const firstSampleAt = Math.floor(start / sampleMs) * sampleMs + sampleMs;
-    const rampStart = preserveFirstSample ? firstSampleAt : start;
+    const rampStart = start;
     const safeDuration = Math.max(0, Number(duration) || 0);
     const end = rampStart + safeDuration;
     const target = { y: clamp7(y), z: clamp7(z) };
@@ -329,11 +324,6 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     let previousY = clamp7(from.y);
     let previousZ = clamp7(from.z);
     let timestamp = firstSampleAt;
-    if (preserveFirstSample) {
-      midiOutput.send([0xb0 + channel0, 74, previousY], timestamp);
-      midiOutput.send([0xd0 + channel0, previousZ], timestamp);
-      timestamp += sampleMs;
-    }
     for (; timestamp < end; timestamp += sampleMs) {
       const progress = (timestamp - rampStart) / safeDuration;
       const nextY = clamp7(from.y + (target.y - from.y) * progress);
@@ -353,8 +343,8 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
   return {
     onset(channel, velocity, at) {
       const start = Number.isFinite(at) ? at : now();
-      onsetTimes.set(channel, start);
-      pressureActiveChannels.delete(channel);
+      pressureActiveYChannels.delete(channel);
+      pressureActiveZChannels.delete(channel);
       const y = velocityTarget(
         velocity,
         AUTO_MPE_YZ_DEFAULTS.yVelocityRange,
@@ -371,10 +361,6 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
 
     pressure(channel, pressure, velocity, at) {
       const pressure7 = clamp7(pressure);
-      if (!pressureActiveChannels.has(channel)) {
-        if (pressure7 <= AUTO_MPE_YZ_DEFAULTS.pressureActivationThreshold) return;
-        pressureActiveChannels.add(channel);
-      }
       const yBase = velocityTarget(
         velocity,
         AUTO_MPE_YZ_DEFAULTS.yVelocityRange,
@@ -385,10 +371,23 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
         AUTO_MPE_YZ_DEFAULTS.zVelocityRange,
         AUTO_MPE_YZ_DEFAULTS.zCenter,
       );
+      if (!pressureActiveYChannels.has(channel) && pressure7 > yBase) {
+        pressureActiveYChannels.add(channel);
+      }
+      if (!pressureActiveZChannels.has(channel) && pressure7 > zBase) {
+        pressureActiveZChannels.add(channel);
+      }
+      const yActive = pressureActiveYChannels.has(channel);
+      const zActive = pressureActiveZChannels.has(channel);
+      if (!yActive && !zActive) return;
       schedule(
         channel,
-        pressureTarget(pressure7, yBase, AUTO_MPE_YZ_DEFAULTS.yAftertouchRange),
-        pressureTarget(pressure7, zBase, AUTO_MPE_YZ_DEFAULTS.zAftertouchRange),
+        yActive
+          ? pressureTarget(pressure7, yBase, AUTO_MPE_YZ_DEFAULTS.yAftertouchRange)
+          : yBase,
+        zActive
+          ? pressureTarget(pressure7, zBase, AUTO_MPE_YZ_DEFAULTS.zAftertouchRange)
+          : zBase,
         AUTO_MPE_YZ_DEFAULTS.aftertouchRampMs,
         at,
         null,
@@ -398,41 +397,27 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
 
     release(channel, releaseVelocity, at) {
       if (!Number.isFinite(channel) || channel < 1 || channel > 16) return;
-      pressureActiveChannels.delete(channel);
+      pressureActiveYChannels.delete(channel);
+      pressureActiveZChannels.delete(channel);
       const start = Number.isFinite(at) ? at : now();
-      const onsetAt = onsetTimes.get(channel);
-      const lookbackMs = Math.max(
-        0,
-        Number(options.releaseStateLookbackMs ?? AUTO_MPE_YZ_DEFAULTS.releaseStateLookbackMs) || 0,
-      );
-      const canLookBack = Number.isFinite(onsetAt) && start - onsetAt >= lookbackMs;
       // Max's VelToZY patch uses the same 115-based lag calculation for attack
       // and release velocity. Values at or above that pivot snap to zero, while
-      // softer releases keep a short, densely sampled timbral fall. Sampling a
-      // few milliseconds behind the current state preserves the brighter edge
-      // that Max's signal ramp still carries into Note Off.
+      // softer releases keep a short timbral fall sampled every millisecond.
       const duration = releaseRampDuration(releaseVelocity);
-      // line~ begins at the next snapshot~ sample and preserves the current
-      // signal value there when it has a nonzero duration. A zero-duration Max
-      // command snaps directly to zero; adding a sampled hold softens high-
-      // velocity releases and is observably different in the MIDI trace.
-      scheduleDirect(channel, 0, 0, duration, start, {
-        preserveFirstSample: duration > 0,
-        fromAt: canLookBack ? start - lookbackMs : start,
-      });
+      scheduleDirect(channel, 0, 0, duration, start);
     },
 
     reset(channel, at) {
-      onsetTimes.delete(channel);
-      pressureActiveChannels.delete(channel);
+      pressureActiveYChannels.delete(channel);
+      pressureActiveZChannels.delete(channel);
       schedule(channel, 0, 0, 0, at, { y: 0, z: 0 });
     },
 
     clear() {
       generations.clear();
       lastValues.clear();
-      onsetTimes.clear();
-      pressureActiveChannels.clear();
+      pressureActiveYChannels.clear();
+      pressureActiveZChannels.clear();
       stateEngine.clear();
       fallbackEngine.clear();
       stopFallbackTimer();
@@ -442,8 +427,8 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     shutdown() {
       generations.clear();
       lastValues.clear();
-      onsetTimes.clear();
-      pressureActiveChannels.clear();
+      pressureActiveYChannels.clear();
+      pressureActiveZChannels.clear();
       stateEngine.clear();
       fallbackEngine.clear();
       stopFallbackTimer();

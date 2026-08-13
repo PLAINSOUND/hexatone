@@ -7,6 +7,7 @@ import {
   clampMidiCc,
   EAGAN_BRIGHTNESS_EVENT,
   EAGAN_MATRIX_CONTROLS,
+  EAGAN_TILT_EQ_EVENT,
 } from "../../mpe_synth/eagan-matrix.js";
 import { sendMpeZonePitchBendRange } from "../../midi/rpn.js";
 import CustomRangeSlider from "../shared/range-slider.jsx";
@@ -104,8 +105,8 @@ const MidiOutputs = (props) => {
     mpe_eagan_pre_level: readEaganCc("mpe_eagan_pre_level", settings.mpe_eagan_pre_level ?? 64),
     mpe_eagan_post_level: readEaganCc("mpe_eagan_post_level", settings.mpe_eagan_post_level ?? 64),
   }));
-  const pendingBrightnessRef = useRef(null);
-  const brightnessFrameRef = useRef(null);
+  const pendingEaganCcRef = useRef({});
+  const eaganCcFrameRef = useRef(null);
   const masterCh = settings.midiin_mpe_manager_ch || "1";
   const available = voiceChannels(masterCh);
   const loCh = available.includes(settings.mpe_lo_ch) ? settings.mpe_lo_ch : available[0];
@@ -164,27 +165,32 @@ const MidiOutputs = (props) => {
   ]);
 
   useEffect(() => {
-    const handleBrightness = (event) => {
-      pendingBrightnessRef.current = clampMidiCc(event.detail?.value);
-      if (brightnessFrameRef.current != null) return;
+    const queueDraftUpdate = (key, event) => {
+      pendingEaganCcRef.current[key] = clampMidiCc(event.detail?.value);
+      if (eaganCcFrameRef.current != null) return;
+      const flush = () => {
+        eaganCcFrameRef.current = null;
+        const pending = pendingEaganCcRef.current;
+        pendingEaganCcRef.current = {};
+        setEaganCcDrafts((prev) => ({ ...prev, ...pending }));
+      };
       if (typeof requestAnimationFrame !== "function") {
-        const next = pendingBrightnessRef.current;
-        setEaganCcDrafts((prev) => ({ ...prev, mpe_eagan_brightness: next }));
+        flush();
         return;
       }
-      brightnessFrameRef.current = requestAnimationFrame(() => {
-        brightnessFrameRef.current = null;
-        const next = pendingBrightnessRef.current;
-        setEaganCcDrafts((prev) => ({ ...prev, mpe_eagan_brightness: next }));
-      });
+      eaganCcFrameRef.current = requestAnimationFrame(flush);
     };
+    const handleBrightness = (event) => queueDraftUpdate("mpe_eagan_brightness", event);
+    const handleTiltEq = (event) => queueDraftUpdate("mpe_eagan_tilt_eq", event);
     window.addEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
+    window.addEventListener(EAGAN_TILT_EQ_EVENT, handleTiltEq);
     return () => {
       window.removeEventListener(EAGAN_BRIGHTNESS_EVENT, handleBrightness);
-      if (brightnessFrameRef.current != null && typeof cancelAnimationFrame === "function") {
-        cancelAnimationFrame(brightnessFrameRef.current);
+      window.removeEventListener(EAGAN_TILT_EQ_EVENT, handleTiltEq);
+      if (eaganCcFrameRef.current != null && typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(eaganCcFrameRef.current);
       }
-      brightnessFrameRef.current = null;
+      eaganCcFrameRef.current = null;
     };
   }, []);
 
@@ -821,7 +827,7 @@ const MidiOutputs = (props) => {
                 </label>
                 <label
                   class="eagan-matrix-fieldset__toggle-row"
-                  title="Mirror incoming modulation-wheel CC1 values to Eagan Matrix Brightness CC13."
+                  title="Map incoming modulation-wheel CC1 values to Eagan Matrix Brightness CC13 and Tilt EQ CC83, matching the Max patch."
                 >
                   <input
                     name="mpe_eagan_modwheel_brightness"
@@ -829,7 +835,7 @@ const MidiOutputs = (props) => {
                     checked={!!settings.mpe_eagan_modwheel_brightness}
                     onChange={(e) => save(e.target.name, e.target.checked, onChange)}
                   />
-                  Mod Wheel → Brightness
+                  Mod Wheel → Brightness + Tilt EQ
                 </label>
                 {EAGAN_MATRIX_CONTROLS.map(({ key, label, cc }) => (
                   <label key={key}>

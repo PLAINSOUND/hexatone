@@ -39,7 +39,7 @@ describe("input/keys-expression-runtime timbre routing", () => {
 });
 
 describe("input/keys-expression-runtime Eagan Matrix routing", () => {
-  it("mirrors incoming CC1 to Brightness CC13 on the MPE manager channel", () => {
+  it("maps incoming CC1 to Brightness CC13 and Tilt EQ CC83 on the MPE manager channel", () => {
     const mpeOutput = { sendControlChange: vi.fn() };
     const getOutputSpy = vi.spyOn(WebMidi, "getOutputById").mockReturnValue(mpeOutput);
 
@@ -57,9 +57,11 @@ describe("input/keys-expression-runtime Eagan Matrix routing", () => {
       91,
     );
 
-    expect(mpeOutput.sendControlChange).toHaveBeenCalledWith(1, 91, { channels: 16 });
+    expect(mpeOutput.sendControlChange).not.toHaveBeenCalledWith(1, 91, { channels: 16 });
     expect(mpeOutput.sendControlChange).toHaveBeenCalledWith(13, 91, { channels: 16 });
+    expect(mpeOutput.sendControlChange).toHaveBeenCalledWith(83, 91, { channels: 16 });
     expect(sessionStorage.getItem("mpe_eagan_brightness")).toBe("91");
+    expect(sessionStorage.getItem("mpe_eagan_tilt_eq")).toBe("91");
 
     getOutputSpy.mockRestore();
   });

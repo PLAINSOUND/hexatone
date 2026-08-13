@@ -1,4 +1,5 @@
 export const EAGAN_BRIGHTNESS_EVENT = "hexatone:eagan-brightness";
+export const EAGAN_TILT_EQ_EVENT = "hexatone:eagan-tilt-eq";
 
 export const EAGAN_MATRIX_CONTROLS = [
   { key: "mpe_eagan_brightness", label: "Brightness", cc: 13 },
@@ -9,12 +10,20 @@ export const EAGAN_MATRIX_CONTROLS = [
 
 export const clampMidiCc = (value) => Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
 
-export function publishEaganBrightness(value) {
+function publishEaganControl(key, eventName, value) {
   const next = clampMidiCc(value);
   if (typeof sessionStorage !== "undefined") {
-    sessionStorage.setItem("mpe_eagan_brightness", String(next));
+    sessionStorage.setItem(key, String(next));
   }
   if (typeof window !== "undefined" && typeof CustomEvent !== "undefined") {
-    window.dispatchEvent(new CustomEvent(EAGAN_BRIGHTNESS_EVENT, { detail: { value: next } }));
+    window.dispatchEvent(new CustomEvent(eventName, { detail: { value: next } }));
   }
+}
+
+export function publishEaganBrightness(value) {
+  publishEaganControl("mpe_eagan_brightness", EAGAN_BRIGHTNESS_EVENT, value);
+}
+
+export function publishEaganTiltEq(value) {
+  publishEaganControl("mpe_eagan_tilt_eq", EAGAN_TILT_EQ_EVENT, value);
 }
