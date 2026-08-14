@@ -135,17 +135,46 @@ function normalizeEditableDeviationInput(nextValue, currentValue = "") {
   return String(currentValue ?? "").startsWith("−") ? `−${rest}` : `+${rest}`;
 }
 
-function formatDerivedFrequency(value) {
-  if (!Number.isFinite(value) || value <= 0) return "";
-  return value.toFixed(1);
-}
-
 function normalizeAnchorFrequencyInput(raw) {
   const next = String(raw ?? "").trim();
   if (!next) return "";
   const parsed = Number.parseFloat(next);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return parsed.toFixed(6).replace(/\.?0+$/, "");
+}
+
+function resolveReferenceOffsetCents(settings, pitchFrame, anchorRatio) {
+  const exactOffset = Number(pitchFrame?.notationZeroToReferenceInterval?.cents);
+  if (Number.isFinite(exactOffset)) return exactOffset;
+
+  // A pitch frame deliberately has no exact combined interval when either the
+  // spelling anchor or reference degree is expressed in cents/EDO steps. The
+  // frequency relationship is still fully defined in the cents domain.
+  const normalizedAnchorRatio = normaliseHejiAnchorRatio(anchorRatio || "") || "1/1";
+  const anchorCents = scalaToCents(normalizedAnchorRatio);
+  const referenceDegree = settings?.reference_degree ?? 0;
+  const referenceDegreeText =
+    referenceDegree === 0 ? "1/1" : String(settings?.scale?.[referenceDegree - 1] ?? "");
+  const referenceDegreeCents = scalaToCents(referenceDegreeText);
+  if (!Number.isFinite(anchorCents) || !Number.isFinite(referenceDegreeCents)) return null;
+  return referenceDegreeCents - anchorCents;
+}
+
+function stabilizeFrequency(value, currentValue) {
+  const next = Number(value);
+  const current = Number(currentValue);
+  if (
+    Number.isFinite(next) &&
+    Number.isFinite(current) &&
+    Math.abs(next - current) < 0.0000005
+  ) {
+    return current;
+  }
+  const nearestInteger = Math.round(next);
+  if (Number.isFinite(next) && Math.abs(next - nearestInteger) < 1e-10) {
+    return nearestInteger;
+  }
+  return next;
 }
 
 function normalizeAnchorLabelInput(raw) {
@@ -288,18 +317,15 @@ const KeyLabels = (props) => {
   const effectiveAnchorFrequencyValue = useMemo(() => {
     const pitchFrame = effectivePitchFrame;
     const referenceFrequency = Number(props.settings.fundamental);
-    const referenceOffsetCents = Number(pitchFrame?.notationZeroToReferenceInterval?.cents);
+    const referenceOffsetCents = resolveReferenceOffsetCents(
+      props.settings,
+      pitchFrame,
+      effectiveAnchorRatio,
+    );
     if (!Number.isFinite(referenceFrequency)) return null;
     if (!Number.isFinite(referenceOffsetCents)) {
       const normalizedAnchorRatio = normaliseHejiAnchorRatio(effectiveAnchorRatio) || "1/1";
-      const anchorCents = scalaToCents(normalizedAnchorRatio);
       const referenceDegree = props.settings.reference_degree ?? 0;
-      const referenceDegreeText =
-        referenceDegree === 0 ? "1/1" : String(props.settings.scale?.[referenceDegree - 1] ?? "");
-      const referenceDegreeCents = scalaToCents(referenceDegreeText);
-      if (Number.isFinite(anchorCents) && Number.isFinite(referenceDegreeCents)) {
-        return referenceFrequency / Math.pow(2, (referenceDegreeCents - anchorCents) / 1200);
-      }
       const anchorStructure = parseHejiToStructure(effectiveAnchorLabel);
       const referenceStructure = parseHejiToStructure(
         props.settings.note_names?.[referenceDegree] ?? "",
@@ -316,16 +342,9 @@ const KeyLabels = (props) => {
   }, [
     effectivePitchFrame,
     effectiveAnchorLabel,
-    props.settings.fundamental,
-    props.settings.note_names,
-    props.settings.reference_degree,
-    props.settings.scale,
     effectiveAnchorRatio,
+    props.settings,
   ]);
-  const effectiveAnchorFrequency = useMemo(
-    () => formatDerivedFrequency(effectiveAnchorFrequencyValue),
-    [effectiveAnchorFrequencyValue],
-  );
   const explicitAnchorFrequencyValue = useMemo(() => {
     const parsed = Number.parseFloat(props.settings.heji_anchor_frequency || "");
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -483,7 +502,7 @@ const KeyLabels = (props) => {
                 if (normalized) {
                   setAnchorRatioDraft(normalized);
                   const stableSpellingFrequency = Number.parseFloat(
-                    props.settings.heji_anchor_frequency || effectiveAnchorFrequency,
+                    props.settings.heji_anchor_frequency || effectiveAnchorFrequencyValue,
                   );
                   const preserveDerivedAnchor =
                     !String(props.settings.heji_anchor_ratio || "").trim() &&
@@ -516,12 +535,16 @@ const KeyLabels = (props) => {
                           heji_anchor_ratio: normalized,
                         }),
                       );
-                      const referenceOffsetCents = Number(
-                        nextPitchFrame?.notationZeroToReferenceInterval?.cents,
+                      const referenceOffsetCents = resolveReferenceOffsetCents(
+                        props.settings,
+                        nextPitchFrame,
+                        normalized,
                       );
                       if (Number.isFinite(referenceOffsetCents)) {
-                        nextFundamental =
-                          stableSpellingFrequency * Math.pow(2, referenceOffsetCents / 1200);
+                        nextFundamental = stabilizeFrequency(
+                          stableSpellingFrequency * Math.pow(2, referenceOffsetCents / 1200),
+                          props.settings.fundamental,
+                        );
                       }
                     } catch {
                       nextFundamental = null;
@@ -608,15 +631,19 @@ const KeyLabels = (props) => {
                     setAnchorFrequencyDraft(displayedAnchorFrequency);
                     return;
                   }
-                  const referenceOffsetCents = Number(
-                    effectivePitchFrame?.notationZeroToReferenceInterval?.cents,
+                  const referenceOffsetCents = resolveReferenceOffsetCents(
+                    props.settings,
+                    effectivePitchFrame,
+                    effectiveAnchorRatio,
                   );
                   if (!Number.isFinite(referenceOffsetCents)) {
                     setAnchorFrequencyDraft(displayedAnchorFrequency);
                     return;
                   }
-                  const nextFundamental =
-                    normalizedValue * Math.pow(2, referenceOffsetCents / 1200);
+                  const nextFundamental = stabilizeFrequency(
+                    normalizedValue * Math.pow(2, referenceOffsetCents / 1200),
+                    props.settings.fundamental,
+                  );
                   if (!Number.isFinite(nextFundamental) || nextFundamental <= 0) {
                     setAnchorFrequencyDraft(displayedAnchorFrequency);
                     return;

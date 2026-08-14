@@ -340,6 +340,59 @@ describe("Scale panel — default state", () => {
     expect(onChange.mock.calls.at(-1)[1]).toBeCloseTo(220 * Math.pow(2, 900 / 1200), 6);
   });
 
+  it("retunes all linked frequencies when spelling frequency is edited in 36ed2", () => {
+    const scale36ed2 = Array.from({ length: 36 }, (_, index) =>
+      (((index + 1) * 1200) / 36).toFixed(1),
+    );
+
+    const Wrapper = () => {
+      const [settings, setSettings] = useState({
+        ...minimalSettings,
+        scale: scale36ed2,
+        equivSteps: 36,
+        reference_degree: 27,
+        note_names: Array(36).fill(""),
+        note_colors: Array(36).fill("#ffffff"),
+        heji_anchor_ratio: "",
+        heji_anchor_label: "",
+        heji_anchor_frequency: "",
+      });
+      return (
+        <Scale
+          settings={settings}
+          heji_anchor_ratio_eff="1/1"
+          heji_anchor_label_eff="A"
+          onChange={(key, value) =>
+            setSettings((current) => ({ ...current, [key]: value }))
+          }
+          onAtomicChange={(updates) =>
+            setSettings((current) => ({ ...current, ...updates }))
+          }
+          onImport={() => {}}
+        />
+      );
+    };
+
+    render(<Wrapper />);
+
+    const ratioInput = screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)");
+    fireEvent.input(ratioInput, { target: { value: "400." } });
+    fireEvent.blur(ratioInput);
+
+    const spellingInput = screen.getByLabelText("Notation (Spelling)");
+    fireEvent.input(spellingInput, { target: { value: "E" } });
+    fireEvent.blur(spellingInput);
+
+    const spellingFrequencyInput = screen.getByLabelText("Spelling Frequency");
+    fireEvent.focus(spellingFrequencyInput);
+    fireEvent.input(spellingFrequencyInput, { target: { value: "330" } });
+    fireEvent.blur(spellingFrequencyInput);
+
+    expect(screen.getByLabelText("reference frequency").value).toBe("440.5");
+    expect(screen.getByLabelText("degree 0 frequency").value).toBe("261.9");
+    expect(screen.getByLabelText("pitch frequency 12").value).toBe("330.0");
+  });
+
   it("live-updates the reference frequency and scale frequencies during a reference tune drag", () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
 
