@@ -4,9 +4,17 @@ import {
   buildOddPartialProportion,
   buildSnapshotDescription,
   buildSnapshotDisplayDescription,
+  SNAPSHOT_LABEL_MODES,
 } from "./labels.js";
 
 describe("sequencer snapshot labels", () => {
+  it("offers separate generated Note Names and custom User Labels modes", () => {
+    expect(SNAPSHOT_LABEL_MODES.slice(0, 2)).toEqual([
+      { value: "labels", label: "User Labels" },
+      { value: "note_names", label: "Note Names" },
+    ]);
+  });
+
   it("derives a lowest-terms harmonic proportion from exact JI ratios", () => {
     expect(
       buildChordProportion([
@@ -148,7 +156,7 @@ describe("sequencer snapshot labels", () => {
     );
   });
 
-  it("uses a manual chord name only in Names mode", () => {
+  it("separates generated note names from manual user labels", () => {
     const snapshot = {
       description: "Prologue — opening chord",
       descriptionManual: true,
@@ -159,6 +167,7 @@ describe("sequencer snapshot labels", () => {
     };
 
     expect(buildSnapshotDisplayDescription(snapshot, "labels")).toBe("Prologue — opening chord");
+    expect(buildSnapshotDisplayDescription(snapshot, "note_names")).toBe("A, E");
     expect(buildSnapshotDisplayDescription(snapshot, "frequency")).toBe("440.00, 880.00");
     expect(buildSnapshotDisplayDescription(snapshot, "interval_cents")).toBe("1200.0");
     expect(buildSnapshotDisplayDescription(snapshot, "proportion")).toBe("2:3");

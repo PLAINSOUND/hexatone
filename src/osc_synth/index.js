@@ -289,7 +289,7 @@ export const create_osc_synth = async (
   const _volumes = [...volumes];
   const _mod = { value: 1.0 };
   const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
-  const _quickReleaseTime = { value: Math.max(0.001, quickReleaseTime) };
+  const _quickReleaseTime = { value: Math.max(0.001, Math.min(2.5, quickReleaseTime)) };
   const _quickReleaseRasterOnly = { value: quickReleaseRasterOnly === true };
   const _sustainBuzzFormant = { value: performanceOptions.sustainBuzzFormant === true };
   const _retriggerBuzzFormant = { value: performanceOptions.retriggerBuzzFormant === true };
@@ -362,7 +362,7 @@ export const create_osc_synth = async (
   };
 
   const setQuickReleaseTime = (value) => {
-    const next = Math.max(0.001, value);
+    const next = Math.max(0.001, Math.min(2.5, value));
     _quickReleaseTime.value = next;
     for (let i = 0; i < _slotState.length; i++) {
       for (const slot of _slotState[i]) {

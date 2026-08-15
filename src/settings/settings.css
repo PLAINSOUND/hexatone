@@ -4411,9 +4411,22 @@ td.scale-color-col .color-input {
   align-items: center;
   width: 100%;
   min-height: 1.5em;
-  padding-left: 0;
+  padding: 0;
   text-align: center;
   line-height: 1.2;
+}
+
+.sequencer-event__kind-toggle {
+  appearance: none;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.sequencer-event__kind--forced-reattack {
+  font-style: italic;
 }
 
 .sequencer-event-row--attack .sequencer-event__cell.sequencer-event__kind-cell--active,

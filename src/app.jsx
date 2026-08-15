@@ -128,6 +128,7 @@ import {
   readSequencerDiagnosticMemory,
 } from "./debug/sequencer-crash-diagnostics.js";
 import { buildSnapshotDisplayDescription } from "./sequencer/labels.js";
+import { deriveSequenceLegatoFlags, normalizeSequenceLegatoMode } from "./sequencer/legato.js";
 import { sequenceNotesAtCueIndex } from "./sequencer/trigger-groups.js";
 import {
   remapSequenceNoteToRuntime,
@@ -995,7 +996,7 @@ const App = () => {
   const [activeSequenceName, setActiveSequenceName] = useState("");
   const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("");
   const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
-  const [sequenceLegato, setSequenceLegato] = useState(true);
+  const [sequenceLegato, setSequenceLegato] = useState("per-note");
   const [sequencePlaybackSpeed, setSequencePlaybackSpeed] = useState(1);
   const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState(0);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
@@ -1206,6 +1207,7 @@ const App = () => {
     snapshotIdRef.current = workspace.ids.snapshotId;
     sequenceBarIdRef.current = workspace.ids.barId;
     setSnapshotLabelMode(workspace.snapshotLabelMode);
+    setSequenceLegato(workspace.sequenceLegato);
     setSequenceAutoCreateBars(workspace.sequenceAutoCreateBars);
     setManualArpeggiation(workspace.manualArpeggiation);
     setSelectedSnapshotId(null);
@@ -1612,7 +1614,7 @@ const App = () => {
           : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
       const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
       const normalizedNotes = Array.isArray(notes) ? notes : [];
-      const useLegato = sequenceLegato && safeMarkerIndex != null;
+      const useLegato = safeMarkerIndex != null;
       const playheadTime = cueGroup?.time ?? safeStepIndex + 1;
       const barIndex = barIndexForTime(playheadTime);
 
@@ -1653,7 +1655,6 @@ const App = () => {
       cancelManualSnapshotGestures,
       commitSequencePlaybackUi,
       sequenceCueGroups,
-      sequenceLegato,
       snapshots,
     ],
   );
@@ -1684,12 +1685,33 @@ const App = () => {
         return nextNotes;
       };
       if (markerIndex == null || sequenceCueGroups.length === 0) {
-        return transformNotes(snapshots[stepIndex]?.notes ?? []);
+        const snapshot = snapshots[stepIndex];
+        const previousSnapshot = snapshots[stepIndex - 1] ?? null;
+        return transformNotes(
+          (snapshot?.notes ?? []).map((note, noteIndex) => ({
+            ...note,
+            ...deriveSequenceLegatoFlags({
+              note,
+              noteIndex,
+              previousSnapshot,
+              attackTime: Number(note?.start) || 0,
+              mode: sequenceLegato,
+            }),
+          })),
+        );
       }
       const safeMarkerIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-      return transformNotes(sequenceNotesAtCueIndex(snapshots, safeMarkerIndex));
+      return transformNotes(
+        sequenceNotesAtCueIndex(snapshots, safeMarkerIndex, { legatoMode: sequenceLegato }),
+      );
     },
-    [currentSequenceSnapRuntime, sequenceCueGroups, snapSequenceToCurrentTuning, snapshots],
+    [
+      currentSequenceSnapRuntime,
+      sequenceCueGroups,
+      sequenceLegato,
+      snapSequenceToCurrentTuning,
+      snapshots,
+    ],
   );
 
   const previewSequencePlaybackPitchOffset = useCallback((value) => {
@@ -1894,7 +1916,7 @@ const App = () => {
         },
         onAttack: (event, gestureId) => {
           const result = keysRef.current?.attackSnapshotGestureNote?.(gestureId, event.note, {
-            legato: sequenceLegato,
+            legato: event.note?.legatoContinuation === true,
             pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
           });
           if (result?.hex) {
@@ -1928,7 +1950,6 @@ const App = () => {
       manualArpeggiation,
       releaseManualSnapshotGesture,
       sequenceCueGroups,
-      sequenceLegato,
       sequencePlaybackNotesAtPosition,
       snapshots,
     ],
@@ -5201,7 +5222,9 @@ const App = () => {
               onSequenceNameChange={onSequenceNameChange}
               onSequenceDescriptionChange={setActiveSequenceDescription}
               onSequenceSaved={onSequenceSaved}
-              onSequenceLegatoChange={setSequenceLegato}
+              onSequenceLegatoChange={(mode) =>
+                setSequenceLegato(normalizeSequenceLegatoMode(mode))
+              }
               onSequencePlaybackSpeedChange={(value) =>
                 setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))
               }

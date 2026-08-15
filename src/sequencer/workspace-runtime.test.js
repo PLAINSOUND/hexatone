@@ -120,7 +120,7 @@ describe("workspace runtime", () => {
       activeSequenceName: "Mine",
       activeSequenceSavedName: "Mine",
       activeSequenceDescription: "saved",
-      sequenceLegato: false,
+      sequenceLegato: "off",
       snapSequenceToCurrentTuning: true,
       sequenceAutoCreateBars: false,
     });
@@ -130,7 +130,7 @@ describe("workspace runtime", () => {
       activeSequenceName: "Mine",
       activeSequenceSavedName: "Mine",
       activeSequenceDescription: "saved",
-      sequenceLegato: false,
+      sequenceLegato: "off",
       snapSequenceToCurrentTuning: false,
       sequenceAutoCreateBars: false,
       ids: {

@@ -18,6 +18,7 @@ import {
   deriveTerminalBarlinePosition,
 } from "./transport.js";
 import { deriveSequenceCueGroupsFromEvents, deriveSequenceEvents } from "./trigger-groups.js";
+import { normalizeSequenceLegatoMode } from "./legato.js";
 
 let nextRuntimeInstanceId = 1;
 
@@ -29,7 +30,7 @@ export function buildSequenceRuntimeModel({
   tempi = [],
   repeats = [],
   playbackRepeats = null,
-  sequenceLegato = true,
+  sequenceLegato = "per-note",
   source = "runtime",
 } = {}) {
   const buildStartMs = performance.now();
@@ -48,6 +49,7 @@ export function buildSequenceRuntimeModel({
     repeatCount: Array.isArray(repeats) ? repeats.length : 0,
   };
   const effectivePlaybackRepeats = Array.isArray(playbackRepeats) ? playbackRepeats : repeats;
+  const sequenceLegatoMode = normalizeSequenceLegatoMode(sequenceLegato);
 
   const sortedBars = measureSequenceRuntimeStep(
     "normalize-bars",
@@ -61,7 +63,10 @@ export function buildSequenceRuntimeModel({
   );
   const sequenceEvents = measureSequenceRuntimeStep(
     "derive-sequence-events",
-    () => deriveSequenceEvents(renderedSnapshots, sortedBars, sortedTempi, repeats),
+    () =>
+      deriveSequenceEvents(renderedSnapshots, sortedBars, sortedTempi, repeats, {
+        legatoMode: sequenceLegatoMode,
+      }),
     entryMeta,
   );
   const playbackSequenceEvents = measureSequenceRuntimeStep(
@@ -74,6 +79,7 @@ export function buildSequenceRuntimeModel({
             sortedBars,
             sortedTempi,
             effectivePlaybackRepeats,
+            { legatoMode: sequenceLegatoMode },
           ),
     {
       ...entryMeta,
@@ -144,7 +150,7 @@ export function buildSequenceRuntimeModel({
   const timedPlaybackBursts = playbackTimeline.playbackBursts;
   const timedCueTriggers = measureSequenceRuntimeStep(
     "derive-timed-cue-triggers",
-    () => deriveTimedCueTriggers(playbackTimeline, { legato: sequenceLegato }),
+    () => deriveTimedCueTriggers(playbackTimeline),
     {
       ...entryMeta,
       cueCount: playbackSequenceCueGroups.length,

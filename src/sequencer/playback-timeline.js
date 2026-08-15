@@ -263,6 +263,11 @@ function cloneActiveNote(event) {
     pressure14: event.pressure14 ?? null,
     timbre: event.timbre ?? 0,
     timbre14: event.timbre14 ?? null,
+    sequenceSlot: event.sequenceSlot ?? null,
+    forceReattack: event.forceReattack === true,
+    perNoteLegatoCandidate: event.perNoteLegatoCandidate === true,
+    commonToneLegatoCandidate: event.commonToneLegatoCandidate === true,
+    legatoContinuation: event.legatoContinuation === true,
   };
 }
 

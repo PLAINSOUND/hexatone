@@ -20,6 +20,11 @@ function cloneTimedNote(note, { reattack = false } = {}) {
     pressure14: note.pressure14 ?? null,
     timbre: note.timbre ?? 0,
     timbre14: note.timbre14 ?? null,
+    sequenceSlot: note.sequenceSlot ?? null,
+    forceReattack: note.forceReattack === true,
+    perNoteLegatoCandidate: note.perNoteLegatoCandidate === true,
+    commonToneLegatoCandidate: note.commonToneLegatoCandidate === true,
+    legatoContinuation: note.legatoContinuation === true,
     reattack,
   };
 }
@@ -30,16 +35,16 @@ function sortByDescendingPitch(notes = []) {
   );
 }
 
-function serializeNotes(soundingAfter = [], newlyAttacked = [], legato = true) {
+function serializeNotes(soundingAfter = [], newlyAttacked = []) {
   const reattackSet = new Set(Array.isArray(newlyAttacked) ? newlyAttacked : []);
   return sortByDescendingPitch(soundingAfter).map((note) =>
     cloneTimedNote(note, {
-      reattack: legato ? reattackSet.has(note.instanceKey) : false,
+      reattack: reattackSet.has(note.instanceKey) && note.legatoContinuation !== true,
     }),
   );
 }
 
-export function deriveTimedCueTriggers(playbackTimeline, { legato = true } = {}) {
+export function deriveTimedCueTriggers(playbackTimeline) {
   const playbackBursts = Array.isArray(playbackTimeline?.playbackBursts)
     ? playbackTimeline.playbackBursts
     : [];
@@ -56,9 +61,9 @@ export function deriveTimedCueTriggers(playbackTimeline, { legato = true } = {})
       structuralEvents: (burst.events ?? [])
         .filter((event) => event?.type && event.type !== "note")
         .map((event) => ({ ...event })),
-      soundingBefore: serializeNotes(burst.soundingBefore, [], false),
-      soundingAfter: serializeNotes(burst.soundingAfter, [], false),
-      notes: serializeNotes(burst.soundingAfter, burst.newlyAttacked, legato),
+      soundingBefore: serializeNotes(burst.soundingBefore, []),
+      soundingAfter: serializeNotes(burst.soundingAfter, []),
+      notes: serializeNotes(burst.soundingAfter, burst.newlyAttacked),
       newlyAttacked: Array.isArray(burst.newlyAttacked) ? [...burst.newlyAttacked] : [],
       released: Array.isArray(burst.released) ? [...burst.released] : [],
       repeatJump: burst.repeatJump ? { ...burst.repeatJump } : null,

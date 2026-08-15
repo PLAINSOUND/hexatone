@@ -153,6 +153,13 @@ const EventRow = ({
   const beatValue = barRelativeDraft?.beat ?? String(barBeat?.beat ?? 1);
   const numeratorValue = barRelativeDraft?.numerator ?? String(barBeat?.numerator ?? 0);
   const denominatorValue = barRelativeDraft?.denominator ?? String(barBeat?.denominator ?? 1);
+  const isLegatoContinuation = event.kind === "attack" && event.legatoContinuation === true;
+  const canToggleReattack =
+    event.kind === "attack" &&
+    view.sequenceLegatoMode === "per-note" &&
+    event.perNoteLegatoCandidate === true;
+  const kindText = isLegatoContinuation ? "…" : event.kind === "attack" ? "on" : "off";
+  const kindClass = `${isSoundingAttack ? " sequencer-event__kind--active" : ""}${event.forceReattack === true && canToggleReattack ? " sequencer-event__kind--forced-reattack" : ""}`;
 
   return (
     <div
@@ -302,12 +309,32 @@ const EventRow = ({
       <div
         class={`sequencer-event__cell sequencer-event__kind-cell sequencer-grid-offset${isSoundingAttack ? " sequencer-event__kind-cell--active" : ""}`}
       >
-        <span
-          class={`sequencer-event__content sequencer-event__kind${isSoundingAttack ? " sequencer-event__kind--active" : ""}`}
-          style={soundingOnTextStyle(isSoundingAttack)}
-        >
-          {event.kind === "attack" ? "on" : "off"}
-        </span>
+        {canToggleReattack ? (
+          <button
+            type="button"
+            class={`sequencer-event__content sequencer-event__kind sequencer-event__kind-toggle${kindClass}`}
+            style={soundingOnTextStyle(isSoundingAttack)}
+            title={
+              isLegatoContinuation
+                ? "Legato continuation; click to force reattack"
+                : "Forced reattack; click to restore legato"
+            }
+            aria-label={`snapshot ${snapshotIndex + 1} ${isLegatoContinuation ? "legato continuation" : "forced reattack"}`}
+            onClick={(clickEvent) => {
+              clickEvent.stopPropagation();
+              editing.toggleEventReattack(sourceSnapshot, noteRef);
+            }}
+          >
+            {kindText}
+          </button>
+        ) : (
+          <span
+            class={`sequencer-event__content sequencer-event__kind${kindClass}`}
+            style={soundingOnTextStyle(isSoundingAttack)}
+          >
+            {kindText}
+          </span>
+        )}
       </div>
       <div class="sequencer-event__cell sequencer-grid-offset">
         <input

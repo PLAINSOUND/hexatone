@@ -8,6 +8,7 @@ import {
   normalizeSnapshotManualTrigger,
 } from "./manual-snapshot-arpeggiation.js";
 import { cloneJsonValue } from "../persistence/clone-json-value.js";
+import { normalizeSequenceLegatoMode } from "./legato.js";
 
 function cloneSequenceRecords(records) {
   return Array.isArray(records) ? cloneJsonValue(records) : [];
@@ -56,6 +57,9 @@ export function buildLoadedSequenceWorkspace(sequence, options = {}) {
     activeSequenceName: name,
     activeSequenceSavedName: source === "user" ? name : "",
     activeSequenceDescription: String(sequence?.description ?? ""),
+    sequenceLegato: normalizeSequenceLegatoMode(sequence?.legatoMode ?? sequence?.sequenceLegato, {
+      legacyTrue: true,
+    }),
     manualArpeggiation: normalizeManualArpeggiation(sequence?.manualArpeggiation),
     ids,
   };
@@ -81,7 +85,9 @@ export function buildRestoredSequenceWorkspace(restoredSequence) {
     activeSequenceName: String(restoredSequence?.activeSequenceName ?? ""),
     activeSequenceSavedName: String(restoredSequence?.activeSequenceSavedName ?? ""),
     activeSequenceDescription: String(restoredSequence?.activeSequenceDescription ?? ""),
-    sequenceLegato: restoredSequence?.sequenceLegato !== false,
+    sequenceLegato: normalizeSequenceLegatoMode(restoredSequence?.sequenceLegato, {
+      legacyTrue: true,
+    }),
     // Tuning snap is an audition aid, not part of a saved/restored workspace.
     // Always reopen at the snapshots' own stored pitches.
     snapSequenceToCurrentTuning: false,

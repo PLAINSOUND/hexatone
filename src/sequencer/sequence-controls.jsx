@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
+import { normalizeSequenceLegatoMode, SEQUENCE_LEGATO_MODES } from "./legato.js";
 import {
   manualArpeggiationDecayDisplay,
   manualArpeggiationDecayFromSlider,
@@ -692,11 +693,18 @@ const SequenceControls = ({
 
       <label class="sequencer-option-row sequencer-option-row--mobile-inline">
         <span>Legato</span>
-        <input
-          type="checkbox"
-          checked={sequenceLegato}
-          onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.checked)}
-        />
+        <select
+          class="sidebar-input"
+          aria-label="Legato"
+          value={normalizeSequenceLegatoMode(sequenceLegato)}
+          onChange={(e) => onSequenceLegatoChange?.(e.currentTarget.value)}
+        >
+          {SEQUENCE_LEGATO_MODES.map((mode) => (
+            <option key={mode.value} value={mode.value}>
+              {mode.label}
+            </option>
+          ))}
+        </select>
       </label>
 
       <label class="sequencer-option-row sequencer-option-row--mobile-inline">

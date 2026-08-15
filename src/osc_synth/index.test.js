@@ -643,6 +643,8 @@ describe("osc_synth pooled slot allocation", () => {
     expect(quickReleaseSets.length).toBeGreaterThan(0);
     expect(quickReleaseTimeSets.length).toBeGreaterThan(0);
 
+    synth.setQuickReleaseTime(8);
+
     const secondHex = synth.makeHex({ x: 1, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
     secondHex.noteOn();
 
@@ -653,7 +655,7 @@ describe("osc_synth pooled slot allocation", () => {
     );
 
     expect(latestSNew.args[quickReleaseArgIndex + 1].value).toBeCloseTo(0.75, 5);
-    expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(0.08, 5);
+    expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(2.5, 5);
   });
 
   it("applies shared sustain and retrigger modes only to Buzz and Formant", async () => {

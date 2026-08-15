@@ -137,7 +137,10 @@ function buildChordIntervals(notes = []) {
 }
 
 export const SNAPSHOT_LABEL_MODES = [
-  { value: "labels", label: "Note Names" },
+  // Keep the legacy value so existing sequences with custom names continue
+  // to open in the corresponding mode without a data migration.
+  { value: "labels", label: "User Labels" },
+  { value: "note_names", label: "Note Names" },
   { value: "frequency", label: "Frequencies (Hz)" },
   { value: "midicents", label: "MIDIcents" },
   { value: "interval_cents", label: "Chord Intervals from Lowest Note (¢)" },

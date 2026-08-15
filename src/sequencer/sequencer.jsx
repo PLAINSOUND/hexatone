@@ -84,6 +84,7 @@ import {
   updateEventFieldInSnapshot,
 } from "./sequence-mutations.js";
 import { normalizeManualArpeggiation } from "./manual-snapshot-arpeggiation.js";
+import { normalizeSequenceLegatoMode } from "./legato.js";
 import {
   appendPersistedSequencerCrashDiagnostic,
   createSequencerDiagnosticTransactionId,
@@ -2470,6 +2471,19 @@ const Sequencer = ({
     [onUpdateSnapshot],
   );
 
+  const toggleEventReattack = useCallback(
+    (snapshot, noteRef) => {
+      const notes = (snapshot?.notes ?? []).map((note) => {
+        const matches =
+          (noteRef?.noteId != null && note?.id === noteRef.noteId) ||
+          (noteRef?.noteId == null && noteMatchesReference(note, noteRef));
+        return matches ? { ...note, forceReattack: note.forceReattack !== true } : note;
+      });
+      onUpdateSnapshot(snapshot.id, { notes });
+    },
+    [onUpdateSnapshot],
+  );
+
   const restoreEventPitchLabel = useCallback(
     (snapshot, noteRef) => {
       const notes = restoreEventPitchLabelInSnapshot(snapshot, noteRef);
@@ -2929,6 +2943,7 @@ const Sequencer = ({
       snapshotIndexById,
       firstSnapshotCueEventIds,
       currentEventPane,
+      sequenceLegatoMode: normalizeSequenceLegatoMode(sequenceLegato),
     }),
     [
       activeCueIndex,
@@ -2939,6 +2954,7 @@ const Sequencer = ({
       firstSnapshotCueEventIds,
       selectedMarker,
       sequencePlaybackActive,
+      sequenceLegato,
       snapshotIndexById,
       soundingAttackEventIds,
     ],
@@ -2979,6 +2995,7 @@ const Sequencer = ({
       applyEventSequenceDraft,
       cancelEventSequenceDraft,
       updateEventField,
+      toggleEventReattack,
       handleEnterCommit,
       handleBlurCommit,
       snapSequenceToCurrentTuning,
@@ -3001,6 +3018,7 @@ const Sequencer = ({
       snapSequenceToCurrentTuning,
       updateEventBarRelativeDraftField,
       updateEventField,
+      toggleEventReattack,
       updateEventSequenceDraftField,
       applyEventSequenceDraft,
     ],
@@ -3132,6 +3150,7 @@ const Sequencer = ({
         snapshotLabelMode={snapshotLabelMode}
         autoCreateBars={sequenceAutoCreateBars}
         manualArpeggiation={normalizedManualArpeggiation}
+        sequenceLegato={sequenceLegato}
         activeSequenceSource={activeSequenceSource ?? ""}
         activeSequenceBuiltInName={activeSequenceBuiltInName ?? ""}
         activeSequenceName={activeSequenceName ?? ""}

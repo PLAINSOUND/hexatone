@@ -50,7 +50,13 @@ describe("snapshot rational identity", () => {
     expect(sequence.name).toBe("Seeds of Skies, Alibis");
     expect(sequence.snapshots).toHaveLength(278);
     expect(sequence.snapshots.filter((snapshot) => snapshot.notes.length === 0)).toHaveLength(30);
-    expect(sequence.manualArpeggiation).toMatchObject({ mode: "all", decayMode: "sustain" });
+    expect(sequence.manualArpeggiation).toMatchObject({
+      mode: "all",
+      initialSpreadMs: 1350,
+      decayMode: "timed",
+      decayMs: 6000,
+    });
+    expect(sequence.legatoMode).toBe("per-note");
 
     const firstNote = sequence.snapshots[1].notes[0];
     const frequency = 440 * Math.pow(2, (firstNote.midicents - 69) / 12);
@@ -64,5 +70,11 @@ describe("snapshot rational identity", () => {
     expect(new Set(duplicateChord.notes.map((note) => note.instanceKey)).size).toBe(
       duplicateChord.notes.length,
     );
+
+    const twoNoteChord = sequence.snapshots.find((snapshot) => snapshot.notes.length === 2);
+    const fourNoteChord = sequence.snapshots.find((snapshot) => snapshot.notes.length === 4);
+    expect(twoNoteChord.notes.map((note) => note.start)).toEqual([0, 0.25]);
+    expect(fourNoteChord.notes.map((note) => note.start)).toEqual([0, 0.125, 0.25, 0.375]);
+    expect(fourNoteChord.notes.map((note) => note.sequenceSlot)).toEqual([0, 1, 2, 3]);
   });
 });

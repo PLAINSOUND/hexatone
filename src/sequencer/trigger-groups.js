@@ -9,6 +9,7 @@ import {
   normalizeRepeatMarkers,
   normalizeTempoMode,
 } from "./transport.js";
+import { deriveSequenceLegatoFlags, normalizeSequenceLegatoMode } from "./legato.js";
 
 // Distinguish releases that belong to already-sounding notes from note-offs
 // that are paired with a same-time note-on inside the current cue burst.
@@ -66,18 +67,27 @@ function canRestoreEditedDisplayLabel(note) {
   );
 }
 
-export function deriveSnapshotTriggerGroups(snapshot) {
+export function deriveSnapshotTriggerGroups(snapshot, options = {}) {
   const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
   const events = [];
+  const legatoMode = normalizeSequenceLegatoMode(options?.legatoMode);
 
-  for (const note of snapshot?.notes ?? []) {
+  for (const [noteIndex, note] of (snapshot?.notes ?? []).entries()) {
     const midicents = Number(note?.midicents);
     if (!Number.isFinite(midicents)) continue;
     const { start, end } = normalizeNoteSpan(note, length);
     const frequency = noteFrequency(midicents);
     const noteKey = noteIdentity(note, length);
+    const legatoFlags = deriveSequenceLegatoFlags({
+      note,
+      noteIndex,
+      previousSnapshot: options?.previousSnapshot,
+      attackTime: start,
+      mode: legatoMode,
+    });
 
     events.push({
+      ...legatoFlags,
       noteKey,
       noteId: note.id ?? `${midicents}:${start}:attack`,
       kind: "attack",
@@ -99,6 +109,7 @@ export function deriveSnapshotTriggerGroups(snapshot) {
     });
 
     events.push({
+      ...legatoFlags,
       noteKey,
       noteId: note.id ?? `${midicents}:${end}:release`,
       kind: "release",
@@ -153,12 +164,16 @@ export function isWholeSequencePosition(time) {
   return Math.abs(value - Math.round(value)) < 1e-9;
 }
 
-export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats = []) {
+export function deriveSequenceEvents(snapshots, bars = [], tempi = [], repeats = [], options = {}) {
   const events = [];
+  const legatoMode = normalizeSequenceLegatoMode(options?.legatoMode);
 
   for (const [snapshotIndex, snapshot] of (snapshots ?? []).entries()) {
     const baseTime = snapshotBaseTime(snapshotIndex);
-    const snapshotGroups = deriveSnapshotTriggerGroups(snapshot);
+    const snapshotGroups = deriveSnapshotTriggerGroups(snapshot, {
+      previousSnapshot: snapshots?.[snapshotIndex - 1] ?? null,
+      legatoMode,
+    });
 
     for (const group of snapshotGroups) {
       for (const event of group.events) {
@@ -354,8 +369,16 @@ export function deriveSequenceCueGroupsFromEvents(sequenceEvents = []) {
   return groups;
 }
 
-export function deriveSequenceCueGroups(snapshots, bars = [], tempi = [], repeats = []) {
-  return deriveSequenceCueGroupsFromEvents(deriveSequenceEvents(snapshots, bars, tempi, repeats));
+export function deriveSequenceCueGroups(
+  snapshots,
+  bars = [],
+  tempi = [],
+  repeats = [],
+  options = {},
+) {
+  return deriveSequenceCueGroupsFromEvents(
+    deriveSequenceEvents(snapshots, bars, tempi, repeats, options),
+  );
 }
 
 export function sequenceNotesAtCueTime(snapshots, cueTime) {
@@ -377,8 +400,8 @@ export function sequenceNotesAtCueTime(snapshots, cueTime) {
   });
 }
 
-export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
-  const groups = deriveSequenceCueGroups(snapshots);
+export function sequenceNotesAtCueIndex(snapshots, cueIndex, options = {}) {
+  const groups = deriveSequenceCueGroups(snapshots, [], [], [], options);
   const index = Number(cueIndex);
   if (!Number.isFinite(index) || index < 0 || index >= groups.length) return [];
 
@@ -406,6 +429,11 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex) {
           pressure14: event.pressure14,
           timbre: event.timbre,
           timbre14: event.timbre14,
+          sequenceSlot: event.sequenceSlot,
+          forceReattack: event.forceReattack,
+          perNoteLegatoCandidate: event.perNoteLegatoCandidate,
+          commonToneLegatoCandidate: event.commonToneLegatoCandidate,
+          legatoContinuation: event.legatoContinuation,
           reattack: true,
         });
       } else {

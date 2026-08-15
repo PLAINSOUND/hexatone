@@ -23,6 +23,7 @@ import {
   normalizeManualArpeggiation,
   normalizeSnapshotManualTrigger,
 } from "./manual-snapshot-arpeggiation.js";
+import { normalizeSequenceLegatoMode } from "./legato.js";
 
 const STORAGE_KEY = "hexatone_user_sequences";
 
@@ -52,6 +53,9 @@ export function normalizeSequenceRecord(record) {
     snapshotLabelMode: String(record.snapshotLabelMode ?? "proportion"),
     autoCreateBars: record.autoCreateBars !== false,
     manualArpeggiation: normalizeManualArpeggiation(record.manualArpeggiation),
+    legatoMode: normalizeSequenceLegatoMode(record.legatoMode ?? record.sequenceLegato, {
+      legacyTrue: true,
+    }),
     transport: normalizeSequenceTransport(record.transport),
     tempi: normalizeTempoMarkers(record.tempi, { includeDefault: false }),
     snapshots,
@@ -86,6 +90,7 @@ function parseSequenceJson(name, text) {
       snapshotLabelMode: parsed?.snapshotLabelMode,
       autoCreateBars: parsed?.autoCreateBars,
       manualArpeggiation: parsed?.manualArpeggiation,
+      legatoMode: parsed?.legatoMode ?? parsed?.sequenceLegato,
       transport: parsed?.transport,
       tempi: parsed?.tempi,
       snapshots: parsed?.snapshots,
@@ -144,6 +149,7 @@ const SequenceLibrary = ({
   snapshotLabelMode,
   autoCreateBars,
   manualArpeggiation,
+  sequenceLegato,
   activeSequenceSource,
   activeSequenceBuiltInName,
   activeSequenceName,
@@ -179,6 +185,7 @@ const SequenceLibrary = ({
         snapshotLabelMode,
         autoCreateBars,
         manualArpeggiation,
+        legatoMode: sequenceLegato,
         tempi,
         snapshots,
         bars,
@@ -189,6 +196,7 @@ const SequenceLibrary = ({
       autoCreateBars,
       bars,
       manualArpeggiation,
+      sequenceLegato,
       repeats,
       sequenceName,
       snapshotLabelMode,
@@ -303,6 +311,7 @@ const SequenceLibrary = ({
         snapshotLabelMode,
         autoCreateBars,
         manualArpeggiation,
+        legatoMode: sequenceLegato,
         tempi,
         snapshots,
         bars,
@@ -313,6 +322,7 @@ const SequenceLibrary = ({
       autoCreateBars,
       bars,
       manualArpeggiation,
+      sequenceLegato,
       repeats,
       snapshotLabelMode,
       snapshots,
@@ -756,6 +766,7 @@ SequenceLibrary.propTypes = {
   snapshotLabelMode: PropTypes.string.isRequired,
   autoCreateBars: PropTypes.bool.isRequired,
   manualArpeggiation: PropTypes.object,
+  sequenceLegato: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
   activeSequenceSource: PropTypes.string,
   activeSequenceBuiltInName: PropTypes.string,
   activeSequenceName: PropTypes.string.isRequired,

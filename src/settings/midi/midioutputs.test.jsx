@@ -195,6 +195,37 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(localStorage.getItem("osc_retrigger_buzz_formant")).toBe("true");
   });
 
+  it("offers the renamed Release Time control up to 2500 ms", () => {
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_osc: true,
+          osc_quick_release_time: 0.25,
+        })}
+      />,
+    );
+
+    const releaseTime = screen.getByLabelText("Release Time");
+    expect(releaseTime.getAttribute("aria-valuemax")).toBe("2.5");
+    expect(screen.queryByLabelText("Quick Release Time")).toBeNull();
+  });
+
+  it("labels the release envelope as a release-time override blend", () => {
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_osc: true,
+          osc_quick_release: 0.5,
+        })}
+      />,
+    );
+
+    expect(screen.getByLabelText("Release Override Amount")).toBeTruthy();
+    expect(screen.getByText("50%")).toBeTruthy();
+    expect(screen.getByText("Blend between velocity-based release and Release Time")).toBeTruthy();
+    expect(screen.queryByLabelText("Quick Release")).toBeNull();
+  });
+
   it("shows Haken Continuum MPE output defaults as standard mode with 96-semitone bend range", () => {
     render(
       <MidiOutputs

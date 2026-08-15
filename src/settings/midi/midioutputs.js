@@ -26,7 +26,7 @@ const save = (name, value, onChange) => {
 
 const clampOscVolume = (value) => Math.max(0, Math.min(1, value));
 const clampOscQuickRelease = (value) => Math.max(0, Math.min(1, value));
-const clampOscQuickReleaseTime = (value) => Math.max(0.001, Math.min(1, value));
+const clampOscQuickReleaseTime = (value) => Math.max(0.001, Math.min(2.5, value));
 
 const readOscVolume = (name, fallback = 0.5) => {
   const local = parseFloat(localStorage.getItem(name) ?? "");
@@ -991,10 +991,10 @@ const MidiOutputs = (props) => {
             <em class="settings-form__helper-text">Retrigger Buzz + Formant while held</em>
           </label>
           <label>
-            Quick Release
+            Release Envelope
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider
-                ariaLabel="Quick Release"
+                ariaLabel="Release Override Amount"
                 min={0}
                 max={1}
                 step={0.01}
@@ -1011,8 +1011,13 @@ const MidiOutputs = (props) => {
                   onChange("osc_quick_release", next);
                 }}
               />
-              <span class="settings-form__range-value">{oscQuickRelease.toFixed(2)}</span>
+              <span class="settings-form__range-value">
+                {Math.round(oscQuickRelease * 100)}%
+              </span>
             </span>
+            <em class="settings-form__helper-text">
+              Blend between velocity-based release and Release Time
+            </em>
           </label>
           <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
             <input
@@ -1025,15 +1030,17 @@ const MidiOutputs = (props) => {
                 onChange("osc_quick_release_raster_only", e.target.checked);
               }}
             />
-            <em class="settings-form__helper-text">Quick Release on Rastered Glissando only</em>
+            <em class="settings-form__helper-text">
+              Apply release envelope to Rastered Glissando only
+            </em>
           </label>
           <label>
-            Quick Release Time
+            Release Time
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider
-                ariaLabel="Quick Release Time"
+                ariaLabel="Release Time"
                 min={0.01}
-                max={1}
+                max={2.5}
                 step={0.005}
                 value={oscQuickReleaseTime}
                 onInputValue={(nextValue) => {

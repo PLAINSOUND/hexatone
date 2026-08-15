@@ -8,6 +8,7 @@ import {
   normalizeSnapshotManualTrigger,
 } from "./manual-snapshot-arpeggiation.js";
 import { cloneJsonValue } from "../persistence/clone-json-value.js";
+import { normalizeSequenceLegatoMode } from "./legato.js";
 
 export const SEQUENCE_WORKSPACE_STORAGE_KEY = "hexatone_sequence_workspace";
 
@@ -32,7 +33,7 @@ export function serializeSequenceWorkspace(workspace = {}) {
     activeSequenceName: String(workspace.activeSequenceName ?? ""),
     activeSequenceSavedName: String(workspace.activeSequenceSavedName ?? ""),
     activeSequenceDescription: String(workspace.activeSequenceDescription ?? ""),
-    sequenceLegato: workspace.sequenceLegato !== false,
+    sequenceLegato: normalizeSequenceLegatoMode(workspace.sequenceLegato),
     sequenceAutoCreateBars: workspace.sequenceAutoCreateBars !== false,
     manualArpeggiation: normalizeManualArpeggiation(workspace.manualArpeggiation),
   };
@@ -54,7 +55,7 @@ export function normalizeSequenceWorkspaceRecord(record) {
     activeSequenceName: String(record.activeSequenceName ?? ""),
     activeSequenceSavedName: String(record.activeSequenceSavedName ?? ""),
     activeSequenceDescription: String(record.activeSequenceDescription ?? ""),
-    sequenceLegato: record.sequenceLegato !== false,
+    sequenceLegato: normalizeSequenceLegatoMode(record.sequenceLegato, { legacyTrue: true }),
     sequenceAutoCreateBars: record.sequenceAutoCreateBars !== false,
     manualArpeggiation: normalizeManualArpeggiation(record.manualArpeggiation),
   };

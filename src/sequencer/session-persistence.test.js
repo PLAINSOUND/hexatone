@@ -41,7 +41,7 @@ describe("sequencer session persistence", () => {
       activeSequenceName: "FALL",
       activeSequenceSavedName: "FALL",
       activeSequenceDescription: "demo",
-      sequenceLegato: true,
+      sequenceLegato: "per-note",
       snapSequenceToCurrentTuning: true,
       sequenceAutoCreateBars: true,
       manualArpeggiation: {
@@ -84,7 +84,7 @@ describe("sequencer session persistence", () => {
       activeSequenceName: "FALL",
       activeSequenceSavedName: "FALL",
       activeSequenceDescription: "demo",
-      sequenceLegato: true,
+      sequenceLegato: "per-note",
       sequenceAutoCreateBars: true,
       manualArpeggiation: {
         mode: "per-snapshot",
@@ -104,5 +104,14 @@ describe("sequencer session persistence", () => {
     saveSequenceWorkspaceToSession({ snapshots: [{ id: 1, length: 1, notes: [] }] });
     clearSequenceWorkspaceSession();
     expect(loadSequenceWorkspaceFromSession()).toBeNull();
+  });
+
+  it("migrates the former checked Legato value to All Common Tones", () => {
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({ snapshots: [], sequenceLegato: true }),
+    );
+
+    expect(loadSequenceWorkspaceFromSession().sequenceLegato).toBe("all-common-tones");
   });
 });

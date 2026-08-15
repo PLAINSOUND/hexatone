@@ -140,7 +140,7 @@ export function readNumericInput(container, selector, fallback = null) {
 export function soundingOnTextStyle(active) {
   if (!active) return undefined;
   return {
-    fontWeight: 600,
+    fontWeight: 700,
     color: "#15530f",
   };
 }

@@ -183,6 +183,80 @@ describe("Sequencer", () => {
     });
   });
 
+  it("shows inferred legato continuations and toggles a per-note forced reattack", () => {
+    const onUpdateSnapshot = vi.fn();
+    const onSequenceLegatoChange = vi.fn();
+    const snapshots = [
+      {
+        id: 1,
+        length: 1,
+        description: "first",
+        notes: [{ id: "first-a", sequenceSlot: 0, midicents: 60, start: 0, end: 1 }],
+      },
+      {
+        id: 2,
+        length: 1,
+        description: "second",
+        notes: [{ id: "second-a", sequenceSlot: 0, midicents: 60, start: 0, end: 1 }],
+      },
+    ];
+
+    render(
+      <Sequencer
+        snapshots={snapshots}
+        bars={[]}
+        tempi={[]}
+        repeats={[]}
+        snapshotLabelMode="labels"
+        sequenceLegato="per-note"
+        selectedSnapshotId={2}
+        selectedMarker={null}
+        playingSnapshotId={null}
+        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: null, stopped: true }}
+        onTakeSnapshot={vi.fn()}
+        onLoadSequence={vi.fn()}
+        onSequenceNameChange={vi.fn()}
+        onSequenceDescriptionChange={vi.fn()}
+        onSequenceLegatoChange={onSequenceLegatoChange}
+        onSetSnapshotLabelMode={vi.fn()}
+        onSelectSnapshot={vi.fn()}
+        onSelectMarker={vi.fn()}
+        onPlaySnapshot={vi.fn()}
+        onStopSnapshot={vi.fn()}
+        onSelectSequenceBar={vi.fn()}
+        onStepSequence={vi.fn()}
+        onStepSequenceMarker={vi.fn()}
+        onPlaySequence={vi.fn()}
+        onPlayCue={vi.fn()}
+        onResetSequencePlayhead={vi.fn()}
+        onAddBar={vi.fn()}
+        onAddTempo={vi.fn()}
+        onAddBarsBeforeSnapshots={vi.fn()}
+        onDeleteBar={vi.fn()}
+        onDeleteTempo={vi.fn()}
+        onUpdateBar={vi.fn()}
+        onUpdateTempo={vi.fn()}
+        onMoveBar={vi.fn()}
+        onDeleteSnapshot={vi.fn()}
+        onMoveSnapshot={vi.fn()}
+        onUpdateSnapshot={onUpdateSnapshot}
+        onResetSnapshotDescription={vi.fn()}
+        activeSequenceName=""
+        activeSequenceDescription=""
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Legato"), {
+      target: { value: "all-common-tones" },
+    });
+    expect(onSequenceLegatoChange).toHaveBeenCalledWith("all-common-tones");
+
+    fireEvent.click(screen.getByLabelText("snapshot 2 legato continuation"));
+    expect(onUpdateSnapshot).toHaveBeenCalledWith(2, {
+      notes: [{ ...snapshots[1].notes[0], forceReattack: true }],
+    });
+  });
+
   it("restores and remembers the event-table scroll position across remounts", () => {
     const scrollPositionRef = { current: 275 };
     const props = {
@@ -5093,8 +5167,8 @@ describe("Sequencer", () => {
     expect(descriptionInput.value).toBe("5:6");
 
     fireEvent.change(screen.getByLabelText("Names"), {
-      currentTarget: { value: "labels" },
-      target: { value: "labels" },
+      currentTarget: { value: "note_names" },
+      target: { value: "note_names" },
     });
 
     await waitFor(() => {

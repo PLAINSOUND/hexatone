@@ -67,7 +67,7 @@ describe("timed cue triggers", () => {
     ]);
   });
 
-  it("treats the full sounding chord as a retriggerable payload when legato is off", () => {
+  it("marks a newly attacked note for reattack while preserving the sounding chord", () => {
     const timeline = buildPlaybackTimeline({
       snapshots: [
         {
@@ -87,11 +87,11 @@ describe("timed cue triggers", () => {
       ],
     });
 
-    const triggers = deriveTimedCueTriggers(timeline, { legato: false });
+    const triggers = deriveTimedCueTriggers(timeline);
     const secondCue = triggers[1];
 
     expect(secondCue.notes.map((note) => [note.midicents, note.reattack])).toEqual([
-      [64, false],
+      [64, true],
       [60, false],
     ]);
   });
