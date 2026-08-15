@@ -160,6 +160,58 @@ describe("buildHejiNotationFrame", () => {
 });
 
 describe("resolveTypedHejiLabel", () => {
+  it.each([
+    ["double sharp", "A"],
+    ["double flat", "A"],
+    ["double septimal", "A"],
+    ["repeated septimals", "A"],
+    ["cautionary natural", "A"],
+    ["implicit natural", "A"],
+  ])("resolves palette %s spelling as an exact rational pitch", (_name, text) => {
+    const result = resolveTypedHejiLabel({
+      text,
+      degreeTexts: ["1/1", "2/1"],
+      scaleCents: [0, 1200],
+      renderedLabels: ["A", "A"],
+      anchorLabel: "A",
+      anchorRatioText: "1/1",
+      workspaceMonzos: [
+        [0, 0, 0, 0],
+        [1, 0, 0, 0],
+      ],
+    });
+
+    expect(result).toMatchObject({ matchedExactly: true });
+    expect(result.scaleText).toContain("/");
+  });
+
+  it.each([
+    ["double sharp", "A", "A"],
+    ["double flat", "A", "A"],
+    ["double septimal", "A", "A"],
+    ["cautionary natural", "A", "A"],
+  ])("resolves alternate palette %s strings to the same ratio", (_name, first, second) => {
+    const resolve = (text) =>
+      resolveTypedHejiLabel({
+        text,
+        degreeTexts: ["1/1", "2/1"],
+        scaleCents: [0, 1200],
+        renderedLabels: ["A", "A"],
+        anchorLabel: "A",
+        anchorRatioText: "1/1",
+        workspaceMonzos: [
+          [0, 0, 0, 0],
+          [1, 0, 0, 0],
+        ],
+      });
+
+    const dedicated = resolve(first);
+    const alternate = resolve(second);
+    expect(dedicated).toMatchObject({ matchedExactly: true });
+    expect(alternate).toMatchObject({ matchedExactly: true });
+    expect(alternate.scaleText).toBe(dedicated.scaleText);
+  });
+
   it("resolves an exact HEJI pitch-class label to an existing scale entry", () => {
     const result = resolveTypedHejiLabel({
       text: "\uE261D",

@@ -39,6 +39,13 @@ describe("notation/heji", () => {
     expect(glyphStringForSelection("natural:0", parsedUpper.extraIds)).toBe("");
   });
 
+  it("parses repeated single flat/sharp glyphs as double accidentals", () => {
+    expect(parseHejiGlyphInput("").baseId).toBe("doubleflat:0");
+    expect(parseHejiGlyphInput("").baseId).toBe("doublesharp:0");
+    expect(parseHejiGlyphInput("").baseId).toBe("doubleflat:1");
+    expect(parseHejiGlyphInput("").baseId).toBe("doublesharp:1");
+  });
+
   it("renders triple septimal accidentals as single plus double glyphs", () => {
     expect(
       glyphStringForSelection("natural:0", ["septimal:-1", "septimal:-1", "septimal:-1"]),

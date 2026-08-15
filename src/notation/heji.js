@@ -380,6 +380,7 @@ export function parseHejiGlyphInput(text, fallbackBaseId = "natural:0") {
   let baseId = fallbackBaseId;
   let schismaAmount = 0;
   const extras = [];
+  const baseGlyphs = [];
   for (const char of String(text || "").replace(/\s+/g, "")) {
     if (SPECIAL_GLYPH_SEQUENCES[char]) {
       extras.push(...SPECIAL_GLYPH_SEQUENCES[char]);
@@ -390,11 +391,26 @@ export function parseHejiGlyphInput(text, fallbackBaseId = "natural:0") {
       continue;
     }
     if (BASE_BY_GLYPH[char]) {
-      baseId = BASE_BY_GLYPH[char].id;
+      const base = BASE_BY_GLYPH[char];
+      baseId = base.id;
+      baseGlyphs.push(base);
       continue;
     }
     if (EXTRA_BY_GLYPH[char]) {
       extras.push(EXTRA_BY_GLYPH[char].id);
+    }
+  }
+  // When the palette's Double Flat/Sharp option is disabled it renders a
+  // double accidental as two identical single-base glyphs. Treat that spelling
+  // as equivalent to the dedicated double glyph instead of letting the second
+  // base glyph merely overwrite the first.
+  if (baseGlyphs.length === 2) {
+    const [first, second] = baseGlyphs;
+    if (first.chromatic === second.chromatic && first.syntonic === second.syntonic) {
+      const doubledChromatic = first.chromatic === "flat" ? "doubleflat" : "doublesharp";
+      if (first.chromatic === "flat" || first.chromatic === "sharp") {
+        baseId = BASE_BY_ID[`${doubledChromatic}:${first.syntonic}`]?.id ?? baseId;
+      }
     }
   }
   return { baseId, schismaAmount, extraIds: sortExtraIds(extras) };
