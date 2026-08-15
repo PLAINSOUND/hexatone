@@ -4421,7 +4421,12 @@ td.scale-color-col .color-input {
   width: 100%;
   border: 0;
   background: transparent;
-  font: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-style: inherit;
+  font-variant: inherit;
+  font-weight: inherit;
+  line-height: inherit;
   cursor: pointer;
 }
 

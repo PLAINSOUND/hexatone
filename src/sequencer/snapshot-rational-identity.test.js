@@ -52,11 +52,14 @@ describe("snapshot rational identity", () => {
     expect(sequence.snapshots.filter((snapshot) => snapshot.notes.length === 0)).toHaveLength(30);
     expect(sequence.manualArpeggiation).toMatchObject({
       mode: "all",
-      initialSpreadMs: 1350,
+      initialSpreadMs: 1500,
+      spreadVariation: 0.5,
+      timingVariation: 0.4,
       decayMode: "timed",
-      decayMs: 6000,
+      decayMs: 5000,
+      decayVariation: 0.35,
     });
-    expect(sequence.legatoMode).toBe("per-note");
+    expect(sequence.legatoMode).toBe("off");
 
     const firstNote = sequence.snapshots[1].notes[0];
     const frequency = 440 * Math.pow(2, (firstNote.midicents - 69) / 12);
