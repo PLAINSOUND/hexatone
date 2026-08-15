@@ -3,6 +3,7 @@ import {
   buildChordProportion,
   buildOddPartialProportion,
   buildSnapshotDescription,
+  buildSnapshotDisplayDescription,
 } from "./labels.js";
 
 describe("sequencer snapshot labels", () => {
@@ -145,5 +146,21 @@ describe("sequencer snapshot labels", () => {
     expect(buildSnapshotDescription([{ midicents: 69 }, { midicents: 81 }], "frequency")).toBe(
       "440.00, 880.00",
     );
+  });
+
+  it("uses a manual chord name only in Names mode", () => {
+    const snapshot = {
+      description: "Prologue — opening chord",
+      descriptionManual: true,
+      notes: [
+        { midicents: 69, ratioText: "1/1", displayLabel: "A" },
+        { midicents: 81, ratioText: "3/2", displayLabel: "E" },
+      ],
+    };
+
+    expect(buildSnapshotDisplayDescription(snapshot, "labels")).toBe("Prologue — opening chord");
+    expect(buildSnapshotDisplayDescription(snapshot, "frequency")).toBe("440.00, 880.00");
+    expect(buildSnapshotDisplayDescription(snapshot, "interval_cents")).toBe("1200.0");
+    expect(buildSnapshotDisplayDescription(snapshot, "proportion")).toBe("2:3");
   });
 });

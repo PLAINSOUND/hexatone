@@ -127,7 +127,7 @@ import {
   loadPersistedSequencerCrashDiagnostics,
   readSequencerDiagnosticMemory,
 } from "./debug/sequencer-crash-diagnostics.js";
-import { buildSnapshotDescription } from "./sequencer/labels.js";
+import { buildSnapshotDisplayDescription } from "./sequencer/labels.js";
 import { sequenceNotesAtCueIndex } from "./sequencer/trigger-groups.js";
 import {
   remapSequenceNoteToRuntime,
@@ -1341,14 +1341,10 @@ const App = () => {
             noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
             hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
           });
-    const nextDisplaySnapshots = displayedSnapshots.map((snapshot) =>
-      snapshot?.descriptionManual
-        ? snapshot
-        : {
-            ...snapshot,
-            description: buildSnapshotDescription(snapshot?.notes ?? [], snapshotLabelMode),
-          },
-    );
+    const nextDisplaySnapshots = displayedSnapshots.map((snapshot) => ({
+      ...snapshot,
+      description: buildSnapshotDisplayDescription(snapshot, snapshotLabelMode),
+    }));
     const stableDisplaySnapshots = reuseEquivalentDisplaySnapshots(
       previousSequenceDisplaySnapshotsRef.current,
       nextDisplaySnapshots,

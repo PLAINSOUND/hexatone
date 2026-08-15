@@ -1,9 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { beforeEach } from "vitest";
-import {
-  EAGAN_BRIGHTNESS_EVENT,
-  EAGAN_TILT_EQ_EVENT,
-} from "../../mpe_synth/eagan-matrix.js";
+import { EAGAN_BRIGHTNESS_EVENT, EAGAN_TILT_EQ_EVENT } from "../../mpe_synth/eagan-matrix.js";
 import MidiOutputs from "./midioutputs.js";
 
 const makeProps = (overrides = {}) => ({
@@ -172,6 +169,30 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(onChange).not.toHaveBeenCalledWith("osc_volume_pluck", 0.73);
     expect(localStorage.getItem("osc_volume_pluck")).toBe("0.73");
     expect(sessionStorage.getItem("osc_volume_pluck")).toBe("0.73");
+  });
+
+  it("uses one Sustain toggle and one Retrigger toggle for Buzz and Formant", () => {
+    const onChange = vi.fn();
+    render(
+      <MidiOutputs
+        {...makeProps({
+          output_osc: true,
+          osc_sustain_buzz_formant: false,
+          osc_retrigger_buzz_formant: false,
+        })}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Sustain Buzz + Formant until note-off" }),
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: "Retrigger Buzz + Formant while held" }));
+
+    expect(onChange).toHaveBeenCalledWith("osc_sustain_buzz_formant", true);
+    expect(onChange).toHaveBeenCalledWith("osc_retrigger_buzz_formant", true);
+    expect(localStorage.getItem("osc_sustain_buzz_formant")).toBe("true");
+    expect(localStorage.getItem("osc_retrigger_buzz_formant")).toBe("true");
   });
 
   it("shows Haken Continuum MPE output defaults as standard mode with 96-semitone bend range", () => {

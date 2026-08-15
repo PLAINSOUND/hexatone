@@ -964,6 +964,32 @@ const MidiOutputs = (props) => {
               </span>
             </label>
           ))}
+          <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
+            <input
+              name="osc_sustain_buzz_formant"
+              type="checkbox"
+              checked={!!settings.osc_sustain_buzz_formant}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                localStorage.setItem("osc_sustain_buzz_formant", String(enabled));
+                save("osc_sustain_buzz_formant", enabled, onChange);
+              }}
+            />
+            <em class="settings-form__helper-text">Sustain Buzz + Formant until note-off</em>
+          </label>
+          <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
+            <input
+              name="osc_retrigger_buzz_formant"
+              type="checkbox"
+              checked={!!settings.osc_retrigger_buzz_formant}
+              onChange={(e) => {
+                const enabled = e.target.checked;
+                localStorage.setItem("osc_retrigger_buzz_formant", String(enabled));
+                save("osc_retrigger_buzz_formant", enabled, onChange);
+              }}
+            />
+            <em class="settings-form__helper-text">Retrigger Buzz + Formant while held</em>
+          </label>
           <label>
             Quick Release
             <span class="sidebar-input settings-form__range-row">
@@ -1081,6 +1107,8 @@ MidiOutputs.propTypes = {
     osc_quick_release: PropTypes.number,
     osc_quick_release_time: PropTypes.number,
     osc_quick_release_raster_only: PropTypes.bool,
+    osc_sustain_buzz_formant: PropTypes.bool,
+    osc_retrigger_buzz_formant: PropTypes.bool,
   }).isRequired,
   midi: PropTypes.object,
   midiAccess: PropTypes.string,

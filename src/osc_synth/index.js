@@ -223,6 +223,8 @@ const buildSNewArgs = (
   vol,
   quickRelease,
   quickReleaseTime,
+  sustainBuzzFormant,
+  retriggerBuzzFormant,
 ) => {
   const args = [
     { type: "s", value: synthName },
@@ -253,6 +255,15 @@ const buildSNewArgs = (
     args.push(...formantPresetToOscArgs(pickRandomFormantPreset()));
   }
 
+  if (synthName === "string" || synthName === "formant") {
+    args.push(
+      { type: "s", value: "sustain_mode" },
+      { type: "i", value: sustainBuzzFormant ? 1 : 0 },
+      { type: "s", value: "retrigger_mode" },
+      { type: "i", value: retriggerBuzzFormant ? 1 : 0 },
+    );
+  }
+
   return args;
 };
 
@@ -270,6 +281,7 @@ export const create_osc_synth = async (
   _reference_degree = 0,
   _scale = [0],
   targetGroup = 1,
+  performanceOptions = {},
 ) => {
   const socket = getSocket(wsUrl);
   let shutdown = false;
@@ -279,6 +291,8 @@ export const create_osc_synth = async (
   const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
   const _quickReleaseTime = { value: Math.max(0.001, quickReleaseTime) };
   const _quickReleaseRasterOnly = { value: quickReleaseRasterOnly === true };
+  const _sustainBuzzFormant = { value: performanceOptions.sustainBuzzFormant === true };
+  const _retriggerBuzzFormant = { value: performanceOptions.retriggerBuzzFormant === true };
   const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
   const _knownNodeIds = new Set();
   const _slotState = synthNames.map(() =>
@@ -384,6 +398,25 @@ export const create_osc_synth = async (
     }
   };
 
+  const setBuzzFormantMode = (parameter, ref, value) => {
+    ref.value = value === true;
+    for (let i = 0; i < _slotState.length; i++) {
+      if (synthNames[i] !== "string" && synthNames[i] !== "formant") continue;
+      for (const slot of _slotState[i]) {
+        if (!slot?.active || slot.nodeId == null) continue;
+        socket.send(
+          "/n_set",
+          [
+            { type: "i", value: slot.nodeId },
+            { type: "s", value: parameter },
+            { type: "i", value: ref.value ? 1 : 0 },
+          ],
+          OSC_LAYER_PORTS[i],
+        );
+      }
+    }
+  };
+
   const freeAllKnownNodes = () => {
     for (const nodeId of _knownNodeIds) {
       for (const port of OSC_LAYER_PORTS) {
@@ -433,6 +466,8 @@ export const create_osc_synth = async (
         _quickRelease,
         _quickReleaseTime,
         _quickReleaseRasterOnly,
+        _sustainBuzzFormant,
+        _retriggerBuzzFormant,
         _pool,
         _slotState,
         _knownNodeIds,
@@ -498,6 +533,14 @@ export const create_osc_synth = async (
       setQuickReleaseRasterOnly(value);
     },
 
+    setSustainBuzzFormant(value) {
+      setBuzzFormantMode("sustain_mode", _sustainBuzzFormant, value);
+    },
+
+    setRetriggerBuzzFormant(value) {
+      setBuzzFormantMode("retrigger_mode", _retriggerBuzzFormant, value);
+    },
+
     allSoundOff() {
       debugLog("osc", "osc_synth.allSoundOff", { knownNodeCount: _knownNodeIds.size });
       freeAllKnownNodes();
@@ -540,6 +583,8 @@ function OscHex(
   quickReleaseRef,
   quickReleaseTimeRef,
   quickReleaseRasterOnlyRef,
+  sustainBuzzFormantRef,
+  retriggerBuzzFormantRef,
   pool,
   slotState,
   knownNodeIds,
@@ -561,6 +606,8 @@ function OscHex(
   this._quickReleaseRef = quickReleaseRef;
   this._quickReleaseTimeRef = quickReleaseTimeRef;
   this._quickReleaseRasterOnlyRef = quickReleaseRasterOnlyRef;
+  this._sustainBuzzFormantRef = sustainBuzzFormantRef;
+  this._retriggerBuzzFormantRef = retriggerBuzzFormantRef;
   this._pool = pool;
   this._slotState = slotState;
   this._knownNodeIds = knownNodeIds;
@@ -633,6 +680,8 @@ OscHex.prototype.noteOn = function () {
         this._volumes[i],
         slotState.quickReleaseEnabled ? this._quickReleaseRef.value : 0,
         this._quickReleaseTimeRef.value,
+        this._sustainBuzzFormantRef.value,
+        this._retriggerBuzzFormantRef.value,
       ),
       OSC_LAYER_PORTS[i],
     );

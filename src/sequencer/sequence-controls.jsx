@@ -551,7 +551,7 @@ const SequenceControls = ({
       ) : null}
 
       <label class="sequencer-option-row sequencer-option-row--label-left sequencer-option-row--snapshot-labels">
-        <span>Snapshot Labels</span>
+        <span>Names</span>
         <select
           class="sidebar-input"
           value={snapshotLabelMode}

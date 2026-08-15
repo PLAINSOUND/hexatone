@@ -59,9 +59,9 @@ SynthDef(\pluck, { |freq, transpose=1, bend=1,
 
 SynthDef(\string, { |freq, transpose=1, bend=1,
 	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
-	quick_release=0, quick_release_time=0.1|
+	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
-	var e, f, o, amp, normal_release, effective_release;
+	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
 	var min_note_hz = 20;
 	var max_note_hz = 16000;
@@ -80,10 +80,13 @@ SynthDef(\string, { |freq, transpose=1, bend=1,
 	amp = on_vel.linexp(0, 127, 0.2, 1);
 	off_vel = off_vel.linlin(0, 127, 1, 0.2);
 
-	e = EnvGen.ar(Env([0, 1, 1, 0], [(on_vel.linexp(0, 127, 2.5, 1)), [1,1.25,1.5,1.75,2].choose, [1,1.5,2,2.5].choose * off_vel], 'sin'), doneAction:Done.freeSelf);
 	normal_release = 0.5 + (off_vel * 3);
 	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
 	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
+	articulation_trigger = Impulse.kr(0) + Dust.kr(0.32 * retrigger_mode.clip(0, 1) * gate.clip(0, 1));
+	one_shot = EnvGen.ar(Env([0, 1, 1, 0], [(on_vel.linexp(0, 127, 2.5, 1)), [1,1.25,1.5,1.75,2].choose, [1,1.5,2,2.5].choose * off_vel], 'sin'), articulation_trigger);
+	// Sustain supplies the held body; retrigger adds recurring Tanpura-like attacks.
+	e = SelectX.ar(sustain_mode.clip(0, 1).lag(0.05), [one_shot, f + (one_shot * retrigger_mode.clip(0, 1) * 0.35)]);
 
 	o = WhiteNoise.ar(1);
 	o = Pluck.ar(
@@ -111,9 +114,9 @@ SynthDef(\formant_array, { |freq, transpose=1, bend=1,
 	formant_reso = #[1, 1, 1, 1, 1],
 	formant_amp = #[1, 1, 1, 1, 1],
 	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
-	quick_release=0, quick_release_time=0.1|
+	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
-	var e, f, o, amp, normal_release, effective_release;
+	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
 	var body_lpf_freq;
 	var min_note_hz = 20;
@@ -136,10 +139,12 @@ SynthDef(\formant_array, { |freq, transpose=1, bend=1,
 	amp = on_vel.linlin(0, 127, 0, 1);
 	off_vel = off_vel.linlin(0, 127, 2, 1);
 
-	e = EnvGen.ar(Env([0, 1, 0], [[1, 2, 3, 4].choose, 0.4 * [3, 4, 5, 6, 7].choose], curve: 'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
 	normal_release = 0.02 + off_vel;
 	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
 	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate, doneAction: Done.freeSelf);
+	articulation_trigger = Impulse.kr(0) + Dust.kr(0.2 * retrigger_mode.clip(0, 1) * gate.clip(0, 1));
+	one_shot = EnvGen.ar(Env([0, 1, 0], [[1, 2, 3, 4].choose, 0.4 * [3, 4, 5, 6, 7].choose], curve: 'sin'), articulation_trigger);
+	e = SelectX.ar(sustain_mode.clip(0, 1).lag(0.05), [one_shot, f + (one_shot * retrigger_mode.clip(0, 1) * 0.35)]);
 	o = Saw.ar(pitched_freq.lag(0.3));
 
 	o = Mix.new(BBandPass.ar(o, formant_freq, formant_reso, formant_amp));
@@ -160,9 +165,9 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 	fr0=0.1, fr1=0.078, fr2=0.041, fr3=0.033, fr4=0.028,
 	fa0=1.0, fa1=0.5,   fa2=0.025, fa3=0.1,  fa4=0.003,
 	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
-	quick_release=0, quick_release_time=0.1|
+	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
-	var e, f, o, amp, normal_release, effective_release;
+	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
 	var body_lpf_freq, safe_formants, safe_formant_reso, safe_formant_amp;
 	var min_note_hz = 20;
@@ -187,10 +192,12 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 	amp = on_vel.linlin(0, 127, 0, 1);
 	off_vel = off_vel.linlin(0, 127, 2, 1);
 
-	e = EnvGen.ar(Env([0, 1, 0], [[1, 2, 3, 4].choose, 0.4 * [3, 4, 5, 6, 7].choose], curve: 'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
 	normal_release = 0.02 + off_vel;
 	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
 	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate, doneAction: Done.freeSelf);
+	articulation_trigger = Impulse.kr(0) + Dust.kr(0.2 * retrigger_mode.clip(0, 1) * gate.clip(0, 1));
+	one_shot = EnvGen.ar(Env([0, 1, 0], [[1, 2, 3, 4].choose, 0.4 * [3, 4, 5, 6, 7].choose], curve: 'sin'), articulation_trigger);
+	e = SelectX.ar(sustain_mode.clip(0, 1).lag(0.05), [one_shot, f + (one_shot * retrigger_mode.clip(0, 1) * 0.35)]);
 	o = Saw.ar(pitched_freq.lag(0.3));
 
 	o = Mix.new(BBandPass.ar(o, safe_formants, safe_formant_reso, safe_formant_amp));

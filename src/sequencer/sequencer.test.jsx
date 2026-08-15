@@ -3308,7 +3308,7 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
 
-    expect(screen.queryByText("Snapshot Labels")).not.toBeNull();
+    expect(screen.queryByText("Names")).not.toBeNull();
     expect(screen.queryByText("Choose Tempo Position")).toBeNull();
     expect(screen.queryByText("Choose Bar Position")).toBeNull();
     expect(screen.queryByText("Auto-Create Bars")).toBeNull();
@@ -3661,7 +3661,7 @@ describe("Sequencer", () => {
     expect(onResetSequencePlayhead).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByLabelText("stop sequence playback"));
     expect(onStopSnapshot).toHaveBeenCalledWith();
-    expect(screen.getByLabelText("Snapshot Labels").value).toBe("labels");
+    expect(screen.getByLabelText("Names").value).toBe("labels");
     fireEvent.click(screen.getByLabelText("snapshot 1 description"));
     expect(onSelectSnapshot).toHaveBeenCalledWith(10);
     fireEvent.click(screen.getByLabelText("play snapshot 1"));
@@ -5092,7 +5092,7 @@ describe("Sequencer", () => {
     const descriptionInput = screen.getByLabelText("snapshot 1 description");
     expect(descriptionInput.value).toBe("5:6");
 
-    fireEvent.change(screen.getByLabelText("Snapshot Labels"), {
+    fireEvent.change(screen.getByLabelText("Names"), {
       currentTarget: { value: "labels" },
       target: { value: "labels" },
     });

@@ -421,6 +421,20 @@ export const SETTINGS_REGISTRY = [
     default: true,
     perController: false,
   },
+  {
+    key: "osc_sustain_buzz_formant",
+    tier: "local",
+    type: "bool",
+    default: false,
+    perController: false,
+  },
+  {
+    key: "osc_retrigger_buzz_formant",
+    tier: "local",
+    type: "bool",
+    default: false,
+    perController: false,
+  },
   // WebMIDI permission/access level restored on refresh so the explicit
   // Enable MIDI / Enable Sysex checkboxes stay in sync with device menus.
   // This is session-scoped runtime state, not a shareable preset value.

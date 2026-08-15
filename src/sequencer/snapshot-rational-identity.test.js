@@ -5,6 +5,7 @@ import { rebuildSnapshotRationalIdentity } from "./snapshot-rational-identity.js
 const BUILT_IN_SEQUENCE_PATHS = [
   "src/sequencer/preset-sequences/marc-sabat/Flight.json",
   "src/sequencer/preset-sequences/marc-sabat/FALL.json",
+  "src/sequencer/preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json",
 ];
 
 describe("snapshot rational identity", () => {
@@ -42,5 +43,26 @@ describe("snapshot rational identity", () => {
       expect(frequency).toBeCloseTo(fixture.frequency, 9);
       expect(note.ratioText).toBe(fixture.ratioText);
     }
+  });
+
+  it("preserves the Seeds of Skies score structure and exact 440/27 reference", () => {
+    const sequence = JSON.parse(fs.readFileSync(BUILT_IN_SEQUENCE_PATHS[2], "utf8"));
+    expect(sequence.name).toBe("Seeds of Skies, Alibis");
+    expect(sequence.snapshots).toHaveLength(278);
+    expect(sequence.snapshots.filter((snapshot) => snapshot.notes.length === 0)).toHaveLength(30);
+    expect(sequence.manualArpeggiation).toMatchObject({ mode: "all", decayMode: "sustain" });
+
+    const firstNote = sequence.snapshots[1].notes[0];
+    const frequency = 440 * Math.pow(2, (firstNote.midicents - 69) / 12);
+    expect(firstNote.ratioText).toBe("18/1");
+    expect(frequency).toBeCloseTo((440 / 27) * 18, 10);
+
+    const duplicateChord = sequence.snapshots.find(
+      (snapshot) => snapshot.notes.filter((note) => note.ratioText === "18/1").length === 2,
+    );
+    expect(duplicateChord).toBeTruthy();
+    expect(new Set(duplicateChord.notes.map((note) => note.instanceKey)).size).toBe(
+      duplicateChord.notes.length,
+    );
   });
 });

@@ -656,6 +656,51 @@ describe("osc_synth pooled slot allocation", () => {
     expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(0.08, 5);
   });
 
+  it("applies shared sustain and retrigger modes only to Buzz and Formant", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-buzz-formant-modes",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+      { sustainBuzzFormant: true, retriggerBuzzFormant: false },
+    );
+    await Promise.resolve();
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+
+    const ws = MockWebSocket.instances[0];
+    const noteOns = ws.sent.filter((message) => message.address === "/s_new");
+    const valueAfter = (message, parameter) => {
+      const index = message.args.findIndex((argument) => argument.value === parameter);
+      return index < 0 ? undefined : message.args[index + 1]?.value;
+    };
+
+    expect(valueAfter(noteOns[0], "sustain_mode")).toBeUndefined();
+    expect(valueAfter(noteOns[1], "sustain_mode")).toBe(1);
+    expect(valueAfter(noteOns[2], "sustain_mode")).toBe(1);
+    expect(valueAfter(noteOns[3], "sustain_mode")).toBeUndefined();
+    expect(valueAfter(noteOns[1], "retrigger_mode")).toBe(0);
+    expect(valueAfter(noteOns[2], "retrigger_mode")).toBe(0);
+
+    synth.setSustainBuzzFormant(false);
+    synth.setRetriggerBuzzFormant(true);
+
+    const modeUpdates = ws.sent.filter(
+      (message) =>
+        message.address === "/n_set" &&
+        (message.args[1]?.value === "sustain_mode" || message.args[1]?.value === "retrigger_mode"),
+    );
+    expect(modeUpdates.map((message) => message.port)).toEqual([57102, 57103, 57102, 57103]);
+    expect(modeUpdates.map((message) => message.args[2].value)).toEqual([0, 0, 1, 1]);
+  });
+
   it("shutdown clears queued OSC messages and closes the socket so disabled OSC cannot leak on reopen", async () => {
     DelayedWebSocket.instances = [];
     vi.stubGlobal("WebSocket", DelayedWebSocket);

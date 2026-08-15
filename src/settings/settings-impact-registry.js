@@ -132,6 +132,8 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
     "osc_quick_release",
     "osc_quick_release_time",
     "osc_quick_release_raster_only",
+    "osc_sustain_buzz_formant",
+    "osc_retrigger_buzz_formant",
     "mpe_eagan_brightness",
     "mpe_eagan_tilt_eq",
     "mpe_eagan_pre_level",

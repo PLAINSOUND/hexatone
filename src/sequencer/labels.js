@@ -188,3 +188,10 @@ export function buildSnapshotDescription(notes = [], mode = "labels") {
     .filter(Boolean)
     .join(", ");
 }
+
+export function buildSnapshotDisplayDescription(snapshot, mode = "labels") {
+  if (mode === "labels" && snapshot?.descriptionManual) {
+    return String(snapshot.description ?? "");
+  }
+  return buildSnapshotDescription(snapshot?.notes ?? [], mode);
+}

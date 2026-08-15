@@ -112,6 +112,18 @@ export const deriveOscQuickReleaseRasterOnly = (settings) =>
     settings.osc_quick_release_raster_only ?? true,
   );
 
+export const deriveOscSustainBuzzFormant = (settings) =>
+  localBool(
+    REGISTRY_BY_KEY.osc_sustain_buzz_formant.key,
+    settings.osc_sustain_buzz_formant ?? false,
+  );
+
+export const deriveOscRetriggerBuzzFormant = (settings) =>
+  localBool(
+    REGISTRY_BY_KEY.osc_retrigger_buzz_formant.key,
+    settings.osc_retrigger_buzz_formant ?? false,
+  );
+
 export const shouldFlushSoundingNotesForFreshOscActivation = (keys, wantOsc, currentOscSynth) => {
   if (!wantOsc) return false;
   if (currentOscSynth) return false;
@@ -916,6 +928,11 @@ const useSynthWiring = (
             settings.fundamental,
             settings.reference_degree,
             settings.scale,
+            1,
+            {
+              sustainBuzzFormant: deriveOscSustainBuzzFormant(settingsRef.current),
+              retriggerBuzzFormant: deriveOscRetriggerBuzzFormant(settingsRef.current),
+            },
           ).then((s) => {
             if (!cancelled) oscSynthRef.current = { key: oscKey, synth: s };
             return s;
@@ -1119,6 +1136,22 @@ const useSynthWiring = (
   useEffect(() => {
     mpeSynthRef.current.synth?.setAutoGenerateMpeYzEnabled?.(!!settings.mpe_auto_generate_yz);
   }, [settings.mpe_auto_generate_yz]);
+
+  useEffect(() => {
+    oscSynthRef.current.synth?.setSustainBuzzFormant?.(
+      deriveOscSustainBuzzFormant({
+        osc_sustain_buzz_formant: settings.osc_sustain_buzz_formant,
+      }),
+    );
+  }, [settings.osc_sustain_buzz_formant]);
+
+  useEffect(() => {
+    oscSynthRef.current.synth?.setRetriggerBuzzFormant?.(
+      deriveOscRetriggerBuzzFormant({
+        osc_retrigger_buzz_formant: settings.osc_retrigger_buzz_formant,
+      }),
+    );
+  }, [settings.osc_retrigger_buzz_formant]);
 
   // Keep synthRef in sync so volume control and preset loading can reach the
   // live synth without depending on the React render cycle.
