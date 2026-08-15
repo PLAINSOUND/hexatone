@@ -1,6 +1,6 @@
 export const SEQUENCE_LEGATO_MODES = [
-  { value: "per-note", label: "Per Note" },
   { value: "off", label: "Off" },
+  { value: "per-note", label: "Per Note" },
   { value: "all-common-tones", label: "All Common Tones" },
 ];
 

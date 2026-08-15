@@ -285,10 +285,12 @@ const SequenceControls = ({
   onSequenceLegatoChange,
   sequencePlaybackSpeed,
   sequencePlaybackPitchOffset,
+  sequenceTimbreModWheelEnabled,
   onSequencePlaybackSpeedChange,
   onSequencePlaybackSpeedPreview,
   onSequencePlaybackPitchOffsetChange,
   onSequencePlaybackPitchOffsetPreview,
+  onSequenceTimbreModWheelEnabledChange,
   sequencePlayRepeats,
   onSequencePlayRepeatsChange,
   autoScrollEnabled,
@@ -731,6 +733,19 @@ const SequenceControls = ({
           type="checkbox"
           checked={snapSequenceToCurrentTuning}
           onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
+        />
+      </label>
+
+      <label
+        class="sequencer-option-row sequencer-option-row--mobile-inline"
+        title="Skew saved sequence timbre in real time: 0 minimum, 64 saved values, 127 maximum"
+      >
+        <span>Mod Wheel → Sequence Timbre</span>
+        <input
+          type="checkbox"
+          aria-label="Mod Wheel to sequence timbre"
+          checked={sequenceTimbreModWheelEnabled === true}
+          onChange={(event) => onSequenceTimbreModWheelEnabledChange?.(event.currentTarget.checked)}
         />
       </label>
 

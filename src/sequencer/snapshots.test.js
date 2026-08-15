@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  applySequenceTimbreModWheelToActiveSnapshotHexes,
   attackSnapshotGestureNote,
   beginSnapshotGesture,
   captureSnapshot,
@@ -412,6 +413,30 @@ describe("sequencer snapshots", () => {
 
     expect(noteOn).toHaveBeenCalledTimes(1);
     expect(setMod).not.toHaveBeenCalled();
+  });
+
+  it("updates sounding snapshot timbre from its preserved source without reattacking", () => {
+    const noteOn = vi.fn();
+    const polyTimbre = vi.fn();
+    const hex = { noteOn, noteOff: vi.fn(), polyTimbre };
+    const runtime = makeRuntime({
+      synth: { makeHex: vi.fn(() => hex) },
+    });
+
+    playSnapshot(runtime, [
+      {
+        midicents: 69,
+        timbre: 40,
+        sequenceSourceTimbre: 80,
+      },
+    ]);
+    applySequenceTimbreModWheelToActiveSnapshotHexes(runtime, 127);
+    applySequenceTimbreModWheelToActiveSnapshotHexes(runtime, 64);
+
+    expect(noteOn).toHaveBeenCalledTimes(1);
+    expect(polyTimbre).toHaveBeenNthCalledWith(1, 40);
+    expect(polyTimbre).toHaveBeenNthCalledWith(2, 127);
+    expect(polyTimbre).toHaveBeenNthCalledWith(3, 80);
   });
 
   it("re-triggers a same-pitch legato note when cue playback marks it as a reattack", () => {

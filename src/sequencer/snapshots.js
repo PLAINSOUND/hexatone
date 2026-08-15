@@ -5,17 +5,20 @@
 
 import Point from "../keyboard/point.js";
 import { buildSnapshotRationalContext } from "./snapshot-rational-identity.js";
+import { applySequenceTimbreModWheelToNote } from "./playback-modifiers-runtime.js";
 
 const normalizeVelocity = (value, fallback = 72) =>
   Math.max(1, Math.min(127, Math.round(value ?? fallback)));
 
 const normalize7Bit = (value) => {
+  if (value == null) return null;
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(127, Math.round(n)));
 };
 
 const normalize14Bit = (value) => {
+  if (value == null) return null;
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
   return Math.max(0, Math.min(16256, Math.round(n)));
@@ -215,6 +218,30 @@ export function captureSnapshot(runtime) {
   return Array.from(seen.values());
 }
 
+function applySnapshotTimbre(runtime, hex, note) {
+  const sourceTimbre = normalize7Bit(note.sequenceSourceTimbre ?? note.timbre);
+  const sourceTimbre14 = normalize14Bit(note.sequenceSourceTimbre14 ?? note.timbre14);
+  hex._snapshotSourceTimbre = sourceTimbre;
+  hex._snapshotSourceTimbre14 = sourceTimbre14;
+  const timbre = normalize7Bit(note.timbre);
+  const timbre14 = normalize14Bit(note.timbre14);
+  if (timbre == null && timbre14 == null) return;
+  const value = timbre ?? timbre14 >> 7;
+  const synthRoutesOscModwheel =
+    runtime?.synth?.family === "osc" || runtime?.synth?.containsFamily?.("osc") === true;
+  if (synthRoutesOscModwheel && hex.modwheel) {
+    hex.modwheel(value);
+    return;
+  }
+  if (hex.polyTimbre) {
+    if (timbre14 != null) hex.polyTimbre(value, timbre14);
+    else hex.polyTimbre(value);
+  } else if (hex.cc74) {
+    if (timbre14 != null) hex.cc74(value, timbre14);
+    else hex.cc74(value);
+  }
+}
+
 function applySnapshotExpression(runtime, hex, note) {
   const pressure = normalize7Bit(note.pressure);
   const pressure14 = normalize14Bit(note.pressure14);
@@ -229,24 +256,28 @@ function applySnapshotExpression(runtime, hex, note) {
     }
   }
 
-  const timbre = normalize7Bit(note.timbre);
-  const timbre14 = normalize14Bit(note.timbre14);
-  if (timbre != null || timbre14 != null) {
-    const value = timbre ?? timbre14 >> 7;
-    const synthRoutesOscModwheel =
-      runtime?.synth?.family === "osc" || runtime?.synth?.containsFamily?.("osc") === true;
-    if (synthRoutesOscModwheel && hex.modwheel) {
-      hex.modwheel(value);
-      return;
-    }
-    if (hex.polyTimbre) {
-      if (timbre14 != null) hex.polyTimbre(value, timbre14);
-      else hex.polyTimbre(value);
-    } else if (hex.cc74) {
-      if (timbre14 != null) hex.cc74(value, timbre14);
-      else hex.cc74(value);
-    }
+  applySnapshotTimbre(runtime, hex, note);
+}
+
+export function applySequenceTimbreModWheelToActiveSnapshotHexes(runtime, modWheel) {
+  if (!runtime) return 0;
+  let updated = 0;
+  for (const hex of soundingSnapshotHexes(runtime)) {
+    if (!hex || hex.release === true) continue;
+    if (hex._snapshotSourceTimbre == null && hex._snapshotSourceTimbre14 == null) continue;
+    const note = applySequenceTimbreModWheelToNote(
+      {
+        timbre: hex._snapshotSourceTimbre,
+        timbre14: hex._snapshotSourceTimbre14,
+        sequenceSourceTimbre: hex._snapshotSourceTimbre,
+        sequenceSourceTimbre14: hex._snapshotSourceTimbre14,
+      },
+      modWheel,
+    );
+    applySnapshotTimbre(runtime, hex, note);
+    updated += 1;
   }
+  return updated;
 }
 
 function activeSnapshotHexesByInstance(runtime) {

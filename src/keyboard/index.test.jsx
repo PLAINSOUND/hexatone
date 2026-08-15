@@ -23,9 +23,16 @@ vi.mock("./keys.js", () => {
       _onLatchChange,
       _onModulationArmChange,
       onTakeSnapshot,
+      _inputRuntime,
+      _onFirstInteraction,
+      _tuningRuntime,
+      _onModulationStateChange,
+      _initialModulationLibrary,
+      onModWheelChange,
     ) {
       this.initialSettings = settings;
       this.onTakeSnapshot = onTakeSnapshot;
+      this.onModWheelChange = onModWheelChange;
       this.updateInputRuntime = vi.fn();
       this.updateLiveOutputState = vi.fn();
       this.updateTakeSnapshotHandler = vi.fn((handler) => {
@@ -159,6 +166,13 @@ describe("Keyboard settings-impact boundary", () => {
     expect(keysState.instances[0].initialSettings.spectrum_colors).toBe(false);
     expect(keysState.instances[0].initialSettings.note_colors).toEqual(["#95c69b"]);
     expect(keysState.instances[0].initialSettings.fundamental_color).toBe("#000000");
+  });
+
+  it("forwards the live Mod Wheel callback to Keys", () => {
+    const onModWheelChange = vi.fn();
+    render(<Keyboard {...baseProps} onModWheelChange={onModWheelChange} />);
+
+    expect(keysState.instances[0].onModWheelChange).toBe(onModWheelChange);
   });
 
   it("repaints the keyboard when Spectrum is selected from the color mode selector", async () => {

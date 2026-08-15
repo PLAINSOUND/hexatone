@@ -6235,6 +6235,7 @@ describe("Keys MIDI input integration", () => {
       synth,
     );
     const passthroughSpy = vi.spyOn(keys, "_passthroughCC");
+    keys.onModWheelChange = vi.fn();
 
     listeners.noteon(makeMidiEvent(60, 2));
     listeners.noteon(makeMidiEvent(64, 3));
@@ -6244,6 +6245,7 @@ describe("Keys MIDI input integration", () => {
     expect(passthroughSpy).toHaveBeenCalledWith(1, 96);
     expect(applyZoneModwheel).toHaveBeenCalledTimes(1);
     expect(applyZoneModwheel).toHaveBeenCalledWith(96);
+    expect(keys.onModWheelChange).toHaveBeenCalledWith(96);
     expect(noteModwheel).not.toHaveBeenCalled();
   });
 

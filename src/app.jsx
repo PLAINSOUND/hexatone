@@ -147,13 +147,20 @@ import {
 } from "./sequencer/transport-intent-runtime.js";
 import {
   applyPlaybackPitchOffsetToNotes,
+  applySequenceTimbreModWheelToNotes,
+  clampSequenceTimbreModWheel,
   clampSequencePlaybackPitchCents,
   clampSequencePlaybackSpeed,
+  NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
 } from "./sequencer/playback-modifiers-runtime.js";
 import { advanceCueIndexWithRepeats } from "./sequencer/repeat-playback-runtime.js";
 import { buildDependencyToken } from "./sequencer/dependency-token.js";
 import { reuseEquivalentDisplaySnapshots } from "./sequencer/display-snapshot-stability.js";
-import { retuneActiveSnapshotHexes, retuneSnapshotHexes } from "./sequencer/snapshots.js";
+import {
+  applySequenceTimbreModWheelToActiveSnapshotHexes,
+  retuneActiveSnapshotHexes,
+  retuneSnapshotHexes,
+} from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const Sequencer = lazy(() => import("./sequencer/sequencer.jsx"));
@@ -999,6 +1006,9 @@ const App = () => {
   const [sequenceLegato, setSequenceLegato] = useState("per-note");
   const [sequencePlaybackSpeed, setSequencePlaybackSpeed] = useState(1);
   const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState(0);
+  const [sequenceTimbreModWheelEnabled, setSequenceTimbreModWheelEnabled] = useState(false);
+  const sequenceTimbreModWheelEnabledRef = useRef(false);
+  const sequenceTimbreModWheelValueRef = useRef(NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [manualArpeggiation, setManualArpeggiation] = useState(() => normalizeManualArpeggiation());
@@ -1682,6 +1692,12 @@ const App = () => {
         if (Math.abs(pitchOffset) > 1e-9) {
           nextNotes = applyPlaybackPitchOffsetToNotes(nextNotes, pitchOffset);
         }
+        if (sequenceTimbreModWheelEnabledRef.current) {
+          nextNotes = applySequenceTimbreModWheelToNotes(
+            nextNotes,
+            sequenceTimbreModWheelValueRef.current,
+          );
+        }
         return nextNotes;
       };
       if (markerIndex == null || sequenceCueGroups.length === 0) {
@@ -1735,6 +1751,16 @@ const App = () => {
       appliedSequencePlaybackPitchOffsetRef.current = nextPitchOffset;
     }
     setSequencePlaybackPitchOffset(nextPitchOffset);
+  }, []);
+
+  const onSequenceTimbreModWheelEnabledChange = useCallback((enabled) => {
+    const nextEnabled = enabled === true;
+    sequenceTimbreModWheelEnabledRef.current = nextEnabled;
+    setSequenceTimbreModWheelEnabled(nextEnabled);
+    applySequenceTimbreModWheelToActiveSnapshotHexes(
+      keysRef.current,
+      nextEnabled ? sequenceTimbreModWheelValueRef.current : NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
+    );
   }, []);
 
   const setSequenceBeforeStart = useCallback(
@@ -4317,6 +4343,13 @@ const App = () => {
   // Stable callbacks for Keyboard props — must be declared unconditionally
   // outside JSX so they don't violate the rules of hooks when the Keyboard
   // is conditionally rendered.
+  const onKeysModWheelChange = useCallback((value) => {
+    const nextValue = clampSequenceTimbreModWheel(value);
+    sequenceTimbreModWheelValueRef.current = nextValue;
+    if (!sequenceTimbreModWheelEnabledRef.current) return;
+    applySequenceTimbreModWheelToActiveSnapshotHexes(keysRef.current, nextValue);
+  }, []);
+
   const onKeysReady = useCallback(
     (keys) => {
       keysRef.current = keys;
@@ -4506,6 +4539,7 @@ const App = () => {
           onLatchChange={onLatchChange}
           onModulationArmChange={onModulationArmChange}
           onModulationStateChange={onModulationStateChange}
+          onModWheelChange={onKeysModWheelChange}
           onTakeSnapshot={onTakeSnapshot}
           active={active}
           midiLearnActive={midiLearnActive}
@@ -5205,6 +5239,7 @@ const App = () => {
               sequenceLegato={sequenceLegato}
               sequencePlaybackSpeed={sequencePlaybackSpeed}
               sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
+              sequenceTimbreModWheelEnabled={sequenceTimbreModWheelEnabled}
               sequencePlayRepeats={sequencePlayRepeats}
               snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
               sequenceAutoCreateBars={sequenceAutoCreateBars}
@@ -5230,6 +5265,7 @@ const App = () => {
               }
               onSequencePlaybackPitchOffsetChange={commitSequencePlaybackPitchOffset}
               onSequencePlaybackPitchOffsetPreview={previewSequencePlaybackPitchOffset}
+              onSequenceTimbreModWheelEnabledChange={onSequenceTimbreModWheelEnabledChange}
               onSequencePlayRepeatsChange={setSequencePlayRepeats}
               onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
               onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}

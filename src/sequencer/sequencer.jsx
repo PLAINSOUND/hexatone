@@ -109,6 +109,7 @@ const Sequencer = ({
   sequenceLegato,
   sequencePlaybackSpeed = 1,
   sequencePlaybackPitchOffset = 0,
+  sequenceTimbreModWheelEnabled = false,
   sequencePlayRepeats = true,
   snapSequenceToCurrentTuning,
   sequenceAutoCreateBars,
@@ -130,6 +131,7 @@ const Sequencer = ({
   onSequencePlaybackSpeedChange,
   onSequencePlaybackPitchOffsetChange,
   onSequencePlaybackPitchOffsetPreview,
+  onSequenceTimbreModWheelEnabledChange,
   onSequencePlayRepeatsChange,
   onSnapSequenceToCurrentTuningChange,
   onSequenceAutoCreateBarsChange,
@@ -3490,10 +3492,12 @@ const Sequencer = ({
           onSequenceLegatoChange={onSequenceLegatoChange}
           sequencePlaybackSpeed={sequencePlaybackSpeed}
           sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
+          sequenceTimbreModWheelEnabled={sequenceTimbreModWheelEnabled}
           onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
           onSequencePlaybackSpeedPreview={previewTimedTransportSpeed}
           onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
           onSequencePlaybackPitchOffsetPreview={onSequencePlaybackPitchOffsetPreview}
+          onSequenceTimbreModWheelEnabledChange={onSequenceTimbreModWheelEnabledChange}
           sequencePlayRepeats={sequencePlayRepeats}
           onSequencePlayRepeatsChange={onSequencePlayRepeatsChange}
           autoScrollEnabled={autoScrollEnabled}

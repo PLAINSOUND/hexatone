@@ -1,7 +1,7 @@
 {
   "type": "hexatone-sequence",
   "version": 3,
-  "name": "FALL (Tuning: “Sabat: The Tree + Modulations”)",
+  "name": "FALL (Sabat: The Tree + Modulations)",
   "description": "FALL moves through a progression of chord changes built over a descending bass line. These outline the 81 microchromatic steps of the overtonal pitch set used in Marc Sabat's cycle \"The Tree\" (2023-), which is limited to odd partial pitch classes up to 255 and a prime limit 47, allowing every note to be part of at least a 3-note harmonic chord. The descent begins on D4, falling enharmonically to G3, jumps up an octave to G4, then descends enharmonically to end on C4.",
   "snapshotLabelMode": "odd_proportion",
   "autoCreateBars": true,

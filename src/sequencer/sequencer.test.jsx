@@ -484,6 +484,7 @@ describe("Sequencer", () => {
 
   it("offers sequence structure and playback modifier controls", () => {
     const onManualArpeggiationChange = vi.fn();
+    const onSequenceTimbreModWheelEnabledChange = vi.fn();
     render(
       <Sequencer
         snapshots={[]}
@@ -519,6 +520,7 @@ describe("Sequencer", () => {
         onSequenceNameChange={vi.fn()}
         onSequenceDescriptionChange={vi.fn()}
         onSequenceLegatoChange={vi.fn()}
+        onSequenceTimbreModWheelEnabledChange={onSequenceTimbreModWheelEnabledChange}
         onManualArpeggiationChange={onManualArpeggiationChange}
         onSetSnapshotLabelMode={vi.fn()}
         onSelectSnapshot={vi.fn()}
@@ -553,6 +555,18 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("sequence playback pitch")).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback speed slider" })).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback pitch slider" })).toBeTruthy();
+    const timbreWheel = screen.getByRole("checkbox", { name: "Mod Wheel to sequence timbre" });
+    const timbreOption = timbreWheel.closest("label");
+    const snapOption = screen
+      .getByText("Snap Sequence to Current Hexatone Tuning")
+      .closest("label");
+    const playbackBlock = timbreOption.nextElementSibling;
+    expect(timbreOption.className).toBe(snapOption.className);
+    expect(playbackBlock.classList.contains("sequencer-playback-block")).toBe(true);
+    expect(playbackBlock.querySelector('[aria-label="Sequence playback"]')).toBeTruthy();
+    expect(playbackBlock.contains(timbreWheel)).toBe(false);
+    fireEvent.click(timbreWheel);
+    expect(onSequenceTimbreModWheelEnabledChange).toHaveBeenCalledWith(true);
     expect(screen.getByRole("combobox", { name: "manual snapshot arpeggiation mode" }).value).toBe(
       "per-snapshot",
     );

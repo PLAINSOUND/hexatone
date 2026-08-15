@@ -54,6 +54,7 @@ const Keyboard = (props) => {
       props.tuningRuntime,
       props.onModulationStateChange,
       props.initialModulationLibrary,
+      props.onModWheelChange,
     );
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
@@ -226,6 +227,7 @@ Keyboard.propTypes = {
   }),
   onModulationArmChange: PropTypes.func,
   onModulationStateChange: PropTypes.func,
+  onModWheelChange: PropTypes.func,
   onTakeSnapshot: PropTypes.func,
   midiLearnActive: PropTypes.bool,
   onAnchorLearn: PropTypes.func,

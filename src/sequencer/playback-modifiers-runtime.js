@@ -10,6 +10,7 @@ export const MIN_SEQUENCE_PLAYBACK_SPEED = 0.5;
 export const MAX_SEQUENCE_PLAYBACK_SPEED = 2;
 export const MIN_SEQUENCE_PLAYBACK_PITCH_CENTS = -1200;
 export const MAX_SEQUENCE_PLAYBACK_PITCH_CENTS = 1200;
+export const NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL = 64;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -114,4 +115,56 @@ export function applyPlaybackPitchOffsetToSnapshots(snapshots, cents) {
       ? snapshot.notes.map((note) => applyPlaybackPitchOffsetToNote(note, offsetCents))
       : [],
   }));
+}
+
+export function clampSequenceTimbreModWheel(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL;
+  return clamp(Math.round(numeric), 0, 127);
+}
+
+export function skewSequenceTimbreValue(value, modWheel, maximum = 127) {
+  const source = clamp(Math.round(Number(value) || 0), 0, maximum);
+  const wheel = clampSequenceTimbreModWheel(modWheel);
+  if (wheel === NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL) return source;
+  if (wheel < NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL) {
+    return Math.round(source * (wheel / NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL));
+  }
+  return Math.round(
+    source +
+      (maximum - source) *
+        ((wheel - NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL) / (127 - NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL)),
+  );
+}
+
+export function applySequenceTimbreModWheelToNote(note, modWheel) {
+  if (!note || typeof note !== "object") return note;
+  const rawSourceTimbre = note.sequenceSourceTimbre ?? note.timbre;
+  const rawSourceTimbre14 = note.sequenceSourceTimbre14 ?? note.timbre14;
+  const sourceTimbre = Number(rawSourceTimbre);
+  const sourceTimbre14 = Number(rawSourceTimbre14);
+  const hasTimbre = rawSourceTimbre != null && Number.isFinite(sourceTimbre);
+  const hasTimbre14 = rawSourceTimbre14 != null && Number.isFinite(sourceTimbre14);
+  if (!hasTimbre && !hasTimbre14) return note;
+
+  return {
+    ...note,
+    ...(hasTimbre
+      ? {
+          timbre: skewSequenceTimbreValue(sourceTimbre, modWheel),
+          sequenceSourceTimbre: clamp(Math.round(sourceTimbre), 0, 127),
+        }
+      : {}),
+    ...(hasTimbre14
+      ? {
+          timbre14: skewSequenceTimbreValue(sourceTimbre14, modWheel, 16256),
+          sequenceSourceTimbre14: clamp(Math.round(sourceTimbre14), 0, 16256),
+        }
+      : {}),
+  };
+}
+
+export function applySequenceTimbreModWheelToNotes(notes, modWheel) {
+  if (!Array.isArray(notes)) return [];
+  return notes.map((note) => applySequenceTimbreModWheelToNote(note, modWheel));
 }

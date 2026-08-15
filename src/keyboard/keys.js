@@ -149,6 +149,7 @@ class Keys {
     tuningRuntime = null,
     onModulationStateChange = null,
     initialModulationLibrary = null,
+    onModWheelChange = null,
   ) {
     // 1. Normalize committed tuning plus static layout settings into the
     //    long-lived runtime shape that live input and rendering consume.
@@ -229,6 +230,7 @@ class Keys {
     this.onLatchChange = onLatchChange || null;
     this.onModulationArmChange = onModulationArmChange || null;
     this.onModulationStateChange = onModulationStateChange || null;
+    this.onModWheelChange = onModWheelChange || null;
     this.onTakeSnapshot = onTakeSnapshot || null;
     this.visualViewportResizeHandler = () => {
       const viewport = window.visualViewport;

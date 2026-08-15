@@ -917,6 +917,7 @@ export function setupMidiInput() {
               // _passthroughCC above. Local synthesis receives one synth-level
               // update, never one update per sounding note.
               this.synth?.applyZoneModwheel?.(value);
+              this.onModWheelChange?.(value);
             } else if (cc === 11) {
               // Expression — broadcast to all active hexes (zone-wide)
               for (const hex of this._allActiveHexes()) {
