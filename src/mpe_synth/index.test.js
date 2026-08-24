@@ -739,6 +739,14 @@ describe("mpe_synth MPE+ emission", () => {
 });
 
 describe("mpe_synth automatic Y/Z output", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const createAutoYzSynth = (midiOutput, enabled = true) =>
     create_mpe_synth(
       midiOutput,
@@ -767,6 +775,7 @@ describe("mpe_synth automatic Y/Z output", () => {
     midiOutput.send.mockClear();
 
     synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 100, 0, 1);
+    vi.advanceTimersByTime(2);
 
     const calls = midiOutput.send.mock.calls;
     const noteOnIndex = calls.findIndex(([message]) => (message[0] & 0xf0) === 0x90);
@@ -775,8 +784,8 @@ describe("mpe_synth automatic Y/Z output", () => {
     );
     expect(noteOnIndex).toBeGreaterThanOrEqual(0);
     expect(generatedIndex).toBeGreaterThan(noteOnIndex);
-    expect(calls[generatedIndex]).toHaveLength(2);
-    expect(calls[generatedIndex + 1]).toHaveLength(2);
+    expect(calls[generatedIndex]).toHaveLength(1);
+    expect(calls[generatedIndex + 1]).toHaveLength(1);
   });
 
   it("does not let a sequence's default zero pressure erase the velocity onset", async () => {
@@ -801,11 +810,12 @@ describe("mpe_synth automatic Y/Z output", () => {
     // The experimental release curve follows Note Off velocity, independently
     // of the stored attack velocity (120).
     hex.noteOff(1);
+    vi.advanceTimersByTime(10);
 
     expect(midiOutput.send.mock.calls[0][0][0] & 0xf0).toBe(0x80);
     expect(midiOutput.send.mock.calls[0][0][2]).toBe(1);
     expect(midiOutput.send.mock.calls[1][0].slice(0, 2)).toEqual([0xb0 + 1, 74]);
-    expect(midiOutput.send.mock.calls[1]).toHaveLength(2);
+    expect(midiOutput.send.mock.calls[1]).toHaveLength(1);
     expect(midiOutput.send.mock.calls.at(-2)[0][2]).toBe(0);
     expect(midiOutput.send.mock.calls.at(-1)[0][1]).toBe(0);
   });
@@ -825,6 +835,7 @@ describe("mpe_synth automatic Y/Z output", () => {
 
     midiOutput.send.mockClear();
     synth.setAutoGenerateMpeYzEnabled(true);
+    vi.advanceTimersByTime(2);
     expect(midiOutput.send.mock.calls.some(([message]) => message[1] === 74)).toBe(true);
   });
 });

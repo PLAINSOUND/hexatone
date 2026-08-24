@@ -54,7 +54,7 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(emit.mock.calls.every(([values]) => values.channel !== 4)).toBe(true);
   });
 
-  it("timestamps the short velocity onset immediately instead of waiting for the worker", () => {
+  it("leaves the short velocity onset cancellable instead of pre-queuing future packets", () => {
     class FakeWorker {
       static instance;
 
@@ -65,6 +65,10 @@ describe("automatic MPE Y/Z shaping", () => {
 
       postMessage = vi.fn();
       terminate = vi.fn();
+
+      emit(data) {
+        this.onmessage?.({ data });
+      }
     }
     vi.stubGlobal("Worker", FakeWorker);
     const midiOutput = { send: vi.fn() };
@@ -72,18 +76,21 @@ describe("automatic MPE Y/Z shaping", () => {
       now: () => 300.2,
     });
 
-    scheduler.onset(4, 99);
+    scheduler.onset(4, 72);
 
-    expect(midiOutput.send.mock.calls.slice(0, 2)).toEqual([
-      [[0xb0 + 3, 74, 43], 301],
-      [[0xd0 + 3, 56], 301],
-    ]);
-    expect(midiOutput.send.mock.calls.at(-2)[0]).toEqual([0xb0 + 3, 74, 69]);
-    expect(midiOutput.send.mock.calls.at(-1)[0]).toEqual([0xd0 + 3, 90]);
-    expect(midiOutput.send.mock.calls.at(-2)[1]).toBeCloseTo(301.48);
+    expect(midiOutput.send).not.toHaveBeenCalled();
     expect(FakeWorker.instance.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ silent: true }),
+      expect.objectContaining({ channel: 4, duration: 3.44, emitInitial: false, generation: 1 }),
     );
+
+    FakeWorker.instance.emit({ channel: 4, generation: 1, y: 32, z: 41 });
+    FakeWorker.instance.emit({ channel: 4, generation: 1, y: 55, z: 71 });
+    expect(midiOutput.send.mock.calls).toEqual([
+      [[0xb0 + 3, 74, 32]],
+      [[0xd0 + 3, 41]],
+      [[0xb0 + 3, 74, 55]],
+      [[0xd0 + 3, 71]],
+    ]);
   });
 
   it("emits Y and Z together for the same member channel", () => {
@@ -96,10 +103,8 @@ describe("automatic MPE Y/Z shaping", () => {
     });
 
     scheduler.onset(3, 100);
-    for (let elapsed = 1; elapsed <= 2; elapsed += 1) {
-      now = 1000 + elapsed;
-      vi.advanceTimersByTime(1);
-    }
+    now = 1002;
+    vi.advanceTimersByTime(2);
 
     const calls = midiOutput.send.mock.calls;
     expect(calls.length).toBeGreaterThan(0);
@@ -111,8 +116,7 @@ describe("automatic MPE Y/Z shaping", () => {
     }
     expect(calls.at(-2)[0]).toEqual([0xb0 + 2, 74, 69]);
     expect(calls.at(-1)[0]).toEqual([0xd0 + 2, 90]);
-    expect(calls.every((call) => call.length === 2)).toBe(true);
-    expect(calls.every((call) => Number.isFinite(call[1]))).toBe(true);
+    expect(calls.every((call) => call.length === 1)).toBe(true);
   });
 
   it("cancels a superseded pressure ramp instead of interleaving its tail", () => {
@@ -193,7 +197,10 @@ describe("automatic MPE Y/Z shaping", () => {
 
   it("continues processing pressure after activation when it returns to zero", () => {
     class FakeWorker {
+      static instance;
+
       constructor() {
+        FakeWorker.instance = this;
         this.onmessage = null;
       }
 
@@ -211,7 +218,9 @@ describe("automatic MPE Y/Z shaping", () => {
     now = 410.2;
     scheduler.pressure(4, 0, 127);
 
-    expect(midiOutput.send).toHaveBeenCalledTimes(2);
+    expect(FakeWorker.instance.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ channel: 4, y: 0, z: 34, generation: 3 }),
+    );
   });
 
   it("drops already-posted worker values from a superseded generation", () => {
@@ -251,90 +260,63 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(messages.at(-1)).toEqual([0xd0 + 4, 0]);
   });
 
-  it("starts release from the exact continuous value of an in-flight ramp", () => {
-    class FakeWorker {
-      constructor() {
-        this.onmessage = null;
-      }
-
-      postMessage = vi.fn();
-      terminate = vi.fn();
-    }
-    vi.stubGlobal("Worker", FakeWorker);
+  it("starts release from the exact continuous value and cancels the in-flight onset", () => {
+    vi.useFakeTimers();
     const midiOutput = { send: vi.fn() };
     let now = 100.25;
-    const scheduler = createAutoMpeYzScheduler(midiOutput, { now: () => now });
+    const scheduler = createAutoMpeYzScheduler(midiOutput, { worker: false, now: () => now });
 
     // Velocity 100 ramps from 0 to Y=69, Z=90 over 1.2 ms.
     scheduler.onset(3, 100);
     midiOutput.send.mockClear();
     now = 100.85;
     scheduler.release(3, 71);
+    now = 102.85;
+    vi.advanceTimersByTime(2);
+    now = 104.85;
+    vi.advanceTimersByTime(2);
 
-    const calls = midiOutput.send.mock.calls;
-    expect(calls[0]).toEqual([[0xb0 + 2, 74, 33], 101]);
-    expect(calls[1]).toEqual([[0xd0 + 2, 43], 101]);
-    expect(calls.at(-2)[0]).toEqual([0xb0 + 2, 74, 0]);
-    expect(calls.at(-1)[0]).toEqual([0xd0 + 2, 0]);
-    expect(calls.at(-2)[1]).toBeCloseTo(104.37);
-    expect(calls.at(-1)[1]).toBeCloseTo(104.37);
-  });
-
-  it("keeps the velocity onset when pressure has not crossed the threshold", () => {
-    class FakeWorker {
-      constructor() {
-        this.onmessage = null;
-      }
-
-      postMessage = vi.fn();
-      terminate = vi.fn();
-    }
-    vi.stubGlobal("Worker", FakeWorker);
-    const midiOutput = { send: vi.fn() };
-    const scheduler = createAutoMpeYzScheduler(midiOutput, { now: () => 0 });
-
-    scheduler.onset(4, 127, 100);
-    scheduler.pressure(4, 0, 127, 200);
-    midiOutput.send.mockClear();
-    scheduler.release(4, 71, 210);
-
-    expect(midiOutput.send.mock.calls.slice(0, 2)).toEqual([
-      [[0xb0 + 3, 74, 59], 211],
-      [[0xd0 + 3, 78], 211],
+    expect(midiOutput.send.mock.calls.map(([message]) => message)).toEqual([
+      [0xb0 + 2, 74, 34],
+      [0xd0 + 2, 45],
+      [0xb0 + 2, 74, 15],
+      [0xd0 + 2, 19],
+      [0xb0 + 2, 74, 0],
+      [0xd0 + 2, 0],
     ]);
   });
 
-  it("samples release on the absolute millisecond grid without a near-zero extra step", () => {
-    class FakeWorker {
-      constructor() {
-        this.onmessage = null;
-      }
+  it("keeps the velocity onset when pressure has not crossed the threshold", () => {
+    const midiOutput = { send: vi.fn() };
+    const scheduler = createAutoMpeYzScheduler(midiOutput, { worker: false, now: () => 0 });
 
-      postMessage = vi.fn();
-      terminate = vi.fn();
-    }
-    vi.stubGlobal("Worker", FakeWorker);
+    scheduler.onset(4, 127, 100);
+    midiOutput.send.mockClear();
+    scheduler.pressure(4, 0, 127, 200);
+
+    expect(midiOutput.send).not.toHaveBeenCalled();
+  });
+
+  it("samples release every two milliseconds and preserves its zero endpoint", () => {
+    vi.useFakeTimers();
     const midiOutput = { send: vi.fn() };
     let now = 200;
-    const scheduler = createAutoMpeYzScheduler(midiOutput, { now: () => now });
+    const scheduler = createAutoMpeYzScheduler(midiOutput, { worker: false, now: () => now });
 
     scheduler.onset(7, 127);
     midiOutput.send.mockClear();
     now = 200.2;
     scheduler.release(7, 77);
+    now = 202.2;
+    vi.advanceTimersByTime(2);
+    now = 204.2;
+    vi.advanceTimersByTime(2);
 
-    const calls = midiOutput.send.mock.calls;
-    expect(calls.slice(0, 6)).toEqual([
-      [[0xb0 + 6, 74, 61], 201],
-      [[0xd0 + 6, 80], 201],
-      [[0xb0 + 6, 74, 34], 202],
-      [[0xd0 + 6, 44], 202],
-      [[0xb0 + 6, 74, 7], 203],
-      [[0xd0 + 6, 9], 203],
+    expect(midiOutput.send.mock.calls.map(([message]) => message)).toEqual([
+      [0xb0 + 6, 74, 28],
+      [0xd0 + 6, 37],
+      [0xb0 + 6, 74, 0],
+      [0xd0 + 6, 0],
     ]);
-    expect(calls.at(-2)[0]).toEqual([0xb0 + 6, 74, 0]);
-    expect(calls.at(-1)[0]).toEqual([0xd0 + 6, 0]);
-    expect(calls.at(-2)[1]).toBeCloseTo(203.24);
-    expect(calls.at(-1)[1]).toBeCloseTo(203.24);
   });
 });

@@ -1,6 +1,5 @@
-import { createAutoMpeYzRampEngine } from "./auto-yz.js";
+import { AUTO_MPE_YZ_SAMPLE_MS, createAutoMpeYzRampEngine } from "./auto-yz.js";
 
-const SAMPLE_MS = 1;
 const engine = createAutoMpeYzRampEngine((values) => self.postMessage(values));
 let timer = null;
 
@@ -14,7 +13,7 @@ const start = () => {
   if (timer != null) return;
   timer = setInterval(() => {
     if (!engine.tick(performance.now())) stop();
-  }, SAMPLE_MS);
+  }, AUTO_MPE_YZ_SAMPLE_MS);
 };
 
 self.onmessage = ({ data }) => {
@@ -36,7 +35,7 @@ self.onmessage = ({ data }) => {
     startedAt,
     data.generation,
     receivedAt,
-    data.silent !== true,
+    data.silent !== true && data.emitInitial !== false,
     data.silent === true,
   );
   if (active && data.silent !== true) start();
