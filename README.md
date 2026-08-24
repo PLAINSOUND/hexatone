@@ -165,7 +165,7 @@ The HEJI workspace has also been expanded significantly. Spelling is now tied to
 
 - added browser request for low(er)-latency AudioContext operation
 - refined on-screen hex guessing to respect angle of rotation and visible canvas
-- added a Raster to Notes mode for Haken Continuum which triggers scale degrees with UX controls for Glide Shaping, Minimum Note Duration, Minimum Retrigger interval, and Raster Stability, as well as a momentary pedal (default CC 67) for switching between Pitch Bending and Raster to Notes
+- added a Rastered Notes mode for Haken Continuum which triggers scale degrees with UX controls for Glide Shaping, Minimum Note Duration, Minimum Retrigger interval, and Raster Stability, as well as a momentary pedal (default CC 67) for switching between Rastered Attack + Pitch Bend and Rastered Notes
 - added Quick Release for the SuperCollider SynthDefs to reduce tail overlap in Raster to Notes
 - architectural separation of `Keys` into smaller runtime modules, moving MIDI input, expression handling, snapshots, MTS output, controller maps, and settings-impact classification out of the canvas path
 - reduced full `Keys` reconstruction to true tuning/layout changes; most live performance settings, including MIDI input device now update through targeted runtime paths instead of interrupting the keyboard
@@ -237,7 +237,7 @@ Supported or actively integrated controllers include:
 - **C-Thru AXIS-49**
 - **TS41 MIDI Keyboard**
 
-Other controller paths remain exploratory or less tested. Continuum MPE+ high resolution X/Y/Z data is supported (Pitch Bend Range 96, CC 87 used for one-shot LSB data staging), and this controller can move between Pitch Bending and Raster to Notes.
+Other controller paths remain exploratory or less tested. Continuum MPE+ high resolution X/Y/Z data is supported (Pitch Bend Range 96, CC 87 used for one-shot LSB data staging), and this controller can move between Rastered Attack + Pitch Bend and Rastered Notes.
 
 ### Local development
 

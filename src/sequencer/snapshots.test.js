@@ -281,6 +281,59 @@ describe("sequencer snapshots", () => {
     expect(noteOff).toHaveBeenCalledWith(44);
   });
 
+  it("prepares every chord voice before committing note-ons at one shared timestamp", () => {
+    const calls = [];
+    let nextHex = 0;
+    const synth = {
+      makeHex: vi.fn((...args) => {
+        const index = nextHex++;
+        calls.push(`make:${index}`);
+        expect(args[11]).toMatchObject({ deferNoteOn: true });
+        return {
+          noteOn: vi.fn((timestamp) => calls.push({ index, timestamp })),
+          noteOff: vi.fn(),
+        };
+      }),
+    };
+    const runtime = makeRuntime({ synth });
+
+    playSnapshot(runtime, [{ midicents: 69 }, { midicents: 72 }, { midicents: 76 }]);
+
+    expect(calls.slice(0, 3)).toEqual(["make:0", "make:1", "make:2"]);
+    const onsets = calls.slice(3);
+    expect(onsets).toHaveLength(3);
+    expect(onsets.every(({ timestamp }) => Number.isFinite(timestamp))).toBe(true);
+    expect(new Set(onsets.map(({ timestamp }) => timestamp)).size).toBe(1);
+  });
+
+  it("aligns outgoing legato voices with the new chord commit timestamp", () => {
+    const oldNoteOff = vi.fn();
+    const onsets = [];
+    const synth = {
+      makeHex: vi.fn(() => ({
+        noteOn: vi.fn((timestamp) => onsets.push(timestamp)),
+        noteOff: vi.fn(),
+      })),
+    };
+    const runtime = makeRuntime({
+      synth,
+      _snapshotHexes: [
+        {
+          _snapshotPitchKey: "60.000",
+          _snapshotMidicents: 60,
+          _snapshotReleaseVelocity: 45,
+          noteOff: oldNoteOff,
+        },
+      ],
+    });
+
+    playSnapshot(runtime, [{ midicents: 69 }, { midicents: 72 }], { legato: true });
+
+    expect(onsets).toHaveLength(2);
+    expect(onsets[0]).toBe(onsets[1]);
+    expect(oldNoteOff).toHaveBeenCalledWith(45, onsets[0]);
+  });
+
   it("records an unshifted source pitch while starting at the absolute sequencer target", () => {
     const hex = { noteOn: vi.fn(), noteOff: vi.fn() };
     const synth = { makeHex: vi.fn(() => hex) };
@@ -1021,6 +1074,58 @@ describe("sequencer snapshots", () => {
     expect(heldB.noteOff).not.toHaveBeenCalled();
     expect(heldB.aftertouch).toHaveBeenCalledWith(55);
     expect(nextHexes).toEqual([heldB]);
+  });
+
+  it("never assigns one held voice to both a pitch match and an identified continuation", () => {
+    const heldA = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      retune: vi.fn(),
+      _snapshotPitchKey: "69.000",
+      _snapshotMidicents: 69,
+      _snapshotInstanceKey: "s:a",
+      _snapshotReleaseVelocity: 31,
+    };
+    const heldB = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+      _snapshotPitchKey: "72.000",
+      _snapshotMidicents: 72,
+      _snapshotInstanceKey: "s:b",
+      _snapshotReleaseVelocity: 47,
+    };
+    const newHex = {
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      aftertouch: vi.fn(),
+      polyTimbre: vi.fn(),
+    };
+    const synth = { makeHex: vi.fn(() => newHex) };
+    const runtime = makeRuntime({
+      synth,
+      stopSnapshot: vi.fn(),
+      _snapshotHexes: [heldA, heldB],
+    });
+
+    const nextHexes = playSnapshot(
+      runtime,
+      [
+        { midicents: 69 },
+        { instanceKey: "s:a", midicents: 70 },
+      ],
+      { legato: true },
+    );
+
+    expect(nextHexes).toEqual([newHex, heldA]);
+    expect(new Set(nextHexes).size).toBe(2);
+    expect(synth.makeHex).toHaveBeenCalledTimes(1);
+    expect(heldA.retune).toHaveBeenCalledTimes(1);
+    expect(heldA.noteOff).not.toHaveBeenCalled();
+    expect(heldB.noteOff).toHaveBeenCalledWith(47);
   });
 
   it("transitions deterministically across successive legato cue steps", () => {

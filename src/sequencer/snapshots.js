@@ -30,6 +30,11 @@ const timbreToOnsetMod = (value, value14 = null) =>
     ? Math.max(0, Math.min(16256, Number(value14))) / 16256
     : Math.max(0, Math.min(127, Number(value) || 0)) / 127);
 
+// Chord voices are fully allocated before their note-ons are committed. A
+// short driver-level lead leaves enough room for MTS tuning and MPE pitch-bend
+// preparation even if voice construction briefly stalls on the main thread.
+const SNAPSHOT_CHORD_COMMIT_LEAD_MS = 20;
+
 const snapshotPitchKey = (midicents) => {
   const n = Number(midicents);
   if (!Number.isFinite(n)) return null;
@@ -303,9 +308,10 @@ function registerSoundingSnapshotHex(runtime, hex) {
   soundingSnapshotHexes(runtime).add(hex);
 }
 
-function releaseSnapshotHex(runtime, hex, releaseVelocity = 0) {
+function releaseSnapshotHex(runtime, hex, releaseVelocity = 0, timestamp) {
   if (!hex) return;
-  hex.noteOff?.(releaseVelocity);
+  if (Number.isFinite(Number(timestamp))) hex.noteOff?.(releaseVelocity, Number(timestamp));
+  else hex.noteOff?.(releaseVelocity);
   runtime?._soundingSnapshotHexes?.delete(hex);
 }
 
@@ -351,7 +357,7 @@ function setSnapshotPitchReference(hex, synthCents, noteMidicents, pitchOffsetCe
   hex._snapshotAppliedPitchOffsetCents = safeOffset;
 }
 
-function createSnapshotHex(runtime, note, options = {}) {
+function prepareSnapshotHex(runtime, note, options = {}) {
   const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
   const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
   const degree0toRefRatio = runtime.tuning.degree0toRef_asArray?.[1] ?? 1;
@@ -371,7 +377,7 @@ function createSnapshotHex(runtime, note, options = {}) {
     attackVelocity,
     0,
     degree0toRefRatio,
-    { playbackSourceCents },
+    { playbackSourceCents, deferNoteOn: true },
   );
   hex._snapshotReleaseVelocity = releaseVelocity;
   hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
@@ -379,14 +385,48 @@ function createSnapshotHex(runtime, note, options = {}) {
   hex._snapshotInstanceKey = snapshotInstanceKey(note);
   hex._baseCents = synthCents;
   setSnapshotPitchReference(hex, synthCents, note.midicents, pitchOffsetCents);
-  const timbre = normalize7Bit(note.timbre);
-  const timbre14 = normalize14Bit(note.timbre14);
-  if ((timbre != null || timbre14 != null) && typeof runtime?.synth?.setMod === "function") {
-    runtime.synth.setMod(timbreToOnsetMod(timbre, timbre14));
+  return hex;
+}
+
+function snapshotChordCommitTimestamp(noteCount) {
+  return noteCount > 1 && typeof globalThis.performance?.now === "function"
+    ? globalThis.performance.now() + SNAPSHOT_CHORD_COMMIT_LEAD_MS
+    : undefined;
+}
+
+function commitPreparedSnapshotHexes(runtime, prepared, commitTimestamp) {
+  if (!prepared.length) return undefined;
+  const timestamp = commitTimestamp ?? snapshotChordCommitTimestamp(prepared.length);
+
+  // Prime global onset state before scheduling the chord. Composite synths
+  // deduplicate identical values, so a uniform chord emits this only once.
+  for (const { note } of prepared) {
+    const timbre = normalize7Bit(note.timbre);
+    const timbre14 = normalize14Bit(note.timbre14);
+    if ((timbre != null || timbre14 != null) && typeof runtime?.synth?.setMod === "function") {
+      runtime.synth.setMod(timbreToOnsetMod(timbre, timbre14));
+    }
   }
-  hex.noteOn();
-  registerSoundingSnapshotHex(runtime, hex);
-  applySnapshotExpression(runtime, hex, note);
+  // OSC can embed the initial filter value directly in its timestamped
+  // /s_new bundle. Other synth families simply omit this optional hook.
+  for (const { hex, note } of prepared) {
+    const pressure = normalize7Bit(note.pressure);
+    const pressure14 = normalize14Bit(note.pressure14);
+    if (pressure != null || pressure14 != null) {
+      hex.prepareSnapshotPressure?.(pressure ?? pressure14 >> 7, pressure14);
+    }
+  }
+  for (const { hex } of prepared) {
+    hex.noteOn(timestamp);
+    registerSoundingSnapshotHex(runtime, hex);
+  }
+  for (const { hex, note } of prepared) applySnapshotExpression(runtime, hex, note);
+  return timestamp;
+}
+
+function createSnapshotHex(runtime, note, options = {}) {
+  const hex = prepareSnapshotHex(runtime, note, options);
+  commitPreparedSnapshotHexes(runtime, [{ hex, note }]);
   return hex;
 }
 
@@ -505,7 +545,12 @@ export function playSnapshot(runtime, notes, options = {}) {
   const pitchOffsetCents = Number(options?.pitchOffsetCents) || 0;
   if (!legato) {
     runtime.stopSnapshot();
-    return notes.map((note) => createSnapshotHex(runtime, note, { pitchOffsetCents }));
+    const prepared = notes.map((note) => ({
+      note,
+      hex: prepareSnapshotHex(runtime, note, { pitchOffsetCents }),
+    }));
+    commitPreparedSnapshotHexes(runtime, prepared);
+    return prepared.map(({ hex }) => hex);
   }
 
   const availableHexesByPitch = new Map();
@@ -521,26 +566,50 @@ export function playSnapshot(runtime, notes, options = {}) {
     availableHexesByPitch.set(key, list);
   }
 
-  const nextHexes = [];
-  for (const note of notes) {
-    const key = snapshotPitchKey(note.midicents);
-    const instanceKey = snapshotInstanceKey(note);
-    const reusedByInstance =
-      instanceKey != null ? (availableHexesByInstance.get(instanceKey) ?? null) : null;
-    if (instanceKey != null) availableHexesByInstance.delete(instanceKey);
-    let reusedHex = reusedByInstance;
-    if (reusedHex) {
-      const previousKey =
-        reusedHex?._snapshotPitchKey ?? snapshotPitchKey(reusedHex?._snapshotMidicents);
-      const previousAvailable = previousKey ? (availableHexesByPitch.get(previousKey) ?? []) : [];
-      const reusedIndex = previousAvailable.indexOf(reusedHex);
-      if (reusedIndex >= 0) previousAvailable.splice(reusedIndex, 1);
-      if (previousKey) availableHexesByPitch.set(previousKey, previousAvailable);
-    } else {
-      const available = key ? (availableHexesByPitch.get(key) ?? []) : [];
-      reusedHex = available.shift() ?? null;
-      if (key) availableHexesByPitch.set(key, available);
+  const plans = notes.map((note) => ({
+    note,
+    pitchKey: snapshotPitchKey(note.midicents),
+    instanceKey: snapshotInstanceKey(note),
+    reusedHex: null,
+  }));
+  const pendingReleases = [];
+  const claimedHexes = new Set();
+  const claimHex = (plan, hex) => {
+    if (!hex || claimedHexes.has(hex)) return false;
+    plan.reusedHex = hex;
+    claimedHexes.add(hex);
+    const previousKey = hex?._snapshotPitchKey ?? snapshotPitchKey(hex?._snapshotMidicents);
+    if (previousKey) {
+      const available = availableHexesByPitch.get(previousKey) ?? [];
+      const index = available.indexOf(hex);
+      if (index >= 0) available.splice(index, 1);
+      availableHexesByPitch.set(previousKey, available);
     }
+    const previousInstanceKey =
+      typeof hex?._snapshotInstanceKey === "string" ? hex._snapshotInstanceKey : null;
+    if (previousInstanceKey && availableHexesByInstance.get(previousInstanceKey) === hex) {
+      availableHexesByInstance.delete(previousInstanceKey);
+    }
+    return true;
+  };
+
+  // Stable ordered-slot identities have priority over pitch-only matching.
+  // Performing this as a separate pass prevents an earlier common tone from
+  // consuming a voice that a later note explicitly identifies as its legato
+  // continuation.
+  for (const plan of plans) {
+    if (!plan.instanceKey) continue;
+    claimHex(plan, availableHexesByInstance.get(plan.instanceKey) ?? null);
+  }
+  for (const plan of plans) {
+    if (plan.reusedHex || !plan.pitchKey) continue;
+    const available = availableHexesByPitch.get(plan.pitchKey) ?? [];
+    while (available.length && claimedHexes.has(available[0])) available.shift();
+    claimHex(plan, available[0] ?? null);
+  }
+
+  for (const plan of plans) {
+    const { note, pitchKey: key, instanceKey, reusedHex } = plan;
 
     if (reusedHex && !note?.reattack) {
       const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
@@ -554,24 +623,46 @@ export function playSnapshot(runtime, notes, options = {}) {
       retuneSnapshotHex(runtime, reusedHex, synthCents, bendOnlyRetune);
       // Future note-transition work can layer timed pressure/timbre ramps here.
       applySnapshotExpression(runtime, reusedHex, note);
-      nextHexes.push(reusedHex);
+      plan.hex = reusedHex;
+      plan.retained = true;
       continue;
     }
 
     if (reusedHex) {
-      releaseSnapshotHex(runtime, reusedHex, reusedHex._snapshotReleaseVelocity ?? 0);
+      pendingReleases.push({ hex: reusedHex, velocity: reusedHex._snapshotReleaseVelocity ?? 0 });
     }
 
-    nextHexes.push(createSnapshotHex(runtime, note, { pitchOffsetCents }));
+    plan.retained = false;
   }
 
   for (const remainingHexes of availableHexesByPitch.values()) {
     for (const hex of remainingHexes) {
-      releaseSnapshotHex(runtime, hex, hex._snapshotReleaseVelocity ?? 0);
+      pendingReleases.push({ hex, velocity: hex._snapshotReleaseVelocity ?? 0 });
     }
   }
 
-  return nextHexes;
+  const incomingCount = plans.reduce((count, plan) => count + (plan.retained ? 0 : 1), 0);
+  const commitTimestamp = snapshotChordCommitTimestamp(incomingCount);
+
+  // Release channel ownership before allocating any destination voices. The
+  // MIDI/OSC note-offs are still scheduled for the common commit timestamp,
+  // but the allocators can now give every incoming MPE voice a unique channel.
+  const released = new Set();
+  for (const { hex, velocity } of pendingReleases) {
+    if (released.has(hex)) continue;
+    released.add(hex);
+    releaseSnapshotHex(runtime, hex, velocity, commitTimestamp);
+  }
+
+  const prepared = [];
+  for (const plan of plans) {
+    if (plan.retained) continue;
+    plan.hex = prepareSnapshotHex(runtime, plan.note, { pitchOffsetCents });
+    prepared.push({ hex: plan.hex, note: plan.note });
+  }
+  commitPreparedSnapshotHexes(runtime, prepared, commitTimestamp);
+
+  return plans.map(({ hex }) => hex);
 }
 
 /**

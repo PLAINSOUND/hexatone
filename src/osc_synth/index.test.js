@@ -113,6 +113,85 @@ describe("osc_synth pooled slot allocation", () => {
     expect(nodeIds[3]).toBeLessThan(900000);
   });
 
+  it("batches a timestamped chord atomically for each SuperCollider layer", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-timestamped-chord",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+    await Promise.resolve();
+    const ws = MockWebSocket.instances[0];
+    ws.sent = [];
+
+    const first = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1, {
+      deferNoteOn: true,
+    });
+    const second = synth.makeHex({ x: 1, y: 0 }, 700, 0, 0, 1, 0, 0, undefined, 72, 1, 1, {
+      deferNoteOn: true,
+    });
+    first.noteOn(1234.5);
+    second.noteOn(1234.5);
+    await Promise.resolve();
+
+    const bundles = ws.sent.filter((message) => Array.isArray(message.messages));
+    expect(bundles).toHaveLength(4);
+    expect(bundles.map(({ port }) => port)).toEqual([57101, 57102, 57103, 57104]);
+    expect(new Set(bundles.map(({ timetagUnixMs }) => timetagUnixMs)).size).toBe(1);
+    for (const bundle of bundles) {
+      expect(bundle.messages.map(({ address }) => address)).toEqual(["/s_new", "/s_new"]);
+    }
+
+    synth.shutdown();
+  });
+
+  it("puts outgoing releases before destination attacks in one timestamped bundle", async () => {
+    const synth = await create_osc_synth(
+      "ws://test-osc-transition-bundle",
+      ["pluck", "string", "formant", "tone"],
+      [0.5, 0.5, 0.5, 0.5],
+      0,
+      0.1,
+      false,
+      261.6255653,
+      0,
+      [0],
+      1,
+    );
+    await Promise.resolve();
+    const runtime = makeSnapshotRuntime(synth);
+    runtime._snapshotHexes = playSnapshot(runtime, [{ midicents: 69 }, { midicents: 72 }], {
+      legato: true,
+    });
+    await Promise.resolve();
+    const ws = MockWebSocket.instances[0];
+    ws.sent = [];
+
+    runtime._snapshotHexes = playSnapshot(runtime, [{ midicents: 76 }, { midicents: 79 }], {
+      legato: true,
+    });
+    await Promise.resolve();
+
+    const bundles = ws.sent.filter((message) => Array.isArray(message.messages));
+    expect(bundles).toHaveLength(4);
+    for (const bundle of bundles) {
+      expect(bundle.messages.map(({ address }) => address)).toEqual([
+        "/n_set",
+        "/n_set",
+        "/s_new",
+        "/s_new",
+      ]);
+    }
+
+    synth.shutdown();
+  });
+
   it("rejects SuperCollider note onsets outside 20–16000 Hz before slot allocation", async () => {
     const synth = await create_osc_synth(
       "ws://test-osc-frequency-range",

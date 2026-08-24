@@ -141,6 +141,7 @@ import {
   buildCommittedSequencePlaybackState,
   buildStoppedSequenceTransportState,
   buildTimedPlaybackUiResetState,
+  resolveManualPlaybackStopTransportState,
   resolvePendingCueTransportState,
   resolvePendingSnapshotTransportState,
   resolveWorkspaceMutationTransportState,
@@ -1991,7 +1992,7 @@ const App = () => {
   );
 
   const onStopSnapshot = useCallback(
-    (id = null) => {
+    (id = null, options = {}) => {
       const hasManualGesture =
         id == null
           ? manualGestureRuntimeRef.current.activeGestureIds().length > 0
@@ -2004,11 +2005,32 @@ const App = () => {
       keysRef.current?.stopSnapshot();
       sequenceRepeatPlaybackStateRef.current = {};
       resetTimedPlaybackUi();
-      setPlayingSnapshotId(null);
       setManualPlayingSnapshotIds([]);
+      const stoppedPlaybackState =
+        id == null && options?.armCurrentPosition === true
+          ? resolveManualPlaybackStopTransportState({
+              playhead: sequencePlayhead,
+              snapshots,
+              sequenceCueGroups,
+            })
+          : null;
+      if (stoppedPlaybackState) {
+        pendingTransportSelectionRef.current = stoppedPlaybackState.pendingTransportSelection;
+        applyStoppedSequenceTransportState(stoppedPlaybackState);
+        return;
+      }
+      setPlayingSnapshotId(null);
       setSequencePlayhead((prev) => ({ ...prev, stopped: true }));
     },
-    [cancelManualSnapshotGestures, playingSnapshotId, resetTimedPlaybackUi],
+    [
+      applyStoppedSequenceTransportState,
+      cancelManualSnapshotGestures,
+      playingSnapshotId,
+      resetTimedPlaybackUi,
+      sequenceCueGroups,
+      sequencePlayhead,
+      snapshots,
+    ],
   );
 
   const previousWorkspaceTabRef = useRef(workspaceTab);

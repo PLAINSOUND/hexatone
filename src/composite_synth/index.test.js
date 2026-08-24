@@ -71,6 +71,50 @@ describe("composite_synth controller-state replay", () => {
     expect(osc.applyZoneModwheel).toHaveBeenCalledWith(91);
   });
 
+  it("deduplicates repeated zone-wide expression emitted through different chord voices", () => {
+    const mpeModwheel = vi.fn();
+    const mpeExpression = vi.fn();
+    const synth = create_composite_synth([
+      {
+        makeHex: vi.fn(() => ({
+          coords: { x: 0, y: 0 },
+          cents: 0,
+          modwheel: mpeModwheel,
+          expression: mpeExpression,
+        })),
+      },
+    ]);
+    const first = synth.makeHex();
+    const second = synth.makeHex();
+
+    first.modwheel(73);
+    second.modwheel(73);
+    second.modwheel(74);
+    first.expression(91);
+    second.expression(91);
+
+    expect(mpeModwheel.mock.calls).toEqual([[73], [74]]);
+    expect(mpeExpression.mock.calls).toEqual([[91]]);
+  });
+
+  it("forwards a shared chord timestamp to every child note-on", () => {
+    const firstNoteOn = vi.fn();
+    const secondNoteOn = vi.fn();
+    const wrapper = create_composite_synth([
+      {
+        makeHex: () => ({ coords: { x: 0, y: 0 }, cents: 0, noteOn: firstNoteOn }),
+      },
+      {
+        makeHex: () => ({ coords: { x: 0, y: 0 }, cents: 0, noteOn: secondNoteOn }),
+      },
+    ]).makeHex();
+
+    wrapper.noteOn(1234.5);
+
+    expect(firstNoteOn).toHaveBeenCalledWith(1234.5);
+    expect(secondNoteOn).toHaveBeenCalledWith(1234.5);
+  });
+
   it("routes polyphonic timbre only to non-MTS child outputs", () => {
     const mpeHex = {
       coords: { x: 0, y: 0 },

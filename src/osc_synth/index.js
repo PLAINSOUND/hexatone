@@ -55,7 +55,7 @@ const normalizeOffVelocity = (value, fallback = 64) => {
   return value <= 1 ? clampMidiValue(value * 127, fallback) : clampMidiValue(value, fallback);
 };
 
-const releaseNode = (socket, port, nodeId, offVel) => {
+const releaseNode = (socket, port, nodeId, offVel, timestamp) => {
   debugLog("osc", "releaseNode", { port, nodeId, offVel });
   socket.send(
     "/n_set",
@@ -67,6 +67,7 @@ const releaseNode = (socket, port, nodeId, offVel) => {
       { type: "i", value: 0 },
     ],
     port,
+    timestamp,
   );
 };
 
@@ -111,6 +112,8 @@ class OscSocket {
     this._disposed = false;
     this._refCount = 0;
     this._reconnectTimer = null;
+    this._pendingBundles = new Map();
+    this._bundleFlushScheduled = false;
     this._connect();
   }
 
@@ -127,6 +130,8 @@ class OscSocket {
 
   clearQueue() {
     this._queue = [];
+    this._pendingBundles.clear();
+    this._bundleFlushScheduled = false;
   }
 
   shutdown() {
@@ -189,14 +194,50 @@ class OscSocket {
     }
   }
 
-  send(address, args, port = OSC_LAYER_PORTS[0]) {
-    if (this._disposed) return;
-    const msg = JSON.stringify({ port, address, args });
+  _sendSerialized(message) {
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {
-      this._ws.send(msg);
-    } else {
-      if (this._queue.length < 64) this._queue.push(msg);
+      this._ws.send(message);
+    } else if (this._queue.length < 64) {
+      this._queue.push(message);
     }
+  }
+
+  _flushBundles() {
+    this._bundleFlushScheduled = false;
+    if (this._disposed) {
+      this._pendingBundles.clear();
+      return;
+    }
+    for (const bundle of this._pendingBundles.values()) {
+      this._sendSerialized(JSON.stringify(bundle));
+    }
+    this._pendingBundles.clear();
+  }
+
+  send(address, args, port = OSC_LAYER_PORTS[0], timestamp) {
+    if (this._disposed) return;
+    const at = Number(timestamp);
+    if (Number.isFinite(at)) {
+      const key = `${port}:${at}`;
+      let bundle = this._pendingBundles.get(key);
+      if (!bundle) {
+        const timeOrigin = Number(globalThis.performance?.timeOrigin);
+        const fallbackOrigin = Date.now() - (globalThis.performance?.now?.() ?? 0);
+        bundle = {
+          port,
+          timetagUnixMs: (Number.isFinite(timeOrigin) ? timeOrigin : fallbackOrigin) + at,
+          messages: [],
+        };
+        this._pendingBundles.set(key, bundle);
+      }
+      bundle.messages.push({ address, args });
+      if (!this._bundleFlushScheduled) {
+        this._bundleFlushScheduled = true;
+        queueMicrotask(() => this._flushBundles());
+      }
+      return;
+    }
+    this._sendSerialized(JSON.stringify({ port, address, args }));
   }
 }
 
@@ -623,7 +664,7 @@ function OscHex(
   this._freq = this._centsToHz(cents);
 }
 
-OscHex.prototype.noteOn = function () {
+OscHex.prototype.noteOn = function (timestamp) {
   if (this.release) return;
   if (!isPlayableScPitch(this._freq, this._bend)) {
     warnLog("[osc_synth] Ignoring out-of-range SuperCollider note", {
@@ -654,7 +695,7 @@ OscHex.prototype.noteOn = function () {
   for (let i = 0; i < this._synthNames.length; i++) {
     const slotState = this._slotState[i][slot];
     if (slotState.active && slotState.nodeId != null) {
-      releaseNode(this._socket, OSC_LAYER_PORTS[i], slotState.nodeId, slotState.onVel);
+      releaseNode(this._socket, OSC_LAYER_PORTS[i], slotState.nodeId, slotState.onVel, timestamp);
     }
     slotState.token += 1;
     slotState.active = true;
@@ -684,11 +725,12 @@ OscHex.prototype.noteOn = function () {
         this._retriggerBuzzFormantRef.value,
       ),
       OSC_LAYER_PORTS[i],
+      timestamp,
     );
   }
 };
 
-OscHex.prototype.noteOff = function (release_velocity) {
+OscHex.prototype.noteOff = function (release_velocity, timestamp) {
   if (this.release) return;
   this.release = true;
   const resolvedSlot = this._pool.noteOff(this.coords);
@@ -712,6 +754,7 @@ OscHex.prototype.noteOff = function (release_velocity) {
       OSC_LAYER_PORTS[i],
       this._nodeIds[i],
       normalizeOffVelocity(release_velocity, slotState.onVel),
+      timestamp,
     );
     slotState.active = false;
     slotState.nodeId = null;
@@ -801,6 +844,25 @@ OscHex.prototype.aftertouch = function (value, value14 = null) {
       OSC_LAYER_PORTS[i],
     );
   }
+};
+
+const snapshotPressureKey = (value, value14) =>
+  `${Number(value) || 0}:${Number.isFinite(value14) ? Number(value14) : ""}`;
+
+OscHex.prototype.prepareSnapshotPressure = function (value, value14 = null) {
+  if (this.release) return;
+  this._filter =
+    1 + (Number.isFinite(value14) ? Math.max(0, Math.min(16256, value14)) / 16256 : value / 127);
+  this._preparedSnapshotPressure = snapshotPressureKey(value, value14);
+};
+
+OscHex.prototype.applySnapshotPressure = function (value, value14 = null) {
+  const key = snapshotPressureKey(value, value14);
+  if (this._preparedSnapshotPressure === key) {
+    this._preparedSnapshotPressure = null;
+    return;
+  }
+  this.aftertouch(value, value14);
 };
 
 OscHex.prototype.pressure = function (value, value14 = null) {

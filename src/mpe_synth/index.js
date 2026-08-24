@@ -4,9 +4,9 @@
  * Key design decisions:
  *
  * PB → noteOn timing:
- *   Uses WebMIDI's send(data, timestamp) to schedule noteOn exactly PB_GUARD_MS
- *   after the pitch-bend message, at the MIDI driver level with sub-ms precision.
- *   No setTimeout — no timer jitter, no 4ms browser minimum.
+ *   makeHex prepares pitch bend; noteOn commits the note. Snapshot chords can
+ *   pass one shared Web MIDI timestamp so every member attack reaches the
+ *   driver together after all voices have been allocated.
  *
  * Release tails:
  *   After noteOff, a channel stays in RELEASING state for releaseGuardMs (default
@@ -142,10 +142,12 @@ function deviationToBend21(cents_offset, bendRange) {
   return clamped + 1048576; // unsigned 0–2097024
 }
 
-function sendBend(midi_output, channel0, bend) {
+function sendBend(midi_output, channel0, bend, timestamp) {
   const lsb = bend & 0x7f;
   const msb = (bend >> 7) & 0x7f;
-  midi_output.send([0xe0 + channel0, lsb, msb]);
+  const message = [0xe0 + channel0, lsb, msb];
+  if (Number.isFinite(Number(timestamp))) midi_output.send(message, Number(timestamp));
+  else midi_output.send(message);
 }
 
 function sendMpePlusLsb(midi_output, channel0, value) {
@@ -317,6 +319,7 @@ export const create_mpe_synth = async (
       velocity_played,
       _bend,
       _degree0toRef_ratio,
+      playbackOptions,
     ) => {
       const hex = new MpeHex(
         coords,
@@ -338,11 +341,12 @@ export const create_mpe_synth = async (
         autoGenerateMpeYzDefault,
         autoMpeYzScheduler,
         scheduleDeferred,
+        playbackOptions?.deferNoteOn === true,
       );
       activeHexes.add(hex);
       const originalNoteOff = hex.noteOff.bind(hex);
-      hex.noteOff = (release_velocity) => {
-        originalNoteOff(release_velocity);
+      hex.noteOff = (release_velocity, timestamp) => {
+        originalNoteOff(release_velocity, timestamp);
         activeHexes.delete(hex);
       };
       return hex;
@@ -415,6 +419,7 @@ function MpeHex(
   autoGenerateMpeYzEnabled,
   autoMpeYzScheduler,
   scheduleDeferred,
+  deferNoteOn,
 ) {
   this.coords = coords;
   this.cents = cents;
@@ -443,6 +448,8 @@ function MpeHex(
   this._lastSentAftertouch14 = null;
   this._lastSentCc74 = null;
   this._lastSentCc7414 = null;
+  this._noteOnSent = false;
+  this._noteOnTimestamp = null;
   // masterCh is 0-indexed (same as c = channel - 1); -1 means no manager channel.
   this.masterCh = masterCh ?? -1;
 
@@ -497,8 +504,21 @@ function MpeHex(
       value: this.bend,
     });
   }
-  midi_output.send([0x90 + c, this.note, this.velocity]);
-  rememberMpeNoteOn(midi_output, c, this.note);
+  pool.setLastBend(this.channel, this.bend);
+  pool.setLastNote(this.channel, this.note);
+  if (!deferNoteOn) this.noteOn();
+}
+
+MpeHex.prototype.noteOn = function (timestamp) {
+  if (this.release || this._noteOnSent) return;
+  const c = this.channel - 1;
+  const at = Number.isFinite(Number(timestamp)) ? Number(timestamp) : undefined;
+  const message = [0x90 + c, this.note, this.velocity];
+  if (at == null) this.midi_output.send(message);
+  else this.midi_output.send(message, at);
+  this._noteOnSent = true;
+  this._noteOnTimestamp = at ?? null;
+  rememberMpeNoteOn(this.midi_output, c, this.note);
   traceMidiOutput("mpeNoteOn", {
     family: "mpe",
     channel: this.channel,
@@ -508,14 +528,6 @@ function MpeHex(
   if (this.autoGeneratesMpeYZ) {
     this.autoMpeYzScheduler?.onset(this.channel, this.velocity);
   }
-
-  pool.setLastBend(this.channel, this.bend);
-  pool.setLastNote(this.channel, this.note);
-}
-
-MpeHex.prototype.noteOn = function () {
-  // noteOn was already scheduled in the constructor via WebMIDI timestamp.
-  // This method is called by keys.js after construction — nothing to do here.
 };
 
 MpeHex.prototype._ownsVoiceChannel = function () {
@@ -527,7 +539,7 @@ MpeHex.prototype._invalidateDisplacedVoice = function () {
   this.release = true;
 };
 
-MpeHex.prototype.noteOff = function (release_velocity) {
+MpeHex.prototype.noteOff = function (release_velocity, timestamp) {
   if (this.release) return;
   // A stolen MPE hex still exists in higher-level legato registries, but its
   // channel now belongs to another note. It must never note-off that owner.
@@ -539,7 +551,22 @@ MpeHex.prototype.noteOff = function (release_velocity) {
   const vel = release_velocity != null ? release_velocity : this.velocity;
   this.mpePlusPitchBendScheduler?.cancel(this);
   // Send noteOff immediately — no PB reset during the release tail
-  this.midi_output.send([0x80 + c, this.note, vel]);
+  const now =
+    typeof globalThis.performance?.now === "function" ? globalThis.performance.now() : Infinity;
+  const requestedAt = Number.isFinite(Number(timestamp)) ? Number(timestamp) : null;
+  const pendingOnsetGuard =
+    this._noteOnTimestamp != null && this._noteOnTimestamp > now
+      ? this._noteOnTimestamp + 0.5
+      : null;
+  const at =
+    requestedAt == null
+      ? pendingOnsetGuard
+      : pendingOnsetGuard == null
+        ? requestedAt
+        : Math.max(requestedAt, pendingOnsetGuard);
+  const message = [0x80 + c, this.note, vel];
+  if (at == null) this.midi_output.send(message);
+  else this.midi_output.send(message, at);
   forgetMpeNote(this.midi_output, c, this.note);
   traceMidiOutput("mpeNoteOff", {
     family: "mpe",

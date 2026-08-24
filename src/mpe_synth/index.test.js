@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { create_mpe_synth } from "./index.js";
+import { playSnapshot } from "../sequencer/snapshots.js";
 
 const scale12 = [
   "100.",
@@ -352,6 +353,89 @@ describe("mpe_synth first-note ordering", () => {
     expect(midi_output.send).toHaveBeenCalledTimes(2);
     expect(midi_output.send.mock.calls[0][0][0] & 0xf0).toBe(0xe0);
     expect(midi_output.send.mock.calls[1][0][0] & 0xf0).toBe(0x90);
+  });
+
+  it("can prepare pitch bend and defer note-on to a shared chord timestamp", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      4,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "Ableton_workaround",
+      48,
+      2,
+      12,
+      2,
+      500,
+    );
+    midi_output.send.mockClear();
+
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1, {
+      deferNoteOn: true,
+    });
+
+    expect(midi_output.send).toHaveBeenCalledTimes(1);
+    expect(midi_output.send.mock.calls[0][0][0] & 0xf0).toBe(0xe0);
+
+    hex.noteOn(1234.5);
+
+    expect(midi_output.send.mock.calls[1]).toEqual([[0x91, hex.note, 72], 1234.5]);
+  });
+
+  it("keeps every destination chord voice on a unique member channel", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      9,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "Ableton_workaround",
+      48,
+      2,
+      12,
+      2,
+      500,
+    );
+    const runtime = {
+      settings: { fundamental: 440, midi_velocity: 72 },
+      tuning: { equivSteps: 12, degree0toRef_asArray: [0, 1] },
+      synth,
+      _snapshotHexes: [],
+      _snapshotNotes: [],
+      stopSnapshot() {},
+    };
+
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [72, 70, 69, 64, 60].map((midicents) => ({ midicents })),
+      { legato: true },
+    );
+    midi_output.send.mockClear();
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [72, 62, 58, 48, 45, 38, 33].map((midicents) => ({ midicents })),
+      { legato: true },
+    );
+
+    expect(new Set(runtime._snapshotHexes.map((hex) => hex.channel)).size).toBe(7);
+    const noteOns = midi_output.send.mock.calls.filter(([message]) => (message[0] & 0xf0) === 0x90);
+    const destinationChannels = noteOns.map(([message]) => (message[0] & 0x0f) + 1);
+    expect(new Set(destinationChannels).size).toBe(6);
+    expect(noteOns.every(([, timestamp]) => Number.isFinite(timestamp))).toBe(true);
+    expect(new Set(noteOns.map(([, timestamp]) => timestamp)).size).toBe(1);
+
+    synth.shutdown();
   });
 });
 

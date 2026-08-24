@@ -3748,7 +3748,7 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByLabelText("move sequence playhead to start"));
     expect(onResetSequencePlayhead).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByLabelText("stop sequence playback"));
-    expect(onStopSnapshot).toHaveBeenCalledWith();
+    expect(onStopSnapshot).toHaveBeenCalledWith(null, { armCurrentPosition: true });
     expect(screen.getByLabelText("Names").value).toBe("labels");
     fireEvent.click(screen.getByLabelText("snapshot 1 description"));
     expect(onSelectSnapshot).toHaveBeenCalledWith(10);

@@ -14,6 +14,7 @@
  *   { address: "/n_set", args: [...] }
  *   { address: "/n_free", args: [...] }
  *   { port: 57103, address: "/n_set", args: [...] }
+ *   { port: 57103, timetagUnixMs: 1720000000000, messages: [{ address, args }] }
  *
  * Each arg is either a plain number/string, or a typed object:
  *   { type: "i", value: 1 }    integer
@@ -79,6 +80,13 @@ function sendOsc(address, args, port = SC_PORT) {
   });
 }
 
+function sendOscBundle(messages, timetagUnixMs, port = SC_PORT) {
+  const buf = encodeOscBundle(messages, timetagUnixMs);
+  udp.send(buf, port, SC_HOST, (err) => {
+    if (err) console.error("[osc-bridge] UDP bundle send error:", err.message);
+  });
+}
+
 function oscArgValue(arg) {
   if (arg && typeof arg === "object" && "value" in arg) return arg.value;
   return arg;
@@ -95,11 +103,7 @@ function enrichJitterArgs(args) {
   console.log(
     `[osc-bridge:jitter] seq=${seq} kind=${kind} voice=${voiceId} browserΔ=${Number(browserDelta).toFixed?.(3) ?? browserDelta} bridgeΔ=${bridgeDelta.toFixed(3)}`,
   );
-  return [
-    ...args,
-    { type: "f", value: bridgePerfNow },
-    { type: "f", value: bridgeDelta },
-  ];
+  return [...args, { type: "f", value: bridgePerfNow }, { type: "f", value: bridgeDelta }];
 }
 
 // ── WebSocket server (manual HTTP upgrade, no ws package) ────────────────────
@@ -112,7 +116,10 @@ const server = createServer((req, res) => {
 server.on("upgrade", (req, socket, head) => {
   // Validate WebSocket upgrade request
   const key = req.headers["sec-websocket-key"];
-  if (!key) { socket.destroy(); return; }
+  if (!key) {
+    socket.destroy();
+    return;
+  }
 
   const accept = createHash("sha1")
     .update(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
@@ -120,10 +127,10 @@ server.on("upgrade", (req, socket, head) => {
 
   socket.write(
     "HTTP/1.1 101 Switching Protocols\r\n" +
-    "Upgrade: websocket\r\n" +
-    "Connection: Upgrade\r\n" +
-    `Sec-WebSocket-Accept: ${accept}\r\n` +
-    "\r\n"
+      "Upgrade: websocket\r\n" +
+      "Connection: Upgrade\r\n" +
+      `Sec-WebSocket-Accept: ${accept}\r\n` +
+      "\r\n",
   );
 
   console.log(`[osc-bridge] Client connected: ${req.socket.remoteAddress}`);
@@ -134,7 +141,7 @@ server.on("upgrade", (req, socket, head) => {
   socket.on("data", (chunk) => {
     buf = Buffer.concat([buf, chunk]);
     while (buf.length >= 2) {
-      const fin  = (buf[0] & 0x80) !== 0;
+      const fin = (buf[0] & 0x80) !== 0;
       const opcode = buf[0] & 0x0f;
       const masked = (buf[1] & 0x80) !== 0;
       let payloadLen = buf[1] & 0x7f;
@@ -163,10 +170,15 @@ server.on("upgrade", (req, socket, head) => {
 
       buf = buf.slice(offset + payloadLen);
 
-      if (opcode === 0x8) { socket.destroy(); return; } // close frame
-      if (opcode === 0x9) { // ping → pong
+      if (opcode === 0x8) {
+        socket.destroy();
+        return;
+      } // close frame
+      if (opcode === 0x9) {
+        // ping → pong
         const pong = Buffer.alloc(2);
-        pong[0] = 0x8a; pong[1] = 0;
+        pong[0] = 0x8a;
+        pong[1] = 0;
         socket.write(pong);
         continue;
       }
@@ -175,14 +187,30 @@ server.on("upgrade", (req, socket, head) => {
       if (!fin) continue; // skip fragmented frames (not used by osc_synth)
 
       let msg;
-      try { msg = JSON.parse(payload.toString("utf8")); }
-      catch (e) { console.warn("[osc-bridge] Bad JSON:", payload.toString()); continue; }
-
-      if (!msg.address || !Array.isArray(msg.args)) {
-        console.warn("[osc-bridge] Invalid message:", msg);
+      try {
+        msg = JSON.parse(payload.toString("utf8"));
+      } catch (e) {
+        console.warn("[osc-bridge] Bad JSON:", payload.toString());
         continue;
       }
-      if (msg.address === "/hex/jitter") {
+
+      if (Array.isArray(msg.messages) && Number.isFinite(msg.timetagUnixMs)) {
+        const validMessages = msg.messages.filter(
+          (entry) => entry?.address && Array.isArray(entry?.args),
+        );
+        if (!validMessages.length || validMessages.length !== msg.messages.length) {
+          console.warn("[osc-bridge] Invalid bundle:", msg);
+          continue;
+        }
+        sendOscBundle(
+          validMessages,
+          msg.timetagUnixMs,
+          Number.isFinite(msg.port) ? msg.port : SC_PORT,
+        );
+      } else if (!msg.address || !Array.isArray(msg.args)) {
+        console.warn("[osc-bridge] Invalid message:", msg);
+        continue;
+      } else if (msg.address === "/hex/jitter") {
         sendOsc(msg.address, enrichJitterArgs(msg.args), SC_LANG_PORT);
       } else {
         sendOsc(msg.address, msg.args, Number.isFinite(msg.port) ? msg.port : SC_PORT);
@@ -234,7 +262,8 @@ function encodeOsc(address, args) {
       const b = Buffer.alloc(4);
       b.writeInt32BE(Math.round(a.value));
       parts.push(b);
-    } else { // f
+    } else {
+      // f
       const b = Buffer.alloc(4);
       b.writeFloatBE(a.value);
       parts.push(b);
@@ -242,4 +271,22 @@ function encodeOsc(address, args) {
   }
 
   return Buffer.concat(parts);
+}
+
+function encodeOscBundle(messages, timetagUnixMs) {
+  const unixMs = Number(timetagUnixMs);
+  const unixSeconds = unixMs / 1000;
+  const wholeUnixSeconds = Math.floor(unixSeconds);
+  const fractionalSeconds = unixSeconds - wholeUnixSeconds;
+  const timetag = Buffer.alloc(8);
+  timetag.writeUInt32BE((wholeUnixSeconds + 2208988800) >>> 0, 0);
+  timetag.writeUInt32BE(Math.floor(fractionalSeconds * 0x100000000) >>> 0, 4);
+
+  const elements = messages.map(({ address, args }) => {
+    const message = encodeOsc(address, args);
+    const size = Buffer.alloc(4);
+    size.writeUInt32BE(message.length, 0);
+    return Buffer.concat([size, message]);
+  });
+  return Buffer.concat([oscPadded("#bundle"), timetag, ...elements]);
 }

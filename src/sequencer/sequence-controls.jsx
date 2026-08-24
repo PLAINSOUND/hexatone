@@ -987,7 +987,9 @@ const SequenceControls = ({
               aria-label="stop sequence playback"
               disabled={!playingSnapshotId}
               onClick={() => {
-                runTransportAction(() => onStopSnapshot?.());
+                runTransportAction(() =>
+                  onStopSnapshot?.(null, { armCurrentPosition: true }),
+                );
               }}
             >
               <span class="snapshot-stop-glyph" aria-hidden="true">

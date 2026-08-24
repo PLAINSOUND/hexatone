@@ -3,6 +3,7 @@ import {
   buildCommittedSequencePlaybackState,
   buildStoppedSequenceTransportState,
   buildTimedPlaybackUiResetState,
+  resolveManualPlaybackStopTransportState,
   resolvePendingCueTransportState,
   resolvePendingSnapshotTransportState,
   resolveWorkspaceMutationTransportState,
@@ -196,6 +197,74 @@ describe("transport intent runtime", () => {
         stopped: true,
       },
     });
+  });
+
+  it("arms the currently playing manual snapshot when playback stops", () => {
+    expect(
+      resolveManualPlaybackStopTransportState({
+        playhead: { barIndex: 3, stepIndex: 1, markerIndex: null, stopped: false },
+        snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+        sequenceCueGroups: [
+          { snapshotIndex: 0, time: 1 },
+          { snapshotIndex: 1, time: 2.25 },
+        ],
+      }),
+    ).toEqual({
+      pendingTransportSelection: {
+        snapshotIndex: 1,
+        cueIndex: 1,
+      },
+      playingSnapshotId: null,
+      selectedSnapshotId: "s2",
+      selectedSnapshotMarker: null,
+      playhead: {
+        barIndex: 3,
+        stepIndex: 1,
+        markerIndex: null,
+        stopped: true,
+      },
+    });
+  });
+
+  it("arms the currently playing manual cue and its snapshot when playback stops", () => {
+    expect(
+      resolveManualPlaybackStopTransportState({
+        playhead: { barIndex: 4, stepIndex: 1, markerIndex: 2, stopped: false },
+        snapshots: [{ id: "s1" }, { id: "s2" }, { id: "s3" }],
+        sequenceCueGroups: [
+          { snapshotIndex: 0, time: 1 },
+          { snapshotIndex: 1, time: 2 },
+          { snapshotIndex: 1, time: 2.375 },
+        ],
+      }),
+    ).toEqual({
+      pendingTransportSelection: {
+        snapshotIndex: 1,
+        cueIndex: 2,
+      },
+      playingSnapshotId: null,
+      selectedSnapshotId: "s2",
+      selectedSnapshotMarker: {
+        snapshotId: "s2",
+        time: 0.375,
+      },
+      playhead: {
+        barIndex: 4,
+        stepIndex: 1,
+        markerIndex: 2,
+        stopped: true,
+      },
+    });
+  });
+
+  it("does not re-arm an already stopped navigation playhead", () => {
+    expect(
+      resolveManualPlaybackStopTransportState({
+        playhead: { barIndex: 2, stepIndex: 1, markerIndex: 2, stopped: true },
+        snapshots: [{ id: "s1" }, { id: "s2" }],
+        sequenceCueGroups: [{ snapshotIndex: 1, time: 2 }],
+      }),
+    ).toBeNull();
   });
 
   it("resolves pending cue transport to the earliest expanded sounding snapshot", () => {

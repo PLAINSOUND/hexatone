@@ -366,7 +366,7 @@ function MidiHex(
   }
 }
 
-MidiHex.prototype.noteOn = function () {
+MidiHex.prototype.noteOn = function (timestamp) {
   if (this.mts.length > 0) {
     // F0 <rt> <device_id> 08 02 00 01 <slot> <note> <fine_msb> <fine_lsb> F7
     // rt: single-note real-time MUST always be 0x7F (not affected by sysex_type setting)
@@ -391,7 +391,9 @@ MidiHex.prototype.noteOn = function () {
       carrier: this.mts[0],
     });
   }
-  this.midi_output.send([144 + this.channel, this.steps, this.velocity]);
+  const message = [144 + this.channel, this.steps, this.velocity];
+  if (Number.isFinite(Number(timestamp))) this.midi_output.send(message, Number(timestamp));
+  else this.midi_output.send(message);
   traceMidiOutput("mtsNoteOn", {
     family: "mts",
     channel: this.channel,
@@ -453,9 +455,11 @@ MidiHex.prototype.expression = function (value) {
   this.midi_output.send([0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
-MidiHex.prototype.noteOff = function (release_velocity) {
+MidiHex.prototype.noteOff = function (release_velocity, timestamp) {
   const velocity = release_velocity != null ? release_velocity : this.velocity;
-  this.midi_output.send([128 + this.channel, this.steps, velocity]);
+  const message = [128 + this.channel, this.steps, velocity];
+  if (Number.isFinite(Number(timestamp))) this.midi_output.send(message, Number(timestamp));
+  else this.midi_output.send(message);
   traceMidiOutput("mtsNoteOff", {
     family: "mts",
     channel: this.channel,
@@ -634,7 +638,7 @@ function createBulkDynamicTransport({
     release(coords) {
       pool.noteOff(coords);
     },
-    noteOn({ coords: _coords, carrier, triplet, velocity: noteVelocity }) {
+    noteOn({ coords: _coords, carrier, triplet, velocity: noteVelocity, timestamp }) {
       // Cancel any pending coalesced retune — the noteOn dump supersedes it.
       if (_retunePending !== null) {
         clearTimeout(_retunePending);
@@ -643,8 +647,14 @@ function createBulkDynamicTransport({
       currentEntries[carrier] = [...triplet];
       sendBulkDump();
       const noteOnVelocity = noteVelocity > 0 ? noteVelocity : velocity;
-      const at = MTS_BULK_GUARD_MS > 0 ? performance.now() + MTS_BULK_GUARD_MS : undefined;
-      midi_output.send([0x90 + channel, carrier, noteOnVelocity], at);
+      const at = Number.isFinite(Number(timestamp))
+        ? Number(timestamp)
+        : MTS_BULK_GUARD_MS > 0
+          ? performance.now() + MTS_BULK_GUARD_MS
+          : undefined;
+      const message = [0x90 + channel, carrier, noteOnVelocity];
+      if (at == null) midi_output.send(message);
+      else midi_output.send(message, at);
       traceMidiOutput("mtsBulkNoteOn", {
         family: "mts_bulk",
         channel,
@@ -652,8 +662,10 @@ function createBulkDynamicTransport({
         value: noteOnVelocity,
       });
     },
-    noteOff({ carrier, velocity: noteVelocity }) {
-      midi_output.send([0x80 + channel, carrier, noteVelocity != null ? noteVelocity : velocity]);
+    noteOff({ carrier, velocity: noteVelocity, timestamp }) {
+      const message = [0x80 + channel, carrier, noteVelocity != null ? noteVelocity : velocity];
+      if (Number.isFinite(Number(timestamp))) midi_output.send(message, Number(timestamp));
+      else midi_output.send(message);
       traceMidiOutput("mtsBulkNoteOff", {
         family: "mts_bulk",
         channel,
@@ -743,7 +755,7 @@ function DynamicBulkHex(
   this.mts = [];
 }
 
-DynamicBulkHex.prototype.noteOn = function () {
+DynamicBulkHex.prototype.noteOn = function (timestamp) {
   if (this.channel >= 0 && this.midi_output && this.transport) {
     const allocation = buildDynamicBulkAllocation({
       coords: this.coords,
@@ -765,17 +777,18 @@ DynamicBulkHex.prototype.noteOn = function () {
       carrier: allocation.carrier,
       triplet: allocation.triplet,
       velocity: this.velocity,
+      timestamp,
     });
   }
 };
 
-DynamicBulkHex.prototype.noteOff = function (release_velocity) {
+DynamicBulkHex.prototype.noteOff = function (release_velocity, timestamp) {
   if (this._noteOffCalled) return;
   this._noteOffCalled = true;
   this.release = true;
   if (this.channel >= 0 && this.midi_output && this.transport && this.carrier != null) {
     const vel = release_velocity != null ? release_velocity : this.velocity;
-    this.transport.noteOff({ carrier: this.carrier, velocity: vel });
+    this.transport.noteOff({ carrier: this.carrier, velocity: vel, timestamp });
     this.transport.release(this.coords);
   }
 };
@@ -899,9 +912,11 @@ StaticBulkHex.prototype._updateMts = function (cents) {
   this.mts = [this.carrier, ...triplet];
 };
 
-StaticBulkHex.prototype.noteOn = function () {
+StaticBulkHex.prototype.noteOn = function (timestamp) {
   if (this.channel >= 0 && this.midi_output) {
-    this.midi_output.send([0x90 + this.channel, this.carrier, this.velocity]);
+    const message = [0x90 + this.channel, this.carrier, this.velocity];
+    if (Number.isFinite(Number(timestamp))) this.midi_output.send(message, Number(timestamp));
+    else this.midi_output.send(message);
     traceMidiOutput("mtsStaticNoteOn", {
       family: "mts_static",
       channel: this.channel,
@@ -911,13 +926,15 @@ StaticBulkHex.prototype.noteOn = function () {
   }
 };
 
-StaticBulkHex.prototype.noteOff = function (release_velocity) {
+StaticBulkHex.prototype.noteOff = function (release_velocity, timestamp) {
   if (this._noteOffCalled) return;
   this._noteOffCalled = true;
   this.release = true;
   if (this.channel >= 0 && this.midi_output) {
     const vel = release_velocity != null ? release_velocity : this.velocity;
-    this.midi_output.send([0x80 + this.channel, this.carrier, vel]);
+    const message = [0x80 + this.channel, this.carrier, vel];
+    if (Number.isFinite(Number(timestamp))) this.midi_output.send(message, Number(timestamp));
+    else this.midi_output.send(message);
     traceMidiOutput("mtsStaticNoteOff", {
       family: "mts_static",
       channel: this.channel,

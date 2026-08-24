@@ -7,6 +7,17 @@
  *   // then pass synth to Keyboard as normal
  */
 
+const expressionStateBySynths = new WeakMap();
+
+function expressionState(synths) {
+  let state = expressionStateBySynths.get(synths);
+  if (!state) {
+    state = { modwheel: null, expression: null, onsetMod: null };
+    expressionStateBySynths.set(synths, state);
+  }
+  return state;
+}
+
 export const create_composite_synth = (synths) => ({
   family: "composite",
   families: synths.map((s) => s?.family).filter(Boolean),
@@ -32,12 +43,15 @@ export const create_composite_synth = (synths) => ({
       // Keys.js uses this to redraw the displaced hex.
       _stolenCoords: hexes.reduce((acc, h) => acc || h._stolenCoords || null, null),
 
-      noteOn() {
-        hexes.forEach((h) => h.noteOn());
+      noteOn(timestamp) {
+        hexes.forEach((h) => h.noteOn(timestamp));
       },
 
-      noteOff(release_velocity) {
-        hexes.forEach((h) => h.noteOff(release_velocity));
+      noteOff(release_velocity, timestamp) {
+        hexes.forEach((h) => {
+          if (Number.isFinite(Number(timestamp))) h.noteOff(release_velocity, Number(timestamp));
+          else h.noteOff(release_velocity);
+        });
       },
 
       retune(newCents, bendOnly = false, bend21 = null) {
@@ -79,6 +93,10 @@ export const create_composite_synth = (synths) => ({
         });
       },
 
+      prepareSnapshotPressure(value, value14 = null) {
+        hexes.forEach((h) => h.prepareSnapshotPressure?.(value, value14));
+      },
+
       pressure(value, value14 = null) {
         hexes.forEach((h) => h.pressure && h.pressure(value, value14));
       },
@@ -100,10 +118,16 @@ export const create_composite_synth = (synths) => ({
       },
 
       modwheel(value) {
+        const state = expressionState(synths);
+        if (value === state.modwheel) return;
+        state.modwheel = value;
         hexes.forEach((h) => h.modwheel && h.modwheel(value));
       },
 
       expression(value) {
+        const state = expressionState(synths);
+        if (value === state.expression) return;
+        state.expression = value;
         hexes.forEach((h) => h.expression && h.expression(value));
       },
     };
@@ -140,6 +164,9 @@ export const create_composite_synth = (synths) => ({
   },
 
   setMod(value) {
+    const state = expressionState(synths);
+    if (value === state.onsetMod) return;
+    state.onsetMod = value;
     synths.forEach((s) => s.setMod && s.setMod(value));
   },
 

@@ -99,6 +99,45 @@ export function resolvePendingSnapshotTransportState({
   };
 }
 
+export function resolveManualPlaybackStopTransportState({
+  playhead,
+  snapshots = [],
+  sequenceCueGroups = [],
+} = {}) {
+  if (playhead?.stopped === true) return null;
+  const stepIndex = Number.isFinite(playhead?.stepIndex) ? Number(playhead.stepIndex) : NaN;
+  if (!Number.isInteger(stepIndex) || stepIndex < 0 || stepIndex >= snapshots.length) return null;
+  const snapshot = snapshots[stepIndex] ?? null;
+  if (!snapshot) return null;
+
+  const markerIndex = Number.isFinite(playhead?.markerIndex) ? Number(playhead.markerIndex) : NaN;
+  const cueGroup = Number.isInteger(markerIndex) ? (sequenceCueGroups[markerIndex] ?? null) : null;
+  if (cueGroup) {
+    return {
+      pendingTransportSelection: armPendingCueSelection(markerIndex, stepIndex),
+      ...buildStoppedSequenceTransportState({
+        barIndex: Number(playhead?.barIndex) || 0,
+        stepIndex,
+        markerIndex,
+        selectedSnapshotId: snapshot.id,
+        selectedSnapshotMarker: {
+          snapshotId: snapshot.id,
+          time: cueGroup.time - (stepIndex + 1),
+        },
+      }),
+    };
+  }
+
+  return {
+    pendingTransportSelection: armPendingSnapshotSelection(stepIndex, sequenceCueGroups),
+    ...buildStoppedSequenceTransportState({
+      barIndex: Number(playhead?.barIndex) || 0,
+      stepIndex,
+      selectedSnapshotId: snapshot.id,
+    }),
+  };
+}
+
 export function resolveWorkspaceMutationTransportState({
   focus = null,
   snapshots = [],
