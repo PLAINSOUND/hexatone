@@ -50,6 +50,8 @@ export const SETTINGS_IMPACT_FIELDS = {
     "hakenaudio_raster_filter_mode",
     "hakenaudio_raster_filter",
     "hakenaudio_raster_filter_snapshots",
+    "hakenaudio_apply_raster_in_pitch_bending",
+    "hakenaudio_shape_x_glide_to_raster",
     "hakenaudio_out_port",
     "midiin_scale_tolerance",
     "midiin_scale_fallback",

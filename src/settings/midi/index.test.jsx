@@ -228,7 +228,7 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByLabelText("MPE Pitch Bend Range").value).toBe("96");
   });
 
-  it("keeps the shared Continuum performance controls visible in Raster to Notes mode", () => {
+  it("keeps the shared Continuum performance controls visible in Rastered Notes mode", () => {
     const props = makeProps({
       midiin_controller_override: "hakenaudio",
       midiin_mapping_target: "scale",
@@ -250,7 +250,7 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByText("X Glide Shaping")).toBeTruthy();
   });
 
-  it("shows Continuum Raster to Notes controls in geometry-aware hex layout as well as scale mode", () => {
+  it("shows Continuum Rastered Notes controls in geometry-aware hex layout as well as scale mode", () => {
     const props = makeProps({
       midiin_controller_override: "hakenaudio",
       midiin_mapping_target: "hex_layout",

@@ -1038,6 +1038,8 @@ MIDIio.propTypes = {
     hakenaudio_raster_filter_mode: PropTypes.string,
     hakenaudio_raster_filter: PropTypes.string,
     hakenaudio_raster_filter_snapshots: PropTypes.bool,
+    hakenaudio_apply_raster_in_pitch_bending: PropTypes.bool,
+    hakenaudio_shape_x_glide_to_raster: PropTypes.bool,
     hakenaudio_out_port: PropTypes.string,
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,

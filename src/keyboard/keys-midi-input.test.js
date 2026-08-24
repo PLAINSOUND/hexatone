@@ -6,6 +6,7 @@ import { ensureMidiInputBinding, rebuildControllerMap } from "../input/keys-midi
 import { parseExactInterval } from "../tuning/interval.js";
 import {
   applyContinuumPitchShape,
+  applyContinuumRasterPitchShape,
   computeContinuumPitchBendCents,
   resolveHakenXGlideMode,
 } from "../input/keys-expression-runtime.js";
@@ -151,6 +152,32 @@ describe("Keys MIDI input integration", () => {
 
   beforeEach(() => {
     drawGridSpy = vi.spyOn(Keys.prototype, "drawGrid").mockImplementation(() => {});
+  });
+
+  it("shapes Continuum pitch bend around raster-filter degrees instead of every scale degree", () => {
+    const inputRuntime = {
+      hakenXGlideShaping: 100,
+      hakenRasterFilterMode: "filter",
+      hakenRasterFilter: "0,4,7",
+      hakenShapeXGlideToRaster: true,
+    };
+
+    expect(applyContinuumRasterPitchShape(1, inputRuntime, 12)).toBeLessThan(0.001);
+    expect(applyContinuumRasterPitchShape(3, inputRuntime, 12)).toBeGreaterThan(3.999);
+    expect(applyContinuumRasterPitchShape(4, inputRuntime, 12)).toBe(4);
+  });
+
+  it("keeps the ordinary every-degree shaping grid when Shape X Glide to Raster is disabled", () => {
+    const inputRuntime = {
+      hakenXGlideShaping: 100,
+      hakenRasterFilterMode: "filter",
+      hakenRasterFilter: "0,4,7",
+      hakenShapeXGlideToRaster: false,
+    };
+
+    expect(applyContinuumRasterPitchShape(1.25, inputRuntime, 12)).toBe(
+      applyContinuumPitchShape(1.25, inputRuntime),
+    );
   });
 
   it("publishes live scale table activity after MIDI note state mutates", async () => {
@@ -2936,7 +2963,7 @@ describe("Keys MIDI input integration", () => {
     expect(hex._rasterSteps).toBe(3);
   });
 
-  it("does not apply the Continuum raster filter to first attack outside raster mode", () => {
+  it("applies the Continuum raster filter to a Rastered Attack + Pitch Bend onset", () => {
     const keys = createKeys(
       {
         midiin_controller_override: "hakenaudio",
@@ -2950,6 +2977,92 @@ describe("Keys MIDI input integration", () => {
         hakenXGlideMode: "pitch_bending",
         hakenRasterFilterMode: "filter",
         hakenRasterFilter: "0,3",
+        hakenApplyRasterInPitchBending: true,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.coordResolver.coordForSteps = vi.fn((steps) => new Point(steps, 0));
+    vi.spyOn(keys, "_resolveScaleInputPitchCents").mockReturnValue(210);
+    const hex = {
+      coords: new Point(3, 0),
+      cents: 330,
+      _baseCents: 330,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+    };
+    keys.hexOn = vi.fn(() => hex);
+    keys.hexCoordsToCents = vi.fn((coords) => [coords.x * 105, 0, coords.x]);
+
+    keys.midinoteOn(makeMidiEvent(60, 5));
+
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledWith(3, {
+      channel: 5,
+      note: 60,
+    });
+    expect(hex._rasterOnsetSteps).toBe(3);
+  });
+
+  it("applies the Continuum raster filter to a Hex Layout Rastered Attack + Pitch Bend onset", () => {
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        scale: [0, 100, 210, 330, 500],
+        equivSteps: 5,
+        equivInterval: 1200,
+      },
+      {
+        target: "hex_layout",
+        mpeInput: true,
+        hakenXGlideMode: "pitch_bending",
+        hakenRasterFilterMode: "filter",
+        hakenRasterFilter: "0,3",
+        hakenApplyRasterInPitchBending: true,
+      },
+    );
+    keys.controller = { id: "hakenaudio" };
+    keys.coordResolver.noteToSteps = vi.fn(() => 2);
+    keys.coordResolver.coordForSteps = vi.fn((steps) => new Point(steps, 0));
+    keys.hexCoordsToCents = vi.fn((coords) => [coords.x * 105, 0, coords.x]);
+    const hex = {
+      coords: new Point(3, 0),
+      cents: 330,
+      _baseCents: 330,
+      release: false,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+    };
+    keys.hexOn = vi.fn(() => hex);
+
+    keys.midinoteOn(makeMidiEvent(60, 5));
+
+    expect(keys.coordResolver.coordForSteps).toHaveBeenLastCalledWith(3, {
+      channel: 5,
+      note: 60,
+      rawChannel: 5,
+    });
+    expect(keys.hexOn.mock.calls[0][0]).toEqual(new Point(3, 0));
+    expect(hex._rasterOnsetSteps).toBe(3);
+  });
+
+  it("does not apply the raster filter in pitch-bending mode when its option is disabled", () => {
+    const keys = createKeys(
+      {
+        midiin_controller_override: "hakenaudio",
+        scale: [0, 100, 210, 330, 500],
+        equivSteps: 5,
+        equivInterval: 1200,
+      },
+      {
+        target: "scale",
+        mpeInput: true,
+        hakenXGlideMode: "pitch_bending",
+        hakenRasterFilterMode: "filter",
+        hakenRasterFilter: "0,3",
+        hakenApplyRasterInPitchBending: false,
+        hakenShapeXGlideToRaster: true,
       },
     );
     keys.controller = { id: "hakenaudio" };
@@ -3039,7 +3152,7 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.activeMidi.get(60)).toBe(newHex);
   });
 
-  it("momentarily flips Continuum pitch bending and raster modes with the space bar", () => {
+  it("momentarily flips Continuum Rastered Attack + Pitch Bend and Rastered Notes modes with the space bar", () => {
     const keys = createKeys(
       { midiin_controller_override: "hakenaudio" },
       {
@@ -3254,7 +3367,7 @@ describe("Keys MIDI input integration", () => {
     expect(hex.retune).not.toHaveBeenCalled();
   });
 
-  it("hands off Continuum pitch bending into raster mode without snapping before the next raster center", () => {
+  it("hands off Continuum Rastered Attack + Pitch Bend into Rastered Notes without snapping before the next raster center", () => {
     const keys = createKeys(
       {
         midiin_controller_override: "hakenaudio",
@@ -4472,7 +4585,7 @@ describe("Keys MIDI input integration", () => {
     expect(shapedBend).toBeLessThan(flatBend);
   });
 
-  it("Continuum pitch bending follows scale degrees in MIDI to Hex Layout", () => {
+  it("Continuum Rastered Attack + Pitch Bend follows scale degrees in MIDI to Hex Layout", () => {
     const irregularScale = [0, 70, 300, 610];
     const makeHex = vi.fn((coords, cents) => ({
       coords,
@@ -4564,7 +4677,7 @@ describe("Keys MIDI input integration", () => {
     expect(hex.retune.mock.calls[0][0]).toBeCloseTo(expectedRasterCenterCents, 5);
   });
 
-  it("Continuum nearest-scale pitch bending follows incoming bend range while staying scale-aware", () => {
+  it("Continuum nearest-scale Rastered Attack + Pitch Bend follows incoming bend range while staying scale-aware", () => {
     const irregularScale = [0, 70, 300, 610];
     const makeHex = vi.fn((coords, cents) => ({
       coords,

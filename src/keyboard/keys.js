@@ -209,6 +209,8 @@ class Keys {
       hakenRasterStability: settings.hakenaudio_raster_stability ?? 25,
       hakenRasterFilterMode: settings.hakenaudio_raster_filter_mode ?? "all",
       hakenRasterFilter: settings.hakenaudio_raster_filter ?? "",
+      hakenApplyRasterInPitchBending: settings.hakenaudio_apply_raster_in_pitch_bending ?? false,
+      hakenShapeXGlideToRaster: settings.hakenaudio_shape_x_glide_to_raster ?? false,
       pitchBendMode: "recency",
       pressureMode: "recency",
       wheelToRecent: settings.wheel_to_recent,

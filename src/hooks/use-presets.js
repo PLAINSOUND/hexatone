@@ -325,6 +325,8 @@ const RESTORABLE_INPUT_RUNTIME_KEYS = [
   "hakenaudio_raster_stability",
   "hakenaudio_raster_filter_mode",
   "hakenaudio_raster_filter",
+  "hakenaudio_apply_raster_in_pitch_bending",
+  "hakenaudio_shape_x_glide_to_raster",
 ];
 
 function buildRestorablePresetPayload(source, appliedSettings, savedLibrary = []) {

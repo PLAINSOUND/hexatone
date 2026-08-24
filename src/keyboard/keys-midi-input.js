@@ -125,6 +125,15 @@ function nearestContinuumFilteredScaleStep(keys, step, filterSet, equivSteps) {
   return Number.isFinite(bestStep) ? bestStep : step;
 }
 
+function continuumAttackRasterFilter(keys) {
+  if (keys.controller?.id !== "hakenaudio" || !keys.inputRuntime.mpeInput) return null;
+  const glideMode = resolveHakenXGlideMode(keys.inputRuntime);
+  if (glideMode !== "raster_to_notes" && !keys.inputRuntime.hakenApplyRasterInPitchBending) {
+    return null;
+  }
+  return continuumRasterFilterSetFromRuntime(keys.inputRuntime);
+}
+
 function clearContinuumRasterExitHandoff(hex) {
   if (!hex) return;
   hex._continuumRasterPendingExitHandoff = false;
@@ -493,12 +502,10 @@ export function midinoteOn(event) {
       channel: event.message.channel,
       note: event.note.number,
     };
-    const rasterFilter =
-      this.controller?.id === "hakenaudio" &&
-      this.inputRuntime.mpeInput &&
-      resolveHakenXGlideMode(this.inputRuntime) === "raster_to_notes"
-        ? continuumRasterFilterSetFromRuntime(this.inputRuntime)
-        : null;
+    // Rastered Notes always filters its onset. Rastered Attack + Pitch Bend
+    // does so only when its optional attack-filter preference is enabled.
+    // Only Rastered Notes continues consulting the filter for later retriggers.
+    const rasterFilter = continuumAttackRasterFilter(this);
     const equivSteps = Math.max(
       1,
       Number(this.tuning.equivSteps ?? this.settings.equivSteps ?? 1) || 1,
@@ -519,12 +526,32 @@ export function midinoteOn(event) {
     const resolved = resolveNonScaleNoteOn(this, event);
     if (!resolved) return;
     ({ coords, liveInputAddress } = resolved);
+    if (this.controller?.id === "hakenaudio" && this.inputRuntime.mpeInput && coords) {
+      const rasterFilter = continuumAttackRasterFilter(this);
+      if (rasterFilter) {
+        const [, , mappedSteps] = this.hexCoordsToCents(coords);
+        const equivSteps = Math.max(
+          1,
+          Number(this.tuning.equivSteps ?? this.settings.equivSteps ?? 1) || 1,
+        );
+        const onsetSteps = nearestContinuumFilteredScaleStep(
+          this,
+          mappedSteps,
+          rasterFilter,
+          equivSteps,
+        );
+        rasterOnsetStepsOverride = onsetSteps;
+        coords = this.coordResolver.coordForSteps(onsetSteps, liveInputAddress);
+      }
+    }
     if (
       isHakenPitchBendingCollisionAvoidanceActive(this) &&
       liveInputAddress &&
       !this.controllerMap
     ) {
-      const steps = this.coordResolver.noteToSteps(liveInputAddress.note, liveInputAddress.channel);
+      const steps =
+        rasterOnsetStepsOverride ??
+        this.coordResolver.noteToSteps(liveInputAddress.note, liveInputAddress.channel);
       coords = maybeResolveDistinctHakenCoords(this, coords, steps, liveInputAddress);
     }
     if (
@@ -595,10 +622,9 @@ export function midinoteOn(event) {
       // Hex-layout mode: onset step via noteToSteps which includes channel offset.
       // Subsequent bends add a semitoneOffset to this value directly, avoiding
       // any double-application of the channel offset.
-      hex._rasterOnsetSteps = this.coordResolver.noteToSteps(
-        notePlayed % 128,
-        event.message.channel,
-      );
+      hex._rasterOnsetSteps =
+        rasterOnsetStepsOverride ??
+        this.coordResolver.noteToSteps(notePlayed % 128, event.message.channel);
     }
     // _rasterSteps tracks the last triggered step (semitoneOffset = 0 at onset).
     hex._rasterSteps = hex._rasterOnsetSteps;
@@ -766,7 +792,7 @@ export function allnotesOff() {
 }
 
 /**
- * Haken Continuum "Raster to Notes" bend handler.
+ * Haken Continuum "Rastered Notes" bend handler.
  *
  * Called from applyMpePitchBend (keys-expression-runtime.js) when the
  * controller is a Haken Continuum and hakenXGlideMode === "raster_to_notes".

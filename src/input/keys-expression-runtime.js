@@ -6,6 +6,7 @@
 import { WebMidi } from "webmidi";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { publishEaganBrightness, publishEaganTiltEq } from "../mpe_synth/eagan-matrix.js";
+import { continuumRasterFilterSetFromRuntime } from "../controllers/continuum-raster-filters.js";
 import {
   applyTransferredCC74,
   applyTransferredPitchBend,
@@ -144,6 +145,49 @@ export function applyContinuumPitchShape(stepOffset, inputRuntime) {
   return Math.sign(stepOffset) * (wholeSteps + pocketedFrac);
 }
 
+function continuumRasterDegreeAllowed(step, filterSet, equivSteps) {
+  const reduced = ((step % equivSteps) + equivSteps) % equivSteps;
+  return filterSet.has(reduced);
+}
+
+export function applyContinuumRasterPitchShape(stepFloat, inputRuntime, equivSteps) {
+  if (!inputRuntime?.hakenShapeXGlideToRaster) {
+    return applyContinuumPitchShape(stepFloat, inputRuntime);
+  }
+  const filterSet = continuumRasterFilterSetFromRuntime(inputRuntime);
+  const period = Math.max(1, Number(equivSteps) || 1);
+  const usableFilter = new Set(
+    [...(filterSet ?? [])].filter(
+      (degree) => Number.isInteger(degree) && degree >= 0 && degree < period,
+    ),
+  );
+  if (usableFilter.size === 0 || !Number.isFinite(stepFloat)) {
+    return applyContinuumPitchShape(stepFloat, inputRuntime);
+  }
+
+  let lowerStep = Math.floor(stepFloat);
+  let upperStep = Math.ceil(stepFloat);
+  for (let distance = 0; distance <= period; distance += 1) {
+    const candidate = Math.floor(stepFloat) - distance;
+    if (continuumRasterDegreeAllowed(candidate, usableFilter, period)) {
+      lowerStep = candidate;
+      break;
+    }
+  }
+  for (let distance = 0; distance <= period; distance += 1) {
+    const candidate = Math.ceil(stepFloat) + distance;
+    if (continuumRasterDegreeAllowed(candidate, usableFilter, period)) {
+      upperStep = candidate;
+      break;
+    }
+  }
+  if (lowerStep === upperStep) return stepFloat;
+
+  const intervalFraction = (stepFloat - lowerStep) / (upperStep - lowerStep);
+  const shapedFraction = applyContinuumPitchShape(intervalFraction, inputRuntime);
+  return lowerStep + (upperStep - lowerStep) * shapedFraction;
+}
+
 function continuumLiveFrameInfo(keys, hex) {
   const frame = keys._frameForSoundingHex?.(hex) ?? keys._activeFrame?.() ?? null;
   const geometryMode =
@@ -251,12 +295,19 @@ export function computeContinuumPitchBendCents(keys, entry, channel, value14, va
         ? entry.hex._rasterOnsetSteps
         : currentSteps;
     const degreeSpan = Math.max(0, Number(keys.inputRuntime.scaleBendRange ?? 48) || 0);
-    const shapedStepOffset = applyContinuumPitchShape(norm * degreeSpan, keys.inputRuntime);
+    const stepOffset = norm * degreeSpan;
+    const shapedSteps = keys.inputRuntime.hakenShapeXGlideToRaster
+      ? applyContinuumRasterPitchShape(
+          baseSteps + stepOffset,
+          keys.inputRuntime,
+          runtimeScale.length,
+        )
+      : baseSteps + applyContinuumPitchShape(stepOffset, keys.inputRuntime);
     return liveCentsForFloatingScaleStep(
       keys,
       runtimeScale,
       runtimeEquivInterval,
-      baseSteps + shapedStepOffset,
+      shapedSteps,
       entry.hex,
     );
   }
@@ -272,7 +323,11 @@ export function computeContinuumPitchBendCents(keys, entry, channel, value14, va
       targetCents,
       entry.hex,
     );
-    const shapedSteps = applyContinuumPitchShape(floatSteps, keys.inputRuntime);
+    const shapedSteps = applyContinuumRasterPitchShape(
+      floatSteps,
+      keys.inputRuntime,
+      runtimeScale.length,
+    );
     return liveCentsForFloatingScaleStep(
       keys,
       runtimeScale,

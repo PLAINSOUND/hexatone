@@ -3803,6 +3803,8 @@ const App = () => {
       hakenRasterStability: settings.hakenaudio_raster_stability ?? 25,
       hakenRasterFilterMode: settings.hakenaudio_raster_filter_mode ?? "all",
       hakenRasterFilter: settings.hakenaudio_raster_filter ?? "",
+      hakenApplyRasterInPitchBending: settings.hakenaudio_apply_raster_in_pitch_bending ?? false,
+      hakenShapeXGlideToRaster: settings.hakenaudio_shape_x_glide_to_raster ?? false,
     }),
     [
       forceScaleTarget,
@@ -3836,6 +3838,8 @@ const App = () => {
       settings.hakenaudio_raster_stability,
       settings.hakenaudio_raster_filter_mode,
       settings.hakenaudio_raster_filter,
+      settings.hakenaudio_apply_raster_in_pitch_bending,
+      settings.hakenaudio_shape_x_glide_to_raster,
     ],
   );
 

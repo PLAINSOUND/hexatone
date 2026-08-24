@@ -214,7 +214,8 @@ export const SETTINGS_REGISTRY = [
     type: "string",
     default: "pitch_bending",
     perController: true,
-    description: "Haken Continuum X glide mode: pitch_bending or raster_to_notes",
+    description:
+      "Haken Continuum X glide mode: Rastered Attack + Pitch Bend (pitch_bending) or Rastered Notes (raster_to_notes)",
   },
   {
     key: "hakenaudio_glide_flip_cc",
@@ -231,7 +232,7 @@ export const SETTINGS_REGISTRY = [
     default: 64,
     perController: true,
     description:
-      "Haken Continuum Raster to Notes pressure-to-velocity blend (0 keep attack velocity, 127 follow pressure)",
+      "Haken Continuum Rastered Notes pressure-to-velocity blend (0 keep attack velocity, 127 follow pressure)",
   },
   {
     key: "hakenaudio_note_off_delay",
@@ -239,7 +240,7 @@ export const SETTINGS_REGISTRY = [
     type: "int",
     default: 45,
     perController: true,
-    description: "Haken Continuum Raster to Notes auto-generated note-off delay in milliseconds",
+    description: "Haken Continuum Rastered Notes auto-generated note-off delay in milliseconds",
   },
   {
     key: "hakenaudio_raster_throttle_ms",
@@ -247,7 +248,7 @@ export const SETTINGS_REGISTRY = [
     type: "int",
     default: 35,
     perController: true,
-    description: "Haken Continuum Raster to Notes minimum retrigger interval in milliseconds",
+    description: "Haken Continuum Rastered Notes minimum retrigger interval in milliseconds",
   },
   {
     key: "hakenaudio_raster_stability",
@@ -256,7 +257,7 @@ export const SETTINGS_REGISTRY = [
     default: 50,
     perController: true,
     description:
-      "Haken Continuum Raster to Notes hysteresis amount to reduce note flutter near boundaries",
+      "Haken Continuum Rastered Notes hysteresis amount to reduce note flutter near boundaries",
   },
   {
     key: "hakenaudio_raster_filter_mode",
@@ -264,8 +265,7 @@ export const SETTINGS_REGISTRY = [
     type: "string",
     default: "all",
     perController: true,
-    description:
-      "Haken Continuum Raster to Notes filter mode: all degrees or selected degree subset",
+    description: "Haken Continuum raster filter mode: all degrees or selected degree subset",
   },
   {
     key: "hakenaudio_raster_filter",
@@ -273,7 +273,8 @@ export const SETTINGS_REGISTRY = [
     type: "string",
     default: "",
     perController: true,
-    description: "Comma-separated scale degrees allowed for Continuum Raster to Notes retriggering",
+    description:
+      "Comma-separated scale degrees allowed for Continuum rastered attacks and Rastered Notes retriggering",
   },
   {
     key: "hakenaudio_raster_filter_snapshots",
@@ -282,6 +283,24 @@ export const SETTINGS_REGISTRY = [
     default: false,
     perController: true,
     description: "Show auto-generated Continuum raster filters derived from captured snapshots",
+  },
+  {
+    key: "hakenaudio_apply_raster_in_pitch_bending",
+    tier: "local",
+    type: "bool",
+    default: false,
+    perController: true,
+    description:
+      "Apply the selected Continuum raster filter to attacks in Rastered Attack + Pitch Bend mode",
+  },
+  {
+    key: "hakenaudio_shape_x_glide_to_raster",
+    tier: "local",
+    type: "bool",
+    default: false,
+    perController: true,
+    description:
+      "Shape Continuum pitch bending around the selected raster filter degrees instead of every scale degree",
   },
   {
     key: "midi_passthrough",

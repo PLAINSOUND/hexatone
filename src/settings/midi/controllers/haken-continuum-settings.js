@@ -290,7 +290,7 @@ const HakenContinuumSettings = ({
         }}
       />
 
-      <label title="Controls how Continuum X-axis finger movement is translated. Pitch Bending applies continuous bend that follows the Hexatone scale. Raster to Notes turns the glide into a cascade of discrete note retriggering: each time the bend crosses a new note boundary a note-off and a fresh note-on are emitted.">
+      <label title="Controls how Continuum X-axis finger movement is translated. Rastered Attack + Pitch Bend snaps the attack and then applies continuous bend that follows the Hexatone scale. Rastered Notes turns the glide into a cascade of discrete note retriggering: each time the bend crosses a new note boundary a note-off and a fresh note-on are emitted.">
         Continuum X Glide
         <select
           class="sidebar-input"
@@ -302,12 +302,12 @@ const HakenContinuumSettings = ({
             });
           }}
         >
-          <option value="pitch_bending">Pitch Bending</option>
-          <option value="raster_to_notes">Raster to Notes</option>
+          <option value="pitch_bending">Rastered Attack + Pitch Bend</option>
+          <option value="raster_to_notes">Rastered Notes</option>
         </select>
       </label>
 
-      <label title="Learns a foot pedal or other CC to momentarily flip between Pitch Bending and Raster to Notes, matching the current space-bar behavior. CC value 64 or above engages the flip; lower values release it.">
+      <label title="Learns a foot pedal or other CC to momentarily flip between Rastered Attack + Pitch Bend and Rastered Notes, matching the current space-bar behavior. CC value 64 or above engages the flip; lower values release it.">
         Raster/Bend Pedal
         <span class="sidebar-input settings-form__inline-fields settings-form__inline-fields--spread">
           <span class="settings-form__tabular-value settings-form__tabular-value--muted">
@@ -336,7 +336,7 @@ const HakenContinuumSettings = ({
         </span>
       </label>
 
-      <label>
+      <label title="Restricts Rastered Notes attacks and subsequent X-driven retriggers to the selected scale degrees. It can optionally restrict attacks in Rastered Attack + Pitch Bend mode as well.">
         Continuum Raster Filter
         <span class="sidebar-input lumatone-filter-selector">
           {selectedSavedFilter && (
@@ -417,6 +417,33 @@ const HakenContinuumSettings = ({
           }}
         />
         <em class="settings-form__helper-text">Auto-Generate from Snapshots</em>
+      </label>
+      <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
+        <input
+          type="checkbox"
+          checked={!!settings.hakenaudio_apply_raster_in_pitch_bending}
+          onChange={(e) => {
+            updateHakenPref("hakenaudio_apply_raster_in_pitch_bending", e.target.checked, {
+              hakenaudio_apply_raster_in_pitch_bending: e.target.checked,
+            });
+          }}
+        />
+        <em class="settings-form__helper-text">Apply Raster in Pitch Bending Mode</em>
+      </label>
+      <label
+        class="settings-form__checkbox-row settings-form__checkbox-row--tight"
+        title="Uses the selected Raster Filter degrees as the stability centres for X Glide Shaping. This does not change attack rounding."
+      >
+        <input
+          type="checkbox"
+          checked={!!settings.hakenaudio_shape_x_glide_to_raster}
+          onChange={(e) => {
+            updateHakenPref("hakenaudio_shape_x_glide_to_raster", e.target.checked, {
+              hakenaudio_shape_x_glide_to_raster: e.target.checked,
+            });
+          }}
+        />
+        <em class="settings-form__helper-text">Shape X Glide to Raster</em>
       </label>
       <label class="settings-form__inline-label-row">
         <span class="settings-form__fixed-label">Scale degrees</span>
@@ -505,7 +532,7 @@ const HakenContinuumSettings = ({
         </span>
       </label>
 
-      <label title="Varies Continuum Raster to Notes retrigger velocity around the original attack using current Z pressure. 0 keeps the original attack for each retrigger. 127 applies the full pressure-based deviation range to both note-on and auto-generated note-off velocities.">
+      <label title="Varies Continuum Rastered Notes retrigger velocity around the original attack using current Z pressure. 0 keeps the original attack for each retrigger. 127 applies the full pressure-based deviation range to both note-on and auto-generated note-off velocities.">
         Pressure → Velocity
         <span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider
@@ -526,7 +553,7 @@ const HakenContinuumSettings = ({
         </span>
       </label>
 
-      <label title="Enforces a minimum lifetime for auto-generated Raster to Notes notes. Real Continuum note-off messages still release all sounding notes immediately. Uses a timer rather than requestAnimationFrame so it also works while the app is in the background.">
+      <label title="Enforces a minimum lifetime for auto-generated Rastered Notes. Real Continuum note-off messages still release all sounding notes immediately. Uses a timer rather than requestAnimationFrame so it also works while the app is in the background.">
         Minimum Note Duration
         <span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider
@@ -547,7 +574,7 @@ const HakenContinuumSettings = ({
         </span>
       </label>
 
-      <label title="Sets a minimum interval between Continuum Raster to Notes retriggers. Higher values reduce event density and output overload at the cost of skipping some very fast crossings.">
+      <label title="Sets a minimum interval between Continuum Rastered Notes retriggers. Higher values reduce event density and output overload at the cost of skipping some very fast crossings.">
         Minimum Retrigger Interval
         <span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider
@@ -568,7 +595,7 @@ const HakenContinuumSettings = ({
         </span>
       </label>
 
-      <label title="Adds hysteresis around the current Raster to Notes pitch so small back-and-forth movements near note boundaries do not immediately retrigger neighbouring notes.">
+      <label title="Adds hysteresis around the current Rastered Notes pitch so small back-and-forth movements near note boundaries do not immediately retrigger neighbouring notes.">
         Raster Stability
         <span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider

@@ -157,6 +157,59 @@ describe("HakenContinuumSettings", () => {
     );
   });
 
+  it("persists the optional raster filter for pitch-bending attacks", () => {
+    const onChange = vi.fn();
+    const saveControllerPref = vi.fn();
+
+    render(
+      <HakenContinuumSettings
+        ctrl={{ id: "hakenaudio" }}
+        settings={{
+          hakenaudio_out_port: null,
+          hakenaudio_x_glide_mode: "pitch_bending",
+          hakenaudio_raster_filter_mode: "filter",
+          hakenaudio_raster_filter: "0,4,7",
+          hakenaudio_raster_filter_snapshots: false,
+          hakenaudio_apply_raster_in_pitch_bending: false,
+          hakenaudio_shape_x_glide_to_raster: false,
+        }}
+        rawPorts={{ output: { id: "umone-out", name: "UM-ONE" } }}
+        midiOutputs={new Map()}
+        onChange={onChange}
+        saveControllerPref={saveControllerPref}
+        hakenPedalLearnActive={false}
+      />,
+    );
+
+    const checkbox = screen.getByLabelText("Apply Raster in Pitch Bending Mode");
+    const shapeCheckbox = screen.getByLabelText("Shape X Glide to Raster");
+    expect(checkbox.checked).toBe(false);
+    expect(shapeCheckbox.checked).toBe(false);
+
+    fireEvent.click(shapeCheckbox);
+
+    expect(onChange).toHaveBeenCalledWith("hakenaudio_shape_x_glide_to_raster", true);
+    expect(saveControllerPref).toHaveBeenCalledWith(
+      { id: "hakenaudio" },
+      "hakenaudio_shape_x_glide_to_raster",
+      true,
+      expect.any(Object),
+      { hakenaudio_shape_x_glide_to_raster: true },
+    );
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.click(checkbox);
+
+    expect(onChange).toHaveBeenCalledWith("hakenaudio_apply_raster_in_pitch_bending", true);
+    expect(saveControllerPref).toHaveBeenCalledWith(
+      { id: "hakenaudio" },
+      "hakenaudio_apply_raster_in_pitch_bending",
+      true,
+      expect.any(Object),
+      { hakenaudio_apply_raster_in_pitch_bending: true },
+    );
+  });
+
   it("applies an enabled snapshot-derived raster filter against the current tuning", () => {
     const onChange = vi.fn();
     const saveControllerPref = vi.fn();
