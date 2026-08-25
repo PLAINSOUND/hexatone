@@ -593,6 +593,74 @@ describe("deriveAutoNoteColors", () => {
     ]);
   });
 
+  it.each([
+    {
+      stepCount: 24,
+      firstSemitone: ["#ff9d9d", "#e1b0b9", "#c3c3d5"],
+    },
+    {
+      stepCount: 36,
+      firstSemitone: ["#ff9d9d", "#ebaab0", "#d7b6c2", "#c3c3d5"],
+    },
+  ])(
+    "preserves the 12edo subset and evenly shades each semitone in $stepCount-ed2",
+    ({ stepCount, firstSemitone }) => {
+      const twelveToneNames = [
+        "C",
+        "C D",
+        "D",
+        "D E",
+        "E",
+        "F",
+        "F G",
+        "G",
+        "G A",
+        "A",
+        "A B",
+        "B",
+      ];
+      const subdivisions = stepCount / 12;
+      const settings = {
+        key_labels: "note_names",
+        note_names: Array.from(
+          { length: stepCount },
+          (_, degree) => twelveToneNames[Math.floor(degree / subdivisions)],
+        ),
+        scale: Array.from({ length: stepCount }, (_, degree) =>
+          degree === stepCount - 1
+            ? "2/1"
+            : (((degree + 1) * 1200) / stepCount).toFixed(6),
+        ),
+        equivSteps: stepCount,
+        reference_degree: 0,
+        fundamental: 261.625565,
+        auto_colors: true,
+      };
+      const colors = deriveAutoNoteColors(settings, {
+        workspace: createScaleWorkspace(settings),
+      });
+      const twelveTonePalette = [
+        "#ff9d9d",
+        "#c3c3d5",
+        "#ededf7",
+        "#c3c3d5",
+        "#ededf7",
+        "#ededf7",
+        "#c3c3d5",
+        "#ededf7",
+        "#c3c3d5",
+        "#ededf7",
+        "#c3c3d5",
+        "#ededf7",
+      ];
+
+      expect(colors.filter((_, degree) => degree % subdivisions === 0)).toEqual(
+        twelveTonePalette,
+      );
+      expect(colors.slice(0, subdivisions + 1)).toEqual(firstSemitone);
+    },
+  );
+
   it("splits flats and sharps for 19edo-style traditional tempered note names", () => {
     const settings = {
       key_labels: "note_names",

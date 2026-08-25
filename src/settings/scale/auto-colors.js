@@ -68,6 +68,35 @@ function mixHex(a, b, t) {
   return rgbToHex(ar.map((channel, index) => channel * (1 - x) + br[index] * x));
 }
 
+function interpolateTwelveToneSubdivisionColors(colors, stepCount) {
+  if (
+    !Array.isArray(colors) ||
+    colors.length !== stepCount ||
+    !Number.isInteger(stepCount) ||
+    stepCount <= 12 ||
+    stepCount % 12 !== 0
+  ) {
+    return colors;
+  }
+
+  const subdivisions = stepCount / 12;
+  const twelveToneAnchors = Array.from(
+    { length: 12 },
+    (_, pitchClass) => colors[pitchClass * subdivisions],
+  );
+
+  return colors.map((color, degree) => {
+    const subdivision = degree % subdivisions;
+    if (subdivision === 0) return color;
+
+    const lowerPitchClass = Math.floor(degree / subdivisions);
+    const lowerColor = twelveToneAnchors[lowerPitchClass];
+    const upperColor = twelveToneAnchors[(lowerPitchClass + 1) % 12];
+    if (!lowerColor || !upperColor) return color;
+    return mixHex(lowerColor, upperColor, subdivision / subdivisions);
+  });
+}
+
 function averageHexColors(colors = []) {
   const samples = colors.map((color) => hexToRgb(color)).filter(Boolean);
   if (!samples.length) return null;
@@ -1116,5 +1145,7 @@ export function deriveAutoNoteColors(settings, extra = {}) {
   derivedColors[0] = isPureTemperedPalette
     ? TEMPERED_TONIC_AUTO_COLOR
     : deriveAutoTonicColorFromPaletteWithPrime(nonTonicColors, primeFamilyColorMap[1]);
-  return derivedColors;
+  return isEqualDivision
+    ? interpolateTwelveToneSubdivisionColors(derivedColors, Number(settings?.equivSteps))
+    : derivedColors;
 }
