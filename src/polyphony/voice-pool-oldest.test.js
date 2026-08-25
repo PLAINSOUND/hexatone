@@ -70,16 +70,28 @@ describe("VoicePool chord-aware stealing", () => {
   });
 
   it("recognizes octave duplication from tuned pitch rather than rounded carrier class", () => {
-    const pool = new VoicePool([2, 3, 4, 5, 6], 50, true);
+    const pool = new VoicePool([2, 3, 4, 5, 6, 7, 8], 50, true);
     allocate(pool, 0, 48, 48.1);
     allocate(pool, 1, 55, 55);
     allocate(pool, 2, 60, 60.3);
-    allocate(pool, 3, 68, 68);
-    allocate(pool, 4, 72, 72.1);
+    allocate(pool, 3, 64, 64.1);
+    allocate(pool, 4, 68, 68);
+    allocate(pool, 5, 72, 72.1);
+    allocate(pool, 6, 74, 74);
 
-    const incoming = allocate(pool, 5, 76, 76);
+    const incoming = allocate(pool, 7, 76, 76);
 
-    expect(incoming.stolen).toEqual([4, 0]);
+    expect(incoming.stolen).toEqual([5, 0]);
     expect(incoming.stolenNote).toBe(72);
+  });
+
+  it("preserves a moving upper voice beneath a discant and the two bass voices", () => {
+    const pool = new VoicePool([2, 3, 4, 5, 6, 7, 8, 9], 50, true);
+    [33, 40, 49, 57, 64, 69, 76, 81].forEach((note, index) => allocate(pool, index, note));
+
+    const incoming = allocate(pool, 8, 78);
+
+    expect(incoming.stolenNote).toBe(57);
+    expect([33, 40, 76, 81]).not.toContain(incoming.stolenNote);
   });
 });

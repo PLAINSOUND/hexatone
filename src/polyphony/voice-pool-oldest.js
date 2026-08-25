@@ -16,8 +16,9 @@
  *
  * The optional musical-steal mode preserves chord structure when SOUNDING
  * voice stealing is unavoidable. It prefers an interior octave duplication,
- * then the voice nearest the chord's register centre, keeping unique outer
- * notes until there is no interior alternative.
+ * then the voice nearest the chord's register centre. The upper two and lower
+ * two distinct pitches form a protected register frame: this preserves a top
+ * melody beneath a sustained discant as well as the bass line.
  *
  * No "clean channel" reservation is needed because the correct PB is always
  * sent synchronously before noteOn.
@@ -351,19 +352,34 @@ export class VoicePool {
       const octaves = (a - b) / 12;
       return Math.abs(octaves - Math.round(octaves)) < 0.001;
     };
+    const distinctNotes = [...allNotes]
+      .sort((a, b) => a - b)
+      .filter((note, index, sorted) => index === 0 || !samePitch(note, sorted[index - 1]));
+    const protectedRegister = new Set([
+      ...distinctNotes.slice(0, 2),
+      ...distinctNotes.slice(-2),
+    ]);
 
     let best = null;
     let bestRank = Infinity;
     let bestDistance = Infinity;
     for (const { candidate, note } of entries) {
-      // Removing one of several identical boundary notes still preserves the
-      // outer register. Only the last copy of a boundary is treated as outer.
-      const uniqueOuter =
-        (samePitch(note, low) || samePitch(note, high)) &&
+      // Protect two distinct voices at either register boundary. This keeps a
+      // moving melody immediately below a long discant, rather than treating
+      // that melody as disposable interior harmony. Removing one of several
+      // identical boundary notes is still safe because the pitch remains.
+      const protectedOuter =
+        [...protectedRegister].some((boundary) => samePitch(note, boundary)) &&
         allNotes.filter((other) => samePitch(note, other)).length === 1;
       const duplicatedPitchClass =
         allNotes.filter((other) => samePitchClass(note, other)).length > 1;
-      const rank = !uniqueOuter ? (duplicatedPitchClass ? 0 : 1) : duplicatedPitchClass ? 2 : 3;
+      const rank = !protectedOuter
+        ? duplicatedPitchClass
+          ? 0
+          : 1
+        : duplicatedPitchClass
+          ? 2
+          : 3;
       const distance = Math.abs(note - centre);
       if (rank < bestRank || (rank === bestRank && distance < bestDistance)) {
         best = candidate;

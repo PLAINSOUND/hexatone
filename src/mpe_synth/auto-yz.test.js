@@ -90,6 +90,31 @@ describe("automatic MPE Y/Z shaping", () => {
     );
   });
 
+  it("resends an identical onset when a member channel is reused for a new note", () => {
+    const midiOutput = { send: vi.fn() };
+    const scheduler = createAutoMpeYzScheduler(midiOutput, {
+      worker: false,
+      now: () => 300.2,
+    });
+
+    scheduler.onset(4, 72);
+    const firstOnset = midiOutput.send.mock.calls.map(([message, timestamp]) => [
+      message,
+      timestamp,
+    ]);
+    midiOutput.send.mockClear();
+
+    scheduler.onset(4, 72);
+
+    expect(midiOutput.send.mock.calls).toEqual(firstOnset);
+    expect(midiOutput.send.mock.calls).toEqual([
+      [[0xb0 + 3, 74, 32], 314.2],
+      [[0xd0 + 3, 41], 314.2],
+      [[0xb0 + 3, 74, 55], 315.64],
+      [[0xd0 + 3, 71], 315.64],
+    ]);
+  });
+
   it("emits Y and Z together for the same member channel", () => {
     vi.useFakeTimers();
     const midiOutput = { send: vi.fn() };

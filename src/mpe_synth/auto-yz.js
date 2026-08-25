@@ -368,6 +368,13 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       stopCoalescing(channel);
       pressureActiveYChannels.delete(channel);
       pressureActiveZChannels.delete(channel);
+      // A MIDI Note Off resets the receiver's per-note expression, even when
+      // the next note on this member channel happens to have identical Y/Z
+      // targets. Do not let values cached from the previous note suppress the
+      // new note's onset cadence. Reset the mathematical source as well so the
+      // cadence begins at zero rather than inheriting the old note's endpoint.
+      lastValues.delete(channel);
+      stateEngine.remove(channel);
       const y = velocityTarget(
         velocity,
         AUTO_MPE_YZ_DEFAULTS.yVelocityRange,

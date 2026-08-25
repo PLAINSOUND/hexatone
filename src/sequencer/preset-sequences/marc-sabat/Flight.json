@@ -16,6 +16,7 @@
     "decayVariation": 0.3,
     "styleParameters": {}
   },
+  "legatoMode": "all-common-tones",
   "transport": {
     "unit": "sequence",
     "anchorSeconds": 0
@@ -11153,7 +11154,7 @@
       "notes": [
         {
           "midicents": 84.42482662634698,
-          "attackVelocity": 112,
+          "attackVelocity": 76,
           "releaseVelocity": 58,
           "velocity": 112,
           "pressure": 0,
