@@ -43,6 +43,29 @@ export const create_composite_synth = (synths) => ({
       // Keys.js uses this to redraw the displaced hex.
       _stolenCoords: hexes.reduce((acc, h) => acc || h._stolenCoords || null, null),
 
+      hasDisplacedVoice() {
+        return hexes.some((h) => h.hasDisplacedVoice?.() === true);
+      },
+
+      displacedVoiceAt() {
+        const values = hexes
+          .filter((h) => h.hasDisplacedVoice?.() === true)
+          .map((h) => h.displacedVoiceAt?.())
+          .filter(Number.isFinite);
+        return values.length ? Math.min(...values) : Infinity;
+      },
+
+      recoverDisplacedVoice(note, timestamp) {
+        let found = false;
+        let recovered = true;
+        for (const h of hexes) {
+          if (h.hasDisplacedVoice?.() !== true) continue;
+          found = true;
+          if (h.recoverDisplacedVoice?.(note, timestamp) !== true) recovered = false;
+        }
+        return found && recovered;
+      },
+
       noteOn(timestamp) {
         hexes.forEach((h) => h.noteOn(timestamp));
       },
@@ -95,6 +118,30 @@ export const create_composite_synth = (synths) => ({
 
       prepareSnapshotPressure(value, value14 = null) {
         hexes.forEach((h) => h.prepareSnapshotPressure?.(value, value14));
+      },
+
+      transitionSnapshotExpression(note, durationMs) {
+        hexes.forEach((h) => {
+          if (h.transitionSnapshotExpression?.(note, durationMs) === true) {
+            return;
+          }
+          const pressure = Number.isFinite(note?.pressure14)
+            ? Number(note.pressure14) >> 7
+            : note?.pressure;
+          if (pressure != null) {
+            if (h.applySnapshotPressure)
+              h.applySnapshotPressure(pressure, note?.pressure14 ?? null);
+            else h.aftertouch?.(pressure, note?.pressure14 ?? null);
+          }
+          if (h.isMtsOutput) return;
+          const timbre = Number.isFinite(note?.timbre14)
+            ? Number(note.timbre14) >> 7
+            : note?.timbre;
+          if (timbre == null) return;
+          if (h.polyTimbre) h.polyTimbre(timbre, note?.timbre14 ?? null);
+          else h.cc74?.(timbre, note?.timbre14 ?? null);
+        });
+        return true;
       },
 
       pressure(value, value14 = null) {
@@ -171,6 +218,11 @@ export const create_composite_synth = (synths) => ({
   },
 
   applyZoneModwheel(value) {
+    // Keep note-level deduplication synchronized with the preceding raw
+    // zone-wide update. A sequence voice may immediately restore its stored
+    // timbre (or apply a shaped value), which must not be mistaken for an
+    // already-sent duplicate.
+    expressionState(synths).modwheel = value;
     synths.forEach((s) => s.applyZoneModwheel?.(value));
   },
 

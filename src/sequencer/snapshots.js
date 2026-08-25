@@ -30,9 +30,9 @@ const timbreToOnsetMod = (value, value14 = null) =>
     ? Math.max(0, Math.min(16256, Number(value14))) / 16256
     : Math.max(0, Math.min(127, Number(value) || 0)) / 127);
 
-// Chord voices are fully allocated before their note-ons are committed. A
-// short driver-level lead leaves enough room for MTS tuning and MPE pitch-bend
-// preparation even if voice construction briefly stalls on the main thread.
+// Snapshot voices are fully allocated before their note-ons are committed. A
+// short driver-level lead leaves enough room for tuning, pitch-bend, OSC, and
+// generated MPE Y/Z preparation even for a single-note cue.
 const SNAPSHOT_CHORD_COMMIT_LEAD_MS = 20;
 
 const snapshotPitchKey = (midicents) => {
@@ -232,12 +232,6 @@ function applySnapshotTimbre(runtime, hex, note) {
   const timbre14 = normalize14Bit(note.timbre14);
   if (timbre == null && timbre14 == null) return;
   const value = timbre ?? timbre14 >> 7;
-  const synthRoutesOscModwheel =
-    runtime?.synth?.family === "osc" || runtime?.synth?.containsFamily?.("osc") === true;
-  if (synthRoutesOscModwheel && hex.modwheel) {
-    hex.modwheel(value);
-    return;
-  }
   if (hex.polyTimbre) {
     if (timbre14 != null) hex.polyTimbre(value, timbre14);
     else hex.polyTimbre(value);
@@ -245,6 +239,13 @@ function applySnapshotTimbre(runtime, hex, note) {
     if (timbre14 != null) hex.cc74(value, timbre14);
     else hex.cc74(value);
   }
+}
+
+function applyLegatoSnapshotExpression(runtime, hex, note, transitionMs) {
+  hex._snapshotSourceTimbre = normalize7Bit(note.sequenceSourceTimbre ?? note.timbre);
+  hex._snapshotSourceTimbre14 = normalize14Bit(note.sequenceSourceTimbre14 ?? note.timbre14);
+  if (hex.transitionSnapshotExpression?.(note, transitionMs) === true) return;
+  applySnapshotExpression(runtime, hex, note);
 }
 
 function applySnapshotExpression(runtime, hex, note) {
@@ -389,7 +390,7 @@ function prepareSnapshotHex(runtime, note, options = {}) {
 }
 
 function snapshotChordCommitTimestamp(noteCount) {
-  return noteCount > 1 && typeof globalThis.performance?.now === "function"
+  return noteCount > 0 && typeof globalThis.performance?.now === "function"
     ? globalThis.performance.now() + SNAPSHOT_CHORD_COMMIT_LEAD_MS
     : undefined;
 }
@@ -474,7 +475,7 @@ export function attackSnapshotGestureNote(runtime, gestureId, note, options = {}
   if (hex) {
     const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
     hex._snapshotReleaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
-    applySnapshotExpression(runtime, hex, note);
+    applyLegatoSnapshotExpression(runtime, hex, note, options?.legatoTransitionMs);
   } else {
     hex = createSnapshotHex(runtime, note, options);
     runtime._snapshotHexes = [...(runtime._snapshotHexes ?? []), hex];
@@ -543,6 +544,7 @@ export function playSnapshot(runtime, notes, options = {}) {
   const legato = !!options.legato;
   const bendOnlyRetune = !!options.bendOnlyRetune;
   const pitchOffsetCents = Number(options?.pitchOffsetCents) || 0;
+  const legatoTransitionMs = Math.max(0, Number(options?.legatoTransitionMs) || 0);
   if (!legato) {
     runtime.stopSnapshot();
     const prepared = notes.map((note) => ({
@@ -621,8 +623,7 @@ export function playSnapshot(runtime, notes, options = {}) {
       reusedHex._snapshotInstanceKey = instanceKey;
       setSnapshotPitchReference(reusedHex, synthCents, note.midicents, pitchOffsetCents);
       retuneSnapshotHex(runtime, reusedHex, synthCents, bendOnlyRetune);
-      // Future note-transition work can layer timed pressure/timbre ramps here.
-      applySnapshotExpression(runtime, reusedHex, note);
+      applyLegatoSnapshotExpression(runtime, reusedHex, note, legatoTransitionMs);
       plan.hex = reusedHex;
       plan.retained = true;
       continue;
@@ -642,7 +643,12 @@ export function playSnapshot(runtime, notes, options = {}) {
   }
 
   const incomingCount = plans.reduce((count, plan) => count + (plan.retained ? 0 : 1), 0);
-  const commitTimestamp = snapshotChordCommitTimestamp(incomingCount);
+  const bufferedRecoveryCount = plans.reduce(
+    (count, plan) =>
+      count + (plan.retained && plan.reusedHex?.hasDisplacedVoice?.() === true ? 1 : 0),
+    0,
+  );
+  const commitTimestamp = snapshotChordCommitTimestamp(incomingCount + bufferedRecoveryCount);
 
   // Release channel ownership before allocating any destination voices. The
   // MIDI/OSC note-offs are still scheduled for the common commit timestamp,
@@ -661,6 +667,23 @@ export function playSnapshot(runtime, notes, options = {}) {
     prepared.push({ hex: plan.hex, note: plan.note });
   }
   commitPreparedSnapshotHexes(runtime, prepared, commitTimestamp);
+
+  // New attacks always receive first claim on the finite MPE member-channel
+  // zone. Afterwards, restore displaced logical continuations into whatever
+  // capacity remains. Oldest-displaced voices recover first; MTS/OSC children
+  // of a composite voice are untouched because only the displaced MPE child
+  // implements recoverDisplacedVoice().
+  const recoverable = plans
+    .filter(({ retained, reusedHex }) => retained && reusedHex?.hasDisplacedVoice?.() === true)
+    .sort((a, b) => {
+      const aAt = a.reusedHex.displacedVoiceAt?.() ?? Infinity;
+      const bAt = b.reusedHex.displacedVoiceAt?.() ?? Infinity;
+      return aAt - bAt;
+    });
+  for (const plan of recoverable) {
+    if (plan.reusedHex.recoverDisplacedVoice?.(plan.note, commitTimestamp) !== true) continue;
+    applySnapshotExpression(runtime, plan.reusedHex, plan.note);
+  }
 
   return plans.map(({ hex }) => hex);
 }

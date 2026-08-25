@@ -4,6 +4,11 @@
 // attacks. A two-millisecond output cadence preserves the ramp shape and
 // endpoints while leaving room for the higher-priority note and pitch traffic.
 export const AUTO_MPE_YZ_SAMPLE_MS = 2;
+export const AUTO_MPE_LEGATO_YZ_SAMPLE_MS = 8;
+// Worker samples must reach the main thread before their Web MIDI deadline.
+// A small rolling look-ahead keeps the stream cancellable while allowing the
+// MIDI driver—not the browser task queue—to establish its cadence.
+export const AUTO_MPE_YZ_MIDI_LEAD_MS = 12;
 const AFTERTOUCH_RAMP_MS = 40;
 
 // Empirical calibration against the Max/Eagan Matrix reference stream.
@@ -86,6 +91,7 @@ export function createAutoMpeYzRampEngine(emit) {
       generation: state.generation,
       y,
       z,
+      at,
     });
   };
 
@@ -157,6 +163,7 @@ export function createAutoMpeYzRampEngine(emit) {
 export function createAutoMpeYzScheduler(midiOutput, options = {}) {
   const sampleMs = Math.max(0.25, Number(options.sampleMs) || AUTO_MPE_YZ_SAMPLE_MS);
   const timerSampleMs = Math.max(1, sampleMs);
+  const midiLeadMs = Math.max(sampleMs, Number(options.midiLeadMs) || AUTO_MPE_YZ_MIDI_LEAD_MS);
   const now = typeof options.now === "function" ? options.now : midiNow;
   const generations = new Map();
   const lastValues = new Map();
@@ -165,21 +172,46 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
   // follows pressure for the rest of the note (including a return to zero).
   const pressureActiveYChannels = new Set();
   const pressureActiveZChannels = new Set();
+  const coalescedGenerations = new Map();
+  const pendingCoalescedValues = new Map();
   const stateEngine = createAutoMpeYzRampEngine(() => {});
   let worker = null;
   let fallbackTimer = null;
+  let coalescedTimer = null;
 
-  const sendValues = ({ channel, generation, y, z }) => {
+  const sendValues = ({ channel, generation, y, z, at }) => {
     if (generations.get(channel) !== generation) return;
     const previous = lastValues.get(channel);
     if (previous?.y === y && previous?.z === z) return;
     lastValues.set(channel, { y, z });
     const channel0 = channel - 1;
-    midiOutput.send([0xb0 + channel0, 74, y]);
-    midiOutput.send([0xd0 + channel0, z]);
+    const timestamp = Number.isFinite(Number(at)) ? Number(at) : now() + midiLeadMs;
+    midiOutput.send([0xb0 + channel0, 74, y], timestamp);
+    midiOutput.send([0xd0 + channel0, z], timestamp);
   };
 
-  const send = (values) => sendValues(values);
+  const flushCoalescedValues = () => {
+    coalescedTimer = null;
+    const pending = [...pendingCoalescedValues.values()];
+    pendingCoalescedValues.clear();
+    pending.forEach(sendValues);
+  };
+
+  const send = (values) => {
+    if (coalescedGenerations.get(values.channel) !== values.generation) {
+      sendValues(values);
+      return;
+    }
+    pendingCoalescedValues.set(values.channel, values);
+    if (coalescedTimer == null) {
+      coalescedTimer = setTimeout(flushCoalescedValues, AUTO_MPE_LEGATO_YZ_SAMPLE_MS);
+    }
+  };
+
+  const stopCoalescing = (channel) => {
+    coalescedGenerations.delete(channel);
+    pendingCoalescedValues.delete(channel);
+  };
 
   const fallbackEngine = createAutoMpeYzRampEngine(send);
   const stopFallbackTimer = () => {
@@ -190,7 +222,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
   const startFallbackTimer = () => {
     if (fallbackTimer != null) return;
     fallbackTimer = setInterval(() => {
-      if (!fallbackEngine.tick(now())) stopFallbackTimer();
+      if (!fallbackEngine.tick(now() + midiLeadMs)) stopFallbackTimer();
     }, timerSampleMs);
   };
 
@@ -205,11 +237,21 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     }
   }
 
-  const schedule = (channel, y, z, duration, requestedAt = now(), emitInitial = true) => {
+  const schedule = (
+    channel,
+    y,
+    z,
+    duration,
+    requestedAt = now(),
+    emitInitial = true,
+    coalesce = false,
+  ) => {
     if (!Number.isFinite(channel) || channel < 1 || channel > 16) return;
     const generation = (generations.get(channel) ?? 0) + 1;
     generations.set(channel, generation);
-    stateEngine.schedule(channel, y, z, duration, requestedAt, generation);
+    if (coalesce) coalescedGenerations.set(channel, generation);
+    const scheduledAt = Math.max(Number(requestedAt) || now(), now() + midiLeadMs);
+    stateEngine.schedule(channel, y, z, duration, scheduledAt, generation);
     const safeDuration = Math.max(0, Number(duration) || 0);
     const target = { channel, generation, y: clamp7(y), z: clamp7(z) };
 
@@ -217,7 +259,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     // packet to become stale, and reset/maximum-velocity endpoints must not
     // wait for worker delivery.
     if (safeDuration <= 0) {
-      send(target);
+      send({ ...target, at: scheduledAt });
       if (worker) {
         worker.postMessage({
           type: "schedule",
@@ -225,7 +267,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
           y: target.y,
           z: target.z,
           duration: 0,
-          startedAtEpoch: performance.timeOrigin + requestedAt,
+          startedAtEpoch: performance.timeOrigin + scheduledAt,
           generation,
           silent: true,
         });
@@ -235,14 +277,14 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
           target.y,
           target.z,
           0,
-          requestedAt,
+          scheduledAt,
           generation,
-          requestedAt,
+          scheduledAt,
           false,
           true,
         );
       }
-      return;
+      return generation;
     }
 
     if (worker) {
@@ -252,28 +294,78 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
         y,
         z,
         duration,
-        startedAtEpoch: performance.timeOrigin + requestedAt,
+        startedAtEpoch: performance.timeOrigin + scheduledAt,
         generation,
         emitInitial,
       });
-      return;
+      return generation;
     }
     const active = fallbackEngine.schedule(
       channel,
       y,
       z,
       duration,
-      requestedAt,
+      scheduledAt,
       generation,
-      requestedAt,
+      scheduledAt,
       emitInitial,
     );
     if (active) startFallbackTimer();
+    return generation;
+  };
+
+  const scheduleTimestampedOnset = (channel, y, z, duration, requestedAt) => {
+    const generation = (generations.get(channel) ?? 0) + 1;
+    generations.set(channel, generation);
+    const target = { channel, generation, y: clamp7(y), z: clamp7(z) };
+    const startAt = Math.max(Number(requestedAt) || now(), now() + midiLeadMs);
+    const safeDuration = Math.max(0, Number(duration) || 0);
+    stateEngine.schedule(channel, target.y, target.z, safeDuration, startAt, generation);
+    const channel0 = channel - 1;
+    let last = lastValues.get(channel);
+    const offsets = [];
+    for (let offset = sampleMs; offset < safeDuration; offset += sampleMs) offsets.push(offset);
+    offsets.push(safeDuration);
+    for (const offset of offsets) {
+      const at = startAt + offset;
+      const sample = stateEngine.sample(channel, at);
+      const next = { y: clamp7(sample.y), z: clamp7(sample.z) };
+      if (last?.y === next.y && last?.z === next.z) continue;
+      midiOutput.send([0xb0 + channel0, 74, next.y], at);
+      midiOutput.send([0xd0 + channel0, next.z], at);
+      last = next;
+    }
+    lastValues.set(channel, last ?? { y: target.y, z: target.z });
+    const targetAt = startAt + safeDuration;
+    worker?.postMessage({
+      type: "schedule",
+      channel,
+      y: target.y,
+      z: target.z,
+      duration: 0,
+      startedAtEpoch: performance.timeOrigin + targetAt,
+      generation,
+      silent: true,
+    });
+    if (!worker) {
+      fallbackEngine.schedule(
+        channel,
+        target.y,
+        target.z,
+        0,
+        targetAt,
+        generation,
+        targetAt,
+        false,
+        true,
+      );
+    }
   };
 
   return {
     onset(channel, velocity, at) {
       const start = Number.isFinite(at) ? at : now();
+      stopCoalescing(channel);
       pressureActiveYChannels.delete(channel);
       pressureActiveZChannels.delete(channel);
       const y = velocityTarget(
@@ -287,9 +379,37 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
         AUTO_MPE_YZ_DEFAULTS.zCenter,
       );
       const duration = velocityRampDuration(velocity);
-      // Do not pre-queue the short attack. A release can now supersede this
-      // generation before any remaining attack samples reach the MIDI port.
-      schedule(channel, y, z, duration, start, false);
+      // Velocity ramps are at most a few milliseconds long, so queue their
+      // complete cadence on the Web MIDI timeline. This avoids worker samples
+      // accumulating into a burst when the main thread is busy.
+      scheduleTimestampedOnset(channel, y, z, duration, start);
+    },
+
+    continuation(channel, velocity, pressure, duration, at) {
+      if (!Number.isFinite(channel) || channel < 1 || channel > 16) return;
+      const start = Number.isFinite(at) ? at : now();
+      const yBase = velocityTarget(
+        velocity,
+        AUTO_MPE_YZ_DEFAULTS.yVelocityRange,
+        AUTO_MPE_YZ_DEFAULTS.yCenter,
+      );
+      const zBase = velocityTarget(
+        velocity,
+        AUTO_MPE_YZ_DEFAULTS.zVelocityRange,
+        AUTO_MPE_YZ_DEFAULTS.zCenter,
+      );
+      const pressure7 = clamp7(pressure);
+      if (pressure7 > yBase) pressureActiveYChannels.add(channel);
+      if (pressure7 > zBase) pressureActiveZChannels.add(channel);
+      const y =
+        pressure7 > yBase
+          ? pressureTarget(pressure7, yBase, AUTO_MPE_YZ_DEFAULTS.yAftertouchRange)
+          : yBase;
+      const z =
+        pressure7 > zBase
+          ? pressureTarget(pressure7, zBase, AUTO_MPE_YZ_DEFAULTS.zAftertouchRange)
+          : zBase;
+      schedule(channel, y, z, duration, start, true, true);
     },
 
     pressure(channel, pressure, velocity, at) {
@@ -319,6 +439,8 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
         zActive ? pressureTarget(pressure7, zBase, AUTO_MPE_YZ_DEFAULTS.zAftertouchRange) : zBase,
         AUTO_MPE_YZ_DEFAULTS.aftertouchRampMs,
         at,
+        true,
+        coalescedGenerations.has(channel),
       );
     },
 
@@ -326,6 +448,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       if (!Number.isFinite(channel) || channel < 1 || channel > 16) return;
       pressureActiveYChannels.delete(channel);
       pressureActiveZChannels.delete(channel);
+      stopCoalescing(channel);
       const start = Number.isFinite(at) ? at : now();
       // Max's VelToZY patch uses the same 115-based lag calculation for attack
       // and release velocity. Values at or above that pivot snap to zero, while
@@ -337,6 +460,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     reset(channel, at) {
       pressureActiveYChannels.delete(channel);
       pressureActiveZChannels.delete(channel);
+      stopCoalescing(channel);
       schedule(channel, 0, 0, 0, at);
     },
 
@@ -345,6 +469,10 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       lastValues.clear();
       pressureActiveYChannels.clear();
       pressureActiveZChannels.clear();
+      coalescedGenerations.clear();
+      pendingCoalescedValues.clear();
+      if (coalescedTimer != null) clearTimeout(coalescedTimer);
+      coalescedTimer = null;
       stateEngine.clear();
       fallbackEngine.clear();
       stopFallbackTimer();
@@ -356,6 +484,10 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       lastValues.clear();
       pressureActiveYChannels.clear();
       pressureActiveZChannels.clear();
+      coalescedGenerations.clear();
+      pendingCoalescedValues.clear();
+      if (coalescedTimer != null) clearTimeout(coalescedTimer);
+      coalescedTimer = null;
       stateEngine.clear();
       fallbackEngine.clear();
       stopFallbackTimer();

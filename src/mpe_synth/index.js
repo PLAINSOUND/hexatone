@@ -343,6 +343,14 @@ export const create_mpe_synth = async (
         scheduleDeferred,
         playbackOptions?.deferNoteOn === true,
       );
+      if (hex._stolenCoords) {
+        const victim = [...activeHexes].find(
+          (candidate) =>
+            candidate?.coords?.x === hex._stolenCoords?.x &&
+            candidate?.coords?.y === hex._stolenCoords?.y,
+        );
+        victim?._invalidateDisplacedVoice();
+      }
       activeHexes.add(hex);
       const originalNoteOff = hex.noteOff.bind(hex);
       hex.noteOff = (release_velocity, timestamp) => {
@@ -455,13 +463,16 @@ function MpeHex(
 
   // Calculate the pitch we need before allocating, so closestPitchSteal can use it
   const freq = freqAtCentral * Math.pow(2, cents / 1200);
+  const midiPitch = 69 + 12 * Math.log2(freq / 440);
   // channel not yet known, use placeholder 1 for Ableton mode (corrected below)
   const { note: noteGuess } = freqToMidiAndCents(freq, center_degree, 1, scale, mode);
-  const bendGuess = deviationToBend((69 + 12 * Math.log2(freq / 440) - noteGuess) * 100, bendRange);
+  const bendGuess = deviationToBend((midiPitch - noteGuess) * 100, bendRange);
 
   const { slot, allocationToken, stolen, stolenSlot, stolenNote, retrigger } = pool.noteOn(
     coords,
     bendGuess,
+    noteGuess,
+    midiPitch,
   );
 
   this.channel = slot; // 1-based
@@ -506,6 +517,7 @@ function MpeHex(
   }
   pool.setLastBend(this.channel, this.bend);
   pool.setLastNote(this.channel, this.note);
+  pool.setLastPitch(this.channel, midiPitch);
   if (!deferNoteOn) this.noteOn();
 }
 
@@ -526,8 +538,27 @@ MpeHex.prototype.noteOn = function (timestamp) {
     value: this.velocity,
   });
   if (this.autoGeneratesMpeYZ) {
-    this.autoMpeYzScheduler?.onset(this.channel, this.velocity);
+    this.autoMpeYzScheduler?.onset(this.channel, this.velocity, at);
   }
+};
+
+MpeHex.prototype.transitionSnapshotExpression = function (note, durationMs) {
+  if (!this.autoGeneratesMpeYZ || this.release || !this._ownsVoiceChannel()) return false;
+  const velocity = Math.max(
+    1,
+    Math.min(127, Number(note?.attackVelocity ?? note?.velocity ?? this.velocity) || this.velocity),
+  );
+  const pressure = Number.isFinite(note?.pressure14)
+    ? Number(note.pressure14) >> 7
+    : Number(note?.pressure) || 0;
+  this.velocity = velocity;
+  this.autoMpeYzScheduler?.continuation(
+    this.channel,
+    velocity,
+    pressure,
+    Math.max(0, Number(durationMs) || 0),
+  );
+  return true;
 };
 
 MpeHex.prototype._ownsVoiceChannel = function () {
@@ -537,6 +568,76 @@ MpeHex.prototype._ownsVoiceChannel = function () {
 MpeHex.prototype._invalidateDisplacedVoice = function () {
   this.mpePlusPitchBendScheduler?.cancel(this);
   this.release = true;
+  if (!Number.isFinite(this._displacedAt)) {
+    this._displacedAt =
+      typeof globalThis.performance?.now === "function" ? globalThis.performance.now() : Date.now();
+  }
+};
+
+MpeHex.prototype.hasDisplacedVoice = function () {
+  return !this._ownsVoiceChannel();
+};
+
+MpeHex.prototype.displacedVoiceAt = function () {
+  return Number.isFinite(this._displacedAt) ? this._displacedAt : Infinity;
+};
+
+/**
+ * Restore a logically retained sequencer note after MPE voice stealing.
+ * Recovery is deliberately admission-only: it may consume an idle/releasing
+ * channel, but it must never steal another sounding voice. New attacks have
+ * already been committed before the sequencer invokes this method.
+ */
+MpeHex.prototype.recoverDisplacedVoice = function (note = null, timestamp) {
+  if (this._ownsVoiceChannel()) return true;
+  if (!this.pool?.canAllocateWithoutSoundingSteal?.()) return false;
+
+  const velocity = Number(note?.attackVelocity ?? note?.velocity);
+  if (Number.isFinite(velocity)) this.velocity = Math.max(1, Math.min(127, Math.round(velocity)));
+
+  const freq = this.freqAtCentral * Math.pow(2, this.cents / 1200);
+  const midiPitch = 69 + 12 * Math.log2(freq / 440);
+  const { note: noteGuess } = freqToMidiAndCents(
+    freq,
+    this.center_degree,
+    1,
+    this.scale,
+    this.mode,
+  );
+  const bendGuess = deviationToBend((midiPitch - noteGuess) * 100, this.bendRange);
+  const allocation = this.pool.noteOn(this.coords, bendGuess, noteGuess, midiPitch);
+  // The availability check and allocation run synchronously. Keep this guard
+  // defensive in case the pool policy changes later.
+  if (allocation.stolen != null) return false;
+
+  this.channel = allocation.slot;
+  this.allocationToken = allocation.allocationToken;
+  this._stolenCoords = null;
+  const tuned = freqToMidiAndCents(freq, this.center_degree, this.channel, this.scale, this.mode);
+  this.note = tuned.note;
+  this.bend = deviationToBend(tuned.deviation, this.bendRange);
+  this.bend21 = deviationToBend21(tuned.deviation, this.bendRange);
+  this.release = false;
+  this._displacedAt = null;
+  this._noteOnSent = false;
+  this._noteOnTimestamp = null;
+  this._lastSentAftertouch = null;
+  this._lastSentAftertouch14 = null;
+  this._lastSentCc74 = null;
+  this._lastSentCc7414 = null;
+
+  const channel0 = this.channel - 1;
+  if (this.mpePlusPitchBendEnabled) {
+    this._sendMpePlusPitchBend(this.bend21, { immediate: true });
+  } else {
+    sendBend(this.midi_output, channel0, this.bend);
+    this._lastSentBend = this.bend;
+  }
+  this.pool.setLastBend(this.channel, this.bend);
+  this.pool.setLastNote(this.channel, this.note);
+  this.pool.setLastPitch(this.channel, midiPitch);
+  this.noteOn(timestamp);
+  return true;
 };
 
 MpeHex.prototype.noteOff = function (release_velocity, timestamp) {
@@ -575,7 +676,7 @@ MpeHex.prototype.noteOff = function (release_velocity, timestamp) {
     value: vel,
   });
   if (this.autoGeneratesMpeYZ) {
-    this.autoMpeYzScheduler?.release(this.channel, vel);
+    this.autoMpeYzScheduler?.release(this.channel, vel, at ?? undefined);
   }
   // Mark RELEASING in pool (starts the guard timer)
   this.pool.noteOff(this.coords, this.allocationToken);
@@ -703,6 +804,7 @@ MpeHex.prototype.retune = function (newCents, bendOnly = false) {
       });
     }
   }
+  this.pool.setLastPitch(this.channel, 69 + 12 * Math.log2(freq / 440));
 };
 
 // Sequencer PITCH keeps the allocated MPE note/channel sounding and expresses

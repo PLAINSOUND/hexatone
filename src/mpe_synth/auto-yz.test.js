@@ -38,6 +38,7 @@ describe("automatic MPE Y/Z shaping", () => {
       generation: 1,
       y: 50,
       z: 40,
+      at: 105,
     });
   });
 
@@ -54,7 +55,7 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(emit.mock.calls.every(([values]) => values.channel !== 4)).toBe(true);
   });
 
-  it("leaves the short velocity onset cancellable instead of pre-queuing future packets", () => {
+  it("pre-queues the short velocity onset with a timestamped cadence", () => {
     class FakeWorker {
       static instance;
 
@@ -78,19 +79,15 @@ describe("automatic MPE Y/Z shaping", () => {
 
     scheduler.onset(4, 72);
 
-    expect(midiOutput.send).not.toHaveBeenCalled();
-    expect(FakeWorker.instance.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ channel: 4, duration: 3.44, emitInitial: false, generation: 1 }),
-    );
-
-    FakeWorker.instance.emit({ channel: 4, generation: 1, y: 32, z: 41 });
-    FakeWorker.instance.emit({ channel: 4, generation: 1, y: 55, z: 71 });
     expect(midiOutput.send.mock.calls).toEqual([
-      [[0xb0 + 3, 74, 32]],
-      [[0xd0 + 3, 41]],
-      [[0xb0 + 3, 74, 55]],
-      [[0xd0 + 3, 71]],
+      [[0xb0 + 3, 74, 32], 314.2],
+      [[0xd0 + 3, 41], 314.2],
+      [[0xb0 + 3, 74, 55], 315.64],
+      [[0xd0 + 3, 71], 315.64],
     ]);
+    expect(FakeWorker.instance.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 4, duration: 0, silent: true, generation: 1 }),
+    );
   });
 
   it("emits Y and Z together for the same member channel", () => {
@@ -116,7 +113,57 @@ describe("automatic MPE Y/Z shaping", () => {
     }
     expect(calls.at(-2)[0]).toEqual([0xb0 + 2, 74, 69]);
     expect(calls.at(-1)[0]).toEqual([0xd0 + 2, 90]);
-    expect(calls.every((call) => call.length === 1)).toBe(true);
+    expect(calls.every((call) => call.length === 2 && Number.isFinite(call[1]))).toBe(true);
+  });
+
+  it("places a timestamped snapshot onset on the MIDI driver timeline", () => {
+    const midiOutput = { send: vi.fn() };
+    const scheduler = createAutoMpeYzScheduler(midiOutput, {
+      worker: false,
+      now: () => 1000,
+    });
+
+    scheduler.onset(3, 100, 1020);
+
+    expect(midiOutput.send.mock.calls).toEqual([
+      [[0xb0 + 2, 74, 69], 1021.2],
+      [[0xd0 + 2, 90], 1021.2],
+    ]);
+  });
+
+  it("coalesces queued legato samples instead of dumping a worker backlog", () => {
+    vi.useFakeTimers();
+    class FakeWorker {
+      static instance;
+
+      constructor() {
+        FakeWorker.instance = this;
+        this.onmessage = null;
+      }
+
+      postMessage = vi.fn();
+      terminate = vi.fn();
+
+      emit(data) {
+        this.onmessage?.({ data });
+      }
+    }
+    vi.stubGlobal("Worker", FakeWorker);
+    const midiOutput = { send: vi.fn() };
+    const scheduler = createAutoMpeYzScheduler(midiOutput, { now: () => 1000 });
+
+    scheduler.continuation(4, 100, 0, 250);
+    const generation = FakeWorker.instance.postMessage.mock.calls.at(-1)[0].generation;
+    FakeWorker.instance.emit({ channel: 4, generation, y: 20, z: 30 });
+    FakeWorker.instance.emit({ channel: 4, generation, y: 40, z: 50 });
+    FakeWorker.instance.emit({ channel: 4, generation, y: 60, z: 70 });
+
+    expect(midiOutput.send).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(8);
+    expect(midiOutput.send.mock.calls).toEqual([
+      [[0xb0 + 3, 74, 60], 1012],
+      [[0xd0 + 3, 70], 1012],
+    ]);
   });
 
   it("cancels a superseded pressure ramp instead of interleaving its tail", () => {
@@ -276,14 +323,11 @@ describe("automatic MPE Y/Z shaping", () => {
     now = 104.85;
     vi.advanceTimersByTime(2);
 
-    expect(midiOutput.send.mock.calls.map(([message]) => message)).toEqual([
-      [0xb0 + 2, 74, 34],
-      [0xd0 + 2, 45],
-      [0xb0 + 2, 74, 15],
-      [0xd0 + 2, 19],
-      [0xb0 + 2, 74, 0],
-      [0xd0 + 2, 0],
-    ]);
+    const calls = midiOutput.send.mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((call) => call.length === 2 && Number.isFinite(call[1]))).toBe(true);
+    expect(calls.at(-2)[0]).toEqual([0xb0 + 2, 74, 0]);
+    expect(calls.at(-1)[0]).toEqual([0xd0 + 2, 0]);
   });
 
   it("keeps the velocity onset when pressure has not crossed the threshold", () => {

@@ -14,9 +14,10 @@
  *   2. RELEASING channels (oldest noteOff first — most likely decayed)
  *   3. SOUNDING channels (steal oldest — last resort)
  *
- * For microtonal use, an optional closestPitch mode selects the SOUNDING
- * channel whose current bend is nearest the incoming note's required bend,
- * minimising the audible pitch jump on the stolen note's release tail.
+ * The optional musical-steal mode preserves chord structure when SOUNDING
+ * voice stealing is unavoidable. It prefers an interior octave duplication,
+ * then the voice nearest the chord's register centre, keeping unique outer
+ * notes until there is no interior alternative.
  *
  * No "clean channel" reservation is needed because the correct PB is always
  * sent synchronously before noteOn.
@@ -27,9 +28,8 @@ export class VoicePool {
    * @param {number}   releaseGuardMs   – ms to hold a channel in RELEASING
    *                                      state before it becomes IDLE again
    *                                      (should match synth release time; default 300)
-   * @param {boolean}  closestPitchSteal – when stealing a SOUNDING voice, prefer
-   *                                       the channel whose bend is nearest to
-   *                                       the incoming note's bend (default false)
+   * @param {boolean}  closestPitchSteal – legacy option name; when true, use
+   *                                       chord-aware musical stealing (default false)
    */
   constructor(slotIds, releaseGuardMs = 300, closestPitchSteal = false) {
     this._allSlots = [...slotIds];
@@ -44,6 +44,7 @@ export class VoicePool {
     this._idleQueue = [...slotIds]; // FIFO: front = next to use, back = most recently released
     this._lastBend = new Map(); // slot → last bend value (14-bit unsigned)
     this._lastNote = new Map(); // slot → last MIDI note number
+    this._lastPitch = new Map(); // slot → actual fractional MIDI pitch
     this._nextAllocationToken = 1;
 
     // Active voice linked list (oldest head → newest tail)
@@ -55,6 +56,7 @@ export class VoicePool {
       this._state.set(s, "IDLE");
       this._lastBend.set(s, 8192);
       this._lastNote.set(s, 60);
+      this._lastPitch.set(s, 60);
     }
   }
 
@@ -72,7 +74,7 @@ export class VoicePool {
    * The caller is responsible for sending PB(newBend) then noteOn to `slot`.
    * Do NOT send a PB reset to any channel — let releasing tails decay.
    */
-  noteOn(coords, incomingBend = 8192) {
+  noteOn(coords, incomingBend = 8192, incomingNote = null, incomingPitch = null) {
     const key = coordsKey(coords);
 
     // Retrigger: note already active, just refresh its position in the LRU list
@@ -137,7 +139,9 @@ export class VoicePool {
 
       // 3b. Fall back to stealing a SOUNDING voice.
       if (victim === null || victim.coords === null) {
-        victim = this._closestPitch ? this._closestBendVictim(incomingBend) : this._head;
+        victim = this._closestPitch
+          ? this._musicalVictim(incomingPitch ?? incomingNote, incomingBend)
+          : this._head;
         if (!victim) throw new Error("VoicePool: no channels available");
         stolen = victim.coords;
         stolenNote = this._lastNote.get(victim.slot) ?? 60;
@@ -240,6 +244,14 @@ export class VoicePool {
     return this._lastNote.get(slot) ?? 60;
   }
 
+  setLastPitch(slot, pitch) {
+    if (Number.isFinite(Number(pitch))) this._lastPitch.set(slot, Number(pitch));
+  }
+
+  getLastPitch(slot) {
+    return this._lastPitch.get(slot) ?? this.getLastNote(slot);
+  }
+
   getSlot(coords) {
     const entry = this._active.get(coordsKey(coords));
     return entry ? entry.slot : null;
@@ -260,6 +272,21 @@ export class VoicePool {
   }
   get freeCount() {
     return this._idleQueue.length;
+  }
+
+  /**
+   * Whether a new allocation can use an IDLE or RELEASING channel without
+   * evicting a currently sounding voice. Buffered sequencer continuations use
+   * this before attempting recovery so a recovered note can never suppress a
+   * newly attacked note.
+   */
+  canAllocateWithoutSoundingSteal() {
+    this._expireReleasing();
+    if (this._idleQueue.length > 0) return true;
+    for (const [slot, state] of this._state) {
+      if (state === "RELEASING" && this._noteOffAt.has(slot)) return true;
+    }
+    return false;
   }
 
   /**
@@ -299,20 +326,65 @@ export class VoicePool {
     }
   }
 
-  _closestBendVictim(targetBend) {
-    // Walk the active LRU list, find SOUNDING voice with bend nearest to targetBend
-    let best = null,
-      bestDist = Infinity;
+  _musicalVictim(incomingNote, targetBend) {
+    const sounding = [];
     let node = this._head;
     while (node) {
-      if (this._state.get(node.slot) === "SOUNDING") {
-        const dist = Math.abs((this._lastBend.get(node.slot) ?? 8192) - targetBend);
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = node;
-        }
-      }
+      if (this._state.get(node.slot) === "SOUNDING") sounding.push(node);
       node = node.next;
+    }
+    if (!sounding.length) return null;
+
+    const safeIncoming = Number.isFinite(Number(incomingNote)) ? Number(incomingNote) : null;
+    if (safeIncoming == null) return this._closestBendVictim(targetBend, sounding);
+
+    const entries = sounding.map((candidate) => ({
+      candidate,
+      note: this.getLastPitch(candidate.slot),
+    }));
+    const allNotes = entries.map(({ note }) => note).concat(safeIncoming);
+    const low = Math.min(...allNotes);
+    const high = Math.max(...allNotes);
+    const centre = (low + high) / 2;
+    const samePitch = (a, b) => Math.abs(a - b) < 0.01;
+    const samePitchClass = (a, b) => {
+      const octaves = (a - b) / 12;
+      return Math.abs(octaves - Math.round(octaves)) < 0.001;
+    };
+
+    let best = null;
+    let bestRank = Infinity;
+    let bestDistance = Infinity;
+    for (const { candidate, note } of entries) {
+      // Removing one of several identical boundary notes still preserves the
+      // outer register. Only the last copy of a boundary is treated as outer.
+      const uniqueOuter =
+        (samePitch(note, low) || samePitch(note, high)) &&
+        allNotes.filter((other) => samePitch(note, other)).length === 1;
+      const duplicatedPitchClass =
+        allNotes.filter((other) => samePitchClass(note, other)).length > 1;
+      const rank = !uniqueOuter ? (duplicatedPitchClass ? 0 : 1) : duplicatedPitchClass ? 2 : 3;
+      const distance = Math.abs(note - centre);
+      if (rank < bestRank || (rank === bestRank && distance < bestDistance)) {
+        best = candidate;
+        bestRank = rank;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
+  _closestBendVictim(targetBend, candidates = null) {
+    const pool = candidates ?? Array.from(this._active.values());
+    let best = null;
+    let bestDist = Infinity;
+    for (const candidate of pool) {
+      if (this._state.get(candidate.slot) !== "SOUNDING") continue;
+      const dist = Math.abs((this._lastBend.get(candidate.slot) ?? 8192) - targetBend);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = candidate;
+      }
     }
     return best;
   }

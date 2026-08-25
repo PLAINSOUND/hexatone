@@ -756,6 +756,51 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
+  it("restores stored sequence timbre after Mod Wheel input when sequence shaping is unchecked", async () => {
+    render(<App />);
+    const polyTimbre = vi.fn();
+    const soundingHex = {
+      release: false,
+      _snapshotSourceTimbre: 80,
+      _snapshotSourceTimbre14: null,
+      polyTimbre,
+    };
+    const keys = {
+      _snapshotHexes: [soundingHex],
+      _soundingSnapshotHexes: new Set([soundingHex]),
+    };
+
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+    act(() => lastKeyboardProps.onModWheelChange(127));
+
+    expect(polyTimbre).toHaveBeenCalledWith(80);
+  });
+
+  it("shapes stored sequence timbre after Mod Wheel input when sequence shaping is checked", async () => {
+    render(<App />);
+    const polyTimbre = vi.fn();
+    const soundingHex = {
+      release: false,
+      _snapshotSourceTimbre: 80,
+      _snapshotSourceTimbre14: null,
+      polyTimbre,
+    };
+    const keys = {
+      _snapshotHexes: [soundingHex],
+      _soundingSnapshotHexes: new Set([soundingHex]),
+    };
+
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+    fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    fireEvent.click(await screen.findByLabelText("Mod Wheel to sequence timbre"));
+    polyTimbre.mockClear();
+    act(() => lastKeyboardProps.onModWheelChange(127));
+
+    expect(polyTimbre).toHaveBeenCalledWith(127);
+  });
+
   it("uses manual arpeggiation when PLAY FROM starts a snapshot", async () => {
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(

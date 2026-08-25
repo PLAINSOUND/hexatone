@@ -1,4 +1,8 @@
-import { AUTO_MPE_YZ_SAMPLE_MS, createAutoMpeYzRampEngine } from "./auto-yz.js";
+import {
+  AUTO_MPE_YZ_MIDI_LEAD_MS,
+  AUTO_MPE_YZ_SAMPLE_MS,
+  createAutoMpeYzRampEngine,
+} from "./auto-yz.js";
 
 const engine = createAutoMpeYzRampEngine((values) => self.postMessage(values));
 let timer = null;
@@ -12,7 +16,7 @@ const stop = () => {
 const start = () => {
   if (timer != null) return;
   timer = setInterval(() => {
-    if (!engine.tick(performance.now())) stop();
+    if (!engine.tick(performance.now() + AUTO_MPE_YZ_MIDI_LEAD_MS)) stop();
   }, AUTO_MPE_YZ_SAMPLE_MS);
 };
 

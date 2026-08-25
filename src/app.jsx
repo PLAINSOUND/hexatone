@@ -1483,6 +1483,39 @@ const App = () => {
   const sequenceRepeatSections = sequenceRuntimeModel.sequenceRepeatSections;
   const sortedSequenceBars = sequenceRuntimeModel.sortedBars;
 
+  const legatoTransitionDurationMs = useCallback(
+    (markerIndex = null, stepIndex = null) => {
+      const resolvedMarkerIndex =
+        Number.isFinite(Number(markerIndex)) && Number(markerIndex) >= 0
+          ? Number(markerIndex)
+          : sequenceCueGroups.findIndex(
+              (group) => Number(group?.snapshotIndex) === Number(stepIndex),
+            );
+      if (sequenceTempi.length > 0 && resolvedMarkerIndex >= 0) {
+        const triggerMap = sequenceRuntimeModel.timedCueTriggerBySourceIndex;
+        const current = triggerMap.get(resolvedMarkerIndex + 1);
+        const next = triggerMap.get(resolvedMarkerIndex + 2);
+        const previous = triggerMap.get(resolvedMarkerIndex);
+        const spacingSeconds = Number.isFinite(next?.absoluteSeconds)
+          ? Number(next.absoluteSeconds) - Number(current?.absoluteSeconds)
+          : Number.isFinite(previous?.absoluteSeconds)
+            ? Number(current?.absoluteSeconds) - Number(previous.absoluteSeconds)
+            : NaN;
+        if (Number.isFinite(spacingSeconds) && spacingSeconds > 0) {
+          const speed = Math.max(0.01, Number(sequencePlaybackSpeed) || 1);
+          return Math.max(100, Math.min(400, (spacingSeconds * 1000 * 0.25) / speed));
+        }
+      }
+      return 200 + Math.random() * 100;
+    },
+    [
+      sequenceCueGroups,
+      sequencePlaybackSpeed,
+      sequenceRuntimeModel.timedCueTriggerBySourceIndex,
+      sequenceTempi.length,
+    ],
+  );
+
   const barIndexForTime = useCallback(
     (absoluteTime) => {
       const time = Number(absoluteTime);
@@ -1634,6 +1667,7 @@ const App = () => {
         keysRef.current?.playSnapshot(normalizedNotes, {
           legato: hardRestart ? false : useLegato,
           pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
+          legatoTransitionMs: legatoTransitionDurationMs(safeMarkerIndex, safeStepIndex),
         });
       } else {
         keysRef.current?.stopSnapshot();
@@ -1665,6 +1699,7 @@ const App = () => {
       barIndexForTime,
       cancelManualSnapshotGestures,
       commitSequencePlaybackUi,
+      legatoTransitionDurationMs,
       sequenceCueGroups,
       snapshots,
     ],
@@ -1928,6 +1963,7 @@ const App = () => {
         initialSpreadMs: arpeggiate ? manualArpeggiation.initialSpreadMs : 0,
         timingVariation: arpeggiate ? manualArpeggiation.timingVariation : 0,
       });
+      const legatoTransitionMs = legatoTransitionDurationMs(safeMarkerIndex, stepIndex);
       const runtime = manualGestureRuntimeRef.current;
       runtime.start(plan, {
         onStart: (gestureId) => {
@@ -1945,6 +1981,7 @@ const App = () => {
           const result = keysRef.current?.attackSnapshotGestureNote?.(gestureId, event.note, {
             legato: event.note?.legatoContinuation === true,
             pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
+            legatoTransitionMs,
           });
           if (result?.hex) {
             manualGestureEventVoicesRef.current.get(gestureId)?.set(event.eventId, result.hex);
@@ -1974,6 +2011,7 @@ const App = () => {
       barIndexForTime,
       commitSequencePlaybackUi,
       decayManualSnapshotGesturesForNextTrigger,
+      legatoTransitionDurationMs,
       manualArpeggiation,
       releaseManualSnapshotGesture,
       sequenceCueGroups,
@@ -4372,8 +4410,15 @@ const App = () => {
   const onKeysModWheelChange = useCallback((value) => {
     const nextValue = clampSequenceTimbreModWheel(value);
     sequenceTimbreModWheelValueRef.current = nextValue;
-    if (!sequenceTimbreModWheelEnabledRef.current) return;
-    applySequenceTimbreModWheelToActiveSnapshotHexes(keysRef.current, nextValue);
+    // The synth-level CC1 route runs first so live/non-sequence voices still
+    // follow the physical wheel. Sequence voices then assert their intended
+    // timbre: either the wheel-shaped value or the unmodified stored value.
+    applySequenceTimbreModWheelToActiveSnapshotHexes(
+      keysRef.current,
+      sequenceTimbreModWheelEnabledRef.current
+        ? nextValue
+        : NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
+    );
   }, []);
 
   const onKeysReady = useCallback(

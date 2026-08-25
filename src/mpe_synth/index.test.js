@@ -437,6 +437,55 @@ describe("mpe_synth first-note ordering", () => {
 
     synth.shutdown();
   });
+
+  it("restores a continuing cue voice after a mandatory new attack displaces it", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      false,
+    );
+    const runtime = {
+      settings: { fundamental: 440, midi_velocity: 72 },
+      tuning: { equivSteps: 12, degree0toRef_asArray: [0, 1] },
+      synth,
+      _snapshotHexes: [],
+      _snapshotNotes: [],
+      stopSnapshot() {},
+    };
+    const held = { instanceKey: "held-e", midicents: 76, attackVelocity: 66 };
+
+    runtime._snapshotHexes = playSnapshot(runtime, [held], { legato: true });
+    runtime._snapshotHexes = playSnapshot(
+      runtime,
+      [held, { instanceKey: "new-d", midicents: 62, attackVelocity: 90 }],
+      { legato: true },
+    );
+    midi_output.send.mockClear();
+    runtime._snapshotHexes = playSnapshot(runtime, [held], { legato: true });
+
+    const restored = midi_output.send.mock.calls.find(
+      ([message]) => (message[0] & 0xf0) === 0x90 && message[1] === 76,
+    );
+    expect(restored).toBeDefined();
+    expect(restored[1]).toEqual(expect.any(Number));
+    expect(runtime._snapshotHexes[0].hasDisplacedVoice()).toBe(false);
+    synth.shutdown();
+  });
 });
 
 describe("mpe_synth controller-state replay", () => {
@@ -783,6 +832,43 @@ describe("mpe_synth MPE+ emission", () => {
     expect(owner.release).toBe(false);
   });
 
+  it("buffers a displaced voice until a channel can be recovered without stealing", async () => {
+    const midi_output = { send: vi.fn() };
+    const synth = await create_mpe_synth(
+      midi_output,
+      "1",
+      2,
+      2,
+      440,
+      0,
+      0,
+      60,
+      scale12,
+      "standard",
+      96,
+      2,
+      12,
+      2,
+      500,
+      true,
+      false,
+    );
+    const displaced = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, -100, 100, 69, 60, 0, 1);
+    const owner = synth.makeHex({ x: 1, y: 0 }, 400, 4, 0, 12, 300, 500, 73, 72, 0, 1);
+
+    expect(displaced.hasDisplacedVoice()).toBe(true);
+    expect(displaced.recoverDisplacedVoice({ attackVelocity: 90 }, 1234)).toBe(false);
+
+    owner.noteOff(44);
+    midi_output.send.mockClear();
+    expect(displaced.recoverDisplacedVoice({ attackVelocity: 90 }, 1234)).toBe(true);
+
+    const calls = midi_output.send.mock.calls;
+    expect(calls[0][0][0] & 0xf0).toBe(0xe0);
+    expect(calls[1]).toEqual([[0x90 + 1, displaced.note, 90], 1234]);
+    expect(displaced.hasDisplacedVoice()).toBe(false);
+  });
+
   it("does not let an older same-coordinate retrigger release the newer allocation", async () => {
     const midi_output = { send: vi.fn() };
     const synth = await create_mpe_synth(
@@ -868,8 +954,9 @@ describe("mpe_synth automatic Y/Z output", () => {
     );
     expect(noteOnIndex).toBeGreaterThanOrEqual(0);
     expect(generatedIndex).toBeGreaterThan(noteOnIndex);
-    expect(calls[generatedIndex]).toHaveLength(1);
-    expect(calls[generatedIndex + 1]).toHaveLength(1);
+    expect(calls[generatedIndex]).toHaveLength(2);
+    expect(calls[generatedIndex + 1]).toHaveLength(2);
+    expect(calls[generatedIndex][1]).toBe(calls[generatedIndex + 1][1]);
   });
 
   it("does not let a sequence's default zero pressure erase the velocity onset", async () => {
@@ -882,6 +969,7 @@ describe("mpe_synth automatic Y/Z output", () => {
     expect(midiOutput.send).not.toHaveBeenCalled();
 
     hex.aftertouch(80, null, { initialSnapshotExpression: true });
+    vi.advanceTimersByTime(2);
     expect(midiOutput.send).toHaveBeenCalled();
   });
 
@@ -899,7 +987,7 @@ describe("mpe_synth automatic Y/Z output", () => {
     expect(midiOutput.send.mock.calls[0][0][0] & 0xf0).toBe(0x80);
     expect(midiOutput.send.mock.calls[0][0][2]).toBe(1);
     expect(midiOutput.send.mock.calls[1][0].slice(0, 2)).toEqual([0xb0 + 1, 74]);
-    expect(midiOutput.send.mock.calls[1]).toHaveLength(1);
+    expect(midiOutput.send.mock.calls[1]).toHaveLength(2);
     expect(midiOutput.send.mock.calls.at(-2)[0][2]).toBe(0);
     expect(midiOutput.send.mock.calls.at(-1)[0][1]).toBe(0);
   });

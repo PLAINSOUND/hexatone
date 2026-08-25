@@ -71,6 +71,29 @@ describe("composite_synth controller-state replay", () => {
     expect(osc.applyZoneModwheel).toHaveBeenCalledWith(91);
   });
 
+  it("allows stored sequence timbre to override a preceding zone-wide Mod Wheel update", () => {
+    const noteModwheel = vi.fn();
+    const applyZoneModwheel = vi.fn();
+    const synth = create_composite_synth([
+      {
+        applyZoneModwheel,
+        makeHex: vi.fn(() => ({
+          coords: { x: 0, y: 0 },
+          cents: 0,
+          modwheel: noteModwheel,
+        })),
+      },
+    ]);
+    const hex = synth.makeHex();
+
+    hex.modwheel(80);
+    synth.applyZoneModwheel(127);
+    hex.modwheel(80);
+
+    expect(applyZoneModwheel).toHaveBeenCalledWith(127);
+    expect(noteModwheel.mock.calls).toEqual([[80], [80]]);
+  });
+
   it("deduplicates repeated zone-wide expression emitted through different chord voices", () => {
     const mpeModwheel = vi.fn();
     const mpeExpression = vi.fn();
@@ -174,6 +197,33 @@ describe("composite_synth controller-state replay", () => {
 
     expect(first.applySnapshotPressure).toHaveBeenCalledWith(0, null);
     expect(second.aftertouch).toHaveBeenCalledWith(0, null);
+  });
+
+  it("recovers only a displaced child output", () => {
+    const recover = vi.fn(() => true);
+    const mpeHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      hasDisplacedVoice: () => true,
+      displacedVoiceAt: () => 42,
+      recoverDisplacedVoice: recover,
+    };
+    const mtsHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      noteOn: vi.fn(),
+    };
+    const wrapper = create_composite_synth([
+      { makeHex: () => mpeHex },
+      { makeHex: () => mtsHex },
+    ]).makeHex();
+    const note = { midicents: 76, attackVelocity: 66 };
+
+    expect(wrapper.hasDisplacedVoice()).toBe(true);
+    expect(wrapper.displacedVoiceAt()).toBe(42);
+    expect(wrapper.recoverDisplacedVoice(note, 1234)).toBe(true);
+    expect(recover).toHaveBeenCalledWith(note, 1234);
+    expect(mtsHex.noteOn).not.toHaveBeenCalled();
   });
 
   it("exposes child families and forwards onset mod state", () => {
