@@ -1142,6 +1142,105 @@ describe("App workspace tabs", () => {
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
   });
 
+  it("keeps the snapshot and modulation palettes available in I/O", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        snapshots: [
+          {
+            id: 1,
+            length: 1,
+            notes: [{ id: "note", midicents: 60, start: 0, attackVelocity: 90 }],
+          },
+        ],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        tempi: [],
+        repeats: [],
+      }),
+    );
+    const { unmount } = render(<App />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => {
+      lastKeyboardProps.onModulationStateChange({
+        mode: "idle",
+        history: [{ sourceDegree: 0, targetDegree: 1, count: 0 }],
+      });
+    });
+
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+
+    expect(document.querySelector("#snapshot-palette")).not.toBeNull();
+    expect(document.querySelector("#modulation-palette")).not.toBeNull();
+
+    unmount();
+    localStorage.removeItem("hexatone_persist_on_reload");
+    sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+  });
+
+  it("stops timed playback before playing a snapshot from the palette", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        snapshots: [
+          {
+            id: 1,
+            length: 1,
+            notes: [{ id: "first", midicents: 60, start: 0, end: 1, attackVelocity: 90 }],
+          },
+          {
+            id: 2,
+            length: 1,
+            notes: [{ id: "second", midicents: 67, start: 0, end: 1, attackVelocity: 90 }],
+          },
+        ],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        tempi: [
+          { id: 1, position: 1, bpm: 30, beatNumerator: 1, beatDenominator: 4, beatLength: 1 },
+        ],
+        repeats: [],
+      }),
+    );
+    const keys = {
+      settings: { note_names: [], heji_names: [] },
+      playSnapshot: vi.fn(),
+      stopSnapshot: vi.fn(),
+      beginSnapshotGesture: vi.fn(),
+      attackSnapshotGestureNote: vi.fn((_gestureId, note) => ({ hex: { note } })),
+      releaseSnapshotGestureNote: vi.fn(),
+      stopSnapshotGesture: vi.fn(),
+      panic: vi.fn(),
+    };
+    const { unmount } = render(<App />);
+    const user = userEvent.setup();
+
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    await user.click(await screen.findByLabelText("play timed transport"));
+    await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    const stopCallsBeforePalettePlay = keys.stopSnapshot.mock.calls.length;
+    await user.click(await screen.findByLabelText("Play snapshot 1"));
+
+    expect(keys.stopSnapshot).toHaveBeenCalledTimes(stopCallsBeforePalettePlay + 1);
+    expect(keys.beginSnapshotGesture).toHaveBeenCalledTimes(1);
+    expect(keys.attackSnapshotGestureNote).toHaveBeenCalledTimes(1);
+    expect(keys.attackSnapshotGestureNote.mock.calls[0][1].id).toBe("first");
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    expect(screen.getByLabelText("play timed transport")).not.toBeNull();
+
+    unmount();
+    localStorage.removeItem("hexatone_persist_on_reload");
+    sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+  });
+
   it("stops sequencer playback when switching from I/O to Hexatone", async () => {
     render(<App />);
     const user = userEvent.setup();

@@ -141,6 +141,7 @@ const Sequencer = ({
   onSelectMarker,
   onPlaySnapshot,
   onStopSnapshot,
+  timedTransportStopRef = null,
   onSelectSequenceBar,
   onCueSequenceSnapshot,
   onCueSequenceCue,
@@ -957,6 +958,15 @@ const Sequencer = ({
     onStopSnapshot,
     getTimedTransportClockSeconds,
   });
+  useEffect(() => {
+    if (!timedTransportStopRef) return undefined;
+    timedTransportStopRef.current = handleTimedTransportStop;
+    return () => {
+      if (timedTransportStopRef.current === handleTimedTransportStop) {
+        timedTransportStopRef.current = null;
+      }
+    };
+  }, [handleTimedTransportStop, timedTransportStopRef]);
   const viewportOwner = resolveSequencerViewportOwner({
     timedPlaybackRunning: timedTransportUiState.running,
   });

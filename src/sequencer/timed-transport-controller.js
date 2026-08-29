@@ -753,7 +753,7 @@ export default function useTimedTransportController({
     timedPlaybackBursts,
   ]);
 
-  const handleTimedTransportStop = useCallback(() => {
+  const handleTimedTransportStop = useCallback((options = {}) => {
     const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
     clearScheduledTimedCueCallbacks();
     onStopSnapshot?.();
@@ -771,7 +771,7 @@ export default function useTimedTransportController({
     });
     timedTransportStateRef.current = stoppedState;
     setTimedTransportState(stoppedState);
-    restoreTimedTransportStartTarget();
+    if (options?.restoreStartTarget !== false) restoreTimedTransportStartTarget();
   }, [
     clearScheduledTimedCueCallbacks,
     onStopSnapshot,

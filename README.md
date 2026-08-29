@@ -14,7 +14,7 @@ Design by [Siemen Terpstra](http://siementerpstra.com/) based on [Erv Wilson's m
 
 Initial development by James Fenn with additions and modifications from [Brandon Lewis](http://brandlew.com/), [Bo Constantinsen](http://whatmusicreallyis.com/), [Chengu Wang](https://sites.google.com/site/wangchengu/), [Ashton Snelgrove](https://ashton.snelgrove.science). Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, and Soni Musicae.
 
-Current version 3.3.0-rc.1 (August 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
+Current version 3.3.0-rc.2 (August 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
 
 *The text font with embedded HEJI accidentals (Plainsound Sans) is designed by Thomas Nicholson. Unicode data for copying/pasting may be found at [w3c-cg.github.io/smufl/latest/tables](https://w3c-cg.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html).*
 
@@ -25,7 +25,7 @@ cc 2026 [PLAINSOUND MUSIC EDITION](https://www.plainsound.org)
 
 ## Current State
 
-Hexatone 3.3 RC1 is a live microtonal keyboard and scale workspace featuring:
+Hexatone 3.3 RC2 is a live microtonal keyboard and scale workspace featuring:
 
 - isomorphic hexagonal layout
 - rational / just intonation with automatic HEJI notation
@@ -77,9 +77,9 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ## Version history
 
-### 3.3 RC1 _(current release candidate)_
+### 3.3 RC2 _(current release candidate)_
 
-Hexatone 3.3 RC1 substantially expands the Sequencer and HEJI notation workspace.
+Hexatone 3.3 RC2 substantially expands the Sequencer and HEJI notation workspace.
 
 The Sequencer supports editable snapshots, cues, bars, tempo changes, and repeat markers in a unified event list. Captured snapshots can be expanded into individual note events whose snapshot membership, position offset, MIDI¢, Hz, displayed name, bar-relative position, and expression data can be edited directly. Bars and time signatures may be placed between snapshots,
 tempo markers support immediate and gradual changes, and repeat markers can loop between sequence positions.

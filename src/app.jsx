@@ -1035,6 +1035,7 @@ const App = () => {
   const [sequenceRepeats, setSequenceRepeats] = useState([]);
   const [sequencePlayRepeats, setSequencePlayRepeats] = useState(true);
   const sequencerScrollPositionRef = useRef(0);
+  const timedTransportStopRef = useRef(null);
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -2086,6 +2087,21 @@ const App = () => {
       sequencePlayhead,
       snapshots,
     ],
+  );
+
+  const onPlayPaletteSnapshot = useCallback(
+    (id) => {
+      if (typeof timedTransportStopRef.current === "function") {
+        // The timed transport owns its pending cue callbacks. Stop it through
+        // that controller before forming the manually selected snapshot so a
+        // scheduled cue cannot replace or join the palette selection later.
+        timedTransportStopRef.current({ restoreStartTarget: false });
+      } else {
+        onStopSnapshot();
+      }
+      onPlaySnapshot(id);
+    },
+    [onPlaySnapshot, onStopSnapshot],
   );
 
   const previousPerformanceWorkspaceTabRef = useRef(performanceWorkspaceTab);
@@ -3754,6 +3770,8 @@ const App = () => {
     [activeModulationLibrary],
   );
   const modulationPaletteVisible = modulationHistory.length > 0;
+  const performancePalettesVisible =
+    !inlineManualView && (workspaceTab === "hexatone" || workspaceTab === "io");
   const currentFundamentalSummary = useMemo(() => {
     return deriveCurrentFundamentalSummary(tuningWorkspace, deferredModulationHistory, {
       fundamental: settings.fundamental,
@@ -4952,7 +4970,7 @@ const App = () => {
       </div>
 
       {/* ── Snapshot palette — floating overlay, visible without opening the sidebar ── */}
-      {workspaceTab === "hexatone" && !inlineManualView && snapshots.length > 0 && (
+      {performancePalettesVisible && snapshots.length > 0 && (
         <div
           id="snapshot-palette"
           ref={snapshotPaletteRef}
@@ -5072,7 +5090,7 @@ const App = () => {
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        onPlaySnapshot(snap.id);
+                        onPlayPaletteSnapshot(snap.id);
                       }}
                     >
                       <span
@@ -5118,7 +5136,7 @@ const App = () => {
         </div>
       )}
 
-      {modulationPaletteVisible && workspaceTab === "hexatone" && !inlineManualView && (
+      {modulationPaletteVisible && performancePalettesVisible && (
         <div
           id="modulation-palette"
           ref={modulationPaletteRef}
@@ -5440,6 +5458,7 @@ const App = () => {
                   onSelectMarker={onSelectSequencerMarker}
                   onPlaySnapshot={onPlaySnapshot}
                   onStopSnapshot={onStopSnapshot}
+                  timedTransportStopRef={timedTransportStopRef}
                   onSelectSequenceBar={onSelectSequenceBar}
                   onCueSequenceSnapshot={onCueSequenceSnapshot}
                   onCueSequenceCue={onCueSequenceCue}
