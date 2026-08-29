@@ -21,19 +21,32 @@ function expressionState(synths) {
 export const create_composite_synth = (synths) => ({
   family: "composite",
   families: synths.map((s) => s?.family).filter(Boolean),
+  childSynths() {
+    return [...synths];
+  },
   containsFamily(name) {
     return synths.some((s) => s?.family === name);
   },
 
   makeHex: (...args) => {
-    const hexes = synths.map((s) => s.makeHex(...args));
-    return {
+    let hexSynths = [...synths];
+    const hexes = hexSynths.map((s) => s.makeHex(...args));
+    const firstHex = hexes[0] ?? {
+      coords: args[0] ?? null,
+      cents: Number(args[1]) || 0,
+      release: false,
+      note_played: args[7],
+      velocity_played: args[8],
+      velocity: args[8],
+      _onVel: args[8],
+    };
+    const compositeHex = {
       // Keys.js reads coords, cents, release from the hex object.
       // All synths receive the same coords/cents so any one is authoritative.
-      coords: hexes[0].coords,
-      cents: hexes[0].cents,
+      coords: firstHex.coords,
+      cents: firstHex.cents,
       release: false,
-      note_played: hexes[0].note_played,
+      note_played: firstHex.note_played,
       velocity_played: hexes.find((h) => h.velocity_played != null)?.velocity_played,
       velocity: hexes.find((h) => h.velocity != null)?.velocity,
       _onVel: hexes.find((h) => h._onVel != null)?._onVel,
@@ -42,6 +55,48 @@ export const create_composite_synth = (synths) => ({
       // Expose stolen coords from any child synth that had to evict a voice.
       // Keys.js uses this to redraw the displaced hex.
       _stolenCoords: hexes.reduce((acc, h) => acc || h._stolenCoords || null, null),
+      _compositeSounding: false,
+      _compositeLastPressure: null,
+      _compositeLastPressure14: null,
+      _compositeLastTimbre: null,
+      _compositeLastTimbre14: null,
+
+      // Existing Keys note objects survive output-graph changes. Reconcile the
+      // child voices in-place so a newly enabled output (or newly loaded sample)
+      // joins currently sounding notes without restarting the sequencer.
+      reconcileSynths(nextSynths, timestamp) {
+        const desired = Array.isArray(nextSynths) ? nextSynths.filter(Boolean) : [];
+        for (let index = hexSynths.length - 1; index >= 0; index -= 1) {
+          if (desired.includes(hexSynths[index])) continue;
+          if (this._compositeSounding) hexes[index]?.noteOff?.(0, timestamp);
+          hexSynths.splice(index, 1);
+          hexes.splice(index, 1);
+        }
+
+        for (const nextSynth of desired) {
+          if (hexSynths.includes(nextSynth) || typeof nextSynth?.makeHex !== "function") continue;
+          const nextArgs = [...args];
+          nextArgs[1] = this.cents;
+          nextArgs[11] = { ...(nextArgs[11] ?? {}), deferNoteOn: true };
+          const child = nextSynth.makeHex(...nextArgs);
+          if (Number.isFinite(Number(this.cents))) child.retune?.(Number(this.cents), true);
+          hexSynths.push(nextSynth);
+          hexes.push(child);
+          if (!this._compositeSounding) continue;
+          child.noteOn?.(timestamp);
+          if (this._compositeLastPressure != null || this._compositeLastPressure14 != null) {
+            const pressure = this._compositeLastPressure ?? this._compositeLastPressure14 >> 7;
+            if (child.applySnapshotPressure)
+              child.applySnapshotPressure(pressure, this._compositeLastPressure14);
+            else child.aftertouch?.(pressure, this._compositeLastPressure14);
+          }
+          if (this._compositeLastTimbre != null || this._compositeLastTimbre14 != null) {
+            const timbre = this._compositeLastTimbre ?? this._compositeLastTimbre14 >> 7;
+            if (child.polyTimbre) child.polyTimbre(timbre, this._compositeLastTimbre14);
+            else child.cc74?.(timbre, this._compositeLastTimbre14);
+          }
+        }
+      },
 
       hasDisplacedVoice() {
         return hexes.some((h) => h.hasDisplacedVoice?.() === true);
@@ -67,10 +122,14 @@ export const create_composite_synth = (synths) => ({
       },
 
       noteOn(timestamp) {
+        this._compositeSounding = true;
+        this.release = false;
         hexes.forEach((h) => h.noteOn(timestamp));
       },
 
       noteOff(release_velocity, timestamp) {
+        this._compositeSounding = false;
+        this.release = true;
         hexes.forEach((h) => {
           if (Number.isFinite(Number(timestamp))) h.noteOff(release_velocity, Number(timestamp));
           else h.noteOff(release_velocity);
@@ -106,10 +165,14 @@ export const create_composite_synth = (synths) => ({
       },
 
       aftertouch(value, value14 = null) {
+        this._compositeLastPressure = value;
+        this._compositeLastPressure14 = value14;
         hexes.forEach((h) => h.aftertouch && h.aftertouch(value, value14));
       },
 
       applySnapshotPressure(value, value14 = null) {
+        this._compositeLastPressure = value;
+        this._compositeLastPressure14 = value14;
         hexes.forEach((h) => {
           if (h.applySnapshotPressure) h.applySnapshotPressure(value, value14);
           else h.aftertouch?.(value, value14);
@@ -145,14 +208,20 @@ export const create_composite_synth = (synths) => ({
       },
 
       pressure(value, value14 = null) {
+        this._compositeLastPressure = value;
+        this._compositeLastPressure14 = value14;
         hexes.forEach((h) => h.pressure && h.pressure(value, value14));
       },
 
       cc74(value, value14 = null) {
+        this._compositeLastTimbre = value;
+        this._compositeLastTimbre14 = value14;
         hexes.forEach((h) => h.cc74 && h.cc74(value, value14));
       },
 
       polyTimbre(value, value14 = null) {
+        this._compositeLastTimbre = value;
+        this._compositeLastTimbre14 = value14;
         hexes.forEach((h) => {
           if (h.isMtsOutput) return;
           if (h.polyTimbre) h.polyTimbre(value, value14);
@@ -161,6 +230,8 @@ export const create_composite_synth = (synths) => ({
       },
 
       mpeTimbre(value, value14 = null) {
+        this._compositeLastTimbre = value;
+        this._compositeLastTimbre14 = value14;
         hexes.forEach((h) => h.mpeTimbre && h.mpeTimbre(value, value14));
       },
 
@@ -178,6 +249,7 @@ export const create_composite_synth = (synths) => ({
         hexes.forEach((h) => h.expression && h.expression(value));
       },
     };
+    return compositeHex;
   },
 
   // prepare() is called by app.jsx on preset change — forward and return a

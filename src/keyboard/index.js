@@ -113,8 +113,8 @@ const Keyboard = (props) => {
   }, []);
 
   // Output/synth changes should not tear down the live keyboard. Existing notes
-  // keep their current hex objects so tails can decay naturally; new notes use
-  // the latest synth/output configuration.
+  // keep their logical hex objects while their output children are reconciled;
+  // new notes use the latest synth/output configuration.
   useEffect(() => {
     if (keysRef.current?.updateLiveOutputState) {
       keysRef.current.updateLiveOutputState(props.liveOutputSettings, props.synth);

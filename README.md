@@ -8,13 +8,20 @@
 
 [Developer Quickstart](./DEVELOPER_QUICKSTART.md)
 
-Designed by [Siemen Terpstra](http://siementerpstra.com/) in the late 1980s, based on [Erv Wilson's microtonal keyboard designs](https://www.anaphoria.com/wilsonkeyboard.html) (1967-), inspired by [R.H.M. Bosanquet](https://en.wikipedia.org/wiki/Robert_Holford_Macdowall_Bosanquet)'s [Generalised Keyboard](https://en.wikipedia.org/wiki/Generalized_keyboard) (1873) and Ivo Salzinger's Tastatura Nova Perfecta (1721).
+<!-- BEGIN GENERATED CREDITS: edit src/credits-content.js -->
 
-Initial development by James Fenn with additions and modifications from [Brandon Lewis](http://brandlew.com/), [Bo Constantinsen](http://whatmusicreallyis.com/), [Chengu Wang](https://sites.google.com/site/wangchengu/), [Ashton Snelgrove](https://ashton.snelgrove.science).
-Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, Soni Musicae.
+Design by [Siemen Terpstra](http://siementerpstra.com/) based on [Erv Wilson's microtonal keyboard designs](https://www.anaphoria.com/wilsonkeyboard.html) (1967-), inspired by [R.H.M. Bosanquet](https://en.wikipedia.org/wiki/Robert_Holford_Macdowall_Bosanquet)'s [Generalised Keyboard](https://en.wikipedia.org/wiki/Generalized_keyboard) (1873) and Ivo Salzinger's *Tastatura Nova Perfecta* (1721).
 
-MIDI version designed and programmed by [Marc Sabat](https://www.plainsound.org).
-Current version 3.3.0-rc.1 (August 2026), released as Free/Libre and Open Source Software under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Current stable release on `main`: 3.2.3. Code on github: https://github.com/PLAINSOUND/hexatone. Discord: https://discord.gg/NGVTmDFPtf.
+Initial development by James Fenn with additions and modifications from [Brandon Lewis](http://brandlew.com/), [Bo Constantinsen](http://whatmusicreallyis.com/), [Chengu Wang](https://sites.google.com/site/wangchengu/), [Ashton Snelgrove](https://ashton.snelgrove.science). Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, and Soni Musicae.
+
+Current version 3.3.0-rc.1 (August 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
+
+*The text font with embedded HEJI accidentals (Plainsound Sans) is designed by Thomas Nicholson. Unicode data for copying/pasting may be found at [w3c-cg.github.io/smufl/latest/tables](https://w3c-cg.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html).*
+
+**Support our open access content with a [donation](https://ko-fi.com/plainsound).**<br>
+cc 2026 [PLAINSOUND MUSIC EDITION](https://www.plainsound.org)
+
+<!-- END GENERATED CREDITS -->
 
 ## Current State
 

@@ -69,14 +69,7 @@ const MIDI_PORT_RESET = {
 
 const snapshotWebMidiPorts = () => {
   if (!WebMidi?.enabled) return null;
-  const inputs = Array.isArray(WebMidi.inputs) ? WebMidi.inputs : [];
-  const outputs = Array.isArray(WebMidi.outputs) ? WebMidi.outputs : [];
-  if (!inputs.length && !outputs.length) return null;
-  return {
-    inputs: new Map(inputs.map((port) => [port.id, port])),
-    outputs: new Map(outputs.map((port) => [port.id, port])),
-    onstatechange: null,
-  };
+  return WebMidi.interface ?? null;
 };
 
 export const deriveOscVolumes = (settings) => {
@@ -129,12 +122,6 @@ export const deriveOscRetriggerBuzzFormant = (settings) =>
     REGISTRY_BY_KEY.osc_retrigger_buzz_formant.key,
     settings.osc_retrigger_buzz_formant ?? false,
   );
-
-export const shouldFlushSoundingNotesForFreshOscActivation = (keys, wantOsc, currentOscSynth) => {
-  if (!wantOsc) return false;
-  if (currentOscSynth) return false;
-  return !!keys?.hasSoundingNotes?.();
-};
 
 export const resolveInputController = (input, controllerOverrideId = "auto") => {
   if (controllerOverrideId && controllerOverrideId !== "auto") {
@@ -472,6 +459,7 @@ const useSynthWiring = (
   const mtsSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
   const midiRequestRef = useRef(null);
+  const midiPortsChangedListenerRef = useRef(null);
 
   const releaseSynthInstance = useCallback((synth) => {
     if (!synth) return;
@@ -516,10 +504,22 @@ const useSynthWiring = (
       const request = (async () => {
         setMidiAccessError(null);
         try {
-          await enableMidi({ sysex });
-          const midiAccessObj = await navigator.requestMIDIAccess({ sysex });
+          const enabledWebMidi = await enableMidi({ sysex });
+          const midiAccessObj = enabledWebMidi?.interface ?? WebMidi.interface;
+          if (!midiAccessObj) throw new Error("WebMidi did not expose its MIDI access interface.");
           debugLog("midi", sysex ? "Web MIDI API with sysex is ready!" : "Web MIDI API is ready!");
-          midiAccessObj.onstatechange = () => setMidiTick((t) => t + 1);
+          midiPortsChangedListenerRef.current?.();
+          const refreshMidiPorts = () => setMidiTick((t) => t + 1);
+          const webMidiPortsListener = WebMidi.addListener("portschanged", refreshMidiPorts);
+          // Firefox may add a native port in the closed state. WebMidi.js only
+          // synthesizes `portschanged` for a narrower set of state/connection
+          // combinations, so also observe the underlying MIDIAccess directly.
+          // addEventListener coexists with WebMidi.js's own onstatechange hook.
+          midiAccessObj.addEventListener?.("statechange", refreshMidiPorts);
+          midiPortsChangedListenerRef.current = () => {
+            webMidiPortsListener?.remove?.();
+            midiAccessObj.removeEventListener?.("statechange", refreshMidiPorts);
+          };
           setMidi(midiAccessObj);
           setMidiAccess(targetAccess);
           sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, targetAccess);
@@ -553,6 +553,8 @@ const useSynthWiring = (
       setMidiAccess("none");
       setMidiAccessError(null);
       midiRequestRef.current = null;
+      midiPortsChangedListenerRef.current?.();
+      midiPortsChangedListenerRef.current = null;
       sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, "none");
       try {
         if (typeof WebMidi.disable === "function") {
@@ -561,13 +563,20 @@ const useSynthWiring = (
       } catch (err) {
         warnLog("Web MIDI disable could not complete cleanly:", err);
       }
-      if (midi) midi.onstatechange = null;
       if (reenableBasic) {
         return ensureMidiAccess({ sysex: false });
       }
       return true;
     },
-    [clearMidiSelections, ensureMidiAccess, midi],
+    [clearMidiSelections, ensureMidiAccess],
+  );
+
+  useEffect(
+    () => () => {
+      midiPortsChangedListenerRef.current?.();
+      midiPortsChangedListenerRef.current = null;
+    },
+    [],
   );
 
   useEffect(() => {
@@ -623,8 +632,9 @@ const useSynthWiring = (
   // Before adding a new setting to ANY dependency array below, classify it here.
   //
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │ FULL SYNTH REBUILD                                                      │
-  // │ Tears down and recreates all active output engines via Promise.all.     │
+  // │ OUTPUT GRAPH REBUILD                                                    │
+  // │ Reuses unchanged engines and creates/removes changed engines in parallel.│
+  // │ Existing logical notes reconcile their child voices into the new graph. │
   // │ Controlled by the main useEffect dependency array (lines below).        │
   // │                                                                         │
   // │  Tuning/pitch (all outputs depend on these):                            │
@@ -778,7 +788,9 @@ const useSynthWiring = (
 
     if (!wantSample && !wantMts && !wantFluidsynth && !wantDirect && !wantMpe && !wantOsc) {
       clearAllOutputSynthRefs();
-      setSynth(null);
+      const silentSynth = create_composite_synth([]);
+      keysRef.current?.updateLiveOutputState?.(null, silentSynth);
+      setSynth(silentSynth);
       return () => {
         cancelled = true;
       };
@@ -814,7 +826,12 @@ const useSynthWiring = (
                 settings.scale,
               ),
             )
-            .then((s) => {
+            .then(async (s) => {
+              // While playback is running, keep the previous sample engine in
+              // service until the replacement has fetched and decoded all of
+              // its buffers. The output graph is swapped only after prepare()
+              // resolves, so instrument selection never creates a silent gap.
+              if (userHasInteracted && s?.prepare) await s.prepare();
               if (!cancelled) sampleSynthRef.current = { key: sampleKey, synth: s };
               return s;
             }),
@@ -907,11 +924,6 @@ const useSynthWiring = (
       for (const synth of mtsSynthsRef.current.values()) releaseSynthInstance(synth);
       mtsSynthsRef.current.clear();
     }
-    const flushSoundingNotesForFreshOscActivation = shouldFlushSoundingNotesForFreshOscActivation(
-      keysRef.current,
-      wantOsc,
-      oscSynthRef.current.synth,
-    );
     if (wantOsc) {
       const oscKey = JSON.stringify([
         settings.osc_bridge_url || "ws://localhost:8089",
@@ -1045,10 +1057,10 @@ const useSynthWiring = (
         setLoading(signal);
         return;
       }
-      const s = validSynths.length === 1 ? validSynths[0] : create_composite_synth(validSynths);
-      if (flushSoundingNotesForFreshOscActivation) {
-        keysRef.current?.allnotesOff?.();
-      }
+      // Always expose a composite, even for one output. Its per-note wrappers
+      // can then reconcile newly enabled/disabled child engines in place while
+      // the sequencer continues to own the same logical voices.
+      const s = create_composite_synth(validSynths);
       // Set the synth and clear the spinner immediately — do NOT await prepare()
       // here. On iOS, prepare() calls AudioContext.resume() + decodeAudioData,
       // both of which require a running AudioContext. The synth effect runs outside
@@ -1071,6 +1083,11 @@ const useSynthWiring = (
       // without waiting for the next Keyboard render/effect cycle. This closes
       // a timing gap where a freshly swapped sample synth could briefly become
       // active with default wheel/mod state after an instrument change.
+      if (s.setVolume) {
+        const muted = localStorage.getItem("synth_muted") === "true";
+        const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
+        s.setVolume(muted ? 0 : volume);
+      }
       keysRef.current?.updateLiveOutputState?.(null, s);
       setSynth(s);
       // For iOS restored presets, sample synth construction is intentionally
@@ -1129,6 +1146,7 @@ const useSynthWiring = (
     midiTick,
     ready,
     deferSampleActivation,
+    userHasInteracted,
     // keysRef and settings (whole object) intentionally omitted — keysRef is a stable ref,
     // and settings is covered field-by-field above.
   ]);
@@ -1172,19 +1190,6 @@ const useSynthWiring = (
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [synth]); // synthRef is a stable ref, intentionally omitted
-
-  // Reset octave to 0 whenever the synth is rebuilt (output routing changed).
-  // A new synth means all notes were killed; keeping a transposed OCT state would
-  // cause the next notes to play at the wrong pitch.
-  const isFirstSynthRef = useRef(true);
-  useEffect(() => {
-    if (isFirstSynthRef.current) {
-      isFirstSynthRef.current = false;
-      return;
-    }
-    resetOctave();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- resetOctave is stable
-  }, [synth]);
 
   // On first user interaction, prepare audio context (iOS/Safari requirement).
   useEffect(() => {
@@ -1455,9 +1460,8 @@ const useSynthWiring = (
   );
 
   // ── Lumatone raw MIDI ports ──────────────────────────────────────────────────
-  // When the active MIDI input is a Lumatone, resolve the matching raw Web MIDI
-  // input (for ACK sysex listening) and output (for LED sysex sends).
-  // These are passed to Keys so it can drive the LED feedback engine.
+  // When the active MIDI input is a Lumatone, resolve its matching native
+  // ports, then expose WebMidi.js wrappers for ACK listening and LED SysEx.
   const lumatoneRawPorts = useMemo(() => {
     if (midiAccess !== "sysex") return null;
     if (!midi || !settings.midiin_device || settings.midiin_device === "OFF") return null;
@@ -1473,7 +1477,14 @@ const useSynthWiring = (
       settings.lumatone_out_port ?? null,
     );
     if (!rawOut) return null;
-    return { input: rawIn, output: rawOut };
+    // Receive and transmit through the WebMidi.js wrappers. In particular,
+    // sendSysex(manufacturer, payload) owns the normal F0/F7 framing just as it
+    // does for Hexatone's MTS output, keeping application-level packets out of
+    // the browser-dependent native/wrapper selection path. Browser Web MIDI
+    // regressions may still affect the wrapper's underlying native transport.
+    const webMidiIn = rawIn ? WebMidi.getInputById(rawIn.id) : null;
+    const webMidiOut = WebMidi.getOutputById(rawOut.id);
+    return { input: webMidiIn ?? rawIn, output: webMidiOut ?? rawOut };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     midi,

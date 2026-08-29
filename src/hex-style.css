@@ -841,26 +841,19 @@ a:hover {
 }
 
 .snapshot-stop-glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  width: 0.4rem;
+  height: 0.4rem;
   color: currentColor;
-  font-size: 0.77rem;
-  line-height: 1;
-  flex: 0 0 auto;
-  transform: translateY(-0.01rem);
+  flex: 0 0 0.4rem;
 }
 
-@media (max-width: 932px) and (pointer: coarse) {
-  .snapshot-stop-glyph {
-    display: inline-block;
-    width: 1em;
-    text-align: center;
-    font-size: 0.5rem;
-    line-height: 1;
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-  }
+.snapshot-stop-glyph::before {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
 }
 
 .snapshot-start-icon {

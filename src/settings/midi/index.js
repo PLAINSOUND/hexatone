@@ -682,6 +682,9 @@ const MIDIio = (props) => {
                       hasSysexMidi={hasSysexMidi}
                       onChange={props.onChange}
                       onEnableLumatoneAutoSync={props.onEnableLumatoneAutoSync}
+                      onSendLumatoneColors={props.onSendLumatoneColors}
+                      onProbeLumatoneConnection={props.onProbeLumatoneConnection}
+                      driverReady={props.lumatoneDriverReady}
                       saveControllerPref={saveControllerPref}
                     />
                   )}
@@ -1063,6 +1066,9 @@ MIDIio.propTypes = {
   ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,
   onEnableLumatoneAutoSync: PropTypes.func,
+  onSendLumatoneColors: PropTypes.func,
+  onProbeLumatoneConnection: PropTypes.func,
+  lumatoneDriverReady: PropTypes.bool,
 };
 
 export default MIDIio;

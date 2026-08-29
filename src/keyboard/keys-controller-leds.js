@@ -117,9 +117,9 @@ export function updateColors(colors, options = {}) {
 }
 
 export function syncLumatoneLEDs() {
-  if (this.lumatoneLEDs && this.controller?.id === "lumatone" && this.controllerMap) {
-    this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
-  }
+  if (!this.lumatoneLEDs || this.controller?.id !== "lumatone" || !this.controllerMap) return false;
+  this.lumatoneLEDs.sendAll(this._buildLumatoneColorEntries());
+  return true;
 }
 
 export function autoSyncLumatoneLEDs() {

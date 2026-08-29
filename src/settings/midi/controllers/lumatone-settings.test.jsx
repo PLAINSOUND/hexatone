@@ -12,6 +12,89 @@ describe("LumatoneSettings", () => {
     sessionStorage.clear();
   });
 
+  it("probes through the app-owned driver without depending on the Keys attachment", async () => {
+    const onProbeLumatoneConnection = vi.fn().mockResolvedValue({
+      ok: true,
+      elapsedMs: 4,
+      bytes: [0xf0, 0x00, 0x21, 0x50, 0, 0x31, 1, 1, 3, 0, 0xf7],
+    });
+
+    render(
+      <LumatoneSettings
+        settings={{ midi_passthrough: false, lumatone_led_sync: false }}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone" } }}
+        midiOutputs={new Map()}
+        keysRef={{ current: { lumatoneLEDs: null } }}
+        hasSysexMidi={true}
+        driverReady={true}
+        onProbeLumatoneConnection={onProbeLumatoneConnection}
+        onChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Test Lumatone SysEx connection" }));
+
+    expect(onProbeLumatoneConnection).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Reply in 4 ms/)).toBeTruthy();
+  });
+
+  it("keeps the connection test disabled until the lazy driver is ready", () => {
+    render(
+      <LumatoneSettings
+        settings={{ midi_passthrough: false, lumatone_led_sync: false }}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone" } }}
+        midiOutputs={new Map()}
+        keysRef={{ current: {} }}
+        hasSysexMidi={true}
+        driverReady={false}
+        onProbeLumatoneConnection={vi.fn()}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Test Lumatone SysEx connection" }).disabled).toBe(
+      true,
+    );
+  });
+
+  it("recovers the connection-test UI when the transport throws", async () => {
+    render(
+      <LumatoneSettings
+        settings={{ midi_passthrough: false, lumatone_led_sync: false }}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone" } }}
+        midiOutputs={new Map()}
+        keysRef={{ current: {} }}
+        hasSysexMidi={true}
+        driverReady={true}
+        onProbeLumatoneConnection={vi.fn().mockRejectedValue(new Error("send failed"))}
+        onChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Test Lumatone SysEx connection" }));
+
+    expect(await screen.findByText("Lumatone SysEx test failed: send failed")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Test Lumatone SysEx connection" }).disabled).toBe(
+      false,
+    );
+  });
+
+  it("keeps Send Colours disabled until its driver is ready", () => {
+    render(
+      <LumatoneSettings
+        settings={{ midi_passthrough: false, lumatone_led_sync: true }}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone" } }}
+        midiOutputs={new Map()}
+        keysRef={{ current: {} }}
+        hasSysexMidi={true}
+        driverReady={false}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Send Colours" }).disabled).toBe(true);
+  });
+
   it("applies a saved colour filter from the selector", () => {
     localStorage.setItem(
       LUMATONE_COLOR_FILTER_LIBRARY_KEY,

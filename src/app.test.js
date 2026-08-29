@@ -37,6 +37,9 @@ vi.mock("./keyboard", () => ({
 vi.mock("./settings", () => ({
   default: () => <div data-testid="settings">Settings Stub</div>,
 }));
+vi.mock("./settings/io-settings.jsx", () => ({
+  default: () => <div data-testid="io-settings">I/O Settings Stub</div>,
+}));
 vi.mock("./credits", () => ({
   default: () => <div>Credits Stub</div>,
 }));
@@ -210,6 +213,7 @@ import {
   Loading,
   modulationCurrentSummaryDisplay,
   modulationRouteLabelPair,
+  sendLumatoneColorsNow,
 } from "./app";
 import App from "./app";
 import {
@@ -515,6 +519,29 @@ describe("bindControllerLedRefs", () => {
     expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
     expect(keys.syncExquisLEDs).not.toHaveBeenCalled();
     expect(keys.syncLinnstrumentLEDs).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendLumatoneColorsNow", () => {
+  it("repairs a stale driver binding before a manual colour send", () => {
+    const staleLeds = { id: "stale" };
+    const currentLeds = { id: "current" };
+    const keys = {
+      settings: { lumatone_led_sync: false },
+      lumatoneLEDs: staleLeds,
+      syncLumatoneLEDs: vi.fn(() => true),
+    };
+
+    expect(sendLumatoneColorsNow(keys, currentLeds)).toBe(true);
+    expect(keys.lumatoneLEDs).toBe(currentLeds);
+    expect(keys.syncLumatoneLEDs).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports that no send occurred while the driver is unavailable", () => {
+    const keys = { syncLumatoneLEDs: vi.fn() };
+
+    expect(sendLumatoneColorsNow(keys, null)).toBe(false);
+    expect(keys.syncLumatoneLEDs).not.toHaveBeenCalled();
   });
 });
 
@@ -1085,6 +1112,50 @@ describe("App workspace tabs", () => {
     expect(keys.stopSnapshot).toHaveBeenCalledTimes(1);
     expect(keys.panic).not.toHaveBeenCalled();
     expect(guardianPanicMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps sequencer-owned playback running while the I/O panel is open", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const keys = {
+      stopSnapshot: vi.fn(),
+      panic: vi.fn(),
+    };
+
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    const timedPlayButton = await screen.findByLabelText("play timed transport");
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+
+    expect(await screen.findByTestId("io-settings")).not.toBeNull();
+    // Timed playback is owned by the Sequencer component. It must remain the
+    // same mounted instance while I/O is visible or its transport cleanup will
+    // cancel the running schedule.
+    expect(timedPlayButton.isConnected).toBe(true);
+    expect(keys.stopSnapshot).not.toHaveBeenCalled();
+    expect(keys.panic).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    expect(screen.getByLabelText("play timed transport")).toBe(timedPlayButton);
+    expect(keys.stopSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("stops sequencer playback when switching from I/O to Hexatone", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const keys = { stopSnapshot: vi.fn(), panic: vi.fn() };
+
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
+
+    expect(keys.stopSnapshot).toHaveBeenCalledTimes(1);
+    expect(keys.panic).not.toHaveBeenCalled();
   });
 });
 

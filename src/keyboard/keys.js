@@ -1897,7 +1897,26 @@ class Keys {
     // Keys. Fine-grained runtime transport controls such as sustain, OCT,
     // modulation actions, or imperative volume changes should stay on their own
     // dedicated live paths instead of being funneled through this method.
-    if (synth) this.synth = synth;
+    if (synth && synth !== this.synth) {
+      const nextChildSynths = synth.childSynths?.();
+      if (Array.isArray(nextChildSynths)) {
+        const activeHexes = new Set([
+          ...(this._allActiveHexes?.() ?? []),
+          ...((this.state?.sustainedNotes && [...this.state.sustainedNotes.keys()]) || []),
+          ...(this._snapshotHexes ?? []),
+          ...((this._soundingSnapshotHexes instanceof Set && this._soundingSnapshotHexes) || []),
+        ]);
+        const timestamp =
+          typeof globalThis.performance?.now === "function"
+            ? globalThis.performance.now() + 20
+            : undefined;
+        for (const hex of activeHexes) {
+          if (!hex || hex.release === true) continue;
+          hex.reconcileSynths?.(nextChildSynths, timestamp);
+        }
+      }
+      this.synth = synth;
+    }
     if (nextSettings) Object.assign(this.settings, nextSettings);
     if (
       this.settings.output_mts &&

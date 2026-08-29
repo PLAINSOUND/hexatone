@@ -39,7 +39,11 @@ const Snapshots = ({ snapshots, playingId, onPlay, onDelete }) => {
                 class="sequencer-snapshots__action-btn sequencer-snapshots__action-btn--play"
                 onClick={() => onPlay(snap.id)}
               >
-                {isPlaying ? "■" : "▶"}
+                {isPlaying ? (
+                  <span class="snapshot-stop-glyph" aria-hidden="true" />
+                ) : (
+                  <span class="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
+                )}
               </button>
               <button
                 type="button"

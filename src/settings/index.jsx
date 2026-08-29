@@ -2,10 +2,6 @@ import { useMemo, useState } from "preact/hooks";
 import Info from "./scale/info";
 import Scale from "./scale";
 import Layout from "./layout";
-import SampleSynth from "./sample";
-import MidiOutputs from "./midi/midioutputs";
-import MIDIio from "./midi";
-import WebMIDISettings from "./midi/webmidi-settings.jsx";
 import { normalizeColors } from "./normalize-settings.js";
 import { presetTuningGroups } from "../hexatone/preset-tunings/index.js";
 import TuningLibrary from "../hexatone/tuning-library.jsx";
@@ -32,13 +28,6 @@ const Settings = ({
   activatePendingPreset,
   onRevertBuiltin,
   onRevertUser,
-  midi,
-  midiAccess,
-  midiAccessError,
-  enableWebMidi,
-  disableWebMidi,
-  midiTick,
-  instruments,
   keysRef,
   keysReadyRevision,
   heji_names,
@@ -49,21 +38,6 @@ const Settings = ({
   heji_anchor_ratio_eff,
   heji_supported,
   heji_warning,
-  onVolumeChange,
-  onOscLayerVolumeChange,
-  onOscQuickReleaseChange,
-  onOscQuickReleaseTimeChange,
-  onOscQuickReleaseRasterOnlyChange,
-  midiLearnActive,
-  hakenPedalLearnActive,
-  lumatoneRawPorts,
-  exquisRawPorts,
-  linnstrumentRawPorts,
-  hakenRawPorts,
-  exquisLedStatus,
-  snapshots,
-  tuningRuntime,
-  onEnableLumatoneAutoSync,
 }) => {
   const [tuningSaveActionState, setTuningSaveActionState] = useState({
     visible: false,
@@ -134,54 +108,6 @@ const Settings = ({
         primaryTuningSaveVisible={primaryTuningSaveVisible}
       />
       <Layout onChange={onChange} settings={settings} />
-      <SampleSynth
-        onChange={onChange}
-        settings={settings}
-        instruments={instruments}
-        onVolumeChange={onVolumeChange}
-      />
-      <WebMIDISettings
-        settings={settings}
-        midi={midi}
-        onChange={onChange}
-        midiAccessError={midiAccessError}
-        enableWebMidi={enableWebMidi}
-        disableWebMidi={disableWebMidi}
-      />
-      <MIDIio
-        onChange={onChange}
-        settings={settings}
-        snapshots={snapshots}
-        tuningRuntime={tuningRuntime}
-        midi={midi}
-        midiAccess={midiAccess}
-        midiAccessError={midiAccessError}
-        ensureMidiAccess={enableWebMidi}
-        midiTick={midiTick}
-        midiLearnActive={midiLearnActive}
-        hakenPedalLearnActive={hakenPedalLearnActive}
-        lumatoneRawPorts={lumatoneRawPorts}
-        exquisRawPorts={exquisRawPorts}
-        linnstrumentRawPorts={linnstrumentRawPorts}
-        hakenRawPorts={hakenRawPorts}
-        exquisLedStatus={exquisLedStatus}
-        keysRef={keysRef}
-        onEnableLumatoneAutoSync={onEnableLumatoneAutoSync}
-      />
-      <MidiOutputs
-        onChange={onChange}
-        onOscLayerVolumeChange={onOscLayerVolumeChange}
-        onOscQuickReleaseChange={onOscQuickReleaseChange}
-        onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
-        onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
-        settings={settings}
-        midi={midi}
-        midiAccess={midiAccess}
-        midiAccessError={midiAccessError}
-        ensureMidiAccess={enableWebMidi}
-        midiTick={midiTick}
-        keysRef={keysRef}
-      />
     </div>
   );
 };

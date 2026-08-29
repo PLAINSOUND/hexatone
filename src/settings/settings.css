@@ -138,7 +138,9 @@
   }
 
   #sidebar .workspace-tabs .workspace-tab {
-    padding: 0.42em 0.7em 0.38em;
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.42em 0.35em 0.38em;
   }
 
   #sidebar .workspace-tabs .workspace-tab--active {
@@ -1612,6 +1614,9 @@ td.scale-color-col .color-input {
 
 .sequencer-snapshots__action-btn--play {
   min-width: 2em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sequencer-snapshots__action-btn--delete {
@@ -2895,8 +2900,9 @@ td.scale-color-col .color-input {
 }
 
 #sidebar .sequencer-playback-actions .snapshot-stop-glyph {
-  font-size: 1.2rem;
-  line-height: 1;
+  width: 0.44rem;
+  height: 0.44rem;
+  flex-basis: 0.44rem;
 }
 
 #sidebar .sequencer-playback-actions .snapshot-start-icon {
@@ -2932,12 +2938,6 @@ td.scale-color-col .color-input {
   align-items: center;
   gap: 0.4em;
   margin-left: auto;
-}
-
-#sidebar .sequencer-row__actions .snapshot-stop-glyph,
-#sidebar .sequencer-event__actions-cell .snapshot-stop-glyph {
-  font-size: 0.77rem;
-  line-height: 1;
 }
 
 .sequencer-item__groups {
@@ -3973,11 +3973,6 @@ td.scale-color-col .color-input {
   box-sizing: border-box;
 }
 
-#sidebar .sequencer-event__cue-actions .snapshot-stop-glyph {
-  font-size: 0.88rem;
-  line-height: 1;
-}
-
 .sequencer-event__cue-dot {
   display: block;
   width: 0.42rem;
@@ -4577,20 +4572,6 @@ td.scale-color-col .color-input {
   }
 }
 
-@media (max-width: 932px) and (pointer: coarse) {
-  #sidebar .sequencer-row__actions .snapshot-stop-glyph,
-  #sidebar .sequencer-event__actions-cell .snapshot-stop-glyph,
-  #sidebar .sequencer-event__cue-actions .snapshot-stop-glyph,
-  #sidebar .sequencer-playback-actions .snapshot-stop-glyph {
-    display: inline-block;
-    width: 1em;
-    text-align: center;
-    font-size: 0.5rem;
-    line-height: 1;
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-  }
-}
 
 /* Delete / Clear All buttons — fixed width so they align as a pair */
 .delete-btn {

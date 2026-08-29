@@ -41,13 +41,14 @@
  *
  * ── Sandboxing ───────────────────────────────────────────────────────────────
  *
- * ACK listening uses addEventListener('midimessage', …) on the raw Web MIDI
- * input port — it does NOT replace the port's onmidimessage handler, so the
- * existing WebMidi note-input path in keys.js is unaffected.
+ * ACK listening prefers the WebMidi.js input event emitter used by Keys. Raw
+ * Web MIDI addEventListener/onmidimessage fallbacks remain available for tests
+ * and direct integrations without replacing an existing message handler.
  */
 
 const ACK_TIMEOUT_MS = 300;
 const INITIAL_ACK_TIMEOUT_MS = 1200;
+const PROBE_TIMEOUT_MS = 2000;
 const INITIAL_SEND_DELAY_MS = 600;
 const WAKE_SEND_DELAY_MS = 1500;
 const SLEEP_GAP_GRACE_MS = 2000;
@@ -57,8 +58,8 @@ const MFR = [0x00, 0x21, 0x50];
 
 export class LumatoneLEDs {
   /**
-   * @param {MIDIOutput} outputPort  – raw Web MIDI API output port for sysex sends
-   * @param {MIDIInput}  inputPort   – raw Web MIDI API input port for ACK listening
+   * @param {MIDIOutput|import("webmidi").Output} outputPort – SysEx-capable output
+   * @param {MIDIInput|import("webmidi").Input} inputPort – ACK input
    */
   constructor(outputPort, inputPort) {
     this._out = outputPort;
@@ -73,6 +74,8 @@ export class LumatoneLEDs {
     this._sentSinceConnect = false;
     this._hasReceivedAck = false;
     this._restoreOnMidiMessage = null;
+    this._inputListenerHandle = null;
+    this._probe = null;
 
     this._onMessage = this._onMessage.bind(this);
     this._attachInputListener();
@@ -197,6 +200,39 @@ export class LumatoneLEDs {
   cancel() {
     this._latestColorQueue = [];
     this._clearActiveQueue();
+    this._cancelProbe("cancelled");
+  }
+
+  /** Reproduce the Editor's non-mutating identity handshake, with no retries. */
+  probeConnection() {
+    if (!this._out || !this._in) {
+      return Promise.resolve({ ok: false, reason: "disconnected", bytes: [] });
+    }
+    if (this._probe || this._pending || this._queue.length > 0) {
+      return Promise.resolve({ ok: false, reason: "busy", bytes: [] });
+    }
+
+    const startedAt = Date.now();
+    return new Promise((resolve) => {
+      this._probe = {
+        resolve,
+        timer: null,
+        startedAt,
+        expectedCommand: 0x23,
+        serialBytes: [],
+      };
+      console.info("[LumatoneLEDs:probe] output", {
+        transport: typeof this._out?.sendSysex === "function" ? "webmidi-sendSysex" : "native-send",
+        id: this._out?.id ?? null,
+        name: this._out?.name ?? null,
+        type: this._out?.constructor?.name ?? null,
+      });
+      // Exact first request observed from Lumatone Editor 1.0.2. The firmware
+      // request (CMD 31h) is sent only after this identity response arrives.
+      this._sendProbeMessage(
+        new Uint8Array([0xf0, ...MFR, 0x00, 0x23, 0x7f, 0x00, 0x00, 0x00, 0xf7]),
+      );
+    });
   }
 
   /** Pause an in-flight transfer without retaining stale ACK state. */
@@ -325,7 +361,7 @@ export class LumatoneLEDs {
       ]);
     }
 
-    this._out.send(msg);
+    this._sendLumatoneMessage(msg);
 
     // Guard: if no ACK arrives within the timeout, skip this entry and continue.
     const timeoutMs = this._currentAckTimeoutMs();
@@ -382,9 +418,45 @@ export class LumatoneLEDs {
    *   byte 7: F7   (sysex end)
    */
   _onMessage(event) {
-    if (!this._pending || this._queue.length === 0) return;
-
     const d = event.data;
+    if (this._probe && this._isLumatoneMessage(d)) {
+      console.info("[LumatoneLEDs:probe] RX", this._formatBytes(d));
+      if (d[5] === this._probe.expectedCommand) {
+        if (d[6] !== 0x01) {
+          const probe = this._probe;
+          this._probe = null;
+          clearTimeout(probe.timer);
+          probe.resolve({
+            ok: false,
+            reason: "device-status",
+            command: d[5],
+            status: d[6],
+            elapsedMs: Date.now() - probe.startedAt,
+            bytes: Array.from(d),
+          });
+        } else if (d[5] === 0x23) {
+          this._probe.serialBytes = Array.from(d);
+          this._probe.expectedCommand = 0x31;
+          // Exact second request observed from Lumatone Editor 1.0.2.
+          this._sendProbeMessage(
+            new Uint8Array([0xf0, ...MFR, 0x00, 0x31, 0x00, 0x00, 0x00, 0x00, 0xf7]),
+          );
+        } else {
+          const probe = this._probe;
+          this._probe = null;
+          clearTimeout(probe.timer);
+          probe.resolve({
+            ok: true,
+            reason: "response",
+            status: d[6],
+            elapsedMs: Date.now() - probe.startedAt,
+            bytes: Array.from(d),
+            serialBytes: probe.serialBytes,
+          });
+        }
+      }
+    }
+    if (!this._pending || this._queue.length === 0) return;
     if (
       d.length !== 8 ||
       d[0] !== 0xf0 ||
@@ -410,6 +482,71 @@ export class LumatoneLEDs {
     this._queue.shift();
     this._pending = false;
     this._advance();
+  }
+
+  _isLumatoneMessage(data) {
+    return (
+      data?.length >= 7 &&
+      data[0] === 0xf0 &&
+      data[1] === MFR[0] &&
+      data[2] === MFR[1] &&
+      data[3] === MFR[2] &&
+      data[data.length - 1] === 0xf7
+    );
+  }
+
+  _formatBytes(data) {
+    return Array.from(data ?? [])
+      .map((byte) => byte.toString(16).toUpperCase().padStart(2, "0"))
+      .join(" ");
+  }
+
+  _sendProbeMessage(message) {
+    if (!this._probe) return;
+    clearTimeout(this._probe.timer);
+    const expectedCommand = this._probe.expectedCommand;
+    this._probe.timer = setTimeout(() => {
+      if (!this._probe || this._probe.expectedCommand !== expectedCommand) return;
+      const probe = this._probe;
+      this._probe = null;
+      const result = {
+        ok: false,
+        reason: "timeout",
+        command: expectedCommand,
+        elapsedMs: Date.now() - probe.startedAt,
+        bytes: [],
+        serialBytes: probe.serialBytes,
+      };
+      console.warn("[LumatoneLEDs:probe] timeout", result);
+      probe.resolve(result);
+    }, PROBE_TIMEOUT_MS);
+    console.info("[LumatoneLEDs:probe] TX", this._formatBytes(message));
+    this._sendLumatoneMessage(message);
+  }
+
+  _sendLumatoneMessage(message) {
+    // WebMidi.js owns the framing on its wrapper path. The stored Lumatone
+    // packet is complete, so remove F0, the three manufacturer bytes, and F7
+    // before handing over the command payload. The wrapper then performs the
+    // normal single framing operation used by Hexatone's other SysEx outputs.
+    if (typeof this._out?.sendSysex === "function") {
+      this._out.sendSysex(MFR, Array.from(message.slice(4, -1)));
+      return;
+    }
+    this._out.send(Array.from(message));
+  }
+
+  _cancelProbe(reason) {
+    if (!this._probe) return;
+    const probe = this._probe;
+    this._probe = null;
+    clearTimeout(probe.timer);
+    probe.resolve({
+      ok: false,
+      reason,
+      elapsedMs: Date.now() - probe.startedAt,
+      bytes: [],
+    });
   }
 
   _colorEntryKey(entry) {
@@ -476,6 +613,13 @@ export class LumatoneLEDs {
 
   _attachInputListener() {
     if (!this._in) return;
+    // WebMidi.js owns the selected input's native onmidimessage callback and
+    // redispatches every packet through its EventEmitter. Subscribe there when
+    // available so notes and Lumatone SysEx replies share the proven path.
+    if (typeof this._in.addListener === "function") {
+      this._inputListenerHandle = this._in.addListener("midimessage", this._onMessage);
+      return;
+    }
     if (typeof this._in.addEventListener === "function") {
       this._in.addEventListener("midimessage", this._onMessage);
       return;
@@ -492,6 +636,11 @@ export class LumatoneLEDs {
 
   _detachInputListener() {
     if (!this._in) return;
+    if (this._inputListenerHandle) {
+      this._inputListenerHandle.remove?.();
+      this._inputListenerHandle = null;
+      return;
+    }
     if (typeof this._in.removeEventListener === "function") {
       this._in.removeEventListener("midimessage", this._onMessage);
       return;

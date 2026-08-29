@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/preact";
 import Settings from "./index.jsx";
+import IOSettings from "./io-settings.jsx";
 
 vi.mock("./settings.css", () => ({}));
 vi.mock("../hexatone/preset-tunings/index.js", () => ({
@@ -89,7 +90,7 @@ describe("Settings MIDI Setup fieldset", () => {
   });
 
   it("renders always-visible Enable MIDI and Enable Sysex checkboxes", () => {
-    render(<Settings {...baseProps} />);
+    render(<IOSettings {...baseProps} />);
     expect(screen.getByText("MIDI Setup")).not.toBeNull();
     expect(screen.getByLabelText("Enable MIDI")).not.toBeNull();
     expect(screen.getByLabelText("Enable Sysex")).not.toBeNull();
@@ -98,7 +99,7 @@ describe("Settings MIDI Setup fieldset", () => {
   it("requests basic MIDI when Enable MIDI is clicked from none state", () => {
     const enableWebMidi = vi.fn();
     render(
-      <Settings
+      <IOSettings
         {...baseProps}
         settings={{ webmidi_enabled: false, webmidi_sysex_enabled: false }}
         enableWebMidi={enableWebMidi}
@@ -137,7 +138,7 @@ describe("Settings MIDI Setup fieldset", () => {
   it("requests sysex MIDI when Enable Sysex is clicked from basic state", () => {
     const enableWebMidi = vi.fn();
     render(
-      <Settings
+      <IOSettings
         {...baseProps}
         settings={{ webmidi_enabled: true, webmidi_sysex_enabled: false }}
         midiAccess="basic"
@@ -152,7 +153,7 @@ describe("Settings MIDI Setup fieldset", () => {
     const onChange = vi.fn();
     const disableWebMidi = vi.fn();
     render(
-      <Settings
+      <IOSettings
         {...baseProps}
         settings={{ webmidi_enabled: true, webmidi_sysex_enabled: true }}
         onChange={onChange}
@@ -169,7 +170,7 @@ describe("Settings MIDI Setup fieldset", () => {
     const onChange = vi.fn();
     const disableWebMidi = vi.fn();
     render(
-      <Settings
+      <IOSettings
         {...baseProps}
         settings={{ webmidi_enabled: true, webmidi_sysex_enabled: true }}
         onChange={onChange}
@@ -183,7 +184,7 @@ describe("Settings MIDI Setup fieldset", () => {
   });
 
   it("shows midi access errors inline", () => {
-    render(<Settings {...baseProps} midiAccessError="MIDI SysEx access was not granted." />);
+    render(<IOSettings {...baseProps} midiAccessError="MIDI SysEx access was not granted." />);
     expect(screen.getByText("MIDI SysEx access was not granted.")).not.toBeNull();
   });
 

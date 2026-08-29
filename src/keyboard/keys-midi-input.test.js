@@ -5909,6 +5909,29 @@ describe("Keys MIDI input integration", () => {
     });
   });
 
+  it("reconciles sounding snapshot voices into a newly swapped output graph", () => {
+    const oldSynth = {
+      rememberControllerState: vi.fn(),
+      applyControllerState: vi.fn(),
+    };
+    const keys = createKeys({}, {}, oldSynth);
+    const soundingHex = { release: false, reconcileSynths: vi.fn() };
+    const nextChildren = [{ family: "osc" }, { family: "mpe" }];
+    const newSynth = {
+      childSynths: vi.fn(() => nextChildren),
+      rememberControllerState: vi.fn(),
+      applyControllerState: vi.fn(),
+    };
+    keys._snapshotHexes = [soundingHex];
+    keys._soundingSnapshotHexes = new Set([soundingHex]);
+
+    keys.updateLiveOutputState(null, newSynth);
+
+    expect(soundingHex.reconcileSynths).toHaveBeenCalledOnce();
+    expect(soundingHex.reconcileSynths.mock.calls[0][0]).toBe(nextChildren);
+    expect(Number.isFinite(soundingHex.reconcileSynths.mock.calls[0][1])).toBe(true);
+  });
+
   it("restores persisted mod wheel state on refresh for the same MIDI input device", () => {
     const synth = {
       rememberControllerState: vi.fn(),

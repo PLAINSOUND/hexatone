@@ -294,9 +294,7 @@ const SnapshotSequenceItem = ({
                 actions.onStopSnapshot?.(snapshot.id);
               }}
             >
-              <span class="snapshot-stop-glyph" aria-hidden="true">
-                ■
-              </span>
+              <span class="snapshot-stop-glyph" aria-hidden="true" />
             </button>
           </span>
         </div>

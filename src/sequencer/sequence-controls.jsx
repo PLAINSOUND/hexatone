@@ -987,14 +987,10 @@ const SequenceControls = ({
               aria-label="stop sequence playback"
               disabled={!playingSnapshotId}
               onClick={() => {
-                runTransportAction(() =>
-                  onStopSnapshot?.(null, { armCurrentPosition: true }),
-                );
+                runTransportAction(() => onStopSnapshot?.(null, { armCurrentPosition: true }));
               }}
             >
-              <span class="snapshot-stop-glyph" aria-hidden="true">
-                ■
-              </span>
+              <span class="snapshot-stop-glyph" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -1457,9 +1453,7 @@ function TimedPlaybackRow({
           disabled={!timedTransportUiState?.canStop}
           onClick={() => onTimedTransportStop?.()}
         >
-          <span class="snapshot-stop-glyph" aria-hidden="true">
-            ■
-          </span>
+          <span class="snapshot-stop-glyph" aria-hidden="true" />
         </button>
         <button
           type="button"

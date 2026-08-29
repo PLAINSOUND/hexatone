@@ -138,6 +138,84 @@ describe("composite_synth controller-state replay", () => {
     expect(secondNoteOn).toHaveBeenCalledWith(1234.5);
   });
 
+  it("adds a newly enabled output to an already sounding voice", () => {
+    const firstHex = {
+      coords: { x: 0, y: 0 },
+      cents: 100,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+      applySnapshotPressure: vi.fn(),
+      polyTimbre: vi.fn(),
+    };
+    const secondHex = {
+      coords: { x: 0, y: 0 },
+      cents: 100,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+      applySnapshotPressure: vi.fn(),
+      polyTimbre: vi.fn(),
+    };
+    const first = { makeHex: vi.fn(() => firstHex) };
+    const second = { makeHex: vi.fn(() => secondHex) };
+    const wrapper = create_composite_synth([first]).makeHex(null, 100);
+
+    wrapper.noteOn(1000);
+    wrapper.applySnapshotPressure(73);
+    wrapper.polyTimbre(81);
+    wrapper.reconcileSynths([first, second], 1020);
+
+    expect(firstHex.noteOn).toHaveBeenCalledOnce();
+    expect(second.makeHex).toHaveBeenCalledOnce();
+    expect(secondHex.noteOn).toHaveBeenCalledWith(1020);
+    expect(secondHex.applySnapshotPressure).toHaveBeenCalledWith(73, null);
+    expect(secondHex.polyTimbre).toHaveBeenCalledWith(81, null);
+  });
+
+  it("lets a silent logical voice join an output enabled later", () => {
+    const childHex = {
+      coords: { x: 1, y: 2 },
+      cents: 300,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+      retune: vi.fn(),
+    };
+    const output = { makeHex: vi.fn(() => childHex) };
+    const wrapper = create_composite_synth([]).makeHex({ x: 1, y: 2 }, 300);
+
+    wrapper.noteOn(1000);
+    wrapper.reconcileSynths([output], 1020);
+
+    expect(output.makeHex).toHaveBeenCalledOnce();
+    expect(childHex.noteOn).toHaveBeenCalledWith(1020);
+  });
+
+  it("removes a disabled output without reattacking retained outputs", () => {
+    const firstHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+    };
+    const secondHex = {
+      coords: { x: 0, y: 0 },
+      cents: 0,
+      noteOn: vi.fn(),
+      noteOff: vi.fn(),
+    };
+    const first = { makeHex: () => firstHex };
+    const second = { makeHex: () => secondHex };
+    const wrapper = create_composite_synth([first, second]).makeHex();
+
+    wrapper.noteOn(1000);
+    wrapper.reconcileSynths([first], 1020);
+
+    expect(firstHex.noteOn).toHaveBeenCalledOnce();
+    expect(firstHex.noteOff).not.toHaveBeenCalled();
+    expect(secondHex.noteOff).toHaveBeenCalledWith(0, 1020);
+  });
+
   it("routes polyphonic timbre only to non-MTS child outputs", () => {
     const mpeHex = {
       coords: { x: 0, y: 0 },

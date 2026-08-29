@@ -38,6 +38,9 @@ const LumatoneSettings = ({
   hasSysexMidi,
   onChange,
   onEnableLumatoneAutoSync,
+  onSendLumatoneColors,
+  onProbeLumatoneConnection,
+  driverReady = true,
   saveControllerPref,
 }) => {
   const fileInputRef = useRef(null);
@@ -47,6 +50,7 @@ const LumatoneSettings = ({
   );
   const [draftFilter, setDraftFilter] = useState(settings.lumatone_degree_filter ?? "");
   const [filterError, setFilterError] = useState("");
+  const [probeStatus, setProbeStatus] = useState({ state: "idle", message: "" });
 
   useEffect(() => {
     setDraftFilter(settings.lumatone_degree_filter ?? "");
@@ -67,6 +71,50 @@ const LumatoneSettings = ({
   const activeFilter = settings.lumatone_degree_filter ?? "";
   const filterActive = settings.lumatone_degree_filter_mode === "filter";
   const showSnapshotFilters = !!settings.lumatone_degree_filter_snapshots;
+
+  const handleProbeConnection = async () => {
+    const driver = keysRef?.current?.lumatoneLEDs;
+    if (!onProbeLumatoneConnection && !driver?.probeConnection) {
+      setProbeStatus({ state: "error", message: "SysEx driver is not ready." });
+      return;
+    }
+    setProbeStatus({ state: "running", message: "Waiting for Lumatone…" });
+    let result;
+    try {
+      result = onProbeLumatoneConnection
+        ? await onProbeLumatoneConnection()
+        : await driver.probeConnection();
+    } catch (error) {
+      setProbeStatus({
+        state: "error",
+        message: `Lumatone SysEx test failed: ${error?.message ?? "unknown transport error"}`,
+      });
+      return;
+    }
+    if (result.ok) {
+      const bytes = result.bytes
+        .map((byte) => byte.toString(16).toUpperCase().padStart(2, "0"))
+        .join(" ");
+      setProbeStatus({ state: "success", message: `Reply in ${result.elapsedMs} ms: ${bytes}` });
+      return;
+    }
+    const timeoutStage =
+      result.command === 0x23
+        ? "serial-identity"
+        : result.command === 0x31
+          ? "firmware-revision"
+          : "SysEx";
+    const message =
+      result.reason === "timeout"
+        ? `No Lumatone ${timeoutStage} reply within 2000 ms. No further messages were sent.`
+        : result.reason === "busy"
+          ? "A Lumatone transfer is already active; cancel or wait before testing."
+          : result.reason === "device-status"
+            ? `Lumatone returned status ${result.status}.`
+            : "Lumatone SysEx connection is unavailable.";
+    setProbeStatus({ state: "error", message });
+  };
+
   const filterRuntime = useMemo(
     () => ({
       ...(tuningRuntime ?? {
@@ -285,6 +333,27 @@ const LumatoneSettings = ({
           sessionStorage.setItem("lumatone_out_port", id ?? "");
         }}
       />
+      {rawPorts && (
+        <label>
+          SysEx Connection Test
+          <span class="settings-form__control-row settings-form__control-row--inline">
+            <button
+              type="button"
+              class="preset-action-btn"
+              aria-label="Test Lumatone SysEx connection"
+              disabled={!hasSysexMidi || !driverReady || probeStatus.state === "running"}
+              onClick={handleProbeConnection}
+            >
+              {probeStatus.state === "running" ? "Testing…" : "Test Connection"}
+            </button>
+          </span>
+          {probeStatus.message && (
+            <small role="status" aria-live="polite">
+              {probeStatus.message}
+            </small>
+          )}
+        </label>
+      )}
       {rawPorts && settings.midi_passthrough && (
         <label>
           2D Bypass Key Layout
@@ -339,8 +408,8 @@ const LumatoneSettings = ({
                 <button
                   type="button"
                   class="preset-action-btn"
-                  disabled={!hasSysexMidi}
-                  onClick={() => keysRef?.current?.syncLumatoneLEDs?.()}
+                  disabled={!hasSysexMidi || !driverReady}
+                  onClick={() => onSendLumatoneColors?.() ?? keysRef?.current?.syncLumatoneLEDs?.()}
                 >
                   Send Colours
                 </button>
@@ -528,6 +597,9 @@ LumatoneSettings.propTypes = {
   hasSysexMidi: PropTypes.bool.isRequired,
   onChange: PropTypes.func.isRequired,
   onEnableLumatoneAutoSync: PropTypes.func,
+  onSendLumatoneColors: PropTypes.func,
+  onProbeLumatoneConnection: PropTypes.func,
+  driverReady: PropTypes.bool,
   saveControllerPref: PropTypes.func,
 };
 

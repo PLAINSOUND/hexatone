@@ -164,6 +164,7 @@ import {
 } from "./sequencer/snapshots.js";
 
 const Settings = lazy(() => import("./settings/index.jsx"));
+const IOSettings = lazy(() => import("./settings/io-settings.jsx"));
 const Sequencer = lazy(() => import("./sequencer/sequencer.jsx"));
 // Lazy controller imports keep optional hardware paths out of the initial app
 // shell until the relevant controller/runtime actually needs them.
@@ -440,6 +441,15 @@ export function bindControllerLedRefs(keys, bindings = {}, options = {}) {
   }
 }
 
+export function sendLumatoneColorsNow(keys, leds) {
+  if (!keys || !leds || typeof keys.syncLumatoneLEDs !== "function") return false;
+  // The driver lifecycle and the Keys lifecycle are intentionally independent.
+  // Re-assert the current driver at the user-action boundary so a port change or
+  // Keys reconstruction cannot turn the manual send into a silent no-op.
+  bindControllerLedRefs(keys, { lumatone: leds }, { eagerSync: false });
+  return keys.syncLumatoneLEDs() !== false;
+}
+
 function readCssPxVar(name) {
   if (typeof window === "undefined") return 0;
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -568,6 +578,10 @@ const MANUAL_VIEW_DEFAULT_SECTIONS = {
 const App = () => {
   const [ready, setReady] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState("hexatone");
+  // I/O is an auxiliary view over the current musical workspace. Keeping the
+  // underlying workspace separate lets a running sequence continue while its
+  // sound and routing controls are visible.
+  const [performanceWorkspaceTab, setPerformanceWorkspaceTab] = useState("hexatone");
   const [inlineManualView, setInlineManualView] = useState(null);
   const [manualSectionTitles, setManualSectionTitles] = useState(MANUAL_VIEW_DEFAULT_SECTIONS);
   const sidebarRef = useRef(null);
@@ -602,6 +616,9 @@ const App = () => {
     (nextTab) => {
       rememberManualScrollPosition();
       setInlineManualView(null);
+      if (nextTab === "hexatone" || nextTab === "sequencer") {
+        setPerformanceWorkspaceTab(nextTab);
+      }
       setWorkspaceTab(nextTab);
     },
     [rememberManualScrollPosition],
@@ -900,7 +917,6 @@ const App = () => {
     persistOnReload,
     setPersistOnReload,
     activatePendingPreset,
-    presetChanged,
     onLoadBuiltinPreset,
     onLoadCustomPreset,
     onClearUserPresets,
@@ -989,6 +1005,7 @@ const App = () => {
   const [exquisLedStatus, setExquisLedStatus] = useState(null);
   const exquisLedsRef = useRef(null);
   const lumatoneLedsRef = useRef(null);
+  const [lumatoneDriverReady, setLumatoneDriverReady] = useState(false);
   const lumatoneAutoSyncKeyRef = useRef("");
   const linnstrumentLedsRef = useRef(null);
 
@@ -2071,18 +2088,27 @@ const App = () => {
     ],
   );
 
-  const previousWorkspaceTabRef = useRef(workspaceTab);
+  const previousPerformanceWorkspaceTabRef = useRef(performanceWorkspaceTab);
+  const previousVisibleWorkspaceTabRef = useRef(workspaceTab);
 
   useEffect(() => {
-    const previousTab = previousWorkspaceTabRef.current;
-    previousWorkspaceTabRef.current = workspaceTab;
-    if (previousTab !== "sequencer" || workspaceTab === "sequencer") return;
+    const previousTab = previousPerformanceWorkspaceTabRef.current;
+    previousPerformanceWorkspaceTabRef.current = performanceWorkspaceTab;
+    const previousVisibleTab = previousVisibleWorkspaceTabRef.current;
+    previousVisibleWorkspaceTabRef.current = workspaceTab;
+    const leftSequencerForHexatone =
+      previousTab === "sequencer" && performanceWorkspaceTab === "hexatone";
+    const openedManualFromSequencer =
+      performanceWorkspaceTab === "sequencer" &&
+      previousVisibleTab !== "manual" &&
+      workspaceTab === "manual";
+    if (!leftSequencerForHexatone && !openedManualFromSequencer) return;
     // Leaving the Sequencer should stop only voices owned by sequencer
     // playback. Live MIDI/controller notes belong to the always-mounted Keys
     // runtime and must survive workspace navigation just as they do when
     // entering the Sequencer.
     onStopSnapshot();
-  }, [onStopSnapshot, workspaceTab]);
+  }, [onStopSnapshot, performanceWorkspaceTab, workspaceTab]);
 
   const onSelectSequenceBar = useCallback(
     (barIndex) => {
@@ -4065,6 +4091,7 @@ const App = () => {
   const lumatoneInId = lumatoneInputPort?.id ?? null;
   const lumatoneOutId = lumatoneOutputPort?.id ?? null;
   useEffect(() => {
+    setLumatoneDriverReady(false);
     if (!lumatoneRawPorts) {
       if (lumatoneLedsRef.current) {
         lumatoneLedsRef.current.destroy();
@@ -4091,7 +4118,10 @@ const App = () => {
         return;
       }
       lumatoneLedsRef.current = leds;
+      // Binding the lazy driver must not itself start a second 280-command
+      // transfer; established Keys/settings synchronization owns auto-send.
       bindControllerLedRefs(keysRef.current, { lumatone: leds }, { eagerSync: false });
+      setLumatoneDriverReady(true);
     });
 
     return () => {
@@ -4099,6 +4129,7 @@ const App = () => {
       const leds = lumatoneLedsRef.current;
       if (leds) leds.destroy();
       lumatoneLedsRef.current = null;
+      setLumatoneDriverReady(false);
       bindControllerLedRefs(keysRef.current, { lumatone: null }, { eagerSync: false });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- raw port identity is the lifecycle boundary; colour settings synchronize through Keys without reconstructing the driver.
@@ -4415,9 +4446,7 @@ const App = () => {
     // timbre: either the wheel-shaped value or the unmodified stored value.
     applySequenceTimbreModWheelToActiveSnapshotHexes(
       keysRef.current,
-      sequenceTimbreModWheelEnabledRef.current
-        ? nextValue
-        : NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
+      sequenceTimbreModWheelEnabledRef.current ? nextValue : NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
     );
   }, []);
 
@@ -4500,6 +4529,7 @@ const App = () => {
     const keys = keysRef.current;
     const leds = lumatoneLedsRef.current;
     if (!keys || !leds) return;
+    bindControllerLedRefs(keys, { lumatone: leds }, { eagerSync: false });
     lumatoneAutoSyncKeyRef.current = buildLumatoneAutoSyncKey({
       lumatoneInId,
       lumatoneOutId,
@@ -4533,6 +4563,19 @@ const App = () => {
     settings.midiin_anchor_note,
     settings.midiin_anchor_channel,
   ]);
+  const sendLumatoneColorsManually = useCallback(() => {
+    return sendLumatoneColorsNow(keysRef.current, lumatoneLedsRef.current);
+  }, []);
+  const probeLumatoneConnection = useCallback(() => {
+    const leds = lumatoneLedsRef.current;
+    if (!leds?.probeConnection) {
+      return Promise.resolve({ ok: false, reason: "driver-not-ready", bytes: [] });
+    }
+    // The driver is owned by App, independently of Keys reconstruction. Probe
+    // it directly so a transient Keys/ref attachment race cannot block Edge or
+    // other browsers that load the optional controller chunk more slowly.
+    return leds.probeConnection();
+  }, []);
 
   useEffect(() => {
     if (pendingRestoredPreset) return;
@@ -4586,6 +4629,39 @@ const App = () => {
     settings.midiin_anchor_note,
     settings.midiin_anchor_channel,
   ]);
+
+  const ioSettingsSidebar = (
+    <IOSettings
+      onChange={onChange}
+      midiLearnActive={midiLearnActive}
+      hakenPedalLearnActive={hakenPedalLearnActive}
+      onVolumeChange={onVolumeChange}
+      onOscLayerVolumeChange={onOscLayerVolumeChange}
+      onOscQuickReleaseChange={onOscQuickReleaseChange}
+      onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
+      onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
+      settings={settings}
+      midi={midi}
+      midiAccess={midiAccess}
+      midiAccessError={midiAccessError}
+      enableWebMidi={ensureMidiAccess}
+      disableWebMidi={disableWebMidi}
+      midiTick={midiTick}
+      instruments={instruments}
+      keysRef={keysRef}
+      lumatoneRawPorts={lumatoneRawPorts}
+      exquisRawPorts={exquisRawPorts}
+      linnstrumentRawPorts={linnstrumentRawPorts}
+      hakenRawPorts={hakenRawPorts}
+      exquisLedStatus={exquisLedStatus}
+      snapshots={snapshots}
+      tuningRuntime={tuningRuntime}
+      onEnableLumatoneAutoSync={enableLumatoneAutoSyncNow}
+      onSendLumatoneColors={sendLumatoneColorsManually}
+      onProbeLumatoneConnection={probeLumatoneConnection}
+      lumatoneDriverReady={lumatoneDriverReady}
+    />
+  );
 
   return (
     <div
@@ -4648,8 +4724,8 @@ const App = () => {
       {banner === "safari" && (
         <div id="ios-banner">
           <div className="ios-banner__message">
-            Safari is not fully supported. For the best experience use Firefox or a Chromium-based
-            browser such as Brave, Edge or Chrome.
+            Safari is not fully supported. For the best experience use a Chromium-based browser such
+            as Chrome or Edge.
           </div>
           <div className="ios-banner__actions">
             <button onClick={() => hideBannerForSession("safari")}>Remind Me Later</button>
@@ -5018,9 +5094,7 @@ const App = () => {
                         onStopSnapshot(snap.id);
                       }}
                     >
-                      <span class="snapshot-stop-glyph" aria-hidden="true">
-                        ■
-                      </span>
+                      <span class="snapshot-stop-glyph" aria-hidden="true" />
                     </button>
                     <button
                       class="snapshot-del-btn"
@@ -5231,6 +5305,15 @@ const App = () => {
           <button
             type="button"
             role="tab"
+            aria-selected={workspaceTab === "io"}
+            class={`workspace-tab${workspaceTab === "io" ? " workspace-tab--active" : ""}`}
+            onClick={() => switchWorkspaceTab("io")}
+          >
+            I/O
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={workspaceTab === "manual"}
             class={`workspace-tab${workspaceTab === "manual" ? " workspace-tab--active" : ""}`}
             onClick={openManualWorkspace}
@@ -5242,9 +5325,11 @@ const App = () => {
         <h1>
           {workspaceTab === "manual"
             ? "USER MANUAL"
-            : workspaceTab === "sequencer"
-              ? "PLAINSOUND SEQUENCER"
-              : "PLAINSOUND HEXATONE"}
+            : workspaceTab === "io"
+              ? "INPUT / OUTPUT"
+              : workspaceTab === "sequencer"
+                ? "PLAINSOUND SEQUENCER"
+                : "PLAINSOUND HEXATONE"}
         </h1>
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
@@ -5291,119 +5376,118 @@ const App = () => {
               onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
               scrollContainerRef={sidebarRef}
             />
-          ) : workspaceTab === "sequencer" ? (
-            <Sequencer
-              snapshots={snapshots}
-              runtimeModel={sequenceRuntimeModel}
-              displaySnapshots={sequenceDisplaySnapshots}
-              playbackSnapshots={sequencePlaybackSnapshots}
-              bars={sequenceBars}
-              repeats={sequenceRepeats}
-              tempi={sequenceTempi}
-              snapshotLabelMode={snapshotLabelMode}
-              autoCreateBars={sequenceAutoCreateBars}
-              activeSequenceSource={activeSequenceSource}
-              activeSequenceBuiltInName={activeSequenceBuiltInName}
-              activeSequenceName={activeSequenceName}
-              activeSequenceSavedName={activeSequenceSavedName}
-              activeSequenceDescription={activeSequenceDescription}
-              sequenceLegato={sequenceLegato}
-              sequencePlaybackSpeed={sequencePlaybackSpeed}
-              sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
-              sequenceTimbreModWheelEnabled={sequenceTimbreModWheelEnabled}
-              sequencePlayRepeats={sequencePlayRepeats}
-              snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
-              sequenceAutoCreateBars={sequenceAutoCreateBars}
-              manualArpeggiation={manualArpeggiation}
-              selectedSnapshotId={selectedSnapshotId}
-              selectedMarker={selectedSnapshotMarker}
-              pendingTransportSelection={pendingTransportSelectionRef.current}
-              playingSnapshotId={playingSnapshotId}
-              playingSnapshotIds={manualPlayingSnapshotIds}
-              scrollPositionRef={sequencerScrollPositionRef}
-              playhead={sequencePlayhead}
-              onTakeSnapshot={onTakeSnapshot}
-              onAddEmptySnapshot={onAddEmptySnapshot}
-              onLoadSequence={onLoadSequence}
-              onSequenceNameChange={onSequenceNameChange}
-              onSequenceDescriptionChange={setActiveSequenceDescription}
-              onSequenceSaved={onSequenceSaved}
-              onSequenceLegatoChange={(mode) =>
-                setSequenceLegato(normalizeSequenceLegatoMode(mode))
-              }
-              onSequencePlaybackSpeedChange={(value) =>
-                setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))
-              }
-              onSequencePlaybackPitchOffsetChange={commitSequencePlaybackPitchOffset}
-              onSequencePlaybackPitchOffsetPreview={previewSequencePlaybackPitchOffset}
-              onSequenceTimbreModWheelEnabledChange={onSequenceTimbreModWheelEnabledChange}
-              onSequencePlayRepeatsChange={setSequencePlayRepeats}
-              onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
-              onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
-              onManualArpeggiationChange={(updates) => {
-                setManualArpeggiation((current) =>
-                  normalizeManualArpeggiation({
-                    ...current,
-                    ...updates,
-                  }),
-                );
-              }}
-              onSetSnapshotLabelMode={setSnapshotLabelMode}
-              onSelectSnapshot={onSelectSequencerSnapshot}
-              onSelectMarker={onSelectSequencerMarker}
-              onPlaySnapshot={onPlaySnapshot}
-              onStopSnapshot={onStopSnapshot}
-              onSelectSequenceBar={onSelectSequenceBar}
-              onCueSequenceSnapshot={onCueSequenceSnapshot}
-              onCueSequenceCue={onCueSequenceCue}
-              onStepSequence={onStepSequence}
-              onStepSequenceMarker={onStepSequenceMarker}
-              onJumpSequenceSnapshot={onJumpSequenceSnapshot}
-              onJumpSequenceCue={onJumpSequenceCue}
-              onPlaySequence={onPlaySequence}
-              onPlayCue={onPlaySequenceCue}
-              onPlayTimedCue={onPlayTimedSequenceCue}
-              onResetSequencePlayhead={onResetSequencePlayhead}
-              onJumpSequenceEnd={onJumpSequenceEnd}
-              getTimedTransportClockSeconds={getTimedTransportClockSeconds}
-              onAddBar={onAddSequenceBar}
-              onAddTempo={onAddSequenceTempo}
-              onAddRepeat={onAddSequenceRepeat}
-              onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
-              onDeleteBar={onDeleteSequenceBar}
-              onDeleteTempo={onDeleteSequenceTempo}
-              onDeleteRepeat={onDeleteSequenceRepeat}
-              onUpdateBar={onUpdateSequenceBar}
-              onUpdateTempo={onUpdateSequenceTempo}
-              onUpdateRepeat={onUpdateSequenceRepeat}
-              onMoveBar={onMoveSequenceBar}
-              onDeleteSnapshot={onDeleteSnapshot}
-              onDeleteAllSnapshots={onDeleteAllSnapshots}
-              onClearSequence={onClearSequence}
-              onMoveSnapshot={onMoveSnapshot}
-              onDuplicateSnapshot={onDuplicateSnapshot}
-              onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
-              onMoveSnapshotRange={onMoveSnapshotRange}
-              onResetSnapshotRangeNoteOffsetsInPlace={onResetSnapshotRangeNoteOffsetsInPlace}
-              onSetSnapshotRangeArticulation={onSetSnapshotRangeArticulation}
-              onRestoreSnapshotRangeChanges={onRestoreSnapshotRangeChanges}
-              onDeleteSnapshotRange={onDeleteSnapshotRange}
-              onUpdateSnapshot={onUpdateSnapshot}
-              onResetSnapshotDescription={onResetSnapshotDescription}
-            />
+          ) : performanceWorkspaceTab === "sequencer" ? (
+            <>
+              <div hidden={workspaceTab !== "sequencer"} aria-hidden={workspaceTab !== "sequencer"}>
+                <Sequencer
+                  snapshots={snapshots}
+                  runtimeModel={sequenceRuntimeModel}
+                  displaySnapshots={sequenceDisplaySnapshots}
+                  playbackSnapshots={sequencePlaybackSnapshots}
+                  bars={sequenceBars}
+                  repeats={sequenceRepeats}
+                  tempi={sequenceTempi}
+                  snapshotLabelMode={snapshotLabelMode}
+                  autoCreateBars={sequenceAutoCreateBars}
+                  activeSequenceSource={activeSequenceSource}
+                  activeSequenceBuiltInName={activeSequenceBuiltInName}
+                  activeSequenceName={activeSequenceName}
+                  activeSequenceSavedName={activeSequenceSavedName}
+                  activeSequenceDescription={activeSequenceDescription}
+                  sequenceLegato={sequenceLegato}
+                  sequencePlaybackSpeed={sequencePlaybackSpeed}
+                  sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
+                  sequenceTimbreModWheelEnabled={sequenceTimbreModWheelEnabled}
+                  sequencePlayRepeats={sequencePlayRepeats}
+                  snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
+                  sequenceAutoCreateBars={sequenceAutoCreateBars}
+                  manualArpeggiation={manualArpeggiation}
+                  selectedSnapshotId={selectedSnapshotId}
+                  selectedMarker={selectedSnapshotMarker}
+                  pendingTransportSelection={pendingTransportSelectionRef.current}
+                  playingSnapshotId={playingSnapshotId}
+                  playingSnapshotIds={manualPlayingSnapshotIds}
+                  scrollPositionRef={sequencerScrollPositionRef}
+                  playhead={sequencePlayhead}
+                  onTakeSnapshot={onTakeSnapshot}
+                  onAddEmptySnapshot={onAddEmptySnapshot}
+                  onLoadSequence={onLoadSequence}
+                  onSequenceNameChange={onSequenceNameChange}
+                  onSequenceDescriptionChange={setActiveSequenceDescription}
+                  onSequenceSaved={onSequenceSaved}
+                  onSequenceLegatoChange={(mode) =>
+                    setSequenceLegato(normalizeSequenceLegatoMode(mode))
+                  }
+                  onSequencePlaybackSpeedChange={(value) =>
+                    setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))
+                  }
+                  onSequencePlaybackPitchOffsetChange={commitSequencePlaybackPitchOffset}
+                  onSequencePlaybackPitchOffsetPreview={previewSequencePlaybackPitchOffset}
+                  onSequenceTimbreModWheelEnabledChange={onSequenceTimbreModWheelEnabledChange}
+                  onSequencePlayRepeatsChange={setSequencePlayRepeats}
+                  onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
+                  onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
+                  onManualArpeggiationChange={(updates) => {
+                    setManualArpeggiation((current) =>
+                      normalizeManualArpeggiation({
+                        ...current,
+                        ...updates,
+                      }),
+                    );
+                  }}
+                  onSetSnapshotLabelMode={setSnapshotLabelMode}
+                  onSelectSnapshot={onSelectSequencerSnapshot}
+                  onSelectMarker={onSelectSequencerMarker}
+                  onPlaySnapshot={onPlaySnapshot}
+                  onStopSnapshot={onStopSnapshot}
+                  onSelectSequenceBar={onSelectSequenceBar}
+                  onCueSequenceSnapshot={onCueSequenceSnapshot}
+                  onCueSequenceCue={onCueSequenceCue}
+                  onStepSequence={onStepSequence}
+                  onStepSequenceMarker={onStepSequenceMarker}
+                  onJumpSequenceSnapshot={onJumpSequenceSnapshot}
+                  onJumpSequenceCue={onJumpSequenceCue}
+                  onPlaySequence={onPlaySequence}
+                  onPlayCue={onPlaySequenceCue}
+                  onPlayTimedCue={onPlayTimedSequenceCue}
+                  onResetSequencePlayhead={onResetSequencePlayhead}
+                  onJumpSequenceEnd={onJumpSequenceEnd}
+                  getTimedTransportClockSeconds={getTimedTransportClockSeconds}
+                  onAddBar={onAddSequenceBar}
+                  onAddTempo={onAddSequenceTempo}
+                  onAddRepeat={onAddSequenceRepeat}
+                  onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
+                  onDeleteBar={onDeleteSequenceBar}
+                  onDeleteTempo={onDeleteSequenceTempo}
+                  onDeleteRepeat={onDeleteSequenceRepeat}
+                  onUpdateBar={onUpdateSequenceBar}
+                  onUpdateTempo={onUpdateSequenceTempo}
+                  onUpdateRepeat={onUpdateSequenceRepeat}
+                  onMoveBar={onMoveSequenceBar}
+                  onDeleteSnapshot={onDeleteSnapshot}
+                  onDeleteAllSnapshots={onDeleteAllSnapshots}
+                  onClearSequence={onClearSequence}
+                  onMoveSnapshot={onMoveSnapshot}
+                  onDuplicateSnapshot={onDuplicateSnapshot}
+                  onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
+                  onMoveSnapshotRange={onMoveSnapshotRange}
+                  onResetSnapshotRangeNoteOffsetsInPlace={onResetSnapshotRangeNoteOffsetsInPlace}
+                  onSetSnapshotRangeArticulation={onSetSnapshotRangeArticulation}
+                  onRestoreSnapshotRangeChanges={onRestoreSnapshotRangeChanges}
+                  onDeleteSnapshotRange={onDeleteSnapshotRange}
+                  onUpdateSnapshot={onUpdateSnapshot}
+                  onResetSnapshotDescription={onResetSnapshotDescription}
+                />
+              </div>
+              {workspaceTab === "io" ? ioSettingsSidebar : null}
+            </>
+          ) : workspaceTab === "io" ? (
+            ioSettingsSidebar
           ) : (
             <>
               <Settings
-                presetChanged={presetChanged}
                 onChange={onChange}
                 onAtomicChange={onAtomicChange}
-                midiLearnActive={midiLearnActive}
-                hakenPedalLearnActive={hakenPedalLearnActive}
-                onVolumeChange={onVolumeChange}
-                onOscLayerVolumeChange={onOscLayerVolumeChange}
-                onOscQuickReleaseChange={onOscQuickReleaseChange}
-                onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
-                onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
                 onImport={onImport}
                 importCount={importCount}
                 onLoadBuiltinPreset={onLoadBuiltinPreset}
@@ -5436,26 +5520,11 @@ const App = () => {
                 heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
                 heji_supported={structuralSettings.heji_supported}
                 heji_warning={structuralSettings.heji_warning}
-                midi={midi}
-                midiAccess={midiAccess}
-                midiAccessError={midiAccessError}
-                enableWebMidi={ensureMidiAccess}
-                disableWebMidi={disableWebMidi}
-                midiTick={midiTick}
-                instruments={instruments}
                 keysRef={keysRef}
                 keysReadyRevision={keysReadyRevision}
-                lumatoneRawPorts={lumatoneRawPorts}
-                exquisRawPorts={exquisRawPorts}
-                linnstrumentRawPorts={linnstrumentRawPorts}
-                hakenRawPorts={hakenRawPorts}
-                exquisLedStatus={exquisLedStatus}
-                snapshots={snapshots}
-                tuningRuntime={tuningRuntime}
                 playingSnapshotId={playingSnapshotId}
                 onPlaySnapshot={onPlaySnapshot}
                 onDeleteSnapshot={onDeleteSnapshot}
-                onEnableLumatoneAutoSync={enableLumatoneAutoSyncNow}
               />
               <Credits />
             </>
