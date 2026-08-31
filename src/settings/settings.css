@@ -265,6 +265,15 @@
     padding-bottom: calc(2.25em + env(safe-area-inset-bottom, 0px));
   }
 
+  #sidebar .calculator-input-row--active {
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  #sidebar .calculator-input-row--active::before {
+    content: none;
+  }
+
   #sidebar .calculator-results > label:not(.calculator-results__normalize) {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
