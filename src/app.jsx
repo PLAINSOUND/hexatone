@@ -587,8 +587,10 @@ function isTextEntryElement(el) {
 
 const MANUAL_VIEW_DEFAULT_SECTIONS = {
   main: "About",
-  hexatone: "Hexatone Tab",
-  sequencer: "Sequencer Tab",
+  hexatone: "HEXATONE Tab",
+  sequencer: "SEQUENCER Tab",
+  io: "IO tab",
+  calculator: "CALCULATOR tab",
 };
 
 // Sequence snapshots store absolute MIDI pitches, so their playback does not
@@ -622,6 +624,8 @@ const App = () => {
     main: 0,
     hexatone: 0,
     sequencer: 0,
+    io: 0,
+    calculator: 0,
   });
   const activeManualView = workspaceTab === "manual" ? "main" : inlineManualView;
   const [userHasInteracted, setUserHasInteracted] = useState(false);
@@ -5510,11 +5514,42 @@ const App = () => {
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
             <em>
-              Capture SNAPSHOTS of chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining. Trigger the sequence event by event. Edit start and stop times within a chord to make CUES that sound a melody or arpeggiation. Create bars, repeats, and tempo markers to generate automated timed playback.{" "}
+              Capture SNAPSHOTS of chords and momentary expression data (velocity, pressure, timbre)
+              while playing or sustaining. Trigger the sequence event by event. Edit start and stop
+              times within a chord to make CUES that sound a melody or arpeggiation. Create bars,
+              repeats, and tempo markers to generate automated timed playback.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
                 onClick={() => openInlineManual("sequencer")}
+              >
+                … more
+              </button>
+            </em>
+          </p>
+        ) : workspaceTab === "io" ? (
+          <p class="sidebar-intro">
+            <em>
+              Choose built-in sounds, connect MIDI controllers, send controller colours, and route
+              MTS, MPE, and OSC output. These controls remain available while live input or a
+              sequence is sounding.{" "}
+              <button
+                type="button"
+                className="app-shell__intro-more"
+                onClick={() => openInlineManual("io")}
+              >
+                … more
+              </button>
+            </em>
+          </p>
+        ) : workspaceTab === "calculator" ? (
+          <p class="sidebar-intro">
+            <em>
+              A single-pitch JI workspace: input a HEJI spelling, Scala ratio or cents value to determine its staff notation, cents deviation, frequency, and nearby rational intonation options. Choosing a tuning in the Plainsound Hexatone changes the Reference Frequency and Spelling Anchor in this tab; subsequent Calculator edits do not retune Hexatone. {" "}
+              <button
+                type="button"
+                className="app-shell__intro-more"
+                onClick={() => openInlineManual("calculator")}
               >
                 … more
               </button>
@@ -5526,8 +5561,8 @@ const App = () => {
               To play, choose a tuning, click or touch notes, attach a MIDI keyboard or an
               isomorphic controller like Lumatone or Exquis. Use internal sounds or retune external
               synths using MTS, MPE, OSC. Edit the scale in the table below; drag to retune notes;
-              rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER captures
-              snapshots to build a sequence.{" "}
+              rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER
+              captures snapshots to build a sequence.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"

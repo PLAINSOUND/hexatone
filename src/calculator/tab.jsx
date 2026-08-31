@@ -230,14 +230,6 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
   };
   return (
     <div class="calculator-tab">
-      <p class="sidebar-intro calculator-tab__intro">
-        <em>
-          A single-pitch JI workspace: input a HEJI spelling, Scala ratio or cents value to
-          determine its staff notation, cents deviation, frequency, and nearby rational intonation
-          options. Choosing a tuning in the Plainsound Hexatone changes the Reference Frequency and
-          Spelling Anchor in this tab; subsequent Calculator edits do not retune Hexatone.
-        </em>
-      </p>
 
       <fieldset>
         <legend>Reference</legend>
@@ -324,8 +316,8 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
       <fieldset
         class={`calculator-palette-fieldset${querySource === "spelling" ? " calculator-input-source--active" : ""}`}
       >
-        <legend>Palette</legend>
-        <p class="calculator-field-hint">Input path 1 · build a spelling</p>
+        <legend>Palette Input</legend>
+        <p class="calculator-field-hint">Spell a note using HEJI Notation</p>
         <HejiPalette
           anchorLabel={anchorLabel}
           anchorRatio={anchorInterval}
@@ -338,10 +330,10 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
       </fieldset>
 
       <fieldset class="calculator-lookup">
-        <legend>Pitch Lookup</legend>
-        <p class="calculator-field-hint">Input path 2 · enter a Scala ratio or cents value</p>
+        <legend>Ratio/Cents Input</legend>
+        <p class="calculator-field-hint">Choose an offset and a pitch as ratio or cents</p>
         <label>
-          Offset Ratio/Cents from 1/1
+          Offset (from 1/1)
           <CommitTextInput
             key={`offset-${offsetInterval}`}
             ariaLabel="Calculator lookup offset ratio or cents"
@@ -362,7 +354,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
           />
         </label>
         <label class={querySource === "ratio" ? "calculator-input-row--active" : ""}>
-          Ratio/Cents from Offset
+          Pitch (from Offset)
           <CommitTextInput
             key={`query-${queryInterval}`}
             ariaLabel="Calculator lookup ratio or cents"
@@ -534,7 +526,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
       </fieldset>
 
       <fieldset class="calculator-results">
-        <legend>Calculated Results</legend>
+        <legend>Calculated Data</legend>
         <label class="settings-form__checkbox-row calculator-results__normalize">
           <input
             type="checkbox"
@@ -616,7 +608,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
       </fieldset>
 
       <fieldset class="calculator-rational-candidates">
-        <legend>Nearby Rational Values</legend>
+        <legend>Nearby Rational Pitches</legend>
         <div class="calculator-candidate-list" aria-label="Calculator nearby rational values">
           {analysis.nearbyRatios?.length ? (
             analysis.nearbyRatios.map((candidate) => (

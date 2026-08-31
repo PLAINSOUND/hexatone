@@ -4,8 +4,10 @@ import ManualSidebar from "./manual-sidebar.jsx";
 
 describe("ManualSidebar", () => {
   it.each([
-    ["Hexatone Tab", "manual-hexatone-tab"],
-    ["Sequencer Tab", "manual-sequencer-tab"],
+    ["HEXATONE Tab", "manual-hexatone-tab"],
+    ["SEQUENCER Tab", "manual-sequencer-tab"],
+    ["IO tab", "manual-io-tab"],
+    ["CALCULATOR tab", "manual-calculator-tab"],
   ])("opens at the requested %s section", (initialSectionTitle, expectedSectionId) => {
     const { container } = render(
       <ManualSidebar onClose={vi.fn()} initialSectionTitle={initialSectionTitle} />,

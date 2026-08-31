@@ -1147,7 +1147,7 @@ describe("App workspace tabs", () => {
     await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
     await user.click(screen.getByText("… more"));
     expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
-      "Hexatone Tab",
+      "HEXATONE Tab",
     );
     expect(screen.getByRole("tab", { name: "HEXATONE" }).getAttribute("aria-selected")).toBe(
       "true",
@@ -1169,7 +1169,27 @@ describe("App workspace tabs", () => {
 
     await user.click(screen.getByText("… more"));
     expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
-      "Sequencer Tab",
+      "SEQUENCER Tab",
+    );
+
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("manual-sidebar")).toBeNull();
+    });
+
+    await user.click(screen.getByText("… more"));
+    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
+      "IO tab",
+    );
+
+    await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("manual-sidebar")).toBeNull();
+    });
+
+    await user.click(screen.getByText("… more"));
+    expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
+      "CALCULATOR tab",
     );
 
     await user.click(screen.getByRole("tab", { name: "HEXATONE" }));

@@ -1,10 +1,10 @@
 # User Manual
 
-Updated: 2026-07-30
+Updated: 2026-08-31
 
 ## About
 
-HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented by Erv Wilson. SEQUENCER is a sequencer for editing and performing chords captured in the workspace. The MANUAL tab provides complete documentation. Features include:
+HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented by Erv Wilson. SEQUENCER is a sequencer for editing and performing chords captured in the workspace. Settings for selecting built-in sounds, MIDI input/output, and OSC output are located in the IO tab. CALCULATOR provides a quick access tool for JI calculations (HEJI spelling, Frequency, Cents Deviations, Rationalisation). The MANUAL tab provides complete documentation. Features include:
 
 - user-programmable keyboard layouts and tunings
 - playing with touch, mouse, computer keyboard, and MIDI
@@ -15,18 +15,20 @@ HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented
 - MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
 - compatibility with the free MTS-ESP Mini Master plug-in for retuning VST instruments
 - suitability for live use: extremely low latency and jitter
-- a dedicated SEQUENCER tab allows for editing, performing, and automating playback of captured chord snapshots
+- the SEQUENCER tab allows for editing, performing, and automating playback of captured chords
+- the CALCULATOR tab allows users to determine information about the tuning of JI pitches
 
 ## Quick Start
 
 WebMIDI is optional. To explore scales, compare tunings, build and recall chords:
 
-- open Hexatone in the browser
-- use built-in sounds to play with touch, mouse, computer keyboard
+- open Hexatone in the browser, choose a tuning
+- go to the IO tab to choose built-in sounds
+- play with touch, mouse, computer keyboard
 - use on-screen `OCT` / `SUSTAIN` / `MOD` controls or keyboard shortcuts
-- edit the scale table, drag to retune individual scale degrees
+- in HEXATONE tab edit the scale table, drag to retune individual scale degrees
 - capture sounding notes as snapshots with `SHIFT+ENTER`
-- open SEQUENCER to edit, navigate, and play the snapshots
+- open SEQUENCER tab to edit, navigate, and play the snapshots or a built-in sequence
 - open MANUAL for complete documentation, or use “… more” for contextual help
 
 ## Components
@@ -49,10 +51,6 @@ WebMIDI is optional. To explore scales, compare tunings, build and recall chords
   - Name and Description
   - Scale Settings / Scale Table
   - Hexatone Layout
-  - Built-in Sounds
-  - MIDI Setup
-  - MIDI Input
-  - Output Routing (MTS / MPE / OSC)
 - SEQUENCER
   - Built-in Sequences
   - User Sequences
@@ -60,6 +58,19 @@ WebMIDI is optional. To explore scales, compare tunings, build and recall chords
   - Snapshots
   - Copy & Insert
   - Edit & Play / Sequence Event List
+- IO
+  - Built-in Sounds
+  - MIDI Setup
+  - MIDI Input
+  - Output Routing (MTS / MPE / OSC)
+- CALCULATOR
+  - Reference
+  - HEJI Spelling
+  - Palette Input
+  - Ratio/Cents Input
+  - Rationalisation Search
+  - Calculated Data
+  - Nearby Rational Pitches
 
 ### Performance Controls
 
@@ -92,7 +103,7 @@ Buttons along the bottom of the app, also mapped to key commands:
 - multiple events at the same global position follow an order of precedence rule: `note-offs` of previously triggered notes −> `repeat end` −> `repeat start` −> `tempo` −> `bar` −> new `note-ons` −> new `note-offs`; notes are ordered by pitch with the largest frequency value first (higher notes are above lower notes, as in music notation)
 - the sequence uses one exact global position space defined by the numbering of its ordered snapshots: bars, tempo markers, and repeats organise navigation and timed playback without acting as containers for the note events; when a snapshot is moved around, the relative proportions between its constituent events remain stable, but their speed in timed playback is scaled by the number of snapshots comprising a bar as well as its time signature
 
-## Hexatone Tab
+## HEXATONE Tab
 
 Hexatone supports various controllers and uses a 2D hexagonal layout to represent tunings. It acts as a bridge allowing multiple software tools and instruments to receive coordinated tuning and expression data from multichannel and MPE devices.
 
@@ -250,129 +261,7 @@ The current rationalisation workflow has two modes:
 - modulation history may be reset globally, returning to the saved tuning
 - there are two layout options: `Fixed Do / Moveable Layout` or `Moveable Do / Fixed Layout`
 
-## MIDI
-
-### MIDI Setup
-
-WebMIDI is optional; allowing SysEx functionality is an additional option. WebMIDI adds:
-
-- external MIDI input
-- controller auto-detection and geometry support, with manual override
-- LED color support on supported devices
-- MTS and MPE output
-
-Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
-
-If you do not wish to enable WebMIDI, Hexatone still works as an on-screen instrument and scale workspace.
-
-### MIDI Input
-
-HEXATONE
-
-- responds to standard keyboard input on all channels
-- handles MPE per-note expression data: pitch bend (X), channel pressure (Z), CC74 timbre (Y)
-- knows about isomorphic and 2D controller geometries, single- or multi-channel layouts
-- recognises controllers automatically, but allows manual controller geometry selection and override (sequential / bypass behaviour)
-- has two Input Modes: MIDI to Hex Layout (consecutive MIDI notes trigger successive degrees of a microtonal scale); MIDI to Nearest Scale Degree (incoming notes + MPE X data are mapped to nearest notes of the scale, rather than triggering the scale note-by-note)
-- Input Mode persists per detected/selected controller; 2D controllers default to MIDI to Hex Layout; Haken Continuum (1D pitch glissando) defaults to MIDI to Nearest Scale Degree
-
-### Controllers
-
-The app includes support for several recognized controller types, including devices such as:
-
-- AXIS-49
-- Haken Continuum
-- Exquis
-- LinnStrument
-- Lumatone
-- Tonal Plexus
-- standard keyboards
-
-The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user (on appropriate outputs).
-
-Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom, repeated five times to form five blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes. The `Lumatone Colour Filter` can store, order, import, and export named collections of scale degrees. `Auto-Generate from Snapshots` adds filters derived from the notes present in captured snapshots.
-
-Alternatively, some users may prefer to generate a “traditional” multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave transpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
-
-LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
-
-Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing using App Mode. If Exquis is not working as expected, check the browser console: if a firmware update is needed, the information will be there.
-
-Haken `Continuum X Glide` offers two modes: Rastered Attack + Pitch Bend and Rastered Notes, along with controls for `X Glide Shaping` (applied to Rastered Attack + Pitch Bend) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Rastered Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). `Continuum Raster Filter` lets the user store and order named collections of scale degrees. The selected filter constrains attacks and subsequent retriggers in Rastered Notes. `Apply Raster in Pitch Bending Mode` optionally applies it to attacks in Rastered Attack + Pitch Bend. Independently, `Shape X Glide to Raster` uses the filtered degrees rather than every scale degree as the stability centres for continuous X Glide Shaping. Collections may be imported or exported together as a `.json` file, while `Auto-Generate from Snapshots` adds filters derived from captured snapshots. Optional MPE+ pitch-bend output adds high-resolution CC87 data; it may be disabled when older MIDI connections cannot sustain the additional message density.
-
-### Input Modes
-
-Hexatone can treat MIDI input broadly in two ways:
-
-- as geometry on the hex layout
-- as nearest scale degree input
-
-The first treats the controller as a performance surface with position meaning.
-The second treats incoming pitch as musical material to be mapped into the current scale.
-
-### MIDI Output
-
-Hexatone can send tuning and performance data through:
-
-- built-in sample synth
-- MTS (MIDI Tuning Standard) Real-Time Tuning
-  - MTS is used in a special way to allow large scales and many octaves to be used effortlessly: rather than setting up a tuning map in advance, each note is immediately assigned a slot and retuned on the fly, allowing up to 128-note microtonal polyphony in any size scale across the entire MIDI range; by sending Hexatone MTS Output to MTS-ESP Mini Master, instruments that do not directly support the SysEx protocol can be retuned as well
-- MTS Bulk Dump Tuning Maps for legacy synths (128 notes at a time)
-- MPE (MIDI Polyphonic Expression)
-
-MPE output offers two message styles:
-
-- `Ableton compatible` uses unique MIDI notes with a 48-semitone pitch-bend range
-- `MPE standard` uses nearest MIDI notes and a user-defined pitch-bend range
-
-`MPE+ PB` adds CC87 low-bit messages for higher-resolution pitch bend on compatible instruments. CC74 carries per-note timbre and Channel Pressure carries per-note pressure.
-
-### Eagan Matrix
-
-The Eagan Matrix is a dedicated digital modular patchbay designed for XYZ control from instruments like Osmose and Haken Continuum. A set of specialised controls for this synth appear within the MPE output settings:
-
-- `Auto-Generate MPE YZ` generates per-voice timbre (Y/CC74) and pressure (Z/Channel Pressure) envelopes from attack velocity and subsequent polyphonic pressure. It applies to live input and stored sequences, including release shaping driven by Note Off velocity.
-- `Mod Wheel → Brightness` mirrors incoming modulation-wheel CC1 values to Brightness and updates its displayed fader.
-- `Brightness` sends CC13.
-- `Tilt EQ` sends CC83.
-- `Pre Level` sends CC26.
-- `Post Level` sends CC18.
-
-The four faders use MIDI values from 0–127 and default to 64. Enabling `Auto-Generate MPE YZ` also sends their current values so the receiving Eagan Matrix begins from the displayed state.
-
-## OSC
-
-Hexatone also includes an OSC output path for users who want:
-
-- a custom synthesis backend
-- direct control of a local SuperCollider setup
-
-### What it requires
-
-This mode requires a local clone of the repo and a locally running bridge:
-
-1. clone the repository locally
-2. build a local osc-bridge app that runs on your architecture (translates incoming WebSocket data for SuperCollider)
-
-```sh
-yarn build-bridge
-```
-
---OR--
-
-to edit hexatone code and work with custom osc setups using localhost run:
-
-```sh
-yarn start
-yarn osc-bridge
-```
-
-3. load the matching SuperCollider patch/responders locally
-4. enable `OSC -> SuperCollider` in Hexatone
-
-This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
-
-## Sequencer Tab
+## SEQUENCER Tab
 
 The Sequencer supports three connected workflows: snapshots play captured note collections; cues trigger events grouped by position; timed playback follows the complete timeline of note events, bars, tempi, and repeats.
 
@@ -521,6 +410,155 @@ A repeat row shows:
 - for end repeats, a repeat count such as `2x`, `3x`, or `7x`
 
 Repeat markers participate directly in cue playback. When cue stepping crosses an end-repeat boundary, Hexatone jumps back to the associated start-repeat position and restarts the cue range as many times as the repeat count requires. Any carried note-offs that need to occur before the repeat bounce are preserved by the event-ordering rules.
+
+## IO tab
+
+### Built-in Sounds
+
+Hexatone has a small built-in library of sampled sounds. These include several additive synthsis timbres with 1-16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching. For more sophisticated sound design, layer the MIDI and or OSC outputs.
+
+### MIDI Setup
+
+WebMIDI is optional; allowing SysEx functionality is an additional option. WebMIDI adds:
+
+- external MIDI input
+- controller auto-detection and geometry support, with manual override
+- LED color support on supported devices
+- MTS and MPE output
+
+Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
+
+If you do not wish to enable WebMIDI, Hexatone still works as an on-screen instrument and scale workspace.
+
+### MIDI Input
+
+HEXATONE
+
+- responds to standard keyboard input on all channels
+- handles MPE per-note expression data: pitch bend (X), channel pressure (Z), CC74 timbre (Y)
+- knows about isomorphic and 2D controller geometries, single- or multi-channel layouts
+- recognises controllers automatically, but allows manual controller geometry selection and override (sequential / bypass behaviour)
+- has two Input Modes: MIDI to Hex Layout (consecutive MIDI notes trigger successive degrees of a microtonal scale); MIDI to Nearest Scale Degree (incoming notes + MPE X data are mapped to nearest notes of the scale, rather than triggering the scale note-by-note)
+- Input Mode persists per detected/selected controller; 2D controllers default to MIDI to Hex Layout; Haken Continuum (1D pitch glissando) defaults to MIDI to Nearest Scale Degree
+
+### Controllers
+
+The app includes support for several recognized controller types, including devices such as:
+
+- AXIS-49
+- Haken Continuum
+- Exquis
+- LinnStrument
+- Lumatone
+- Tonal Plexus
+- standard keyboards
+
+The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user (on appropriate outputs).
+
+Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom, repeated five times to form five blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes. The `Lumatone Colour Filter` can store, order, import, and export named collections of scale degrees. `Auto-Generate from Snapshots` adds filters derived from the notes present in captured snapshots.
+
+Alternatively, some users may prefer to generate a “traditional” multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave transpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
+
+LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
+
+Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing using App Mode. If Exquis is not working as expected, check the browser console: if a firmware update is needed, the information will be there.
+
+Haken `Continuum X Glide` offers two modes: Rastered Attack + Pitch Bend and Rastered Notes, along with controls for `X Glide Shaping` (applied to Rastered Attack + Pitch Bend) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Rastered Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). `Continuum Raster Filter` lets the user store and order named collections of scale degrees. The selected filter constrains attacks and subsequent retriggers in Rastered Notes. `Apply Raster in Pitch Bending Mode` optionally applies it to attacks in Rastered Attack + Pitch Bend. Independently, `Shape X Glide to Raster` uses the filtered degrees rather than every scale degree as the stability centres for continuous X Glide Shaping. Collections may be imported or exported together as a `.json` file, while `Auto-Generate from Snapshots` adds filters derived from captured snapshots. Optional MPE+ pitch-bend output adds high-resolution CC87 data; it may be disabled when older MIDI connections cannot sustain the additional message density.
+
+### Input Modes
+
+Hexatone can treat MIDI input broadly in two ways:
+
+- as geometry on the hex layout
+- as nearest scale degree input
+
+The first treats the controller as a performance surface with position meaning.
+The second treats incoming pitch as musical material to be mapped into the current scale.
+
+### MIDI Output
+
+Hexatone can send tuning and performance data through:
+
+- built-in sample synth
+- MTS (MIDI Tuning Standard) Real-Time Tuning
+  - MTS is used in a special way to allow large scales and many octaves to be used effortlessly: rather than setting up a tuning map in advance, each note is immediately assigned a slot and retuned on the fly, allowing up to 128-note microtonal polyphony in any size scale across the entire MIDI range
+  - by sending Hexatone MTS Output to MTS-ESP Mini Master, instruments that do not directly support the SysEx protocol can be retuned as well
+- MTS Bulk Dump Tuning Maps for legacy synths (limited to 128 notes at a time)
+- MPE (MIDI Polyphonic Expression)
+
+MPE output offers two message styles:
+
+- `Ableton compatible` uses unique MIDI notes with a 48-semitone pitch-bend range
+- `MPE standard` uses nearest MIDI notes and a user-defined pitch-bend range
+
+`MPE+ PB` adds CC87 low-bit messages for higher-resolution pitch bend on compatible instruments. CC74 carries per-note timbre and Channel Pressure carries per-note pressure.
+
+### Eagan Matrix
+
+The Eagan Matrix is a dedicated digital modular patchbay designed for XYZ control from instruments like Osmose and Haken Continuum. A set of specialised controls for this synth appear within the MPE output settings:
+
+- `Auto-Generate MPE YZ` generates per-voice timbre (Y/CC74) and pressure (Z/Channel Pressure) envelopes from attack velocity and subsequent polyphonic pressure. It applies to live input and stored sequences, including release shaping driven by Note Off velocity.
+- `Mod Wheel → Brightness` mirrors incoming modulation-wheel CC1 values to Brightness and updates its displayed fader.
+- `Brightness` sends CC13.
+- `Tilt EQ` sends CC83.
+- `Pre Level` sends CC26.
+- `Post Level` sends CC18.
+
+The four faders use MIDI values from 0–127 and default to 64. Enabling `Auto-Generate MPE YZ` also sends their current values so the receiving Eagan Matrix begins from the displayed state.
+
+### OSC
+
+Hexatone also includes an OSC output path for users who want:
+
+- a custom synthesis backend
+- direct control of a local SuperCollider setup
+
+### What it requires
+
+This mode requires a local clone of the repo and a locally running bridge:
+
+1. clone the repository locally
+2. build a local osc-bridge app that runs on your architecture (translates incoming WebSocket data for SuperCollider)
+
+```sh
+yarn build-bridge
+```
+
+--OR--
+
+to edit hexatone code and work with custom osc setups using localhost run:
+
+```sh
+yarn start
+yarn osc-bridge
+```
+
+3. load the matching SuperCollider patch/responders locally
+4. enable `OSC -> SuperCollider` in Hexatone
+
+This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
+
+## CALCULATOR tab
+
+### Reference
+
+Choose a Reference Frequency and its ratio/cents from 1/1. For example, perhaps a scale is based on C but you wish to specify A as the reference, so specify A as a ratio (5/3 or 27/16) or as an arbitrary value in cents.
+
+### HEJI Spelling
+
+Choose a spelling that will be assigned a deviation of 0 cents, and express this note as a ratio from 1/1. For example, if you have a Reference Frequency of 10 Hz, you could decide to spell it as *fE, and this note would have a cents deviation of 0 cents. In this system, 440 Hz would be partial 44°, written as A.
+
+### Input
+
+There are two input options: either enter a HEJI spelling using the palette, or specify an offset and pitch as ratio/cents. The HEJI palette allows prime-based accidentals to be incremented/decremented with repeated clicks. The octave position may be specified using the ISO standard (C4 = middle C). In the Ratio/Cents input, "Offset" defaults to the HEJI Spelling anchor, so that the chosen 0 cents note is equivalent to the Pitch 1/1. Changing Offset adapts the Pitch accordingly for easy calculation of compounded ratios.
+
+### Rationalisation
+
+Toggle to reveal the harmonic space parameters for rationalisation (symmetric, overtonal, custom). Traditionally JI pitch sets have been constructed symmetrically (every ratio is taken upward and downward from 1/1) or overtonally (based on the harmonic series). Custom allows the user to specify the number of steps in each prime dimension up to 47. The search space is restricted by prime limit and odd limit, search radius in cents, and a maximum number of results, which are sorted according to the selected criterion (overall ranking, cents deviation, harmonic/odd radius, prime/odd limit).
+
+### Data
+
+Values for the pitch from 1/1 and Reference, Frequency, nearest MIDI for working with a tuning meter, as well as a list of Nearby Rational Pitches. Clicking on the Pitches automatically updates the target and provides new data.
 
 ## Developer Roadmap
 
