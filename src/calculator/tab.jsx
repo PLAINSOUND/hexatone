@@ -56,6 +56,12 @@ function formatSigned(value, decimals) {
   return `${rounded < 0 ? "−" : "+"}${Math.abs(rounded).toFixed(decimals)}¢`;
 }
 
+function intervalsArePitchEquivalent(leftValue, rightValue) {
+  const left = parseCalculatorInterval(leftValue);
+  const right = parseCalculatorInterval(rightValue);
+  return left.valid && right.valid && Math.abs(left.cents - right.cents) < 1e-7;
+}
+
 function selectElementText(element) {
   const selection = globalThis.getSelection?.();
   if (!selection || !document.createRange) return;
@@ -143,6 +149,8 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
   const [offsetInterval, setOffsetInterval] = useState(seed.anchorInterval);
   const [queryInterval, setQueryInterval] = useState(seed.targetInterval);
   const [spellingTargetInterval, setSpellingTargetInterval] = useState(seed.anchorInterval);
+  const [spellingAnchorRelativeInterval, setSpellingAnchorRelativeInterval] = useState("1/1");
+  const [spellingResultLabel, setSpellingResultLabel] = useState("");
   const [decimalPlaces, setDecimalPlaces] = useState(seed.decimalPlaces);
   const [querySource, setQuerySource] = useState("ratio");
   const [searchPrefs, setSearchPrefs] = useState(loadRationalisationPreferences);
@@ -177,6 +185,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
         anchorInterval,
         anchorLabel,
         targetInterval,
+        preferredHejiLabel: querySource === "spelling" ? spellingResultLabel : "",
         rationalSearch,
         normalizeResults,
       }),
@@ -186,6 +195,8 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
       rationalSearch,
       referenceFrequency,
       referenceInterval,
+      querySource,
+      spellingResultLabel,
       targetInterval,
       normalizeResults,
     ],
@@ -207,9 +218,13 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
         octave,
       });
       if (!resolved.valid) return;
-      const relative = relativeCalculatorInterval(resolved.interval, offsetInterval);
+      const relative = intervalsArePitchEquivalent(offsetInterval, anchorInterval)
+        ? resolved.relativeInterval
+        : relativeCalculatorInterval(resolved.interval, offsetInterval);
       if (!relative) return;
       setSpellingTargetInterval(resolved.interval);
+      setSpellingAnchorRelativeInterval(resolved.relativeInterval);
+      setSpellingResultLabel(resolved.hejiLabel || "");
       setQueryInterval(relative);
       setQuerySource("spelling");
     },
@@ -343,17 +358,16 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
               if (!parsed.valid) return offsetInterval;
               setOffsetInterval(parsed.normalized);
               if (querySource === "spelling") {
-                const relative = relativeCalculatorInterval(
-                  spellingTargetInterval,
-                  parsed.normalized,
-                );
+                const relative = intervalsArePitchEquivalent(parsed.normalized, anchorInterval)
+                  ? spellingAnchorRelativeInterval
+                  : relativeCalculatorInterval(spellingTargetInterval, parsed.normalized);
                 if (relative) setQueryInterval(relative);
               }
               return parsed.normalized;
             }}
           />
         </label>
-        <label class={querySource === "ratio" ? "calculator-input-row--active" : ""}>
+        <label>
           Pitch (from Offset)
           <CommitTextInput
             key={`query-${queryInterval}`}

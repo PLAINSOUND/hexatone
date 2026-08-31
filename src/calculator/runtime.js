@@ -178,25 +178,46 @@ export function calculatorIntervalFromPitchStructure({
     const frame = buildPitchFrame(
       {
         heji_anchor_label: normalizedAnchorLabel,
-        heji_anchor_ratio: normalizedAnchor.normalized,
+        // Resolve the written interval from the notation anchor independently
+        // of the anchor's absolute placement. A cents anchor has no exact
+        // monzo and must not be passed through the ratio-only pitch frame.
+        heji_anchor_ratio: "1/1",
         reference_degree: 0,
         fundamental: 440,
       },
       null,
     );
     const resolved = resolveStructurePitch(frame, structure);
-    const interval = resolved?.degreeRelativeInterval?.ratioText;
-    const parsedInterval = parseCalculatorInterval(interval);
+    const relativeInterval = resolved?.notationRelativeInterval?.ratioText;
+    const parsedRelative = parseCalculatorInterval(relativeInterval);
     const octaveShift = Math.trunc(Number(octave) || 0) - DEFAULT_CALCULATOR_OCTAVE;
-    return interval
-      ? {
-          valid: true,
-          exact: true,
-          interval: parsedInterval.valid
-            ? fractionText(transposeFractionByOctaves(parsedInterval.ratio, octaveShift))
-            : interval,
-        }
-      : { valid: false, error: "Spelling cannot be resolved" };
+    if (!parsedRelative.valid || !parsedRelative.exact) {
+      return { valid: false, error: "Spelling cannot be resolved" };
+    }
+    const transposedRelative = transposeFractionByOctaves(parsedRelative.ratio, octaveShift);
+    const relativeCents = 1200 * Math.log2(Number(transposedRelative));
+    const hejiLabel = spelledHejiLabel(
+      createReferenceFrame({ anchorLabel: normalizedAnchorLabel, anchorRatio: "1/1" }),
+      fractionText(transposedRelative),
+      relativeCents,
+      { forceShowZeroDeviation: true },
+    );
+    if (!normalizedAnchor.exact) {
+      return {
+        valid: true,
+        exact: false,
+        interval: intervalFromCents(normalizedAnchor.cents + relativeCents),
+        relativeInterval: fractionText(transposedRelative),
+        hejiLabel,
+      };
+    }
+    return {
+      valid: true,
+      exact: true,
+      interval: fractionText(normalizedAnchor.ratio.mul(transposedRelative)),
+      relativeInterval: fractionText(transposedRelative),
+      hejiLabel,
+    };
   } catch {
     return { valid: false, error: "Spelling cannot be resolved" };
   }
@@ -352,9 +373,11 @@ export function calculatePitchLookup(input = {}) {
   let hejiLabel = "";
   try {
     const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchor.normalized });
-    hejiLabel = spelledHejiLabel(frame, target.exact ? target.normalized : null, centsFromAnchor, {
-      forceShowZeroDeviation: true,
-    });
+    hejiLabel =
+      input.preferredHejiLabel ||
+      spelledHejiLabel(frame, target.exact ? target.normalized : null, centsFromAnchor, {
+        forceShowZeroDeviation: true,
+      });
   } catch {
     hejiLabel = "";
   }

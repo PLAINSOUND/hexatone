@@ -113,6 +113,53 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("1/1");
   });
 
+  it("does not fabricate ratios for palette pitches above a cents HEJI anchor", () => {
+    render(
+      <CalculatorTab
+        settings={{
+          ...SETTINGS,
+          reference_degree: 0,
+          scale: Array.from({ length: 36 }, (_, index) => `${((index + 1) * 1200) / 36}.`),
+          heji_anchor_ratio: "400.",
+          heji_anchor_label: "*nE",
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+
+    expect(screen.getByLabelText("Calculator ratio output").textContent).toBe("—");
+    expect(screen.getByLabelText("Calculator ratio from reference").textContent).toBe("—");
+    expect(screen.getByLabelText("Calculator spelling output").textContent).toContain("A");
+    expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("4/3");
+  });
+
+  it("restores the rational palette interval when a cents offset returns to the HEJI anchor", () => {
+    render(
+      <CalculatorTab
+        settings={{
+          ...SETTINGS,
+          reference_degree: 0,
+          scale: ["400.", "1200."],
+          heji_anchor_ratio: "400.",
+          heji_anchor_label: "*nE",
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    const offset = screen.getByLabelText("Calculator lookup offset ratio or cents");
+
+    fireEvent.input(offset, { target: { value: "300." } });
+    fireEvent.blur(offset);
+    expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toMatch(/\./);
+
+    const updatedOffset = screen.getByLabelText("Calculator lookup offset ratio or cents");
+    fireEvent.input(updatedOffset, { target: { value: "400.000000" } });
+    fireEvent.blur(updatedOffset);
+    expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("4/3");
+    expect(screen.getByLabelText("Calculator ratio output").textContent).toBe("—");
+  });
+
   it("places palette spellings in octave 4 by default and permits register changes", () => {
     render(<CalculatorTab settings={SETTINGS} />);
 

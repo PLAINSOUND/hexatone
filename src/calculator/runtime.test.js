@@ -123,6 +123,45 @@ describe("calculator runtime", () => {
     expect(result).toMatchObject({ valid: true, exact: true, interval: "27/16" });
   });
 
+  it("keeps palette pitches cents-based when the HEJI anchor is in cents", () => {
+    const anchor = calculatorIntervalFromPitchStructure({
+      structure: parseHejiToStructure("*nE"),
+      anchorLabel: "*nE",
+      anchorInterval: "400.",
+    });
+    const aNatural = calculatorIntervalFromPitchStructure({
+      structure: parseHejiToStructure("*nA"),
+      anchorLabel: "*nE",
+      anchorInterval: "400.",
+    });
+
+    expect(anchor).toMatchObject({
+      valid: true,
+      exact: false,
+      interval: "400.000000",
+      relativeInterval: "1/1",
+    });
+    expect(aNatural.valid).toBe(true);
+    expect(aNatural.exact).toBe(false);
+    expect(aNatural.relativeInterval).toBe("4/3");
+    expect(parseCalculatorInterval(aNatural.interval).cents).toBeCloseTo(
+      400 + 1200 * Math.log2(4 / 3),
+      6,
+    );
+
+    const lookup = calculatePitchLookup({
+      referenceInterval: "1/1",
+      anchorInterval: "400.",
+      anchorLabel: "*nE",
+      targetInterval: aNatural.interval,
+      preferredHejiLabel: aNatural.hejiLabel,
+    });
+    expect(lookup.ratioText).toBeNull();
+    expect(lookup.ratioFromReferenceText).toBeNull();
+    expect(lookup.centsFromAnchor).toBeCloseTo(1200 * Math.log2(4 / 3), 6);
+    expect(lookup.hejiLabel).toContain("A");
+  });
+
   it("resolves palette spellings in an explicit scientific-pitch octave", () => {
     const structure = parseHejiToStructure("*nA");
     const middleC = parseHejiToStructure("*nC");
