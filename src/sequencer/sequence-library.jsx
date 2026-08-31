@@ -160,6 +160,8 @@ const SequenceLibrary = ({
   onSequenceSaved,
   onSaveActionStateChange,
   onPrimarySaveVisibilityChange,
+  showActivateAudioContext = false,
+  activateAudioContext = null,
 }) => {
   const [savedSequences, setSavedSequences] = useState(loadUserSequences);
   const orderedSavedSequences = useMemo(() => orderPresetsByName(savedSequences), [savedSequences]);
@@ -452,7 +454,12 @@ const SequenceLibrary = ({
             visible: true,
             label: saveLabel,
             action: handleSave,
-            status: workspaceStatus === "saved-clean" ? "Saved" : "Edited",
+            status:
+              workspaceStatus === "saved-clean"
+                ? "Saved"
+                : workspaceStatus === "builtin-clean"
+                  ? ""
+                  : "Edited",
           }
         : {
             visible: false,
@@ -628,6 +635,17 @@ const SequenceLibrary = ({
             </button>
           )}
         </label>
+        {showActivateAudioContext && activateAudioContext && (
+          <div class="settings-form__reload-row settings-form__checkbox-row--sm">
+            <button
+              type="button"
+              class="preset-action-btn settings-form__activate-audio-btn"
+              onClick={() => void activateAudioContext()}
+            >
+              Activate Audio Context
+            </button>
+          </div>
+        )}
       </fieldset>
 
       <fieldset>
@@ -777,6 +795,8 @@ SequenceLibrary.propTypes = {
   onSequenceSaved: PropTypes.func,
   onSaveActionStateChange: PropTypes.func,
   onPrimarySaveVisibilityChange: PropTypes.func,
+  showActivateAudioContext: PropTypes.bool,
+  activateAudioContext: PropTypes.func,
 };
 
 export default SequenceLibrary;

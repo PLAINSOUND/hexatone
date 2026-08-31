@@ -210,6 +210,7 @@ import {
   applyReloadPersistencePolicy,
   bindControllerLedRefs,
   commitModulationHistoryToPreset,
+  getDefaultSnapshotPalettePos,
   Loading,
   modulationCurrentSummaryDisplay,
   modulationRouteLabelPair,
@@ -220,6 +221,49 @@ import {
   attachLinnstrumentLedDriver,
   deactivateLinnstrumentUserFirmware,
 } from "./controllers/linnstrument-user-firmware.js";
+
+describe("floating palette placement", () => {
+  it("uses the snapshot palette width beside a wide auxiliary sidebar", () => {
+    const originalInnerWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 900 });
+    const sidebar = document.createElement("nav");
+    sidebar.id = "sidebar";
+    sidebar.getBoundingClientRect = () => ({
+      bottom: 700,
+      height: 700,
+      left: 0,
+      right: 600,
+      top: 0,
+      width: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const snapshot = document.createElement("div");
+    snapshot.id = "snapshot-palette";
+    snapshot.getBoundingClientRect = () => ({
+      bottom: 500,
+      height: 280,
+      left: 18,
+      right: 178,
+      top: 220,
+      width: 160,
+      x: 18,
+      y: 220,
+      toJSON: () => ({}),
+    });
+    document.body.append(sidebar, snapshot);
+
+    expect(getDefaultSnapshotPalettePos()).toEqual({ x: 616, y: 234 });
+
+    sidebar.remove();
+    snapshot.remove();
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: originalInnerWidth,
+    });
+  });
+});
 
 describe("Loading", () => {
   it("renders without crashing", () => {
@@ -328,6 +372,50 @@ describe("preset runtime reset wiring", () => {
     await waitFor(() => {
       expect(lastKeyboardProps.reconstructionKey).not.toBe(initialReconstructionKey);
     });
+  });
+});
+
+describe("sequence-only playback surface", () => {
+  it("mounts a hidden playback runtime when a sequence is loaded without a Hexatone scale", async () => {
+    const previousSettings = settings;
+    settings = {
+      ...settings,
+      scale: null,
+      note_names: null,
+      note_colors: null,
+    };
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        snapshots: [
+          {
+            id: 1,
+            length: 1,
+            notes: [{ id: "note-1", midicents: 69, attackVelocity: 72 }],
+          },
+        ],
+        bars: [],
+        tempi: [],
+        repeats: [],
+      }),
+    );
+
+    const { unmount } = render(<App />);
+
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    expect(lastKeyboardProps.hidden).toBe(true);
+    expect(lastKeyboardProps.settings.scale).toEqual([0]);
+    expect(lastKeyboardProps.tuningRuntime).toMatchObject({
+      scale: [0],
+      equivSteps: 1,
+      degree0toRefAsArray: [0, 1],
+    });
+
+    unmount();
+    settings = previousSettings;
+    localStorage.removeItem("hexatone_persist_on_reload");
+    sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
   });
 });
 
@@ -1142,7 +1230,7 @@ describe("App workspace tabs", () => {
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
   });
 
-  it("keeps the snapshot and modulation palettes available in I/O", async () => {
+  it("keeps performance palettes in I/O and the snapshot palette outside Sequencer", async () => {
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(
       SEQUENCE_WORKSPACE_STORAGE_KEY,
@@ -1174,6 +1262,15 @@ describe("App workspace tabs", () => {
 
     expect(document.querySelector("#snapshot-palette")).not.toBeNull();
     expect(document.querySelector("#modulation-palette")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
+    expect(document.querySelector("#snapshot-palette")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "MANUAL" }));
+    expect(document.querySelector("#snapshot-palette")).not.toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    expect(document.querySelector("#snapshot-palette")).toBeNull();
 
     unmount();
     localStorage.removeItem("hexatone_persist_on_reload");

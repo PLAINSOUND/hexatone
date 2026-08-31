@@ -762,6 +762,20 @@ const useSynthWiring = (
       settings.instrument !== "OFF" &&
       settings.fundamental;
 
+    // Stored sequence notes are absolute pitches and remain playable before a
+    // Hexatone scale is loaded. Synth constructors nevertheless expect a
+    // tuning-shaped argument set, so use a neutral 1/1 surface for that case.
+    // This does not enable MTS bulk output: deriveTuningRuntime still receives
+    // the real settings below and remains null until a real scale is present.
+    const hasPlaybackScale = Array.isArray(settings.scale) && settings.scale.length > 0;
+    const playbackScale = hasPlaybackScale ? settings.scale : [0];
+    const playbackReferenceDegree = hasPlaybackScale ? settings.reference_degree : 0;
+    const playbackCenterDegree = hasPlaybackScale ? settings.center_degree : 0;
+    const playbackEquivSteps = hasPlaybackScale
+      ? (settings.equivSteps ?? settings.scale.length)
+      : 1;
+    const playbackEquivInterval = hasPlaybackScale ? (settings.equivInterval ?? 1200) : 1200;
+
     const tuningRuntime = deriveTuningRuntime(settings);
     const outputRuntime = deriveOutputRuntime(settings, midi, tuningRuntime);
     const mtsOutputs = outputRuntime.outputs.filter((o) => o.family === "mts");
@@ -803,8 +817,8 @@ const useSynthWiring = (
       ? JSON.stringify([
           settings.instrument,
           settings.fundamental,
-          settings.reference_degree,
-          settings.scale,
+          playbackReferenceDegree,
+          playbackScale,
         ])
       : null;
     if (!wantSample && sampleSynthRef.current.synth) {
@@ -822,8 +836,8 @@ const useSynthWiring = (
               create_sample_synth(
                 settings.instrument,
                 settings.fundamental,
-                settings.reference_degree,
-                settings.scale,
+                playbackReferenceDegree,
+                playbackScale,
               ),
             )
             .then(async (s) => {
@@ -929,8 +943,8 @@ const useSynthWiring = (
         settings.osc_bridge_url || "ws://localhost:8089",
         settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
         settings.fundamental,
-        settings.reference_degree,
-        settings.scale,
+        playbackReferenceDegree,
+        playbackScale,
       ]);
       if (oscSynthRef.current.key === oscKey && oscSynthRef.current.synth) {
         promises.push(Promise.resolve(oscSynthRef.current.synth));
@@ -944,8 +958,8 @@ const useSynthWiring = (
             deriveOscQuickReleaseTime(settingsRef.current),
             deriveOscQuickReleaseRasterOnly(settingsRef.current),
             settings.fundamental,
-            settings.reference_degree,
-            settings.scale,
+            playbackReferenceDegree,
+            playbackScale,
             1,
             {
               sustainBuzzFormant: deriveOscSustainBuzzFormant(settingsRef.current),
@@ -990,15 +1004,15 @@ const useSynthWiring = (
         settings.mpe_lo_ch,
         settings.mpe_hi_ch,
         settings.fundamental,
-        settings.reference_degree,
-        settings.center_degree,
+        playbackReferenceDegree,
+        playbackCenterDegree,
         settings.midiin_anchor_note,
-        settings.scale,
+        playbackScale,
         effectiveMpeMode,
         effectiveMpePitchbendRange,
         effectiveMpePitchbendRangeManager,
-        settings.equivSteps,
-        settings.equivInterval,
+        playbackEquivSteps,
+        playbackEquivInterval,
       ]);
       if (mpeSynthRef.current.key === mpeKey && mpeSynthRef.current.synth) {
         mpeSynthRef.current.synth.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
@@ -1012,15 +1026,15 @@ const useSynthWiring = (
             settings.mpe_lo_ch,
             settings.mpe_hi_ch,
             settings.fundamental,
-            settings.reference_degree,
-            settings.center_degree,
+            playbackReferenceDegree,
+            playbackCenterDegree,
             settings.midiin_anchor_note,
-            settings.scale,
+            playbackScale,
             effectiveMpeMode,
             effectiveMpePitchbendRange,
             effectiveMpePitchbendRangeManager,
-            settings.equivSteps,
-            settings.equivInterval,
+            playbackEquivSteps,
+            playbackEquivInterval,
             undefined,
             undefined,
             !!settings.mpe_plus_output,

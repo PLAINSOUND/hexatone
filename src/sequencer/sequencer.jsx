@@ -152,6 +152,8 @@ const Sequencer = ({
   onPlaySequence,
   onPlayCue,
   onPlayTimedCue,
+  onEnsureAudioReady,
+  showActivateAudioContext = false,
   onResetSequencePlayhead,
   onJumpSequenceEnd,
   getTimedTransportClockSeconds,
@@ -3173,6 +3175,8 @@ const Sequencer = ({
         onSequenceSaved={onSequenceSaved}
         onSaveActionStateChange={setSequenceSaveActionState}
         onPrimarySaveVisibilityChange={setTopSequenceSaveVisible}
+        showActivateAudioContext={showActivateAudioContext}
+        activateAudioContext={onEnsureAudioReady}
       />
 
       <SequenceInfo
@@ -3188,11 +3192,7 @@ const Sequencer = ({
         </legend>
         <p>
           <em>
-            SHIFT+ENTER stores currently sounding notes, including expression data if available. The
-            panels below allow snapshots to be played, re-ordered, copied, and edited. Changing
-            global or bar-relative event positions automatically creates cues that may be triggered
-            one-by-one. Adding bars with time signatures, tempo markers, repeats, and empty
-            snapshots where needed generates a musical score with automated timed playback.
+            SHIFT+ENTER captures currently sounding notes. Add an Empty Snapshot to create a rest. The panels below allow snapshots to be played, re-ordered, copied, and edited into a musical score.
           </em>
         </p>
         <div class="preset-actions preset-actions--library">

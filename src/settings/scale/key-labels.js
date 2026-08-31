@@ -163,11 +163,7 @@ function resolveReferenceOffsetCents(settings, pitchFrame, anchorRatio) {
 function stabilizeFrequency(value, currentValue) {
   const next = Number(value);
   const current = Number(currentValue);
-  if (
-    Number.isFinite(next) &&
-    Number.isFinite(current) &&
-    Math.abs(next - current) < 0.0000005
-  ) {
+  if (Number.isFinite(next) && Number.isFinite(current) && Math.abs(next - current) < 0.0000005) {
     return current;
   }
   const nearestInteger = Math.round(next);
@@ -339,12 +335,7 @@ const KeyLabels = (props) => {
       return null;
     }
     return referenceFrequency / Math.pow(2, referenceOffsetCents / 1200);
-  }, [
-    effectivePitchFrame,
-    effectiveAnchorLabel,
-    effectiveAnchorRatio,
-    props.settings,
-  ]);
+  }, [effectivePitchFrame, effectiveAnchorLabel, effectiveAnchorRatio, props.settings]);
   const explicitAnchorFrequencyValue = useMemo(() => {
     const parsed = Number.parseFloat(props.settings.heji_anchor_frequency || "");
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -781,297 +772,305 @@ const KeyLabels = (props) => {
                 </select>
               </label>
               <div class="heji-palette-builder__output-row">
-                <span>Output</span>
-                <div class="heji-palette-builder__output-actions">
-                  <button
-                    type="button"
-                    class="preset-action-btn"
-                    disabled={!combinedPaletteText}
-                    onClick={handleCopyPalette}
-                  >
-                    {copied ? "Copied" : "Copy"}
-                  </button>
-                  <button
-                    type="button"
-                    class="preset-action-btn"
-                    disabled={!combinedPaletteText}
-                    onClick={() => {
-                      setPaletteStructure(clearPitchStructure());
-                      setPaletteDeviation("");
+                <div class="heji-palette-builder__output-controls">
+                  <span>Output</span>
+                  <div class="heji-palette-builder__output-actions">
+                    <button
+                      type="button"
+                      class="preset-action-btn"
+                      disabled={!combinedPaletteText}
+                      onClick={handleCopyPalette}
+                    >
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                    <button
+                      type="button"
+                      class="preset-action-btn"
+                      disabled={!combinedPaletteText}
+                      onClick={() => {
+                        setPaletteStructure(clearPitchStructure());
+                        setPaletteDeviation("");
+                        setCopied(false);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div class="heji-palette-builder__output-fields">
+                  <input
+                    type="text"
+                    class="sidebar-input heji-palette-builder__output"
+                    value={paletteText}
+                    readOnly
+                    aria-label="HEJI palette output"
+                  />
+                  <input
+                    type="text"
+                    class="sidebar-input heji-palette-builder__deviation"
+                    value={paletteDeviationDisplay}
+                    placeholder="+0"
+                    aria-label="HEJI palette cents deviation"
+                    readOnly={!paletteStructure.useTemperedAccidentals}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    onInput={(e) => {
+                      if (!paletteStructure.useTemperedAccidentals) return;
+                      setPaletteDeviation(
+                        normalizeEditableDeviationInput(e.target.value, paletteDeviation),
+                      );
                       setCopied(false);
                     }}
-                  >
-                    Clear
-                  </button>
-                </div>
-
-                <input
-                  type="text"
-                  class="sidebar-input heji-palette-builder__output"
-                  value={paletteText}
-                  readOnly
-                  aria-label="HEJI palette output"
-                />
-                <input
-                  type="text"
-                  class="sidebar-input heji-palette-builder__deviation"
-                  value={paletteDeviationDisplay}
-                  placeholder="+0"
-                  aria-label="HEJI palette cents deviation"
-                  readOnly={!paletteStructure.useTemperedAccidentals}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") e.currentTarget.blur();
-                  }}
-                  onInput={(e) => {
-                    if (!paletteStructure.useTemperedAccidentals) return;
-                    setPaletteDeviation(
-                      normalizeEditableDeviationInput(e.target.value, paletteDeviation),
-                    );
-                    setCopied(false);
-                  }}
-                  onBlur={(e) => {
-                    if (!paletteStructure.useTemperedAccidentals) return;
-                    setPaletteDeviation(
-                      normalizeEditableDeviationInput(e.target.value, paletteDeviation),
-                    );
-                    setCopied(false);
-                  }}
-                />
-              </div>
-
-              <div class="heji-palette-builder__group-row heji-palette-builder__group-row--note">
-                <div class="heji-palette-builder__group-label">Note</div>
-                <div class="heji-palette-builder__symbols" role="group" aria-label="HEJI letters">
-                  {HEJI_PALETTE_LETTERS.map((letter) => (
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        setPaletteStructure((current) => withPitchStructureLetter(current, letter));
-                        setCopied(false);
-                      }}
-                    >
-                      {letter}
-                    </button>
-                  ))}
+                    onBlur={(e) => {
+                      if (!paletteStructure.useTemperedAccidentals) return;
+                      setPaletteDeviation(
+                        normalizeEditableDeviationInput(e.target.value, paletteDeviation),
+                      );
+                      setCopied(false);
+                    }}
+                  />
                 </div>
               </div>
-              <div class="heji-palette-builder__group-row heji-palette-builder__group-row--chunks">
-                <span class="heji-palette-builder__group-chunk" key="12edo">
-                  <div class="heji-palette-builder__group-label">12edo</div>
-                  <div
-                    class="heji-palette-builder__symbols"
-                    role="group"
-                    aria-label="12edo accidentals"
-                  >
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        commitPaletteAutoDeviationToEditable();
-                        setPaletteStructure((current) =>
-                          convertPaletteStructureToTempered(current, -1),
-                        );
-                        setCopied(false);
-                      }}
-                    >
-                      {TEMPERED_12EDO_GLYPHS.flat}
-                    </button>
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        commitPaletteAutoDeviationToEditable();
-                        setPaletteStructure((current) =>
-                          convertPaletteStructureToTempered(current, 0),
-                        );
-                        setCopied(false);
-                      }}
-                    >
-                      {TEMPERED_12EDO_GLYPHS.natural}
-                    </button>
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        commitPaletteAutoDeviationToEditable();
-                        setPaletteStructure((current) =>
-                          convertPaletteStructureToTempered(current, 1),
-                        );
-                        setCopied(false);
-                      }}
-                    >
-                      {TEMPERED_12EDO_GLYPHS.sharp}
-                    </button>
+
+              <div class="heji-palette-builder__pitch-grid">
+                <div class="heji-palette-builder__group-row heji-palette-builder__group-row--note">
+                  <div class="heji-palette-builder__group-label">Note</div>
+                  <div class="heji-palette-builder__symbols" role="group" aria-label="HEJI letters">
+                    {HEJI_PALETTE_LETTERS.map((letter) => (
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          setPaletteStructure((current) =>
+                            withPitchStructureLetter(current, letter),
+                          );
+                          setCopied(false);
+                        }}
+                      >
+                        {letter}
+                      </button>
+                    ))}
                   </div>
-                </span>
-                <span class="heji-palette-builder__group-chunk heji-palette-builder__group-chunk--after-symbols">
-                  <div class="heji-palette-builder__group-label">cents</div>
-                  <div class="heji-palette-builder__symbols" role="group" aria-label="cents sign">
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => setDeviationSign("+")}
-                    >
-                      +
-                    </button>
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => setDeviationSign("−")}
-                    >
-                      −
-                    </button>
-                  </div>
-                </span>
-              </div>
-              <div class="heji-palette-builder__group-row heji-palette-builder__group-row--chunks">
-                <span class="heji-palette-builder__group-chunk" key="3lim">
-                  <div class="heji-palette-builder__group-label">3-Lim</div>
-                  <div class="heji-palette-builder__symbols" role="group" aria-label="3-Limit">
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        setPaletteStructure((current) =>
-                          current.useTemperedAccidentals
-                            ? convertTemperedAccidentalToJi(current, -1)
-                            : withPitchStructureAccidentalDelta(current, -1),
-                        );
-                        setPaletteDeviation("");
-                        setCopied(false);
-                      }}
-                    >
-                      {HEJI_3_LIMIT_GLYPHS.flat}
-                    </button>
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        setPaletteStructure((current) =>
-                          current.useTemperedAccidentals
-                            ? convertTemperedAccidentalToJi(current, 0)
-                            : withPitchStructureAccidentalCount(current, 0),
-                        );
-                        setPaletteDeviation("");
-                        setCopied(false);
-                      }}
-                    >
-                      {HEJI_3_LIMIT_GLYPHS.natural}
-                    </button>
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        setPaletteStructure((current) =>
-                          current.useTemperedAccidentals
-                            ? convertTemperedAccidentalToJi(current, 1)
-                            : withPitchStructureAccidentalDelta(current, 1),
-                        );
-                        setPaletteDeviation("");
-                        setCopied(false);
-                      }}
-                    >
-                      {HEJI_3_LIMIT_GLYPHS.sharp}
-                    </button>
-                  </div>
-                </span>
-                <span class="heji-palette-builder__group-chunk" key="5lim">
-                  <div class="heji-palette-builder__group-label">5-Lim</div>
-                  <div class="heji-palette-builder__symbols" role="group" aria-label="5-Limit">
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        setPaletteStructure((current) =>
-                          withPitchStructureSyntonicDelta(
-                            current.useTemperedAccidentals
-                              ? convertPaletteStructureToJiBase(current)
-                              : current,
-                            -1,
-                          ),
-                        );
-                        setPaletteDeviation("");
-                        setCopied(false);
-                      }}
-                    >
-                      down
-                    </button>
-                    <button
-                      type="button"
-                      class="preset-action-btn heji-palette-builder__symbol-btn"
-                      onClick={() => {
-                        setPaletteStructure((current) =>
-                          withPitchStructureSyntonicDelta(
-                            current.useTemperedAccidentals
-                              ? convertPaletteStructureToJiBase(current)
-                              : current,
-                            1,
-                          ),
-                        );
-                        setPaletteDeviation("");
-                        setCopied(false);
-                      }}
-                    >
-                      up
-                    </button>
-                  </div>
-                </span>
-              </div>
-              <div class="heji-palette-builder__prime-grid">
-                {HEJI_FAMILIES.map((family) => (
-                  <span class="heji-palette-builder__group-chunk" key={family.prime}>
-                    <div class="heji-palette-builder__group-label">{`${family.prime}-Lim`}</div>
+                </div>
+                <div class="heji-palette-builder__group-row heji-palette-builder__group-row--chunks">
+                  <span class="heji-palette-builder__group-chunk" key="12edo">
+                    <div class="heji-palette-builder__group-label">12edo</div>
                     <div
                       class="heji-palette-builder__symbols"
                       role="group"
-                      aria-label={`${family.prime}-Limit`}
+                      aria-label="12edo accidentals"
                     >
-                      <span class="heji-palette-builder__pair">
-                        <button
-                          type="button"
-                          class="preset-action-btn heji-palette-builder__symbol-btn"
-                          title={`${family.prime}-limit lower`}
-                          onClick={() => {
-                            setPaletteStructure((current) =>
-                              withPitchStructurePrimeDelta(
-                                current.useTemperedAccidentals
-                                  ? convertPaletteStructureToJiBase(current)
-                                  : current,
-                                family.prime,
-                                -1,
-                              ),
-                            );
-                            setPaletteDeviation("");
-                            setCopied(false);
-                          }}
-                        >
-                          {family.lower.glyph}
-                        </button>
-                        <button
-                          type="button"
-                          class="preset-action-btn heji-palette-builder__symbol-btn"
-                          title={`${family.prime}-limit upper`}
-                          onClick={() => {
-                            setPaletteStructure((current) =>
-                              withPitchStructurePrimeDelta(
-                                current.useTemperedAccidentals
-                                  ? convertPaletteStructureToJiBase(current)
-                                  : current,
-                                family.prime,
-                                1,
-                              ),
-                            );
-                            setPaletteDeviation("");
-                            setCopied(false);
-                          }}
-                        >
-                          {family.upper.glyph}
-                        </button>
-                      </span>
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          commitPaletteAutoDeviationToEditable();
+                          setPaletteStructure((current) =>
+                            convertPaletteStructureToTempered(current, -1),
+                          );
+                          setCopied(false);
+                        }}
+                      >
+                        {TEMPERED_12EDO_GLYPHS.flat}
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          commitPaletteAutoDeviationToEditable();
+                          setPaletteStructure((current) =>
+                            convertPaletteStructureToTempered(current, 0),
+                          );
+                          setCopied(false);
+                        }}
+                      >
+                        {TEMPERED_12EDO_GLYPHS.natural}
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          commitPaletteAutoDeviationToEditable();
+                          setPaletteStructure((current) =>
+                            convertPaletteStructureToTempered(current, 1),
+                          );
+                          setCopied(false);
+                        }}
+                      >
+                        {TEMPERED_12EDO_GLYPHS.sharp}
+                      </button>
                     </div>
                   </span>
-                ))}
+                  <span class="heji-palette-builder__group-chunk heji-palette-builder__group-chunk--after-symbols">
+                    <div class="heji-palette-builder__group-label">cents</div>
+                    <div class="heji-palette-builder__symbols" role="group" aria-label="cents sign">
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => setDeviationSign("+")}
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => setDeviationSign("−")}
+                      >
+                        −
+                      </button>
+                    </div>
+                  </span>
+                </div>
+                <div class="heji-palette-builder__group-row heji-palette-builder__group-row--chunks">
+                  <span class="heji-palette-builder__group-chunk" key="3lim">
+                    <div class="heji-palette-builder__group-label">3-Lim</div>
+                    <div class="heji-palette-builder__symbols" role="group" aria-label="3-Limit">
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          setPaletteStructure((current) =>
+                            current.useTemperedAccidentals
+                              ? convertTemperedAccidentalToJi(current, -1)
+                              : withPitchStructureAccidentalDelta(current, -1),
+                          );
+                          setPaletteDeviation("");
+                          setCopied(false);
+                        }}
+                      >
+                        {HEJI_3_LIMIT_GLYPHS.flat}
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          setPaletteStructure((current) =>
+                            current.useTemperedAccidentals
+                              ? convertTemperedAccidentalToJi(current, 0)
+                              : withPitchStructureAccidentalCount(current, 0),
+                          );
+                          setPaletteDeviation("");
+                          setCopied(false);
+                        }}
+                      >
+                        {HEJI_3_LIMIT_GLYPHS.natural}
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          setPaletteStructure((current) =>
+                            current.useTemperedAccidentals
+                              ? convertTemperedAccidentalToJi(current, 1)
+                              : withPitchStructureAccidentalDelta(current, 1),
+                          );
+                          setPaletteDeviation("");
+                          setCopied(false);
+                        }}
+                      >
+                        {HEJI_3_LIMIT_GLYPHS.sharp}
+                      </button>
+                    </div>
+                  </span>
+                  <span class="heji-palette-builder__group-chunk" key="5lim">
+                    <div class="heji-palette-builder__group-label">5-Lim</div>
+                    <div class="heji-palette-builder__symbols" role="group" aria-label="5-Limit">
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          setPaletteStructure((current) =>
+                            withPitchStructureSyntonicDelta(
+                              current.useTemperedAccidentals
+                                ? convertPaletteStructureToJiBase(current)
+                                : current,
+                              -1,
+                            ),
+                          );
+                          setPaletteDeviation("");
+                          setCopied(false);
+                        }}
+                      >
+                        down
+                      </button>
+                      <button
+                        type="button"
+                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        onClick={() => {
+                          setPaletteStructure((current) =>
+                            withPitchStructureSyntonicDelta(
+                              current.useTemperedAccidentals
+                                ? convertPaletteStructureToJiBase(current)
+                                : current,
+                              1,
+                            ),
+                          );
+                          setPaletteDeviation("");
+                          setCopied(false);
+                        }}
+                      >
+                        up
+                      </button>
+                    </div>
+                  </span>
+                </div>
+                <div class="heji-palette-builder__prime-grid">
+                  {HEJI_FAMILIES.map((family) => (
+                    <span class="heji-palette-builder__group-chunk" key={family.prime}>
+                      <div class="heji-palette-builder__group-label">{`${family.prime}-Lim`}</div>
+                      <div
+                        class="heji-palette-builder__symbols"
+                        role="group"
+                        aria-label={`${family.prime}-Limit`}
+                      >
+                        <span class="heji-palette-builder__pair">
+                          <button
+                            type="button"
+                            class="preset-action-btn heji-palette-builder__symbol-btn"
+                            title={`${family.prime}-limit lower`}
+                            onClick={() => {
+                              setPaletteStructure((current) =>
+                                withPitchStructurePrimeDelta(
+                                  current.useTemperedAccidentals
+                                    ? convertPaletteStructureToJiBase(current)
+                                    : current,
+                                  family.prime,
+                                  -1,
+                                ),
+                              );
+                              setPaletteDeviation("");
+                              setCopied(false);
+                            }}
+                          >
+                            {family.lower.glyph}
+                          </button>
+                          <button
+                            type="button"
+                            class="preset-action-btn heji-palette-builder__symbol-btn"
+                            title={`${family.prime}-limit upper`}
+                            onClick={() => {
+                              setPaletteStructure((current) =>
+                                withPitchStructurePrimeDelta(
+                                  current.useTemperedAccidentals
+                                    ? convertPaletteStructureToJiBase(current)
+                                    : current,
+                                  family.prime,
+                                  1,
+                                ),
+                              );
+                              setPaletteDeviation("");
+                              setCopied(false);
+                            }}
+                          >
+                            {family.upper.glyph}
+                          </button>
+                        </span>
+                      </div>
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           )}

@@ -27,6 +27,8 @@ function SequenceLibraryHarness({
   autoCreateBars = true,
   onLoadSpy = vi.fn(),
   onSaveActionStateChange,
+  showActivateAudioContext = false,
+  activateAudioContext,
 }) {
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [bars, setBars] = useState(initialBars);
@@ -82,6 +84,8 @@ function SequenceLibraryHarness({
         setSavedName(trimmed);
       }}
       onSaveActionStateChange={onSaveActionStateChange}
+      showActivateAudioContext={showActivateAudioContext}
+      activateAudioContext={activateAudioContext}
     />
   );
 }
@@ -98,6 +102,34 @@ describe("SequenceLibrary", () => {
     localStorage.clear();
     vi.restoreAllMocks();
     window.confirm = vi.fn(() => true);
+  });
+
+  it("offers audio-context activation only while requested", () => {
+    const activateAudioContext = vi.fn();
+    const { rerender } = render(
+      <SequenceLibraryHarness
+        showActivateAudioContext
+        activateAudioContext={activateAudioContext}
+      />,
+    );
+
+    const activateButton = screen.getByRole("button", { name: "Activate Audio Context" });
+    expect(activateButton.closest("fieldset")?.querySelector("legend")?.textContent).toBe(
+      "Built-in Sequences",
+    );
+    expect(activateButton.parentElement?.classList.contains("settings-form__reload-row")).toBe(
+      true,
+    );
+    fireEvent.click(activateButton);
+    expect(activateAudioContext).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <SequenceLibraryHarness
+        showActivateAudioContext={false}
+        activateAudioContext={activateAudioContext}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Activate Audio Context" })).toBeNull();
   });
 
   it("orders numbered user sequence names naturally", () => {
@@ -603,6 +635,7 @@ describe("SequenceLibrary", () => {
 
   it("uses the user-library save label for built-in sequences", () => {
     const builtIn = findFallPresetSequence();
+    const onSaveActionStateChange = vi.fn();
 
     render(
       <SequenceLibraryHarness
@@ -616,10 +649,18 @@ describe("SequenceLibrary", () => {
         initialDescription={builtIn?.description ?? ""}
         snapshotLabelMode={builtIn?.snapshotLabelMode ?? "labels"}
         autoCreateBars={builtIn?.autoCreateBars ?? true}
+        onSaveActionStateChange={onSaveActionStateChange}
       />,
     );
 
     expect(screen.getByText("Save current sequence in user library")).toBeTruthy();
+    expect(onSaveActionStateChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        visible: true,
+        label: "Save current sequence in user library",
+        status: "",
+      }),
+    );
   });
 
   it("does not show overwrite messaging when a built-in sequence shares a name with a clean saved user sequence", () => {

@@ -168,6 +168,8 @@ const Keyboard = (props) => {
         ref={canvas}
         tabindex="1"
         className="keyboard"
+        hidden={props.hidden}
+        aria-hidden={props.hidden ? "true" : undefined}
         onContextMenu={(e) => e.preventDefault()}
         width={window.innerWidth}
         height={window.innerHeight}
@@ -234,6 +236,7 @@ Keyboard.propTypes = {
   hakenPedalLearnActive: PropTypes.bool,
   onHakenPedalLearn: PropTypes.func,
   synth: PropTypes.object.isRequired,
+  hidden: PropTypes.bool,
 };
 
 export default Keyboard;

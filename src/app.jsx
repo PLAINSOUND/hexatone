@@ -165,6 +165,7 @@ import {
 
 const Settings = lazy(() => import("./settings/index.jsx"));
 const IOSettings = lazy(() => import("./settings/io-settings.jsx"));
+const CalculatorTab = lazy(() => import("./calculator/tab.jsx"));
 const Sequencer = lazy(() => import("./sequencer/sequencer.jsx"));
 // Lazy controller imports keep optional hardware paths out of the initial app
 // shell until the relevant controller/runtime actually needs them.
@@ -479,8 +480,10 @@ function getDefaultModulationPalettePos() {
     if (sidebarVisibleRight > 0) {
       const gap = 16;
       const fallbackX = 18;
-      const estimatedPaletteWidth = 340;
-      const maxX = Math.max(fallbackX, window.innerWidth - estimatedPaletteWidth - gap);
+      const modulationPalette = document.getElementById("modulation-palette");
+      const measuredPaletteWidth = modulationPalette?.getBoundingClientRect().width;
+      const paletteWidth = measuredPaletteWidth > 0 ? measuredPaletteWidth : 340;
+      const maxX = Math.max(fallbackX, window.innerWidth - paletteWidth - gap);
       const preferredX = Math.round(sidebarVisibleRight + gap);
       return {
         x: preferredX <= maxX ? preferredX : fallbackX,
@@ -501,6 +504,21 @@ function getDefaultSnapshotPalettePos() {
       y: Math.round(modulationRect.bottom + 22),
     };
   }
+  if (window.innerWidth >= 480) {
+    const sidebarRect = document.getElementById("sidebar")?.getBoundingClientRect();
+    const sidebarVisibleRight = sidebarRect && sidebarRect.right > 80 ? sidebarRect.right : 0;
+    if (sidebarVisibleRight > 0) {
+      const gap = 16;
+      const fallbackX = 18;
+      const snapshotRect = document.getElementById("snapshot-palette")?.getBoundingClientRect();
+      const paletteWidth = snapshotRect?.width > 0 ? snapshotRect.width : 180;
+      const maxX = Math.max(fallbackX, window.innerWidth - paletteWidth - gap);
+      return {
+        x: Math.min(Math.round(sidebarVisibleRight + gap), maxX),
+        y: 234,
+      };
+    }
+  }
   const modulationDefault = getDefaultModulationPalettePos();
   return {
     x: modulationDefault.x,
@@ -512,6 +530,7 @@ export {
   modulationCurrentSummaryDisplay,
   modulationRouteLabelPair,
 } from "./tuning/modulation-frame-runtime.js";
+export { getDefaultSnapshotPalettePos };
 
 const ua = navigator.userAgent;
 const isFirefoxIOS = /FxiOS/.test(ua);
@@ -572,15 +591,29 @@ const MANUAL_VIEW_DEFAULT_SECTIONS = {
   sequencer: "Sequencer Tab",
 };
 
+// Sequence snapshots store absolute MIDI pitches, so their playback does not
+// require a loaded Hexatone tuning. Keys still needs a small valid tuning shape
+// to own voices and fan them out to the configured synth graph. This runtime is
+// hidden and is used only until the user loads a real musical surface.
+const SEQUENCE_PLAYBACK_FALLBACK_TUNING = Object.freeze({
+  scale: [0],
+  equivInterval: 1200,
+  equivSteps: 1,
+  degree0toRefAsArray: [0, 1],
+  degreeIntervals: null,
+  equaveInterval: null,
+  equaveCents: 1200,
+});
+
 // App is the orchestration boundary: below this point persisted settings are
 // normalized into the live runtime slices consumed by Keyboard, Settings, and
 // Sequencer.
 const App = () => {
   const [ready, setReady] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState("hexatone");
-  // I/O is an auxiliary view over the current musical workspace. Keeping the
-  // underlying workspace separate lets a running sequence continue while its
-  // sound and routing controls are visible.
+  // I/O and Calculator are auxiliary views over the current musical workspace.
+  // Keeping the underlying workspace separate lets a running sequence continue
+  // while sound/routing controls or pitch calculations are visible.
   const [performanceWorkspaceTab, setPerformanceWorkspaceTab] = useState("hexatone");
   const [inlineManualView, setInlineManualView] = useState(null);
   const [manualSectionTitles, setManualSectionTitles] = useState(MANUAL_VIEW_DEFAULT_SECTIONS);
@@ -652,11 +685,11 @@ const App = () => {
   const primeAudioFromUserInteraction = useCallback(async () => {
     const needsInitialPrepare = !userHasInteracted;
     const needsHardRefresh = audioNeedsHardRefreshRef.current;
-    if (!needsInitialPrepare && !needsHardRefresh) return;
     if (audioWakePromiseRef.current) {
       await audioWakePromiseRef.current;
       return;
     }
+    if (!needsInitialPrepare && !needsHardRefresh) return;
     if (!userHasInteracted) {
       setUserHasInteracted(true);
     }
@@ -1221,44 +1254,52 @@ const App = () => {
     appendSequenceSnapshot([]);
   }, [appendSequenceSnapshot, selectedSnapshotId, workspaceTab]);
 
-  const onLoadSequence = useCallback((sequence, options = {}) => {
-    const workspace = buildLoadedSequenceWorkspace(sequence, options);
-    manualGestureRuntimeRef.current.cancelAll();
-    keysRef.current?.stopSnapshot();
-    setPlayingSnapshotId(null);
-    setManualPlayingSnapshotIds([]);
-    snapshotsRef.current = workspace.snapshots;
-    sequenceBarsRef.current = workspace.bars;
-    setSnapshots(workspace.snapshots);
-    setSequenceBars(workspace.bars);
-    setSequenceTempi(workspace.tempi);
-    setSequenceRepeats(workspace.repeats);
-    snapshotIdRef.current = workspace.ids.snapshotId;
-    sequenceBarIdRef.current = workspace.ids.barId;
-    setSnapshotLabelMode(workspace.snapshotLabelMode);
-    setSequenceLegato(workspace.sequenceLegato);
-    setSequenceAutoCreateBars(workspace.sequenceAutoCreateBars);
-    setManualArpeggiation(workspace.manualArpeggiation);
-    setSelectedSnapshotId(null);
-    setSelectedSnapshotMarker(null);
-    setActiveSequenceSource(workspace.activeSequenceSource);
-    setActiveSequenceBuiltInName(workspace.activeSequenceBuiltInName);
-    setActiveSequenceName(workspace.activeSequenceName);
-    setActiveSequenceSavedName(workspace.activeSequenceSavedName);
-    setActiveSequenceDescription(workspace.activeSequenceDescription);
-    setSequencePlayhead({
-      barIndex: 0,
-      stepIndex: -1,
-      markerIndex: null,
-      stopped: true,
-    });
-    timedPlaybackUiRef.current = {
-      clockSeconds: -Infinity,
-      stepIndex: -1,
-      markerIndex: null,
-      barIndex: 0,
-    };
-  }, []);
+  const onLoadSequence = useCallback(
+    (sequence, options = {}) => {
+      // Choosing a sequence is itself a user gesture. Begin preparing the
+      // browser synth here so playback does not depend on first touching the
+      // Hexatone canvas. The explicit activation action covers restored
+      // sequences that were not selected during this browser session.
+      void primeAudioFromUserInteraction();
+      const workspace = buildLoadedSequenceWorkspace(sequence, options);
+      manualGestureRuntimeRef.current.cancelAll();
+      keysRef.current?.stopSnapshot();
+      setPlayingSnapshotId(null);
+      setManualPlayingSnapshotIds([]);
+      snapshotsRef.current = workspace.snapshots;
+      sequenceBarsRef.current = workspace.bars;
+      setSnapshots(workspace.snapshots);
+      setSequenceBars(workspace.bars);
+      setSequenceTempi(workspace.tempi);
+      setSequenceRepeats(workspace.repeats);
+      snapshotIdRef.current = workspace.ids.snapshotId;
+      sequenceBarIdRef.current = workspace.ids.barId;
+      setSnapshotLabelMode(workspace.snapshotLabelMode);
+      setSequenceLegato(workspace.sequenceLegato);
+      setSequenceAutoCreateBars(workspace.sequenceAutoCreateBars);
+      setManualArpeggiation(workspace.manualArpeggiation);
+      setSelectedSnapshotId(null);
+      setSelectedSnapshotMarker(null);
+      setActiveSequenceSource(workspace.activeSequenceSource);
+      setActiveSequenceBuiltInName(workspace.activeSequenceBuiltInName);
+      setActiveSequenceName(workspace.activeSequenceName);
+      setActiveSequenceSavedName(workspace.activeSequenceSavedName);
+      setActiveSequenceDescription(workspace.activeSequenceDescription);
+      setSequencePlayhead({
+        barIndex: 0,
+        stepIndex: -1,
+        markerIndex: null,
+        stopped: true,
+      });
+      timedPlaybackUiRef.current = {
+        clockSeconds: -Infinity,
+        stepIndex: -1,
+        markerIndex: null,
+        barIndex: 0,
+      };
+    },
+    [primeAudioFromUserInteraction],
+  );
 
   useEffect(() => {
     if (typeof localStorage === "undefined") return;
@@ -3567,16 +3608,35 @@ const App = () => {
       }
       setModulationPalettePos((current) => clampModulationPalettePos(current));
     };
-    window.addEventListener("resize", applyDefaultPosition);
-    window.addEventListener("orientationchange", applyDefaultPosition);
-    window.visualViewport?.addEventListener("resize", applyDefaultPosition);
-    applyDefaultPosition();
-    return () => {
-      window.removeEventListener("resize", applyDefaultPosition);
-      window.removeEventListener("orientationchange", applyDefaultPosition);
-      window.visualViewport?.removeEventListener("resize", applyDefaultPosition);
+    let frameId = null;
+    const applyAfterLayout = () => {
+      if (frameId != null) window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        applyDefaultPosition();
+      });
     };
-  }, [clampModulationPalettePos]);
+    window.addEventListener("resize", applyAfterLayout);
+    window.addEventListener("orientationchange", applyAfterLayout);
+    window.visualViewport?.addEventListener("resize", applyAfterLayout);
+    const sidebarResizeObserver =
+      typeof ResizeObserver === "function" ? new ResizeObserver(applyAfterLayout) : null;
+    const sidebarMutationObserver =
+      typeof MutationObserver === "function" ? new MutationObserver(applyAfterLayout) : null;
+    if (sidebarRef.current) {
+      sidebarResizeObserver?.observe(sidebarRef.current);
+      sidebarMutationObserver?.observe(sidebarRef.current, { childList: true, subtree: true });
+    }
+    applyAfterLayout();
+    return () => {
+      if (frameId != null) window.cancelAnimationFrame(frameId);
+      sidebarResizeObserver?.disconnect();
+      sidebarMutationObserver?.disconnect();
+      window.removeEventListener("resize", applyAfterLayout);
+      window.removeEventListener("orientationchange", applyAfterLayout);
+      window.visualViewport?.removeEventListener("resize", applyAfterLayout);
+    };
+  }, [clampModulationPalettePos, workspaceTab]);
 
   useEffect(() => {
     const applyDefaultPosition = () => {
@@ -3586,14 +3646,39 @@ const App = () => {
       }
       setSnapshotPalettePos((current) => clampSnapshotPalettePos(current));
     };
-    window.addEventListener("resize", applyDefaultPosition);
-    window.addEventListener("orientationchange", applyDefaultPosition);
-    window.visualViewport?.addEventListener("resize", applyDefaultPosition);
-    applyDefaultPosition();
+    let firstFrameId = null;
+    let settledFrameId = null;
+    const applyAfterLayout = () => {
+      if (firstFrameId != null) window.cancelAnimationFrame(firstFrameId);
+      if (settledFrameId != null) window.cancelAnimationFrame(settledFrameId);
+      firstFrameId = window.requestAnimationFrame(() => {
+        firstFrameId = null;
+        settledFrameId = window.requestAnimationFrame(() => {
+          settledFrameId = null;
+          applyDefaultPosition();
+        });
+      });
+    };
+    window.addEventListener("resize", applyAfterLayout);
+    window.addEventListener("orientationchange", applyAfterLayout);
+    window.visualViewport?.addEventListener("resize", applyAfterLayout);
+    const sidebarResizeObserver =
+      typeof ResizeObserver === "function" ? new ResizeObserver(applyAfterLayout) : null;
+    const sidebarMutationObserver =
+      typeof MutationObserver === "function" ? new MutationObserver(applyAfterLayout) : null;
+    if (sidebarRef.current) {
+      sidebarResizeObserver?.observe(sidebarRef.current);
+      sidebarMutationObserver?.observe(sidebarRef.current, { childList: true, subtree: true });
+    }
+    applyAfterLayout();
     return () => {
-      window.removeEventListener("resize", applyDefaultPosition);
-      window.removeEventListener("orientationchange", applyDefaultPosition);
-      window.visualViewport?.removeEventListener("resize", applyDefaultPosition);
+      if (firstFrameId != null) window.cancelAnimationFrame(firstFrameId);
+      if (settledFrameId != null) window.cancelAnimationFrame(settledFrameId);
+      sidebarResizeObserver?.disconnect();
+      sidebarMutationObserver?.disconnect();
+      window.removeEventListener("resize", applyAfterLayout);
+      window.removeEventListener("orientationchange", applyAfterLayout);
+      window.visualViewport?.removeEventListener("resize", applyAfterLayout);
     };
   }, [
     clampSnapshotPalettePos,
@@ -3772,6 +3857,7 @@ const App = () => {
   const modulationPaletteVisible = modulationHistory.length > 0;
   const performancePalettesVisible =
     !inlineManualView && (workspaceTab === "hexatone" || workspaceTab === "io");
+  const snapshotPaletteVisible = !inlineManualView && workspaceTab !== "sequencer";
   const currentFundamentalSummary = useMemo(() => {
     return deriveCurrentFundamentalSummary(tuningWorkspace, deferredModulationHistory, {
       fundamental: settings.fundamental,
@@ -3959,6 +4045,31 @@ const App = () => {
     () => normalizeStructural(settings, { tuningRuntime }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- structuralImpactKey is the settings-impact registry key; input/output binding fields are intentionally excluded.
     [structuralImpactKey, tuningRuntime],
+  );
+  const calculatorSeedKey = useMemo(
+    () =>
+      buildDependencyToken([
+        tuningImpactKey,
+        settings.heji_anchor_label,
+        settings.heji_anchor_ratio,
+        settings.heji_anchor_frequency,
+        settings.heji_palette_structure,
+        settings.heji_palette_deviation,
+        settings.heji_palette_decimals,
+        structuralSettings.heji_anchor_label_effective,
+        structuralSettings.heji_anchor_ratio_effective,
+      ]),
+    [
+      settings.heji_anchor_frequency,
+      settings.heji_anchor_label,
+      settings.heji_anchor_ratio,
+      settings.heji_palette_decimals,
+      settings.heji_palette_deviation,
+      settings.heji_palette_structure,
+      structuralSettings.heji_anchor_label_effective,
+      structuralSettings.heji_anchor_ratio_effective,
+      tuningImpactKey,
+    ],
   );
 
   // Output-runtime architecture controls should update the live Keys instance
@@ -4438,6 +4549,33 @@ const App = () => {
     }),
     [structuralSettings, liveInputSettings, liveOutputSettings, labelSettings, colorSettings],
   );
+  const sequenceOnlyPlaybackSurface = !isValid && snapshots.length > 0;
+  const keyboardSettings = useMemo(
+    () =>
+      sequenceOnlyPlaybackSurface
+        ? {
+            ...normalizedSettings,
+            scale: [0],
+            equivSteps: 1,
+            equivInterval: 1200,
+            reference_degree: 0,
+            center_degree: 0,
+            fundamental:
+              Number.isFinite(Number(normalizedSettings.fundamental)) &&
+              Number(normalizedSettings.fundamental) > 0
+                ? Number(normalizedSettings.fundamental)
+                : 440,
+            key_labels: "no_labels",
+            no_labels: true,
+            note_colors: [normalizedSettings.fundamental_color || "#ffdbe8"],
+            fundamental_color: normalizedSettings.fundamental_color || "#ffdbe8",
+          }
+        : normalizedSettings,
+    [normalizedSettings, sequenceOnlyPlaybackSurface],
+  );
+  const keyboardTuningRuntime = sequenceOnlyPlaybackSurface
+    ? SEQUENCE_PLAYBACK_FALLBACK_TUNING
+    : tuningRuntime;
 
   // Imperative volume/mute — does not rebuild Keys
 
@@ -4680,6 +4818,14 @@ const App = () => {
       lumatoneDriverReady={lumatoneDriverReady}
     />
   );
+  const calculatorSidebar = (
+    <CalculatorTab
+      key={`calculator-${calculatorSeedKey}`}
+      settings={settings}
+      effectiveAnchorLabel={structuralSettings.heji_anchor_label_effective}
+      effectiveAnchorRatio={structuralSettings.heji_anchor_ratio_effective}
+    />
+  );
 
   return (
     <div
@@ -4687,12 +4833,13 @@ const App = () => {
         .filter(Boolean)
         .join(" ")}
     >
-      {ready && isValid && (
+      {ready && (isValid || sequenceOnlyPlaybackSurface) && (
         <Keyboard
           synth={synth || nullSynth}
-          settings={normalizedSettings}
-          tuningRuntime={tuningRuntime}
-          reconstructionKey={keysReconstructionImpactKey}
+          settings={keyboardSettings}
+          tuningRuntime={keyboardTuningRuntime}
+          reconstructionKey={`${sequenceOnlyPlaybackSurface ? "sequence" : "canvas"}:${keysReconstructionImpactKey}`}
+          hidden={sequenceOnlyPlaybackSurface}
           liveInputSettings={liveInputSettings}
           liveOutputSettings={liveOutputSettings}
           liveMidiInputPort={connectedInput}
@@ -4970,7 +5117,7 @@ const App = () => {
       </div>
 
       {/* ── Snapshot palette — floating overlay, visible without opening the sidebar ── */}
-      {performancePalettesVisible && snapshots.length > 0 && (
+      {snapshotPaletteVisible && snapshots.length > 0 && (
         <div
           id="snapshot-palette"
           ref={snapshotPaletteRef}
@@ -5332,6 +5479,15 @@ const App = () => {
           <button
             type="button"
             role="tab"
+            aria-selected={workspaceTab === "calculator"}
+            class={`workspace-tab${workspaceTab === "calculator" ? " workspace-tab--active" : ""}`}
+            onClick={() => switchWorkspaceTab("calculator")}
+          >
+            CALCULATOR
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={workspaceTab === "manual"}
             class={`workspace-tab${workspaceTab === "manual" ? " workspace-tab--active" : ""}`}
             onClick={openManualWorkspace}
@@ -5343,20 +5499,18 @@ const App = () => {
         <h1>
           {workspaceTab === "manual"
             ? "USER MANUAL"
-            : workspaceTab === "io"
-              ? "INPUT / OUTPUT"
-              : workspaceTab === "sequencer"
-                ? "PLAINSOUND SEQUENCER"
-                : "PLAINSOUND HEXATONE"}
+            : workspaceTab === "calculator"
+              ? "HEJI CALCULATOR"
+              : workspaceTab === "io"
+                ? "INPUT / OUTPUT"
+                : workspaceTab === "sequencer"
+                  ? "PLAINSOUND SEQUENCER"
+                  : "PLAINSOUND HEXATONE"}
         </h1>
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
             <em>
-              Capture chords and momentary expression data (velocity, pressure, timbre) while
-              playing or sustaining as SNAPSHOTS. Build step sequences and trigger them event by
-              event. EDIT start and stop times within a chord to make CUES that sound a melody or
-              arpeggiation. Create bars, repeats, and tempo markers to generate an automated timed
-              playback.{" "}
+              Capture SNAPSHOTS of chords and momentary expression data (velocity, pressure, timbre) while playing or sustaining. Trigger the sequence event by event. Edit start and stop times within a chord to make CUES that sound a melody or arpeggiation. Create bars, repeats, and tempo markers to generate automated timed playback.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -5369,11 +5523,11 @@ const App = () => {
         ) : workspaceTab === "hexatone" ? (
           <p class="sidebar-intro">
             <em>
-              TO PLAY, choose a tuning, click or touch notes, attach a MIDI keyboard or an
+              To play, choose a tuning, click or touch notes, attach a MIDI keyboard or an
               isomorphic controller like Lumatone or Exquis. Use internal sounds or retune external
               synths using MTS, MPE, OSC. Edit the scale in the table below; drag to retune notes;
-              rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER takes
-              snapshots across tunings; build a sequence.{" "}
+              rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER captures
+              snapshots to build a sequence.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -5469,6 +5623,8 @@ const App = () => {
                   onPlaySequence={onPlaySequence}
                   onPlayCue={onPlaySequenceCue}
                   onPlayTimedCue={onPlayTimedSequenceCue}
+                  onEnsureAudioReady={primeAudioFromUserInteraction}
+                  showActivateAudioContext={!userHasInteracted}
                   onResetSequencePlayhead={onResetSequencePlayhead}
                   onJumpSequenceEnd={onJumpSequenceEnd}
                   getTimedTransportClockSeconds={getTimedTransportClockSeconds}
@@ -5498,10 +5654,16 @@ const App = () => {
                   onResetSnapshotDescription={onResetSnapshotDescription}
                 />
               </div>
-              {workspaceTab === "io" ? ioSettingsSidebar : null}
+              {workspaceTab === "io"
+                ? ioSettingsSidebar
+                : workspaceTab === "calculator"
+                  ? calculatorSidebar
+                  : null}
             </>
           ) : workspaceTab === "io" ? (
             ioSettingsSidebar
+          ) : workspaceTab === "calculator" ? (
+            calculatorSidebar
           ) : (
             <>
               <Settings
