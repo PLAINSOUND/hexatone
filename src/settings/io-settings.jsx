@@ -33,7 +33,7 @@ const IOSettings = ({
   onProbeLumatoneConnection,
   lumatoneDriverReady,
 }) => (
-  <div autoComplete="off" role="group" aria-label="Input and output settings">
+  <div class="io-settings" autoComplete="off" role="group" aria-label="Input and output settings">
     <SampleSynth
       onChange={onChange}
       settings={settings}

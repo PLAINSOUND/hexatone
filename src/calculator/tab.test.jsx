@@ -159,7 +159,7 @@ describe("CalculatorTab", () => {
 
   it("selects a calculated datum on click without result action buttons", () => {
     render(<CalculatorTab settings={SETTINGS} />);
-    const results = screen.getByRole("group", { name: "Calculated Results" });
+    const results = screen.getByRole("group", { name: "Calculated Data" });
     const ratio = within(results).getByLabelText("Calculator ratio output");
 
     expect(within(results).queryByRole("button", { name: "Copy" })).toBeNull();

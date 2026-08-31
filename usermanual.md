@@ -4,7 +4,7 @@ Updated: 2026-08-31
 
 ## About
 
-HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented by Erv Wilson. SEQUENCER is a sequencer for editing and performing chords captured in the workspace. Settings for selecting built-in sounds, MIDI input/output, and OSC output are located in the IO tab. CALCULATOR provides a quick access tool for JI calculations (HEJI spelling, Frequency, Cents Deviations, Rationalisation). The MANUAL tab provides complete documentation. Features include:
+HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented by Erv Wilson. SEQUENCER is a sequencer for editing and performing chords captured in the workspace. Settings for selecting built-in sounds, MIDI input/output, and OSC output are located in the IO tab. CALCULATOR provides a quick-access tool for JI calculations (HEJI spelling, frequency, cents deviation, and rationalisation). The MANUAL tab provides complete documentation. Features include:
 
 - user-programmable keyboard layouts and tunings
 - playing with touch, mouse, computer keyboard, and MIDI
@@ -15,7 +15,7 @@ HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented
 - MTS Real-Time MIDI Tuning, MPE, and OSC output to external synths and DAWs
 - compatibility with the free MTS-ESP Mini Master plug-in for retuning VST instruments
 - suitability for live use: extremely low latency and jitter
-- the SEQUENCER tab allows for editing, performing, and automating playback of captured chords
+- the SEQUENCER tab supports editing, performing, and automating playback of captured chords
 - the CALCULATOR tab allows users to determine information about the tuning of JI pitches
 
 ## Quick Start
@@ -24,11 +24,11 @@ WebMIDI is optional. To explore scales, compare tunings, build and recall chords
 
 - open Hexatone in the browser, choose a tuning
 - go to the IO tab to choose built-in sounds
-- play with touch, mouse, computer keyboard
+- play with touch, mouse, or computer keyboard
 - use on-screen `OCT` / `SUSTAIN` / `MOD` controls or keyboard shortcuts
-- in HEXATONE tab edit the scale table, drag to retune individual scale degrees
+- in the HEXATONE tab, edit the scale table and drag to retune individual scale degrees
 - capture sounding notes as snapshots with `SHIFT+ENTER`
-- open SEQUENCER tab to edit, navigate, and play the snapshots or a built-in sequence
+- open the SEQUENCER tab to edit, navigate, and play the snapshots or a built-in sequence
 - open MANUAL for complete documentation, or use “… more” for contextual help
 
 ## Components
@@ -78,8 +78,8 @@ Buttons along the bottom of the app, also mapped to key commands:
 
 - `SNAPSHOT` button (SHIFT+ENTER key) captures currently played and/or sustained notes
 - `OCT` (SHIFT+arrow keys, active when canvas is in focus)
-  - use SHIFT + arrow-up arrow-down to change octaves
-  - click the word `OCT` or press SHIFT and the <− and −> arrow keys to toggle functionality between two states: retune next played note or (darker colour) retune immediately
+  - press SHIFT with the up or down arrow key to change octaves
+  - click the word `OCT` or press SHIFT with either the left or right arrow key to toggle between two states: retune the next played note or (darker colour) retune immediately
 - `SUSTAIN` (SHIFT+ESC key): toggle to sustain notes hands-free; play a note again to remove it
 - `MOD` (SHIFT+BACKQUOTE / ^ key): click to capture last played note as source degree, next played note becomes target degree
   - `Moveable Do / Fixed Layout` shifts the scale frequency globally while maintaining layout and appearance
@@ -89,21 +89,21 @@ Buttons along the bottom of the app, also mapped to key commands:
 ### Sequencing Snapshots
 
 - capture currently sounding or sustained notes (`SHIFT+ENTER`); a collapsible palette appears: click to play, drag to reorder, x to delete
-- switch to SEQUENCER Tab to edit the snapshot data in detail by adjusting note positions, pitch, and expression data; make a step sequence of cues
+- switch to the SEQUENCER tab to edit the snapshot data in detail by adjusting note positions, pitch, and expression data; make a step sequence of cues
 - a `Sequence` is a collection of snapshots, ordered and numbered, along with the relative position of individual events (cues), bars with time signatures, tempo markers, and repeat markers; multiple sequences may be saved and loaded as `.json` files; sequences are kept in local browser storage and may be swiftly reloaded from the menu to play different sections or pieces
 - a `Snapshot` is a captured chord or note collection including momentary expression data; it can be replayed as a full vertical sonority (stepping by snapshots) or automatically arpeggiated; snapshots may be ordered and are automatically re-numbered
 - `Cues` are generated automatically when the relative start and end positions of individual notes comprising a snapshot are edited, creating derived event steps; the global position of events is relative to the snapshot in which they occur; stepping by cues follows the global order of events, so cues may combine events from multiple snapshots
-- `Bars` have a user-defined time signature expressed as a fraction of one whole note: the denominator expresses "what fraction of a whole note is considered to be a beat” and the numerator expresses "how many beats comprise this particular bar”
+- `Bars` have a user-defined time signature expressed as a fraction of one whole note: the denominator expresses what fraction of a whole note is considered one beat, and the numerator expresses how many beats comprise the bar
   - example: in a time signature like 6/7, 7 means the beat length is 1/7 of a whole note = one septuplet subdivision of a whole note, and 6 means this bar is made up of 6 septuplets
   - a bar allows the global positioning of events to be expressed in rational time units (beats, fractions of beats)
   - barlines may occur at valid boundaries in global sequence-position space, i.e., between snapshots; bars cannot be placed within a snapshot
   - for most applications, bars can be automatically generated at snapshot boundaries; any extra bars that are not needed may be deleted
 - a user-defined tempo marker can occur anywhere in sequence position space; it is expressed as a beat fraction and a tempo in bpm, for example `1 / 4 = 60 bpm`; clicking on the word `tempo:` transforms the immediate tempo change to a gradual tempo transition `target`, which means that a transition occurs from the previous tempo marker to reach the target tempo at the specified position
 - repeat start and repeat end markers can occur anywhere in sequence position space; the start marker defines the return point and the end marker carries a repeat count (default `2x`)
-- multiple events at the same global position follow an order of precedence rule: `note-offs` of previously triggered notes −> `repeat end` −> `repeat start` −> `tempo` −> `bar` −> new `note-ons` −> new `note-offs`; notes are ordered by pitch with the largest frequency value first (higher notes are above lower notes, as in music notation)
+- multiple events at the same global position follow an order of precedence rule: `note-offs` of previously triggered notes → `repeat end` → `repeat start` → `tempo` → `bar` → new `note-ons` → new `note-offs`; notes are ordered by pitch with the largest frequency value first (higher notes are above lower notes, as in music notation)
 - the sequence uses one exact global position space defined by the numbering of its ordered snapshots: bars, tempo markers, and repeats organise navigation and timed playback without acting as containers for the note events; when a snapshot is moved around, the relative proportions between its constituent events remain stable, but their speed in timed playback is scaled by the number of snapshots comprising a bar as well as its time signature
 
-## HEXATONE Tab
+## HEXATONE tab
 
 Hexatone supports various controllers and uses a 2D hexagonal layout to represent tunings. It acts as a bridge allowing multiple software tools and instruments to receive coordinated tuning and expression data from multichannel and MPE devices.
 
@@ -119,7 +119,7 @@ Hexatone supports various controllers and uses a 2D hexagonal layout to represen
 
 ### Mouse, Touch, Computer Keyboard
 
-Click or tap the on-screen hexes to play notes. When the sidebar is collapsed and the canvas fills the screen, the normal keyboard becomes a simple isomorphic controller. The H key is mapped automatically to play the central degree at the center of the canvas. Pressing SHIFT and a note-triggering key alternately latches and releases that particular note, allowing note-by-note sustains.
+Click or tap the on-screen hexes to play notes. When the sidebar is collapsed and the canvas fills the screen, the normal keyboard becomes a simple isomorphic controller. The H key is mapped automatically to play the central degree at the centre of the canvas. Pressing SHIFT and a note-triggering key alternately latches and releases that particular note, allowing note-by-note sustains.
 
 ### Presets
 
@@ -183,7 +183,7 @@ Combinations of primes saturate and blend these colours accordingly. Auto-genera
 
 ### Key Labels
 
-Choose which information (`Blank Keys`, `Scale Degrees`, `Scala Data`, `Scale Cents`, `Names`, `HEJI`) is displayed on the keys. Equave Numbers may be toggled on or off for each label style. The HEJI Notation options are derived based on a user-specified spelling reference which may or may not be in the actual scale. Users may choose tempered accidentals + cents or JI accidental symbols. Primes > 47 or irrational pitches are given tempered notation + cents deviation. Notation is responsive to the current rational reading of the scale; after tuning edits or modulation, displayed note names update. When automatically generated HEJI labels are edited the scale updates accordingly. Note that HEJI names for non-octave equaves are currently not implemented.
+Choose which information (`Blank Keys`, `Scale Degrees`, `Scala Data`, `Scale Cents`, `Names`, `HEJI`) is displayed on the keys. Equave Numbers may be toggled on or off for each label style. The HEJI Notation options are derived based on a user-specified spelling reference which may or may not be in the actual scale. Users may choose tempered accidentals + cents or JI accidental symbols. Primes > 47 or irrational pitches are given tempered notation + cents deviation. Notation is responsive to the current rational reading of the scale; after tuning edits or modulation, displayed note names update. When automatically generated HEJI labels are edited, the scale updates accordingly. Note that HEJI names for non-octave equaves are currently not implemented.
 
 ### HEJI Spelling
 
@@ -198,13 +198,13 @@ The spelling reference is defined by four linked fields:
 
 Editing one linked reference field updates the others where possible. If the spelling interval is expressed in cents, notation uses tempered accidentals and cents deviations. If it is expressed as a ratio, rational scale degrees obtain HEJI accidentals unless the user specifies `Tempered Accidentals Only`.
 
-## HEJI Palette
+### HEJI Palette
 
 A HEJI Notation Palette is provided to generate strings of accidentals that may be copied and pasted into the scale table. The `12edo` row emits tempered accidental glyphs and allows manual cents entry for non-JI notation; the higher-prime rows emit exact HEJI accidentals up to 47-limit. Exact HEJI cents are calculated automatically from the chosen accidentals and current spelling reference; tempered accidentals allow manual cents entry.
 
 Use `Decimal Places` to choose the display precision of the calculated cents value. `Copy` copies the combined notation-plus-cents output, and `Clear` resets the palette output.
 
-## The Scale Table
+### The Scale Table
 
 The scale table supports:
 
@@ -243,7 +243,7 @@ It helps answer questions like:
 The current rationalisation workflow has two modes:
 
 - `Keep existing ratios`: preserve ratios you already committed, rationalise around those anchors
-- `Find new ratios`: fresh search based upon the current settings
+- `Find new ratios`: fresh search based on the current settings
 
 `Rationalisation Settings` include:
 
@@ -261,12 +261,13 @@ The current rationalisation workflow has two modes:
 - modulation history may be reset globally, returning to the saved tuning
 - there are two layout options: `Fixed Do / Moveable Layout` or `Moveable Do / Fixed Layout`
 
-## SEQUENCER Tab
+## SEQUENCER tab
 
 The Sequencer supports three connected workflows: snapshots play captured note collections; cues trigger events grouped by position; timed playback follows the complete timeline of note events, bars, tempi, and repeats.
 
 - open the `Sequencer` tab
 - load a built-in sequence, for example "FALL"
+- Activate Audio Context if needed: a built-in sequence does not require a tuning preset or visible hexagonal layout
 - scroll down to `Edit & Play`
 - click on the toggle to switch between the complete event view and compact snapshot view
 - in collapsed mode, notice the different types of events at the sequence start
@@ -277,8 +278,8 @@ The Sequencer supports three connected workflows: snapshots play captured note c
   - a selected snapshot is also automatically selected in `Copy & Insert`, where it is possible to select and work with a range of snapshots
 - each event is assigned a global position relative to the collection of snapshots; bars are restricted to positions between snapshots, other events can be positioned anywhere
 - to work with a selected snapshot click on it again to open a list of individual notes
-  - edit note timing, pitch, and expression values (use the right/left arrow to move to additional data fields)
-  - note events can be positioned before or after the snapshot anchor position, automatically creating `Cues`; note ons always remain consistently ordered before their related note offs and shared data (pitch, expression) is updated in both data rows whenever either event is edited; by changing the `Snap` value notes may be moved to other snapshots if desired; option-drag duplicates a note
+  - edit note timing, pitch, and expression values (use the left or right arrow to move to additional data fields)
+  - note events can be positioned before or after the snapshot anchor position, automatically creating `Cues`; note-ons always remain consistently ordered before their related note-offs, and shared data (pitch, expression) is updated in both data rows whenever either event is edited; by changing the `Snap` value, notes may be moved to other snapshots if desired; Option-drag duplicates a note
   - change the snapshot name if desired; use the reset button to reload the default style chosen under `Snapshot Labels`
   - trigger the snapshot with the play/stop controls
   - try arpeggiation
@@ -289,14 +290,14 @@ The Sequencer supports three connected workflows: snapshots play captured note c
   - the highlight shows what kind of event will be triggered when the user clicks on the play button
   - a bracketed snapshot or cue number marks a queued position
   - step through snapshots or cues manually using their respective arrows
-  - notice how `Auto-Scroll` works to find bars, snapshots, and cues, to highlight notes as they are played, and responds when the view is toggled
+  - notice how `Auto-Scroll` finds bars, snapshots, and cues, highlights notes as they are played, and responds when the view is toggled
 - try `TIMED PLAYBACK` to automate the sequence
 - adjust playback `SPEED` and `PITCH`
 - try `Snap Sequence to Current Hexatone Tuning` to hear stored snapshots remapped to the nearest notes in the current tuning; recapture and compare different versions
 
 ### User Sequences
 
-Sequences may be saved in a user library, loaded from disc, saved as copies, accessed, and exported through the User Sequences menu. Add a `Name and Description`. Saved sequence data includes snapshots, note-event edits, bars, tempo markers, repeat markers, snapshot label mode, name, description, the auto-create-bars preference, and arpeggiation settings. Legato and tuning-snap are workspace/session settings.
+Sequences may be saved in a user library, loaded from disc, saved as copies, accessed, and exported through the User Sequences menu. Add a `Name and Description`. Saved sequence data includes snapshots, note-event edits, bars, tempo markers, repeat markers, snapshot label mode, name, description, the auto-create-bars preference, arpeggiation and legato settings. Tuning-snap is a workspace/session setting.
 
 The User Sequences menu distinguishes three states:
 
@@ -313,6 +314,7 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 - the `chord` box can be toggled to `arp` to manually control where arpeggiation is applied when `Per Snapshot` is selected in the `Arpeggiation` menu
 
 ### Copy & Insert
+
 - select a range of snapshots by `Start` and `End` (both positions are included in the selected range)
 - optionally include bars, repeats, tempo markers
 - `Edit Selected Range` in place
@@ -333,9 +335,9 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 `Snapshot Labels` may be `Note Names`, `Frequencies (Hz)`, `MIDIcents`, `Chord Intervals from Lowest Note (¢)`, `Chord Proportions` or `Odd Partial Proportions`. The label for each snapshot can be customised. The reset button reloads the automatically generated label.
 
-`Snapshot Arpeggiation` affects manual stepping by snapshot only. It spreads the individual note ons and note offs across a time range `Initial Spread` according to the chosen parameters `Spread Variation` and `Timing Variation`. Timing varies how much the note offset positions in timed playback affect the arpeggiation. Notes sharing a common position are arpeggiated upward, whereas the event list is ordered to resemble staff notation, with the highest note first/uppermost. `Decay`can be immediate, timed up to 10s, or sustained; it begins when a new snapshot is triggered, and may be subject to `Decay Variation`. Thus, arpeggiations of multiple snapshots may overlap.
+`Snapshot Arpeggiation` affects manual stepping by snapshot only. It spreads the individual note-ons and note-offs across an `Initial Spread` time range according to the chosen `Spread Variation` and `Timing Variation` parameters. Timing varies how much the note-offset positions in timed playback affect the arpeggiation. Notes sharing a common position are arpeggiated upward, whereas the event list is ordered to resemble staff notation, with the highest note first (uppermost). `Decay` can be immediate, timed up to 10 s, or sustained; it begins when a new snapshot is triggered and may be subject to `Decay Variation`. Thus, arpeggiations of multiple snapshots may overlap.
 
-`Legato` prevents rearticulation of previously held notes while stepping or retriggering. It also applies when snapshots are arpeggiated and notes overlap.
+`Legato` prevents rearticulation of previously held notes while stepping or retriggering. It also applies when snapshots are arpeggiated and notes overlap. It may be set to `Off`, applied `Per Note`, or applied to `All Common Tones`. Individual continuations may be forced to reattack in the event editor.
 
 `Auto-Scroll` finds the bar, snapshot, or cue that is queued for next playback, follows manual navigation and timed playback, and reanchors when changing the event-list view with the toggle beside `Edit & Play`.
 
@@ -343,13 +345,15 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 `Snap Sequence to Current Hexatone Tuning` plays saved sequence pitches through the currently active Hexatone tuning so that the same sequence may be auditioned in another scale without rewriting the stored event data; capturing the sounds while snapping is active stores the recomputed and retuned note data as new snapshots.
 
+`Mod Wheel → Sequence Timbre` allows the mod wheel to shape recorded sequence timbre while playing.
+
 ### Transport
 
 - `PLAY FROM`
-  - transport row for selecting a starting point by `BAR`, `SNAPSHOT`, and `CUE`; choosing by bar or cue line up a cue, choosing by snapshot lines up a snapshot, and the next event up for playback is gently highlighted
+  - transport row for selecting a starting point by `BAR`, `SNAPSHOT`, and `CUE`; choosing by bar or cue lines up a cue, choosing by snapshot lines up a snapshot, and the next event up for playback is gently highlighted
   - choosing a destination queues it in brackets until stepped with the arrows or playback controls
   - controls to play/retrigger/stop each snapshot or cue; a highlight indicates which type of event will be triggered
-  - only a snapshot played manually observes arpeggiation, cues and timed playback do not
+  - only a snapshot played manually observes arpeggiation; cues and timed playback do not
 
 - `TIMED PLAYBACK`
   - transport row with clock and bar/beat readouts
@@ -361,7 +365,7 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 ### Event Row Editing
 
-Use the left-right arrow to move between pages of parameters. Current event fields are:
+Use the left and right arrows to move between pages of parameters. Current event fields are:
 
 - `Snap`
 - `Offset`
@@ -384,6 +388,7 @@ The `Name` field is a captured display label, not a parsable HEJI spelling field
 ### Bar Markers
 
 A bar row shows:
+
 - exact global `Position`
 - bar number
 - time signature fraction (number of beats / beat unit - for example, a 5/4 bar has 5 units, each 1/4 of a whole note)
@@ -392,6 +397,7 @@ A bar row shows:
 ### Tempo Markers
 
 A tempo row shows:
+
 - exact global `Position`
 - `tempo` for immediate change, `target` when the tempo has transitioned gradually from the previous tempo marker
 - fraction of a whole note used as "beat" unit for tempo (i.e., tempo measured in dotted quarter notes = 3 eighth notes: specify a beat unit 3/8)
@@ -413,9 +419,11 @@ Repeat markers participate directly in cue playback. When cue stepping crosses a
 
 ## IO tab
 
+Switching to the IO tab does not interrupt live or sequenced playback. Snapshots and Modulation options remain available in floating palettes.
+
 ### Built-in Sounds
 
-Hexatone has a small built-in library of sampled sounds. These include several additive synthsis timbres with 1-16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching. For more sophisticated sound design, layer the MIDI and or OSC outputs.
+Hexatone has a small built-in library of sampled sounds. These include several additive synthesis timbres with 1–16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching, and may be changed dynamically while playing live or sequenced material. For more sophisticated sound design, layer the MIDI and/or OSC outputs.
 
 ### MIDI Setup
 
@@ -423,7 +431,7 @@ WebMIDI is optional; allowing SysEx functionality is an additional option. WebMI
 
 - external MIDI input
 - controller auto-detection and geometry support, with manual override
-- LED color support on supported devices
+- LED colour support on supported devices
 - MTS and MPE output
 
 Without SysEx, MTS MIDI Tuning and bidirectional communication with Lumatone and Exquis are disabled, but controller input and MPE remain functional.
@@ -443,7 +451,7 @@ HEXATONE
 
 ### Controllers
 
-The app includes support for several recognized controller types, including devices such as:
+The app includes support for several recognised controller types, including devices such as:
 
 - AXIS-49
 - Haken Continuum
@@ -455,15 +463,15 @@ The app includes support for several recognized controller types, including devi
 
 The exact supported behaviour varies by controller, but the input system is designed to preserve each device’s geometry where musically useful for playing microtonal scales. MPE polyphony is preserved and used when chosen by the user (on appropriate outputs).
 
-Lumatone has two modes: default is 2D geometry aware, and uses a custom key layout that matches the numbering of keys used in a standard lumatone (.ltn) file: Notes 0-55 are ordered left-to-right and top-to-bottom, repeated five times to form five blocks, each on a separate MIDI channel (1-5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes. The `Lumatone Colour Filter` can store, order, import, and export named collections of scale degrees. `Auto-Generate from Snapshots` adds filters derived from the notes present in captured snapshots.
+Lumatone has two modes: the default is 2D-geometry-aware and uses a custom key layout that matches the numbering of keys in a standard Lumatone (`.ltn`) file. Notes 0–55 are ordered from left to right and top to bottom, repeated five times to form five blocks, each on a separate MIDI channel (1–5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note, so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes. The `Lumatone Colour Filter` can store, order, import, and export named collections of scale degrees. `Auto-Generate from Snapshots` adds filters derived from the notes present in captured snapshots.
 
 Alternatively, some users may prefer to generate a “traditional” multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave transpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
 
 LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
 
-Exquis needs to be updated to Firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing using App Mode. If Exquis is not working as expected, check the browser console: if a firmware update is needed, the information will be there.
+Exquis needs to be updated to firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing using App Mode. If Exquis is not working as expected, check the browser console: if a firmware update is needed, the information will be there.
 
-Haken `Continuum X Glide` offers two modes: Rastered Attack + Pitch Bend and Rastered Notes, along with controls for `X Glide Shaping` (applied to Rastered Attack + Pitch Bend) and `Pressure->Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Rastered Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, CC 87 used to provide one-shot high resolution LSB for incoming Pitch Bend, CC74, Channel Pressure X/Y/Z data). `Continuum Raster Filter` lets the user store and order named collections of scale degrees. The selected filter constrains attacks and subsequent retriggers in Rastered Notes. `Apply Raster in Pitch Bending Mode` optionally applies it to attacks in Rastered Attack + Pitch Bend. Independently, `Shape X Glide to Raster` uses the filtered degrees rather than every scale degree as the stability centres for continuous X Glide Shaping. Collections may be imported or exported together as a `.json` file, while `Auto-Generate from Snapshots` adds filters derived from captured snapshots. Optional MPE+ pitch-bend output adds high-resolution CC87 data; it may be disabled when older MIDI connections cannot sustain the additional message density.
+Haken `Continuum X Glide` offers two modes: Rastered Attack + Pitch Bend and Rastered Notes, along with controls for `X Glide Shaping` (applied to Rastered Attack + Pitch Bend) and `Pressure → Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Rastered Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, with CC87 providing a one-shot high-resolution LSB for incoming Pitch Bend, CC74, and Channel Pressure X/Y/Z data). `Continuum Raster Filter` lets the user store and order named collections of scale degrees. The selected filter constrains attacks and subsequent retriggers in Rastered Notes. `Apply Raster in Pitch Bending Mode` optionally applies it to attacks in Rastered Attack + Pitch Bend. Independently, `Shape X Glide to Raster` uses the filtered degrees rather than every scale degree as the stability centres for continuous X Glide Shaping. Collections may be imported or exported together as a `.json` file, while `Auto-Generate from Snapshots` adds filters derived from captured snapshots. Optional MPE+ pitch-bend output adds high-resolution CC87 data; it may be disabled when older MIDI connections cannot sustain the additional message density.
 
 ### Input Modes
 
@@ -495,10 +503,10 @@ MPE output offers two message styles:
 
 ### Eagan Matrix
 
-The Eagan Matrix is a dedicated digital modular patchbay designed for XYZ control from instruments like Osmose and Haken Continuum. A set of specialised controls for this synth appear within the MPE output settings:
+The Eagan Matrix is a programmable modular synthesis engine designed for XYZ control from instruments such as Osmose and Haken Continuum. A set of specialised controls for this synth appears within the MPE output settings:
 
-- `Auto-Generate MPE YZ` generates per-voice timbre (Y/CC74) and pressure (Z/Channel Pressure) envelopes from attack velocity and subsequent polyphonic pressure. It applies to live input and stored sequences, including release shaping driven by Note Off velocity.
-- `Mod Wheel → Brightness` mirrors incoming modulation-wheel CC1 values to Brightness and updates its displayed fader.
+- `Auto-Generate MPE YZ` generates per-voice timbre (Y/CC74) and pressure (Z/Channel Pressure) envelopes from attack velocity and subsequent polyphonic pressure. It applies to live input and stored sequences, including release shaping driven by note-off velocity.
+- `Mod Wheel → Brightness + Tilt EQ` mirrors incoming modulation-wheel CC1 values to Brightness / Tilt EQ and updates its displayed fader.
 - `Brightness` sends CC13.
 - `Tilt EQ` sends CC83.
 - `Pre Level` sends CC26.
@@ -517,53 +525,57 @@ Hexatone also includes an OSC output path for users who want:
 
 This mode requires a local clone of the repo and a locally running bridge:
 
-1. clone the repository locally
-2. build a local osc-bridge app that runs on your architecture (translates incoming WebSocket data for SuperCollider)
+1. Clone the repository locally.
+2. Choose one of these bridge workflows:
 
-```sh
-yarn build-bridge
-```
+   - Build a local `osc-bridge` app that runs on your architecture and translates incoming WebSocket data for SuperCollider:
 
---OR--
+     ```sh
+     yarn build-bridge
+     ```
 
-to edit hexatone code and work with custom osc setups using localhost run:
+   - To edit Hexatone code and work with custom OSC setups on localhost, run the development server and bridge separately:
 
-```sh
-yarn start
-yarn osc-bridge
-```
+     ```sh
+     yarn start
+     yarn osc-bridge
+     ```
 
-3. load the matching SuperCollider patch/responders locally
-4. enable `OSC -> SuperCollider` in Hexatone
+3. Load the matching SuperCollider patch/responders locally.
+4. Enable `OSC → SuperCollider` in Hexatone.
 
 This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 
+There are four faders for the four independently layered SynthDefs used in the custom SuperCollider patch made for PLAINSOUND HEXATONE. The resonance layers may be used in single-trigger mode (default), sustain mode, and/or retrigger mode. The release envelope may be shortened and blended with a velocity-driven release. The drier sound may be applied only to rastered glissandi generated from Haken Continuum or applied to all notes.
+
 ## CALCULATOR tab
+
+The CALCULATOR tab obtains its initial values from the currently selected HEXATONE tuning. These values may subsequently be edited without affecting the active tuning.
 
 ### Reference
 
-Choose a Reference Frequency and its ratio/cents from 1/1. For example, perhaps a scale is based on C but you wish to specify A as the reference, so specify A as a ratio (5/3 or 27/16) or as an arbitrary value in cents.
+Choose a `Reference Frequency` and its ratio or cents value from 1/1. For example, if a scale is based on C but you wish to specify A as the reference, define A as a ratio (such as 5/3 or 27/16) or as an arbitrary value in cents.
 
 ### HEJI Spelling
 
-Choose a spelling that will be assigned a deviation of 0 cents, and express this note as a ratio from 1/1. For example, if you have a Reference Frequency of 10 Hz, you could decide to spell it as *fE, and this note would have a cents deviation of 0 cents. In this system, 440 Hz would be partial 44°, written as A.
+Choose a spelling to which a deviation of 0 cents will be assigned, and express this note as a ratio from 1/1. For example, with a `Reference Frequency` of 10 Hz, you could spell the reference as `*fE`; this note would then have a deviation of 0 cents. In this system, 440 Hz would be partial 44°, written as A. The three frequency inputs (`Reference`, `1/1`, and `HEJI Spelling`) are interdependent and adjust together whenever one is changed.
 
 ### Input
 
-There are two input options: either enter a HEJI spelling using the palette, or specify an offset and pitch as ratio/cents. The HEJI palette allows prime-based accidentals to be incremented/decremented with repeated clicks. The octave position may be specified using the ISO standard (C4 = middle C). In the Ratio/Cents input, "Offset" defaults to the HEJI Spelling anchor, so that the chosen 0 cents note is equivalent to the Pitch 1/1. Changing Offset adapts the Pitch accordingly for easy calculation of compounded ratios.
+There are two input options: enter a HEJI spelling and octave register using the palette, or specify an offset and pitch as a ratio or cents value. The HEJI palette allows prime-based accidentals to be incremented or decremented with repeated clicks. The octave position may be specified using the ISO standard (C4 = middle C). In the `Ratio/Cents` input, `Offset` defaults to the HEJI Spelling anchor, so the chosen 0-cents note is equivalent to a `Pitch` of 1/1. Changing `Offset` adapts `Pitch` accordingly, making it easy to calculate compound ratios.
 
 ### Rationalisation
 
-Toggle to reveal the harmonic space parameters for rationalisation (symmetric, overtonal, custom). Traditionally JI pitch sets have been constructed symmetrically (every ratio is taken upward and downward from 1/1) or overtonally (based on the harmonic series). Custom allows the user to specify the number of steps in each prime dimension up to 47. The search space is restricted by prime limit and odd limit, search radius in cents, and a maximum number of results, which are sorted according to the selected criterion (overall ranking, cents deviation, harmonic/odd radius, prime/odd limit).
+Toggle the section to reveal the harmonic-space parameters for rationalisation (`symmetric`, `overtonal`, or `custom`). Traditionally, JI pitch sets have been constructed symmetrically (every ratio is taken upward and downward from 1/1) or overtonally (based on the harmonic series). `Custom` allows you to specify the number of steps in each prime dimension up to 47. The search space is restricted by prime limit, odd limit, cents tolerance, and a maximum number of results. Results are sorted according to the selected criterion: search ranking, cents deviation, harmonic radius, odd radius, prime limit, or odd limit.
 
 ### Data
 
-Values for the pitch from 1/1 and Reference, Frequency, nearest MIDI for working with a tuning meter, as well as a list of Nearby Rational Pitches. Clicking on the Pitches automatically updates the target and provides new data.
+Calculated values include the pitch ratio and cents from 1/1 and the reference, its frequency, and the nearest MIDI note with a ±50¢ deviation for working with a tuning meter. The section also provides a list of `Nearby Rational Pitches`. Values may optionally be normalised within one octave. Clicking a nearby rational pitch makes it the new target and updates the calculated data.
 
 ## Developer Roadmap
 
-Hexatone is currently working towards extending the sequencer functionality and integrating context-aware live retuning.
-If you want to clone and run Hexatone locally, or help test, find issues, join the coding, see:
+Hexatone is currently working towards integrating custom control surfaces and context-aware live retuning.
+For instructions on cloning and running Hexatone locally, testing, reporting issues, or contributing code, see:
 
 - [DEVELOPER_QUICKSTART.md](./DEVELOPER_QUICKSTART.md)
 
