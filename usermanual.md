@@ -570,7 +570,7 @@ Toggle the section to reveal the harmonic-space parameters for rationalisation (
 
 ### Data
 
-Calculated values include the pitch ratio and cents from 1/1 and the reference, its frequency, and the nearest MIDI note with a ±50¢ deviation for working with a tuning meter. The section also provides a list of `Nearby Rational Pitches`. Values may optionally be normalised within one octave. Clicking a nearby rational pitch makes it the new target and updates the calculated data.
+Calculated values include the pitch ratio and cents from 1/1 and the reference, its frequency, and the nearest MIDI note. `Deviation` is measured in the tempered lattice defined by the HEJI notation anchor, so the anchor spelling itself always has a deviation of zero; this provides a tuning-meter indication independent of the absolute A440 offset. MIDI accidentals use the same Plainsound Sans tempered symbols as the palette's 12edo row. `Include tempered accidentals in Deviation` combines the nearest pitch class with its deviation as one copyable string, repeating the deviation for both enharmonic spellings where applicable. The section also provides a list of `Nearby Rational Pitches`. Values may optionally be normalised within one octave. Clicking a nearby rational pitch makes it the new target and updates the calculated data.
 
 ## Developer Roadmap
 

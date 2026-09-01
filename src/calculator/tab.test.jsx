@@ -26,7 +26,7 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator HEJI anchor ratio or cents").value).toBe("1/1");
     expect(screen.getByLabelText("Calculator HEJI anchor spelling").value).toBe("*nA");
     expect(screen.getByLabelText("Calculator spelling frequency").value).toBe("440.0");
-    expect(screen.getByLabelText("Calculator decimal places").value).toBe("1");
+    expect(screen.getByLabelText("Calculator decimal places").value).toBe("0");
   });
 
   it("seeds its independent reference and HEJI fields from Hexatone", () => {
@@ -103,6 +103,53 @@ describe("CalculatorTab", () => {
     expect(globalThis.getSelection().toString()).toBe(tokens.at(-1).textContent);
   });
 
+  it("uses Plainsound tempered spellings and can include them in Deviation", () => {
+    render(<CalculatorTab settings={SETTINGS} />);
+    const lookup = screen.getByLabelText("Calculator lookup ratio or cents");
+
+    fireEvent.input(lookup, { target: { value: "1100." } });
+    fireEvent.blur(lookup);
+
+    expect(screen.getByLabelText("Calculator nearest MIDI note").textContent).toBe(
+      "A5 | G5 | 80",
+    );
+    expect(screen.getByLabelText("Calculator MIDI deviation").textContent).toBe("+0.000");
+
+    fireEvent.click(screen.getByLabelText("Calculator include tempered accidentals in deviation"));
+    expect(screen.getByLabelText("Calculator MIDI deviation").textContent).toBe(
+      "A+0.000 | G+0.000",
+    );
+  });
+
+  it("uses a tempered natural in the combined Deviation string", () => {
+    render(<CalculatorTab settings={SETTINGS} />);
+
+    expect(screen.getByLabelText("Calculator nearest MIDI note").textContent).toBe("A4 | 69");
+    fireEvent.click(screen.getByLabelText("Calculator include tempered accidentals in deviation"));
+    expect(screen.getByLabelText("Calculator MIDI deviation").textContent).toBe("A+0.000");
+  });
+
+  it("shows zero Deviation when the input equals a cents-based notation anchor", () => {
+    render(
+      <CalculatorTab
+        settings={{
+          ...SETTINGS,
+          fundamental: 442,
+          reference_degree: 0,
+          scale: ["400.", "1200."],
+          heji_anchor_ratio: "400.",
+          heji_anchor_label: "*nE",
+          heji_palette_decimals: 0,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "E" }));
+    expect(screen.getByLabelText("Calculator MIDI deviation").textContent).toBe("+0");
+    fireEvent.click(screen.getByLabelText("Calculator include tempered accidentals in deviation"));
+    expect(screen.getByLabelText("Calculator MIDI deviation").textContent).toBe("E+0");
+  });
+
   it("uses a palette spelling as an alternative pitch-query input", () => {
     render(<CalculatorTab settings={SETTINGS} />);
 
@@ -111,6 +158,43 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator ratio output").textContent).toBe("27/16");
     expect(screen.getByLabelText("Calculator spelling output").textContent).toContain("A");
     expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("1/1");
+  });
+
+  it("calculates cents and frequency from tempered palette input", () => {
+    render(<CalculatorTab settings={{ scale: null }} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "C" }));
+    fireEvent.click(within(screen.getByRole("group", { name: "Calculator 12edo accidentals" })).getByRole("button", { name: "" }));
+    const deviation = screen.getByLabelText("Calculator palette cents deviation");
+    fireEvent.input(deviation, { target: { value: "+12" } });
+
+    expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("-788.000000");
+    expect(screen.getByLabelText("Calculator ratio output").textContent).toBe("—");
+    expect(screen.getByLabelText("Calculator cents from 1/1").textContent).toBe("-788");
+    expect(screen.getByLabelText("Calculator spelling output").textContent).toBe("C+12");
+    expect(Number(screen.getByLabelText("Calculator frequency output").textContent)).toBeCloseTo(
+      279.1,
+      1,
+    );
+  });
+
+  it("resets tempered accidental cents to positive zero", () => {
+    render(<CalculatorTab settings={{ scale: null }} />);
+    const accidentals = screen.getByRole("group", { name: "Calculator 12edo accidentals" });
+
+    fireEvent.click(within(accidentals).getByRole("button", { name: "" }));
+    let deviation = screen.getByLabelText("Calculator palette cents deviation");
+    expect(deviation.value).toBe("+0");
+
+    fireEvent.input(deviation, { target: { value: "+12" } });
+    expect(screen.getByLabelText("Calculator palette cents deviation").value).toBe("+12");
+
+    fireEvent.click(within(accidentals).getByRole("button", { name: "" }));
+    deviation = screen.getByLabelText("Calculator palette cents deviation");
+    expect(deviation.value).toBe("+0");
+
+    fireEvent.input(deviation, { target: { value: "−0" } });
+    expect(screen.getByLabelText("Calculator palette cents deviation").value).toBe("+0");
   });
 
   it("does not fabricate ratios for palette pitches above a cents HEJI anchor", () => {
@@ -181,7 +265,7 @@ describe("CalculatorTab", () => {
 
     fireEvent.click(screen.getByLabelText("Calculator normalise results"));
     expect(screen.getByLabelText("Calculator ratio output").textContent).toBe("2/1");
-    expect(screen.getByLabelText("Calculator cents from 1/1").textContent).toBe("1200.0");
+    expect(screen.getByLabelText("Calculator cents from 1/1").textContent).toBe("1200");
   });
 
   it("measures palette spellings from an editable lookup offset", () => {

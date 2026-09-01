@@ -1,7 +1,11 @@
 import { canonicalHejiAnchorLabelInput } from "../notation/heji-normalization.js";
 import { spelledHejiLabel } from "../notation/key-label.js";
 import { BASE_BY_ID } from "../notation/heji.js";
-import { parseHejiToStructure, pitchStructureToBaseId } from "../notation/pitch-structure.js";
+import {
+  parseHejiToStructure,
+  pitchStructureToBaseId,
+  pitchStructureToHeji,
+} from "../notation/pitch-structure.js";
 import { buildPitchFrame, resolveStructurePitch } from "../notation/pitch-frame.js";
 import { createReferenceFrame } from "../notation/reference-frame.js";
 import { normaliseHejiAnchorRatio } from "../settings/scale/parse-scale.js";
@@ -14,7 +18,7 @@ export const DEFAULT_CALCULATOR_REFERENCE = Object.freeze({
   anchorInterval: "1/1",
   anchorLabel: "*nA",
   targetInterval: "1/1",
-  decimalPlaces: 1,
+  decimalPlaces: 0,
 });
 
 export const DEFAULT_CALCULATOR_OCTAVE = 4;
@@ -70,6 +74,12 @@ export function frequencyFromCents(degree0Frequency, centsFromDegree0) {
 
 function intervalFromCents(cents) {
   return normalizeSignedZero(cents).toFixed(6);
+}
+
+function temperedDeviationSuffix(cents) {
+  const normalized = normalizeSignedZero(Number(cents) || 0);
+  const magnitude = Number(Math.abs(normalized).toFixed(6)).toString();
+  return `${normalized < 0 ? "−" : "+"}${magnitude}`;
 }
 
 function fractionText(ratio) {
@@ -137,6 +147,18 @@ export function midiPitchFromFrequency(frequencyHz) {
   };
 }
 
+function notationMeterFromAnchor(anchorLabel, centsFromAnchor) {
+  const anchorStructure = parseHejiToStructure(anchorLabel);
+  const anchorSemitone = structureSemitone(anchorStructure);
+  if (!Number.isFinite(anchorSemitone) || !Number.isFinite(centsFromAnchor)) return null;
+  const nearestStep = Math.round(centsFromAnchor / 100);
+  const pitchClass = (((anchorSemitone + nearestStep) % 12) + 12) % 12;
+  return {
+    noteNames: [...MIDI_NOTE_NAMES[pitchClass]],
+    deviationCents: normalizeSignedZero(centsFromAnchor - nearestStep * 100),
+  };
+}
+
 function structureSemitone(structure) {
   if (!structure?.letter) return null;
   const chromatic = BASE_BY_ID[pitchStructureToBaseId(structure)]?.chromatic ?? "natural";
@@ -166,11 +188,14 @@ export function calculatorIntervalFromPitchStructure({
     }
     const octaveShift = Math.trunc(Number(octave) || 0) - DEFAULT_CALCULATOR_OCTAVE;
     const semitoneDistance = sourceSemitone - anchorSemitone + octaveShift * 12;
-    const cents = normalizedAnchor.cents + semitoneDistance * 100 + (Number(deviationCents) || 0);
+    const relativeCents = semitoneDistance * 100 + (Number(deviationCents) || 0);
+    const cents = normalizedAnchor.cents + relativeCents;
     return {
       valid: true,
       exact: false,
       interval: normalizeSignedZero(cents).toFixed(6),
+      relativeInterval: intervalFromCents(relativeCents),
+      hejiLabel: `${pitchStructureToHeji(structure)}${temperedDeviationSuffix(deviationCents)}`,
     };
   }
 
@@ -358,6 +383,7 @@ export function calculatePitchLookup(input = {}) {
   const frequencyHz = frequencyFromCents(degree0Frequency, target.cents);
   const centsFromReference = normalizeSignedZero(target.cents - reference.cents);
   const centsFromAnchor = normalizeSignedZero(target.cents - anchor.cents);
+  const notationMeter = notationMeterFromAnchor(anchorLabel, centsFromAnchor);
   const referenceRelative =
     target.exact && reference.exact
       ? parseCalculatorInterval(fractionText(target.ratio.div(reference.ratio)))
@@ -401,6 +427,7 @@ export function calculatePitchLookup(input = {}) {
     frequencyHz,
     hejiLabel,
     midi: midiPitchFromFrequency(frequencyHz),
+    notationMeter,
     nearbyRatios: nearbyRationalValues(target.cents, input.rationalSearch),
     monzo: target.exact ? target.monzo : null,
     primeLimit: target.exact ? target.primeLimit : null,

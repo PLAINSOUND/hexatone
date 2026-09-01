@@ -50,10 +50,21 @@ function formatNumber(value, decimals) {
   return rounded.toFixed(places);
 }
 
-function formatSigned(value, decimals) {
+function formatSigned(value, decimals, { includeUnit = true } = {}) {
   if (!Number.isFinite(value)) return "—";
   const rounded = Number(value.toFixed(decimals));
-  return `${rounded < 0 ? "−" : "+"}${Math.abs(rounded).toFixed(decimals)}¢`;
+  return `${rounded < 0 ? "−" : "+"}${Math.abs(rounded).toFixed(decimals)}${includeUnit ? "¢" : ""}`;
+}
+
+function plainsoundMidiNoteName(
+  noteName,
+  { includeNatural = false, includeOctave = true } = {},
+) {
+  const match = /^([A-G])([b#]?)(-?\d+)?$/.exec(String(noteName ?? ""));
+  if (!match) return String(noteName ?? "");
+  const [, letter, accidental, octave] = match;
+  const prefix = accidental === "b" ? "" : accidental === "#" ? "" : includeNatural ? "" : "";
+  return `${prefix}${letter}${includeOctave ? (octave ?? "") : ""}`;
 }
 
 function intervalsArePitchEquivalent(leftValue, rightValue) {
@@ -158,6 +169,8 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
   const [maxRationalResults, setMaxRationalResults] = useState("16");
   const [showRationalOptions, setShowRationalOptions] = useState(false);
   const [normalizeResults, setNormalizeResults] = useState(false);
+  const [includeTemperedAccidentalsInDeviation, setIncludeTemperedAccidentalsInDeviation] =
+    useState(false);
 
   const rationalSearch = useMemo(() => {
     const primeLimit = parseOptionalPositiveInt(searchPrefs.primeLimit);
@@ -598,8 +611,11 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
                 {analysis.midi.noteNames.map((noteName, index) => (
                   <span key={noteName}>
                     {index > 0 ? <span aria-hidden="true"> | </span> : null}
-                    <span class="calculator-output__token" onClick={selectMidiOutputToken}>
-                      {noteName}
+                    <span
+                      class="calculator-output__token calculator-output--midi"
+                      onClick={selectMidiOutputToken}
+                    >
+                      {plainsoundMidiNoteName(noteName)}
                     </span>
                   </span>
                 ))}
@@ -614,10 +630,39 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
           </output>
         </label>
         <label>
-          Deviation (±50¢)
+          Deviation (±50)
           <SelectableOutput ariaLabel="Calculator MIDI deviation">
-            {analysis.midi ? formatSigned(analysis.midi.deviationCents, decimalPlaces) : "—"}
+            <span class={includeTemperedAccidentalsInDeviation ? "calculator-output--midi" : ""}>
+              {analysis.notationMeter
+                ? includeTemperedAccidentalsInDeviation
+                  ? analysis.notationMeter.noteNames
+                      .map(
+                        (noteName) =>
+                          `${plainsoundMidiNoteName(noteName, {
+                            includeNatural: true,
+                            includeOctave: false,
+                          })}${formatSigned(analysis.notationMeter.deviationCents, decimalPlaces, {
+                            includeUnit: false,
+                          })}`,
+                      )
+                      .join(" | ")
+                  : formatSigned(analysis.notationMeter.deviationCents, decimalPlaces, {
+                      includeUnit: false,
+                    })
+                : "—"}
+            </span>
           </SelectableOutput>
+        </label>
+        <label class="settings-form__checkbox-row calculator-results__midi-accidentals">
+          <input
+            type="checkbox"
+            aria-label="Calculator include tempered accidentals in deviation"
+            checked={includeTemperedAccidentalsInDeviation}
+            onChange={(event) =>
+              setIncludeTemperedAccidentalsInDeviation(event.target.checked)
+            }
+          />
+          Include tempered accidentals in Deviation
         </label>
       </fieldset>
 

@@ -9,7 +9,7 @@ import {
   parseCalculatorInterval,
   relativeCalculatorInterval,
 } from "./runtime.js";
-import { parseHejiToStructure } from "../notation/pitch-structure.js";
+import { createPitchStructure, parseHejiToStructure } from "../notation/pitch-structure.js";
 
 describe("calculator runtime", () => {
   it("uses an A 440 at 1/1 blank-slate workspace before a scale is loaded", () => {
@@ -20,7 +20,7 @@ describe("calculator runtime", () => {
       anchorLabel: "*nA",
       anchorFrequency: 440,
       targetInterval: "1/1",
-      decimalPlaces: 1,
+      decimalPlaces: 0,
     });
   });
 
@@ -56,6 +56,19 @@ describe("calculator runtime", () => {
     expect(result.midi.midiNote).toBeGreaterThanOrEqual(0);
     expect(Math.abs(result.midi.deviationCents)).toBeLessThanOrEqual(50);
     expect(result.nearbyRatios.length).toBeGreaterThan(0);
+  });
+
+  it("measures tuning-meter deviation from the notation anchor rather than A440", () => {
+    const result = calculatePitchLookup({
+      referenceFrequency: 442,
+      referenceInterval: "1/1",
+      anchorInterval: "400.",
+      anchorLabel: "*nE",
+      targetInterval: "400.",
+    });
+
+    expect(result.midi.deviationCents).not.toBe(0);
+    expect(result.notationMeter).toEqual({ noteNames: ["E"], deviationCents: 0 });
   });
 
   it("reports full and octave-invariant radii from 1/1", () => {
@@ -160,6 +173,27 @@ describe("calculator runtime", () => {
     expect(lookup.ratioFromReferenceText).toBeNull();
     expect(lookup.centsFromAnchor).toBeCloseTo(1200 * Math.log2(4 / 3), 6);
     expect(lookup.hejiLabel).toContain("A");
+  });
+
+  it("resolves tempered palette spellings with their entered cents deviation", () => {
+    const result = calculatorIntervalFromPitchStructure({
+      structure: createPitchStructure({
+        letter: "C",
+        accidentalCount: 1,
+        useTemperedAccidentals: true,
+      }),
+      anchorLabel: "*nA",
+      anchorInterval: "1/1",
+      deviationCents: 12.5,
+    });
+
+    expect(result).toMatchObject({
+      valid: true,
+      exact: false,
+      interval: "-787.500000",
+      relativeInterval: "-787.500000",
+      hejiLabel: "C+12.5",
+    });
   });
 
   it("resolves palette spellings in an explicit scientific-pitch octave", () => {

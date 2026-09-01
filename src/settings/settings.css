@@ -217,6 +217,10 @@
   user-select: text;
 }
 
+.calculator-output--midi {
+  font-family: "Plainsound Sans", sans-serif;
+}
+
 .calculator-rationalisation__options {
   display: flex;
   flex-direction: column;

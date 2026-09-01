@@ -86,10 +86,17 @@ function normalizeDeviation(value, current = "") {
   const source = String(value ?? "").replace(/\s+/g, "");
   if (!source) return "";
   const rest = source.replace(/^[+\u2212-]+/, "");
+  if (rest && Number(rest) === 0) return `+${rest}`;
   const negative = source.startsWith("−") || source.startsWith("-");
   const positive = source.startsWith("+");
   const sign = negative ? "−" : positive ? "+" : String(current).startsWith("−") ? "−" : "+";
   return `${sign}${rest}`;
+}
+
+function applyDeviationSign(sign, value) {
+  const unsigned = String(value ?? "").replace(/^[+\u2212-]+/, "");
+  if (unsigned && Number(unsigned) === 0) return `+${unsigned}`;
+  return `${sign}${unsigned}`;
 }
 
 function toTempered(structure, accidentalCount) {
@@ -185,11 +192,6 @@ const HejiPalette = ({
     if (clearDeviation) setDeviation("");
     setCopied(false);
   };
-  const commitAutoDeviation = () => {
-    if (Number.isFinite(automaticDeviation))
-      setDeviation(formatDeviation(automaticDeviation, decimals));
-  };
-
   return (
     <div class="heji-palette-builder calculator-palette">
       <label class="heji-palette-builder__toggle-row">
@@ -290,8 +292,11 @@ const HejiPalette = ({
             readOnly={!structure.useTemperedAccidentals}
             aria-label="Calculator palette cents deviation"
             onInput={(event) => {
-              if (structure.useTemperedAccidentals)
-                setDeviation(normalizeDeviation(event.target.value, deviation));
+              if (structure.useTemperedAccidentals) {
+                const normalized = normalizeDeviation(event.currentTarget.value, deviation);
+                event.currentTarget.value = normalized;
+                setDeviation(normalized);
+              }
             }}
           />
         </div>
@@ -367,7 +372,7 @@ const HejiPalette = ({
                   type="button"
                   class="preset-action-btn heji-palette-builder__symbol-btn"
                   onClick={() => {
-                    commitAutoDeviation();
+                    setDeviation("+0");
                     update((current) => toTempered(current, count));
                   }}
                 >
@@ -388,9 +393,7 @@ const HejiPalette = ({
                   key={sign}
                   type="button"
                   class="preset-action-btn heji-palette-builder__symbol-btn"
-                  onClick={() =>
-                    setDeviation(`${sign}${String(deviation).replace(/^[+\u2212-]+/, "")}`)
-                  }
+                  onClick={() => setDeviation(applyDeviationSign(sign, deviation))}
                 >
                   {sign}
                 </button>
