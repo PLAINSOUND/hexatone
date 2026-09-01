@@ -631,27 +631,48 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
         </label>
         <label>
           Deviation (±50)
-          <SelectableOutput ariaLabel="Calculator MIDI deviation">
-            <span class={includeTemperedAccidentalsInDeviation ? "calculator-output--midi" : ""}>
-              {analysis.notationMeter
-                ? includeTemperedAccidentalsInDeviation
-                  ? analysis.notationMeter.noteNames
-                      .map(
-                        (noteName) =>
-                          `${plainsoundMidiNoteName(noteName, {
-                            includeNatural: true,
-                            includeOctave: false,
-                          })}${formatSigned(analysis.notationMeter.deviationCents, decimalPlaces, {
-                            includeUnit: false,
-                          })}`,
-                      )
-                      .join(" | ")
-                  : formatSigned(analysis.notationMeter.deviationCents, decimalPlaces, {
-                      includeUnit: false,
-                    })
-                : "—"}
-            </span>
-          </SelectableOutput>
+          <output
+            class={`calculator-output${
+              includeTemperedAccidentalsInDeviation
+                ? " calculator-output--tokens calculator-output--midi"
+                : ""
+            }`}
+            aria-label="Calculator MIDI deviation"
+            tabIndex={0}
+            onClick={(event) => {
+              if (event.target === event.currentTarget) selectOutputText(event);
+            }}
+          >
+            {analysis.notationMeter ? (
+              includeTemperedAccidentalsInDeviation ? (
+                analysis.notationMeter.noteNames.map((noteName, index) => {
+                  const deviation = formatSigned(
+                    analysis.notationMeter.deviationCents,
+                    decimalPlaces,
+                    { includeUnit: false },
+                  );
+                  return (
+                    <span key={noteName}>
+                      {index > 0 ? <span aria-hidden="true"> | </span> : null}
+                      <span class="calculator-output__token" onClick={selectMidiOutputToken}>
+                        {plainsoundMidiNoteName(noteName, {
+                          includeNatural: true,
+                          includeOctave: false,
+                        })}
+                        {deviation}
+                      </span>
+                    </span>
+                  );
+                })
+              ) : (
+                formatSigned(analysis.notationMeter.deviationCents, decimalPlaces, {
+                  includeUnit: false,
+                })
+              )
+            ) : (
+              "—"
+            )}
+          </output>
         </label>
         <label class="settings-form__checkbox-row calculator-results__midi-accidentals">
           <input

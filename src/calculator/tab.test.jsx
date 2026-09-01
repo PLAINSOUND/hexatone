@@ -116,9 +116,14 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator MIDI deviation").textContent).toBe("+0.000");
 
     fireEvent.click(screen.getByLabelText("Calculator include tempered accidentals in deviation"));
-    expect(screen.getByLabelText("Calculator MIDI deviation").textContent).toBe(
-      "A+0.000 | G+0.000",
-    );
+    const deviation = screen.getByLabelText("Calculator MIDI deviation");
+    expect(deviation.textContent).toBe("A+0.000 | G+0.000");
+    const tokens = [...deviation.querySelectorAll(".calculator-output__token")];
+    expect(tokens).toHaveLength(2);
+    fireEvent.click(tokens[0]);
+    expect(globalThis.getSelection().toString()).toBe("A+0.000");
+    fireEvent.click(tokens[1]);
+    expect(globalThis.getSelection().toString()).toBe("G+0.000");
   });
 
   it("uses a tempered natural in the combined Deviation string", () => {
