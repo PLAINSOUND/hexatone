@@ -121,7 +121,7 @@
     z-index: 6;
     margin: 0 -1em 0.45em;
     gap: 0;
-    padding: 3.05em var(--workspace-tabs-phone-inset) 0;
+    padding: calc(var(--safe-area-top) + 3.2rem) var(--workspace-tabs-phone-inset) 0;
     box-shadow: none;
   }
 
@@ -140,9 +140,11 @@
   #sidebar .workspace-tabs .workspace-tab {
     flex: 1 1 0;
     min-width: 0;
+    min-height: 1.6rem;
     padding: 0.42em 0.18em 0.38em;
     font-size: 0.62em;
     letter-spacing: 0.015em;
+    touch-action: manipulation;
   }
 
   #sidebar .workspace-tabs .workspace-tab--active {

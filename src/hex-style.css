@@ -248,6 +248,10 @@ a:hover {
   border-color: #aa0000;
 }
 
+.sidebar-button__hit-area {
+  display: contents;
+}
+
 /* Spacer at the bottom of sidebar content prevents iOS bounce hiding items */
 #sidebar-spacer {
   height: 0.7em;
@@ -270,10 +274,12 @@ a:hover {
   }
 
   #sidebar-button {
-    height: 2.5em;
-    top: 0;
+    box-sizing: border-box;
+    height: 2.5rem;
+    top: var(--safe-area-top);
     left: 50vw;
     transform: translate(-50%, 0);
+    touch-action: manipulation;
     transition:
       width 0.3s ease-in-out,
       background-color 0.24s ease,
@@ -293,6 +299,18 @@ a:hover {
   }
   .show #sidebar-button {
     width: 50vw;
+    pointer-events: none;
+  }
+  .show #sidebar-button .sidebar-button__hit-area {
+    position: absolute;
+    top: 0;
+    right: 0.35rem;
+    bottom: 0.5rem;
+    left: 0.35rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
   }
   .hide #sidebar-button div {
     transform: rotate(90deg);

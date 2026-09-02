@@ -5014,7 +5014,9 @@ const App = () => {
         onTouchMove={onSidebarTouchMove}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <div>&gt;</div>
+        <span className="sidebar-button__hit-area">
+          <div>&gt;</div>
+        </span>
       </button>
       <div id="bottom-bar">
         <div id="main-bottom-controls">
