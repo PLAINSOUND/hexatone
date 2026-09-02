@@ -270,6 +270,40 @@ describe("KeyLabels HEJI anchor handling", () => {
     });
   });
 
+  it("reduces the anchor spelling to its tempered 3-limit accidental for a cents anchor", () => {
+    const onAtomicChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={onAtomicChange}
+        heji_names={[]}
+        heji_anchor_ratio_eff="3/2"
+        heji_anchor_label_eff="B"
+        settings={{
+          key_labels: "heji",
+          scale: [],
+          reference_degree: 0,
+          fundamental: 440,
+          heji_anchor_ratio: "3/2",
+          heji_anchor_label: "B",
+          heji_anchor_frequency: "",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    const ratioInput = screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)");
+    fireEvent.input(ratioInput, { target: { value: "400." } });
+    fireEvent.blur(ratioInput);
+
+    expect(onAtomicChange).toHaveBeenCalledWith({
+      heji_anchor_ratio: "400.0",
+      heji_anchor_label: "B",
+    });
+  });
+
   it("does not recompute or commit the HEJI anchor ratio while typing", () => {
     const onChange = vi.fn();
 
@@ -345,6 +379,33 @@ describe("KeyLabels HEJI anchor handling", () => {
 
     fireEvent.blur(screen.getByLabelText("Notation (Spelling)"));
     expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "F");
+  });
+
+  it("removes HEJI inflections when committing a spelling for a cents anchor", () => {
+    const onChange = vi.fn();
+
+    render(
+      <KeyLabels
+        onChange={onChange}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="400.0"
+        heji_anchor_label_eff="F"
+        settings={{
+          key_labels: "heji",
+          scale: [],
+          reference_degree: 0,
+          fundamental: 440,
+          heji_anchor_ratio: "400.0",
+          heji_anchor_label: "F−33",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.blur(screen.getByLabelText("Notation (Spelling)"));
+    expect(onChange).toHaveBeenCalledWith("heji_anchor_label", "F");
   });
 
   it("does not commit the HEJI anchor spelling while typing", () => {

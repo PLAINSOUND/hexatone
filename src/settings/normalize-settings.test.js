@@ -293,6 +293,25 @@ describe("normalizeStructural", () => {
     expect(normalized.heji_names_keys[0]).toBe("B");
   });
 
+  it("reduces an explicit HEJI spelling to a tempered accidental for a cents anchor", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: [],
+      equivSteps: 0,
+      note_names: [],
+      heji_anchor_label: "F",
+      heji_anchor_ratio: "400.0",
+      reference_degree: 0,
+      fundamental: 440,
+      heji_show_cents: true,
+    });
+
+    expect(normalized.heji_tempered_only_effective).toBe(true);
+    expect(normalized.heji_anchor_label_effective).toBe("F");
+    expect(normalized.heji_anchor_ratio_effective).toBe("400.0");
+  });
+
   it("derives a tempered A anchor from the computed 440 Hz degree when note_names are non-HEJI", () => {
     const edo22 = Array.from({ length: 22 }, (_, i) => (((i + 1) * 1200) / 22).toFixed(6));
     const noteNames = [
