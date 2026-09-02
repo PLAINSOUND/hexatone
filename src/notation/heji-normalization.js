@@ -24,6 +24,8 @@ const HEJI_DOUBLE_FLAT = "\uE264";
 // Used when the anchor is inferred from frequency rather than confirmed by a note name,
 // so the user can see at a glance that the spelling is approximate.
 const TEMPERED_NATURAL = "\uE2F2";
+const TEMPERED_FLAT = "\uE2F1";
+const TEMPERED_SHARP = "\uE2F3";
 
 // HEJI exact-natural labels per letter (confirmed JI spelling from note_names).
 export const HEJI_NATURAL_LABELS = {
@@ -119,6 +121,24 @@ export function canonicalHejiAnchorLabelInput(name) {
 export function canonicalHejiLabel(name) {
   if (!name) return null;
   return canonicalHejiAnchorLabelInput(name);
+}
+
+/**
+ * Reduce a HEJI spelling to a tempered flat, natural, or sharp spelling.
+ * The letter and 3-limit accidental direction are retained; syntonic and
+ * higher-prime inflections are deliberately discarded.
+ */
+export function temperedAnchorLabelFromHeji(name) {
+  const canonical = canonicalHejiAnchorLabelInput(name);
+  const structure = canonical ? parseHejiToStructure(canonical) : null;
+  if (!structure?.letter) return null;
+  const glyph =
+    (structure.accidentalCount ?? 0) < 0
+      ? TEMPERED_FLAT
+      : (structure.accidentalCount ?? 0) > 0
+        ? TEMPERED_SHARP
+        : TEMPERED_NATURAL;
+  return `${glyph}${structure.letter}`;
 }
 
 /**

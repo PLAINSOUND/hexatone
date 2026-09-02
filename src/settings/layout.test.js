@@ -33,4 +33,22 @@ describe("Layout panel", () => {
     expect(input.selectionStart).toBe(0);
     expect(input.selectionEnd).toBe(input.value.length);
   });
+
+  it("renders layout defaults as inactive hints without a musical surface", () => {
+    render(
+      <Layout settings={minimalSettings} hasMusicalSurface={false} onChange={() => {}} />,
+    );
+
+    expect(
+      screen
+        .getByText("Hexatone Layout")
+        .closest("fieldset")
+        .classList.contains("settings-fieldset--blank-surface"),
+    ).toBe(true);
+    expect(screen.getByLabelText("Central Scale Degree").disabled).toBe(true);
+    expect(screen.getByLabelText("Right-Facing Steps").disabled).toBe(true);
+    expect(screen.getByLabelText("Right-Downward Steps").disabled).toBe(true);
+    expect(screen.getByLabelText("Hex Size").disabled).toBe(true);
+    expect(screen.getByLabelText("Rotation Clockwise").disabled).toBe(true);
+  });
 });

@@ -116,7 +116,7 @@ function remapDegreeAfterDelete(index, deletedDegree, oldEquaveDegree) {
 
 export function deleteScaleDegree(settings, degree) {
   const scale = Array.isArray(settings?.scale) ? settings.scale : [];
-  if (scale.length <= 2) return null;
+  if (scale.length <= 1) return null;
 
   const equaveDegree = scale.length;
   const maxInteriorDegree = equaveDegree - 1;

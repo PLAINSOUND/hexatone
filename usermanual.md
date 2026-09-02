@@ -558,7 +558,7 @@ Choose a `Reference Frequency` and its ratio or cents value from 1/1. For exampl
 
 ### HEJI Spelling
 
-Choose a spelling to which a deviation of 0 cents will be assigned, and express this note as a ratio from 1/1. For example, with a `Reference Frequency` of 10 Hz, you could spell the reference as `*fE`; this note would then have a deviation of 0 cents. In this system, 440 Hz would be partial 44°, written as A. The three frequency inputs (`Reference`, `1/1`, and `HEJI Spelling`) are interdependent and adjust together whenever one is changed.
+Choose a spelling to which a deviation of 0 cents will be assigned, and express this note as a ratio from 1/1. For example, with a `Reference Frequency` of 10 Hz, you could spell the reference as *fE; this note would then have a deviation of 0 cents. In this system, 440 Hz would be partial 44°, written as A. The three frequency inputs (`Reference`, `1/1`, and `HEJI Spelling`) are interdependent and adjust together whenever one is changed.
 
 ### Input
 

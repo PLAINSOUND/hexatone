@@ -52,6 +52,20 @@ describe("resizeScaleWithEquavePadding", () => {
     });
   });
 
+  it("clears scale, names, and colors when shrinking to a blank surface", () => {
+    const settings = {
+      scale: ["100.", "200.", "2/1"],
+      note_names: ["C", "D", "E"],
+      note_colors: ["#111111", "#222222", "#333333"],
+    };
+
+    expect(resizeScaleWithEquavePadding(settings, 0)).toEqual({
+      scale: [],
+      note_names: [],
+      note_colors: [],
+    });
+  });
+
   it("falls back to a default equave and root metadata when scale data is sparse", () => {
     const settings = {
       scale: [],
@@ -152,7 +166,7 @@ describe("useSettingsChange", () => {
     expect(updateColors.mock.calls.at(-1)[0].note_colors).not.toEqual(["ffa5a5", "95c69b"]);
   });
 
-  it("persists registered HEJI palette settings through the session registry tier", () => {
+  it("persists HEJI palette display preferences but not its constructed spelling", () => {
     const setSettings = vi.fn();
     let handlers = null;
     render(
@@ -179,8 +193,8 @@ describe("useSettingsChange", () => {
     });
 
     expect(sessionStorage.getItem("heji_palette_visible")).toBe("true");
-    expect(sessionStorage.getItem("heji_palette_structure")).toBe('{"letter":"A"}');
-    expect(sessionStorage.getItem("heji_palette_deviation")).toBe("+17");
+    expect(sessionStorage.getItem("heji_palette_structure")).toBeNull();
+    expect(sessionStorage.getItem("heji_palette_deviation")).toBeNull();
     expect(sessionStorage.getItem("heji_palette_decimals")).toBe("2");
   });
 

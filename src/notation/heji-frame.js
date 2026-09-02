@@ -11,6 +11,7 @@ import {
   canonicalHejiAnchorLabelInput,
   canonicalHejiLabel,
   deriveHejiAnchor,
+  temperedAnchorLabelFromHeji,
 } from "./heji-normalization.js";
 import { spelledHejiLabel } from "./key-label.js";
 import {
@@ -85,10 +86,21 @@ export function resolveEffectiveHejiAnchor({
         ? HEJI_NATURAL_LABELS.A
         : TEMPERED_NATURAL_LABELS.A
       : derived.label;
+  let anchorLabel =
+    canonicalHejiAnchorLabelInput(trimmedExplicitAnchorLabel) ?? derivedAnchorLabel;
+  if (trimmedExplicitAnchorRatio && !explicitAnchorRatioIsExact) {
+    anchorLabel = temperedAnchorLabelFromHeji(anchorLabel) ?? anchorLabel;
+  }
+  const anchorStructure = parseHejiToStructure(anchorLabel);
+  const inferredTemperedOnly = trimmedExplicitAnchorRatio
+    ? !explicitAnchorRatioIsExact || anchorStructure?.useTemperedAccidentals === true
+    : trimmedExplicitAnchorLabel
+      ? anchorStructure?.useTemperedAccidentals === true
+      : derived.inferredTemperedOnly === true;
   return {
-    anchorLabel: canonicalHejiAnchorLabelInput(trimmedExplicitAnchorLabel) ?? derivedAnchorLabel,
+    anchorLabel,
     anchorRatioText: normalizedAnchorRatio(trimmedExplicitAnchorRatio || derived.ratio),
-    inferredTemperedOnly: derived.inferredTemperedOnly === true,
+    inferredTemperedOnly,
   };
 }
 

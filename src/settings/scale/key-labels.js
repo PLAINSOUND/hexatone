@@ -5,7 +5,11 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { normaliseHejiAnchorRatio, scalaToCents } from "./parse-scale.js";
-import { canonicalHejiAnchorLabelInput } from "../../notation/heji-normalization.js";
+import {
+  canonicalHejiAnchorLabelInput,
+  temperedAnchorLabelFromHeji,
+} from "../../notation/heji-normalization.js";
+import { parseExactInterval } from "../../tuning/interval.js";
 import { BASE_BY_ID, BASE_SYMBOLS, HEJI_FAMILIES } from "../../notation/heji.js";
 import {
   clearPitchStructure,
@@ -178,6 +182,13 @@ function normalizeAnchorLabelInput(raw) {
   if (!source) return null;
   const withoutCents = source.replace(/[+\-\u2212]\d+(?:\.\d+)?\s*$/u, "");
   return canonicalHejiAnchorLabelInput(withoutCents.trim());
+}
+
+function normalizeAnchorLabelForInterval(raw, ratioText) {
+  const normalized = normalizeAnchorLabelInput(raw);
+  if (!normalized) return null;
+  if (parseExactInterval(String(ratioText ?? ""))?.exact) return normalized;
+  return temperedAnchorLabelFromHeji(normalized) ?? normalized;
 }
 
 function convertPaletteStructureToTempered(structure, accidentalCount) {
@@ -492,65 +503,35 @@ const KeyLabels = (props) => {
                 const normalized = normaliseHejiAnchorRatio(e.target.value);
                 if (normalized) {
                   setAnchorRatioDraft(normalized);
-                  const stableSpellingFrequency = Number.parseFloat(
-                    props.settings.heji_anchor_frequency || effectiveAnchorFrequencyValue,
+                  const currentAnchorLabel =
+                    props.settings.heji_anchor_label || effectiveAnchorLabel;
+                  const normalizedAnchorLabel = normalizeAnchorLabelForInterval(
+                    currentAnchorLabel,
+                    normalized,
                   );
-                  const preserveDerivedAnchor =
-                    !String(props.settings.heji_anchor_ratio || "").trim() &&
-                    !String(props.settings.heji_anchor_label || "").trim() &&
-                    effectiveAnchorLabel;
-                  let nextFundamental = null;
-                  if (
-                    Array.isArray(props.settings.scale) &&
-                    Number.isFinite(stableSpellingFrequency) &&
-                    stableSpellingFrequency > 0
-                  ) {
-                    try {
-                      const nextPitchFrame = buildPitchFrame(
-                        {
-                          scale: props.settings.scale,
-                          reference_degree: props.settings.reference_degree ?? 0,
-                          fundamental: props.settings.fundamental ?? 440,
-                          heji_anchor_label: preserveDerivedAnchor
-                            ? effectiveAnchorLabel
-                            : props.settings.heji_anchor_label || effectiveAnchorLabel,
-                          heji_anchor_ratio: normalized,
-                        },
-                        createScaleWorkspace({
-                          scale: props.settings.scale,
-                          reference_degree: props.settings.reference_degree ?? 0,
-                          fundamental: props.settings.fundamental ?? 440,
-                          heji_anchor_label: preserveDerivedAnchor
-                            ? effectiveAnchorLabel
-                            : props.settings.heji_anchor_label || effectiveAnchorLabel,
-                          heji_anchor_ratio: normalized,
-                        }),
-                      );
-                      const referenceOffsetCents = resolveReferenceOffsetCents(
-                        props.settings,
-                        nextPitchFrame,
-                        normalized,
-                      );
-                      if (Number.isFinite(referenceOffsetCents)) {
-                        nextFundamental = stabilizeFrequency(
-                          stableSpellingFrequency * Math.pow(2, referenceOffsetCents / 1200),
-                          props.settings.fundamental,
-                        );
+                  const shouldUpdateAnchorLabel =
+                    normalizedAnchorLabel && normalizedAnchorLabel !== currentAnchorLabel;
+                  const shouldClearAnchorFrequency = String(
+                    props.settings.heji_anchor_frequency || "",
+                  ).trim();
+                  if (shouldUpdateAnchorLabel || shouldClearAnchorFrequency) {
+                    if (typeof props.onAtomicChange === "function") {
+                      props.onAtomicChange({
+                        heji_anchor_ratio: normalized,
+                        ...(shouldUpdateAnchorLabel
+                          ? { heji_anchor_label: normalizedAnchorLabel }
+                          : {}),
+                        ...(shouldClearAnchorFrequency ? { heji_anchor_frequency: "" } : {}),
+                      });
+                    } else {
+                      props.onChange("heji_anchor_ratio", normalized);
+                      if (shouldUpdateAnchorLabel) {
+                        props.onChange("heji_anchor_label", normalizedAnchorLabel);
                       }
-                    } catch {
-                      nextFundamental = null;
+                      if (shouldClearAnchorFrequency) {
+                        props.onChange("heji_anchor_frequency", "");
+                      }
                     }
-                  }
-                  if (
-                    Number.isFinite(nextFundamental) &&
-                    nextFundamental > 0 &&
-                    props.onAtomicChange
-                  ) {
-                    props.onAtomicChange({
-                      ...(preserveDerivedAnchor ? { heji_anchor_label: effectiveAnchorLabel } : {}),
-                      heji_anchor_ratio: normalized,
-                      fundamental: nextFundamental,
-                    });
                     return;
                   }
                   props.onChange("heji_anchor_ratio", normalized);
@@ -574,7 +555,10 @@ const KeyLabels = (props) => {
                 if (e.key === "Enter") e.target.blur();
               }}
               onBlur={(e) => {
-                const normalized = normalizeAnchorLabelInput(e.target.value);
+                const normalized = normalizeAnchorLabelForInterval(
+                  e.target.value,
+                  props.settings.heji_anchor_ratio || effectiveAnchorRatio,
+                );
                 if (normalized) {
                   setAnchorLabelDraft(normalized);
                   props.onChange("heji_anchor_label", normalized);

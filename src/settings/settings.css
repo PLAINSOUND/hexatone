@@ -1218,6 +1218,27 @@ td.scale-color-col .color-input {
   color: #888888;
 }
 
+.settings-fieldset--blank-surface .settings-form__inactive-until-surface input:disabled {
+  color: #999999;
+  -webkit-text-fill-color: #999999;
+}
+
+.settings-fieldset--blank-surface
+  .settings-form__inactive-until-surface
+  .scala-input__cents {
+  color: #999999;
+}
+
+.settings-fieldset--blank-surface .settings-form__surface-activator-hint input {
+  color: #999999;
+  -webkit-text-fill-color: #999999;
+}
+
+.settings-fieldset--blank-surface .settings-form__surface-activator-hint input:focus {
+  color: inherit;
+  -webkit-text-fill-color: currentcolor;
+}
+
 .settings-form__tabular-value {
   font-variant-numeric: tabular-nums;
 }

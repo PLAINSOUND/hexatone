@@ -90,6 +90,40 @@ describe("Scale panel — default state", () => {
     expect(onChange).toHaveBeenCalledWith("equivSteps", 13);
   });
 
+  it("renders blank-surface values as inactive hints while leaving surface creation active", () => {
+    const onChange = vi.fn();
+    render(
+      <Scale
+        settings={{ ...minimalSettings, scale: null, equivSteps: 1 }}
+        hasMusicalSurface={false}
+        onChange={onChange}
+        onImport={() => {}}
+      />,
+    );
+
+    expect(
+      screen
+        .getByText("Scale Settings")
+        .closest("fieldset")
+        .classList.contains("settings-fieldset--blank-surface"),
+    ).toBe(true);
+    expect(screen.getByLabelText("reference frequency").disabled).toBe(true);
+    expect(screen.getByLabelText("Assigned Scale Degree").disabled).toBe(true);
+    expect(screen.getByLabelText("degree 0 frequency").disabled).toBe(true);
+    expect(screen.getByLabelText("equave").disabled).toBe(true);
+    expect(screen.getByLabelText("Scale Size").disabled).toBe(false);
+    expect(screen.getByLabelText("Scale Size").value).toBe("0");
+    expect(document.querySelector(".scale-table__equave-label")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /add scale degree/i }));
+    expect(onChange).toHaveBeenCalledWith("equivSteps", 1);
+
+    const scaleSize = screen.getByLabelText("Scale Size");
+    fireEvent.input(scaleSize, { target: { value: "1" } });
+    fireEvent.blur(scaleSize);
+    expect(onChange).toHaveBeenCalledWith("equivSteps", 1);
+  });
+
   it("shows the tuning save action below the scale actions when the primary save is out of view", () => {
     const save = vi.fn();
     render(
@@ -267,6 +301,7 @@ describe("Scale panel — default state", () => {
   });
 
   it("shows the effective scale size from the current scale when equivSteps is stale", () => {
+    const onChange = vi.fn();
     render(
       <Scale
         settings={{
@@ -274,7 +309,7 @@ describe("Scale panel — default state", () => {
           equivSteps: 12,
           scale: ["2/1"],
         }}
-        onChange={() => {}}
+        onChange={onChange}
         onImport={() => {}}
       />,
     );
@@ -282,6 +317,11 @@ describe("Scale panel — default state", () => {
     expect(screen.getByLabelText("Scale Size").value).toBe("1");
     expect(screen.queryByText("Divide Equave into 1 Equal Divisions")).toBeNull();
     expect(screen.queryByText("Divide Octave into 1 Equal Divisions")).toBeNull();
+
+    const scaleSize = screen.getByLabelText("Scale Size");
+    fireEvent.input(scaleSize, { target: { value: "0" } });
+    fireEvent.blur(scaleSize);
+    expect(onChange).toHaveBeenCalledWith("equivSteps", 0);
   });
 
   it("shows rounded reference frequency normally but full precision on focus", () => {

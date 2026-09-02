@@ -39,6 +39,8 @@ const Scale = (props) => {
     fundamental,
   } = props.settings;
   const { onChange } = props;
+  const hasMusicalSurface =
+    props.hasMusicalSurface ?? (Array.isArray(settingsScale) && settingsScale.length > 0);
 
   const [previewState, setPreviewState] = useState(() => createTuningPreviewState());
   const [liveScaleTableSnapshot, setLiveScaleTableSnapshot] = useState(null);
@@ -91,7 +93,9 @@ const Scale = (props) => {
 
   // Get current equave value from scale array
   const scale = settingsScale || [];
-  const effectiveEquivSteps = scale.length || settingsEquivSteps || 1;
+  const effectiveEquivSteps = hasMusicalSurface
+    ? scale.length || settingsEquivSteps || 1
+    : 0;
   const equaveValue = scale.length > 0 ? scale[scale.length - 1] : "2/1";
   const previewFundamental = useMemo(
     () => getEffectiveFundamentalHz({ fundamental }, previewState),
@@ -126,7 +130,7 @@ const Scale = (props) => {
   };
 
   return (
-    <fieldset>
+    <fieldset class={hasMusicalSurface ? undefined : "settings-fieldset--blank-surface"}>
       <legend>
         <b>Scale Settings</b>
         <button
@@ -141,12 +145,13 @@ const Scale = (props) => {
           />
         </button>
       </legend>
-      <label>
+      <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
         Reference Frequency (Hz)
         <span class="fundamental-right">
           <FrequencyInput
             ariaLabel="reference frequency"
             value={previewFundamental}
+            disabled={!hasMusicalSurface}
             deviationCents={getFundamentalDeviationCents(previewState)}
             comparing={isFundamentalComparing(previewState)}
             onCommit={(frequency) => {
@@ -154,18 +159,24 @@ const Scale = (props) => {
               props.onChange("fundamental", frequency);
             }}
           />
-          <FundamentalTuneCell
-            key={`fundamental-tune-${props.importCount ?? 0}-${props.settings.fundamental}`}
-            fundamental={props.settings.fundamental}
-            previewState={previewState}
-            keysRef={props.keysRef}
-            onChange={props.onChange}
-            onPreviewChange={handleFundamentalPreviewChange}
-            resetToken={props.importCount ?? 0}
-          />
+          {hasMusicalSurface ? (
+            <FundamentalTuneCell
+              key={`fundamental-tune-${props.importCount ?? 0}-${props.settings.fundamental}`}
+              fundamental={props.settings.fundamental}
+              previewState={previewState}
+              keysRef={props.keysRef}
+              onChange={props.onChange}
+              onPreviewChange={handleFundamentalPreviewChange}
+              resetToken={props.importCount ?? 0}
+            />
+          ) : null}
         </span>
       </label>
-      <label class="reference-degree-row reference-degree-label">
+      <label
+        class={`reference-degree-row reference-degree-label${
+          hasMusicalSurface ? "" : " settings-form__inactive-until-surface"
+        }`}
+      >
         Assigned Scale Degree
         <input
           name="reference_degree"
@@ -177,6 +188,7 @@ const Scale = (props) => {
           step="1"
           min="0"
           max={effectiveEquivSteps - 1}
+          disabled={!hasMusicalSurface}
           {...buildAutoSelectInputProps()}
           onBlur={(e) => {
             const val = parseInt(e.target.value);
@@ -189,26 +201,28 @@ const Scale = (props) => {
           }}
         />
       </label>
-      <label>
+      <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
         Frequency of 1/1 (scale degree 0)
         <span class="fundamental-right">
           <FrequencyInput
             ariaLabel="degree 0 frequency"
             value={previewDegree0Frequency}
+            disabled={!hasMusicalSurface}
             onCommit={handleDegree0FrequencyCommit}
           />
         </span>
       </label>
-      <label>
+      <label class={hasMusicalSurface ? undefined : "settings-form__surface-activator-hint"}>
         Scale Size
         <input
           name="equivSteps"
           type="text"
           inputMode="numeric"
           class="sidebar-input"
-          value={effectiveEquivSteps}
+          key={`${hasMusicalSurface ? "active" : "blank"}-${effectiveEquivSteps}`}
+          defaultValue={effectiveEquivSteps}
           step="1"
-          min="1"
+          min="0"
           max="2048"
           {...buildAutoSelectInputProps()}
           onKeyDown={(e) => {
@@ -219,13 +233,15 @@ const Scale = (props) => {
           }}
           onBlur={(e) => {
             const val = parseInt(e.target.value);
-            if (!isNaN(val) && val >= 1 && val <= 2048) {
+            if (!isNaN(val) && val >= 0 && val <= 2048) {
               props.onChange("equivSteps", val);
+            } else {
+              e.target.value = effectiveEquivSteps;
             }
           }}
         />
       </label>
-      <label>
+      <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
         Equave
         <ScalaInput
           context="interval"
@@ -236,6 +252,7 @@ const Scale = (props) => {
           inputClass="settings-form__scala-input settings-form__scala-input--right"
           wrapperClass="sidebar-input"
           aria-label="equave"
+          disabled={!hasMusicalSurface}
         />
       </label>
       {effectiveEquivSteps > 1 && (
@@ -299,6 +316,7 @@ const Scale = (props) => {
           <ScaleTable
             key={props.settings.scale?.length}
             {...props}
+            hasMusicalSurface={hasMusicalSurface}
             previewState={previewState}
             onPreviewChange={setPreviewState}
             importCount={props.importCount}
@@ -363,6 +381,7 @@ Scale.propTypes = {
     action: PropTypes.func,
   }),
   primaryTuningSaveVisible: PropTypes.bool,
+  hasMusicalSurface: PropTypes.bool,
 };
 
 export default Scale;

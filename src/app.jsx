@@ -1,7 +1,7 @@
 /**
  * src/app.jsx
  *
- * Main application shell for PLAINSOUND HEXATONE and SEQUENCER.
+ * Main application shell for PLAINSOUND HEXATONE.
  *
  * This file composes the major runtime layers: persisted settings, tuning
  * normalization, keyboard/synth wiring, controller integration, manual/help
@@ -5545,7 +5545,7 @@ const App = () => {
         ) : workspaceTab === "calculator" ? (
           <p class="sidebar-intro">
             <em>
-              A single-pitch JI workspace: input a HEJI spelling, Scala ratio or cents value to determine its staff notation, cents deviation, frequency, and nearby rational intonation options. Choosing a tuning in the Plainsound Hexatone changes the Reference Frequency and Spelling Anchor in this tab; subsequent Calculator edits do not retune Hexatone. {" "}
+              Choose a tuning reference (for example, </em>*nA = 440 Hz<em>), then input a HEJI spelling, ratio or cents value to determine its staff notation, cents deviation, frequency, and nearby rational intonation options. Choosing a tuning in HEXATONE tab changes the Reference Frequency and Spelling Anchor in CALCULATOR but changing the settings does not retune the Keyboard canvas. {" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -5558,11 +5558,7 @@ const App = () => {
         ) : workspaceTab === "hexatone" ? (
           <p class="sidebar-intro">
             <em>
-              To play, choose a tuning, click or touch notes, attach a MIDI keyboard or an
-              isomorphic controller like Lumatone or Exquis. Use internal sounds or retune external
-              synths using MTS, MPE, OSC. Edit the scale in the table below; drag to retune notes;
-              rationalise; modulate. SHIFT+ESC toggles a hand-free latch sustain. SHIFT+ENTER
-              captures snapshots to build a sequence.{" "}
+              To play, choose a built-in tuning or build your own scale in "Scale Settings" by changing "Scale Size" or clicking on "Add Scale Degree". Click or touch notes. Edit the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in SEQUENCER. Visit the IO tab to choose internal sounds, connect a MIDI keyboard or an isomorphic controller like Lumatone or Exquis, and retune external synths using MTS, MPE, OSC. {" "}
               <button
                 type="button"
                 className="app-shell__intro-more"

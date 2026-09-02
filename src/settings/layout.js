@@ -7,6 +7,7 @@ const Layout = (props) => {
     () => sessionStorage.getItem("hexatone_layout_collapsed") === "true",
   );
   const maxDegree = (props.settings.equivSteps || 1) - 1;
+  const hasMusicalSurface = props.hasMusicalSurface ?? true;
 
   const handleToggle = (c) => {
     sessionStorage.setItem("hexatone_layout_collapsed", c);
@@ -14,7 +15,7 @@ const Layout = (props) => {
   };
 
   return (
-    <fieldset>
+    <fieldset class={hasMusicalSurface ? undefined : "settings-fieldset--blank-surface"}>
       <legend>
         <b>Hexatone Layout</b>
         <button
@@ -33,7 +34,11 @@ const Layout = (props) => {
           />
         </button>
       </legend>
-      <label class="center-degree-row center-degree-label">
+      <label
+        class={`center-degree-row center-degree-label${
+          hasMusicalSurface ? "" : " settings-form__inactive-until-surface"
+        }`}
+      >
         Central Scale Degree
         <input
           name="center_degree"
@@ -45,6 +50,7 @@ const Layout = (props) => {
           step="1"
           min="0"
           max={maxDegree}
+          disabled={!hasMusicalSurface}
           {...buildAutoSelectInputProps()}
           onKeyDown={(e) => {
             if (e.key === "Enter") e.target.blur();
@@ -61,7 +67,7 @@ const Layout = (props) => {
       </label>
       {collapsed ? null : (
         <>
-          <label>
+          <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
             Right-Facing Steps
             <input
               name="rSteps"
@@ -72,6 +78,7 @@ const Layout = (props) => {
               defaultValue={props.settings.rSteps}
               min="-1220"
               max="1220"
+              disabled={!hasMusicalSurface}
               {...buildAutoSelectInputProps()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
@@ -86,7 +93,7 @@ const Layout = (props) => {
               }}
             />
           </label>
-          <label>
+          <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
             Right-Downward Steps
             <input
               name="drSteps"
@@ -97,6 +104,7 @@ const Layout = (props) => {
               defaultValue={props.settings.drSteps}
               min="-1220"
               max="1220"
+              disabled={!hasMusicalSurface}
               {...buildAutoSelectInputProps()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
@@ -111,7 +119,7 @@ const Layout = (props) => {
               }}
             />
           </label>
-          <label>
+          <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
             Hex Size
             <input
               name="hexSize"
@@ -122,6 +130,7 @@ const Layout = (props) => {
               defaultValue={props.settings.hexSize}
               min="20"
               max="1000"
+              disabled={!hasMusicalSurface}
               {...buildAutoSelectInputProps()}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
@@ -136,7 +145,7 @@ const Layout = (props) => {
               }}
             />
           </label>
-          <label>
+          <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
             Rotation Clockwise
             <input
               name="rotation"
@@ -147,6 +156,7 @@ const Layout = (props) => {
               defaultValue={props.settings.rotation}
               min="-360"
               max="360"
+              disabled={!hasMusicalSurface}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.target.blur();
               }}
@@ -176,6 +186,7 @@ Layout.propTypes = {
     center_degree: PropTypes.number,
     equivSteps: PropTypes.number,
   }),
+  hasMusicalSurface: PropTypes.bool,
 };
 
 export default Layout;

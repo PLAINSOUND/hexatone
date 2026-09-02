@@ -1436,12 +1436,15 @@ const ScaleTable = (props) => {
               </td>
             </tr>
           ))}
-          <tr
-            key={`equiv-${props.importCount}`}
-            class={
-              props.settings.reference_degree === scale.length ? "reference-degree-row" : undefined
-            }
-          >
+          {props.hasMusicalSurface !== false ? (
+            <tr
+              key={`equiv-${props.importCount}`}
+              class={
+                props.settings.reference_degree === scale.length
+                  ? "reference-degree-row"
+                  : undefined
+              }
+            >
             <td class="scale-data-col">
               <div class="scale-degree-cell">
                 <span
@@ -1496,7 +1499,8 @@ const ScaleTable = (props) => {
             <td class="scale-color-col">
               <span class="scale-table__equave-label">Equave</span>
             </td>
-          </tr>
+            </tr>
+          ) : null}
         </tbody>
       </table>
     </div>
@@ -1514,6 +1518,7 @@ ScaleTable.propTypes = {
     rowsByDegree: PropTypes.object,
   }),
   liveScaleTableActivityOnly: PropTypes.bool,
+  hasMusicalSurface: PropTypes.bool,
   liveActiveDegrees: PropTypes.arrayOf(PropTypes.string),
   heji_names: PropTypes.arrayOf(PropTypes.string),
   heji_names_table: PropTypes.arrayOf(PropTypes.string),

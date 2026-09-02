@@ -153,15 +153,14 @@ describe("SESSION_KEYS", () => {
     expect(URL_KEYS).not.toContain("retuning_mode");
   });
 
-  it("keeps HEJI palette preferences session-scoped and out of share URLs", () => {
-    const paletteKeys = [
-      "heji_palette_visible",
-      "heji_palette_structure",
-      "heji_palette_deviation",
-      "heji_palette_decimals",
-    ];
-    paletteKeys.forEach((key) => {
+  it("persists HEJI palette display preferences but resets constructed content", () => {
+    ["heji_palette_visible", "heji_palette_decimals"].forEach((key) => {
       expect(SESSION_KEYS).toContain(key);
+      expect(URL_KEYS).not.toContain(key);
+    });
+    ["heji_palette_structure", "heji_palette_deviation"].forEach((key) => {
+      expect(RUNTIME_KEYS).toContain(key);
+      expect(SESSION_KEYS).not.toContain(key);
       expect(URL_KEYS).not.toContain(key);
     });
   });

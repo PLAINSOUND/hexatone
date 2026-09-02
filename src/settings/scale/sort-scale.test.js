@@ -96,4 +96,25 @@ describe("deleteScaleDegree", () => {
     expect(deleteScaleDegree(settings, 0)).toBeNull();
     expect(deleteScaleDegree(settings, 3)).toBeNull();
   });
+
+  it("allows a two-step scale to shrink to degree 0 plus the equave", () => {
+    const settings = {
+      scale: ["600.", "1200."],
+      note_names: ["root", "middle"],
+      note_colors: ["#000000", "#666666"],
+      reference_degree: 1,
+      center_degree: 1,
+      equivSteps: 2,
+    };
+
+    expect(deleteScaleDegree(settings, 1)).toEqual({
+      equivSteps: 1,
+      scale: ["1200."],
+      note_names: ["root"],
+      note_colors: ["#000000"],
+      reference_degree: 0,
+      center_degree: 0,
+    });
+    expect(deleteScaleDegree({ ...settings, scale: ["1200."] }, 1)).toBeNull();
+  });
 });

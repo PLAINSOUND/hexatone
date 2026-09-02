@@ -272,6 +272,27 @@ describe("normalizeStructural", () => {
     expect(pitchToDisplayRatio(degreePitch)).toBe("1/1");
   });
 
+  it("uses exact HEJI accidentals for an explicit rational anchor on a blank surface", () => {
+    const normalized = normalizeStructural({
+      rotation: 0,
+      key_labels: "heji",
+      scale: [],
+      equivSteps: 0,
+      note_names: [],
+      heji_anchor_label: "F",
+      heji_anchor_ratio: "3/2",
+      reference_degree: 0,
+      fundamental: 440,
+      heji_show_cents: false,
+    });
+
+    expect(normalized.heji_tempered_only_effective).toBe(false);
+    expect(normalized.heji_anchor_label_effective).toBe("F");
+    expect(normalized.heji_anchor_ratio_effective).toBe("3/2");
+    expect(normalized.heji_names[0]).toBe("B−2");
+    expect(normalized.heji_names_keys[0]).toBe("B");
+  });
+
   it("derives a tempered A anchor from the computed 440 Hz degree when note_names are non-HEJI", () => {
     const edo22 = Array.from({ length: 22 }, (_, i) => (((i + 1) * 1200) / 22).toFixed(6));
     const noteNames = [

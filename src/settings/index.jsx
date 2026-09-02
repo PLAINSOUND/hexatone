@@ -45,6 +45,7 @@ const Settings = ({
     action: null,
   });
   const [primaryTuningSaveVisible, setPrimaryTuningSaveVisible] = useState(false);
+  const hasMusicalSurface = Array.isArray(settings.scale) && settings.scale.length > 0;
   const effectiveScaleSettings = useMemo(
     () => ({
       ...settings,
@@ -106,8 +107,13 @@ const Settings = ({
         keysReadyRevision={keysReadyRevision}
         tuningSaveActionState={tuningSaveActionState}
         primaryTuningSaveVisible={primaryTuningSaveVisible}
+        hasMusicalSurface={hasMusicalSurface}
       />
-      <Layout onChange={onChange} settings={settings} />
+      <Layout
+        onChange={onChange}
+        settings={settings}
+        hasMusicalSurface={hasMusicalSurface}
+      />
     </div>
   );
 };
