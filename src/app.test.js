@@ -17,6 +17,7 @@ import userEvent from "@testing-library/user-event";
 import { act } from "preact/test-utils";
 import { parseExactInterval } from "./tuning/interval.js";
 import { SEQUENCE_WORKSPACE_STORAGE_KEY } from "./sequencer/session-persistence.js";
+import { CALCULATOR_WORKSPACE_STORAGE_KEY } from "./calculator/session-persistence.js";
 
 let lastKeyboardProps = null;
 let lastUsePresetsOptions = null;
@@ -288,11 +289,13 @@ describe("applyReloadPersistencePolicy", () => {
       SEQUENCE_WORKSPACE_STORAGE_KEY,
       JSON.stringify({ snapshots: [{ id: 1 }] }),
     );
+    sessionStorage.setItem(CALCULATOR_WORKSPACE_STORAGE_KEY, JSON.stringify({ state: {} }));
 
     applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist: false });
 
     expect(window.location.search).toBe("");
     expect(sessionStorage.getItem(SEQUENCE_WORKSPACE_STORAGE_KEY)).toBeNull();
+    expect(sessionStorage.getItem(CALCULATOR_WORKSPACE_STORAGE_KEY)).toBeNull();
   });
 
   it("keeps the visible Sequencer or Calculator tab independent of preset restoration", () => {
@@ -344,6 +347,7 @@ describe("reload workspace tab", () => {
 
 beforeEach(() => {
   sessionStorage.removeItem(RELOAD_WORKSPACE_TAB_KEY);
+  sessionStorage.removeItem(CALCULATOR_WORKSPACE_STORAGE_KEY);
   lastKeyboardProps = null;
   lastUsePresetsOptions = null;
   mockDetectedController = null;
@@ -1335,6 +1339,25 @@ describe("App workspace tabs", () => {
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     expect(screen.getByLabelText("play timed transport")).toBe(timedPlayButton);
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("keeps Calculator user data mounted while switching workspace tabs", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
+    const pitch = await screen.findByLabelText("Calculator lookup ratio or cents");
+    fireEvent.input(pitch, { target: { value: "5/4" } });
+    fireEvent.blur(pitch);
+
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    expect(pitch.isConnected).toBe(true);
+    expect(pitch.closest(".calculator-tab").hidden).toBe(true);
+
+    await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
+    expect(screen.getByLabelText("Calculator lookup ratio or cents")).toBe(pitch);
+    expect(pitch.value).toBe("5/4");
+    expect(pitch.closest(".calculator-tab").hidden).toBe(false);
   });
 
   it("keeps performance palettes in I/O and the snapshot palette outside Sequencer", async () => {

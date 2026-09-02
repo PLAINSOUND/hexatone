@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import FrequencyInput, {
   formatFrequencyHz,
@@ -11,6 +11,7 @@ import {
   parseOptionalPositiveInt,
 } from "../settings/scale/scale-table/search-prefs.js";
 import HejiPalette from "./heji-palette.jsx";
+import { loadCalculatorWorkspace, saveCalculatorWorkspace } from "./session-persistence.js";
 import {
   calculatorIntervalFromPitchStructure,
   calculatorPalettePitchFromAnalysis,
@@ -153,10 +154,13 @@ CommitTextInput.propTypes = {
   className: PropTypes.string,
 };
 
-const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio }) => {
-  const [showBlankDataHints, setShowBlankDataHints] = useState(
-    () => !Array.isArray(settings.scale) || settings.scale.length === 0,
-  );
+const CalculatorTab = ({
+  settings,
+  effectiveAnchorLabel,
+  effectiveAnchorRatio,
+  hidden = false,
+  workspaceKey = "",
+}) => {
   const seed = useMemo(
     () =>
       deriveCalculatorSeed(settings, {
@@ -165,26 +169,109 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
       }),
     [effectiveAnchorLabel, effectiveAnchorRatio, settings],
   );
-  const [referenceFrequency, setReferenceFrequency] = useState(seed.referenceFrequency);
-  const [referenceInterval, setReferenceInterval] = useState(seed.referenceInterval);
-  const [anchorInterval, setAnchorInterval] = useState(seed.anchorInterval);
-  const [anchorReferenceInterval, setAnchorReferenceInterval] = useState(
-    seed.anchorReferenceInterval,
+  const restoredWorkspace = useMemo(
+    () => (workspaceKey ? loadCalculatorWorkspace(workspaceKey) : null),
+    [workspaceKey],
   );
-  const [anchorLabel, setAnchorLabel] = useState(seed.anchorLabel);
-  const [offsetInterval, setOffsetInterval] = useState("1/1");
-  const [queryInterval, setQueryInterval] = useState(seed.targetInterval);
-  const [spellingResultLabel, setSpellingResultLabel] = useState("");
-  const [decimalPlaces, setDecimalPlaces] = useState(seed.decimalPlaces);
-  const [querySource, setQuerySource] = useState("ratio");
-  const [searchPrefs, setSearchPrefs] = useState(loadRationalisationPreferences);
-  const [rationalSort, setRationalSort] = useState("harmonicRadius");
-  const [maxRationalResults, setMaxRationalResults] = useState("16");
-  const [showRationalOptions, setShowRationalOptions] = useState(false);
-  const [normalizeResults, setNormalizeResults] = useState(false);
+  const [showBlankDataHints, setShowBlankDataHints] = useState(
+    restoredWorkspace?.showBlankDataHints ??
+      (!Array.isArray(settings.scale) || settings.scale.length === 0),
+  );
+  const [referenceFrequency, setReferenceFrequency] = useState(
+    restoredWorkspace?.referenceFrequency ?? seed.referenceFrequency,
+  );
+  const [referenceInterval, setReferenceInterval] = useState(
+    restoredWorkspace?.referenceInterval ?? seed.referenceInterval,
+  );
+  const [anchorInterval, setAnchorInterval] = useState(
+    restoredWorkspace?.anchorInterval ?? seed.anchorInterval,
+  );
+  const [anchorReferenceInterval, setAnchorReferenceInterval] = useState(
+    restoredWorkspace?.anchorReferenceInterval ?? seed.anchorReferenceInterval,
+  );
+  const [anchorLabel, setAnchorLabel] = useState(
+    restoredWorkspace?.anchorLabel ?? seed.anchorLabel,
+  );
+  const [offsetInterval, setOffsetInterval] = useState(restoredWorkspace?.offsetInterval ?? "1/1");
+  const [queryInterval, setQueryInterval] = useState(
+    restoredWorkspace?.queryInterval ?? seed.targetInterval,
+  );
+  const [spellingResultLabel, setSpellingResultLabel] = useState(
+    restoredWorkspace?.spellingResultLabel ?? "",
+  );
+  const [decimalPlaces, setDecimalPlaces] = useState(
+    restoredWorkspace?.decimalPlaces ?? seed.decimalPlaces,
+  );
+  const [querySource, setQuerySource] = useState(restoredWorkspace?.querySource ?? "ratio");
+  const [searchPrefs, setSearchPrefs] = useState(
+    restoredWorkspace?.searchPrefs ?? loadRationalisationPreferences,
+  );
+  const [rationalSort, setRationalSort] = useState(
+    restoredWorkspace?.rationalSort ?? "harmonicRadius",
+  );
+  const [maxRationalResults, setMaxRationalResults] = useState(
+    restoredWorkspace?.maxRationalResults ?? "16",
+  );
+  const [showRationalOptions, setShowRationalOptions] = useState(
+    restoredWorkspace?.showRationalOptions ?? false,
+  );
+  const [normalizeResults, setNormalizeResults] = useState(
+    restoredWorkspace?.normalizeResults ?? false,
+  );
   const [includeTemperedAccidentalsInDeviation, setIncludeTemperedAccidentalsInDeviation] =
-    useState(false);
-  const [useTraditionalAccidentals, setUseTraditionalAccidentals] = useState(false);
+    useState(restoredWorkspace?.includeTemperedAccidentalsInDeviation ?? false);
+  const [useTraditionalAccidentals, setUseTraditionalAccidentals] = useState(
+    restoredWorkspace?.useTraditionalAccidentals ?? false,
+  );
+  const [paletteWorkspaceState, setPaletteWorkspaceState] = useState(
+    restoredWorkspace?.palette ?? null,
+  );
+
+  useEffect(() => {
+    if (!workspaceKey) return;
+    saveCalculatorWorkspace(workspaceKey, {
+      showBlankDataHints,
+      referenceFrequency,
+      referenceInterval,
+      anchorInterval,
+      anchorReferenceInterval,
+      anchorLabel,
+      offsetInterval,
+      queryInterval,
+      spellingResultLabel,
+      decimalPlaces,
+      querySource,
+      searchPrefs,
+      rationalSort,
+      maxRationalResults,
+      showRationalOptions,
+      normalizeResults,
+      includeTemperedAccidentalsInDeviation,
+      useTraditionalAccidentals,
+      palette: paletteWorkspaceState,
+    });
+  }, [
+    anchorInterval,
+    anchorLabel,
+    anchorReferenceInterval,
+    decimalPlaces,
+    includeTemperedAccidentalsInDeviation,
+    maxRationalResults,
+    normalizeResults,
+    offsetInterval,
+    paletteWorkspaceState,
+    queryInterval,
+    querySource,
+    rationalSort,
+    referenceFrequency,
+    referenceInterval,
+    searchPrefs,
+    showBlankDataHints,
+    showRationalOptions,
+    spellingResultLabel,
+    useTraditionalAccidentals,
+    workspaceKey,
+  ]);
 
   const rationalSearch = useMemo(() => {
     const primeLimit = parseOptionalPositiveInt(searchPrefs.primeLimit);
@@ -323,6 +410,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
   };
   return (
     <div
+      hidden={hidden}
       class={`calculator-tab${showBlankDataHints ? " calculator-tab--blank-hints" : ""}`}
       onInputCapture={() => setShowBlankDataHints(false)}
       onChangeCapture={() => setShowBlankDataHints(false)}
@@ -439,9 +527,11 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
           initialSpelling={anchorLabel}
           initialDeviation=""
           initialDecimals={decimalPlaces}
+          initialWorkspaceState={paletteWorkspaceState}
           synchronizedPitch={synchronizedPalettePitch}
           onDecimalsChange={setDecimalPlaces}
           onSpellingChange={commitSpelling}
+          onWorkspaceStateChange={setPaletteWorkspaceState}
         />
       </fieldset>
 
@@ -849,6 +939,8 @@ CalculatorTab.propTypes = {
   settings: PropTypes.object.isRequired,
   effectiveAnchorLabel: PropTypes.string,
   effectiveAnchorRatio: PropTypes.string,
+  hidden: PropTypes.bool,
+  workspaceKey: PropTypes.string,
 };
 
 export default CalculatorTab;

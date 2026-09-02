@@ -82,6 +82,7 @@ import {
   loadSequenceWorkspaceFromSession,
   saveSequenceWorkspaceToSession,
 } from "./sequencer/session-persistence.js";
+import { CALCULATOR_WORKSPACE_STORAGE_KEY } from "./calculator/session-persistence.js";
 import {
   buildLoadedSequenceWorkspace,
   buildRestoredSequenceWorkspace,
@@ -200,6 +201,7 @@ export function applyReloadPersistencePolicy({
     "hexatone_preset_source",
     "hexatone_preset_name",
     SEQUENCE_WORKSPACE_STORAGE_KEY,
+    CALCULATOR_WORKSPACE_STORAGE_KEY,
     "direct_sysex_auto",
     "mts_bulk_sysex_auto",
     "webmidi_access",
@@ -4885,6 +4887,8 @@ const App = () => {
   const calculatorSidebar = (
     <CalculatorTab
       key={`calculator-${calculatorSeedKey}`}
+      hidden={workspaceTab !== "calculator" || Boolean(activeManualView)}
+      workspaceKey={calculatorSeedKey}
       settings={settings}
       effectiveAnchorLabel={structuralSettings.heji_anchor_label_effective}
       effectiveAnchorRatio={structuralSettings.heji_anchor_ratio_effective}
@@ -5640,16 +5644,18 @@ const App = () => {
         ) : null}
 
         <Suspense fallback={<SidebarLoadingFallback />}>
-          {activeManualView ? (
-            <ManualSidebar
-              key={activeManualView}
-              initialSectionTitle={manualSectionTitles[activeManualView]}
-              onSectionChange={rememberManualSection}
-              onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
-              scrollContainerRef={sidebarRef}
-            />
-          ) : performanceWorkspaceTab === "sequencer" ? (
-            <>
+          <>
+            {calculatorSidebar}
+            {activeManualView ? (
+              <ManualSidebar
+                key={activeManualView}
+                initialSectionTitle={manualSectionTitles[activeManualView]}
+                onSectionChange={rememberManualSection}
+                onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
+                scrollContainerRef={sidebarRef}
+              />
+            ) : performanceWorkspaceTab === "sequencer" ? (
+              <>
               <div hidden={workspaceTab !== "sequencer"} aria-hidden={workspaceTab !== "sequencer"}>
                 <Sequencer
                   snapshots={snapshots}
@@ -5754,18 +5760,12 @@ const App = () => {
                   onResetSnapshotDescription={onResetSnapshotDescription}
                 />
               </div>
-              {workspaceTab === "io"
-                ? ioSettingsSidebar
-                : workspaceTab === "calculator"
-                  ? calculatorSidebar
-                  : null}
-            </>
-          ) : workspaceTab === "io" ? (
-            ioSettingsSidebar
-          ) : workspaceTab === "calculator" ? (
-            calculatorSidebar
-          ) : (
-            <>
+                {workspaceTab === "io" ? ioSettingsSidebar : null}
+              </>
+            ) : workspaceTab === "io" ? (
+              ioSettingsSidebar
+            ) : workspaceTab === "calculator" ? null : (
+              <>
               <Settings
                 onChange={onChange}
                 onAtomicChange={onAtomicChange}
@@ -5808,8 +5808,9 @@ const App = () => {
                 onDeleteSnapshot={onDeleteSnapshot}
               />
               <Credits />
-            </>
-          )}
+              </>
+            )}
+          </>
         </Suspense>
         <div id="sidebar-spacer"></div>
       </nav>

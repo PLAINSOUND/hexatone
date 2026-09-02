@@ -5836,6 +5836,17 @@ input.equiv-cell:disabled,
   text-align: center;
 }
 
+.heji-palette-builder__symbol-btn--down {
+  padding-left: 0.25em;
+  padding-right: 0.25em;
+}
+
+.heji-palette-builder__word-label {
+  display: inline-block;
+  transform: scale(0.8);
+  transform-origin: center;
+}
+
 @media (max-width: 480px) {
   .heji-palette-builder {
     gap: 0.3em;

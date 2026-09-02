@@ -963,7 +963,7 @@ const KeyLabels = (props) => {
                     <div class="heji-palette-builder__symbols" role="group" aria-label="5-Limit">
                       <button
                         type="button"
-                        class="preset-action-btn heji-palette-builder__symbol-btn"
+                        class="preset-action-btn heji-palette-builder__symbol-btn heji-palette-builder__symbol-btn--down"
                         onClick={() => {
                           setPaletteStructure((current) =>
                             withPitchStructureSyntonicDelta(
@@ -977,7 +977,7 @@ const KeyLabels = (props) => {
                           setCopied(false);
                         }}
                       >
-                        down
+                        <span class="heji-palette-builder__word-label">down</span>
                       </button>
                       <button
                         type="button"
@@ -995,7 +995,7 @@ const KeyLabels = (props) => {
                           setCopied(false);
                         }}
                       >
-                        up
+                        <span class="heji-palette-builder__word-label">up</span>
                       </button>
                     </div>
                   </span>

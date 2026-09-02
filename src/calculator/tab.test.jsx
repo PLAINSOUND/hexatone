@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/preact";
 import { beforeEach, describe, expect, it } from "vitest";
 import CalculatorTab from "./tab.jsx";
+import { CALCULATOR_WORKSPACE_STORAGE_KEY } from "./session-persistence.js";
 
 const SETTINGS = {
   fundamental: 440,
@@ -15,7 +16,10 @@ const SETTINGS = {
 };
 
 describe("CalculatorTab", () => {
-  beforeEach(() => localStorage.removeItem("hexatone_search_prefs"));
+  beforeEach(() => {
+    localStorage.removeItem("hexatone_search_prefs");
+    sessionStorage.removeItem(CALCULATOR_WORKSPACE_STORAGE_KEY);
+  });
 
   it("starts at A 440 and 1/1 before a Hexatone scale is loaded", () => {
     render(<CalculatorTab settings={{ scale: null }} />);
@@ -91,6 +95,25 @@ describe("CalculatorTab", () => {
 
     expect(settings.fundamental).toBe(440);
     expect(screen.getByLabelText("Calculator frequency of 1/1").value).toBe("261.9");
+  });
+
+  it("restores Calculator user data for the same persisted tuning workspace", () => {
+    const first = render(<CalculatorTab settings={SETTINGS} workspaceKey="same-tuning" />);
+    const pitch = screen.getByLabelText("Calculator lookup ratio or cents");
+    fireEvent.input(pitch, { target: { value: "5/4" } });
+    fireEvent.blur(pitch);
+    fireEvent.click(screen.getByLabelText("Calculator use traditional accidentals"));
+    first.unmount();
+
+    const restored = render(<CalculatorTab settings={SETTINGS} workspaceKey="same-tuning" />);
+
+    expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("5/4");
+    expect(screen.getByLabelText("Calculator use traditional accidentals").checked).toBe(true);
+
+    restored.unmount();
+    render(<CalculatorTab settings={SETTINGS} workspaceKey="different-tuning" />);
+    expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("1/1");
+    expect(screen.getByLabelText("Calculator use traditional accidentals").checked).toBe(false);
   });
 
   it("interlocks reference, 1/1, and spelling frequencies", () => {

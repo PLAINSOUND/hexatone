@@ -153,18 +153,24 @@ const HejiPalette = ({
   initialDeviation,
   initialDecimals,
   initialOctave = DEFAULT_CALCULATOR_OCTAVE,
+  initialWorkspaceState,
   synchronizedPitch,
   onDecimalsChange,
   onSpellingChange,
+  onWorkspaceStateChange,
 }) => {
   const [structure, setStructure] = useState(() =>
-    parseStructure(initialStructure, initialSpelling),
+    parseStructure(initialWorkspaceState?.structure ?? initialStructure, initialSpelling),
   );
-  const [deviation, setDeviation] = useState(() => String(initialDeviation ?? ""));
+  const [deviation, setDeviation] = useState(() =>
+    String(initialWorkspaceState?.deviation ?? initialDeviation ?? ""),
+  );
   const [decimals, setDecimals] = useState(() =>
-    Math.max(0, Math.min(6, Number(initialDecimals) || 0)),
+    Math.max(0, Math.min(6, Number(initialWorkspaceState?.decimals ?? initialDecimals) || 0)),
   );
-  const [octave, setOctave] = useState(() => Math.trunc(Number(initialOctave) || 0));
+  const [octave, setOctave] = useState(() =>
+    Math.trunc(Number(initialWorkspaceState?.octave ?? initialOctave ?? DEFAULT_CALCULATOR_OCTAVE)),
+  );
   const [copied, setCopied] = useState(false);
   const pendingSynchronizedState = useRef(null);
   const spelling = useMemo(() => pitchStructureToHeji(structure), [structure]);
@@ -215,6 +221,14 @@ const HejiPalette = ({
       octave,
     });
   }, [deviation, octave, onSpellingChange, shownDeviation, spelling, structure]);
+  useEffect(() => {
+    onWorkspaceStateChange?.({
+      structure: JSON.stringify(structure),
+      deviation,
+      decimals,
+      octave,
+    });
+  }, [decimals, deviation, octave, onWorkspaceStateChange, structure]);
 
   const update = (transform, { clearDeviation = false } = {}) => {
     setStructure((current) => createPitchStructure(transform(current)));
@@ -471,7 +485,9 @@ const HejiPalette = ({
                 <button
                   key={label}
                   type="button"
-                  class="preset-action-btn heji-palette-builder__symbol-btn"
+                  class={`preset-action-btn heji-palette-builder__symbol-btn${
+                    label === "down" ? " heji-palette-builder__symbol-btn--down" : ""
+                  }`}
                   onClick={() =>
                     update(
                       (current) =>
@@ -483,7 +499,7 @@ const HejiPalette = ({
                     )
                   }
                 >
-                  {label}
+                  <span class="heji-palette-builder__word-label">{label}</span>
                 </button>
               ))}
             </div>
@@ -539,6 +555,7 @@ HejiPalette.propTypes = {
   initialDeviation: PropTypes.string,
   initialDecimals: PropTypes.number,
   initialOctave: PropTypes.number,
+  initialWorkspaceState: PropTypes.object,
   synchronizedPitch: PropTypes.shape({
     spelling: PropTypes.string.isRequired,
     deviation: PropTypes.string,
@@ -546,6 +563,7 @@ HejiPalette.propTypes = {
   }),
   onDecimalsChange: PropTypes.func,
   onSpellingChange: PropTypes.func,
+  onWorkspaceStateChange: PropTypes.func,
 };
 
 export default HejiPalette;
