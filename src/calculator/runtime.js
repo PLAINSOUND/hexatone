@@ -68,6 +68,24 @@ export function parseCalculatorInterval(value) {
   return { valid: true, source, normalized, ...parsed };
 }
 
+export function canonicalCalculatorAnchorLabelInput(value) {
+  const withoutDeviation = String(value ?? "")
+    .trim()
+    .replace(/\s*[+\-−]\s*\d+(?:\.\d+)?\s*¢?\s*$/u, "");
+  return canonicalHejiAnchorLabelInput(withoutDeviation);
+}
+
+function splitCalculatorSpelling(value) {
+  const source = String(value ?? "").trim();
+  const deviationMatch = source.match(/([+\-−]\d+(?:\.\d+)?)\s*¢?\s*$/u);
+  const spelling = canonicalCalculatorAnchorLabelInput(source);
+  const deviationCents = deviationMatch ? Number(deviationMatch[1].replace("−", "-")) : 0;
+  return {
+    spelling,
+    deviationCents: Number.isFinite(deviationCents) ? deviationCents : 0,
+  };
+}
+
 export function frequencyFromCents(degree0Frequency, centsFromDegree0) {
   return degree0Frequency * Math.pow(2, centsFromDegree0 / 1200);
 }
@@ -248,11 +266,35 @@ export function calculatorIntervalFromPitchStructure({
   }
 }
 
+export function calculatorPalettePitchFromAnalysis({ hejiLabel, centsFromAnchor, anchorLabel }) {
+  const { spelling, deviationCents } = splitCalculatorSpelling(hejiLabel);
+  const structure = parseHejiToStructure(spelling);
+  if (!structure?.letter || !Number.isFinite(centsFromAnchor)) return null;
+
+  const base = calculatorIntervalFromPitchStructure({
+    structure,
+    anchorLabel,
+    anchorInterval: "1/1",
+    deviationCents,
+    octave: DEFAULT_CALCULATOR_OCTAVE,
+  });
+  const parsedBase = parseCalculatorInterval(base.relativeInterval);
+  if (!base.valid || !parsedBase.valid) return null;
+
+  const octaveShift = Math.round((centsFromAnchor - parsedBase.cents) / 1200);
+  return {
+    spelling,
+    deviation: `${deviationCents < 0 ? "−" : "+"}${Math.abs(deviationCents)}`,
+    octave: DEFAULT_CALCULATOR_OCTAVE + octaveShift,
+  };
+}
+
 export function deriveCalculatorSeed(settings = {}, effectiveAnchor = {}) {
   const hasLoadedScale = Array.isArray(settings.scale) && settings.scale.length > 0;
   if (!hasLoadedScale) {
     return {
       ...DEFAULT_CALCULATOR_REFERENCE,
+      anchorReferenceInterval: "1/1",
       anchorFrequency: DEFAULT_CALCULATOR_REFERENCE.referenceFrequency,
     };
   }
@@ -288,6 +330,7 @@ export function deriveCalculatorSeed(settings = {}, effectiveAnchor = {}) {
     referenceFrequency,
     referenceInterval,
     anchorInterval,
+    anchorReferenceInterval: relativeCalculatorInterval(anchorInterval, referenceInterval) ?? "1/1",
     anchorLabel,
     anchorFrequency: explicitAnchorFrequency ?? derivedAnchorFrequency,
     targetInterval: DEFAULT_CALCULATOR_REFERENCE.targetInterval,
@@ -359,6 +402,8 @@ export function calculatePitchLookup(input = {}) {
   const anchor = parseCalculatorInterval(
     input.anchorInterval || DEFAULT_CALCULATOR_REFERENCE.anchorInterval,
   );
+  const offsetFromAnchor = parseCalculatorInterval(input.offsetFromAnchorInterval || "1/1");
+  const pitchFromOffset = parseCalculatorInterval(input.pitchFromOffsetInterval || "1/1");
   const parsedTarget = parseCalculatorInterval(
     input.targetInterval || DEFAULT_CALCULATOR_REFERENCE.targetInterval,
   );
@@ -367,14 +412,24 @@ export function calculatePitchLookup(input = {}) {
     canonicalHejiAnchorLabelInput(input.anchorLabel || DEFAULT_CALCULATOR_REFERENCE.anchorLabel) ??
     DEFAULT_CALCULATOR_REFERENCE.anchorLabel;
 
-  if (!reference.valid || !anchor.valid || !target.valid) {
+  if (
+    !reference.valid ||
+    !anchor.valid ||
+    !offsetFromAnchor.valid ||
+    !pitchFromOffset.valid ||
+    !target.valid
+  ) {
     return {
       valid: false,
       error: !reference.valid
         ? "Invalid reference ratio/cents value"
         : !anchor.valid
           ? "Invalid HEJI anchor ratio/cents value"
-          : "Invalid lookup ratio/cents value",
+          : !offsetFromAnchor.valid
+            ? "Invalid offset ratio/cents value"
+            : !pitchFromOffset.valid
+              ? "Invalid pitch ratio/cents value"
+              : "Invalid lookup ratio/cents value",
     };
   }
 
@@ -393,17 +448,31 @@ export function calculatePitchLookup(input = {}) {
       ? normalizeCalculatorInterval(referenceRelative)
       : referenceRelative;
   const ratioFromReferenceText = displayedReferenceRelative?.normalized ?? null;
+  const anchorRelative = parseCalculatorInterval(
+    combineCalculatorIntervals(offsetFromAnchor.normalized, pitchFromOffset.normalized),
+  );
+  const displayedOffsetRelative = input.normalizeResults
+    ? normalizeCalculatorInterval(pitchFromOffset)
+    : pitchFromOffset;
+  const displayedAnchorRelative = input.normalizeResults
+    ? normalizeCalculatorInterval(anchorRelative)
+    : anchorRelative;
   const displayedCentsFromReference = input.normalizeResults
     ? normalizeCentsToOctave(centsFromReference)
     : centsFromReference;
   let hejiLabel = "";
   try {
-    const frame = createReferenceFrame({ anchorLabel, anchorRatio: anchor.normalized });
+    const frame = createReferenceFrame({ anchorLabel, anchorRatio: "1/1" });
     hejiLabel =
       input.preferredHejiLabel ||
-      spelledHejiLabel(frame, target.exact ? target.normalized : null, centsFromAnchor, {
-        forceShowZeroDeviation: true,
-      });
+      spelledHejiLabel(
+        frame,
+        anchorRelative.exact ? anchorRelative.normalized : null,
+        centsFromAnchor,
+        {
+          forceShowZeroDeviation: true,
+        },
+      );
   } catch {
     hejiLabel = "";
   }
@@ -421,6 +490,10 @@ export function calculatePitchLookup(input = {}) {
     exact: target.exact,
     ratioText: target.exact ? target.normalized : null,
     ratioFromReferenceText,
+    ratioFromOffsetText: displayedOffsetRelative.exact ? displayedOffsetRelative.normalized : null,
+    centsFromOffset: normalizeSignedZero(displayedOffsetRelative.cents),
+    ratioFromAnchorText: displayedAnchorRelative.exact ? displayedAnchorRelative.normalized : null,
+    displayedCentsFromAnchor: normalizeSignedZero(displayedAnchorRelative.cents),
     centsFromDegree0: normalizeSignedZero(target.cents),
     centsFromReference: displayedCentsFromReference,
     centsFromAnchor,

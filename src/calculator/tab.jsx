@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
-import { canonicalHejiAnchorLabelInput } from "../notation/heji-normalization.js";
 import FrequencyInput, {
   formatFrequencyHz,
 } from "../settings/scale/scale-table/frequency-input.js";
@@ -14,7 +13,9 @@ import {
 import HejiPalette from "./heji-palette.jsx";
 import {
   calculatorIntervalFromPitchStructure,
+  calculatorPalettePitchFromAnalysis,
   calculatePitchLookup,
+  canonicalCalculatorAnchorLabelInput,
   combineCalculatorIntervals,
   deriveCalculatorSeed,
   frequencyFromCents,
@@ -56,21 +57,29 @@ function formatSigned(value, decimals, { includeUnit = true } = {}) {
   return `${rounded < 0 ? "−" : "+"}${Math.abs(rounded).toFixed(decimals)}${includeUnit ? "¢" : ""}`;
 }
 
-function plainsoundMidiNoteName(
+function formatIntervalPair(ratioText, cents, decimals) {
+  return `${ratioText ?? "—"} | ${formatNumber(cents, decimals)}`;
+}
+
+function midiNoteName(
   noteName,
-  { includeNatural = false, includeOctave = true } = {},
+  { includeNatural = false, includeOctave = true, useTraditionalAccidentals = false } = {},
 ) {
   const match = /^([A-G])([b#]?)(-?\d+)?$/.exec(String(noteName ?? ""));
   if (!match) return String(noteName ?? "");
   const [, letter, accidental, octave] = match;
-  const prefix = accidental === "b" ? "" : accidental === "#" ? "" : includeNatural ? "" : "";
+  const symbols = useTraditionalAccidentals
+    ? { flat: "*f", natural: "*n", sharp: "*s" }
+    : { flat: "", natural: "", sharp: "" };
+  const prefix =
+    accidental === "b"
+      ? symbols.flat
+      : accidental === "#"
+        ? symbols.sharp
+        : includeNatural
+          ? symbols.natural
+          : "";
   return `${prefix}${letter}${includeOctave ? (octave ?? "") : ""}`;
-}
-
-function intervalsArePitchEquivalent(leftValue, rightValue) {
-  const left = parseCalculatorInterval(leftValue);
-  const right = parseCalculatorInterval(rightValue);
-  return left.valid && right.valid && Math.abs(left.cents - right.cents) < 1e-7;
 }
 
 function selectElementText(element) {
@@ -159,11 +168,12 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
   const [referenceFrequency, setReferenceFrequency] = useState(seed.referenceFrequency);
   const [referenceInterval, setReferenceInterval] = useState(seed.referenceInterval);
   const [anchorInterval, setAnchorInterval] = useState(seed.anchorInterval);
+  const [anchorReferenceInterval, setAnchorReferenceInterval] = useState(
+    seed.anchorReferenceInterval,
+  );
   const [anchorLabel, setAnchorLabel] = useState(seed.anchorLabel);
-  const [offsetInterval, setOffsetInterval] = useState(seed.anchorInterval);
+  const [offsetInterval, setOffsetInterval] = useState("1/1");
   const [queryInterval, setQueryInterval] = useState(seed.targetInterval);
-  const [spellingTargetInterval, setSpellingTargetInterval] = useState(seed.anchorInterval);
-  const [spellingAnchorRelativeInterval, setSpellingAnchorRelativeInterval] = useState("1/1");
   const [spellingResultLabel, setSpellingResultLabel] = useState("");
   const [decimalPlaces, setDecimalPlaces] = useState(seed.decimalPlaces);
   const [querySource, setQuerySource] = useState("ratio");
@@ -174,6 +184,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
   const [normalizeResults, setNormalizeResults] = useState(false);
   const [includeTemperedAccidentalsInDeviation, setIncludeTemperedAccidentalsInDeviation] =
     useState(false);
+  const [useTraditionalAccidentals, setUseTraditionalAccidentals] = useState(false);
 
   const rationalSearch = useMemo(() => {
     const primeLimit = parseOptionalPositiveInt(searchPrefs.primeLimit);
@@ -189,9 +200,13 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
     };
   }, [maxRationalResults, rationalSort, searchPrefs]);
 
-  const targetInterval = useMemo(
+  const targetFromAnchorInterval = useMemo(
     () => combineCalculatorIntervals(offsetInterval, queryInterval) ?? "",
     [offsetInterval, queryInterval],
+  );
+  const targetInterval = useMemo(
+    () => combineCalculatorIntervals(anchorInterval, targetFromAnchorInterval) ?? "",
+    [anchorInterval, targetFromAnchorInterval],
   );
   const analysis = useMemo(
     () =>
@@ -201,6 +216,8 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
         anchorInterval,
         anchorLabel,
         targetInterval,
+        offsetFromAnchorInterval: offsetInterval,
+        pitchFromOffsetInterval: queryInterval,
         preferredHejiLabel: querySource === "spelling" ? spellingResultLabel : "",
         rationalSearch,
         normalizeResults,
@@ -215,13 +232,62 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
       spellingResultLabel,
       targetInterval,
       normalizeResults,
+      offsetInterval,
+      queryInterval,
     ],
+  );
+  const synchronizedPalettePitch = useMemo(
+    () =>
+      querySource === "ratio" && analysis.valid
+        ? calculatorPalettePitchFromAnalysis({
+            hejiLabel: analysis.hejiLabel,
+            centsFromAnchor: analysis.centsFromAnchor,
+            anchorLabel,
+          })
+        : null,
+    [analysis, anchorLabel, querySource],
   );
 
   const commitInterval = (value, setter, fallback) => {
     const parsed = parseCalculatorInterval(value);
     if (!parsed.valid) return fallback;
     setter(parsed.normalized);
+    return parsed.normalized;
+  };
+  const updateAnchorPlacement = (nextAnchorInterval) => {
+    setAnchorInterval(nextAnchorInterval);
+  };
+  const commitReferenceInterval = (value) => {
+    const parsed = parseCalculatorInterval(value);
+    if (!parsed.valid) return referenceInterval;
+    const nextAnchorInterval = combineCalculatorIntervals(
+      parsed.normalized,
+      anchorReferenceInterval,
+    );
+    if (!nextAnchorInterval) return referenceInterval;
+    setReferenceInterval(parsed.normalized);
+    updateAnchorPlacement(nextAnchorInterval);
+    return parsed.normalized;
+  };
+  const commitAnchorInterval = (value) => {
+    const parsed = parseCalculatorInterval(value);
+    if (!parsed.valid) return anchorInterval;
+    const nextAnchorReferenceInterval = relativeCalculatorInterval(
+      parsed.normalized,
+      referenceInterval,
+    );
+    if (!nextAnchorReferenceInterval) return anchorInterval;
+    setAnchorReferenceInterval(nextAnchorReferenceInterval);
+    updateAnchorPlacement(parsed.normalized);
+    return parsed.normalized;
+  };
+  const commitAnchorReferenceInterval = (value) => {
+    const parsed = parseCalculatorInterval(value);
+    if (!parsed.valid) return anchorReferenceInterval;
+    const nextAnchorInterval = combineCalculatorIntervals(referenceInterval, parsed.normalized);
+    if (!nextAnchorInterval) return anchorReferenceInterval;
+    setAnchorReferenceInterval(parsed.normalized);
+    updateAnchorPlacement(nextAnchorInterval);
     return parsed.normalized;
   };
   const commitSpelling = useCallback(
@@ -234,12 +300,8 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
         octave,
       });
       if (!resolved.valid) return;
-      const relative = intervalsArePitchEquivalent(offsetInterval, anchorInterval)
-        ? resolved.relativeInterval
-        : relativeCalculatorInterval(resolved.interval, offsetInterval);
+      const relative = relativeCalculatorInterval(resolved.relativeInterval, offsetInterval);
       if (!relative) return;
-      setSpellingTargetInterval(resolved.interval);
-      setSpellingAnchorRelativeInterval(resolved.relativeInterval);
       setSpellingResultLabel(resolved.hejiLabel || "");
       setQueryInterval(relative);
       setQuerySource("spelling");
@@ -275,7 +337,6 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
         }
       }}
     >
-
       <fieldset>
         <legend>Reference</legend>
         <label>
@@ -289,12 +350,12 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
           />
         </label>
         <label>
-          Reference Ratio/Cents from 1/1
+          Reference Offset (Ratio/Cents from 1/1)
           <CommitTextInput
             key={`reference-interval-${referenceInterval}`}
             ariaLabel="Calculator reference ratio or cents"
             value={referenceInterval}
-            onCommit={(value) => commitInterval(value, setReferenceInterval, referenceInterval)}
+            onCommit={commitReferenceInterval}
           />
         </label>
         <label>
@@ -319,7 +380,16 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
             key={`anchor-interval-${anchorInterval}`}
             ariaLabel="Calculator HEJI anchor ratio or cents"
             value={anchorInterval}
-            onCommit={(value) => commitInterval(value, setAnchorInterval, anchorInterval)}
+            onCommit={commitAnchorInterval}
+          />
+        </label>
+        <label>
+          Ratio/Cents from Reference
+          <CommitTextInput
+            key={`anchor-reference-interval-${anchorReferenceInterval}`}
+            ariaLabel="Calculator HEJI anchor ratio or cents from reference"
+            value={anchorReferenceInterval}
+            onCommit={commitAnchorReferenceInterval}
           />
         </label>
         <label>
@@ -329,7 +399,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
             ariaLabel="Calculator HEJI anchor spelling"
             value={anchorLabel}
             onCommit={(value) => {
-              const normalized = canonicalHejiAnchorLabelInput(value);
+              const normalized = canonicalCalculatorAnchorLabelInput(value);
               if (!normalized) return anchorLabel;
               setAnchorLabel(normalized);
               return normalized;
@@ -369,6 +439,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
           initialSpelling={anchorLabel}
           initialDeviation=""
           initialDecimals={decimalPlaces}
+          synchronizedPitch={synchronizedPalettePitch}
           onDecimalsChange={setDecimalPlaces}
           onSpellingChange={commitSpelling}
         />
@@ -378,7 +449,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
         <legend>Ratio/Cents Input</legend>
         <p class="calculator-field-hint">Choose an offset and a pitch as ratio or cents</p>
         <label>
-          Offset (from 1/1)
+          Offset (from HEJI Notation Anchor)
           <CommitTextInput
             key={`offset-${offsetInterval}`}
             ariaLabel="Calculator lookup offset ratio or cents"
@@ -387,12 +458,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
               const parsed = parseCalculatorInterval(value);
               if (!parsed.valid) return offsetInterval;
               setOffsetInterval(parsed.normalized);
-              if (querySource === "spelling") {
-                const relative = intervalsArePitchEquivalent(parsed.normalized, anchorInterval)
-                  ? spellingAnchorRelativeInterval
-                  : relativeCalculatorInterval(spellingTargetInterval, parsed.normalized);
-                if (relative) setQueryInterval(relative);
-              }
+              setQuerySource("ratio");
               return parsed.normalized;
             }}
           />
@@ -578,7 +644,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
             checked={normalizeResults}
             onChange={(event) => setNormalizeResults(event.target.checked)}
           />
-          Normalise within one octave
+          Normalise into one octave above the HEJI Anchor
         </label>
         <label>
           Spelling
@@ -587,27 +653,47 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
           </SelectableOutput>
         </label>
         <label>
-          Ratio from 1/1
-          <SelectableOutput ariaLabel="Calculator ratio output">
-            {analysis.ratioText ?? "—"}
+          Ratio | Cents from Offset
+          <SelectableOutput ariaLabel="Calculator interval from offset">
+            {analysis.valid
+              ? formatIntervalPair(
+                  analysis.ratioFromOffsetText,
+                  analysis.centsFromOffset,
+                  decimalPlaces,
+                )
+              : "—"}
           </SelectableOutput>
         </label>
         <label>
-          Cents from 1/1
-          <SelectableOutput ariaLabel="Calculator cents from 1/1">
-            {analysis.valid ? formatNumber(analysis.centsFromDegree0, decimalPlaces) : "—"}
+          Ratio | Cents from HEJI Anchor
+          <SelectableOutput ariaLabel="Calculator interval from HEJI anchor">
+            {analysis.valid
+              ? formatIntervalPair(
+                  analysis.ratioFromAnchorText,
+                  analysis.displayedCentsFromAnchor,
+                  decimalPlaces,
+                )
+              : "—"}
           </SelectableOutput>
         </label>
         <label>
-          Ratio from Reference
-          <SelectableOutput ariaLabel="Calculator ratio from reference">
-            {analysis.ratioFromReferenceText ?? "—"}
+          Ratio | Cents from Reference
+          <SelectableOutput ariaLabel="Calculator interval from reference">
+            {analysis.valid
+              ? formatIntervalPair(
+                  analysis.ratioFromReferenceText,
+                  analysis.centsFromReference,
+                  decimalPlaces,
+                )
+              : "—"}
           </SelectableOutput>
         </label>
         <label>
-          Cents from Reference
-          <SelectableOutput ariaLabel="Calculator cents from reference">
-            {analysis.valid ? formatNumber(analysis.centsFromReference, decimalPlaces) : "—"}
+          Ratio | Cents from 1/1
+          <SelectableOutput ariaLabel="Calculator interval from 1/1">
+            {analysis.valid
+              ? formatIntervalPair(analysis.ratioText, analysis.centsFromDegree0, decimalPlaces)
+              : "—"}
           </SelectableOutput>
         </label>
         <label>
@@ -632,7 +718,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
                       class="calculator-output__token calculator-output--midi"
                       onClick={selectMidiOutputToken}
                     >
-                      {plainsoundMidiNoteName(noteName)}
+                      {midiNoteName(noteName, { useTraditionalAccidentals })}
                     </span>
                   </span>
                 ))}
@@ -660,35 +746,32 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
               if (event.target === event.currentTarget) selectOutputText(event);
             }}
           >
-            {analysis.notationMeter ? (
-              includeTemperedAccidentalsInDeviation ? (
-                analysis.notationMeter.noteNames.map((noteName, index) => {
-                  const deviation = formatSigned(
-                    analysis.notationMeter.deviationCents,
-                    decimalPlaces,
-                    { includeUnit: false },
-                  );
-                  return (
-                    <span key={noteName}>
-                      {index > 0 ? <span aria-hidden="true"> | </span> : null}
-                      <span class="calculator-output__token" onClick={selectMidiOutputToken}>
-                        {plainsoundMidiNoteName(noteName, {
-                          includeNatural: true,
-                          includeOctave: false,
-                        })}
-                        {deviation}
+            {analysis.notationMeter
+              ? includeTemperedAccidentalsInDeviation
+                ? analysis.notationMeter.noteNames.map((noteName, index) => {
+                    const deviation = formatSigned(
+                      analysis.notationMeter.deviationCents,
+                      decimalPlaces,
+                      { includeUnit: false },
+                    );
+                    return (
+                      <span key={noteName}>
+                        {index > 0 ? <span aria-hidden="true"> | </span> : null}
+                        <span class="calculator-output__token" onClick={selectMidiOutputToken}>
+                          {midiNoteName(noteName, {
+                            includeNatural: true,
+                            includeOctave: false,
+                            useTraditionalAccidentals,
+                          })}
+                          {deviation}
+                        </span>
                       </span>
-                    </span>
-                  );
-                })
-              ) : (
-                formatSigned(analysis.notationMeter.deviationCents, decimalPlaces, {
-                  includeUnit: false,
-                })
-              )
-            ) : (
-              "—"
-            )}
+                    );
+                  })
+                : formatSigned(analysis.notationMeter.deviationCents, decimalPlaces, {
+                    includeUnit: false,
+                  })
+              : "—"}
           </output>
         </label>
         <label class="settings-form__checkbox-row calculator-results__midi-accidentals">
@@ -696,11 +779,18 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
             type="checkbox"
             aria-label="Calculator include tempered accidentals in deviation"
             checked={includeTemperedAccidentalsInDeviation}
-            onChange={(event) =>
-              setIncludeTemperedAccidentalsInDeviation(event.target.checked)
-            }
+            onChange={(event) => setIncludeTemperedAccidentalsInDeviation(event.target.checked)}
           />
           Include tempered accidentals in Deviation
+        </label>
+        <label class="settings-form__checkbox-row calculator-results__midi-accidentals">
+          <input
+            type="checkbox"
+            aria-label="Calculator use traditional accidentals"
+            checked={useTraditionalAccidentals}
+            onChange={(event) => setUseTraditionalAccidentals(event.target.checked)}
+          />
+          Use traditional accidentals
         </label>
       </fieldset>
 
@@ -714,9 +804,15 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
                 type="button"
                 class="rationalise-candidate calculator-rational-candidate"
                 onClick={() => {
-                  const relative = relativeCalculatorInterval(candidate.ratioText, offsetInterval);
-                  if (!relative) return;
-                  setQueryInterval(relative);
+                  const fromAnchor = relativeCalculatorInterval(
+                    candidate.ratioText,
+                    anchorInterval,
+                  );
+                  const fromOffset = fromAnchor
+                    ? relativeCalculatorInterval(fromAnchor, offsetInterval)
+                    : null;
+                  if (!fromOffset) return;
+                  setQueryInterval(fromOffset);
                   setQuerySource("ratio");
                   setShowBlankDataHints(false);
                 }}

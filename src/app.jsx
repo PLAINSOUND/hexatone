@@ -12,6 +12,7 @@ import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
+import { sendLumatoneBlankLayout } from "./keyboard/keys-controller-leds.js";
 import { primeSharedSampleAudio } from "./sample_synth/prime-shared-audio.js";
 import { normalizeColors, normalizeStructural } from "./settings/normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
@@ -473,6 +474,17 @@ export function sendLumatoneColorsNow(keys, leds) {
   // Keys reconstruction cannot turn the manual send into a silent no-op.
   bindControllerLedRefs(keys, { lumatone: leds }, { eagerSync: false });
   return keys.syncLumatoneLEDs() !== false;
+}
+
+export function autoSyncLumatoneSurface({ keys, leds, scale, eligible = true }) {
+  if (!leds || !eligible) return false;
+  if (!Array.isArray(scale) || scale.length === 0) {
+    return sendLumatoneBlankLayout(leds);
+  }
+  if (!keys) return false;
+  bindControllerLedRefs(keys, { lumatone: leds }, { eagerSync: false });
+  keys.autoSyncLumatoneLEDs?.();
+  return true;
 }
 
 function readCssPxVar(name) {
@@ -4066,6 +4078,10 @@ const App = () => {
       settings.hakenaudio_shape_x_glide_to_raster,
     ],
   );
+  const lumatoneAutoSyncEligible =
+    inputController?.id === "lumatone" &&
+    inputRuntime.target !== "scale" &&
+    inputRuntime.layoutMode !== "sequential";
 
   const liveInputSettings = useMemo(
     () => settingsImpactSnapshot(settings, "inputRuntime"),
@@ -4718,8 +4734,7 @@ const App = () => {
   const enableLumatoneAutoSyncNow = useCallback(() => {
     const keys = keysRef.current;
     const leds = lumatoneLedsRef.current;
-    if (!keys || !leds) return;
-    bindControllerLedRefs(keys, { lumatone: leds }, { eagerSync: false });
+    if (!leds || !lumatoneAutoSyncEligible) return;
     lumatoneAutoSyncKeyRef.current = buildLumatoneAutoSyncKey({
       lumatoneInId,
       lumatoneOutId,
@@ -4736,8 +4751,14 @@ const App = () => {
       anchorNote: settings.midiin_anchor_note,
       anchorChannel: settings.midiin_anchor_channel,
     });
-    keys.autoSyncLumatoneLEDs?.();
+    autoSyncLumatoneSurface({
+      keys,
+      leds,
+      scale: settings.scale,
+      eligible: lumatoneAutoSyncEligible,
+    });
   }, [
+    lumatoneAutoSyncEligible,
     lumatoneInId,
     lumatoneOutId,
     settings.fundamental,
@@ -4775,7 +4796,9 @@ const App = () => {
       lumatoneAutoSyncKeyRef.current = "";
       return;
     }
-    if (!keys || !leds) return;
+    if (!leds || !lumatoneAutoSyncEligible) return;
+    const blankLayout = !Array.isArray(settings.scale) || settings.scale.length === 0;
+    if (!blankLayout && !keys) return;
     const syncKey = buildLumatoneAutoSyncKey({
       lumatoneInId,
       lumatoneOutId,
@@ -4795,15 +4818,22 @@ const App = () => {
     if (syncKey === lumatoneAutoSyncKeyRef.current) return;
     lumatoneAutoSyncKeyRef.current = syncKey;
     const timer = setTimeout(() => {
-      if (keysRef.current !== keys) return;
       if (lumatoneLedsRef.current !== leds) return;
-      keys.autoSyncLumatoneLEDs?.();
+      if (!blankLayout && keysRef.current !== keys) return;
+      autoSyncLumatoneSurface({
+        keys,
+        leds,
+        scale: settings.scale,
+        eligible: lumatoneAutoSyncEligible,
+      });
     }, 0);
     return () => clearTimeout(timer);
   }, [
     keysReadyRevision,
     lumatoneInId,
     lumatoneOutId,
+    lumatoneAutoSyncEligible,
+    lumatoneDriverReady,
     pendingRestoredPreset,
     settings.fundamental,
     settings.note_colors,

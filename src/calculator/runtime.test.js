@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   calculatorIntervalFromPitchStructure,
+  calculatorPalettePitchFromAnalysis,
   calculatePitchLookup,
+  canonicalCalculatorAnchorLabelInput,
   combineCalculatorIntervals,
   deriveCalculatorSeed,
   midiPitchFromFrequency,
@@ -17,6 +19,7 @@ describe("calculator runtime", () => {
       referenceFrequency: 440,
       referenceInterval: "1/1",
       anchorInterval: "1/1",
+      anchorReferenceInterval: "1/1",
       anchorLabel: "*nA",
       anchorFrequency: 440,
       targetInterval: "1/1",
@@ -104,8 +107,45 @@ describe("calculator runtime", () => {
     expect(seed.referenceFrequency).toBe(442);
     expect(seed.referenceInterval).toBe("5/4");
     expect(seed.anchorInterval).toBe("5/4");
+    expect(seed.anchorReferenceInterval).toBe("1/1");
     expect(seed.anchorLabel).toContain("E");
     expect(seed.anchorFrequency).toBeCloseTo(442, 8);
+  });
+
+  it("normalises a trailing cents deviation away from the notation anchor spelling", () => {
+    expect(canonicalCalculatorAnchorLabelInput("*nA+0")).toContain("A");
+    expect(canonicalCalculatorAnchorLabelInput("F−33¢")).toBe("F");
+  });
+
+  it("reports pitch in the Offset, HEJI anchor, Reference, and 1/1 frames", () => {
+    const result = calculatePitchLookup({
+      referenceFrequency: 440,
+      referenceInterval: "3/2",
+      anchorInterval: "5/4",
+      anchorLabel: "*nA",
+      offsetFromAnchorInterval: "9/8",
+      pitchFromOffsetInterval: "6/5",
+      targetInterval: "27/16",
+    });
+
+    expect(result.ratioFromOffsetText).toBe("6/5");
+    expect(result.ratioFromAnchorText).toBe("27/20");
+    expect(result.ratioFromReferenceText).toBe("9/8");
+    expect(result.ratioText).toBe("27/16");
+  });
+
+  it("derives a synchronized Palette Input spelling and register", () => {
+    expect(
+      calculatorPalettePitchFromAnalysis({
+        hejiLabel: "*nE+2",
+        centsFromAnchor: 701.955,
+        anchorLabel: "*nA",
+      }),
+    ).toMatchObject({
+      spelling: expect.stringContaining("E"),
+      deviation: "+2",
+      octave: 5,
+    });
   });
 
   it("formats A4 as MIDI note 69 with no deviation", () => {

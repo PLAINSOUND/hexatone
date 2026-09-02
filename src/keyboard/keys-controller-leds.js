@@ -164,9 +164,7 @@ export function buildLinnstrumentColorArray() {
   return values;
 }
 
-export function sendLumatoneLayout() {
-  if (!this.lumatoneLEDs) return;
-
+export function buildLumatoneBlankLayoutEntries() {
   const entries = [];
   for (let b = 1; b <= 5; b++) {
     for (let k = 0; k < 56; k++) {
@@ -181,7 +179,20 @@ export function sendLumatoneLayout() {
     }
   }
 
-  this.lumatoneLEDs.sendLayout(entries, [{ cmd: 0x0e, board: 0, value: 1 }]);
+  return entries;
+}
+
+export function sendLumatoneBlankLayout(leds) {
+  if (!leds?.sendLayout) return false;
+
+  leds.sendLayout(buildLumatoneBlankLayoutEntries(), [{ cmd: 0x0e, board: 0, value: 1 }]);
+  return true;
+}
+
+export function sendLumatoneLayout() {
+  if (!this.lumatoneLEDs) return false;
+
+  return sendLumatoneBlankLayout(this.lumatoneLEDs);
 }
 
 function chooseLumatoneBypassAssignment(steps, centerDegree, equivSteps, anchorChannel) {

@@ -208,6 +208,7 @@ vi.mock("./loading-icon.jsx", () => ({
 
 import {
   applyReloadPersistencePolicy,
+  autoSyncLumatoneSurface,
   bindControllerLedRefs,
   commitModulationHistoryToPreset,
   getDefaultSnapshotPalettePos,
@@ -672,6 +673,37 @@ describe("sendLumatoneColorsNow", () => {
 
     expect(sendLumatoneColorsNow(keys, null)).toBe(false);
     expect(keys.syncLumatoneLEDs).not.toHaveBeenCalled();
+  });
+});
+
+describe("autoSyncLumatoneSurface", () => {
+  it("sends the blank layout when the musical surface has scale size 0", () => {
+    const keys = { autoSyncLumatoneLEDs: vi.fn() };
+    const leds = { sendLayout: vi.fn() };
+
+    expect(autoSyncLumatoneSurface({ keys, leds, scale: [] })).toBe(true);
+
+    expect(leds.sendLayout).toHaveBeenCalledTimes(1);
+    expect(leds.sendLayout.mock.calls[0][0]).toHaveLength(280);
+    expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
+  });
+
+  it("keeps ordinary automatic colour sync for a populated scale", () => {
+    const keys = { autoSyncLumatoneLEDs: vi.fn() };
+    const leds = { sendLayout: vi.fn() };
+
+    expect(autoSyncLumatoneSurface({ keys, leds, scale: ["2/1"] })).toBe(true);
+
+    expect(keys.lumatoneLEDs).toBe(leds);
+    expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
+    expect(leds.sendLayout).not.toHaveBeenCalled();
+  });
+
+  it("does not send a blank layout outside eligible Lumatone mapping modes", () => {
+    const leds = { sendLayout: vi.fn() };
+
+    expect(autoSyncLumatoneSurface({ keys: null, leds, scale: [], eligible: false })).toBe(false);
+    expect(leds.sendLayout).not.toHaveBeenCalled();
   });
 });
 

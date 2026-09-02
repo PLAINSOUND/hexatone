@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildLinnstrumentColorArray,
+  buildLumatoneBlankLayoutEntries,
   buildLumatoneBypassLayoutEntries,
   buildLumatoneColorEntries,
+  sendLumatoneBlankLayout,
   sendLumatoneLayout,
   updateColors,
 } from "./keys-controller-leds.js";
@@ -272,6 +274,39 @@ describe("buildLumatoneBypassLayoutEntries", () => {
 });
 
 describe("sendLumatoneLayout", () => {
+  it("builds the complete dark five-board layout without a Keys instance", () => {
+    const entries = buildLumatoneBlankLayoutEntries();
+
+    expect(entries).toHaveLength(280);
+    expect(entries[0]).toEqual({
+      board: 1,
+      key: 0,
+      note: 0,
+      channel: 0,
+      keyType: 0x01,
+      hexColor: "#000000",
+    });
+    expect(entries[279]).toEqual({
+      board: 5,
+      key: 55,
+      note: 55,
+      channel: 4,
+      keyType: 0x01,
+      hexColor: "#000000",
+    });
+  });
+
+  it("sends the blank layout directly through the persistent Lumatone driver", () => {
+    const leds = { sendLayout: vi.fn() };
+
+    expect(sendLumatoneBlankLayout(leds)).toBe(true);
+
+    expect(leds.sendLayout).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ board: 1, key: 0, hexColor: "#000000" })]),
+      [{ cmd: 0x0e, board: 0, value: 1 }],
+    );
+  });
+
   it("re-enables every key as note on/off when sending the blank 2D layout", () => {
     const sendLayout = (...args) => {
       sendLayout.calls.push(args);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { BASE_BY_ID, BASE_SYMBOLS, HEJI_FAMILIES } from "../notation/heji.js";
 import {
@@ -35,7 +35,12 @@ function parseStructure(value, fallbackSpelling) {
   } catch {
     // Fall through to the supplied anchor spelling.
   }
-  return parseHejiToStructure(fallbackSpelling) ?? createPitchStructure();
+  const parsed = parseHejiToStructure(fallbackSpelling);
+  return createPitchStructure({
+    ...(parsed ?? {}),
+    useDoubles: true,
+    useDoubleSeptimals: true,
+  });
 }
 
 function semitone(letter, chromatic) {
@@ -148,6 +153,7 @@ const HejiPalette = ({
   initialDeviation,
   initialDecimals,
   initialOctave = DEFAULT_CALCULATOR_OCTAVE,
+  synchronizedPitch,
   onDecimalsChange,
   onSpellingChange,
 }) => {
@@ -160,6 +166,7 @@ const HejiPalette = ({
   );
   const [octave, setOctave] = useState(() => Math.trunc(Number(initialOctave) || 0));
   const [copied, setCopied] = useState(false);
+  const pendingSynchronizedState = useRef(null);
   const spelling = useMemo(() => pitchStructureToHeji(structure), [structure]);
   const automaticDeviation = useMemo(
     () =>
@@ -173,7 +180,29 @@ const HejiPalette = ({
     : formatDeviation(automaticDeviation, decimals);
   const output = `${spelling}${shownDeviation}`.trim();
   useEffect(() => {
+    if (!synchronizedPitch?.spelling) return;
+    const nextStructure = parseStructure("", synchronizedPitch.spelling);
+    const nextDeviation = String(synchronizedPitch.deviation ?? "");
+    const nextOctave = Math.trunc(Number(synchronizedPitch.octave ?? DEFAULT_CALCULATOR_OCTAVE));
+    pendingSynchronizedState.current = JSON.stringify({
+      spelling: pitchStructureToHeji(nextStructure),
+      deviation: nextDeviation,
+      octave: nextOctave,
+    });
+    setStructure(nextStructure);
+    setDeviation(nextDeviation);
+    setOctave(nextOctave);
+    setCopied(false);
+  }, [synchronizedPitch]);
+  useEffect(() => {
     if (!structure.letter) return;
+    if (pendingSynchronizedState.current) {
+      const currentState = JSON.stringify({ spelling, deviation, octave });
+      if (currentState === pendingSynchronizedState.current) {
+        pendingSynchronizedState.current = null;
+      }
+      return;
+    }
     const numericDeviation = Number(
       String(shownDeviation || "0")
         .replace("−", "-")
@@ -185,7 +214,7 @@ const HejiPalette = ({
       deviationCents: Number.isFinite(numericDeviation) ? numericDeviation : 0,
       octave,
     });
-  }, [octave, onSpellingChange, shownDeviation, spelling, structure]);
+  }, [deviation, octave, onSpellingChange, shownDeviation, spelling, structure]);
 
   const update = (transform, { clearDeviation = false } = {}) => {
     setStructure((current) => createPitchStructure(transform(current)));
@@ -510,6 +539,11 @@ HejiPalette.propTypes = {
   initialDeviation: PropTypes.string,
   initialDecimals: PropTypes.number,
   initialOctave: PropTypes.number,
+  synchronizedPitch: PropTypes.shape({
+    spelling: PropTypes.string.isRequired,
+    deviation: PropTypes.string,
+    octave: PropTypes.number.isRequired,
+  }),
   onDecimalsChange: PropTypes.func,
   onSpellingChange: PropTypes.func,
 };
