@@ -217,6 +217,8 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       filter_low,
       filter_mid,
       filter_high,
+      filter_tracking = 0,
+      filter_reference_hz = 400,
     } = instrument;
 
     // Fit a quadratic through (0→low, 64→mid, 127→high) in log2-frequency space.
@@ -230,7 +232,16 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
             const lm = Math.log2(filter_mid / filter_low);
             const A = (lm - n * lh) / (n * n - n);
             const B = lh - A;
-            return { A, B, C };
+            return {
+              A,
+              B,
+              C,
+              tracking: Math.max(0, Math.min(1, Number(filter_tracking) || 0)),
+              referenceHz:
+                Number.isFinite(Number(filter_reference_hz)) && Number(filter_reference_hz) > 0
+                  ? Number(filter_reference_hz)
+                  : 400,
+            };
           })()
         : null;
     const sampleLoopPoints = instrument.loopPoints || [0, 0, 0, 0, 0, 0, 0, 0];
@@ -504,6 +515,19 @@ function ActiveHex(
   this._noteOffCalled = false; // Guard against double noteOff
 }
 
+function filterCutoffForVoice(filterCoeffs, position, playedFrequency, audioContext) {
+  if (!filterCoeffs) return 20000;
+  const { A, B, C, tracking = 0, referenceHz = 400 } = filterCoeffs;
+  const baseCutoff = Math.pow(2, A * position * position + B * position + C);
+  const trackingRatio =
+    tracking > 0 && Number.isFinite(playedFrequency) && playedFrequency > 0
+      ? Math.pow(playedFrequency / referenceHz, tracking)
+      : 1;
+  const sampleRate = Number(audioContext?.sampleRate) || 48000;
+  const maximum = Math.min(20000, sampleRate * 0.45);
+  return Math.max(20, Math.min(maximum, baseCutoff * trackingRatio));
+}
+
 ActiveHex.prototype.noteOn = function () {
   // Guard: prepare() may not have completed yet if the user is very fast
   if (!this.sampleBuffer || !this.audioContext) return;
@@ -562,8 +586,13 @@ ActiveHex.prototype.noteOn = function () {
   filterNode.Q.value = 1.0;
   if (this.filterCoeffs) {
     const n = this.initialModWheel / 127;
-    const { A, B, C } = this.filterCoeffs;
-    filterNode.frequency.value = Math.pow(2, A * n * n + B * n + C);
+    this._filterPosition = n;
+    filterNode.frequency.value = filterCutoffForVoice(
+      this.filterCoeffs,
+      n,
+      freq,
+      this.audioContext,
+    );
   } else {
     filterNode.frequency.value = 20000;
   }
@@ -610,6 +639,16 @@ ActiveHex.prototype.retune = function (newCents) {
     // Small change: ~5 ms anti-zipper smoothing.
     this.source.playbackRate.setTargetAtTime(targetPlaybackRate, now, 0.005);
   }
+
+  if (this.filterNode && this.filterCoeffs?.tracking > 0) {
+    const targetCutoff = filterCutoffForVoice(
+      this.filterCoeffs,
+      this._filterPosition ?? this.initialModWheel / 127,
+      freq,
+      this.audioContext,
+    );
+    this.filterNode.frequency.setTargetAtTime(targetCutoff, now, 0.005);
+  }
 };
 
 // Standard wheel mode in Hexatone bends the internal sample engine directly in
@@ -644,8 +683,10 @@ ActiveHex.prototype.cc74 = function (value, value14 = null) {
   const n = Number.isFinite(value14)
     ? Math.max(0, Math.min(16256, value14)) / 16256
     : Math.max(0, Math.min(127, value)) / 127;
-  const { A, B, C } = this.filterCoeffs;
-  const targetFreq = Math.pow(2, A * n * n + B * n + C);
+  this._filterPosition = n;
+  const playedFrequency =
+    this.fundamental * Math.pow(2, (this.cents - this.centsToReference) / 1200);
+  const targetFreq = filterCutoffForVoice(this.filterCoeffs, n, playedFrequency, this.audioContext);
   this.filterNode.frequency.setTargetAtTime(targetFreq, this.audioContext.currentTime, 0.04);
 };
 

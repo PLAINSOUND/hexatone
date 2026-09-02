@@ -140,6 +140,91 @@ describe("sample_synth modwheel", () => {
     expect(second.filterNode.frequency.setTargetAtTime).toHaveBeenCalledOnce();
   });
 
+  it("pitch-tracks the Reed filter around its unchanged 400 Hz reference", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 400, 0, [0, 100, 200]);
+    await synth.prepare();
+    const referenceVoice = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    const octaveVoice = synth.makeHex(null, 1200, 0, 0, 12, null, null, 72, 96, 0, 1);
+    referenceVoice.noteOn();
+    octaveVoice.noteOn();
+
+    synth.applyZoneModwheel(64);
+
+    const referenceCutoff = referenceVoice.filterNode.frequency.setTargetAtTime.mock.calls[0][0];
+    const octaveCutoff = octaveVoice.filterNode.frequency.setTargetAtTime.mock.calls[0][0];
+    expect(referenceCutoff).toBeCloseTo(2200, 8);
+    expect(octaveCutoff).toBeCloseTo(4400, 8);
+  });
+
+  it.each([
+    ["WMRI3LST", 1],
+    ["WMRI5LST", 1],
+    ["WMRI7LST", 1],
+    ["WMRI11LST", 1],
+    ["WMRI13LST", 1],
+    ["hammond", 1],
+    ["sruti", 0.25],
+  ])(
+    "applies %s pitch tracking without changing its 400 Hz wheel curve",
+    async (fileName, tracking) => {
+      const synth = await create_sample_synth(fileName, 400, 0, [0, 100, 200]);
+      await synth.prepare();
+      const referenceVoice = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+      const octaveVoice = synth.makeHex(null, 1200, 0, 0, 12, null, null, 72, 96, 0, 1);
+      referenceVoice.noteOn();
+      octaveVoice.noteOn();
+
+      synth.applyZoneModwheel(64);
+
+      const referenceCutoff = referenceVoice.filterNode.frequency.setTargetAtTime.mock.calls[0][0];
+      const octaveCutoff = octaveVoice.filterNode.frequency.setTargetAtTime.mock.calls[0][0];
+      expect(octaveCutoff / referenceCutoff).toBeCloseTo(2 ** tracking, 8);
+    },
+  );
+
+  it("distributes the Hammond wheel across its audible harmonic range", async () => {
+    const synth = await create_sample_synth("hammond", 400, 0, [0, 100, 200]);
+    await synth.prepare();
+    const hex = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    hex.noteOn();
+
+    expect(hex.filterNode.frequency.value).toBeCloseTo(1000, 8);
+    hex.cc74(64);
+    hex.cc74(127);
+
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][0]).toBeCloseTo(2400, 8);
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[1][0]).toBeCloseTo(6000, 8);
+  });
+
+  it("keeps the Srutibox wheel top while using a brighter minimum", async () => {
+    const synth = await create_sample_synth("sruti", 400, 0, [0, 100, 200]);
+    await synth.prepare();
+    const hex = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    hex.noteOn();
+
+    expect(hex.filterNode.frequency.value).toBeCloseTo(2000, 8);
+    hex.cc74(64);
+    hex.cc74(127);
+
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][0]).toBeCloseTo(3336, 8);
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[1][0]).toBeCloseTo(12591, 8);
+  });
+
+  it("updates the Reed cutoff when a held voice is retuned", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 400, 0, [0, 100, 200]);
+    await synth.prepare();
+    const hex = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    hex.noteOn();
+    hex.cc74(64);
+    hex.filterNode.frequency.setTargetAtTime.mockClear();
+
+    hex.retune(1200);
+
+    expect(hex.filterNode.frequency.setTargetAtTime).toHaveBeenCalledOnce();
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][0]).toBeCloseTo(4400, 8);
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][2]).toBe(0.005);
+  });
+
   it("retunes the active voice playback rate for standard wheel bend", async () => {
     const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
     await synth.prepare();
