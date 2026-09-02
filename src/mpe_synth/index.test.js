@@ -939,6 +939,31 @@ describe("mpe_synth automatic Y/Z output", () => {
       enabled,
     );
 
+  it("hard-clears queued MPE data and explicitly resets every member on panic", async () => {
+    const midiOutput = { send: vi.fn(), clear: vi.fn() };
+    const synth = await createAutoYzSynth(midiOutput);
+    const hex = synth.makeHex({ x: 0, y: 0 }, 37.5, 0, 0, 12, 0, 100, 60, 72, 0, 1);
+    midiOutput.send.mockClear();
+    midiOutput.clear.mockClear();
+
+    synth.allSoundOff();
+
+    expect(midiOutput.clear).toHaveBeenCalledOnce();
+    const messages = midiOutput.send.mock.calls.map(([message]) => message);
+    expect(messages).toContainEqual([0x80 + hex.channel - 1, hex.note, 0]);
+    for (const channel of [2, 3, 4]) {
+      expect(messages).toContainEqual([0xb0 + channel - 1, 74, 0]);
+      expect(messages).toContainEqual([0xd0 + channel - 1, 0]);
+      expect(messages).toContainEqual([0xb0 + channel - 1, 123, 0]);
+      expect(messages).toContainEqual([0xb0 + channel - 1, 120, 0]);
+    }
+    const finalMemberReset = messages.findLastIndex(
+      (message) => (message[0] & 0xf0) === 0xb0 && (message[1] === 120 || message[1] === 123),
+    );
+    const finalNoteOff = messages.findLastIndex((message) => (message[0] & 0xf0) === 0x80);
+    expect(finalMemberReset).toBeGreaterThan(finalNoteOff);
+  });
+
   it("schedules velocity-shaped CC74 and channel pressure after note-on", async () => {
     const midiOutput = { send: vi.fn() };
     const synth = await createAutoYzSynth(midiOutput);

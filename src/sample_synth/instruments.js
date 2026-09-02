@@ -264,7 +264,7 @@ export const instruments = [
         velocity_floor: 0.4,
         velocity_exp: 1.2,
         aftertouch: 4,
-        filter_low: 2400,
+        filter_low: 2000,
         filter_mid: 3600,
         filter_high: 10000,
         filter_tracking: 0.33,

@@ -174,6 +174,11 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
   const pressureActiveZChannels = new Set();
   const coalescedGenerations = new Map();
   const pendingCoalescedValues = new Map();
+  // Short velocity attacks are submitted to Web MIDI in full so their cadence
+  // survives main-thread stalls. Keep the final timestamp per channel: those
+  // packets cannot be cancelled individually once queued, so a release must
+  // begin after the final attack packet rather than racing it.
+  const timestampedOnsetEnds = new Map();
   const stateEngine = createAutoMpeYzRampEngine(() => {});
   let worker = null;
   let fallbackTimer = null;
@@ -337,6 +342,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     }
     lastValues.set(channel, last ?? { y: target.y, z: target.z });
     const targetAt = startAt + safeDuration;
+    timestampedOnsetEnds.set(channel, targetAt);
     worker?.postMessage({
       type: "schedule",
       channel,
@@ -456,7 +462,11 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       pressureActiveYChannels.delete(channel);
       pressureActiveZChannels.delete(channel);
       stopCoalescing(channel);
-      const start = Number.isFinite(at) ? at : now();
+      const requestedStart = Number.isFinite(at) ? at : now();
+      const queuedOnsetEnd = timestampedOnsetEnds.get(channel);
+      const start = Number.isFinite(queuedOnsetEnd)
+        ? Math.max(requestedStart, queuedOnsetEnd + 0.5)
+        : requestedStart;
       // Max's VelToZY patch uses the same 115-based lag calculation for attack
       // and release velocity. Values at or above that pivot snap to zero, while
       // softer releases keep a short timbral fall sampled every two milliseconds.
@@ -468,7 +478,12 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       pressureActiveYChannels.delete(channel);
       pressureActiveZChannels.delete(channel);
       stopCoalescing(channel);
-      schedule(channel, 0, 0, 0, at);
+      const requestedStart = Number.isFinite(at) ? at : now();
+      const queuedOnsetEnd = timestampedOnsetEnds.get(channel);
+      const start = Number.isFinite(queuedOnsetEnd)
+        ? Math.max(requestedStart, queuedOnsetEnd + 0.5)
+        : requestedStart;
+      schedule(channel, 0, 0, 0, start);
     },
 
     clear() {
@@ -478,6 +493,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       pressureActiveZChannels.clear();
       coalescedGenerations.clear();
       pendingCoalescedValues.clear();
+      timestampedOnsetEnds.clear();
       if (coalescedTimer != null) clearTimeout(coalescedTimer);
       coalescedTimer = null;
       stateEngine.clear();
@@ -493,6 +509,7 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
       pressureActiveZChannels.clear();
       coalescedGenerations.clear();
       pendingCoalescedValues.clear();
+      timestampedOnsetEnds.clear();
       if (coalescedTimer != null) clearTimeout(coalescedTimer);
       coalescedTimer = null;
       stateEngine.clear();

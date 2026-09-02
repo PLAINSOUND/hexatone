@@ -90,6 +90,30 @@ describe("automatic MPE Y/Z shaping", () => {
     );
   });
 
+  it("fences a quick release behind every pre-queued onset packet", () => {
+    vi.useFakeTimers();
+    const midiOutput = { send: vi.fn() };
+    let now = 300.2;
+    const scheduler = createAutoMpeYzScheduler(midiOutput, {
+      worker: false,
+      now: () => now,
+    });
+
+    scheduler.onset(4, 72);
+    const finalOnsetTimestamp = midiOutput.send.mock.calls.at(-1)[1];
+    midiOutput.send.mockClear();
+    now = 301.2;
+    scheduler.release(4, 0);
+    now = 320;
+    vi.advanceTimersByTime(2);
+
+    const releaseCalls = midiOutput.send.mock.calls;
+    expect(releaseCalls.length).toBeGreaterThan(0);
+    expect(releaseCalls.every(([, timestamp]) => timestamp > finalOnsetTimestamp)).toBe(true);
+    expect(releaseCalls.at(-2)[0]).toEqual([0xb0 + 3, 74, 0]);
+    expect(releaseCalls.at(-1)[0]).toEqual([0xd0 + 3, 0]);
+  });
+
   it("resends an identical onset when a member channel is reused for a new note", () => {
     const midiOutput = { send: vi.fn() };
     const scheduler = createAutoMpeYzScheduler(midiOutput, {
@@ -332,7 +356,7 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(messages.at(-1)).toEqual([0xd0 + 4, 0]);
   });
 
-  it("starts release from the exact continuous value and cancels the in-flight onset", () => {
+  it("starts release after the final queued onset value and reaches zero", () => {
     vi.useFakeTimers();
     const midiOutput = { send: vi.fn() };
     let now = 100.25;
@@ -346,6 +370,8 @@ describe("automatic MPE Y/Z shaping", () => {
     now = 102.85;
     vi.advanceTimersByTime(2);
     now = 104.85;
+    vi.advanceTimersByTime(2);
+    now = 106.85;
     vi.advanceTimersByTime(2);
 
     const calls = midiOutput.send.mock.calls;
@@ -382,8 +408,8 @@ describe("automatic MPE Y/Z shaping", () => {
     vi.advanceTimersByTime(2);
 
     expect(midiOutput.send.mock.calls.map(([message]) => message)).toEqual([
-      [0xb0 + 6, 74, 28],
-      [0xd0 + 6, 37],
+      [0xb0 + 6, 74, 37],
+      [0xd0 + 6, 48],
       [0xb0 + 6, 74, 0],
       [0xd0 + 6, 0],
     ]);

@@ -15,7 +15,6 @@ export function panic(keys) {
   }
   keys._resetWheelInputState(true);
   keys._retuneGlideLastTime = 0;
-  if (keys.synth?.allSoundOff) keys.synth.allSoundOff();
 
   const activeHexes = [...keys._allActiveHexes()];
   const sustainedHexes = [...keys.state.sustainedNotes];
@@ -44,6 +43,11 @@ export function panic(keys) {
     const [color, text_color] = keys.centsToColor(cents, false, pressed_interval);
     keys.drawHex(hex.coords, color, text_color);
   }
+
+  // Hard output clearing must be last. Voice noteOff handlers may schedule
+  // release expression; allSoundOff cancels that work and replaces it with
+  // explicit note-offs plus controller resets on external outputs.
+  if (keys.synth?.allSoundOff) keys.synth.allSoundOff();
 
   keys.state.sustainedNotes = [];
   keys.state.sustainedCoords.clear();

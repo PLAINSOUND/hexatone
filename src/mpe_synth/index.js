@@ -201,12 +201,28 @@ function send14BitChannelPressure(midi_output, channel0, value14) {
   midi_output.send([0xd0 + channel0, (value14 >> 7) & 0x7f]);
 }
 
-function sendMpePanic(midi_output, masterChannel0, voiceIds) {
+function sendMpePanic(
+  midi_output,
+  masterChannel0,
+  voiceIds,
+  { lastNotesByChannel = [], resetExpression = false } = {},
+) {
   if (!midi_output) return;
   // Some MPE receivers do not treat channel-mode CC120/123 as a complete
   // zone clear. Release the exact voices retained from this page (or a crashed
   // predecessor) before sending the standard channel-mode fallback.
   releasePersistedMpeNotes(midi_output);
+  for (const { channel0, note } of lastNotesByChannel) {
+    if (!Number.isInteger(channel0) || !Number.isInteger(note)) continue;
+    midi_output.send([0x80 + channel0, Math.max(0, Math.min(127, note)), 0]);
+  }
+  if (resetExpression) {
+    for (const channel of voiceIds) {
+      const channel0 = channel - 1;
+      midi_output.send([0xb0 + channel0, 74, 0]);
+      midi_output.send([0xd0 + channel0, 0]);
+    }
+  }
   const channels = new Set([
     ...(masterChannel0 >= 0 ? [masterChannel0] : []),
     ...voiceIds.map((channel) => channel - 1),
@@ -362,7 +378,18 @@ export const create_mpe_synth = async (
 
     /** Clear every voice channel and the manager channel with CC123 + CC120. */
     allSoundOff: () => {
-      sendMpePanic(midi_output, masterCh, voiceIds);
+      // Invalidate worker/timer generations first, then discard Web MIDI data
+      // already queued with future timestamps. PANIC deliberately owns the
+      // whole configured output at this point.
+      autoMpeYzScheduler.clear();
+      midi_output.clear?.();
+      sendMpePanic(midi_output, masterCh, voiceIds, {
+        lastNotesByChannel: voiceIds.map((channel) => ({
+          channel0: channel - 1,
+          note: pool.getLastNote(channel),
+        })),
+        resetExpression: true,
+      });
     },
 
     applyControllerState: (state = {}) => {

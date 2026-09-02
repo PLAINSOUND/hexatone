@@ -163,7 +163,7 @@ describe("sample_synth modwheel", () => {
     ["WMRI11LST", 1],
     ["WMRI13LST", 1],
     ["hammond", 1],
-    ["sruti", 0.25],
+    ["sruti", 0.33],
   ])(
     "applies %s pitch tracking without changing its 400 Hz wheel curve",
     async (fileName, tracking) => {
@@ -206,8 +206,8 @@ describe("sample_synth modwheel", () => {
     hex.cc74(64);
     hex.cc74(127);
 
-    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][0]).toBeCloseTo(3336, 8);
-    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[1][0]).toBeCloseTo(12591, 8);
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][0]).toBeCloseTo(3600, 8);
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[1][0]).toBeCloseTo(10000, 8);
   });
 
   it("updates the Reed cutoff when a held voice is retuned", async () => {
