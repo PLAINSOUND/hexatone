@@ -97,6 +97,30 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator frequency of 1/1").value).toBe("261.9");
   });
 
+  it("normalises Scala entry forms across Calculator interval fields", () => {
+    render(<CalculatorTab settings={{ scale: null }} />);
+
+    const reference = screen.getByLabelText("Calculator reference ratio or cents");
+    fireEvent.input(reference, { target: { value: "2" } });
+    fireEvent.blur(reference);
+    expect(screen.getByLabelText("Calculator reference ratio or cents").value).toBe("2/1");
+
+    const anchor = screen.getByLabelText("Calculator HEJI anchor ratio or cents");
+    fireEvent.input(anchor, { target: { value: "400." } });
+    fireEvent.blur(anchor);
+    expect(screen.getByLabelText("Calculator HEJI anchor ratio or cents").value).toBe("400.0");
+
+    const offset = screen.getByLabelText("Calculator lookup offset ratio or cents");
+    fireEvent.input(offset, { target: { value: "7\\12" } });
+    fireEvent.blur(offset);
+    expect(screen.getByLabelText("Calculator lookup offset ratio or cents").value).toBe("7\\12");
+
+    const pitch = screen.getByLabelText("Calculator lookup ratio or cents");
+    fireEvent.input(pitch, { target: { value: "3" } });
+    fireEvent.blur(pitch);
+    expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("3/1");
+  });
+
   it("restores Calculator user data for the same persisted tuning workspace", () => {
     const first = render(<CalculatorTab settings={SETTINGS} workspaceKey="same-tuning" />);
     const pitch = screen.getByLabelText("Calculator lookup ratio or cents");
@@ -191,7 +215,7 @@ describe("CalculatorTab", () => {
 
     expect(
       screen.getByLabelText("Calculator HEJI anchor ratio or cents from reference").value,
-    ).toBe("400.");
+    ).toBe("400.0");
     expect(screen.getByLabelText("Calculator HEJI anchor ratio or cents").value).toBe("500.000000");
     expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toMatch(/^\d+\/\d+$/);
   });
@@ -233,6 +257,12 @@ describe("CalculatorTab", () => {
     expect(globalThis.getSelection().toString()).toBe(tokens[0].textContent);
     fireEvent.click(tokens.at(-1));
     expect(globalThis.getSelection().toString()).toBe(tokens.at(-1).textContent);
+
+    tokens[0].getBoundingClientRect = () => ({ left: 0, right: 40 });
+    tokens.at(-1).getBoundingClientRect = () => ({ left: 60, right: 100 });
+    globalThis.getSelection().removeAllRanges();
+    fireEvent.click(output.querySelector("[aria-hidden='true']"), { clientX: 55 });
+    expect(globalThis.getSelection().toString()).toBe(tokens.at(-1).textContent);
   });
 
   it("uses Plainsound tempered spellings and can include them in Deviation", () => {
@@ -256,6 +286,12 @@ describe("CalculatorTab", () => {
     expect(globalThis.getSelection().toString()).toBe("A+0.000");
     fireEvent.click(tokens[1]);
     expect(globalThis.getSelection().toString()).toBe("G+0.000");
+
+    tokens[0].getBoundingClientRect = () => ({ left: 0, right: 50 });
+    tokens[1].getBoundingClientRect = () => ({ left: 70, right: 130 });
+    globalThis.getSelection().removeAllRanges();
+    fireEvent.click(deviation.querySelector("[aria-hidden='true']"), { clientX: 52 });
+    expect(globalThis.getSelection().toString()).toBe("A+0.000");
 
     fireEvent.click(screen.getByLabelText("Calculator use traditional accidentals"));
     expect(screen.getByLabelText("Calculator nearest MIDI note").textContent).toBe(
@@ -491,15 +527,67 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("1/1");
   });
 
-  it("selects a calculated datum on click without result action buttons", () => {
+  it("selects Ratio or Cents independently and the complete row on triple-click", () => {
     render(<CalculatorTab settings={SETTINGS} />);
     const results = screen.getByRole("group", { name: "Calculated Data" });
     const ratio = within(results).getByLabelText("Calculator interval from 1/1");
+    const tokens = [...ratio.querySelectorAll(".calculator-output__token")];
 
     expect(within(results).queryByRole("button", { name: "Copy" })).toBeNull();
     expect(within(results).queryByRole("button", { name: "Clear" })).toBeNull();
-    fireEvent.click(ratio);
+    expect(tokens).toHaveLength(2);
+    fireEvent.focus(ratio);
+    fireEvent.click(tokens[0]);
+    expect(globalThis.getSelection().toString()).toBe("27/16");
+    fireEvent.click(tokens[1]);
+    expect(globalThis.getSelection().toString()).toBe("905.865");
+    fireEvent.click(tokens[0], { detail: 3 });
     expect(globalThis.getSelection().toString()).toBe("27/16 | 905.865");
+  });
+
+  it("selects the nearer interval token when the gap is clicked", () => {
+    render(<CalculatorTab settings={SETTINGS} />);
+    const output = screen.getByLabelText("Calculator interval from 1/1");
+    const tokens = [...output.querySelectorAll(".calculator-output__token")];
+    const separator = output.querySelector("[aria-hidden='true']");
+    tokens[0].getBoundingClientRect = () => ({ left: 0, right: 40 });
+    tokens[1].getBoundingClientRect = () => ({ left: 60, right: 120 });
+
+    globalThis.getSelection().removeAllRanges();
+    fireEvent.click(separator, { clientX: 45 });
+    expect(globalThis.getSelection().toString()).toBe("27/16");
+    globalThis.getSelection().removeAllRanges();
+    fireEvent.click(separator, { clientX: 58 });
+    expect(globalThis.getSelection().toString()).toBe("905.865");
+    fireEvent.click(separator, { clientX: 58, detail: 3 });
+    expect(globalThis.getSelection().toString()).toBe("27/16 | 905.865");
+  });
+
+  it("preserves a user drag selection across an interval separator", () => {
+    render(<CalculatorTab settings={SETTINGS} />);
+    const output = screen.getByLabelText("Calculator interval from 1/1");
+    const firstToken = output.querySelector(".calculator-output__token");
+    const separator = output.querySelector("[aria-hidden='true']");
+    const range = document.createRange();
+    range.setStart(firstToken.firstChild, 1);
+    range.setEnd(separator.firstChild, 2);
+    const selection = globalThis.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const selectedText = selection.toString();
+
+    fireEvent.click(separator, { clientX: 50, detail: 1 });
+
+    expect(globalThis.getSelection().toString()).toBe(selectedText);
+  });
+
+  it("toggles a zero cents suffix for rational HEJI spelling", () => {
+    render(<CalculatorTab settings={SETTINGS} />);
+    const spelling = screen.getByLabelText("Calculator spelling output");
+
+    expect(spelling.textContent).not.toMatch(/\+0$/u);
+    fireEvent.click(screen.getByLabelText("Calculator always include cents in spelling"));
+    expect(spelling.textContent).toMatch(/\+0$/u);
   });
 
   it("keeps sort visible while disclosing Hexatone-style rationalisation controls", () => {

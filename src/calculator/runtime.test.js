@@ -61,6 +61,38 @@ describe("calculator runtime", () => {
     expect(result.nearbyRatios.length).toBeGreaterThan(0);
   });
 
+  it("optionally includes zero cents on rational HEJI spellings only", () => {
+    const rationalInput = {
+      referenceFrequency: 440,
+      referenceInterval: "1/1",
+      anchorInterval: "1/1",
+      anchorLabel: "*nA",
+      offsetFromAnchorInterval: "1/1",
+      pitchFromOffsetInterval: "1/1",
+      targetInterval: "1/1",
+    };
+    const temperedInput = {
+      ...rationalInput,
+      pitchFromOffsetInterval: "12.0",
+      targetInterval: "12.0",
+    };
+
+    expect(calculatePitchLookup(rationalInput).hejiLabel).not.toMatch(/\+0$/u);
+    expect(
+      calculatePitchLookup({
+        ...rationalInput,
+        alwaysIncludeCentsInSpelling: true,
+      }).hejiLabel,
+    ).toMatch(/\+0$/u);
+    expect(calculatePitchLookup(temperedInput).hejiLabel).toMatch(/\+12$/u);
+    expect(
+      calculatePitchLookup({
+        ...temperedInput,
+        alwaysIncludeCentsInSpelling: true,
+      }).hejiLabel,
+    ).toMatch(/\+12$/u);
+  });
+
   it("measures tuning-meter deviation from the notation anchor rather than A440", () => {
     const result = calculatePitchLookup({
       referenceFrequency: 442,
@@ -91,6 +123,13 @@ describe("calculator runtime", () => {
   it("normalizes exact ratio input without treating cents as exact", () => {
     expect(parseCalculatorInterval(" 45 / 32 ").normalized).toBe("45/32");
     expect(parseCalculatorInterval("590.224").exact).toBe(false);
+  });
+
+  it("normalises Calculator Scala input while retaining EDO notation", () => {
+    expect(parseCalculatorInterval("3").normalized).toBe("3/1");
+    expect(parseCalculatorInterval("400.").normalized).toBe("400.0");
+    expect(parseCalculatorInterval("7\\12").normalized).toBe("7\\12");
+    expect(parseCalculatorInterval("7\\12").cents).toBeCloseTo(700, 8);
   });
 
   it("seeds from Hexatone settings without mutating them", () => {

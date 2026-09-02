@@ -58,10 +58,6 @@ function formatSigned(value, decimals, { includeUnit = true } = {}) {
   return `${rounded < 0 ? "−" : "+"}${Math.abs(rounded).toFixed(decimals)}${includeUnit ? "¢" : ""}`;
 }
 
-function formatIntervalPair(ratioText, cents, decimals) {
-  return `${ratioText ?? "—"} | ${formatNumber(cents, decimals)}`;
-}
-
 function midiNoteName(
   noteName,
   { includeNatural = false, includeOctave = true, useTraditionalAccidentals = false } = {},
@@ -106,6 +102,28 @@ function selectMidiOutputToken(event) {
   selectElementText(event.currentTarget);
 }
 
+function selectNearestIntervalToken(event) {
+  if (event.detail >= 3) {
+    selectElementText(event.currentTarget);
+    return;
+  }
+  const selection = globalThis.getSelection?.();
+  if (event.detail === 1 && selection && !selection.isCollapsed) return;
+  if (event.target.closest?.(".calculator-output__token")) return;
+  const tokens = [...event.currentTarget.querySelectorAll(".calculator-output__token")];
+  if (!tokens.length) {
+    selectElementText(event.currentTarget);
+    return;
+  }
+  const pointerX = event.clientX;
+  const nearest = tokens.reduce((best, token) => {
+    const rect = token.getBoundingClientRect();
+    const distance = Math.abs(pointerX - (rect.left + rect.right) / 2);
+    return !best || distance < best.distance ? { token, distance } : best;
+  }, null);
+  if (nearest) selectElementText(nearest.token);
+}
+
 const SelectableOutput = ({ ariaLabel, children }) => (
   <output
     class="calculator-output"
@@ -121,6 +139,37 @@ const SelectableOutput = ({ ariaLabel, children }) => (
 SelectableOutput.propTypes = {
   ariaLabel: PropTypes.string.isRequired,
   children: PropTypes.node.isRequired,
+};
+
+const IntervalPairOutput = ({ ariaLabel, valid, ratioText, cents, decimals }) => (
+  <output
+    class="calculator-output calculator-output--tokens"
+    aria-label={ariaLabel}
+    tabIndex={0}
+    onClick={selectNearestIntervalToken}
+  >
+    {valid ? (
+      <>
+        <span class="calculator-output__token" onClick={selectMidiOutputToken}>
+          {ratioText ?? "—"}
+        </span>
+        <span aria-hidden="true"> | </span>
+        <span class="calculator-output__token" onClick={selectMidiOutputToken}>
+          {formatNumber(cents, decimals)}
+        </span>
+      </>
+    ) : (
+      "—"
+    )}
+  </output>
+);
+
+IntervalPairOutput.propTypes = {
+  ariaLabel: PropTypes.string.isRequired,
+  valid: PropTypes.bool.isRequired,
+  ratioText: PropTypes.string,
+  cents: PropTypes.number,
+  decimals: PropTypes.number.isRequired,
 };
 
 const CommitTextInput = ({ ariaLabel, value, onCommit, inputMode = "text", className = "" }) => {
@@ -218,6 +267,9 @@ const CalculatorTab = ({
   const [normalizeResults, setNormalizeResults] = useState(
     restoredWorkspace?.normalizeResults ?? false,
   );
+  const [alwaysIncludeCentsInSpelling, setAlwaysIncludeCentsInSpelling] = useState(
+    restoredWorkspace?.alwaysIncludeCentsInSpelling ?? false,
+  );
   const [includeTemperedAccidentalsInDeviation, setIncludeTemperedAccidentalsInDeviation] =
     useState(restoredWorkspace?.includeTemperedAccidentalsInDeviation ?? false);
   const [useTraditionalAccidentals, setUseTraditionalAccidentals] = useState(
@@ -246,6 +298,7 @@ const CalculatorTab = ({
       maxRationalResults,
       showRationalOptions,
       normalizeResults,
+      alwaysIncludeCentsInSpelling,
       includeTemperedAccidentalsInDeviation,
       useTraditionalAccidentals,
       palette: paletteWorkspaceState,
@@ -254,6 +307,7 @@ const CalculatorTab = ({
     anchorInterval,
     anchorLabel,
     anchorReferenceInterval,
+    alwaysIncludeCentsInSpelling,
     decimalPlaces,
     includeTemperedAccidentalsInDeviation,
     maxRationalResults,
@@ -308,10 +362,12 @@ const CalculatorTab = ({
         preferredHejiLabel: querySource === "spelling" ? spellingResultLabel : "",
         rationalSearch,
         normalizeResults,
+        alwaysIncludeCentsInSpelling,
       }),
     [
       anchorInterval,
       anchorLabel,
+      alwaysIncludeCentsInSpelling,
       rationalSearch,
       referenceFrequency,
       referenceInterval,
@@ -736,6 +792,15 @@ const CalculatorTab = ({
           />
           Normalise into one octave above the HEJI Anchor
         </label>
+        <label class="settings-form__checkbox-row calculator-results__normalize">
+          <input
+            type="checkbox"
+            aria-label="Calculator always include cents in spelling"
+            checked={alwaysIncludeCentsInSpelling}
+            onChange={(event) => setAlwaysIncludeCentsInSpelling(event.target.checked)}
+          />
+          Always include cents in spelling
+        </label>
         <label>
           Spelling
           <SelectableOutput ariaLabel="Calculator spelling output">
@@ -744,47 +809,43 @@ const CalculatorTab = ({
         </label>
         <label>
           Ratio | Cents from Offset
-          <SelectableOutput ariaLabel="Calculator interval from offset">
-            {analysis.valid
-              ? formatIntervalPair(
-                  analysis.ratioFromOffsetText,
-                  analysis.centsFromOffset,
-                  decimalPlaces,
-                )
-              : "—"}
-          </SelectableOutput>
+          <IntervalPairOutput
+            ariaLabel="Calculator interval from offset"
+            valid={analysis.valid}
+            ratioText={analysis.ratioFromOffsetText}
+            cents={analysis.centsFromOffset}
+            decimals={decimalPlaces}
+          />
         </label>
         <label>
           Ratio | Cents from HEJI Anchor
-          <SelectableOutput ariaLabel="Calculator interval from HEJI anchor">
-            {analysis.valid
-              ? formatIntervalPair(
-                  analysis.ratioFromAnchorText,
-                  analysis.displayedCentsFromAnchor,
-                  decimalPlaces,
-                )
-              : "—"}
-          </SelectableOutput>
+          <IntervalPairOutput
+            ariaLabel="Calculator interval from HEJI anchor"
+            valid={analysis.valid}
+            ratioText={analysis.ratioFromAnchorText}
+            cents={analysis.displayedCentsFromAnchor}
+            decimals={decimalPlaces}
+          />
         </label>
         <label>
           Ratio | Cents from Reference
-          <SelectableOutput ariaLabel="Calculator interval from reference">
-            {analysis.valid
-              ? formatIntervalPair(
-                  analysis.ratioFromReferenceText,
-                  analysis.centsFromReference,
-                  decimalPlaces,
-                )
-              : "—"}
-          </SelectableOutput>
+          <IntervalPairOutput
+            ariaLabel="Calculator interval from reference"
+            valid={analysis.valid}
+            ratioText={analysis.ratioFromReferenceText}
+            cents={analysis.centsFromReference}
+            decimals={decimalPlaces}
+          />
         </label>
         <label>
           Ratio | Cents from 1/1
-          <SelectableOutput ariaLabel="Calculator interval from 1/1">
-            {analysis.valid
-              ? formatIntervalPair(analysis.ratioText, analysis.centsFromDegree0, decimalPlaces)
-              : "—"}
-          </SelectableOutput>
+          <IntervalPairOutput
+            ariaLabel="Calculator interval from 1/1"
+            valid={analysis.valid}
+            ratioText={analysis.ratioText}
+            cents={analysis.centsFromDegree0}
+            decimals={decimalPlaces}
+          />
         </label>
         <label>
           Frequency (Hz)
@@ -798,6 +859,7 @@ const CalculatorTab = ({
             class="calculator-output calculator-output--tokens"
             aria-label="Calculator nearest MIDI note"
             tabIndex={0}
+            onClick={selectNearestIntervalToken}
           >
             {analysis.midi ? (
               <>
@@ -832,9 +894,7 @@ const CalculatorTab = ({
             }`}
             aria-label="Calculator MIDI deviation"
             tabIndex={0}
-            onClick={(event) => {
-              if (event.target === event.currentTarget) selectOutputText(event);
-            }}
+            onClick={selectNearestIntervalToken}
           >
             {analysis.notationMeter
               ? includeTemperedAccidentalsInDeviation

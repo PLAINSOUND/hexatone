@@ -64,7 +64,9 @@ export function parseCalculatorInterval(value) {
     ? parsed.ratio.toFraction().includes("/")
       ? parsed.ratio.toFraction()
       : `${parsed.ratio.toFraction()}/1`
-    : source;
+    : source.endsWith(".")
+      ? `${source}0`
+      : source;
   return { valid: true, source, normalized, ...parsed };
 }
 
@@ -391,6 +393,15 @@ function nearbyRationalValues(targetCents, options = {}) {
     : candidates;
 }
 
+function formatRationalHejiCentsSuffix(label, alwaysIncludeCents) {
+  const value = String(label ?? "");
+  if (!value || /[\uE2F1-\uE2F3]/u.test(value)) return value;
+  const trailingDeviation = /[+\u2212-]\d+(?:\.\d+)?(?:¢)?$/u;
+  const trailingZeroDeviation = /[+\u2212-]0(?:\.0+)?(?:¢)?$/u;
+  if (alwaysIncludeCents) return trailingDeviation.test(value) ? value : `${value}+0`;
+  return value.replace(trailingZeroDeviation, "");
+}
+
 export function calculatePitchLookup(input = {}) {
   const referenceFrequency = finitePositive(
     input.referenceFrequency,
@@ -465,7 +476,7 @@ export function calculatePitchLookup(input = {}) {
   let hejiLabel = "";
   try {
     const frame = createReferenceFrame({ anchorLabel, anchorRatio: "1/1" });
-    hejiLabel =
+    const resolvedLabel =
       input.preferredHejiLabel ||
       spelledHejiLabel(
         frame,
@@ -475,6 +486,12 @@ export function calculatePitchLookup(input = {}) {
           forceShowZeroDeviation: true,
         },
       );
+    hejiLabel = anchorRelative.exact
+      ? formatRationalHejiCentsSuffix(
+          resolvedLabel,
+          input.alwaysIncludeCentsInSpelling === true,
+        )
+      : resolvedLabel;
   } catch {
     hejiLabel = "";
   }
