@@ -212,6 +212,30 @@ export function applyReloadPersistencePolicy({
   }
 }
 
+export const RELOAD_WORKSPACE_TAB_KEY = "hexatone_reload_workspace_tab";
+const RELOADABLE_WORKSPACE_TABS = new Set(["sequencer", "calculator"]);
+
+export function loadReloadWorkspaceTab(storage = globalThis.sessionStorage) {
+  try {
+    const storedTab = storage?.getItem(RELOAD_WORKSPACE_TAB_KEY);
+    return RELOADABLE_WORKSPACE_TABS.has(storedTab) ? storedTab : "hexatone";
+  } catch {
+    return "hexatone";
+  }
+}
+
+export function saveReloadWorkspaceTab(workspaceTab, storage = globalThis.sessionStorage) {
+  try {
+    if (RELOADABLE_WORKSPACE_TABS.has(workspaceTab)) {
+      storage?.setItem(RELOAD_WORKSPACE_TAB_KEY, workspaceTab);
+    } else {
+      storage?.removeItem(RELOAD_WORKSPACE_TAB_KEY);
+    }
+  } catch {
+    // Navigation state is optional when browser storage is unavailable.
+  }
+}
+
 // On browser refresh (not initial load), clear scale/preset sessionStorage unless
 // the user has opted into "Restore last preset on page reload".
 applyReloadPersistencePolicy();
@@ -612,11 +636,13 @@ const SEQUENCE_PLAYBACK_FALLBACK_TUNING = Object.freeze({
 // Sequencer.
 const App = () => {
   const [ready, setReady] = useState(false);
-  const [workspaceTab, setWorkspaceTab] = useState("hexatone");
+  const [workspaceTab, setWorkspaceTab] = useState(loadReloadWorkspaceTab);
   // I/O and Calculator are auxiliary views over the current musical workspace.
   // Keeping the underlying workspace separate lets a running sequence continue
   // while sound/routing controls or pitch calculations are visible.
-  const [performanceWorkspaceTab, setPerformanceWorkspaceTab] = useState("hexatone");
+  const [performanceWorkspaceTab, setPerformanceWorkspaceTab] = useState(() =>
+    workspaceTab === "sequencer" ? "sequencer" : "hexatone",
+  );
   const [inlineManualView, setInlineManualView] = useState(null);
   const [manualSectionTitles, setManualSectionTitles] = useState(MANUAL_VIEW_DEFAULT_SECTIONS);
   const sidebarRef = useRef(null);
@@ -644,6 +670,10 @@ const App = () => {
   const audioWakePromiseRef = useRef(null);
 
   // Session / lifecycle bootstrap.
+  useEffect(() => {
+    saveReloadWorkspaceTab(workspaceTab);
+  }, [workspaceTab]);
+
   const rememberManualScrollPosition = useCallback(() => {
     if (!activeManualView) return;
     const sidebar = sidebarRef.current;
@@ -5544,8 +5574,12 @@ const App = () => {
           </p>
         ) : workspaceTab === "calculator" ? (
           <p class="sidebar-intro">
+            <em>Choose a tuning reference (for example, </em>*nA = 440 Hz
             <em>
-              Choose a tuning reference (for example, </em>*nA = 440 Hz<em>), then input a HEJI spelling, ratio or cents value to determine its staff notation, cents deviation, frequency, and nearby rational intonation options. Choosing a tuning in HEXATONE tab changes the Reference Frequency and Spelling Anchor in CALCULATOR but changing the settings does not retune the Keyboard canvas. {" "}
+              ), then input a HEJI spelling, ratio or cents value to determine its staff notation,
+              cents deviation, frequency, and nearby rational intonation options. Choosing a tuning
+              in HEXATONE tab changes the Reference Frequency and Spelling Anchor in CALCULATOR but
+              changing the settings does not retune the Keyboard canvas.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -5558,7 +5592,12 @@ const App = () => {
         ) : workspaceTab === "hexatone" ? (
           <p class="sidebar-intro">
             <em>
-              To play, choose a built-in tuning or build your own scale in "Scale Settings" by changing "Scale Size" or clicking on "Add Scale Degree". Click or touch notes. Edit the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in SEQUENCER. Visit the IO tab to choose internal sounds, connect a MIDI keyboard or an isomorphic controller like Lumatone or Exquis, and retune external synths using MTS, MPE, OSC. {" "}
+              To play, choose a built-in tuning or build your own scale in "Scale Settings" by
+              changing "Scale Size" or clicking on "Add Scale Degree". Click or touch notes. Edit
+              the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC
+              toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in SEQUENCER.
+              Visit the IO tab to choose internal sounds, connect a MIDI keyboard or an isomorphic
+              controller like Lumatone or Exquis, and retune external synths using MTS, MPE, OSC.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"

@@ -211,9 +211,12 @@ import {
   bindControllerLedRefs,
   commitModulationHistoryToPreset,
   getDefaultSnapshotPalettePos,
+  loadReloadWorkspaceTab,
   Loading,
   modulationCurrentSummaryDisplay,
   modulationRouteLabelPair,
+  RELOAD_WORKSPACE_TAB_KEY,
+  saveReloadWorkspaceTab,
   sendLumatoneColorsNow,
 } from "./app";
 import App from "./app";
@@ -291,6 +294,14 @@ describe("applyReloadPersistencePolicy", () => {
     expect(sessionStorage.getItem(SEQUENCE_WORKSPACE_STORAGE_KEY)).toBeNull();
   });
 
+  it("keeps the visible Sequencer or Calculator tab independent of preset restoration", () => {
+    sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, "calculator");
+
+    applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist: false });
+
+    expect(sessionStorage.getItem(RELOAD_WORKSPACE_TAB_KEY)).toBe("calculator");
+  });
+
   it("keeps the query string on reload when restore-on-reload is enabled", () => {
     history.replaceState({}, "", "http://localhost/?scale=3/2,2/1&instrument=WMRIByzantineST");
 
@@ -300,7 +311,38 @@ describe("applyReloadPersistencePolicy", () => {
   });
 });
 
+describe("reload workspace tab", () => {
+  beforeEach(() => {
+    sessionStorage.removeItem(RELOAD_WORKSPACE_TAB_KEY);
+  });
+
+  it.each(["sequencer", "calculator"])("restores the %s workspace", (workspaceTab) => {
+    saveReloadWorkspaceTab(workspaceTab);
+
+    expect(loadReloadWorkspaceTab()).toBe(workspaceTab);
+  });
+
+  it.each(["hexatone", "io", "manual"])(
+    "returns to Hexatone after leaving the %s workspace active",
+    (workspaceTab) => {
+      sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, "sequencer");
+
+      saveReloadWorkspaceTab(workspaceTab);
+
+      expect(loadReloadWorkspaceTab()).toBe("hexatone");
+      expect(sessionStorage.getItem(RELOAD_WORKSPACE_TAB_KEY)).toBeNull();
+    },
+  );
+
+  it("falls back to Hexatone when stored navigation state is invalid", () => {
+    sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, "unknown");
+
+    expect(loadReloadWorkspaceTab()).toBe("hexatone");
+  });
+});
+
 beforeEach(() => {
+  sessionStorage.removeItem(RELOAD_WORKSPACE_TAB_KEY);
   lastKeyboardProps = null;
   lastUsePresetsOptions = null;
   mockDetectedController = null;
@@ -871,6 +913,19 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
+  it.each([
+    ["sequencer", "SEQUENCER"],
+    ["calculator", "CALCULATOR"],
+  ])("opens the restored %s workspace on startup", async (storedTab, tabName) => {
+    sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, storedTab);
+
+    render(<App />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: tabName }).getAttribute("aria-selected")).toBe("true"),
+    );
+  });
+
   it("restores stored sequence timbre after Mod Wheel input when sequence shaping is unchecked", async () => {
     render(<App />);
     const polyTimbre = vi.fn();

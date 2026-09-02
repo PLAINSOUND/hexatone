@@ -182,6 +182,23 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* On a fresh blank slate, calculator seed values are suggestions rather than
+   committed tuning data. Keep labels normal and mute only the displayed data
+   until the user starts editing the calculator. */
+#sidebar
+  .calculator-tab--blank-hints
+  > fieldset:not(.calculator-rationalisation)
+  input:not([type="checkbox"]),
+#sidebar
+  .calculator-tab--blank-hints
+  > fieldset:not(.calculator-rationalisation)
+  select,
+#sidebar .calculator-tab--blank-hints .calculator-output,
+#sidebar .calculator-tab--blank-hints .calculator-rational-candidate span {
+  color: #999999;
+  -webkit-text-fill-color: #999999;
+}
+
 .calculator-field-hint {
   margin: 0.15em 0 0.5em;
   color: #8e7070;

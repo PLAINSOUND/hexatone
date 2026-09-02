@@ -20,6 +20,12 @@ describe("CalculatorTab", () => {
   it("starts at A 440 and 1/1 before a Hexatone scale is loaded", () => {
     render(<CalculatorTab settings={{ scale: null }} />);
 
+    expect(
+      screen
+        .getByLabelText("Calculator reference frequency")
+        .closest(".calculator-tab")
+        .classList.contains("calculator-tab--blank-hints"),
+    ).toBe(true);
     expect(screen.getByLabelText("Calculator reference frequency").value).toBe("440.0");
     expect(screen.getByLabelText("Calculator reference ratio or cents").value).toBe("1/1");
     expect(screen.getByLabelText("Calculator frequency of 1/1").value).toBe("440.0");
@@ -27,11 +33,27 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator HEJI anchor spelling").value).toBe("*nA");
     expect(screen.getByLabelText("Calculator spelling frequency").value).toBe("440.0");
     expect(screen.getByLabelText("Calculator decimal places").value).toBe("0");
+
+    fireEvent.input(screen.getByLabelText("Calculator reference ratio or cents"), {
+      target: { value: "3/2" },
+    });
+    expect(
+      screen
+        .getByLabelText("Calculator reference frequency")
+        .closest(".calculator-tab")
+        .classList.contains("calculator-tab--blank-hints"),
+    ).toBe(false);
   });
 
   it("seeds its independent reference and HEJI fields from Hexatone", () => {
     render(<CalculatorTab settings={SETTINGS} />);
 
+    expect(
+      screen
+        .getByLabelText("Calculator reference frequency")
+        .closest(".calculator-tab")
+        .classList.contains("calculator-tab--blank-hints"),
+    ).toBe(false);
     expect(screen.getByLabelText("Calculator reference frequency").value).toBe("440.0");
     expect(screen.getByLabelText("Calculator reference ratio or cents").value).toBe("27/16");
     expect(screen.getByLabelText("Calculator HEJI anchor ratio or cents").value).toBe("27/16");

@@ -145,6 +145,9 @@ CommitTextInput.propTypes = {
 };
 
 const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio }) => {
+  const [showBlankDataHints, setShowBlankDataHints] = useState(
+    () => !Array.isArray(settings.scale) || settings.scale.length === 0,
+  );
   const seed = useMemo(
     () =>
       deriveCalculatorSeed(settings, {
@@ -257,7 +260,21 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
     });
   };
   return (
-    <div class="calculator-tab">
+    <div
+      class={`calculator-tab${showBlankDataHints ? " calculator-tab--blank-hints" : ""}`}
+      onInputCapture={() => setShowBlankDataHints(false)}
+      onChangeCapture={() => setShowBlankDataHints(false)}
+      onClickCapture={(event) => {
+        const button = event.target.closest?.("button");
+        if (
+          button?.closest(".calculator-palette") &&
+          button.textContent.trim() !== "Copy" &&
+          button.textContent.trim() !== "Copied"
+        ) {
+          setShowBlankDataHints(false);
+        }
+      }}
+    >
 
       <fieldset>
         <legend>Reference</legend>
@@ -701,6 +718,7 @@ const CalculatorTab = ({ settings, effectiveAnchorLabel, effectiveAnchorRatio })
                   if (!relative) return;
                   setQueryInterval(relative);
                   setQuerySource("ratio");
+                  setShowBlankDataHints(false);
                 }}
               >
                 <span class="rationalise-candidate__row1">
