@@ -478,6 +478,19 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator palette output")).toBeTruthy();
   });
 
+  it("resets Palette Input to the chosen HEJI notation anchor", () => {
+    render(<CalculatorTab settings={SETTINGS} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "E" }));
+    expect(screen.getByLabelText("Calculator palette output").value).toContain("E");
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+
+    expect(screen.getByLabelText("Calculator palette output").value).toContain("A");
+    expect(screen.getByLabelText("Calculator palette octave value").textContent).toBe("4");
+    expect(screen.getByLabelText("Calculator lookup ratio or cents").value).toBe("1/1");
+  });
+
   it("selects a calculated datum on click without result action buttons", () => {
     render(<CalculatorTab settings={SETTINGS} />);
     const results = screen.getByRole("group", { name: "Calculated Data" });

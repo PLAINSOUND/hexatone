@@ -310,6 +310,27 @@ describe("calculator runtime", () => {
     expect(relativeCalculatorInterval("27/16", "1/1")).toBe("27/16");
   });
 
+  it("finds nearby rational pitches relative to Pitch from Offset", () => {
+    const result = calculatePitchLookup({
+      referenceFrequency: 440,
+      referenceInterval: "1/1",
+      anchorInterval: "3/2",
+      anchorLabel: "*nA",
+      offsetFromAnchorInterval: "5/4",
+      pitchFromOffsetInterval: "7/6",
+      targetInterval: "35/16",
+      rationalSearch: {
+        primeLimit: 7,
+        oddLimit: 255,
+        centsTolerance: 1,
+        maxCandidates: 16,
+      },
+    });
+
+    expect(result.nearbyRatios[0].ratioText).toBe("7/6");
+    expect(result.nearbyRatios[0].deviationCents).toBeCloseTo(0, 8);
+  });
+
   it("adds and subtracts cents when either interval is in cents", () => {
     expect(combineCalculatorIntervals("701.955", "-40.0")).toBe("661.955000");
     expect(relativeCalculatorInterval("661.955", "701.955")).toBe("-40.000000");

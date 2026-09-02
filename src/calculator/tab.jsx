@@ -894,15 +894,7 @@ const CalculatorTab = ({
                 type="button"
                 class="rationalise-candidate calculator-rational-candidate"
                 onClick={() => {
-                  const fromAnchor = relativeCalculatorInterval(
-                    candidate.ratioText,
-                    anchorInterval,
-                  );
-                  const fromOffset = fromAnchor
-                    ? relativeCalculatorInterval(fromAnchor, offsetInterval)
-                    : null;
-                  if (!fromOffset) return;
-                  setQueryInterval(fromOffset);
+                  setQueryInterval(candidate.ratioText);
                   setQuerySource("ratio");
                   setShowBlankDataHints(false);
                 }}

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { BASE_BY_ID, BASE_SYMBOLS, HEJI_FAMILIES } from "../notation/heji.js";
 import {
-  clearPitchStructure,
   createPitchStructure,
   parseHejiToStructure,
   pitchStructureToBaseId,
@@ -235,6 +234,20 @@ const HejiPalette = ({
     if (clearDeviation) setDeviation("");
     setCopied(false);
   };
+  const resetToAnchor = () => {
+    const anchorStructure = parseStructure("", anchorLabel);
+    setStructure((current) =>
+      createPitchStructure({
+        ...anchorStructure,
+        useDoubles: current.useDoubles,
+        useDoubleSeptimals: current.useDoubleSeptimals,
+        cautionaryNatural: current.cautionaryNatural,
+      }),
+    );
+    setDeviation("");
+    setOctave(DEFAULT_CALCULATOR_OCTAVE);
+    setCopied(false);
+  };
   return (
     <div class="heji-palette-builder calculator-palette">
       <label class="heji-palette-builder__toggle-row">
@@ -309,11 +322,7 @@ const HejiPalette = ({
               type="button"
               class="preset-action-btn"
               disabled={!output}
-              onClick={() => {
-                setStructure(clearPitchStructure());
-                setDeviation("");
-                setCopied(false);
-              }}
+              onClick={resetToAnchor}
             >
               Clear
             </button>

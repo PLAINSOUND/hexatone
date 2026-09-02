@@ -460,6 +460,8 @@ export function calculatePitchLookup(input = {}) {
   const displayedCentsFromReference = input.normalizeResults
     ? normalizeCentsToOctave(centsFromReference)
     : centsFromReference;
+  const rationalSearchTarget =
+    input.pitchFromOffsetInterval == null ? target : displayedOffsetRelative;
   let hejiLabel = "";
   try {
     const frame = createReferenceFrame({ anchorLabel, anchorRatio: "1/1" });
@@ -501,7 +503,7 @@ export function calculatePitchLookup(input = {}) {
     hejiLabel,
     midi: midiPitchFromFrequency(frequencyHz),
     notationMeter,
-    nearbyRatios: nearbyRationalValues(target.cents, input.rationalSearch),
+    nearbyRatios: nearbyRationalValues(rationalSearchTarget.cents, input.rationalSearch),
     monzo: target.exact ? target.monzo : null,
     primeLimit: target.exact ? target.primeLimit : null,
   };
