@@ -1133,6 +1133,14 @@ const App = () => {
     markerIndex: null,
     stopped: true,
   });
+  const sequencePlayheadRef = useRef(sequencePlayhead);
+  useEffect(() => {
+    // An unrelated render may still carry the last committed playhead while a
+    // rapid manual-trigger burst is advancing the audio-only playhead. Do not
+    // let that stale render move arrow navigation backwards mid-burst.
+    if (pendingManualCueUiCommitRef.current.payload != null) return;
+    sequencePlayheadRef.current = sequencePlayhead;
+  }, [sequencePlayhead]);
   const pendingTransportSelectionRef = useRef(clearPendingTransportSelection());
   const timedPlaybackUiRef = useRef({
     clockSeconds: -Infinity,
@@ -1688,6 +1696,7 @@ const App = () => {
 
   const applyStoppedSequenceTransportState = useCallback((nextState = {}) => {
     const resolvedState = buildStoppedSequenceTransportState(nextState);
+    sequencePlayheadRef.current = resolvedState.playhead;
     setPlayingSnapshotId(resolvedState.playingSnapshotId);
     setSelectedSnapshotId(resolvedState.selectedSnapshotId);
     setSelectedSnapshotMarker(resolvedState.selectedSnapshotMarker);
@@ -1755,6 +1764,7 @@ const App = () => {
         snapshots,
       });
       pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+      sequencePlayheadRef.current = nextState.playhead;
       setPlayingSnapshotId(nextState.playingSnapshotId);
       setSelectedSnapshotId(nextState.selectedSnapshotId);
       setSelectedSnapshotMarker(nextState.selectedSnapshotMarker);
@@ -1773,6 +1783,14 @@ const App = () => {
   const scheduleManualCueUiCommit = useCallback(
     (payload) => {
       const pending = pendingManualCueUiCommitRef.current;
+      const nextState = buildCommittedSequencePlaybackState({
+        ...payload,
+        snapshots,
+      });
+      // Arrow navigation must advance from the latest sounding position even
+      // while the corresponding Preact presentation is postponed.
+      pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
+      sequencePlayheadRef.current = nextState.playhead;
       pending.payload = payload;
       if (pending.timerId != null) window.clearTimeout(pending.timerId);
       // The audible path has already run. Wait until a manual trigger burst is
@@ -1784,7 +1802,7 @@ const App = () => {
         if (latest) commitSequencePlaybackUi(latest);
       }, 300);
     },
-    [commitSequencePlaybackUi],
+    [commitSequencePlaybackUi, snapshots],
   );
 
   useEffect(() => cancelPendingManualCueUiCommit, [cancelPendingManualCueUiCommit]);
@@ -1958,7 +1976,8 @@ const App = () => {
 
   const playSequencePosition = useCallback(
     (stepIndex, markerIndex = null, options = {}) => {
-      cancelPendingManualCueUiCommit();
+      const deferUi = options?.deferUi === true;
+      if (!deferUi) cancelPendingManualCueUiCommit();
       const hardRestart = options?.hardRestart === true;
       if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
         setSequenceBeforeStart();
@@ -1995,16 +2014,34 @@ const App = () => {
           ? null
           : Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
       const notes = sequencePlaybackNotesAtPosition(safeStepIndex, safeMarkerIndex);
+      if (deferUi) {
+        const cueGroup = safeMarkerIndex == null ? null : sequenceCueGroups[safeMarkerIndex];
+        applySequencePlayback(safeStepIndex, safeMarkerIndex, notes, {
+          hardRestart,
+          updateUi: false,
+        });
+        scheduleManualCueUiCommit({
+          safeStepIndex,
+          safeMarkerIndex,
+          snapshot,
+          cueGroup,
+          normalizedNotes: notes,
+          barIndex: barIndexForTime(cueGroup?.time ?? safeStepIndex + 1),
+        });
+        return;
+      }
       applySequencePlayback(safeStepIndex, safeMarkerIndex, notes, { hardRestart });
     },
     [
       applySequencePlayback,
       applyStoppedSequenceTransportState,
+      barIndexForTime,
       cancelPendingManualCueUiCommit,
       cancelManualSnapshotGestures,
       resetTimedPlaybackUi,
       sequenceCueGroups,
       sequencePlaybackNotesAtPosition,
+      scheduleManualCueUiCommit,
       snapshots,
       setSequenceBeforeStart,
     ],
@@ -2075,7 +2112,8 @@ const App = () => {
   }, []);
 
   const playManualSnapshotAtIndex = useCallback(
-    (stepIndex, markerIndex = null) => {
+    (stepIndex, markerIndex = null, options = {}) => {
+      const deferUi = options?.deferUi === true;
       sequenceRepeatPlaybackStateRef.current = {};
       const snap = snapshots[stepIndex];
       if (!snap) return;
@@ -2098,20 +2136,34 @@ const App = () => {
         // Keeping it out of the per-note gesture scheduler ensures every
         // pitch gets the same future MIDI/OSC commit timestamp even when an
         // edited pitch takes longer to prepare.
-        applySequencePlayback(stepIndex, safeMarkerIndex, notes);
-        return;
+        if (deferUi) {
+          applySequencePlayback(stepIndex, safeMarkerIndex, notes, { updateUi: false });
+          scheduleManualCueUiCommit({
+            safeStepIndex: stepIndex,
+            safeMarkerIndex,
+            snapshot: snap,
+            cueGroup,
+            normalizedNotes: notes,
+            barIndex: barIndexForTime(cueGroup?.time ?? stepIndex + 1),
+          });
+        } else {
+          applySequencePlayback(stepIndex, safeMarkerIndex, notes);
+        }
+        return stepIndex;
       }
       if (!notes.length) {
         if (!snapshotArpeggiationEnabled) keysRef.current?.stopSnapshot();
-        commitSequencePlaybackUi({
+        const payload = {
           safeStepIndex: stepIndex,
           safeMarkerIndex,
           snapshot: snap,
           cueGroup,
           normalizedNotes: [],
           barIndex: barIndexForTime(cueGroup?.time ?? stepIndex + 1),
-        });
-        return;
+        };
+        if (deferUi) scheduleManualCueUiCommit(payload);
+        else commitSequencePlaybackUi(payload);
+        return stepIndex;
       }
       const plan = planManualSnapshotFormation(notes, {
         ...manualArpeggiation,
@@ -2153,14 +2205,17 @@ const App = () => {
         onComplete: releaseManualSnapshotGesture,
       });
       const normalizedNotes = Array.isArray(notes) ? notes : [];
-      commitSequencePlaybackUi({
+      const payload = {
         safeStepIndex: stepIndex,
         safeMarkerIndex,
         snapshot: snap,
         cueGroup,
         normalizedNotes,
         barIndex: barIndexForTime(cueGroup?.time ?? stepIndex + 1),
-      });
+      };
+      if (deferUi) scheduleManualCueUiCommit(payload);
+      else commitSequencePlaybackUi(payload);
+      return stepIndex;
     },
     [
       barIndexForTime,
@@ -2172,6 +2227,7 @@ const App = () => {
       releaseManualSnapshotGesture,
       sequenceCueGroups,
       sequencePlaybackNotesAtPosition,
+      scheduleManualCueUiCommit,
       snapshots,
     ],
   );
@@ -2445,30 +2501,34 @@ const App = () => {
 
   const onStepSequence = useCallback(
     (direction) => {
+      const livePlayhead = sequencePlayheadRef.current;
       sequenceRepeatPlaybackStateRef.current = {};
       if (!snapshots.length) return;
-      if (sequencePlayhead.preStart === true) {
+      if (livePlayhead.preStart === true) {
         if (direction > 0) setSequenceBeforeStart();
         return;
       }
       const pendingSnapshotIndex = pendingTransportSelectionRef.current.snapshotIndex;
       if (
-        sequencePlayhead.stopped === true &&
+        livePlayhead.stopped === true &&
         Number.isFinite(pendingSnapshotIndex) &&
         pendingSnapshotIndex >= 0
       ) {
         if (direction > 0) {
-          playManualSnapshotAtIndex(pendingSnapshotIndex);
-          return;
+          playManualSnapshotAtIndex(pendingSnapshotIndex, null, { deferUi: true });
+          return pendingSnapshotIndex;
         }
         const previousIndex = pendingSnapshotIndex - 1;
-        if (previousIndex >= 0) playManualSnapshotAtIndex(previousIndex);
-        else playSequencePosition(-1, null);
+        if (previousIndex >= 0) {
+          playManualSnapshotAtIndex(previousIndex, null, { deferUi: true });
+          return previousIndex;
+        }
+        playSequencePosition(-1, null);
         return;
       }
-      const current = Number.isFinite(sequencePlayhead.stepIndex) ? sequencePlayhead.stepIndex : -1;
+      const current = Number.isFinite(livePlayhead.stepIndex) ? livePlayhead.stepIndex : -1;
       if (current < 0) {
-        const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
+        const target = snapshotIndexNearBar(livePlayhead.barIndex, direction);
         if (target < 0) {
           setSequenceBeforeStart({ preStart: direction < 0 });
           return;
@@ -2477,20 +2537,19 @@ const App = () => {
           playSequencePosition(snapshots.length, null);
           return;
         }
-        playManualSnapshotAtIndex(target);
-        return;
+        playManualSnapshotAtIndex(target, null, { deferUi: true });
+        return target;
       }
       const next = Math.max(-1, Math.min(snapshots.length, current + direction));
-      if (next >= 0 && next < snapshots.length) playManualSnapshotAtIndex(next);
-      else playSequencePosition(next, null);
+      if (next >= 0 && next < snapshots.length) {
+        playManualSnapshotAtIndex(next, null, { deferUi: true });
+        return next;
+      }
+      playSequencePosition(next, null);
     },
     [
       playManualSnapshotAtIndex,
       playSequencePosition,
-      sequencePlayhead.barIndex,
-      sequencePlayhead.preStart,
-      sequencePlayhead.stepIndex,
-      sequencePlayhead.stopped,
       snapshotIndexNearBar,
       snapshots.length,
       setSequenceBeforeStart,
@@ -2499,14 +2558,15 @@ const App = () => {
 
   const onStepSequenceMarker = useCallback(
     (direction) => {
-      const currentCueIndex = Number.isFinite(sequencePlayhead.markerIndex)
-        ? sequencePlayhead.markerIndex
+      const livePlayhead = sequencePlayheadRef.current;
+      const currentCueIndex = Number.isFinite(livePlayhead.markerIndex)
+        ? livePlayhead.markerIndex
         : null;
-      const playheadStepIndex = Number.isFinite(sequencePlayhead.stepIndex)
-        ? sequencePlayhead.stepIndex
+      const playheadStepIndex = Number.isFinite(livePlayhead.stepIndex)
+        ? livePlayhead.stepIndex
         : null;
-      const playheadBarIndex = Number.isFinite(sequencePlayhead.barIndex)
-        ? sequencePlayhead.barIndex
+      const playheadBarIndex = Number.isFinite(livePlayhead.barIndex)
+        ? livePlayhead.barIndex
         : null;
       const recordCueNavigation = (type, detail, extraContext = {}, error = null) => {
         appendPersistedSequencerCrashDiagnostic({
@@ -2542,7 +2602,7 @@ const App = () => {
           return;
         }
 
-        if (sequencePlayhead.preStart === true) {
+        if (livePlayhead.preStart === true) {
           recordCueNavigation(
             "cue-navigation-resolved",
             direction > 0
@@ -2558,7 +2618,7 @@ const App = () => {
         if (cueCount === 0) {
           const currentStep = playheadStepIndex ?? -1;
           if (currentStep < 0) {
-            const target = snapshotIndexNearBar(sequencePlayhead.barIndex, direction);
+            const target = snapshotIndexNearBar(livePlayhead.barIndex, direction);
             if (target < 0) {
               recordCueNavigation(
                 "cue-navigation-resolved",
@@ -2609,7 +2669,7 @@ const App = () => {
         let nextCue = currentCueIndex;
         const queuedCueIndex = pendingTransportSelectionRef.current.cueIndex;
 
-        if (sequencePlayhead.stopped === true && queuedCueIndex != null) {
+        if (livePlayhead.stopped === true && queuedCueIndex != null) {
           if (direction > 0) {
             const queuedCueGroup = sequenceCueGroups[queuedCueIndex];
             if (!queuedCueGroup) {
@@ -2629,8 +2689,8 @@ const App = () => {
                 snapshotId: snapshots[queuedCueGroup.snapshotIndex]?.id ?? null,
               },
             );
-            playSequencePosition(queuedCueGroup.snapshotIndex, queuedCueIndex);
-            return;
+            playSequencePosition(queuedCueGroup.snapshotIndex, queuedCueIndex, { deferUi: true });
+            return queuedCueIndex;
           }
           nextCue = queuedCueIndex - 1;
           if (nextCue < 0) {
@@ -2643,7 +2703,7 @@ const App = () => {
             return;
           }
         } else if (atOff) {
-          nextCue = cueIndexNearBar(sequencePlayhead.barIndex, direction);
+          nextCue = cueIndexNearBar(livePlayhead.barIndex, direction);
           if (nextCue < 0) {
             if (direction < 0) {
               recordCueNavigation(
@@ -2673,7 +2733,7 @@ const App = () => {
           }
           nextCue = currentCueIndex == null ? cueCount - 1 : Math.max(0, currentCueIndex - 1);
         } else if (currentCueIndex == null) {
-          const currentTime = Number(sequencePlayhead.stepIndex) + 1;
+          const currentTime = Number(livePlayhead.stepIndex) + 1;
           nextCue =
             direction > 0
               ? sequenceCueGroups.findIndex((group) => group.time > currentTime)
@@ -2731,8 +2791,9 @@ const App = () => {
           );
           playSequencePosition(nextCueGroup.snapshotIndex, nextCue, {
             hardRestart: repeatAdvance.didLoop,
+            deferUi: true,
           });
-          return;
+          return nextCue;
         } else {
           sequenceRepeatPlaybackStateRef.current = {};
           nextCue = Math.max(-1, Math.min(cueCount, currentCueIndex + direction));
@@ -2764,7 +2825,8 @@ const App = () => {
             snapshotId: snapshots[cueGroup.snapshotIndex]?.id ?? null,
           },
         );
-        playSequencePosition(cueGroup.snapshotIndex, nextCue);
+        playSequencePosition(cueGroup.snapshotIndex, nextCue, { deferUi: true });
+        return nextCue;
       } catch (error) {
         recordCueNavigation(
           "cue-navigation-error",
@@ -2783,11 +2845,6 @@ const App = () => {
       playSequencePosition,
       sequenceCueGroups,
       sequencePlayRepeats,
-      sequencePlayhead.barIndex,
-      sequencePlayhead.markerIndex,
-      sequencePlayhead.preStart,
-      sequencePlayhead.stepIndex,
-      sequencePlayhead.stopped,
       snapshotIndexNearBar,
       snapshots,
       setSequenceBeforeStart,
@@ -2957,34 +3014,15 @@ const App = () => {
       if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
       const cueGroup = sequenceCueGroups[index];
       if (!cueGroup) return;
-      if (options?.deferUi === true) {
-        const safeStepIndex = cueGroup.snapshotIndex;
-        const snapshot = snapshots[safeStepIndex];
-        if (!snapshot) return;
-        const normalizedNotes = sequencePlaybackNotesAtPosition(safeStepIndex, index);
-        applySequencePlayback(safeStepIndex, index, normalizedNotes, { updateUi: false });
-        scheduleManualCueUiCommit({
-          safeStepIndex,
-          safeMarkerIndex: index,
-          snapshot,
-          cueGroup,
-          normalizedNotes,
-          barIndex: barIndexForTime(cueGroup.time),
-        });
-      } else {
-        playSequencePosition(cueGroup.snapshotIndex, index);
-      }
+      playSequencePosition(cueGroup.snapshotIndex, index, {
+        deferUi: options?.deferUi === true,
+      });
       recordManualCueBurstDiagnostic(index, startedAtMs, performance.now() - startedAtMs);
     },
     [
-      applySequencePlayback,
-      barIndexForTime,
       playSequencePosition,
       recordManualCueBurstDiagnostic,
-      scheduleManualCueUiCommit,
       sequenceCueGroups,
-      sequencePlaybackNotesAtPosition,
-      snapshots,
     ],
   );
 

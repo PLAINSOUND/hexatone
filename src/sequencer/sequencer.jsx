@@ -1257,16 +1257,13 @@ const Sequencer = ({
     [],
   );
 
-  const playManualCueResponsively = useCallback(
+  const presentManualCue = useCallback(
     (cueIndex) => {
       const numericCueIndex = Number(cueIndex);
       if (!Number.isInteger(numericCueIndex)) return;
       const cueGroup = sequenceCueGroups[numericCueIndex];
       if (!cueGroup) return;
 
-      // Sound first. App deliberately postpones its large editor-state commit,
-      // while this component updates the small playback presentation directly.
-      onPlayCue?.(numericCueIndex, { deferUi: true });
       const soundingAfter = sequenceRuntime.playbackNotesByCueIndex[numericCueIndex] ?? [];
       timedVisualCueHandlerRef.current?.(
         numericCueIndex,
@@ -1274,7 +1271,36 @@ const Sequencer = ({
         { sequenceTime: cueGroup.time, soundingAfter },
       );
     },
-    [onPlayCue, sequenceCueGroups, sequenceRuntime.playbackNotesByCueIndex],
+    [sequenceCueGroups, sequenceRuntime.playbackNotesByCueIndex],
+  );
+
+  const playManualCueResponsively = useCallback(
+    (cueIndex) => {
+      const numericCueIndex = Number(cueIndex);
+      if (!Number.isInteger(numericCueIndex)) return;
+
+      // Sound first. App deliberately postpones its large editor-state commit,
+      // while this component updates the small playback presentation directly.
+      onPlayCue?.(numericCueIndex, { deferUi: true });
+      presentManualCue(numericCueIndex);
+    },
+    [onPlayCue, presentManualCue],
+  );
+
+  const presentManualSnapshot = useCallback(
+    (snapshotIndex) => {
+      const numericSnapshotIndex = Number(snapshotIndex);
+      if (!Number.isInteger(numericSnapshotIndex)) return;
+      const snapshotId = snapshots[numericSnapshotIndex]?.id ?? null;
+      if (snapshotId == null) return;
+
+      timedHighlightPresenterRef.current?.present({
+        snapshotId,
+        soundingEventIds: [],
+      });
+      timedReadoutPresenterRef.current?.present({ snapshotIndex: numericSnapshotIndex });
+    },
+    [snapshots],
   );
 
   const virtualSequenceItems = useMemo(
@@ -1814,9 +1840,16 @@ const Sequencer = ({
     (direction) => {
       transportScrollTargetRef.current = "snapshot";
       armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
-      onStepSequence?.(direction);
+      const nextSnapshotIndex = onStepSequence?.(direction);
+      if (Number.isInteger(nextSnapshotIndex)) presentManualSnapshot(nextSnapshotIndex);
     },
-    [activeSnapshotId, armNavigationAutoscrollIntent, onStepSequence, transportScrollTargetRef],
+    [
+      activeSnapshotId,
+      armNavigationAutoscrollIntent,
+      onStepSequence,
+      presentManualSnapshot,
+      transportScrollTargetRef,
+    ],
   );
   const jumpSequenceSnapshotWithAutoscroll = useCallback(
     (snapshotIndex) => {
@@ -1848,11 +1881,13 @@ const Sequencer = ({
         setCueViewportTransaction(null);
         cancelNavigationAutoscroll();
         cancelVirtualSequenceAnchor();
-        onStepSequenceMarker?.(direction);
+        const nextCueIndex = onStepSequenceMarker?.(direction);
+        if (Number.isInteger(nextCueIndex)) presentManualCue(nextCueIndex);
         return;
       }
       cueStepViewportRequestedRef.current = true;
-      onStepSequenceMarker?.(direction);
+      const nextCueIndex = onStepSequenceMarker?.(direction);
+      if (Number.isInteger(nextCueIndex)) presentManualCue(nextCueIndex);
     },
     [
       cancelNavigationAutoscroll,
@@ -1860,6 +1895,7 @@ const Sequencer = ({
       onStepSequenceMarker,
       pendingTransportSelection?.cueIndex,
       playhead?.stopped,
+      presentManualCue,
       transportScrollTargetRef,
     ],
   );

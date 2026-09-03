@@ -1081,6 +1081,68 @@ describe("App workspace tabs", () => {
     sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
   });
 
+  it("advances rapid cue and snapshot arrows from the live audio playhead", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        snapshots: [60, 62, 64].map((midicents, index) => ({
+          id: index + 1,
+          length: 1,
+          notes: [
+            {
+              id: `note-${index + 1}`,
+              midicents,
+              start: 0,
+              end: 1,
+              attackVelocity: 90,
+            },
+          ],
+        })),
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        tempi: [],
+        repeats: [],
+      }),
+    );
+    const keys = {
+      settings: { note_names: [], heji_names: [] },
+      playSnapshot: vi.fn(),
+      stopSnapshot: vi.fn(),
+      panic: vi.fn(),
+    };
+
+    const { unmount } = render(<App />);
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+    fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+
+    const nextCue = await screen.findByLabelText("next sequence marker");
+    fireEvent.click(nextCue);
+    fireEvent.click(nextCue);
+    fireEvent.click(nextCue);
+
+    expect(keys.playSnapshot.mock.calls.map(([notes]) => notes[0]?.midicents)).toEqual([
+      60,
+      62,
+      64,
+    ]);
+
+    const previousSnapshot = screen.getByLabelText("previous sequence step");
+    fireEvent.click(previousSnapshot);
+    fireEvent.click(previousSnapshot);
+    expect(keys.playSnapshot.mock.calls.map(([notes]) => notes[0]?.midicents)).toEqual([
+      60,
+      62,
+      64,
+      62,
+      60,
+    ]);
+
+    unmount();
+    localStorage.removeItem("hexatone_persist_on_reload");
+    sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+  });
+
   it("retunes active timed-playback voices while the navigation playhead is stopped", async () => {
     render(<App />);
     const user = userEvent.setup();

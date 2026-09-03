@@ -94,6 +94,18 @@ globalThis.__hexatoneTimedTransportDiagnostics?.getPersisted();
 globalThis.__hexatoneTimedTransportDiagnostics?.reset();
 ```
 
+Copy the complete persisted report as formatted JSON:
+
+```js
+copy(
+  JSON.stringify(
+    globalThis.__hexatoneTimedTransportDiagnostics?.getPersisted(),
+    null,
+    2,
+  ),
+);
+```
+
 Notes:
 
 - `get()` returns the in-memory summary for the current page session.
@@ -287,6 +299,18 @@ After an `Aw, Snap` or reload, inspect:
 
 ```js
 globalThis.__hexatoneSequencerCrashDiagnostics?.getPersisted();
+```
+
+Copy the complete post-crash report as formatted JSON:
+
+```js
+copy(
+  JSON.stringify(
+    globalThis.__hexatoneSequencerCrashDiagnostics?.getPersisted(),
+    null,
+    2,
+  ),
+);
 ```
 
 Notes:
