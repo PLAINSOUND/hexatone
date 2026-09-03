@@ -92,6 +92,12 @@ import {
 } from "../debug/sequencer-crash-diagnostics.js";
 import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 
+// Expanding a cue mounts its complete editable note grid. During a trigger
+// burst, keep audio/navigation current but only mount the final grid once the
+// burst settles; otherwise Firefox can spend longer rebuilding rows than the
+// interval between cues.
+const MANUAL_CUE_EXPANSION_SETTLE_MS = 120;
+
 const Sequencer = ({
   snapshots,
   runtimeModel = null,
@@ -198,6 +204,9 @@ const Sequencer = ({
   // Local state is presentation or draft state only. Committed snapshots and
   // structural markers flow back through the App-owned mutation callbacks.
   const [expandedIds, setExpandedIds] = useState(() => new Set());
+  const pendingCueExpansionRef = useRef(null);
+  const pendingCueExpansionTimerRef = useRef(null);
+  const lastExpansionCueIndexRef = useRef(null);
   const [showAllEvents, setShowAllEvents] = useState(true);
   const [sequenceSaveActionState, setSequenceSaveActionState] = useState({
     visible: false,
@@ -278,6 +287,32 @@ const Sequencer = ({
     cue: null,
   });
   const duplicateNoteIdRef = useRef(0);
+
+  const cancelPendingCueExpansion = useCallback(() => {
+    pendingCueExpansionRef.current = null;
+    if (pendingCueExpansionTimerRef.current != null) {
+      window.clearTimeout(pendingCueExpansionTimerRef.current);
+      pendingCueExpansionTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleCueExpansion = useCallback((nextExpandedIds) => {
+    pendingCueExpansionRef.current = nextExpandedIds;
+    if (pendingCueExpansionTimerRef.current != null) {
+      window.clearTimeout(pendingCueExpansionTimerRef.current);
+    }
+    pendingCueExpansionTimerRef.current = window.setTimeout(() => {
+      pendingCueExpansionTimerRef.current = null;
+      const pending = pendingCueExpansionRef.current;
+      pendingCueExpansionRef.current = null;
+      if (pending == null) return;
+      setExpandedIds((previous) =>
+        sameSnapshotSet(previous, pending) ? previous : pending,
+      );
+    }, MANUAL_CUE_EXPANSION_SETTLE_MS);
+  }, []);
+
+  useEffect(() => cancelPendingCueExpansion, [cancelPendingCueExpansion]);
 
   useEffect(() => {
     saveSequencerAutoScrollPreference(autoScrollEnabled);
@@ -2005,18 +2040,6 @@ const Sequencer = ({
       });
       readoutPresenter.present(transport);
 
-      if (!showAllEvents) {
-        const timedExpandedSnapshotIds = new Set(
-          soundingAfter.map((note) => note?.snapshotId).filter((id) => id != null),
-        );
-        if (timedExpandedSnapshotIds.size === 0 && snapshotId != null) {
-          timedExpandedSnapshotIds.add(snapshotId);
-        }
-        setExpandedIds((previous) =>
-          sameSnapshotSet(previous, timedExpandedSnapshotIds) ? previous : timedExpandedSnapshotIds,
-        );
-      }
-
       if (!autoScrollEnabledRef.current) {
         autoscrollPresenter.cancel();
         return;
@@ -2054,8 +2077,6 @@ const Sequencer = ({
     scrollNodesIntoPanel,
     scrollPanelRef,
     sequenceCueGroups,
-    setExpandedIds,
-    showAllEvents,
     snapshotRowRefs,
     snapshotSelectValue,
     snapshots,
@@ -2112,6 +2133,8 @@ const Sequencer = ({
 
   useEffect(() => {
     if (timedPlaybackOwnsViewport) return;
+    const cueChanged = lastExpansionCueIndexRef.current !== activeCueIndex;
+    lastExpansionCueIndexRef.current = activeCueIndex;
     const pendingCueIndex =
       transportScrollTargetRef.current === "cue" &&
       Number.isFinite(pendingTransportSelection?.cueIndex)
@@ -2133,9 +2156,15 @@ const Sequencer = ({
         compactSelectionPreviewSuppressedId === selectedSnapshotId,
     });
     if (nextExpandedIds == null) return;
+    if (Number.isFinite(activeCueIndex) && cueChanged) {
+      scheduleCueExpansion(nextExpandedIds);
+      return;
+    }
+    cancelPendingCueExpansion();
     setExpandedIds((prev) => (sameSnapshotSet(prev, nextExpandedIds) ? prev : nextExpandedIds));
   }, [
     activeCueIndex,
+    cancelPendingCueExpansion,
     compactSelectionPreviewSuppressedId,
     cueExpandedSnapshotIds,
     cueExpandedSnapshotIdsAt,
@@ -2144,6 +2173,7 @@ const Sequencer = ({
     pendingTransportSelection?.cueIndex,
     selectedSnapshotId,
     showAllEvents,
+    scheduleCueExpansion,
     timedPlaybackOwnsViewport,
     transportScrollTargetRef,
   ]);
