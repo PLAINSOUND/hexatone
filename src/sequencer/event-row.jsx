@@ -3,7 +3,6 @@
 // movement between snapshots, while delegating all mutation policy back up to
 // the sequencer controllers.
 
-import { memo } from "preact/compat";
 import { useMemo } from "preact/hooks";
 import { absolutePositionToBarBeat } from "./transport.js";
 import {
@@ -826,61 +825,4 @@ const EventRow = ({
   );
 };
 
-function eventRowPlaybackState(props) {
-  const { snapshot, event, view } = props;
-  const markerSelected =
-    view.selectedMarker?.snapshotId === snapshot.id &&
-    view.selectedMarker?.time === event.relativeTime;
-  const cueActive =
-    view.activeNavigationMode === "cue" && view.activeCueIndex === event.cueIndex;
-  const snapshotActive =
-    view.activeNavigationMode === "snapshot" && view.activeSnapshotId === snapshot.id;
-  const sounding =
-    view.sequencePlaybackActive &&
-    event.kind === "attack" &&
-    (view.soundingAttackEventIds.has(event.eventId) || cueActive || snapshotActive);
-  return { markerSelected, cueActive, snapshotActive, sounding };
-}
-
-export function eventRowPropsEqual(previous, next) {
-  if (
-    previous.snapshot !== next.snapshot ||
-    previous.snapshotIndex !== next.snapshotIndex ||
-    previous.event !== next.event ||
-    previous.keySuffix !== next.keySuffix ||
-    previous.drafts !== next.drafts ||
-    previous.drag !== next.drag ||
-    previous.editing !== next.editing
-  ) {
-    return false;
-  }
-  const previousView = previous.view;
-  const nextView = next.view;
-  if (
-    previousView.findSnapshotById !== nextView.findSnapshotById ||
-    previousView.snapshotIndexById !== nextView.snapshotIndexById ||
-    previousView.firstSnapshotCueEventIds !== nextView.firstSnapshotCueEventIds ||
-    previousView.currentEventPane !== nextView.currentEventPane ||
-    previousView.sequenceLegatoMode !== nextView.sequenceLegatoMode
-  ) {
-    return false;
-  }
-  const previousPlayback = eventRowPlaybackState(previous);
-  const nextPlayback = eventRowPlaybackState(next);
-  if (
-    previousPlayback.markerSelected !== nextPlayback.markerSelected ||
-    previousPlayback.cueActive !== nextPlayback.cueActive ||
-    previousPlayback.snapshotActive !== nextPlayback.snapshotActive ||
-    previousPlayback.sounding !== nextPlayback.sounding
-  ) {
-    return false;
-  }
-  return (
-    previous.transport.onPlayCue === next.transport.onPlayCue &&
-    previous.transport.onStopSnapshot === next.transport.onStopSnapshot &&
-    previous.transport.runTransportAction === next.transport.runTransportAction &&
-    Boolean(previous.transport.playingSnapshotId) === Boolean(next.transport.playingSnapshotId)
-  );
-}
-
-export default memo(EventRow, eventRowPropsEqual);
+export default EventRow;

@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { inferSequenceHejiName, resolveSequenceHejiName } from "../src/sequencer/pitch-frame.js";
+import {
+  deriveSequenceScalaInterval,
+  inferSequenceHejiName,
+  resolveSequenceHejiName,
+} from "../src/sequencer/pitch-frame.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const presetDirectory = path.join(root, "src/sequencer/preset-sequences/marc-sabat");
@@ -57,6 +61,7 @@ for (const { file, frame } of migrations) {
         throw new Error(`${file}: ${hejiName} differs by ${errorCents} cents`);
       }
       note.hejiName = hejiName;
+      note.scalaInterval = deriveSequenceScalaInterval(note, frame);
     }
   }
   sequence.version = 5;
