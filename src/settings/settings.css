@@ -191,10 +191,7 @@
   .calculator-tab--blank-hints
   > fieldset:not(.calculator-rationalisation)
   input:not([type="checkbox"]),
-#sidebar
-  .calculator-tab--blank-hints
-  > fieldset:not(.calculator-rationalisation)
-  select,
+#sidebar .calculator-tab--blank-hints > fieldset:not(.calculator-rationalisation) select,
 #sidebar .calculator-tab--blank-hints .calculator-output,
 #sidebar .calculator-tab--blank-hints .calculator-rational-candidate span {
   color: #999999;
@@ -1242,9 +1239,7 @@ td.scale-color-col .color-input {
   -webkit-text-fill-color: #999999;
 }
 
-.settings-fieldset--blank-surface
-  .settings-form__inactive-until-surface
-  .scala-input__cents {
+.settings-fieldset--blank-surface .settings-form__inactive-until-surface .scala-input__cents {
   color: #999999;
 }
 
@@ -3131,6 +3126,43 @@ td.scale-color-col .color-input {
   box-sizing: border-box;
 }
 
+.sequencer-pitch-frame {
+  margin: 0 0 0.35rem;
+  border: 1px solid var(--border, #ccbcbc);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--panel-background, #fff) 88%, transparent);
+  font-size: 0.82rem;
+}
+
+.sequencer-pitch-frame summary {
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  font-family: "Plainsound Sans", sans-serif;
+}
+
+.sequencer-pitch-frame__details {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0 0.5rem 0.45rem;
+}
+
+.sequencer-pitch-frame__details > div {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(5rem, auto);
+  gap: 0.75rem;
+}
+
+.sequencer-pitch-frame__details dt,
+.sequencer-pitch-frame__details dd {
+  margin: 0;
+}
+
+.sequencer-pitch-frame__details dd {
+  text-align: right;
+  font-family: "Plainsound Sans", sans-serif;
+}
+
 .sequencer-events-grid__header,
 .sequencer-event-row {
   display: grid;
@@ -3870,7 +3902,6 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-event__heji--edited {
-  color: #b00000;
   font-style: italic;
 }
 
@@ -4557,6 +4588,21 @@ td.scale-color-col .color-input {
   .sequencer-events-grid
   input[type="text"].sequencer-event__input.sequencer-event__position--out-of-range {
   color: #9b1f1f;
+}
+
+#sidebar
+  .sequencer-events-grid
+  input[type="text"].sequencer-event__input.sequencer-event__pitch-draft {
+  position: relative;
+  z-index: 3;
+  color: #5a2d2d;
+  -webkit-text-fill-color: #5a2d2d;
+  outline: 1px solid rgba(180, 145, 45, 0.8);
+  background: #fff4b8;
+  background-color: #fff4b8;
+  box-shadow:
+    0 0 0.48em rgba(255, 207, 45, 0.92),
+    inset 0 0 0.52em rgba(255, 216, 64, 0.72);
 }
 
 .sequencer-event--attack .sequencer-event__cell {

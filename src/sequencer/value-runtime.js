@@ -185,7 +185,9 @@ export function commitTextInput(target, commit) {
   if (!(target instanceof HTMLInputElement)) return { committed: false, metadata: null };
   const value = target.value;
   if (target.dataset.lastCommittedValue === value) return { committed: false, metadata: null };
-  const metadata = commit(value) ?? null;
+  // Mark the DOM value before invoking the state mutation. A synchronous
+  // rerender or blur must not submit the same edit against an older snapshot.
   target.dataset.lastCommittedValue = value;
+  const metadata = commit(value) ?? null;
   return { committed: true, metadata };
 }

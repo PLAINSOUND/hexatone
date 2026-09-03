@@ -52,6 +52,19 @@ describe("sequencer value runtime", () => {
     expect(commit).toHaveBeenCalledTimes(1);
   });
 
+  it("marks an input before invoking a re-entrant commit callback", () => {
+    const input = document.createElement("input");
+    input.value = "A2";
+    const nested = [];
+    const result = commitTextInput(input, () => {
+      nested.push(commitTextInput(input, () => "stale"));
+      return "current";
+    });
+
+    expect(result).toEqual({ committed: true, metadata: "current" });
+    expect(nested).toEqual([{ committed: false, metadata: null }]);
+  });
+
   it("derives note identity, note ordering, and midicents from frequency", () => {
     expect(noteIdentity({ id: "a", midicents: 69, start: 0, end: 1 })).toBe("a");
     expect(noteIdentity({ midicents: 69, start: 0, end: 1 })).toBe("69:0:1");

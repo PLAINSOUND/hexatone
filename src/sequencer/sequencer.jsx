@@ -3628,6 +3628,7 @@ const Sequencer = ({
                       rows={sharedRows}
                       actions={sharedActions}
                       virtualMeasure={measureVirtualSequenceItem}
+                      previousPitchFrame={snapshots[row.index - 1]?.pitchFrame ?? null}
                     />
                   ),
                 )}

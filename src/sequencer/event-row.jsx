@@ -24,6 +24,7 @@ import {
   isOutOfSnapshotRange,
   soundingOnTextStyle,
 } from "./value-runtime.js";
+import { normalizeSequenceHejiName, splitOctaveHejiName } from "./pitch-frame.js";
 
 const renderCueTransport = ({
   cueIndex,
@@ -158,6 +159,17 @@ const EventRow = ({
     event.perNoteLegatoCandidate === true;
   const kindText = isLegatoContinuation ? "…" : event.kind === "attack" ? "on" : "off";
   const kindClass = `${isSoundingAttack ? " sequencer-event__kind--active" : ""}${event.forceReattack === true && canToggleReattack ? " sequencer-event__kind--forced-reattack" : ""}`;
+  const normalizeNameInput = (eventArg) => {
+    const previousName = event.hejiName || event.displayLabel || "";
+    const fallbackOctave = splitOctaveHejiName(previousName)?.octave ?? 4;
+    eventArg.currentTarget.value =
+      normalizeSequenceHejiName(eventArg.currentTarget.value, {
+        fallbackOctave,
+        fallbackName: previousName,
+      }) ?? previousName;
+  };
+  const resolveNameInput = (eventArg) =>
+    editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", eventArg.currentTarget.value);
 
   return (
     <div
@@ -338,7 +350,7 @@ const EventRow = ({
         <input
           key={`${event.eventId}-midicents-${event.midicents}`}
           type="text"
-          class="sequencer-event__input"
+          class={`sequencer-event__input${event.displayLabelEdited ? " sequencer-event__pitch-draft" : ""}`}
           defaultValue={formatMidicents(event.midicents)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} midicents`}
           {...stopProps}
@@ -368,7 +380,7 @@ const EventRow = ({
         <input
           key={`${event.eventId}-frequency-${event.frequency}`}
           type="text"
-          class="sequencer-event__input"
+          class={`sequencer-event__input${event.displayLabelEdited ? " sequencer-event__pitch-draft" : ""}`}
           defaultValue={formatFrequency(event.frequency)}
           aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} frequency`}
           {...stopProps}
@@ -397,20 +409,30 @@ const EventRow = ({
       <div class="sequencer-event__cell sequencer-grid-offset">
         <span class="sequencer-event__content sequencer-event__heji-wrap">
           <input
-            key={`${event.eventId}-displayLabel-${event.displayLabel ?? ""}-${event.displayLabelEdited ? "edited" : "captured"}`}
+            key={`${event.eventId}-displayLabel-${event.hejiName ?? event.displayLabel ?? ""}-${event.displayLabelEdited ? "edited" : "captured"}`}
             type="text"
-            class={`sequencer-event__input sequencer-event__heji${event.displayLabelEdited ? " sequencer-event__heji--edited sequencer-event__input--draft" : ""}`}
-            defaultValue={event.displayLabel || ""}
+            class={`sequencer-event__input sequencer-event__heji${event.displayLabelEdited ? " sequencer-event__heji--edited sequencer-event__input--draft sequencer-event__pitch-draft" : ""}`}
+            defaultValue={event.hejiName || event.displayLabel || ""}
             aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} name`}
             {...stopProps}
             disabled={editing.snapSequenceToCurrentTuning}
             onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
-            onKeyDown={buildEnterCommit(editing, (value) =>
-              editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", value),
-            )}
-            onBlur={buildBlurCommit(editing, (value) =>
-              editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", value),
-            )}
+            onKeyDown={(eventArg) => {
+              if (eventArg.key !== "Enter") return;
+              eventArg.preventDefault();
+              editing.handleBlurCommit(
+                eventArg,
+                () => resolveNameInput(eventArg),
+                () => normalizeNameInput(eventArg),
+              );
+            }}
+            onBlur={(eventArg) =>
+              editing.handleBlurCommit(
+                eventArg,
+                () => resolveNameInput(eventArg),
+                () => normalizeNameInput(eventArg),
+              )
+            }
           />
         </span>
       </div>

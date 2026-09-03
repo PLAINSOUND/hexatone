@@ -715,6 +715,7 @@ export function appendSnapshotToWorkspace({
   sequenceBars = [],
   nextSnapshotId = 1,
   nextBarId = 0,
+  pitchFrame = null,
 } = {}) {
   const snapshotNotes = Array.isArray(notes) ? notes : [];
   const snapshot = {
@@ -724,6 +725,7 @@ export function appendSnapshotToWorkspace({
     descriptionManual: false,
     manualTrigger: normalizeManualSnapshotTrigger(),
     notes: snapshotNotes,
+    ...(pitchFrame ? { pitchFrameId: pitchFrame.id, pitchFrame } : {}),
   };
   const nextSnapshots = [...(snapshots ?? []), snapshot];
   let bars = sequenceBars ?? [];

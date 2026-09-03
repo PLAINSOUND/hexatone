@@ -24,6 +24,7 @@ import {
   normalizeSnapshotManualTrigger,
 } from "./manual-snapshot-arpeggiation.js";
 import { normalizeSequenceLegatoMode } from "./legato.js";
+import { buildSequencePitchFrameRegistry } from "./pitch-frame.js";
 
 const STORAGE_KEY = "hexatone_user_sequences";
 
@@ -39,7 +40,11 @@ export function normalizeSequenceRecord(record) {
   if (!record || typeof record !== "object") return null;
   const name = String(record.name ?? "").trim();
   if (!name) return null;
-  const snapshots = cloneSnapshots(record.snapshots).map(normalizeSnapshotManualTrigger);
+  const rawSnapshots = cloneSnapshots(record.snapshots).map(normalizeSnapshotManualTrigger);
+  const { pitchFrames, snapshots } = buildSequencePitchFrameRegistry(
+    rawSnapshots,
+    record.pitchFrames,
+  );
   const rawBars =
     Array.isArray(record.bars) && record.bars.length > 0 ? record.bars : record.meters;
   const bars = normalizeBarMarkers(cloneBars(rawBars), { includeDefault: false });
@@ -47,7 +52,7 @@ export function normalizeSequenceRecord(record) {
   if (!Array.isArray(snapshots)) return null;
   return {
     type: "hexatone-sequence",
-    version: 4,
+    version: 5,
     name,
     description: String(record.description ?? ""),
     snapshotLabelMode: String(record.snapshotLabelMode ?? "proportion"),
@@ -59,6 +64,7 @@ export function normalizeSequenceRecord(record) {
     transport: normalizeSequenceTransport(record.transport),
     tempi: normalizeTempoMarkers(record.tempi, { includeDefault: false }),
     snapshots,
+    pitchFrames,
     bars,
     repeats,
   };
@@ -94,6 +100,7 @@ function parseSequenceJson(name, text) {
       transport: parsed?.transport,
       tempi: parsed?.tempi,
       snapshots: parsed?.snapshots,
+      pitchFrames: parsed?.pitchFrames,
       bars: parsed?.bars,
       repeats: parsed?.repeats,
       meters: parsed?.meters,
@@ -190,11 +197,15 @@ const SequenceLibrary = ({
         legatoMode: sequenceLegato,
         tempi,
         snapshots,
+        pitchFrames: snapshots.some((snapshot) => snapshot?.pitchFrame)
+          ? undefined
+          : findPresetSequenceByName(activeBuiltInName)?.pitchFrames,
         bars,
         repeats,
       }),
     [
       activeSequenceDescription,
+      activeBuiltInName,
       autoCreateBars,
       bars,
       manualArpeggiation,
@@ -316,11 +327,15 @@ const SequenceLibrary = ({
         legatoMode: sequenceLegato,
         tempi,
         snapshots,
+        pitchFrames: snapshots.some((snapshot) => snapshot?.pitchFrame)
+          ? undefined
+          : findPresetSequenceByName(activeBuiltInName)?.pitchFrames,
         bars,
         repeats,
       }),
     [
       activeSequenceDescription,
+      activeBuiltInName,
       autoCreateBars,
       bars,
       manualArpeggiation,

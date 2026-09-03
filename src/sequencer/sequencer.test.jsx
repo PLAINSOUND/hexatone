@@ -7076,12 +7076,22 @@ describe("Sequencer", () => {
     ).not.toBeNull();
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("70.500");
     expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).not.toBe("440.0");
+    expect(
+      [
+        screen.getAllByLabelText("snapshot 1 attack midicents")[0],
+        screen.getAllByLabelText("snapshot 1 attack frequency")[0],
+        screen.getByLabelText("snapshot 1 attack name"),
+      ].every((field) => field.classList.contains("sequencer-event__pitch-draft")),
+    ).toBe(true);
 
     fireEvent.click(screen.getByLabelText("restore snapshot 1 attack captured pitch and name"));
 
     expect(screen.getByLabelText("snapshot 1 attack name").value).toBe("A");
     expect(screen.getAllByLabelText("snapshot 1 attack midicents")[0].value).toBe("69.000");
     expect(screen.getAllByLabelText("snapshot 1 attack frequency")[0].value).toBe("440.0");
+    expect(screen.getByLabelText("snapshot 1 attack name").classList).not.toContain(
+      "sequencer-event__pitch-draft",
+    );
   });
 
   it("allows typing or pasting a custom event Name after pitch edits", () => {

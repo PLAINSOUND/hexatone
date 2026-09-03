@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { rebuildSnapshotRationalIdentity } from "./snapshot-rational-identity.js";
+import { resolveSequenceHejiName } from "./pitch-frame.js";
 
 const BUILT_IN_SEQUENCE_PATHS = [
   "src/sequencer/preset-sequences/marc-sabat/Flight.json",
@@ -9,6 +10,28 @@ const BUILT_IN_SEQUENCE_PATHS = [
 ];
 
 describe("snapshot rational identity", () => {
+  it.each(BUILT_IN_SEQUENCE_PATHS)(
+    "resolves every v5 HEJI name in %s through its declared pitch frame",
+    (path) => {
+      const sequence = JSON.parse(fs.readFileSync(path, "utf8"));
+      const frames = new Map(sequence.pitchFrames.map((frame) => [frame.id, frame]));
+      expect(sequence.version).toBe(5);
+      expect(sequence.pitchFrames).toHaveLength(1);
+      for (const [snapshotIndex, snapshot] of sequence.snapshots.entries()) {
+        const frame = frames.get(snapshot.pitchFrameId);
+        expect(frame, `snapshot ${snapshotIndex + 1}`).toBeTruthy();
+        for (const [noteIndex, note] of (snapshot.notes ?? []).entries()) {
+          const resolved = resolveSequenceHejiName(note.hejiName, frame);
+          expect(resolved, `snapshot ${snapshotIndex + 1}, note ${noteIndex + 1}`).toBeTruthy();
+          expect(
+            Math.abs(resolved.midicents - note.midicents) * 100,
+            `snapshot ${snapshotIndex + 1}, note ${noteIndex + 1}`,
+          ).toBeLessThanOrEqual(0.001);
+        }
+      }
+    },
+  );
+
   it.each(BUILT_IN_SEQUENCE_PATHS)(
     "keeps every HEJI note in %s reconstructible within 0.01 cents",
     (path) => {

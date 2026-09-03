@@ -55,7 +55,7 @@ const EventsGridHeader = ({ eventPane, onTogglePane }) => {
       </div>
       <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset sequencer-events-grid__heading-cell--heji">
         <span class="sequencer-event__content sequencer-events-grid__heading-content">
-          {renderResponsiveHeading("Name", "Name")}
+          {renderResponsiveHeading("HEJI", "Name")}
         </span>
       </div>
       {eventPane === "timing" ? (

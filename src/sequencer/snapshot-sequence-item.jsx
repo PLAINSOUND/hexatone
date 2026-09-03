@@ -17,6 +17,7 @@ import {
   appendPersistedSequencerCrashDiagnostic,
   readSequencerDiagnosticMemory,
 } from "../debug/sequencer-crash-diagnostics.js";
+import { formatSequencePitchFrameCompact, sequencePitchFrameKey } from "./pitch-frame.js";
 
 const SnapshotSequenceItem = ({
   snapshot,
@@ -32,6 +33,7 @@ const SnapshotSequenceItem = ({
   rows,
   actions,
   virtualMeasure,
+  previousPitchFrame = null,
 }) => {
   const isPlaying = snapshot.id === playingSnapshotId || playingSnapshotIds.includes(snapshot.id);
   const isSelected = snapshot.id === selectedSnapshotId;
@@ -44,6 +46,10 @@ const SnapshotSequenceItem = ({
   );
   const manualArticulationEditable = manualArpeggiationMode === "per-snapshot";
   const snapshotEvents = structure.snapshotEventsById.get(snapshot.id) ?? [];
+  const pitchFrameChanged =
+    snapshot.pitchFrame &&
+    (index === 0 ||
+      sequencePitchFrameKey(snapshot.pitchFrame) !== sequencePitchFrameKey(previousPitchFrame));
   const recordSnapshotDrag = (dragStage, event, targetSnapshotId = null) => {
     const panel = event?.currentTarget?.closest?.(".sequencer-scroll-panel");
     appendPersistedSequencerCrashDiagnostic(
@@ -85,6 +91,29 @@ const SnapshotSequenceItem = ({
       data-sequence-virtual-index={index}
       ref={(node) => virtualMeasure?.(snapshot.id, node)}
     >
+      {pitchFrameChanged && (
+        <details class="sequencer-pitch-frame">
+          <summary>{formatSequencePitchFrameCompact(snapshot.pitchFrame)}</summary>
+          <dl class="sequencer-pitch-frame__details">
+            <div>
+              <dt>Reference Frequency</dt>
+              <dd>{snapshot.pitchFrame.referenceFrequency} Hz</dd>
+            </div>
+            <div>
+              <dt>Reference Ratio/Cents from 1/1</dt>
+              <dd>{snapshot.pitchFrame.referenceInterval}</dd>
+            </div>
+            <div>
+              <dt>HEJI Anchor (0¢ deviation)</dt>
+              <dd>{snapshot.pitchFrame.hejiAnchorLabel}</dd>
+            </div>
+            <div>
+              <dt>HEJI Anchor Ratio/Cents from 1/1</dt>
+              <dd>{snapshot.pitchFrame.hejiAnchorInterval}</dd>
+            </div>
+          </dl>
+        </details>
+      )}
       <div
         ref={(node) => {
           if (node) dragState.snapshotRowRefs.current.set(snapshot.id, node);

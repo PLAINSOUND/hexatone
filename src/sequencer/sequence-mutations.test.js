@@ -270,4 +270,131 @@ describe("sequencer sequence mutations", () => {
     });
     expect(restored[0].displayLabelEdited).toBeUndefined();
   });
+
+  it("derives pitch from an octave-qualified name in the snapshot's own frame", () => {
+    const framedSnapshot = {
+      ...snapshot,
+      pitchFrame: {
+        id: "frame-1",
+        referenceLabel: "A4",
+        referenceFrequency: 441,
+        referenceInterval: "27/16",
+        hejiAnchorLabel: "*nE",
+        hejiAnchorInterval: "81/64",
+      },
+    };
+    const edited = updateEventFieldInSnapshot(framedSnapshot, "a", "displayLabel", "E4");
+    expect(edited[0].midicents).toBeCloseTo(64.058851593, 8);
+    expect(edited[0].displayLabelEdited).toBe(true);
+    const committed = commitEventPitchLabelInSnapshot({ ...framedSnapshot, notes: edited }, "a");
+    expect(committed[0]).toMatchObject({
+      displayLabel: "E4",
+      hejiName: "E4",
+      ratioText: "81/64",
+    });
+    expect(committed[0].midicents).toBeCloseTo(64.058851593, 8);
+  });
+
+  it("drops exact identity for a tempered HEJI name with cents deviation", () => {
+    const framedSnapshot = {
+      ...snapshot,
+      pitchFrame: {
+        id: "frame-1",
+        referenceLabel: "A4",
+        referenceFrequency: 440,
+        referenceInterval: "1/1",
+        hejiAnchorLabel: "*nA",
+        hejiAnchorInterval: "1/1",
+      },
+      notes: [{ ...snapshot.notes[0], ratioText: "1/1", monzo: new Array(17).fill(0) }],
+    };
+    const edited = updateEventFieldInSnapshot(framedSnapshot, "a", "displayLabel", "*stC5−12");
+    const committed = commitEventPitchLabelInSnapshot({ ...framedSnapshot, notes: edited }, "a");
+    expect(committed[0].hejiName).toBe("C5−12");
+    expect(committed[0].ratioText).toBeUndefined();
+    expect(committed[0].monzo).toBeUndefined();
+  });
+
+  it("normalizes a valid shorthand draft and restores an invalid replacement", () => {
+    const framedSnapshot = {
+      ...snapshot,
+      pitchFrame: {
+        id: "frame-1",
+        referenceLabel: "A4",
+        referenceFrequency: 440,
+        referenceInterval: "1/1",
+        hejiAnchorLabel: "*nA",
+        hejiAnchorInterval: "1/1",
+      },
+      notes: [{ ...snapshot.notes[0], hejiName: "A4" }],
+    };
+    const valid = updateEventFieldInSnapshot(framedSnapshot, "a", "displayLabel", "h3");
+    expect(valid[0]).toMatchObject({
+      displayLabel: "B3",
+      hejiName: "B3",
+      displayLabelEdited: true,
+    });
+    const invalid = updateEventFieldInSnapshot(
+      { ...framedSnapshot, notes: valid },
+      "a",
+      "displayLabel",
+      "not-a-note",
+    );
+    expect(invalid[0]).toMatchObject({
+      midicents: 69,
+      displayLabel: "A",
+      hejiName: "A4",
+    });
+    expect(invalid[0].displayLabelEdited).toBeUndefined();
+  });
+
+  it("uses the latest valid name draft across successive octave edits", () => {
+    let framedSnapshot = {
+      ...snapshot,
+      pitchFrame: {
+        id: "frame-1",
+        referenceLabel: "A4",
+        referenceFrequency: 440,
+        referenceInterval: "1/1",
+        hejiAnchorLabel: "*nA",
+        hejiAnchorInterval: "1/1",
+      },
+      notes: [
+        {
+          ...snapshot.notes[0],
+          midicents: 59,
+          displayLabel: "B3",
+          hejiName: "B3",
+        },
+      ],
+    };
+    for (const name of ["A4", "a2"]) {
+      framedSnapshot = {
+        ...framedSnapshot,
+        notes: updateEventFieldInSnapshot(framedSnapshot, "a", "displayLabel", name),
+      };
+    }
+
+    expect(framedSnapshot.notes[0]).toMatchObject({
+      midicents: 45,
+      displayLabel: "A2",
+      hejiName: "A2",
+      originalMidicents: 59,
+      originalHejiName: "B3",
+      displayLabelEdited: true,
+    });
+
+    framedSnapshot = {
+      ...framedSnapshot,
+      notes: updateEventFieldInSnapshot(framedSnapshot, "a", "displayLabel", "5"),
+    };
+    expect(framedSnapshot.notes[0]).toMatchObject({
+      midicents: 81,
+      displayLabel: "A5",
+      hejiName: "A5",
+      originalMidicents: 59,
+      originalHejiName: "B3",
+      displayLabelEdited: true,
+    });
+  });
 });

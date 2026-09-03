@@ -113,6 +113,7 @@ import {
   setSnapshotRangeArticulationInWorkspace,
   updateSnapshotInWorkspace,
 } from "./sequencer/snapshot-workspace-runtime.js";
+import { captureSequencePitchFrame } from "./sequencer/pitch-frame.js";
 import {
   appendPersistedTimedTransportDiagnostic,
   isTimedTransportDiagnosticsEnabled,
@@ -1196,6 +1197,7 @@ const App = () => {
         sequenceBars: sequenceBarsRef.current,
         nextSnapshotId,
         nextBarId: sequenceBarIdRef.current,
+        pitchFrame: captureSequencePitchFrame(keysRef.current),
       });
       appendPersistedSequencerCrashDiagnostic({
         type: "snapshot-capture-appended",
