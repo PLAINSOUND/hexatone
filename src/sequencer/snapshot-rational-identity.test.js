@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { rebuildSnapshotRationalIdentity } from "./snapshot-rational-identity.js";
-import { resolveSequenceHejiName } from "./pitch-frame.js";
+import { resolveSequenceHejiName, resolveSequenceScalaInterval } from "./pitch-frame.js";
 
 const BUILT_IN_SEQUENCE_PATHS = [
   "src/sequencer/preset-sequences/marc-sabat/Flight.json",
@@ -26,6 +26,15 @@ describe("snapshot rational identity", () => {
           expect(
             Math.abs(resolved.midicents - note.midicents) * 100,
             `snapshot ${snapshotIndex + 1}, note ${noteIndex + 1}`,
+          ).toBeLessThanOrEqual(0.001);
+          expect(
+            note.scalaInterval,
+            `snapshot ${snapshotIndex + 1}, note ${noteIndex + 1} stored Scala interval`,
+          ).toBeTruthy();
+          const scalaResolved = resolveSequenceScalaInterval(note.scalaInterval, frame);
+          expect(
+            Math.abs(scalaResolved.midicents - note.midicents) * 100,
+            `snapshot ${snapshotIndex + 1}, note ${noteIndex + 1} Scala pitch`,
           ).toBeLessThanOrEqual(0.001);
         }
       }

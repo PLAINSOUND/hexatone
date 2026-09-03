@@ -368,6 +368,24 @@ export function resolveSequenceScalaInterval(value, frame) {
   return { ...resolved, hejiName: sequenceHejiNameFromScalaInterval(resolved, frame) };
 }
 
+function matchingExactSequenceInterval(note, frame) {
+  const noteMidicents = Number(note?.midicents);
+  if (!Number.isFinite(noteMidicents)) return null;
+  const namedPitch = resolveSequenceHejiName(note?.hejiName, frame);
+  if (
+    namedPitch?.ratioText &&
+    Math.abs(Number(namedPitch.midicents) - noteMidicents) * 100 <= 0.001
+  ) {
+    return namedPitch.ratioText;
+  }
+  const ratio = parseCalculatorInterval(note?.ratioText);
+  if (!ratio.valid || !ratio.exact) return null;
+  const resolvedRatio = resolveSequenceScalaInterval(ratio.normalized, frame);
+  return resolvedRatio && Math.abs(resolvedRatio.midicents - noteMidicents) * 100 <= 0.001
+    ? ratio.normalized
+    : null;
+}
+
 export function formatSequenceScalaInterval(note, frame) {
   if (note?.scalaIntervalDraft) {
     const draft = parseCalculatorInterval(note.scalaIntervalDraft);
@@ -408,12 +426,8 @@ export function deriveSequenceScalaInterval(note, frame) {
     const draft = parseCalculatorInterval(note.scalaIntervalDraft);
     if (draft.valid) return draft.exact ? draft.normalized : formatSequenceCents(draft.cents);
   }
-  if (note?.displayLabelEdited !== true) {
-    const namedPitch = resolveSequenceHejiName(note?.hejiName, frame);
-    if (namedPitch?.ratioText) return namedPitch.ratioText;
-  }
-  const ratio = parseCalculatorInterval(note?.ratioText);
-  if (ratio.valid && ratio.exact) return ratio.normalized;
+  const exactInterval = matchingExactSequenceInterval(note, frame);
+  if (exactInterval) return exactInterval;
   const targetCents = sequenceIntervalCentsFromMidicents(note?.midicents, frame);
   return Number.isFinite(targetCents) ? formatSequenceCents(targetCents) : "";
 }
