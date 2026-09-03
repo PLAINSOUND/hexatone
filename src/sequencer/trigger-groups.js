@@ -100,6 +100,7 @@ export function deriveSnapshotTriggerGroups(snapshot, options = {}) {
       displayLabel: note.displayLabel ?? "",
       hejiName: note.hejiName ?? note.displayLabel ?? "",
       ratioText: note.ratioText ?? null,
+      scalaInterval: note.scalaInterval ?? null,
       scalaIntervalDraft: note.scalaIntervalDraft ?? null,
       displayLabelEdited: note.displayLabelEdited === true,
       canRestoreDisplayLabel: canRestoreEditedDisplayLabel(note),
@@ -125,6 +126,7 @@ export function deriveSnapshotTriggerGroups(snapshot, options = {}) {
       displayLabel: note.displayLabel ?? "",
       hejiName: note.hejiName ?? note.displayLabel ?? "",
       ratioText: note.ratioText ?? null,
+      scalaInterval: note.scalaInterval ?? null,
       scalaIntervalDraft: note.scalaIntervalDraft ?? null,
       displayLabelEdited: note.displayLabelEdited === true,
       canRestoreDisplayLabel: canRestoreEditedDisplayLabel(note),
@@ -411,10 +413,16 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex, options = {}) {
   const index = Number(cueIndex);
   if (!Number.isFinite(index) || index < 0 || index >= groups.length) return [];
 
-  const activeByInstance = new Map();
+  return deriveSequenceNotesByCueGroups(groups)[index] ?? [];
+}
 
-  for (let i = 0; i <= index; i += 1) {
-    const group = groups[i];
+export function deriveSequenceNotesByCueGroups(groups = []) {
+  const cueGroups = Array.isArray(groups) ? groups : [];
+
+  const activeByInstance = new Map();
+  const notesByCueIndex = [];
+
+  for (const group of cueGroups) {
     for (const note of activeByInstance.values()) {
       delete note.reattack;
     }
@@ -446,9 +454,15 @@ export function sequenceNotesAtCueIndex(snapshots, cueIndex, options = {}) {
         activeByInstance.delete(instanceKey);
       }
     }
+
+    notesByCueIndex.push(
+      [...activeByInstance.values()]
+        .sort((a, b) => Number(b.midicents) - Number(a.midicents))
+        .map((note) => ({ ...note })),
+    );
   }
 
-  return [...activeByInstance.values()].sort((a, b) => Number(b.midicents) - Number(a.midicents));
+  return notesByCueIndex;
 }
 
 export function sequenceNoteKeysAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {

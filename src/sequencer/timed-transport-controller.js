@@ -607,13 +607,19 @@ export default function useTimedTransportController({
 
   useEffect(() => {
     if (timedTransportState.status !== "running") return undefined;
-    clearScheduledTimedCueCallbacks();
-    armNextTimedCueDispatch();
+    // Start/resume arms the audio scheduler before publishing UI state. This
+    // effect is only a safety net; never cancel an already armed callback just
+    // because the transport controls rerendered.
+    if (timedTransportTimeoutRef.current == null) armNextTimedCueDispatch();
+    return undefined;
+  }, [armNextTimedCueDispatch, timedTransportState.status]);
 
-    return () => {
+  useEffect(
+    () => () => {
       clearScheduledTimedCueCallbacks();
-    };
-  }, [armNextTimedCueDispatch, clearScheduledTimedCueCallbacks, timedTransportState.status]);
+    },
+    [clearScheduledTimedCueCallbacks],
+  );
 
   useEffect(() => {
     if (timedTransportState.status !== "running" && timedTransportState.status !== "paused") {
@@ -701,6 +707,7 @@ export default function useTimedTransportController({
       });
       const resumedState = resumeTimedTransport(previous, nowSeconds);
       timedTransportStateRef.current = resumedState;
+      armNextTimedCueDispatch();
       setTimedTransportState(resumedState);
       return;
     }
@@ -735,13 +742,31 @@ export default function useTimedTransportController({
     );
     activePlaybackRuntimeTokenRef.current = playbackRuntimeToken;
     activeTimedTriggerTokenRef.current = timedTriggerToken;
-    timedTransportStateRef.current = startedState;
     lastScheduledDiagnosticPlaybackIndexRef.current = -1;
     lastFinalScheduleDiagnosticPlaybackIndexRef.current = -1;
-    setTimedTransportState(startedState);
+
+    // The first burst is due at the transport anchor. Dispatch it before
+    // publishing running UI state: a large sequencer rerender must not delay
+    // cue 1 until cue 2 is also due.
+    const initialAdvance = advanceTimedTransport(startedState, timedPlaybackBursts, nowSeconds);
+    const initialResult = applyLiveRepeatDecision(
+      initialAdvance.state,
+      initialAdvance.dueBursts,
+      timedPlaybackBursts,
+      {
+        playRepeats: sequencePlayRepeatsRef.current,
+        clockSeconds: nowSeconds,
+      },
+    );
+    timedTransportStateRef.current = initialResult.state;
+    initialResult.dueBursts.forEach(dispatchTimedCueBurst);
+    setTimedTransportState(initialResult.state);
+    if (initialResult.state.status === "running") armNextTimedCueDispatch();
   }, [
+    armNextTimedCueDispatch,
     deriveTimedTransportStartTarget,
     clearScheduledTimedCueCallbacks,
+    dispatchTimedCueBurst,
     getTimedTransportClockSeconds,
     playbackRuntimeToken,
     recordTimedTransportDiagnostic,

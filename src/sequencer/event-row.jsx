@@ -3,6 +3,7 @@
 // movement between snapshots, while delegating all mutation policy back up to
 // the sequencer controllers.
 
+import { useMemo } from "preact/hooks";
 import { absolutePositionToBarBeat } from "./transport.js";
 import {
   buildBlurCommit,
@@ -178,10 +179,21 @@ const EventRow = ({
   };
   const resolveNameInput = (eventArg) =>
     editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", eventArg.currentTarget.value);
-  const currentScalaInterval = formatSequenceScalaInterval(event, sourceSnapshot.pitchFrame);
-  const editableScalaInterval = formatEditableSequenceScalaInterval(
-    event,
-    sourceSnapshot.pitchFrame,
+  // Scala resolution can parse and factor rational pitch data. Keep it out of
+  // ordinary HEJI/timing cue renders, and retain the result while only the
+  // playhead changes.
+  const { currentScalaInterval, editableScalaInterval } = useMemo(
+    () =>
+      view.currentEventPane === "expression"
+        ? {
+            currentScalaInterval: formatSequenceScalaInterval(event, sourceSnapshot.pitchFrame),
+            editableScalaInterval: formatEditableSequenceScalaInterval(
+              event,
+              sourceSnapshot.pitchFrame,
+            ),
+          }
+        : { currentScalaInterval: "", editableScalaInterval: "" },
+    [event, sourceSnapshot.pitchFrame, view.currentEventPane],
   );
   const normalizeScalaInput = (eventArg) => {
     const resolved = resolveSequenceScalaInterval(

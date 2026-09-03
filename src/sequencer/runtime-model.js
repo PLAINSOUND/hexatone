@@ -17,7 +17,11 @@ import {
   deriveTempoTransitionCueMap,
   deriveTerminalBarlinePosition,
 } from "./transport.js";
-import { deriveSequenceCueGroupsFromEvents, deriveSequenceEvents } from "./trigger-groups.js";
+import {
+  deriveSequenceCueGroupsFromEvents,
+  deriveSequenceEvents,
+  deriveSequenceNotesByCueGroups,
+} from "./trigger-groups.js";
 import { normalizeSequenceLegatoMode } from "./legato.js";
 
 let nextRuntimeInstanceId = 1;
@@ -106,6 +110,15 @@ export function buildSequenceRuntimeModel({
       cueCount: sequenceCueGroups.length,
     },
   );
+  const playbackNotesByCueIndex = measureSequenceRuntimeStep(
+    "derive-playback-notes-by-cue",
+    () => deriveSequenceNotesByCueGroups(playbackSequenceCueGroups),
+    {
+      ...entryMeta,
+      eventCount: playbackSequenceEvents.length,
+      cueCount: playbackSequenceCueGroups.length,
+    },
+  );
   const terminalBarlinePosition = measureSequenceRuntimeStep(
     "derive-terminal-barline",
     () => deriveTerminalBarlinePosition(renderedSnapshots, sortedBars),
@@ -185,6 +198,7 @@ export function buildSequenceRuntimeModel({
     playbackSequenceEvents,
     sequenceCueGroups,
     playbackSequenceCueGroups,
+    playbackNotesByCueIndex,
     terminalBarlinePosition,
     tempoTransitionCueMap,
     sequenceRepeatSections,

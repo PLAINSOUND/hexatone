@@ -3,6 +3,28 @@ import { describe, expect, it } from "vitest";
 import { buildSequenceRuntimeModel } from "./runtime-model.js";
 
 describe("buildSequenceRuntimeModel", () => {
+  it("precomputes the sounding note set for direct manual cue lookup", () => {
+    const runtime = buildSequenceRuntimeModel({
+      snapshots: [
+        {
+          id: "s1",
+          length: 1,
+          notes: [
+            { id: "held", midicents: 60, start: 0, end: 1 },
+            { id: "later", midicents: 67, start: 0.5, end: 1 },
+          ],
+        },
+      ],
+      source: "test",
+    });
+
+    expect(runtime.playbackNotesByCueIndex.map((notes) => notes.map((note) => note.midicents))).toEqual([
+      [60],
+      [67, 60],
+      [],
+    ]);
+  });
+
   it("keeps piled tempi in the event list in creation order", () => {
     const runtime = buildSequenceRuntimeModel({
       snapshots: [{ id: "s1", length: 2, notes: [] }],

@@ -99,7 +99,20 @@ export function buildSequencePitchFrameRegistry(snapshots = [], existingFrames =
     const { pitchFrame: _pitchFrame, ...rest } = snapshot;
     return { ...rest, pitchFrameId: id };
   });
-  return { pitchFrames: frames, snapshots: canonicalSnapshots };
+  const frameById = new Map(frames.map((frame) => [frame.id, frame]));
+  const snapshotsWithScala = canonicalSnapshots.map((snapshot) => {
+    const frame = frameById.get(snapshot.pitchFrameId);
+    if (!frame) return snapshot;
+    return {
+      ...snapshot,
+      notes: (snapshot.notes ?? []).map((note) =>
+        note?.scalaInterval
+          ? note
+          : { ...note, scalaInterval: deriveSequenceScalaInterval(note, frame) },
+      ),
+    };
+  });
+  return { pitchFrames: frames, snapshots: snapshotsWithScala };
 }
 
 export function hydrateSequencePitchFrames(snapshots = [], pitchFrames = []) {
@@ -113,7 +126,17 @@ export function hydrateSequencePitchFrames(snapshots = [], pitchFrames = []) {
     const frame =
       normalizeSequencePitchFrame(snapshot?.pitchFrame, snapshot?.pitchFrameId) ??
       byId.get(String(snapshot?.pitchFrameId ?? ""));
-    return frame ? { ...snapshot, pitchFrameId: frame.id, pitchFrame: frame } : snapshot;
+    if (!frame) return snapshot;
+    return {
+      ...snapshot,
+      pitchFrameId: frame.id,
+      pitchFrame: frame,
+      notes: (snapshot.notes ?? []).map((note) =>
+        note?.scalaInterval
+          ? note
+          : { ...note, scalaInterval: deriveSequenceScalaInterval(note, frame) },
+      ),
+    };
   });
 }
 
@@ -351,6 +374,10 @@ export function formatSequenceScalaInterval(note, frame) {
     if (!draft.valid) return "";
     return draft.exact ? draft.normalized : Number(draft.cents).toFixed(1);
   }
+  if (note?.displayLabelEdited !== true && note?.scalaInterval) {
+    const stored = parseCalculatorInterval(note.scalaInterval);
+    if (stored.valid) return stored.exact ? stored.normalized : Number(stored.cents).toFixed(1);
+  }
   if (note?.displayLabelEdited !== true) {
     const namedPitch = resolveSequenceHejiName(note?.hejiName, frame);
     if (namedPitch?.ratioText) return namedPitch.ratioText;
@@ -364,6 +391,7 @@ export function formatSequenceScalaInterval(note, frame) {
 
 export function formatEditableSequenceScalaInterval(note, frame) {
   if (note?.scalaIntervalDraft) return note.scalaIntervalDraft;
+  if (note?.displayLabelEdited !== true && note?.scalaInterval) return note.scalaInterval;
   if (note?.displayLabelEdited !== true) {
     const namedPitch = resolveSequenceHejiName(note?.hejiName, frame);
     if (namedPitch?.ratioText) return namedPitch.ratioText;
@@ -373,6 +401,21 @@ export function formatEditableSequenceScalaInterval(note, frame) {
   const targetCents = sequenceIntervalCentsFromMidicents(note?.midicents, frame);
   if (!Number.isFinite(targetCents)) return "";
   return formatSequenceCents(targetCents);
+}
+
+export function deriveSequenceScalaInterval(note, frame) {
+  if (note?.scalaIntervalDraft) {
+    const draft = parseCalculatorInterval(note.scalaIntervalDraft);
+    if (draft.valid) return draft.exact ? draft.normalized : formatSequenceCents(draft.cents);
+  }
+  if (note?.displayLabelEdited !== true) {
+    const namedPitch = resolveSequenceHejiName(note?.hejiName, frame);
+    if (namedPitch?.ratioText) return namedPitch.ratioText;
+  }
+  const ratio = parseCalculatorInterval(note?.ratioText);
+  if (ratio.valid && ratio.exact) return ratio.normalized;
+  const targetCents = sequenceIntervalCentsFromMidicents(note?.midicents, frame);
+  return Number.isFinite(targetCents) ? formatSequenceCents(targetCents) : "";
 }
 
 export function inferSequenceHejiName(note, frame) {

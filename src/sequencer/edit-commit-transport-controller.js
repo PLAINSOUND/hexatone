@@ -5,6 +5,17 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { createSequencerDiagnosticTransactionId } from "../debug/sequencer-crash-diagnostics.js";
 
+export function sequencerInputHasPendingEdit(input) {
+  if (!(input instanceof HTMLInputElement)) return false;
+  if (!input.matches?.(".sequencer-event__input")) return false;
+  const baseline = input.dataset.lastCommittedValue;
+  // `--draft` is also the persistent presentation for a pitch that differs
+  // from its captured value. It does not mean that the focused DOM input has
+  // an uncommitted edit. Compare the actual editing value instead, falling
+  // back to defaultValue for inputs focused before a baseline was recorded.
+  return input.value !== (baseline ?? input.defaultValue);
+}
+
 export default function useEditCommitTransportController({ snapshots } = {}) {
   const [editCommitContext, setEditCommitContext] = useState({
     tick: 0,
@@ -48,6 +59,15 @@ export default function useEditCommitTransportController({ snapshots } = {}) {
     }
     const active = document.activeElement;
     if (active instanceof HTMLElement && active.matches?.(".sequencer-event__input")) {
+      // Firefox commonly leaves a text input as document.activeElement while
+      // dispatching a button click. Do not send an unchanged field through the
+      // post-render edit queue: its blur handler has nothing to commit, and the
+      // unnecessary render/effect round trip makes cue attacks feel late.
+      if (!sequencerInputHasPendingEdit(active)) {
+        active.blur();
+        action?.();
+        return;
+      }
       editCommitPendingRef.current = true;
       pendingTransportActionRef.current = action;
       active.blur();

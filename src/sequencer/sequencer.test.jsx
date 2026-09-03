@@ -1252,6 +1252,8 @@ describe("Sequencer", () => {
     );
 
     fireEvent.click(screen.getByLabelText("play timed transport"));
+    expect(onPlayTimedCue).toHaveBeenCalledTimes(1);
+    expect(onPlayTimedCue.mock.calls[0][0]).toBe(0);
     vi.runOnlyPendingTimers();
 
     expect(onPlayTimedCue).toHaveBeenCalledTimes(1);

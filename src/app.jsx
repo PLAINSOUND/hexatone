@@ -132,7 +132,6 @@ import {
 } from "./debug/sequencer-crash-diagnostics.js";
 import { buildSnapshotDisplayDescription } from "./sequencer/labels.js";
 import { deriveSequenceLegatoFlags, normalizeSequenceLegatoMode } from "./sequencer/legato.js";
-import { sequenceNotesAtCueIndex } from "./sequencer/trigger-groups.js";
 import {
   remapSequenceNoteToRuntime,
   remapSequenceSnapshotsToRuntime,
@@ -1314,6 +1313,7 @@ const App = () => {
       const workspace = buildLoadedSequenceWorkspace(sequence, options);
       manualGestureRuntimeRef.current.cancelAll();
       keysRef.current?.stopSnapshot();
+      pendingTransportSelectionRef.current = clearPendingTransportSelection();
       setPlayingSnapshotId(null);
       setManualPlayingSnapshotIds([]);
       snapshotsRef.current = workspace.snapshots;
@@ -1360,6 +1360,7 @@ const App = () => {
 
     snapshotsRef.current = workspace.snapshots;
     sequenceBarsRef.current = workspace.bars;
+    pendingTransportSelectionRef.current = clearPendingTransportSelection();
     setSnapshots(workspace.snapshots);
     setSequenceBars(workspace.bars);
     setSequenceTempi(workspace.tempi);
@@ -1862,14 +1863,13 @@ const App = () => {
         );
       }
       const safeMarkerIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, markerIndex));
-      return transformNotes(
-        sequenceNotesAtCueIndex(snapshots, safeMarkerIndex, { legatoMode: sequenceLegato }),
-      );
+      return transformNotes(sequenceRuntimeModel.playbackNotesByCueIndex[safeMarkerIndex] ?? []);
     },
     [
       currentSequenceSnapRuntime,
       sequenceCueGroups,
       sequenceLegato,
+      sequenceRuntimeModel.playbackNotesByCueIndex,
       snapSequenceToCurrentTuning,
       snapshots,
     ],
