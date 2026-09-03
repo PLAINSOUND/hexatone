@@ -24,7 +24,13 @@ import {
   isOutOfSnapshotRange,
   soundingOnTextStyle,
 } from "./value-runtime.js";
-import { normalizeSequenceHejiName, splitOctaveHejiName } from "./pitch-frame.js";
+import {
+  formatEditableSequenceScalaInterval,
+  formatSequenceHejiNameForDisplay,
+  formatSequenceScalaInterval,
+  resolveSequenceScalaInterval,
+  splitOctaveHejiName,
+} from "./pitch-frame.js";
 
 const renderCueTransport = ({
   cueIndex,
@@ -163,13 +169,39 @@ const EventRow = ({
     const previousName = event.hejiName || event.displayLabel || "";
     const fallbackOctave = splitOctaveHejiName(previousName)?.octave ?? 4;
     eventArg.currentTarget.value =
-      normalizeSequenceHejiName(eventArg.currentTarget.value, {
+      formatSequenceHejiNameForDisplay(eventArg.currentTarget.value, {
         fallbackOctave,
         fallbackName: previousName,
-      }) ?? previousName;
+      }) ??
+      formatSequenceHejiNameForDisplay(previousName) ??
+      previousName;
   };
   const resolveNameInput = (eventArg) =>
     editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", eventArg.currentTarget.value);
+  const currentScalaInterval = formatSequenceScalaInterval(event, sourceSnapshot.pitchFrame);
+  const editableScalaInterval = formatEditableSequenceScalaInterval(
+    event,
+    sourceSnapshot.pitchFrame,
+  );
+  const normalizeScalaInput = (eventArg) => {
+    const resolved = resolveSequenceScalaInterval(
+      eventArg.currentTarget.value,
+      sourceSnapshot.pitchFrame,
+    );
+    eventArg.currentTarget.value = resolved
+      ? formatSequenceScalaInterval(
+          { scalaIntervalDraft: resolved.intervalText },
+          sourceSnapshot.pitchFrame,
+        )
+      : currentScalaInterval;
+  };
+  const resolveScalaInput = (eventArg) =>
+    editing.updateEventField(
+      sourceSnapshot,
+      noteRef,
+      "scalaInterval",
+      eventArg.currentTarget.value,
+    );
 
   return (
     <div
@@ -407,34 +439,70 @@ const EventRow = ({
         />
       </div>
       <div class="sequencer-event__cell sequencer-grid-offset">
-        <span class="sequencer-event__content sequencer-event__heji-wrap">
+        {view.currentEventPane === "expression" ? (
           <input
-            key={`${event.eventId}-displayLabel-${event.hejiName ?? event.displayLabel ?? ""}-${event.displayLabelEdited ? "edited" : "captured"}`}
+            key={`${event.eventId}-scala-${currentScalaInterval}-${event.displayLabelEdited ? "edited" : "captured"}`}
             type="text"
-            class={`sequencer-event__input sequencer-event__heji${event.displayLabelEdited ? " sequencer-event__heji--edited sequencer-event__input--draft sequencer-event__pitch-draft" : ""}`}
-            defaultValue={event.hejiName || event.displayLabel || ""}
-            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} name`}
+            class={`sequencer-event__input sequencer-event__scala${event.displayLabelEdited ? " sequencer-event__input--draft sequencer-event__pitch-draft" : ""}`}
+            defaultValue={currentScalaInterval}
+            aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} scala`}
             {...stopProps}
-            disabled={editing.snapSequenceToCurrentTuning}
-            onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+            disabled={editing.snapSequenceToCurrentTuning || !sourceSnapshot.pitchFrame}
+            onFocus={buildSelectOnFocus({
+              stop: true,
+              clearCommitted: true,
+              setValue: () => editableScalaInterval,
+            })}
             onKeyDown={(eventArg) => {
               if (eventArg.key !== "Enter") return;
               eventArg.preventDefault();
               editing.handleBlurCommit(
                 eventArg,
-                () => resolveNameInput(eventArg),
-                () => normalizeNameInput(eventArg),
+                () => resolveScalaInput(eventArg),
+                () => normalizeScalaInput(eventArg),
               );
             }}
             onBlur={(eventArg) =>
               editing.handleBlurCommit(
                 eventArg,
-                () => resolveNameInput(eventArg),
-                () => normalizeNameInput(eventArg),
+                () => resolveScalaInput(eventArg),
+                () => normalizeScalaInput(eventArg),
               )
             }
           />
-        </span>
+        ) : (
+          <span class="sequencer-event__content sequencer-event__heji-wrap">
+            <input
+              key={`${event.eventId}-displayLabel-${event.hejiName ?? event.displayLabel ?? ""}-${event.displayLabelEdited ? "edited" : "captured"}`}
+              type="text"
+              class={`sequencer-event__input sequencer-event__heji${event.displayLabelEdited ? " sequencer-event__heji--edited sequencer-event__input--draft sequencer-event__pitch-draft" : ""}`}
+              defaultValue={
+                formatSequenceHejiNameForDisplay(event.hejiName || event.displayLabel || "") ??
+                (event.hejiName || event.displayLabel || "")
+              }
+              aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} name`}
+              {...stopProps}
+              disabled={editing.snapSequenceToCurrentTuning}
+              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+              onKeyDown={(eventArg) => {
+                if (eventArg.key !== "Enter") return;
+                eventArg.preventDefault();
+                editing.handleBlurCommit(
+                  eventArg,
+                  () => resolveNameInput(eventArg),
+                  () => normalizeNameInput(eventArg),
+                );
+              }}
+              onBlur={(eventArg) =>
+                editing.handleBlurCommit(
+                  eventArg,
+                  () => resolveNameInput(eventArg),
+                  () => normalizeNameInput(eventArg),
+                )
+              }
+            />
+          </span>
+        )}
       </div>
       {view.currentEventPane === "timing" ? (
         <>

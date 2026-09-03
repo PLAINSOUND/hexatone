@@ -2,18 +2,26 @@
 // sequences deduplicate these records; open workspaces also keep the resolved
 // frame on each snapshot so that moves and copies remain self-contained.
 
-import { parseHejiToStructure } from "../notation/pitch-structure.js";
-import { canonicalHejiAnchorLabelInput } from "../notation/heji-normalization.js";
+import { spelledHejiLabel } from "../notation/key-label.js";
+import { parseHejiToStructure, pitchStructureToBaseId } from "../notation/pitch-structure.js";
+import { createReferenceFrame } from "../notation/reference-frame.js";
+import {
+  canonicalHejiAnchorLabelInput,
+  normalizeHejiPitchClassInput,
+} from "../notation/heji-normalization.js";
 import {
   calculatorIntervalFromPitchStructure,
   midiPitchFromFrequency,
   parseCalculatorInterval,
 } from "../calculator/runtime.js";
 import { ratioToMonzoParts } from "../tuning/interval.js";
-import { BASE_BY_ID, HEJI_FAMILIES } from "../notation/heji.js";
+import { BASE_BY_ID } from "../notation/heji.js";
 
 const DEFAULT_REFERENCE_FREQUENCY = 440;
 const DEFAULT_REFERENCE_LABEL = "A4";
+const SCALA_PITCH_EPSILON_CENTS = 0.000001;
+const LETTER_SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const CHROMATIC_SEMITONES = { doubleflat: -2, flat: -1, natural: 0, sharp: 1, doublesharp: 2 };
 
 function normalizedInterval(value, fallback = "1/1") {
   const parsed = parseCalculatorInterval(value);
@@ -128,59 +136,6 @@ export function captureSequencePitchFrame(runtime) {
   });
 }
 
-function expandSequenceLigaturePrefix(value) {
-  const source = String(value ?? "")
-    .replace(/^\*ft/iu, "")
-    .replace(/^\*nt/iu, "")
-    .replace(/^\*st/iu, "");
-  const ligatureMatch = source.match(/^\*(ff|ss|f|n|s)((?:[ou]\d+)*)/iu);
-  if (!ligatureMatch) return source;
-  const chromatic = {
-    f: "flat",
-    n: "natural",
-    s: "sharp",
-    ff: "doubleflat",
-    ss: "doublesharp",
-  }[ligatureMatch[1].toLowerCase()];
-  const primeExponents = new Map();
-  for (const modifier of ligatureMatch[2].matchAll(/([ou])(\d+)/giu)) {
-    let product = Number(modifier[2]);
-    const amount = modifier[1].toLowerCase() === "o" ? -1 : 1;
-    if (!Number.isSafeInteger(product) || product < 1 || product % 2 === 0) return source;
-    for (const prime of [5, ...HEJI_FAMILIES.map((family) => family.prime)]) {
-      while (product % prime === 0) {
-        primeExponents.set(prime, (primeExponents.get(prime) ?? 0) + amount);
-        product /= prime;
-      }
-    }
-    if (product !== 1) return source;
-  }
-  const syntonic = primeExponents.get(5) ?? 0;
-  primeExponents.delete(5);
-  const clampedSyntonic = Math.max(-3, Math.min(3, syntonic));
-  const baseGlyph = BASE_BY_ID[`${chromatic}:${clampedSyntonic}`]?.glyph;
-  if (!baseGlyph) return source;
-  const syntonicSpill =
-    Math.abs(syntonic) > 3
-      ? (BASE_BY_ID[`natural:${syntonic < 0 ? -1 : 1}`]?.glyph ?? "").repeat(Math.abs(syntonic) - 3)
-      : "";
-  const extras = [...primeExponents.entries()]
-    .sort((a, b) => b[0] - a[0])
-    .map(([prime, exponent]) => {
-      const family = HEJI_FAMILIES.find((candidate) => candidate.prime === prime);
-      const glyph = exponent < 0 ? family?.lower?.glyph : family?.upper?.glyph;
-      return glyph?.repeat(Math.abs(exponent)) ?? "";
-    })
-    .join("");
-  return `${extras}${baseGlyph}${syntonicSpill}${source.slice(ligatureMatch[0].length)}`;
-}
-
-function normalizeGermanNoteLetter(value) {
-  const source = String(value ?? "");
-  if (/^[Hh]/u.test(source)) return `B${source.slice(1)}`;
-  return source.replace(/[Hh]$/u, "B");
-}
-
 export function splitOctaveHejiName(value, { fallbackOctave = null, fallbackName = null } = {}) {
   const source = String(value ?? "")
     .trim()
@@ -203,8 +158,7 @@ export function splitOctaveHejiName(value, { fallbackOctave = null, fallbackName
   const pitchClassSource = octaveMatch
     ? withoutDeviation.slice(0, octaveMatch.index)
     : withoutDeviation;
-  const spellingSource = expandSequenceLigaturePrefix(normalizeGermanNoteLetter(pitchClassSource));
-  const spelling = canonicalHejiAnchorLabelInput(spellingSource);
+  const spelling = normalizeHejiPitchClassInput(pitchClassSource);
   const deviationCents = deviationText ? Number(deviationText.replace("−", "-")) : 0;
   if (!spelling || !Number.isInteger(octave) || !Number.isFinite(deviationCents)) return null;
   const tempered = /[\uE2F1-\uE2F3]/u.test(spelling);
@@ -225,6 +179,16 @@ export function normalizeSequenceHejiName(value, options = {}) {
     ? `${parsed.deviationCents < 0 ? "−" : "+"}${Math.abs(parsed.deviationCents)}`
     : "";
   return `${parsed.spelling}${parsed.octave}${suffix}`;
+}
+
+export function formatSequenceHejiNameForDisplay(value, options = {}) {
+  const parsed = splitOctaveHejiName(value, options);
+  if (!parsed) return null;
+  if (!parsed.hasDeviation) return `${parsed.spelling}${parsed.octave}`;
+  const roundedDeviation =
+    Math.sign(parsed.deviationCents) * Math.round(Math.abs(parsed.deviationCents));
+  const normalizedDeviation = Object.is(roundedDeviation, -0) ? 0 : roundedDeviation;
+  return `${parsed.spelling}${parsed.octave}${normalizedDeviation < 0 ? "−" : "+"}${Math.abs(normalizedDeviation)}`;
 }
 
 export function resolveSequenceHejiName(value, frame, options = {}) {
@@ -256,6 +220,159 @@ export function resolveSequenceHejiName(value, frame, options = {}) {
   return residual
     ? { midicents, displayLabel: parsedName.spelling, hejiName: canonicalName, ratioText }
     : { midicents, displayLabel: parsedName.spelling, hejiName: canonicalName, ratioText, monzo };
+}
+
+function formatSequenceCents(value) {
+  const cents = Math.abs(Number(value)) < SCALA_PITCH_EPSILON_CENTS ? 0 : Number(value);
+  return cents.toFixed(6);
+}
+
+function sequenceMidicentsFromIntervalCents(intervalCents, frame) {
+  const normalizedFrame = normalizeSequencePitchFrame(frame);
+  const referenceInterval = parseCalculatorInterval(normalizedFrame?.referenceInterval);
+  if (!normalizedFrame || !referenceInterval.valid || !Number.isFinite(Number(intervalCents))) {
+    return null;
+  }
+  const frequency =
+    normalizedFrame.referenceFrequency *
+    Math.pow(2, (Number(intervalCents) - referenceInterval.cents) / 1200);
+  return 69 + 12 * Math.log2(frequency / 440);
+}
+
+function sequenceStructureSemitone(structure) {
+  const chromatic = BASE_BY_ID[pitchStructureToBaseId(structure)]?.chromatic ?? "natural";
+  return LETTER_SEMITONES[structure?.letter] + (CHROMATIC_SEMITONES[chromatic] ?? 0);
+}
+
+function sequenceOctaveForSpelling(spelling, centsFromAnchor, anchorLabel) {
+  const structure = parseHejiToStructure(spelling);
+  const anchorStructure = parseHejiToStructure(anchorLabel);
+  const semitone = sequenceStructureSemitone(structure);
+  const anchorSemitone = sequenceStructureSemitone(anchorStructure);
+  if (
+    !Number.isFinite(semitone) ||
+    !Number.isFinite(anchorSemitone) ||
+    !Number.isFinite(centsFromAnchor)
+  ) {
+    return null;
+  }
+  const anchorAbsoluteSemitone = (4 + 1) * 12 + anchorSemitone;
+  const octave = Math.round(
+    (anchorAbsoluteSemitone + centsFromAnchor / 100 - (12 + semitone)) / 12,
+  );
+  const relativeTemperedCents = ((octave + 1) * 12 + semitone - anchorAbsoluteSemitone) * 100;
+  return {
+    octave,
+    structure,
+    relativeTemperedCents,
+  };
+}
+
+function formatSequenceDeviation(value) {
+  const normalized = Math.abs(Number(value)) < SCALA_PITCH_EPSILON_CENTS ? 0 : Number(value);
+  const magnitude = Number(Math.abs(normalized).toFixed(6)).toString();
+  return `${normalized < 0 ? "−" : "+"}${magnitude}`;
+}
+
+function sequenceHejiNameFromScalaInterval(resolved, frame) {
+  const normalizedFrame = normalizeSequencePitchFrame(frame);
+  const anchor = parseCalculatorInterval(normalizedFrame?.hejiAnchorInterval);
+  if (!normalizedFrame || !anchor.valid) return null;
+  try {
+    const notationFrame = createReferenceFrame({
+      anchorLabel: normalizedFrame.hejiAnchorLabel,
+      anchorRatio: normalizedFrame.hejiAnchorInterval,
+      anchorOctave: 4,
+    });
+    const rawLabel = spelledHejiLabel(
+      notationFrame,
+      resolved.ratioText ?? null,
+      resolved.cents - anchor.cents,
+      {
+        suppressDeviation: Boolean(resolved.ratioText),
+        forceShowZeroDeviation: true,
+      },
+    );
+    const spelling = rawLabel.replace(/[+\-−]\d+(?:\.\d+)?¢?$/u, "");
+    const centsFromAnchor = resolved.cents - anchor.cents;
+    const octaveData = sequenceOctaveForSpelling(
+      spelling,
+      centsFromAnchor,
+      normalizedFrame.hejiAnchorLabel,
+    );
+    if (!octaveData) return null;
+    if (octaveData.structure.useTemperedAccidentals !== true) {
+      return `${spelling}${octaveData.octave}`;
+    }
+    const deviation = centsFromAnchor - octaveData.relativeTemperedCents;
+    return `${spelling}${octaveData.octave}${formatSequenceDeviation(deviation)}`;
+  } catch {
+    return null;
+  }
+}
+
+export function sequenceIntervalCentsFromMidicents(midicents, frame) {
+  const normalizedFrame = normalizeSequencePitchFrame(frame);
+  const referenceInterval = parseCalculatorInterval(normalizedFrame?.referenceInterval);
+  const pitch = Number(midicents);
+  if (!normalizedFrame || !referenceInterval.valid || !Number.isFinite(pitch)) return null;
+  const referenceMidicents =
+    69 + 12 * Math.log2(normalizedFrame.referenceFrequency / DEFAULT_REFERENCE_FREQUENCY);
+  return referenceInterval.cents + (pitch - referenceMidicents) * 100;
+}
+
+export function resolveSequenceScalaInterval(value, frame) {
+  const parsed = parseCalculatorInterval(value);
+  if (!parsed.valid) return null;
+  const midicents = sequenceMidicentsFromIntervalCents(parsed.cents, frame);
+  if (!Number.isFinite(midicents)) return null;
+  if (!parsed.exact) {
+    const resolved = {
+      midicents,
+      cents: parsed.cents,
+      intervalText: formatSequenceCents(parsed.cents),
+    };
+    return { ...resolved, hejiName: sequenceHejiNameFromScalaInterval(resolved, frame) };
+  }
+  const { monzo, residual } = ratioToMonzoParts(parsed.ratio);
+  const resolved = {
+    midicents,
+    cents: parsed.cents,
+    intervalText: parsed.normalized,
+    ratioText: parsed.normalized,
+    ...(residual ? {} : { monzo }),
+  };
+  return { ...resolved, hejiName: sequenceHejiNameFromScalaInterval(resolved, frame) };
+}
+
+export function formatSequenceScalaInterval(note, frame) {
+  if (note?.scalaIntervalDraft) {
+    const draft = parseCalculatorInterval(note.scalaIntervalDraft);
+    if (!draft.valid) return "";
+    return draft.exact ? draft.normalized : Number(draft.cents).toFixed(1);
+  }
+  if (note?.displayLabelEdited !== true) {
+    const namedPitch = resolveSequenceHejiName(note?.hejiName, frame);
+    if (namedPitch?.ratioText) return namedPitch.ratioText;
+  }
+  const ratio = parseCalculatorInterval(note?.ratioText);
+  if (ratio.valid && ratio.exact) return ratio.normalized;
+  const targetCents = sequenceIntervalCentsFromMidicents(note?.midicents, frame);
+  if (!Number.isFinite(targetCents)) return "";
+  return Number(targetCents).toFixed(1);
+}
+
+export function formatEditableSequenceScalaInterval(note, frame) {
+  if (note?.scalaIntervalDraft) return note.scalaIntervalDraft;
+  if (note?.displayLabelEdited !== true) {
+    const namedPitch = resolveSequenceHejiName(note?.hejiName, frame);
+    if (namedPitch?.ratioText) return namedPitch.ratioText;
+  }
+  const ratio = parseCalculatorInterval(note?.ratioText);
+  if (ratio.valid && ratio.exact) return ratio.normalized;
+  const targetCents = sequenceIntervalCentsFromMidicents(note?.midicents, frame);
+  if (!Number.isFinite(targetCents)) return "";
+  return formatSequenceCents(targetCents);
 }
 
 export function inferSequenceHejiName(note, frame) {

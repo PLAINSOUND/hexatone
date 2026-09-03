@@ -710,29 +710,11 @@ const SequenceControls = ({
       </label>
 
       <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-        <span>Auto-Scroll</span>
-        <input
-          type="checkbox"
-          checked={autoScrollEnabled}
-          onChange={(e) => onAutoScrollEnabledChange?.(e.currentTarget.checked)}
-        />
-      </label>
-
-      <label class="sequencer-option-row sequencer-option-row--mobile-inline">
         <span>Play Repeats</span>
         <input
           type="checkbox"
           checked={sequencePlayRepeats}
           onChange={(e) => onSequencePlayRepeatsChange?.(e.currentTarget.checked)}
-        />
-      </label>
-
-      <label class="sequencer-option-row sequencer-option-row--mobile-inline">
-        <span>Snap Sequence to Current Hexatone Tuning</span>
-        <input
-          type="checkbox"
-          checked={snapSequenceToCurrentTuning}
-          onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
         />
       </label>
 
@@ -746,6 +728,24 @@ const SequenceControls = ({
           aria-label="Mod Wheel to sequence timbre"
           checked={sequenceTimbreModWheelEnabled === true}
           onChange={(event) => onSequenceTimbreModWheelEnabledChange?.(event.currentTarget.checked)}
+        />
+      </label>
+
+      <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+        <span>Auto-Scroll</span>
+        <input
+          type="checkbox"
+          checked={autoScrollEnabled}
+          onChange={(e) => onAutoScrollEnabledChange?.(e.currentTarget.checked)}
+        />
+      </label>
+
+      <label class="sequencer-option-row sequencer-option-row--mobile-inline">
+        <span>Snap Sequence to Current Hexatone Tuning</span>
+        <input
+          type="checkbox"
+          checked={snapSequenceToCurrentTuning}
+          onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
         />
       </label>
 

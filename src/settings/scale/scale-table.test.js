@@ -74,7 +74,7 @@ describe("ScaleTable — key labels: note_names", () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toBe("note_names");
     const updated = onChange.mock.calls[0][1];
-    expect(updated[3]).toBe("Eb");
+    expect(updated[3]).toBe("E");
     expect(updated[0]).toBe("C");
     expect(updated[4]).toBe("E");
   });
@@ -104,8 +104,34 @@ describe("ScaleTable — key labels: note_names", () => {
 
     expect(onChange).toHaveBeenCalledWith(
       "note_names",
-      expect.arrayContaining(["C", "C#", "D", "Eb"]),
+      expect.arrayContaining(["C", "C#", "D", "E"]),
     );
+  });
+
+  it("shares HEJI shorthand, German H, and higher-prime parsing with the sequencer", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch name 3");
+
+    fireEvent.input(input, { target: { value: "*so25h", name: "name3" } });
+    fireEvent.blur(input);
+    expect(onChange.mock.calls.at(-1)[1][3]).toBe("B");
+
+    const updatedSettings = { ...settingsBase, note_names: onChange.mock.calls.at(-1)[1] };
+    rerender(<ScaleTable settings={updatedSettings} onChange={onChange} />);
+    const updatedInput = screen.getByLabelText("pitch name 3");
+    fireEvent.input(updatedInput, { target: { value: "*so4h", name: "name3" } });
+    fireEvent.blur(updatedInput);
+    expect(onChange.mock.calls.at(-1)[1][3]).toBe("B");
+  });
+
+  it("preserves free-form custom note names", () => {
+    const onChange = vi.fn();
+    render(<ScaleTable settings={settingsBase} onChange={onChange} />);
+    const input = screen.getByLabelText("pitch name 3");
+    fireEvent.input(input, { target: { value: "bridge", name: "name3" } });
+    fireEvent.blur(input);
+    expect(onChange.mock.calls.at(-1)[1][3]).toBe("bridge");
   });
 });
 

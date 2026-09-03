@@ -1456,9 +1456,10 @@ describe("App workspace tabs", () => {
     await user.click(await screen.findByLabelText("Play snapshot 1"));
 
     expect(keys.stopSnapshot).toHaveBeenCalledTimes(stopCallsBeforePalettePlay + 1);
-    expect(keys.beginSnapshotGesture).toHaveBeenCalledTimes(1);
-    expect(keys.attackSnapshotGestureNote).toHaveBeenCalledTimes(1);
-    expect(keys.attackSnapshotGestureNote.mock.calls[0][1].id).toBe("first");
+    expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+    expect(keys.playSnapshot.mock.calls[1][0][0].id).toBe("first");
+    expect(keys.beginSnapshotGesture).not.toHaveBeenCalled();
+    expect(keys.attackSnapshotGestureNote).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     expect(screen.getByLabelText("play timed transport")).not.toBeNull();

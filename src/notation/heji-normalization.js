@@ -4,7 +4,13 @@
 
 import { Fraction } from "xen-dev-utils";
 import { monzoToFractionOnBasis, parseExactInterval } from "../tuning/interval.js";
-import { addMonzos, parseHejiPitchClassLabel, subtractMonzos } from "./heji.js";
+import {
+  addMonzos,
+  BASE_BY_ID,
+  HEJI_FAMILIES,
+  parseHejiPitchClassLabel,
+  subtractMonzos,
+} from "./heji.js";
 import {
   createPitchStructure,
   parseHejiToStructure,
@@ -66,6 +72,73 @@ const SEMITONE_TO_LETTER = ["C", "C", "D", "E", "E", "F", "F", "G", "G", "A", "B
 // Substitute these so the rest of the parsing logic sees plain ASCII shortcuts.
 export function expandOpenTypeLigatures(name) {
   return name.replace(/\*n/g, "n").replace(/\*f/g, "b").replace(/\*s/g, "#");
+}
+
+function normalizeGermanNoteLetter(value) {
+  const source = String(value ?? "");
+  if (/^[Hh]/u.test(source)) return `B${source.slice(1)}`;
+  return source.replace(/[Hh]$/u, "B");
+}
+
+function expandExtendedOpenTypeLigaturePrefix(value) {
+  const source = String(value ?? "")
+    .replace(/^\*ft/iu, TEMPERED_FLAT)
+    .replace(/^\*nt/iu, TEMPERED_NATURAL)
+    .replace(/^\*st/iu, TEMPERED_SHARP);
+  const ligatureMatch = source.match(/^\*(ff|ss|f|n|s)((?:[ou]\d+)*)/iu);
+  if (!ligatureMatch) return source;
+  const chromatic = {
+    f: "flat",
+    n: "natural",
+    s: "sharp",
+    ff: "doubleflat",
+    ss: "doublesharp",
+  }[ligatureMatch[1].toLowerCase()];
+  const primeExponents = new Map();
+  for (const modifier of ligatureMatch[2].matchAll(/([ou])(\d+)/giu)) {
+    let product = Number(modifier[2]);
+    const amount = modifier[1].toLowerCase() === "o" ? -1 : 1;
+    if (!Number.isSafeInteger(product) || product < 1 || product % 2 === 0) return source;
+    for (const prime of [5, ...HEJI_FAMILIES.map((family) => family.prime)]) {
+      while (product % prime === 0) {
+        primeExponents.set(prime, (primeExponents.get(prime) ?? 0) + amount);
+        product /= prime;
+      }
+    }
+    if (product !== 1) return source;
+  }
+  const syntonic = primeExponents.get(5) ?? 0;
+  primeExponents.delete(5);
+  const clampedSyntonic = Math.max(-3, Math.min(3, syntonic));
+  const baseGlyph = BASE_BY_ID[`${chromatic}:${clampedSyntonic}`]?.glyph;
+  if (!baseGlyph) return source;
+  const syntonicSpill =
+    Math.abs(syntonic) > 3
+      ? (BASE_BY_ID[`natural:${syntonic < 0 ? -1 : 1}`]?.glyph ?? "").repeat(Math.abs(syntonic) - 3)
+      : "";
+  const extras = [...primeExponents.entries()]
+    .sort((a, b) => b[0] - a[0])
+    .map(([prime, exponent]) => {
+      const family = HEJI_FAMILIES.find((candidate) => candidate.prime === prime);
+      const glyph = exponent < 0 ? family?.lower?.glyph : family?.upper?.glyph;
+      return glyph?.repeat(Math.abs(exponent)) ?? "";
+    })
+    .join("");
+  return `${extras}${baseGlyph}${syntonicSpill}${source.slice(ligatureMatch[0].length)}`;
+}
+
+/**
+ * Normalize a pitch-class spelling shared by sequence and Scale Table editors.
+ * Supports German H, bare note letters, HEJI glyphs, and Plainsound OpenType
+ * shorthand such as *n, *ft, *so5, *fu11, and composite prime products.
+ */
+export function normalizeHejiPitchClassInput(value) {
+  const compact = String(value ?? "")
+    .trim()
+    .replace(/\s+/g, "");
+  if (!compact) return null;
+  const spelling = expandExtendedOpenTypeLigaturePrefix(normalizeGermanNoteLetter(compact));
+  return canonicalHejiAnchorLabelInput(spelling);
 }
 
 function isExplicitHejiSpelling(raw) {

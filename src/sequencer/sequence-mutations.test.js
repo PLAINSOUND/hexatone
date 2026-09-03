@@ -114,6 +114,86 @@ describe("sequencer sequence mutations", () => {
     expect(restored[0].displayLabelEdited).toBeUndefined();
   });
 
+  it("edits an exact Scala ratio from 1/1 and commits its rational identity", () => {
+    const framedSnapshot = {
+      ...snapshot,
+      pitchFrame: {
+        id: "frame-1",
+        referenceLabel: "A4",
+        referenceFrequency: 441,
+        referenceInterval: "27/16",
+        hejiAnchorLabel: "*nE",
+        hejiAnchorInterval: "81/64",
+      },
+      notes: [
+        {
+          ...snapshot.notes[0],
+          midicents: 69 + 12 * Math.log2(441 / 440),
+          displayLabel: "A4",
+          hejiName: "A4",
+          ratioText: "27/16",
+        },
+      ],
+    };
+    const edited = updateEventFieldInSnapshot(framedSnapshot, "a", "scalaInterval", "3/2");
+    expect(edited[0]).toMatchObject({
+      scalaIntervalDraft: "3/2",
+      displayLabelEdited: true,
+      ratioText: "27/16",
+      displayLabel: "G4",
+      hejiName: "G4",
+    });
+    expect(edited[0].midicents).toBeCloseTo(69 + 12 * Math.log2(392 / 440), 8);
+
+    const committed = commitEventPitchLabelInSnapshot({ ...framedSnapshot, notes: edited }, "a");
+    expect(committed[0].ratioText).toBe("3/2");
+    expect(committed[0].hejiName).toBe("G4");
+    expect(committed[0].monzo).toEqual([-1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(committed[0].scalaIntervalDraft).toBeUndefined();
+    expect(committed[0].displayLabelEdited).toBeUndefined();
+  });
+
+  it("keeps Scala cents irrational and restores the captured rational identity on cancel", () => {
+    const initialMidicents = 69 + 12 * Math.log2(441 / 440);
+    const framedSnapshot = {
+      ...snapshot,
+      pitchFrame: {
+        id: "frame-1",
+        referenceLabel: "A4",
+        referenceFrequency: 441,
+        referenceInterval: "27/16",
+        hejiAnchorLabel: "*nE",
+        hejiAnchorInterval: "81/64",
+      },
+      notes: [
+        {
+          ...snapshot.notes[0],
+          midicents: initialMidicents,
+          displayLabel: "A4",
+          hejiName: "A4",
+          ratioText: "27/16",
+          monzo: [-4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        },
+      ],
+    };
+    const edited = updateEventFieldInSnapshot(framedSnapshot, "a", "scalaInterval", "701.955");
+    expect(edited[0].scalaIntervalDraft).toBe("701.955000");
+    expect(edited[0].hejiName).toBe("G4−5.865003");
+    const committed = commitEventPitchLabelInSnapshot({ ...framedSnapshot, notes: edited }, "a");
+    expect(committed[0].ratioText).toBeUndefined();
+    expect(committed[0].monzo).toBeUndefined();
+
+    const restored = restoreEventPitchLabelInSnapshot({ ...framedSnapshot, notes: edited }, "a");
+    expect(restored[0]).toMatchObject({
+      midicents: initialMidicents,
+      displayLabel: "A4",
+      hejiName: "A4",
+      ratioText: "27/16",
+      monzo: framedSnapshot.notes[0].monzo,
+    });
+    expect(restored[0].scalaIntervalDraft).toBeUndefined();
+  });
+
   it("commits edited pitch and name as the new snapshot baseline", () => {
     const editedSnapshot = {
       ...snapshot,

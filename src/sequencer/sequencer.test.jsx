@@ -560,7 +560,7 @@ describe("Sequencer", () => {
     const snapOption = screen
       .getByText("Snap Sequence to Current Hexatone Tuning")
       .closest("label");
-    const playbackBlock = timbreOption.nextElementSibling;
+    const playbackBlock = document.querySelector(".sequencer-playback-block");
     expect(timbreOption.className).toBe(snapOption.className);
     expect(playbackBlock.classList.contains("sequencer-playback-block")).toBe(true);
     expect(playbackBlock.querySelector('[aria-label="Sequence playback"]')).toBeTruthy();
@@ -3581,7 +3581,24 @@ describe("Sequencer", () => {
               id: 10,
               length: 1,
               description: "A",
-              notes: [{ id: "a", midicents: 69, displayLabel: "A", start: 0, end: 1 }],
+              pitchFrame: {
+                id: "frame-1",
+                referenceLabel: "A4",
+                referenceFrequency: 441,
+                referenceInterval: "27/16",
+                hejiAnchorLabel: "*nE",
+                hejiAnchorInterval: "81/64",
+              },
+              notes: [
+                {
+                  id: "a",
+                  midicents: 69,
+                  displayLabel: "A",
+                  ratioText: "27/16",
+                  start: 0,
+                  end: 1,
+                },
+              ],
             },
           ]}
           bars={[{ id: 1, position: 1 }]}
@@ -3626,10 +3643,13 @@ describe("Sequencer", () => {
 
       expect(screen.getAllByText("Bar").length).toBeGreaterThan(0);
       expect(screen.getAllByText("Num").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Name").length).toBeGreaterThan(0);
       expect(screen.getByLabelText("show expression controls")).toBeTruthy();
 
       fireEvent.click(screen.getByLabelText("show expression controls"));
       expect(screen.getAllByText("v-on").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Scala").length).toBeGreaterThan(0);
+      expect(screen.getByLabelText("snapshot 1 attack scala").value).toBe("27/16");
       expect(screen.getByLabelText("show bar-relative timing")).toBeTruthy();
     } finally {
       window.matchMedia = originalMatchMedia;

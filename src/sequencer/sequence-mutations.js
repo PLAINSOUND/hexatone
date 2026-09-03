@@ -15,7 +15,9 @@ import {
   rebuildSnapshotRationalIdentity,
 } from "./snapshot-rational-identity.js";
 import {
+  formatEditableSequenceScalaInterval,
   normalizeSequenceHejiName,
+  resolveSequenceScalaInterval,
   resolveSequenceHejiName,
   splitOctaveHejiName,
 } from "./pitch-frame.js";
@@ -36,19 +38,42 @@ function editableNameOptions(note) {
 
 function restoreEditedName(note) {
   const originalMidicents = Number(note?.originalMidicents);
+  const restoresRatioText = Object.prototype.hasOwnProperty.call(note, "originalRatioText");
+  const restoresMonzo = Object.prototype.hasOwnProperty.call(note, "originalMonzo");
+  const restoresRationalContext = Object.prototype.hasOwnProperty.call(
+    note,
+    "originalRationalContext",
+  );
   const {
     originalMidicents: _originalMidicents,
     originalDisplayLabel,
     originalHejiName,
+    originalRatioText,
+    originalMonzo,
+    originalRationalContext,
+    scalaIntervalDraft: _scalaIntervalDraft,
     displayLabelEdited: _displayLabelEdited,
     ...rest
   } = note;
-  return {
+  const restored = {
     ...rest,
     midicents: Number.isFinite(originalMidicents) ? originalMidicents : note.midicents,
     displayLabel: originalDisplayLabel ?? note.displayLabel,
     hejiName: originalHejiName ?? originalDisplayLabel ?? note.hejiName ?? note.displayLabel,
   };
+  if (restoresRatioText) {
+    if (originalRatioText !== undefined) restored.ratioText = originalRatioText;
+    else delete restored.ratioText;
+  }
+  if (restoresMonzo) {
+    if (originalMonzo !== undefined) restored.monzo = originalMonzo;
+    else delete restored.monzo;
+  }
+  if (restoresRationalContext) {
+    if (originalRationalContext !== undefined) restored.rationalContext = originalRationalContext;
+    else delete restored.rationalContext;
+  }
+  return restored;
 }
 
 function rationalContextBeforeEdit(note) {
@@ -108,6 +133,49 @@ export function applyEventBarRelativeDraftToSnapshot(
 
 export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
   if (!snapshot) return null;
+  if (field === "scalaInterval") {
+    const resolved = resolveSequenceScalaInterval(rawValue, snapshot.pitchFrame);
+    if (!resolved) return null;
+    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
+    return assignStableSequencerNoteIds(
+      (snapshot.notes ?? []).map((note) => {
+        if (!noteMatchesReference(note, noteKey, length)) return note;
+        const currentInterval = formatEditableSequenceScalaInterval(note, snapshot.pitchFrame);
+        if (
+          currentInterval === resolved.intervalText &&
+          Math.abs(Number(note.midicents) - resolved.midicents) < 0.0000005
+        ) {
+          return note;
+        }
+        return {
+          ...note,
+          originalMidicents: Number.isFinite(Number(note.originalMidicents))
+            ? Number(note.originalMidicents)
+            : Number(note.midicents),
+          originalDisplayLabel: note.originalDisplayLabel ?? note.displayLabel ?? "",
+          originalHejiName: note.originalHejiName ?? note.hejiName ?? note.displayLabel ?? "",
+          originalRatioText: Object.prototype.hasOwnProperty.call(note, "originalRatioText")
+            ? note.originalRatioText
+            : note.ratioText,
+          originalMonzo: Object.prototype.hasOwnProperty.call(note, "originalMonzo")
+            ? note.originalMonzo
+            : note.monzo,
+          originalRationalContext: Object.prototype.hasOwnProperty.call(
+            note,
+            "originalRationalContext",
+          )
+            ? note.originalRationalContext
+            : note.rationalContext,
+          midicents: resolved.midicents,
+          displayLabel: resolved.hejiName ?? "edited",
+          hejiName: resolved.hejiName ?? "edited",
+          displayLabelEdited: true,
+          scalaIntervalDraft: resolved.intervalText,
+        };
+      }),
+      length,
+    );
+  }
   if (field === "displayLabel") {
     const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
     return assignStableSequencerNoteIds(
@@ -135,6 +203,7 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
           ratioText: _ratioText,
           monzo: _monzo,
           rationalContext: _rationalContext,
+          scalaIntervalDraft: _scalaIntervalDraft,
           ...withoutIdentity
         } = note;
         return {
@@ -169,8 +238,9 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
 
       if (field === "midicents") {
         if (pitchUnchanged(numeric, note.midicents)) return note;
+        const { scalaIntervalDraft: _scalaIntervalDraft, ...withoutScalaDraft } = note;
         return {
-          ...note,
+          ...withoutScalaDraft,
           midicents: numeric,
           originalMidicents,
           originalDisplayLabel,
@@ -182,8 +252,9 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
       if (field === "frequency") {
         const midicents = frequencyToMidicents(numeric);
         if (midicents == null || pitchUnchanged(midicents, note.midicents)) return note;
+        const { scalaIntervalDraft: _scalaIntervalDraft, ...withoutScalaDraft } = note;
         return {
-          ...note,
+          ...withoutScalaDraft,
           midicents,
           originalMidicents,
           originalDisplayLabel,
@@ -216,6 +287,30 @@ export function commitEventPitchLabelInSnapshot(snapshot, noteKey) {
   return assignStableSequencerNoteIds(
     (snapshot.notes ?? []).map((note) => {
       if (!noteMatchesReference(note, noteKey, length)) return note;
+      if (note.scalaIntervalDraft) {
+        const resolved = resolveSequenceScalaInterval(note.scalaIntervalDraft, snapshot.pitchFrame);
+        if (!resolved) return restoreEditedName(note);
+        const {
+          originalMidicents: _originalMidicents,
+          originalDisplayLabel: _originalDisplayLabel,
+          originalHejiName: _originalHejiName,
+          originalRatioText: _originalRatioText,
+          originalMonzo: _originalMonzo,
+          originalRationalContext: _originalRationalContext,
+          scalaIntervalDraft: _scalaIntervalDraft,
+          displayLabelEdited: _displayLabelEdited,
+          ratioText: _ratioText,
+          monzo: _monzo,
+          rationalContext: _rationalContext,
+          ...rest
+        } = note;
+        return {
+          ...rest,
+          midicents: resolved.midicents,
+          ...(resolved.ratioText ? { ratioText: resolved.ratioText } : {}),
+          ...(resolved.monzo ? { monzo: resolved.monzo } : {}),
+        };
+      }
       const namedPitch = resolveSequenceHejiName(note.displayLabel, snapshot.pitchFrame, {
         ...editableNameOptions(note),
       });
@@ -227,6 +322,10 @@ export function commitEventPitchLabelInSnapshot(snapshot, noteKey) {
           originalMidicents: _originalMidicents,
           originalDisplayLabel: _originalDisplayLabel,
           originalHejiName: _originalHejiName,
+          originalRatioText: _originalRatioText,
+          originalMonzo: _originalMonzo,
+          originalRationalContext: _originalRationalContext,
+          scalaIntervalDraft: _scalaIntervalDraft,
           displayLabelEdited: _displayLabelEdited,
           rationalContext: _rationalContext,
           ratioText: _ratioText,
@@ -250,6 +349,10 @@ export function commitEventPitchLabelInSnapshot(snapshot, noteKey) {
         originalMidicents: _originalMidicents,
         originalDisplayLabel: _originalDisplayLabel,
         originalHejiName: _originalHejiName,
+        originalRatioText: _originalRatioText,
+        originalMonzo: _originalMonzo,
+        originalRationalContext: _originalRationalContext,
+        scalaIntervalDraft: _scalaIntervalDraft,
         displayLabelEdited: _displayLabelEdited,
         ...rest
       } = note;
@@ -282,6 +385,12 @@ export function restoreEventPitchLabelInSnapshot(snapshot, noteKey) {
   return assignStableSequencerNoteIds(
     (snapshot.notes ?? []).map((note) => {
       if (!noteMatchesReference(note, noteKey, length)) return note;
+      const restoresRatioText = Object.prototype.hasOwnProperty.call(note, "originalRatioText");
+      const restoresMonzo = Object.prototype.hasOwnProperty.call(note, "originalMonzo");
+      const restoresRationalContext = Object.prototype.hasOwnProperty.call(
+        note,
+        "originalRationalContext",
+      );
       const originalMidicents = Number(note.originalMidicents);
       const canRestorePitch = Number.isFinite(originalMidicents);
       const canRestoreLabel = note.displayLabelEdited === true && note.originalDisplayLabel != null;
@@ -290,15 +399,33 @@ export function restoreEventPitchLabelInSnapshot(snapshot, noteKey) {
         originalMidicents: _originalMidicents,
         originalDisplayLabel,
         originalHejiName,
+        originalRatioText,
+        originalMonzo,
+        originalRationalContext,
+        scalaIntervalDraft: _scalaIntervalDraft,
         displayLabelEdited: _displayLabelEdited,
         ...rest
       } = note;
-      return {
+      const restored = {
         ...rest,
         midicents: canRestorePitch ? originalMidicents : note.midicents,
         displayLabel: originalDisplayLabel ?? "",
         hejiName: originalHejiName ?? originalDisplayLabel ?? "",
       };
+      if (restoresRatioText) {
+        if (originalRatioText !== undefined) restored.ratioText = originalRatioText;
+        else delete restored.ratioText;
+      }
+      if (restoresMonzo) {
+        if (originalMonzo !== undefined) restored.monzo = originalMonzo;
+        else delete restored.monzo;
+      }
+      if (restoresRationalContext) {
+        if (originalRationalContext !== undefined)
+          restored.rationalContext = originalRationalContext;
+        else delete restored.rationalContext;
+      }
+      return restored;
     }),
     length,
   );

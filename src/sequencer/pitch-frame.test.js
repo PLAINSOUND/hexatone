@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
+import fallSequence from "./preset-sequences/marc-sabat/FALL.json";
 import {
   buildSequencePitchFrameRegistry,
+  formatEditableSequenceScalaInterval,
+  formatSequenceHejiNameForDisplay,
+  formatSequenceScalaInterval,
   formatSequencePitchFrameCompact,
   hydrateSequencePitchFrames,
   normalizeSequenceHejiName,
+  resolveSequenceScalaInterval,
   resolveSequenceHejiName,
+  sequenceIntervalCentsFromMidicents,
   splitOctaveHejiName,
 } from "./pitch-frame.js";
 
@@ -56,6 +62,50 @@ describe("sequence pitch frames", () => {
     expect(resolved.hejiName).toBe("C5−12.5");
     expect(resolved.ratioText).toBeUndefined();
     expect(resolved.monzo).toBeUndefined();
+    expect(formatSequenceHejiNameForDisplay(resolved.hejiName)).toBe("C5−13");
+    expect(formatSequenceHejiNameForDisplay("*ntA4+0.49")).toBe("A4+0");
+  });
+
+  it("resolves and formats Scala intervals from the stored 1/1", () => {
+    const exact = resolveSequenceScalaInterval("3", frame);
+    expect(exact).toMatchObject({ intervalText: "3/1", ratioText: "3/1" });
+    expect(sequenceIntervalCentsFromMidicents(exact.midicents, frame)).toBeCloseTo(
+      1200 * Math.log2(3),
+      8,
+    );
+    expect(
+      formatSequenceScalaInterval({ midicents: exact.midicents, ratioText: "3/1" }, frame),
+    ).toBe("3/1");
+    expect(formatSequenceScalaInterval({ midicents: 69, ratioText: "27/16" }, frame)).toBe("27/16");
+    expect(formatSequenceScalaInterval({ midicents: 64, hejiName: "E4" }, frame)).toBe("81/64");
+
+    const cents = resolveSequenceScalaInterval("701.955", frame);
+    expect(cents.intervalText).toBe("701.955000");
+    expect(cents.ratioText).toBeUndefined();
+    expect(cents.hejiName).toBe("G4−5.865003");
+    expect(formatSequenceScalaInterval({ midicents: cents.midicents }, frame)).toBe("702.0");
+    expect(formatEditableSequenceScalaInterval({ midicents: cents.midicents }, frame)).toBe(
+      "701.955000",
+    );
+  });
+
+  it("shows the notation-resolved ratios for Bar 1 of FALL", () => {
+    const [firstSnapshot] = hydrateSequencePitchFrames(
+      fallSequence.snapshots,
+      fallSequence.pitchFrames,
+    );
+    expect(
+      firstSnapshot.notes.map((note) => [
+        note.hejiName,
+        formatSequenceScalaInterval(note, firstSnapshot.pitchFrame),
+      ]),
+    ).toEqual([
+      ["F4", "45/32"],
+      ["D4", "9/8"],
+      ["A4", "27/16"],
+      ["F4", "171/128"],
+      ["D4", "153/128"],
+    ]);
   });
 
   it("normalizes case, German H, bare naturals, aliases, and inherited octaves", () => {

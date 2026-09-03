@@ -1523,12 +1523,13 @@ td.scale-color-col .color-input {
 .sequencer-item {
   --sequencer-delete-col: 1.15em;
   --sequencer-number-col: 1.55em;
-  /* Keep SNAP legible into three-digit sequences without widening the table:
-     its extra share is transferred directly from OFFSET. */
-  --sequencer-event-snapshot-col: minmax(0, 1.02fr);
-  --sequencer-event-position-col: minmax(0, 1.16fr);
+  /* Give octave-qualified HEJI names and Scala ratios a little more room,
+     drawing that width only from SNAP and OFFSET. */
+  --sequencer-event-snapshot-col: minmax(0, 0.87fr);
+  --sequencer-event-position-col: minmax(0, 1.01fr);
   --sequencer-event-kind-col: minmax(0, 0.44fr);
   --sequencer-event-pitch-col: minmax(0, 1fr);
+  --sequencer-event-heji-col: minmax(0, 1.3fr);
   --sequencer-event-value-col: minmax(0, 0.82fr);
   --sequencer-snapshot-primary-col: 4.1em;
   --sequencer-snapshot-articulation-col: 3.4em;
@@ -1536,7 +1537,7 @@ td.scale-color-col .color-input {
   --sequencer-detail-columns: var(--sequencer-delete-col) var(--sequencer-number-col)
     var(--sequencer-event-snapshot-col) var(--sequencer-event-position-col)
     var(--sequencer-event-kind-col) var(--sequencer-event-pitch-col)
-    var(--sequencer-event-pitch-col) var(--sequencer-event-pitch-col)
+    var(--sequencer-event-pitch-col) var(--sequencer-event-heji-col)
     var(--sequencer-event-value-col) var(--sequencer-event-value-col)
     var(--sequencer-event-value-col) var(--sequencer-event-value-col)
     var(--sequencer-event-actions-col);
@@ -4679,10 +4680,11 @@ td.scale-color-col .color-input {
 @media (max-width: 480px) and (orientation: portrait) {
   .sequencer-item {
     --sequencer-number-col: 1.35em;
-    --sequencer-event-snapshot-col: 2.7em;
-    --sequencer-event-position-col: 2.9em;
+    --sequencer-event-snapshot-col: 2.45em;
+    --sequencer-event-position-col: 2.65em;
     --sequencer-event-kind-col: 1.55em;
     --sequencer-event-pitch-col: 3.1em;
+    --sequencer-event-heji-col: 3.6em;
     --sequencer-event-value-col: 2.2em;
     --sequencer-event-actions-col: 2.85em;
     --sequencer-snapshot-columns: var(--sequencer-delete-col) var(--sequencer-number-col)

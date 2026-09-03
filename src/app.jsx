@@ -2055,6 +2055,14 @@ const App = () => {
       const arpeggiate = articulation === "arpeggiate";
       const snapshotArpeggiationEnabled = manualArpeggiation.mode !== "off";
       decayManualSnapshotGesturesForNextTrigger(manualArpeggiation);
+      if (!snapshotArpeggiationEnabled) {
+        // A plain manual snapshot is a chord transaction, just like a cue.
+        // Keeping it out of the per-note gesture scheduler ensures every
+        // pitch gets the same future MIDI/OSC commit timestamp even when an
+        // edited pitch takes longer to prepare.
+        applySequencePlayback(stepIndex, safeMarkerIndex, notes);
+        return;
+      }
       if (!notes.length) {
         if (!snapshotArpeggiationEnabled) keysRef.current?.stopSnapshot();
         commitSequencePlaybackUi({
@@ -2118,6 +2126,7 @@ const App = () => {
     },
     [
       barIndexForTime,
+      applySequencePlayback,
       commitSequencePlaybackUi,
       decayManualSnapshotGesturesForNextTrigger,
       legatoTransitionDurationMs,

@@ -47,7 +47,10 @@ import {
 } from "../auto-colors.js";
 import { getPrimeFamilyColorMap } from "../monzo-color.js";
 import { resolveTypedHejiLabel } from "../../../notation/heji-frame.js";
-import { canonicalHejiLabel } from "../../../notation/heji-normalization.js";
+import {
+  canonicalHejiLabel,
+  normalizeHejiPitchClassInput,
+} from "../../../notation/heji-normalization.js";
 import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 
 // ScaleTable is the UI workspace for rationalisation. It derives committed row
@@ -262,7 +265,11 @@ const ScaleTable = (props) => {
   const commitNameChange = useCallback(
     (inputName, value) => {
       const next = [...(props.settings.note_names || [])];
-      next[parseInt(inputName.replace(/name/, ""))] = value;
+      const degreeIndex = parseInt(inputName.replace(/name/, ""));
+      const previous = next[degreeIndex] ?? "";
+      const normalized = normalizeHejiPitchClassInput(value);
+      const looksLikeInvalidHeji = /^\s*\*|[\uE260-\uE2FF\uEE50-\uEE59]/u.test(String(value ?? ""));
+      next[degreeIndex] = normalized ?? (looksLikeInvalidHeji ? previous : value);
       props.onChange("note_names", next);
       setDraftNoteNames((prev) => {
         if (!(inputName in prev)) return prev;
