@@ -3750,7 +3750,7 @@ describe("Sequencer", () => {
     expect(snapshotTarget.dataset.playFromActive).toBe("false");
     expect(cueTarget.dataset.playFromActive).toBe("true");
     fireEvent.click(playButton);
-    expect(onPlayCue).toHaveBeenCalledWith(0);
+    expect(onPlayCue).toHaveBeenCalledWith(0, { deferUi: true });
     expect(onPlaySequence).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByLabelText("next sequence step"));
@@ -3814,7 +3814,7 @@ describe("Sequencer", () => {
     expect(screen.getAllByText("on")).toHaveLength(2);
     expect(screen.getAllByText("off")).toHaveLength(2);
     fireEvent.click(screen.getByLabelText("play cue 1"));
-    expect(onPlayCue).toHaveBeenCalledWith(0);
+    expect(onPlayCue).toHaveBeenCalledWith(0, { deferUi: true });
 
     fireEvent.click(screen.getByLabelText("show expression controls"));
     expect(screen.getByLabelText("show bar-relative timing")).not.toBeNull();

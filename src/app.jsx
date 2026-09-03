@@ -1117,6 +1117,16 @@ const App = () => {
   const [sequencePlayRepeats, setSequencePlayRepeats] = useState(true);
   const sequencerScrollPositionRef = useRef(0);
   const timedTransportStopRef = useRef(null);
+  const pendingManualCueUiCommitRef = useRef({ timerId: null, payload: null });
+  const manualCueDiagnosticsRef = useRef({
+    frameId: null,
+    firstTriggerMs: null,
+    lastTriggerMs: null,
+    minimumIntervalMs: null,
+    triggerCount: 0,
+    maximumApplyDurationMs: 0,
+    latestCueIndex: null,
+  });
   const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
@@ -1753,6 +1763,32 @@ const App = () => {
     [snapshots],
   );
 
+  const cancelPendingManualCueUiCommit = useCallback(() => {
+    const pending = pendingManualCueUiCommitRef.current;
+    if (pending.timerId != null) window.clearTimeout(pending.timerId);
+    pending.timerId = null;
+    pending.payload = null;
+  }, []);
+
+  const scheduleManualCueUiCommit = useCallback(
+    (payload) => {
+      const pending = pendingManualCueUiCommitRef.current;
+      pending.payload = payload;
+      if (pending.timerId != null) window.clearTimeout(pending.timerId);
+      // The audible path has already run. Wait until a manual trigger burst is
+      // quiet before asking Preact to reconcile the large editable sequence.
+      pending.timerId = window.setTimeout(() => {
+        pending.timerId = null;
+        const latest = pending.payload;
+        pending.payload = null;
+        if (latest) commitSequencePlaybackUi(latest);
+      }, 300);
+    },
+    [commitSequencePlaybackUi],
+  );
+
+  useEffect(() => cancelPendingManualCueUiCommit, [cancelPendingManualCueUiCommit]);
+
   const applySequencePlayback = useCallback(
     (stepIndex, markerIndex = null, notes = [], options = {}) => {
       cancelManualSnapshotGestures();
@@ -1922,6 +1958,7 @@ const App = () => {
 
   const playSequencePosition = useCallback(
     (stepIndex, markerIndex = null, options = {}) => {
+      cancelPendingManualCueUiCommit();
       const hardRestart = options?.hardRestart === true;
       if (stepIndex == null || stepIndex < 0 || snapshots.length === 0) {
         setSequenceBeforeStart();
@@ -1963,6 +2000,7 @@ const App = () => {
     [
       applySequencePlayback,
       applyStoppedSequenceTransportState,
+      cancelPendingManualCueUiCommit,
       cancelManualSnapshotGestures,
       resetTimedPlaybackUi,
       sequenceCueGroups,
@@ -2149,6 +2187,7 @@ const App = () => {
 
   const onStopSnapshot = useCallback(
     (id = null, options = {}) => {
+      cancelPendingManualCueUiCommit();
       const hasManualGesture =
         id == null
           ? manualGestureRuntimeRef.current.activeGestureIds().length > 0
@@ -2180,6 +2219,7 @@ const App = () => {
     },
     [
       applyStoppedSequenceTransportState,
+      cancelPendingManualCueUiCommit,
       cancelManualSnapshotGestures,
       playingSnapshotId,
       resetTimedPlaybackUi,
@@ -2855,20 +2895,102 @@ const App = () => {
     return performance.now() / 1000;
   }, []);
 
+  const recordManualCueBurstDiagnostic = useCallback((cueIndex, startedAtMs, applyDurationMs) => {
+    if (!isTimedTransportDiagnosticsEnabled()) return;
+    const state = manualCueDiagnosticsRef.current;
+    const intervalMs =
+      Number.isFinite(state.lastTriggerMs) && Number.isFinite(startedAtMs)
+        ? Math.max(0, startedAtMs - state.lastTriggerMs)
+        : null;
+    state.lastTriggerMs = startedAtMs;
+    state.firstTriggerMs ??= startedAtMs;
+    state.minimumIntervalMs =
+      intervalMs == null
+        ? state.minimumIntervalMs
+        : state.minimumIntervalMs == null
+          ? intervalMs
+          : Math.min(state.minimumIntervalMs, intervalMs);
+    state.triggerCount += 1;
+    state.maximumApplyDurationMs = Math.max(
+      state.maximumApplyDurationMs,
+      Number(applyDurationMs) || 0,
+    );
+    state.latestCueIndex = cueIndex;
+    if (state.frameId != null) return;
+
+    state.frameId = window.requestAnimationFrame((frameAtMs) => {
+      const pending = manualCueDiagnosticsRef.current;
+      const firstTriggerMs = pending.firstTriggerMs;
+      appendPersistedTimedTransportDiagnostic({
+        type: "manual-cue-frame",
+        clockSeconds: frameAtMs / 1000,
+        cueIndex: Number.isFinite(pending.latestCueIndex) ? pending.latestCueIndex + 1 : null,
+        playbackIndex: pending.latestCueIndex,
+        frameIntervalMs: Number.isFinite(firstTriggerMs) ? frameAtMs - firstTriggerMs : null,
+        triggerIntervalMs: pending.minimumIntervalMs,
+        durationMs: pending.maximumApplyDurationMs,
+        queueDepth: pending.triggerCount,
+        detail: "manual cue triggers received before the next animation frame",
+      });
+      pending.frameId = null;
+      pending.firstTriggerMs = null;
+      pending.minimumIntervalMs = null;
+      pending.triggerCount = 0;
+      pending.maximumApplyDurationMs = 0;
+      pending.latestCueIndex = null;
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      const frameId = manualCueDiagnosticsRef.current.frameId;
+      if (frameId != null) window.cancelAnimationFrame(frameId);
+    },
+    [],
+  );
+
   const onPlaySequenceCue = useCallback(
-    (cueIndex) => {
+    (cueIndex, options = {}) => {
+      const startedAtMs = performance.now();
       sequenceRepeatPlaybackStateRef.current = {};
       const index = Number(cueIndex);
       if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
       const cueGroup = sequenceCueGroups[index];
       if (!cueGroup) return;
-      playSequencePosition(cueGroup.snapshotIndex, index);
+      if (options?.deferUi === true) {
+        const safeStepIndex = cueGroup.snapshotIndex;
+        const snapshot = snapshots[safeStepIndex];
+        if (!snapshot) return;
+        const normalizedNotes = sequencePlaybackNotesAtPosition(safeStepIndex, index);
+        applySequencePlayback(safeStepIndex, index, normalizedNotes, { updateUi: false });
+        scheduleManualCueUiCommit({
+          safeStepIndex,
+          safeMarkerIndex: index,
+          snapshot,
+          cueGroup,
+          normalizedNotes,
+          barIndex: barIndexForTime(cueGroup.time),
+        });
+      } else {
+        playSequencePosition(cueGroup.snapshotIndex, index);
+      }
+      recordManualCueBurstDiagnostic(index, startedAtMs, performance.now() - startedAtMs);
     },
-    [playSequencePosition, sequenceCueGroups],
+    [
+      applySequencePlayback,
+      barIndexForTime,
+      playSequencePosition,
+      recordManualCueBurstDiagnostic,
+      scheduleManualCueUiCommit,
+      sequenceCueGroups,
+      sequencePlaybackNotesAtPosition,
+      snapshots,
+    ],
   );
 
   const onPlayTimedSequenceCue = useCallback(
     (cueIndex, timedCueTrigger, options = {}) => {
+      cancelPendingManualCueUiCommit();
       const index = Number(cueIndex);
       if (!Number.isFinite(index) || index < 0 || index >= sequenceCueGroups.length) return;
       const cueGroup = sequenceCueGroups[index];
@@ -2891,6 +3013,7 @@ const App = () => {
     [
       applySequencePlayback,
       barIndexForTime,
+      cancelPendingManualCueUiCommit,
       getTimedTransportClockSeconds,
       sequenceCueGroups,
       sequencePlaybackNotesAtPosition,

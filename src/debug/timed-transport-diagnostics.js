@@ -84,6 +84,7 @@ export function pushTimedTransportDiagnostic(state, entry = {}) {
     scheduledDelayMs: roundMetric(entry.scheduledDelayMs),
     latenessMs: roundMetric(entry.latenessMs),
     durationMs: roundMetric(entry.durationMs),
+    triggerIntervalMs: roundMetric(entry.triggerIntervalMs),
     commitDurationMs: roundMetric(entry.commitDurationMs),
     frameIntervalMs: roundMetric(entry.frameIntervalMs),
     measurementDurationMs: roundMetric(entry.measurementDurationMs),

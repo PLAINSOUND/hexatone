@@ -102,6 +102,11 @@ Notes:
 - While timed playback is running, `ui-commit` and `ui-frame-sample` entries
   sample sequencer commit latency, frame intervals, mounted row counts, scroll
   position, and the cost of taking the measurement.
+- `manual-cue-frame` entries aggregate rapid manual cue triggers once per
+  animation frame. `queueDepth` is the number of triggers received before that
+  frame, `triggerIntervalMs` is their shortest interval, `durationMs` is the
+  slowest synchronous playback application, and `frameIntervalMs` is the delay
+  from the first trigger to presentation of the frame.
 - Live sampling does not traverse the DOM or read row geometry. It reports
   `mountedNodeCount` from the deduplicated, connected row-ref registry and keeps
   `visibleRowCount` null because exact viewport visibility would require live

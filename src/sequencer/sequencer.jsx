@@ -1257,6 +1257,26 @@ const Sequencer = ({
     [],
   );
 
+  const playManualCueResponsively = useCallback(
+    (cueIndex) => {
+      const numericCueIndex = Number(cueIndex);
+      if (!Number.isInteger(numericCueIndex)) return;
+      const cueGroup = sequenceCueGroups[numericCueIndex];
+      if (!cueGroup) return;
+
+      // Sound first. App deliberately postpones its large editor-state commit,
+      // while this component updates the small playback presentation directly.
+      onPlayCue?.(numericCueIndex, { deferUi: true });
+      const soundingAfter = sequenceRuntime.playbackNotesByCueIndex[numericCueIndex] ?? [];
+      timedVisualCueHandlerRef.current?.(
+        numericCueIndex,
+        { sequenceTime: cueGroup.time },
+        { sequenceTime: cueGroup.time, soundingAfter },
+      );
+    },
+    [onPlayCue, sequenceCueGroups, sequenceRuntime.playbackNotesByCueIndex],
+  );
+
   const virtualSequenceItems = useMemo(
     () =>
       renderedSnapshots.map((snapshot, index) => {
@@ -3072,10 +3092,10 @@ const Sequencer = ({
     () => ({
       playingSnapshotId,
       runTransportAction,
-      onPlayCue,
+      onPlayCue: playManualCueResponsively,
       onStopSnapshot,
     }),
-    [onPlayCue, onStopSnapshot, playingSnapshotId, runTransportAction],
+    [onStopSnapshot, playManualCueResponsively, playingSnapshotId, runTransportAction],
   );
 
   const sharedDragState = useMemo(
@@ -3572,7 +3592,7 @@ const Sequencer = ({
           onResetSequencePlayhead={resetSequencePlayheadAndScrollTop}
           onJumpSequenceEnd={jumpSequencePlayheadToEndAndScrollBottom}
           onPlaySequence={onPlaySequence}
-          onPlayCue={onPlayCue}
+          onPlayCue={playManualCueResponsively}
           playingSnapshotId={playingSnapshotId}
           onStopSnapshot={onStopSnapshot}
           timedTransportUiState={timedTransportUiState}
