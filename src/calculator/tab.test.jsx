@@ -524,13 +524,33 @@ describe("CalculatorTab", () => {
     for (let index = 0; index < 10; index += 1) fireEvent.click(lowerSeven);
 
     await waitFor(() =>
-      expect(screen.getByLabelText("Calculator palette output").value).toBe("A"),
+      expect(screen.getByLabelText("Calculator palette output").value).toBe("A"),
     );
     expect(screen.getByLabelText("Calculator palette cents deviation").value).toBe("−272.641");
     expect(screen.getByLabelText("Calculator interval from offset").textContent).toMatch(
       /^— \| -?\d/u,
     );
     expect(screen.getByLabelText("Calculator frequency output").textContent).not.toBe("—");
+  });
+
+  it("keeps all stacked syntonic commas in the logarithmic palette fallback", async () => {
+    render(<CalculatorTab settings={SETTINGS} />);
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    const syntonicUp = within(
+      screen.getByRole("group", { name: "Calculator 5-Limit" }),
+    ).getByRole("button", { name: "up" });
+
+    for (let index = 0; index < 10; index += 1) fireEvent.click(syntonicUp);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Calculator palette output").value).toBe(
+        `${"".repeat(7)}A`,
+      ),
+    );
+    expect(screen.getByLabelText("Calculator palette cents deviation").value).toBe("+215.063");
+    expect(screen.getByLabelText("Calculator interval from offset").textContent).toBe(
+      "— | 215.063",
+    );
   });
 
   it("resets Palette Input to the chosen HEJI notation anchor", () => {

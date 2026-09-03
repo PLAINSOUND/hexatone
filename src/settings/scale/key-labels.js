@@ -411,7 +411,7 @@ const KeyLabels = (props) => {
     paletteDeviationDecimals,
     paletteStructure.useTemperedAccidentals,
   ]);
-  const displayedPaletteText = paletteOverflowLabel?.spelling || paletteText;
+  const displayedPaletteText = paletteText;
   const displayedPaletteDeviation =
     paletteOverflowLabel?.deviationText || paletteDeviationDisplay;
   const combinedPaletteText = `${displayedPaletteText}${displayedPaletteDeviation}`.trim();

@@ -3,6 +3,7 @@ import {
   createPitchStructure,
   parseHejiToStructure,
   pitchStructureToHeji,
+  pitchStructureToMonzo,
   withPitchStructureAccidentalDelta,
   withPitchStructureFlag,
   withPitchStructureLetter,
@@ -35,6 +36,23 @@ describe("notation/pitch-structure", () => {
     structure = withPitchStructureSyntonicDelta(structure, 4);
 
     expect(pitchStructureToHeji(structure)).toBe("A");
+    const naturalA = pitchStructureToMonzo(createPitchStructure({ letter: "A" }));
+    expect(
+      pitchStructureToMonzo(structure).map((value, index) => value - naturalA[index]),
+    ).toEqual([-16, 16, -4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  });
+
+  it("retains arbitrary syntonic and chromatic coordinates beyond the glyph-table range", () => {
+    const naturalA = pitchStructureToMonzo(createPitchStructure({ letter: "A" }));
+    const stacked = pitchStructureToMonzo(
+      createPitchStructure({ letter: "A", accidentalCount: -5, syntonic: 10 }),
+    );
+
+    expect(stacked.map((value, index) => value - naturalA[index]).slice(0, 3)).toEqual([
+      15,
+      5,
+      -10,
+    ]);
   });
 
   it("suppresses the cautionary natural for higher-prime inflections when requested", () => {

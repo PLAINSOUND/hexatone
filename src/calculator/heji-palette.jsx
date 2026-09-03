@@ -208,7 +208,7 @@ const HejiPalette = ({
   const shownDeviation = structure.useTemperedAccidentals
     ? deviation
     : formatDeviation(automaticDeviation, decimals);
-  const displayedSpelling = overflowPitch?.spelling || spelling;
+  const displayedSpelling = spelling;
   const displayedDeviation = overflowPitch?.deviationText || shownDeviation;
   const output = `${displayedSpelling}${displayedDeviation}`.trim();
   useEffect(() => {

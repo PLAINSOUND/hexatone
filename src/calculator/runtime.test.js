@@ -320,8 +320,22 @@ describe("calculator runtime", () => {
     expect(result.relativeInterval).toBe("-272.640918");
     expect(result.interval).toBe("-272.640918");
     expect(result.monzo.slice(0, 4)).toEqual([-60, 20, 0, 10]);
-    expect(result.hejiLabel).toBe("A−273");
-    expect(result.hejiLabel).not.toContain("");
+    expect(result.hejiLabel).toBe("A−273");
+  });
+
+  it("retains every syntonic comma when a 5-limit stack exceeds the safe fraction range", () => {
+    const result = calculatorIntervalFromPitchStructure({
+      structure: createPitchStructure({ letter: "A", syntonic: 10 }),
+      anchorLabel: "*nA",
+      anchorInterval: "1/1",
+      octave: 4,
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.relativeExact).toBe(false);
+    expect(result.relativeInterval).toBe("215.062896");
+    expect(result.monzo.slice(0, 3)).toEqual([-40, 40, -10]);
+    expect(result.hejiLabel).toBe(`${"".repeat(7)}A+215`);
   });
 
   it("normalises to 1/1–2/1 while retaining octave boundaries as 2/1", () => {

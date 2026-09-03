@@ -5,11 +5,13 @@
 import {
   BASE_BY_ID,
   BASE_SYMBOLS,
+  CHROMATIC_MONZOS,
   EXTRA_BY_ID,
   HEJI_FAMILIES,
   hejiToMonzo,
   parseHejiPitchClassLabel,
   PRIME_COUNT,
+  SYNTONIC_BY_AMOUNT,
 } from "./heji.js";
 import { monzoToCents, monzosEqual } from "xen-dev-utils";
 
@@ -105,7 +107,6 @@ export function pitchStructureToBaseId(structure) {
 }
 
 export function pitchStructureToMonzo(structure, octave = 4) {
-  const baseId = pitchStructureToBaseId(structure);
   const primeExponents = normalizedPrimeExponents(structure.primeExponents);
   const extraIds = Object.entries(primeExponents).flatMap(([primeText, exponent]) => {
     const prime = Number(primeText);
@@ -114,12 +115,22 @@ export function pitchStructureToMonzo(structure, octave = 4) {
     return new Array(Math.abs(exponent)).fill(exponent > 0 ? family.upper.id : family.lower.id);
   });
   if (!structure.letter) return zeroMonzo();
-  return hejiToMonzo({
+  const baseMonzo = hejiToMonzo({
     letter: structure.letter,
     octave,
-    baseId,
+    baseId: "natural:0",
     extraIds,
   });
+  const chromaticUnit = CHROMATIC_MONZOS.sharp;
+  const syntonicUnit = SYNTONIC_BY_AMOUNT[1];
+  const accidentalCount = Number(structure.accidentalCount) || 0;
+  const syntonicCount = Number(structure.syntonic) || 0;
+  return baseMonzo.map(
+    (value, index) =>
+      value +
+      (chromaticUnit[index] ?? 0) * accidentalCount +
+      (syntonicUnit[index] ?? 0) * syntonicCount,
+  );
 }
 
 export function pitchStructureToAutoDeviation(structure, options = {}) {

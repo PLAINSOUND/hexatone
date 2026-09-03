@@ -144,7 +144,13 @@ export function combineCalculatorIntervals(offsetValue, relativeValue) {
   const offset = parseCalculatorInterval(offsetValue);
   const relative = parseCalculatorInterval(relativeValue);
   if (!offset.valid || !relative.valid) return null;
-  if (offset.exact && relative.exact) return fractionText(offset.ratio.mul(relative.ratio));
+  if (offset.exact && relative.exact) {
+    const monzo = offset.monzo.map(
+      (exponent, index) => exponent + (relative.monzo?.[index] ?? 0),
+    );
+    const ratio = monzoToSafeFractionOnBasis(monzo);
+    if (ratio != null) return fractionText(ratio);
+  }
   return intervalFromCents(offset.cents + relative.cents);
 }
 
@@ -152,7 +158,13 @@ export function relativeCalculatorInterval(targetValue, offsetValue) {
   const target = parseCalculatorInterval(targetValue);
   const offset = parseCalculatorInterval(offsetValue);
   if (!target.valid || !offset.valid) return null;
-  if (target.exact && offset.exact) return fractionText(target.ratio.div(offset.ratio));
+  if (target.exact && offset.exact) {
+    const monzo = target.monzo.map(
+      (exponent, index) => exponent - (offset.monzo?.[index] ?? 0),
+    );
+    const ratio = monzoToSafeFractionOnBasis(monzo);
+    if (ratio != null) return fractionText(ratio);
+  }
   return intervalFromCents(target.cents - offset.cents);
 }
 
@@ -250,12 +262,14 @@ export function calculatorIntervalFromPitchStructure({
     const relativeRatioText = transposedRelative == null ? null : fractionText(transposedRelative);
     const hejiLabel =
       relativeRatioText == null
-        ? (temperedPitchStructureFallback(
-            structure,
-            parseHejiToStructure(normalizedAnchorLabel),
-            relativeCents,
-            { octave, decimals: 0 },
-          )?.label ?? "")
+        ? `${pitchStructureToHeji(structure)}${
+            temperedPitchStructureFallback(
+              structure,
+              parseHejiToStructure(normalizedAnchorLabel),
+              relativeCents,
+              { octave, decimals: 0 },
+            )?.deviationText ?? ""
+          }`
         : spelledHejiLabel(
             createReferenceFrame({ anchorLabel: normalizedAnchorLabel, anchorRatio: "1/1" }),
             relativeRatioText,
@@ -483,15 +497,17 @@ export function calculatePitchLookup(input = {}) {
   const centsFromReference = normalizeSignedZero(target.cents - reference.cents);
   const centsFromAnchor = normalizeSignedZero(target.cents - anchor.cents);
   const notationMeter = notationMeterFromAnchor(anchorLabel, centsFromAnchor);
-  const referenceRelative =
-    target.exact && reference.exact
-      ? parseCalculatorInterval(fractionText(target.ratio.div(reference.ratio)))
-      : null;
+  const referenceRelativeText = relativeCalculatorInterval(target.normalized, reference.normalized);
+  const referenceRelative = referenceRelativeText
+    ? parseCalculatorInterval(referenceRelativeText)
+    : null;
   const displayedReferenceRelative =
     input.normalizeResults && referenceRelative
       ? normalizeCalculatorInterval(referenceRelative)
       : referenceRelative;
-  const ratioFromReferenceText = displayedReferenceRelative?.normalized ?? null;
+  const ratioFromReferenceText = displayedReferenceRelative?.exact
+    ? displayedReferenceRelative.normalized
+    : null;
   const anchorRelative = parseCalculatorInterval(
     combineCalculatorIntervals(offsetFromAnchor.normalized, pitchFromOffset.normalized),
   );
