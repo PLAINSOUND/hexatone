@@ -65,48 +65,95 @@ const SEMITONE_TO_LETTER = ["C", "C", "D", "E", "E", "F", "F", "G", "G", "A", "B
 //   semitone:              0    1    2    3    4    5    6    7    8    9   10   11
 // (Semitones 1, 3, 6, 8, 10 are accidentals; we round to the nearest natural neighbour.)
 
-// OpenType ligature prefixes used in some preset note_names:
-//   *n → natural (same as bare "n" → U+E261)
-//   *f → flat    (same as "b"  → U+E260)
-//   *s → sharp   (same as "#"  → U+E262)
-// Substitute these so the rest of the parsing logic sees plain ASCII shortcuts.
-export function expandOpenTypeLigatures(name) {
-  return name.replace(/\*n/g, "n").replace(/\*f/g, "b").replace(/\*s/g, "#");
-}
-
 function normalizeGermanNoteLetter(value) {
   const source = String(value ?? "");
   if (/^[Hh]/u.test(source)) return `B${source.slice(1)}`;
   return source.replace(/[Hh]$/u, "B");
 }
 
-function expandExtendedOpenTypeLigaturePrefix(value) {
-  const source = String(value ?? "")
-    .replace(/^\*ft/iu, TEMPERED_FLAT)
-    .replace(/^\*nt/iu, TEMPERED_NATURAL)
-    .replace(/^\*st/iu, TEMPERED_SHARP);
-  const ligatureMatch = source.match(/^\*(ff|ss|f|n|s)((?:[ou]\d+)*)/iu);
-  if (!ligatureMatch) return source;
-  const chromatic = {
-    f: "flat",
-    n: "natural",
-    s: "sharp",
-    ff: "doubleflat",
-    ss: "doublesharp",
-  }[ligatureMatch[1].toLowerCase()];
-  const primeExponents = new Map();
-  for (const modifier of ligatureMatch[2].matchAll(/([ou])(\d+)/giu)) {
-    let product = Number(modifier[2]);
-    const amount = modifier[1].toLowerCase() === "o" ? -1 : 1;
-    if (!Number.isSafeInteger(product) || product < 1 || product % 2 === 0) return source;
-    for (const prime of [5, ...HEJI_FAMILIES.map((family) => family.prime)]) {
-      while (product % prime === 0) {
-        primeExponents.set(prime, (primeExponents.get(prime) ?? 0) + amount);
-        product /= prime;
-      }
+const CHROMATIC_LIGATURES = {
+  "*f": { chromatic: "flat", glyph: HEJI_FLAT },
+  "*n": { chromatic: "natural", glyph: HEJI_NATURAL },
+  "*s": { chromatic: "sharp", glyph: HEJI_SHARP },
+  "*F": { chromatic: "doubleflat", glyph: HEJI_DOUBLE_FLAT },
+  "*S": { chromatic: "doublesharp", glyph: HEJI_DOUBLE_SHARP },
+  "*ft": { temperedGlyph: TEMPERED_FLAT },
+  "*nT": { temperedGlyph: TEMPERED_NATURAL },
+  "*st": { temperedGlyph: TEMPERED_SHARP },
+};
+
+const HIGHER_PRIMES = HEJI_FAMILIES.map((family) => family.prime);
+
+function factorOpenTypeModifier(product, primes, amount, primeExponents) {
+  if (!Number.isSafeInteger(product) || product < 1 || product % 2 === 0) return false;
+  let remainder = product;
+  for (const prime of primes) {
+    while (remainder % prime === 0) {
+      primeExponents.set(prime, (primeExponents.get(prime) ?? 0) + amount);
+      remainder /= prime;
     }
-    if (product !== 1) return source;
   }
+  return remainder === 1;
+}
+
+function expandExtendedOpenTypeLigaturePrefix(value) {
+  const source = String(value ?? "");
+  if (!source.startsWith("*")) return source;
+
+  let cursor = 0;
+  let chromatic = null;
+  let temperedGlyph = null;
+  const primeExponents = new Map();
+
+  while (source[cursor] === "*") {
+    const rest = source.slice(cursor);
+    // The 5-limit signs are single OpenType ligatures: a 3-limit accidental
+    // followed by o/u and a power of 5. Higher-prime signs are separate
+    // ligatures, each beginning with its own asterisk.
+    const fiveLimitMatch = rest.match(/^\*([snf])([ou])(125|25|5)/u);
+    if (fiveLimitMatch) {
+      if (chromatic || temperedGlyph) return null;
+      chromatic = { s: "sharp", n: "natural", f: "flat" }[fiveLimitMatch[1]];
+      const amount = fiveLimitMatch[2] === "o" ? -1 : 1;
+      if (!factorOpenTypeModifier(Number(fiveLimitMatch[3]), [5], amount, primeExponents)) {
+        return null;
+      }
+      cursor += fiveLimitMatch[0].length;
+      continue;
+    }
+
+    const higherPrimeMatch = rest.match(/^\*([ou])(\d+)/u);
+    if (higherPrimeMatch) {
+      const amount = higherPrimeMatch[1] === "o" ? -1 : 1;
+      if (
+        !factorOpenTypeModifier(Number(higherPrimeMatch[2]), HIGHER_PRIMES, amount, primeExponents)
+      ) {
+        return null;
+      }
+      cursor += higherPrimeMatch[0].length;
+      continue;
+    }
+
+    // Accept the former lower-case *nt spelling as an input alias, but emit
+    // the correct Plainsound ligature represented by *nT.
+    const token = ["*nT", "*nt", "*ft", "*st", "*F", "*S", "*f", "*n", "*s"].find((candidate) =>
+      rest.startsWith(candidate),
+    );
+    const definition = token === "*nt" ? CHROMATIC_LIGATURES["*nT"] : CHROMATIC_LIGATURES[token];
+    if (!definition || chromatic || temperedGlyph) return null;
+    chromatic = definition.chromatic ?? null;
+    temperedGlyph = definition.temperedGlyph ?? null;
+    cursor += token.length;
+  }
+
+  if (cursor === 0) return source;
+  if (!/^[A-Ga-g]$/u.test(source.slice(cursor))) return null;
+  if (temperedGlyph) {
+    if (primeExponents.size > 0) return null;
+    return `${temperedGlyph}${source.slice(cursor)}`;
+  }
+
+  chromatic ??= "natural";
   const syntonic = primeExponents.get(5) ?? 0;
   primeExponents.delete(5);
   const clampedSyntonic = Math.max(-3, Math.min(3, syntonic));
@@ -124,13 +171,21 @@ function expandExtendedOpenTypeLigaturePrefix(value) {
       return glyph?.repeat(Math.abs(exponent)) ?? "";
     })
     .join("");
-  return `${extras}${baseGlyph}${syntonicSpill}${source.slice(ligatureMatch[0].length)}`;
+  return `${extras}${baseGlyph}${syntonicSpill}${source.slice(cursor)}`;
+}
+
+// Expand a complete Plainsound OpenType accidental prefix to canonical glyphs.
+// Invalid or incomplete shorthand is returned unchanged for callers that only
+// use this helper as a non-validating compatibility conversion.
+export function expandOpenTypeLigatures(name) {
+  const source = String(name ?? "");
+  return expandExtendedOpenTypeLigaturePrefix(source) ?? source;
 }
 
 /**
  * Normalize a pitch-class spelling shared by sequence and Scale Table editors.
  * Supports German H, bare note letters, HEJI glyphs, and Plainsound OpenType
- * shorthand such as *n, *ft, *so5, *fu11, and composite prime products.
+ * shorthand such as *n, *nT, *S, *so5, *s*o7, and composite prime products.
  */
 export function normalizeHejiPitchClassInput(value) {
   const compact = String(value ?? "")
@@ -138,6 +193,7 @@ export function normalizeHejiPitchClassInput(value) {
     .replace(/\s+/g, "");
   if (!compact) return null;
   const spelling = expandExtendedOpenTypeLigaturePrefix(normalizeGermanNoteLetter(compact));
+  if (spelling == null) return null;
   return canonicalHejiAnchorLabelInput(spelling);
 }
 
@@ -158,7 +214,9 @@ function expandAsciiHejiAccidentals(text) {
 
 export function canonicalHejiAnchorLabelInput(name) {
   if (typeof name !== "string") return null;
-  const compact = expandOpenTypeLigatures(name).replace(/\s+/g, "");
+  const expanded = expandExtendedOpenTypeLigaturePrefix(name);
+  if (expanded == null) return null;
+  const compact = expanded.replace(/\s+/g, "");
   if (!compact) return null;
   const prefixMatch = compact.match(/^(.*?)([A-Ga-g])$/);
   const suffixMatch = compact.match(/^([A-Ga-g])(.*)$/);

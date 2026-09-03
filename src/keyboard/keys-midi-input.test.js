@@ -215,6 +215,14 @@ describe("Keys MIDI input integration", () => {
   });
 
   it("still resizes on visualViewport width changes while a text input is focused", () => {
+    let settleFrame = null;
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback) => {
+        settleFrame = callback;
+        return 17;
+      }),
+    );
     vi.stubGlobal("visualViewport", {
       width: 800,
       height: 600,
@@ -237,6 +245,8 @@ describe("Keys MIDI input integration", () => {
     keys.visualViewportResizeHandler();
 
     expect(resizeSpy).toHaveBeenCalledTimes(1);
+    settleFrame();
+    expect(resizeSpy).toHaveBeenCalledTimes(2);
     input.remove();
   });
 
@@ -261,6 +271,28 @@ describe("Keys MIDI input integration", () => {
 
     expect(keys.state.canvas.width).toBe(1600);
     expect(keys.state.canvas.height).toBe(1200);
+  });
+
+  it("coalesces same-frame browser zoom resize signals into one immediate repaint", () => {
+    let settleFrame = null;
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback) => {
+        settleFrame = callback;
+        return 17;
+      }),
+    );
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    const keys = createKeys();
+    const resizeSpy = vi.spyOn(keys, "resizeHandler");
+    keys.windowResizeHandler();
+    keys.visualViewportResizeHandler();
+
+    expect(resizeSpy).toHaveBeenCalledTimes(2);
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+    settleFrame();
+    expect(resizeSpy).toHaveBeenCalledTimes(3);
   });
 
   it("ignores height-only visualViewport changes while a text input is focused", () => {

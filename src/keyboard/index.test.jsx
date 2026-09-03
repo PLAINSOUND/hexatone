@@ -93,6 +93,18 @@ describe("Keyboard settings-impact boundary", () => {
     Keys.mockClear?.();
   });
 
+  it("does not let component rerenders reset the runtime-owned canvas backing store", () => {
+    const { container, rerender } = render(<Keyboard {...baseProps} />);
+    const canvas = container.querySelector("canvas.keyboard");
+    canvas.width = 999;
+    canvas.height = 777;
+
+    rerender(<Keyboard {...baseProps} active={false} />);
+
+    expect(canvas.width).toBe(999);
+    expect(canvas.height).toBe(777);
+  });
+
   it("updates live input runtime without reconstructing Keys", () => {
     const { rerender } = render(<Keyboard {...baseProps} />);
     const keys = keysState.instances[0];

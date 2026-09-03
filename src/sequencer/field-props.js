@@ -23,13 +23,18 @@ export function buildStopPropagationProps() {
 export function buildSelectOnFocus({ stop = false, clearCommitted = false, setValue = null } = {}) {
   return (event) => {
     if (stop) event.stopPropagation();
-    if (clearCommitted) delete event.currentTarget.dataset.lastCommittedValue;
     if (typeof setValue === "function") {
       const nextValue = setValue(event);
       replaceAndSelectInputValue(event, nextValue);
-      return;
+    } else {
+      replaceAndSelectInputValue(event);
     }
-    replaceAndSelectInputValue(event);
+    // Establish the value presented for editing as the commit baseline. Blur
+    // must not turn a focus/select gesture into an edit, including when focus
+    // expands a rounded or normalized display value into its editable form.
+    if (clearCommitted) {
+      event.currentTarget.dataset.lastCommittedValue = event.currentTarget.value;
+    }
   };
 }
 

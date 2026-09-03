@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { buildSelectAllOnFirstPointerDown, buildSelectOnFocus } from "./field-props.js";
+import { commitTextInput } from "./value-runtime.js";
 
 describe("sequencer field props", () => {
   it("preserves whole-value selection on the first pointer focus", () => {
@@ -11,6 +12,7 @@ describe("sequencer field props", () => {
     input.addEventListener(
       "focus",
       buildSelectOnFocus({
+        clearCommitted: true,
         setValue: () => "0.375000",
       }),
     );
@@ -27,7 +29,25 @@ describe("sequencer field props", () => {
     expect(input.value).toBe("0.375000");
     expect(input.selectionStart).toBe(0);
     expect(input.selectionEnd).toBe(input.value.length);
+    expect(input.dataset.lastCommittedValue).toBe("0.375000");
 
+    input.remove();
+  });
+
+  it("records the selected value so an unchanged blur is not treated as an edit", () => {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = "*nA4";
+
+    buildSelectOnFocus({ clearCommitted: true })({
+      currentTarget: input,
+      stopPropagation: vi.fn(),
+    });
+
+    const commit = vi.fn();
+    expect(input.dataset.lastCommittedValue).toBe("*nA4");
+    expect(commitTextInput(input, commit)).toEqual({ committed: false, metadata: null });
+    expect(commit).not.toHaveBeenCalled();
     input.remove();
   });
 

@@ -171,8 +171,6 @@ const Keyboard = (props) => {
         hidden={props.hidden}
         aria-hidden={props.hidden ? "true" : undefined}
         onContextMenu={(e) => e.preventDefault()}
-        width={window.innerWidth}
-        height={window.innerHeight}
       ></canvas>
     </Fragment>
   );

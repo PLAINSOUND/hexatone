@@ -234,6 +234,10 @@ class Keys {
     this.onModulationStateChange = onModulationStateChange || null;
     this.onModWheelChange = onModWheelChange || null;
     this.onTakeSnapshot = onTakeSnapshot || null;
+    this.windowResizeHandler = () => {
+      this.resizeHandler();
+      this.scheduleViewportResizeSettlement();
+    };
     this.visualViewportResizeHandler = () => {
       const viewport = window.visualViewport;
       if (isTextEntryElement(document.activeElement) && viewport) {
@@ -249,6 +253,7 @@ class Keys {
         if (viewportWidth === currentWidth && viewportOffsetLeft === currentOffsetLeft) return;
       }
       this.resizeHandler();
+      this.scheduleViewportResizeSettlement();
     };
     this.orientationChangeHandler = () => {
       this.resizeHandler();
@@ -424,7 +429,7 @@ class Keys {
     );
 
     // Set up resize handler
-    window.addEventListener("resize", this.resizeHandler, false);
+    window.addEventListener("resize", this.windowResizeHandler, false);
     window.addEventListener("orientationchange", this.orientationChangeHandler, false);
     // visualViewport fires when browser chrome (toolbars) appear/disappear,
     // which window.resize misses — catches Brave's toolbar toggling.
@@ -2288,7 +2293,7 @@ class Keys {
     this.lumatoneLEDs = null;
     this.linnstrumentLEDs = null;
 
-    window.removeEventListener("resize", this.resizeHandler, false);
+    window.removeEventListener("resize", this.windowResizeHandler, false);
     window.removeEventListener("orientationchange", this.orientationChangeHandler, false);
     if (window.visualViewport) {
       window.visualViewport.removeEventListener("resize", this.visualViewportResizeHandler, false);
@@ -2658,19 +2663,20 @@ class Keys {
   };
 
   scheduleViewportResizeSettlement = () => {
-    if (this._viewportResizeSettleFrame != null) {
-      cancelAnimationFrame(this._viewportResizeSettleFrame);
-    }
+    // window.resize and visualViewport.resize normally arrive together. Paint
+    // once on the next frame, using the latest measurements, without delaying
+    // the visible canvas while waiting for the entire zoom gesture to settle.
+    if (this._viewportResizeSettleFrame != null) return;
     if (this._viewportResizeSettleTimer != null) {
       clearTimeout(this._viewportResizeSettleTimer);
+      this._viewportResizeSettleTimer = null;
     }
     this._viewportResizeSettleFrame = requestAnimationFrame(() => {
       this._viewportResizeSettleFrame = null;
+      // If zoom updates DPR or viewport geometry in a later layout phase, the
+      // signature check performs one corrective repaint. Otherwise this is a
+      // no-op and the synchronous resize above remains the only paint.
       this.resizeHandler();
-      this._viewportResizeSettleTimer = setTimeout(() => {
-        this._viewportResizeSettleTimer = null;
-        this.resizeHandler();
-      }, 120);
     });
   };
 
