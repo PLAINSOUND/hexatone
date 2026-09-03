@@ -76,6 +76,26 @@ export function monzoToFractionOnBasis(monzo, basis = CANONICAL_MONZO_BASIS) {
   return out;
 }
 
+export function monzoFitsSafeIntegerFraction(monzo, basis = CANONICAL_MONZO_BASIS) {
+  const limit = Math.log(Number.MAX_SAFE_INTEGER);
+  let numeratorLog = 0;
+  let denominatorLog = 0;
+  for (let index = 0; index < basis.length; index += 1) {
+    const exponent = Number(monzo?.[index] ?? 0);
+    if (!Number.isFinite(exponent) || !Number.isInteger(exponent)) return false;
+    const contribution = Math.abs(exponent) * Math.log(basis[index]);
+    if (exponent > 0) numeratorLog += contribution;
+    else denominatorLog += contribution;
+    if (numeratorLog > limit || denominatorLog > limit) return false;
+  }
+  return true;
+}
+
+export function monzoToSafeFractionOnBasis(monzo, basis = CANONICAL_MONZO_BASIS) {
+  if (!monzoFitsSafeIntegerFraction(monzo, basis)) return null;
+  return monzoToFractionOnBasis(monzo, basis);
+}
+
 export function monzoToCentsOnBasis(monzo, basis = CANONICAL_MONZO_BASIS) {
   if (!isBasisPrefixOfPrimes(basis)) {
     throw new Error("Monzo basis must be a prefix of xen-dev-utils PRIMES.");

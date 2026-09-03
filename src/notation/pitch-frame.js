@@ -9,7 +9,11 @@ import {
   pitchStructureToMonzo,
 } from "./pitch-structure.js";
 import { getCommittedInterval, getWorkspaceSlot } from "../tuning/workspace.js";
-import { monzoToFractionOnBasis, parseExactInterval } from "../tuning/interval.js";
+import {
+  monzoToCentsOnBasis,
+  monzoToSafeFractionOnBasis,
+  parseExactInterval,
+} from "../tuning/interval.js";
 import { normaliseHejiAnchorRatio } from "../settings/scale/parse-scale.js";
 
 function cloneMonzo(monzo) {
@@ -28,6 +32,28 @@ function negateMonzo(monzo) {
   return Array.isArray(monzo) ? monzo.map((value) => -(value ?? 0)) : null;
 }
 
+function intervalFromExactMonzo(monzo) {
+  if (!Array.isArray(monzo)) return null;
+  const ratio = monzoToSafeFractionOnBasis(monzo);
+  const ratioText = ratio == null ? null : intervalRatioText({ ratio });
+  if (ratio == null) {
+    return {
+      exact: true,
+      ratioRepresentable: false,
+      cents: monzoToCentsOnBasis(monzo),
+      ratio: null,
+      ratioText: null,
+      monzo: cloneMonzo(monzo),
+      sourceText: null,
+    };
+  }
+  return {
+    ...parseExactInterval(ratioText),
+    ratioRepresentable: true,
+    ratioText,
+  };
+}
+
 function invertExactInterval(interval) {
   if (!interval?.exact || !Array.isArray(interval?.monzo)) {
     return {
@@ -39,24 +65,12 @@ function invertExactInterval(interval) {
       sourceText: null,
     };
   }
-  const ratio = monzoToFractionOnBasis(negateMonzo(interval.monzo));
-  const ratioText = ratio.toFraction();
-  return {
-    ...parseExactInterval(ratioText.includes("/") ? ratioText : `${ratioText}/1`),
-    ratioText: ratioText.includes("/") ? ratioText : `${ratioText}/1`,
-  };
+  return intervalFromExactMonzo(negateMonzo(interval.monzo));
 }
 
 function combineExactIntervals(a, b) {
   if (!Array.isArray(a?.monzo) || !Array.isArray(b?.monzo)) return null;
-  const monzo = addMonzos(a.monzo, b.monzo);
-  const ratio = monzoToFractionOnBasis(monzo);
-  const ratioText = ratio.toFraction();
-  const parsed = parseExactInterval(ratioText.includes("/") ? ratioText : `${ratioText}/1`);
-  return {
-    ...parsed,
-    ratioText: ratioText.includes("/") ? ratioText : `${ratioText}/1`,
-  };
+  return intervalFromExactMonzo(addMonzos(a.monzo, b.monzo));
 }
 
 function buildDegreePitch(frame, slot) {
@@ -141,9 +155,7 @@ export function resolveStructurePitch(frame, structure) {
   const targetStructure = createPitchStructure(structure);
   const absoluteMonzo = pitchStructureToMonzo(targetStructure);
   const notationRelativeMonzo = subtractMonzos(absoluteMonzo, frame.notationZero.absoluteMonzo);
-  const ratio = monzoToFractionOnBasis(notationRelativeMonzo);
-  const ratioText = ratio.toFraction();
-  const interval = parseExactInterval(ratioText.includes("/") ? ratioText : `${ratioText}/1`);
+  const interval = intervalFromExactMonzo(notationRelativeMonzo);
   const degreeRelative = combineExactIntervals(frame.degree0ToNotationZeroInterval, interval);
   const referenceSlot = getWorkspaceSlot(frame.workspace, frame.referenceDegree);
   const degreeRelativeCents = degreeRelative?.cents ?? null;
@@ -159,7 +171,7 @@ export function resolveStructurePitch(frame, structure) {
     notationRelativeMonzo,
     notationRelativeInterval: {
       ...interval,
-      ratioText: ratioText.includes("/") ? ratioText : `${ratioText}/1`,
+      ratioText: interval?.ratioText ?? null,
     },
     degreeRelativeInterval: degreeRelative,
     cents: degreeRelativeCents,

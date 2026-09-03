@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/preact";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { beforeEach, describe, expect, it } from "vitest";
 import CalculatorTab from "./tab.jsx";
 import { CALCULATOR_WORKSPACE_STORAGE_KEY } from "./session-persistence.js";
@@ -512,6 +512,25 @@ describe("CalculatorTab", () => {
     expect(screen.getByRole("group", { name: "Calculator HEJI letters" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Calculator 3-Limit" })).toBeTruthy();
     expect(screen.getByLabelText("Calculator palette output")).toBeTruthy();
+  });
+
+  it("keeps stacked HEJI commas responsive after their exact fraction exceeds 2^53", async () => {
+    render(<CalculatorTab settings={SETTINGS} />);
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    const lowerSeven = within(
+      screen.getByRole("group", { name: "Calculator 7-Limit" }),
+    ).getByTitle("7-limit lower");
+
+    for (let index = 0; index < 10; index += 1) fireEvent.click(lowerSeven);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Calculator palette output").value).toBe("A"),
+    );
+    expect(screen.getByLabelText("Calculator palette cents deviation").value).toBe("−272.641");
+    expect(screen.getByLabelText("Calculator interval from offset").textContent).toMatch(
+      /^— \| -?\d/u,
+    );
+    expect(screen.getByLabelText("Calculator frequency output").textContent).not.toBe("—");
   });
 
   it("resets Palette Input to the chosen HEJI notation anchor", () => {

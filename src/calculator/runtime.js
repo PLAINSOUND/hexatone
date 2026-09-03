@@ -5,11 +5,16 @@ import {
   parseHejiToStructure,
   pitchStructureToBaseId,
   pitchStructureToHeji,
+  temperedPitchStructureFallback,
 } from "../notation/pitch-structure.js";
 import { buildPitchFrame, resolveStructurePitch } from "../notation/pitch-frame.js";
 import { createReferenceFrame } from "../notation/reference-frame.js";
 import { normaliseHejiAnchorRatio } from "../settings/scale/parse-scale.js";
-import { parseExactInterval } from "../tuning/interval.js";
+import {
+  monzoToCentsOnBasis,
+  monzoToSafeFractionOnBasis,
+  parseExactInterval,
+} from "../tuning/interval.js";
 import { findRationalCandidates } from "../tuning/rationalise.js";
 
 export const DEFAULT_CALCULATOR_REFERENCE = Object.freeze({
@@ -233,34 +238,62 @@ export function calculatorIntervalFromPitchStructure({
       null,
     );
     const resolved = resolveStructurePitch(frame, structure);
-    const relativeInterval = resolved?.notationRelativeInterval?.ratioText;
-    const parsedRelative = parseCalculatorInterval(relativeInterval);
+    const relativeMonzo = resolved?.notationRelativeMonzo;
     const octaveShift = Math.trunc(Number(octave) || 0) - DEFAULT_CALCULATOR_OCTAVE;
-    if (!parsedRelative.valid || !parsedRelative.exact) {
+    if (!Array.isArray(relativeMonzo)) {
       return { valid: false, error: "Spelling cannot be resolved" };
     }
-    const transposedRelative = transposeFractionByOctaves(parsedRelative.ratio, octaveShift);
-    const relativeCents = 1200 * Math.log2(Number(transposedRelative));
-    const hejiLabel = spelledHejiLabel(
-      createReferenceFrame({ anchorLabel: normalizedAnchorLabel, anchorRatio: "1/1" }),
-      fractionText(transposedRelative),
-      relativeCents,
-      { forceShowZeroDeviation: true },
-    );
+    const transposedMonzo = [...relativeMonzo];
+    transposedMonzo[0] = (transposedMonzo[0] ?? 0) + octaveShift;
+    const relativeCents = monzoToCentsOnBasis(transposedMonzo);
+    const transposedRelative = monzoToSafeFractionOnBasis(transposedMonzo);
+    const relativeRatioText = transposedRelative == null ? null : fractionText(transposedRelative);
+    const hejiLabel =
+      relativeRatioText == null
+        ? (temperedPitchStructureFallback(
+            structure,
+            parseHejiToStructure(normalizedAnchorLabel),
+            relativeCents,
+            { octave, decimals: 0 },
+          )?.label ?? "")
+        : spelledHejiLabel(
+            createReferenceFrame({ anchorLabel: normalizedAnchorLabel, anchorRatio: "1/1" }),
+            relativeRatioText,
+            relativeCents,
+            { forceShowZeroDeviation: true },
+          );
     if (!normalizedAnchor.exact) {
       return {
         valid: true,
         exact: false,
         interval: intervalFromCents(normalizedAnchor.cents + relativeCents),
-        relativeInterval: fractionText(transposedRelative),
+        relativeExact: relativeRatioText != null,
+        relativeInterval: relativeRatioText ?? intervalFromCents(relativeCents),
+        hejiLabel,
+      };
+    }
+    const combinedMonzo = transposedMonzo.map(
+      (exponent, index) => exponent + (normalizedAnchor.monzo?.[index] ?? 0),
+    );
+    const combinedRatio = monzoToSafeFractionOnBasis(combinedMonzo);
+    if (combinedRatio == null || relativeRatioText == null) {
+      return {
+        valid: true,
+        exact: false,
+        interval: intervalFromCents(normalizedAnchor.cents + relativeCents),
+        relativeExact: relativeRatioText != null,
+        relativeInterval: relativeRatioText ?? intervalFromCents(relativeCents),
+        monzo: combinedMonzo,
         hejiLabel,
       };
     }
     return {
       valid: true,
       exact: true,
-      interval: fractionText(normalizedAnchor.ratio.mul(transposedRelative)),
-      relativeInterval: fractionText(transposedRelative),
+      interval: fractionText(combinedRatio),
+      relativeExact: true,
+      relativeInterval: relativeRatioText,
+      monzo: combinedMonzo,
       hejiLabel,
     };
   } catch {

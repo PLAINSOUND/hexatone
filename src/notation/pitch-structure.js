@@ -212,6 +212,44 @@ export function pitchStructureToHeji(structure, options = {}) {
   return `${extras}${base}${includeLetter ? (structure.letter ?? "") : ""}`;
 }
 
+export function temperedPitchStructureFallback(
+  structure,
+  anchorStructure,
+  centsFromAnchor,
+  options = {},
+) {
+  if (!structure?.letter || !anchorStructure?.letter || !Number.isFinite(centsFromAnchor)) {
+    return null;
+  }
+  const octave = Math.trunc(Number(options.octave ?? 4));
+  const anchorOctave = Math.trunc(Number(options.anchorOctave ?? 4));
+  const decimals = Math.max(0, Math.min(6, Number(options.decimals) || 0));
+  const targetSemitone =
+    (NATURAL_SEMITONE_BY_LETTER[structure.letter] ?? 0) + (structure.accidentalCount ?? 0);
+  const anchorSemitone =
+    (NATURAL_SEMITONE_BY_LETTER[anchorStructure.letter] ?? 0) +
+    (anchorStructure.accidentalCount ?? 0);
+  const expectedCents =
+    (targetSemitone - anchorSemitone + (octave - anchorOctave) * 12) * 100;
+  const rawDeviation = centsFromAnchor - expectedCents;
+  const roundedDeviation = Number(rawDeviation.toFixed(decimals));
+  const deviation = Object.is(roundedDeviation, -0) ? 0 : roundedDeviation;
+  const spelling = pitchStructureToHeji(
+    createPitchStructure({
+      letter: structure.letter,
+      accidentalCount: structure.accidentalCount,
+      useTemperedAccidentals: true,
+    }),
+  );
+  const deviationText = `${deviation < 0 ? "−" : "+"}${Math.abs(deviation).toFixed(decimals)}`;
+  return {
+    spelling,
+    deviationCents: deviation,
+    deviationText,
+    label: `${spelling}${deviationText}`,
+  };
+}
+
 export function withPitchStructureLetter(structure, letter) {
   return createPitchStructure({ ...structure, letter });
 }

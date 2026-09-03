@@ -4,6 +4,9 @@ import {
   EXTENDED_MONZO_BASIS,
   intervalHasExactMonzo,
   intervalResidualToString,
+  monzoFitsSafeIntegerFraction,
+  monzoToCentsOnBasis,
+  monzoToSafeFractionOnBasis,
   parseExactInterval,
 } from "./interval.js";
 
@@ -65,6 +68,16 @@ describe("tuning/interval", () => {
     expect(interval.primeLimit).toBe(61);
     expect(interval.monzo).toEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0]);
     expect(intervalResidualToString(interval)).toBe("61");
+  });
+
+  it("keeps oversized monzos usable in cents without constructing an unsafe fraction", () => {
+    const stackedSeptimalCommas = [-60, 20, 0, 10];
+
+    expect(monzoFitsSafeIntegerFraction(stackedSeptimalCommas)).toBe(false);
+    expect(monzoToSafeFractionOnBasis(stackedSeptimalCommas)).toBeNull();
+    expect(monzoToCentsOnBasis(stackedSeptimalCommas)).toBeCloseTo(-272.640918, 6);
+    expect(monzoFitsSafeIntegerFraction([-6, 2, 0, 1])).toBe(true);
+    expect(monzoToSafeFractionOnBasis([-6, 2, 0, 1]).toFraction()).toBe("63/64");
   });
 
   it("returns unknown for unsupported text", () => {

@@ -5758,7 +5758,7 @@ input.equiv-cell:disabled,
 
 .heji-palette-builder__output-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 5.25em;
+  grid-template-columns: minmax(0, 1fr) 7.2em;
   align-items: center;
   gap: 0.65em;
   width: 100%;
@@ -5919,7 +5919,7 @@ input.equiv-cell:disabled,
   }
 
   .heji-palette-builder__output-fields {
-    grid-template-columns: minmax(0, 1fr) 4.75em;
+    grid-template-columns: minmax(0, 1fr) 7.2em;
     width: calc(100% - 2.67em);
     margin-left: 2.67em;
     gap: 0.27em;

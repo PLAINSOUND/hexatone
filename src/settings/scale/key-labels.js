@@ -17,6 +17,7 @@ import {
   parseHejiToStructure,
   pitchStructureToBaseId,
   pitchStructureToHeji,
+  temperedPitchStructureFallback,
   withPitchStructureAccidentalCount,
   withPitchStructureAccidentalDelta,
   withPitchStructureFlag,
@@ -377,6 +378,30 @@ const KeyLabels = (props) => {
       effectiveAnchorRatio,
     );
   }, [effectiveAnchorLabel, effectiveAnchorRatio, paletteStructure]);
+  const paletteOverflowLabel = useMemo(() => {
+    if (paletteStructure.useTemperedAccidentals || !paletteStructure.letter) return "";
+    try {
+      const frame = buildPitchFrame(
+        {
+          heji_anchor_label: effectiveAnchorLabel,
+          heji_anchor_ratio: "1/1",
+          reference_degree: 0,
+          fundamental: 440,
+        },
+        null,
+      );
+      const interval = resolveStructurePitch(frame, paletteStructure)?.notationRelativeInterval;
+      if (!Number.isFinite(interval?.cents) || interval?.ratioText != null) return "";
+      return temperedPitchStructureFallback(
+        paletteStructure,
+        parseHejiToStructure(effectiveAnchorLabel),
+        interval.cents,
+        { decimals: paletteDeviationDecimals },
+      );
+    } catch {
+      return "";
+    }
+  }, [effectiveAnchorLabel, paletteDeviationDecimals, paletteStructure]);
   const paletteDeviationDisplay = useMemo(() => {
     if (paletteStructure.useTemperedAccidentals) return paletteDeviation;
     return formatPaletteAutoDeviation(paletteAutoDeviationCents, paletteDeviationDecimals);
@@ -386,7 +411,10 @@ const KeyLabels = (props) => {
     paletteDeviationDecimals,
     paletteStructure.useTemperedAccidentals,
   ]);
-  const combinedPaletteText = `${paletteText}${paletteDeviationDisplay}`.trim();
+  const displayedPaletteText = paletteOverflowLabel?.spelling || paletteText;
+  const displayedPaletteDeviation =
+    paletteOverflowLabel?.deviationText || paletteDeviationDisplay;
+  const combinedPaletteText = `${displayedPaletteText}${displayedPaletteDeviation}`.trim();
 
   const copyHejiToNoteNames = () => {
     if (!props.heji_names?.length) return;
@@ -786,14 +814,14 @@ const KeyLabels = (props) => {
                   <input
                     type="text"
                     class="sidebar-input heji-palette-builder__output"
-                    value={paletteText}
+                    value={displayedPaletteText}
                     readOnly
                     aria-label="HEJI palette output"
                   />
                   <input
                     type="text"
                     class="sidebar-input heji-palette-builder__deviation"
-                    value={paletteDeviationDisplay}
+                    value={displayedPaletteDeviation}
                     placeholder="+0"
                     aria-label="HEJI palette cents deviation"
                     readOnly={!paletteStructure.useTemperedAccidentals}

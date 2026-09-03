@@ -6,6 +6,7 @@ import {
   parseHejiToStructure,
   pitchStructureToBaseId,
   pitchStructureToHeji,
+  temperedPitchStructureFallback,
   withPitchStructureAccidentalCount,
   withPitchStructureAccidentalDelta,
   withPitchStructureFlag,
@@ -14,7 +15,10 @@ import {
   withPitchStructureSyntonicDelta,
 } from "../notation/pitch-structure.js";
 import { buildPitchFrame, resolveStructurePitch } from "../notation/pitch-frame.js";
-import { DEFAULT_CALCULATOR_OCTAVE } from "./runtime.js";
+import {
+  calculatorIntervalFromPitchStructure,
+  DEFAULT_CALCULATOR_OCTAVE,
+} from "./runtime.js";
 
 const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 const BASE_BY_SYMBOL_ID = Object.fromEntries(BASE_SYMBOLS.map((symbol) => [symbol.id, symbol]));
@@ -180,10 +184,33 @@ const HejiPalette = ({
         : deriveDeviation(structure, anchorLabel, anchorRatio),
     [anchorLabel, anchorRatio, structure],
   );
+  const resolvedPalettePitch = useMemo(
+    () =>
+      structure.useTemperedAccidentals
+        ? null
+        : calculatorIntervalFromPitchStructure({
+            structure,
+            anchorLabel,
+            anchorInterval: anchorRatio,
+            octave,
+          }),
+    [anchorLabel, anchorRatio, octave, structure],
+  );
+  const overflowPitch =
+    resolvedPalettePitch?.valid && resolvedPalettePitch.relativeExact === false
+      ? temperedPitchStructureFallback(
+          structure,
+          parseHejiToStructure(anchorLabel),
+          Number(resolvedPalettePitch.relativeInterval),
+          { octave, decimals },
+        )
+      : null;
   const shownDeviation = structure.useTemperedAccidentals
     ? deviation
     : formatDeviation(automaticDeviation, decimals);
-  const output = `${spelling}${shownDeviation}`.trim();
+  const displayedSpelling = overflowPitch?.spelling || spelling;
+  const displayedDeviation = overflowPitch?.deviationText || shownDeviation;
+  const output = `${displayedSpelling}${displayedDeviation}`.trim();
   useEffect(() => {
     if (!synchronizedPitch?.spelling) return;
     const nextStructure = parseStructure("", synchronizedPitch.spelling);
@@ -332,14 +359,14 @@ const HejiPalette = ({
           <input
             type="text"
             class="sidebar-input heji-palette-builder__output"
-            value={spelling}
+            value={displayedSpelling}
             readOnly
             aria-label="Calculator palette output"
           />
           <input
             type="text"
             class="sidebar-input heji-palette-builder__deviation"
-            value={shownDeviation}
+            value={displayedDeviation}
             placeholder="+0"
             readOnly={!structure.useTemperedAccidentals}
             aria-label="Calculator palette cents deviation"

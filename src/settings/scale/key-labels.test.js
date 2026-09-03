@@ -866,6 +866,34 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
   });
 
+  it("collapses oversized HEJI palette ratios to tempered spelling and cents", () => {
+    render(
+      <KeyLabels
+        onChange={() => {}}
+        onAtomicChange={() => {}}
+        heji_names={[]}
+        heji_anchor_ratio_eff="1/1"
+        heji_anchor_label_eff="*nA"
+        settings={{
+          key_labels: "heji",
+          show_equaves: false,
+          heji_anchor_ratio: "1/1",
+          heji_anchor_label: "*nA",
+          heji_tempered_only: false,
+          heji_show_cents: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Palette"));
+    fireEvent.click(screen.getByRole("button", { name: "A" }));
+    const lowerSeven = screen.getByTitle("7-limit lower");
+    for (let index = 0; index < 10; index += 1) fireEvent.click(lowerSeven);
+
+    expect(screen.getByLabelText("HEJI palette output").value).toBe("A");
+    expect(screen.getByLabelText("HEJI palette cents deviation").value).toBe("−273");
+  });
+
   it("restores registered palette preferences after the settings component remounts", () => {
     function Harness({ mounted }) {
       const [settings, setSettings] = useState({
