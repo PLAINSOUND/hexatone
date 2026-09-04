@@ -80,7 +80,7 @@ Buttons along the bottom of the app, also mapped to key commands:
 - `OCT` (SHIFT+arrow keys, active when canvas is in focus)
   - press SHIFT with the up or down arrow key to change octaves
   - click the word `OCT` or press SHIFT with either the left or right arrow key to toggle between two states: retune the next played note or (darker colour) retune immediately
-- `SUSTAIN` (SHIFT+ESC key): toggle to sustain notes hands-free; play a note again to remove it
+- `SUSTAIN` (SHIFT+ESC or F8 key): toggle to sustain notes hands-free; play a note again to remove it. F8 is the compatible alternative on Windows browsers that reserve SHIFT+ESC for the browser task manager
 - `MOD` (SHIFT+BACKQUOTE / ^ key): click to capture last played note as source degree, next played note becomes target degree
   - `Moveable Do / Fixed Layout` shifts the scale frequency globally while maintaining layout and appearance
   - `Fixed Do / Moveable Layout` keeps the source note "in place" but changes its scale degree to that of the target degree
