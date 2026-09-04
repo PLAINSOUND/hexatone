@@ -17,11 +17,20 @@ describe("snapshot rational identity", () => {
       const frames = new Map(sequence.pitchFrames.map((frame) => [frame.id, frame]));
       expect(sequence.version).toBe(5);
       expect(sequence.pitchFrames).toHaveLength(1);
+      // Preset scores repeat the same written pitches across many snapshots.
+      // Resolve each spelling once, then continue checking every occurrence
+      // against its stored pitch so this integrity test stays deterministic on
+      // slower CI workers without weakening its coverage.
+      const hejiResolutionByName = new Map();
+      const scalaResolutionByInterval = new Map();
       for (const [snapshotIndex, snapshot] of sequence.snapshots.entries()) {
         const frame = frames.get(snapshot.pitchFrameId);
         expect(frame, `snapshot ${snapshotIndex + 1}`).toBeTruthy();
         for (const [noteIndex, note] of (snapshot.notes ?? []).entries()) {
-          const resolved = resolveSequenceHejiName(note.hejiName, frame);
+          if (!hejiResolutionByName.has(note.hejiName)) {
+            hejiResolutionByName.set(note.hejiName, resolveSequenceHejiName(note.hejiName, frame));
+          }
+          const resolved = hejiResolutionByName.get(note.hejiName);
           expect(resolved, `snapshot ${snapshotIndex + 1}, note ${noteIndex + 1}`).toBeTruthy();
           expect(
             Math.abs(resolved.midicents - note.midicents) * 100,
@@ -31,7 +40,13 @@ describe("snapshot rational identity", () => {
             note.scalaInterval,
             `snapshot ${snapshotIndex + 1}, note ${noteIndex + 1} stored Scala interval`,
           ).toBeTruthy();
-          const scalaResolved = resolveSequenceScalaInterval(note.scalaInterval, frame);
+          if (!scalaResolutionByInterval.has(note.scalaInterval)) {
+            scalaResolutionByInterval.set(
+              note.scalaInterval,
+              resolveSequenceScalaInterval(note.scalaInterval, frame),
+            );
+          }
+          const scalaResolved = scalaResolutionByInterval.get(note.scalaInterval);
           expect(
             Math.abs(scalaResolved.midicents - note.midicents) * 100,
             `snapshot ${snapshotIndex + 1}, note ${noteIndex + 1} Scala pitch`,
