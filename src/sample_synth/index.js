@@ -265,6 +265,10 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     }
 
     const activeHexes = new Set();
+    // Normal note-off removes a voice from expression updates immediately,
+    // but its release tail remains audible. Keep a second registry so PANIC
+    // can hard-stop both held voices and tails already in progress.
+    const knownHexes = new Set();
 
     const prepareSynth = async () => {
       if (preparePromise) return preparePromise;
@@ -446,16 +450,28 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           },
         );
         activeHexes.add(hex);
+        knownHexes.add(hex);
+        hex._onSourceEnded = () => {
+          activeHexes.delete(hex);
+          knownHexes.delete(hex);
+        };
         const originalNoteOff = hex.noteOff.bind(hex);
         hex.noteOff = (release_velocity) => {
           originalNoteOff(release_velocity);
           activeHexes.delete(hex);
+          if (!hex.source) knownHexes.delete(hex);
         };
         return hex;
       },
 
       releaseAll: () => {
         for (const hex of [...activeHexes]) hex.noteOff(0);
+      },
+
+      allSoundOff: () => {
+        for (const hex of [...knownHexes]) hex.allSoundOff();
+        activeHexes.clear();
+        knownHexes.clear();
       },
     };
   } catch (e) {
@@ -603,6 +619,7 @@ ActiveHex.prototype.noteOn = function () {
 
   gainNode.gain.value = 0;
   source.start(0);
+  source.onended = () => this._onSourceEnded?.();
   gainNode.gain.setTargetAtTime(
     this.sampleGain * vol,
     this.audioContext.currentTime,
@@ -725,6 +742,26 @@ ActiveHex.prototype.noteOff = function (_release_velocity) {
       this.source.stop(now + releaseTime + 0.05);
     }
   }
+};
+
+ActiveHex.prototype.allSoundOff = function () {
+  this._noteOffCalled = true;
+  this.release = true;
+  if (!this.audioContext) return;
+  const now = this.audioContext.currentTime;
+  if (this.gainNode) {
+    this.gainNode.gain.cancelScheduledValues?.(now);
+    this.gainNode.gain.setValueAtTime?.(0, now);
+    this.gainNode.gain.value = 0;
+  }
+  if (this.source) {
+    try {
+      this.source.stop(now);
+    } catch {
+      // The source may already have reached the end of a scheduled release.
+    }
+  }
+  this._onSourceEnded?.();
 };
 
 // ─── iOS Audio Helper Exports ──────────────────────────────────────────────────

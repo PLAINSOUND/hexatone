@@ -26,6 +26,9 @@ class MockAudioContext {
       gain: {
         value: 0,
         setTargetAtTime: vi.fn(),
+        cancelScheduledValues: vi.fn(),
+        setValueAtTime: vi.fn(),
+        exponentialRampToValueAtTime: vi.fn(),
       },
       connect: vi.fn(),
     };
@@ -58,6 +61,7 @@ class MockAudioContext {
       },
       connect: vi.fn(),
       start: vi.fn(),
+      stop: vi.fn(),
     };
   }
 
@@ -138,6 +142,22 @@ describe("sample_synth modwheel", () => {
 
     expect(first.filterNode.frequency.setTargetAtTime).toHaveBeenCalledOnce();
     expect(second.filterNode.frequency.setTargetAtTime).toHaveBeenCalledOnce();
+  });
+
+  it("hard-stops a sample release tail when PANIC calls allSoundOff", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    await synth.prepare();
+    const hex = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    hex.noteOn();
+
+    hex.noteOff(0);
+    expect(hex.source.stop.mock.calls[0][0]).toBeCloseTo(0.15, 12);
+
+    synth.allSoundOff();
+
+    expect(hex.source.stop).toHaveBeenLastCalledWith(0);
+    expect(hex.gainNode.gain.cancelScheduledValues).toHaveBeenLastCalledWith(0);
+    expect(hex.gainNode.gain.setValueAtTime).toHaveBeenLastCalledWith(0, 0);
   });
 
   it("pitch-tracks the Reed filter around its unchanged 400 Hz reference", async () => {

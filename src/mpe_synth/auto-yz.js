@@ -250,12 +250,16 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
     requestedAt = now(),
     emitInitial = true,
     coalesce = false,
+    useLookAhead = true,
   ) => {
     if (!Number.isFinite(channel) || channel < 1 || channel > 16) return;
     const generation = (generations.get(channel) ?? 0) + 1;
     generations.set(channel, generation);
     if (coalesce) coalescedGenerations.set(channel, generation);
-    const scheduledAt = Math.max(Number(requestedAt) || now(), now() + midiLeadMs);
+    const scheduledAt = Math.max(
+      Number(requestedAt) || now(),
+      now() + (useLookAhead ? midiLeadMs : 0),
+    );
     stateEngine.schedule(channel, y, z, duration, scheduledAt, generation);
     const safeDuration = Math.max(0, Number(duration) || 0);
     const target = { channel, generation, y: clamp7(y), z: clamp7(z) };
@@ -370,7 +374,8 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
 
   return {
     onset(channel, velocity, at) {
-      const start = Number.isFinite(at) ? at : now();
+      const timestampedPlayback = Number.isFinite(at);
+      const start = timestampedPlayback ? at : now();
       stopCoalescing(channel);
       pressureActiveYChannels.delete(channel);
       pressureActiveZChannels.delete(channel);
@@ -392,10 +397,15 @@ export function createAutoMpeYzScheduler(midiOutput, options = {}) {
         AUTO_MPE_YZ_DEFAULTS.zCenter,
       );
       const duration = velocityRampDuration(velocity);
-      // Velocity ramps are at most a few milliseconds long, so queue their
-      // complete cadence on the Web MIDI timeline. This avoids worker samples
-      // accumulating into a burst when the main thread is busy.
-      scheduleTimestampedOnset(channel, y, z, duration, start);
+      // Timed snapshot playback has a shared future attack timestamp, so queue
+      // its complete short cadence on the Web MIDI timeline. Live mouse/touch
+      // notes have no such timestamp: keep their onset generation cancellable
+      // so a very short tap cannot leave queued Y/Z attack values after Note Off.
+      if (timestampedPlayback) {
+        scheduleTimestampedOnset(channel, y, z, duration, start);
+        return;
+      }
+      schedule(channel, y, z, duration, start, false, false, false);
     },
 
     continuation(channel, velocity, pressure, duration, at) {

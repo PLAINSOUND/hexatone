@@ -5793,8 +5793,9 @@ const App = () => {
             <em>
               To play, choose a built-in tuning or build your own scale in "Scale Settings" by
               changing "Scale Size" or clicking on "Add Scale Degree". Click or touch notes. Edit
-              the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC
-              toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in SEQUENCER.
+              the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC or
+              F8 toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in
+              SEQUENCER.
               Visit the IO tab to choose internal sounds, connect a MIDI keyboard or an isomorphic
               controller like Lumatone or Exquis, and retune external synths using MTS, MPE, OSC.{" "}
               <button

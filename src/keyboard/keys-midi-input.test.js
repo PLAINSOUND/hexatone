@@ -537,7 +537,7 @@ describe("Keys MIDI input integration", () => {
     expect(panic).toHaveBeenCalledTimes(1);
   });
 
-  it("toggles sustain only on Shift+Escape", () => {
+  it("toggles sustain on Shift+Escape or unmodified F8", () => {
     const keys = createKeys();
     const latchToggle = vi.spyOn(keys, "latchToggle");
     const preventDefault = vi.fn();
@@ -579,6 +579,84 @@ describe("Keys MIDI input integration", () => {
     });
 
     expect(keys.state.escHeld).toBe(false);
+
+    keys.onKeyDown({
+      code: "F8",
+      key: "F8",
+      repeat: false,
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault,
+    });
+
+    expect(preventDefault).toHaveBeenCalledTimes(2);
+    expect(latchToggle).toHaveBeenCalledTimes(2);
+    expect(keys.state.escHeld).toBe(true);
+
+    keys.onKeyUp({
+      code: "F8",
+      key: "F8",
+      shiftKey: false,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+    });
+
+    expect(keys.state.escHeld).toBe(false);
+  });
+
+  it("lets a canvas click release a note latched with Shift on the computer keyboard", () => {
+    const createdHexes = [];
+    const synth = {
+      makeHex: vi.fn((coords, cents) => {
+        const hex = {
+          coords,
+          cents,
+          release: false,
+          noteOn: vi.fn(),
+          noteOff: vi.fn(function noteOff() {
+            this.release = true;
+          }),
+        };
+        createdHexes.push(hex);
+        return hex;
+      }),
+    };
+    const keys = createKeys({}, {}, synth);
+    keys.typing = true;
+    keys.settings.keyCodeToCoords = { KeyH: new Point(0, 0) };
+    const keyEvent = {
+      code: "KeyH",
+      key: "H",
+      repeat: false,
+      shiftKey: true,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      preventDefault: vi.fn(),
+    };
+
+    keys.onKeyDown(keyEvent);
+    keys.onKeyUp(keyEvent);
+
+    expect(keys.state.latch).toBe(false);
+    expect(keys.state.sustainedNotes).toHaveLength(1);
+    expect(keys.state.activeKeyboard.get("KeyH")).toBe(createdHexes[0]);
+
+    const coords = createdHexes[0].coords;
+    keys.getPointerPosition = vi.fn(() => new Point(0, 0));
+    keys.getHexCoordsAt = vi.fn(() => coords);
+    keys.mouseActive({});
+
+    expect(synth.makeHex).toHaveBeenCalledOnce();
+    expect(createdHexes[0].noteOff).toHaveBeenCalledOnce();
+    expect(keys.state.sustainedNotes).toHaveLength(0);
+    expect(keys.state.sustainedCoords.size).toBe(0);
+    expect(keys.state.activeKeyboard.size).toBe(0);
+    expect(keys.state.shiftSustainedKeys.size).toBe(0);
+    expect(keys.state.activeMouse).toBeNull();
   });
 
   it("handles Shift+Backquote globally even when normal typing input is inactive", () => {

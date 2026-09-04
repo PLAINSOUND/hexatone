@@ -55,7 +55,7 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(emit.mock.calls.every(([values]) => values.channel !== 4)).toBe(true);
   });
 
-  it("pre-queues the short velocity onset with a timestamped cadence", () => {
+  it("keeps a live velocity onset cancellable until its timestamped samples are emitted", () => {
     class FakeWorker {
       static instance;
 
@@ -79,15 +79,21 @@ describe("automatic MPE Y/Z shaping", () => {
 
     scheduler.onset(4, 72);
 
-    expect(midiOutput.send.mock.calls).toEqual([
-      [[0xb0 + 3, 74, 32], 314.2],
-      [[0xd0 + 3, 41], 314.2],
-      [[0xb0 + 3, 74, 55], 315.64],
-      [[0xd0 + 3, 71], 315.64],
-    ]);
+    expect(midiOutput.send).not.toHaveBeenCalled();
     expect(FakeWorker.instance.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ channel: 4, duration: 0, silent: true, generation: 1 }),
+      expect.objectContaining({
+        channel: 4,
+        duration: velocityRampDuration(72),
+        emitInitial: false,
+        generation: 1,
+      }),
     );
+
+    FakeWorker.instance.emit({ channel: 4, generation: 1, y: 32, z: 41, at: 302.2 });
+    expect(midiOutput.send.mock.calls).toEqual([
+      [[0xb0 + 3, 74, 32], 302.2],
+      [[0xd0 + 3, 41], 302.2],
+    ]);
   });
 
   it("fences a quick release behind every pre-queued onset packet", () => {
@@ -99,7 +105,7 @@ describe("automatic MPE Y/Z shaping", () => {
       now: () => now,
     });
 
-    scheduler.onset(4, 72);
+    scheduler.onset(4, 72, 300.2);
     const finalOnsetTimestamp = midiOutput.send.mock.calls.at(-1)[1];
     midiOutput.send.mockClear();
     now = 301.2;
@@ -114,6 +120,33 @@ describe("automatic MPE Y/Z shaping", () => {
     expect(releaseCalls.at(-1)[0]).toEqual([0xd0 + 3, 0]);
   });
 
+  it("discards a live onset sample that arrives after a quick release", () => {
+    class FakeWorker {
+      static instance;
+
+      constructor() {
+        FakeWorker.instance = this;
+        this.onmessage = null;
+      }
+
+      postMessage = vi.fn();
+      terminate = vi.fn();
+
+      emit(data) {
+        this.onmessage?.({ data });
+      }
+    }
+    vi.stubGlobal("Worker", FakeWorker);
+    const midiOutput = { send: vi.fn() };
+    const scheduler = createAutoMpeYzScheduler(midiOutput, { now: () => 300 });
+
+    scheduler.onset(4, 72);
+    scheduler.release(4, 0);
+    FakeWorker.instance.emit({ channel: 4, generation: 1, y: 55, z: 71, at: 304 });
+
+    expect(midiOutput.send).not.toHaveBeenCalled();
+  });
+
   it("resends an identical onset when a member channel is reused for a new note", () => {
     const midiOutput = { send: vi.fn() };
     const scheduler = createAutoMpeYzScheduler(midiOutput, {
@@ -121,21 +154,21 @@ describe("automatic MPE Y/Z shaping", () => {
       now: () => 300.2,
     });
 
-    scheduler.onset(4, 72);
+    scheduler.onset(4, 72, 320);
     const firstOnset = midiOutput.send.mock.calls.map(([message, timestamp]) => [
       message,
       timestamp,
     ]);
     midiOutput.send.mockClear();
 
-    scheduler.onset(4, 72);
+    scheduler.onset(4, 72, 320);
 
     expect(midiOutput.send.mock.calls).toEqual(firstOnset);
     expect(midiOutput.send.mock.calls).toEqual([
-      [[0xb0 + 3, 74, 32], 314.2],
-      [[0xd0 + 3, 41], 314.2],
-      [[0xb0 + 3, 74, 55], 315.64],
-      [[0xd0 + 3, 71], 315.64],
+      [[0xb0 + 3, 74, 32], 322],
+      [[0xd0 + 3, 41], 322],
+      [[0xb0 + 3, 74, 55], 323.44],
+      [[0xd0 + 3, 71], 323.44],
     ]);
   });
 
@@ -408,8 +441,8 @@ describe("automatic MPE Y/Z shaping", () => {
     vi.advanceTimersByTime(2);
 
     expect(midiOutput.send.mock.calls.map(([message]) => message)).toEqual([
-      [0xb0 + 6, 74, 37],
-      [0xd0 + 6, 48],
+      [0xb0 + 6, 74, 28],
+      [0xd0 + 6, 37],
       [0xb0 + 6, 74, 0],
       [0xd0 + 6, 0],
     ]);

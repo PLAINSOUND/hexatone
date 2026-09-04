@@ -19,6 +19,11 @@ function isShiftOnlyShortcut(e) {
   return e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey;
 }
 
+function isSustainToggleShortcut(e) {
+  if (e.code === "Escape") return isShiftOnlyShortcut(e);
+  return e.code === "F8" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey;
+}
+
 function keyboardCoordsForCode(keys, code) {
   const kbOffset = keys.settings.centerHexOffset;
   const kbRaw = keys.settings.keyCodeToCoords[code];
@@ -39,14 +44,43 @@ function findSustainedIndexAt(state, coords) {
   );
 }
 
+function isShiftLatchedAt(keys, coords) {
+  const hexIndex = findSustainedIndexAt(keys.state, coords);
+  if (hexIndex === -1) return false;
+  const [hex] = keys.state.sustainedNotes[hexIndex];
+  for (const [code, activeHex] of keys.state.activeKeyboard) {
+    if (activeHex === hex && keys.state.shiftSustainedKeys.has(code)) return true;
+  }
+  return false;
+}
+
 function releaseSustainedAt(keys, coords) {
   const hexIndex = findSustainedIndexAt(keys.state, coords);
   if (hexIndex === -1) return false;
   const [hex, vel] = keys.state.sustainedNotes[hexIndex];
   keys.state.sustainedNotes.splice(hexIndex, 1);
   keys.state.sustainedCoords.delete(`${coords.x},${coords.y}`);
+
+  // A note latched with Shift remains in activeKeyboard after physical key-up
+  // so it can still participate in retuning and snapshots. If another input
+  // source toggles that sustained note off, release this stale ownership too;
+  // otherwise the canvas and PANIC continue to treat the released Hex as held.
+  for (const [code, activeHex] of keys.state.activeKeyboard) {
+    if (activeHex !== hex) continue;
+    keys.state.activeKeyboard.delete(code);
+    keys.state.shiftSustainedKeys.delete(code);
+    keys.state.pressedKeys.delete(code);
+  }
+
   hex.noteOff(vel);
+  keys._trackRecentlyReleasedHex?.(hex);
+  keys.recencyStack?.remove?.(hex);
+  keys._updateWheelTarget?.(true);
+  keys._syncAwaitingModulationSource?.();
+  keys._scheduleDeferredBulkRefresh?.();
+  keys._settleModulationAfterActiveRelease?.();
   keys.hexOff(coords);
+  keys._emitLiveNoteDisplayState?.();
   return true;
 }
 
@@ -81,7 +115,7 @@ export function onKeyDown(e) {
     return;
   }
 
-  if (e.code === "Escape" && !e.repeat && isShiftOnlyShortcut(e)) {
+  if (!e.repeat && isSustainToggleShortcut(e)) {
     e.preventDefault?.();
     this.state.escHeld = true;
     this.latchToggle();
@@ -166,7 +200,7 @@ export function onKeyUp(e) {
     return;
   }
 
-  if (e.code === "Escape" && isShiftOnlyShortcut(e)) {
+  if ((e.code === "Escape" || e.code === "F8") && this.state.escHeld) {
     this.state.escHeld = false;
     return;
   }
@@ -236,14 +270,14 @@ export function mouseActive(e) {
   coords = this.getHexCoordsAt(coords);
 
   if (this.state.activeMouse === null) {
-    if (this.state.latch) {
-      const key = `${coords.x},${coords.y}`;
-      if (releaseSustainedAt(this, coords)) {
-        this.state.mouseDownToggledCoord = key;
-        return;
-      }
-      if (this.state.mouseDownToggledCoord === key) return;
+    const key = `${coords.x},${coords.y}`;
+    // Shift-latched notes are sustained independently of the global latch.
+    // Playing the same canvas key must therefore toggle either kind off.
+    if ((this.state.latch || isShiftLatchedAt(this, coords)) && releaseSustainedAt(this, coords)) {
+      this.state.mouseDownToggledCoord = key;
+      return;
     }
+    if (this.state.mouseDownToggledCoord === key) return;
     this.state.activeMouse = this.hexOn(coords);
     return;
   }
@@ -332,7 +366,9 @@ export async function handleTouch(e) {
 }
 
 export function touchStartOnCoords(id, coords) {
-  if (this.state.latch && releaseSustainedAt(this, coords)) return;
+  if ((this.state.latch || isShiftLatchedAt(this, coords)) && releaseSustainedAt(this, coords)) {
+    return;
+  }
   const newHex = this.hexOn(coords);
   this.state.activeTouch.set(id, newHex);
 }
