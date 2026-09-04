@@ -1422,7 +1422,7 @@ describe("App workspace tabs", () => {
     expect(pitch.closest(".calculator-tab").hidden).toBe(false);
   });
 
-  it("keeps performance palettes in I/O and the snapshot palette outside Sequencer", async () => {
+  it("keeps both functional performance palettes outside Sequencer", async () => {
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(
       SEQUENCE_WORKSPACE_STORAGE_KEY,
@@ -1441,8 +1441,10 @@ describe("App workspace tabs", () => {
     );
     const { unmount } = render(<App />);
     const user = userEvent.setup();
+    const keys = { stepModulationRoute: vi.fn(), stopSnapshot: vi.fn() };
 
     await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
     act(() => {
       lastKeyboardProps.onModulationStateChange({
         mode: "idle",
@@ -1457,12 +1459,21 @@ describe("App workspace tabs", () => {
 
     await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
     expect(document.querySelector("#snapshot-palette")).not.toBeNull();
+    expect(document.querySelector("#modulation-palette")).not.toBeNull();
+    fireEvent.pointerDown(screen.getByLabelText("Step modulation forward"));
+    expect(keys.stepModulationRoute).toHaveBeenCalledWith(0, 1);
 
     await user.click(screen.getByRole("tab", { name: "MANUAL" }));
     expect(document.querySelector("#snapshot-palette")).not.toBeNull();
+    expect(document.querySelector("#modulation-palette")).not.toBeNull();
 
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     expect(document.querySelector("#snapshot-palette")).toBeNull();
+    expect(document.querySelector("#modulation-palette")).toBeNull();
+
+    await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
+    expect(document.querySelector("#snapshot-palette")).not.toBeNull();
+    expect(document.querySelector("#modulation-palette")).not.toBeNull();
 
     unmount();
     localStorage.removeItem("hexatone_persist_on_reload");

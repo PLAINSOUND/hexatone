@@ -286,6 +286,11 @@ const Sequencer = ({
     snapshot: null,
     cue: null,
   });
+  const navigationReadoutDefaultsRef = useRef({
+    bar: 0,
+    snapshot: "",
+    cue: "",
+  });
   const duplicateNoteIdRef = useRef(0);
 
   const cancelPendingCueExpansion = useCallback(() => {
@@ -1258,7 +1263,7 @@ const Sequencer = ({
   );
 
   const presentManualCue = useCallback(
-    (cueIndex) => {
+    (cueIndex, { autoScroll = true } = {}) => {
       const numericCueIndex = Number(cueIndex);
       if (!Number.isInteger(numericCueIndex)) return;
       const cueGroup = sequenceCueGroups[numericCueIndex];
@@ -1269,6 +1274,7 @@ const Sequencer = ({
         numericCueIndex,
         { sequenceTime: cueGroup.time },
         { sequenceTime: cueGroup.time, soundingAfter },
+        { autoScroll },
       );
     },
     [sequenceCueGroups, sequenceRuntime.playbackNotesByCueIndex],
@@ -1836,18 +1842,92 @@ const Sequencer = ({
     if (Object.is(intent.fromTarget, currentTarget)) return false;
     return true;
   }, []);
+  const revealManualSnapshotIfNeeded = useCallback(
+    (snapshotIndex) => {
+      if (!autoScrollEnabledRef.current) return;
+      const snapshotId = snapshots[Number(snapshotIndex)]?.id ?? null;
+      if (snapshotId == null) return;
+      const snapshotRow = snapshotRowRefs.current.get(snapshotId) ?? null;
+      if (snapshotRow instanceof HTMLElement) {
+        // This presenter measures the usable panel and is a no-op while the
+        // complete target is already visible.
+        scrollNodeIntoPanel(snapshotRow);
+        return;
+      }
+      const renderedIndex = renderedSnapshotIndexById.get(snapshotId);
+      if (Number.isInteger(renderedIndex)) prepareSnapshotViewport(renderedIndex);
+    },
+    [
+      prepareSnapshotViewport,
+      renderedSnapshotIndexById,
+      scrollNodeIntoPanel,
+      snapshotRowRefs,
+      snapshots,
+    ],
+  );
+  const revealManualCueIfNeeded = useCallback(
+    (cueIndex) => {
+      if (!autoScrollEnabledRef.current) return;
+      const numericCueIndex = Number(cueIndex);
+      if (!Number.isInteger(numericCueIndex)) return;
+      const cueViewport = deriveCueViewportPlan({
+        cueIndexZeroBased: numericCueIndex,
+        sequenceEvents,
+      });
+      const mountedEventRows = cueViewport.eventIds
+        .map((eventId) => eventRowRefs.current.get(eventId) ?? null)
+        .filter((node) => node instanceof HTMLElement);
+      if (mountedEventRows.length > 0) {
+        scrollNodesIntoPanel(mountedEventRows);
+        return;
+      }
+      const anchorSnapshotId = resolveCueAnchorSnapshotId({
+        activeCueIndex: numericCueIndex + 1,
+        sequenceCueGroups,
+        sequenceEvents,
+        snapshots,
+        cueExpandedSnapshotIds: cueViewport.snapshotIds,
+      });
+      const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
+      if (snapshotRow instanceof HTMLElement) {
+        scrollNodeIntoPanel(snapshotRow);
+        return;
+      }
+      const renderedIndex = renderedSnapshotIndexById.get(anchorSnapshotId);
+      if (Number.isInteger(renderedIndex)) prepareSnapshotViewport(renderedIndex);
+    },
+    [
+      eventRowRefs,
+      prepareSnapshotViewport,
+      renderedSnapshotIndexById,
+      scrollNodeIntoPanel,
+      scrollNodesIntoPanel,
+      sequenceCueGroups,
+      sequenceEvents,
+      snapshotRowRefs,
+      snapshots,
+    ],
+  );
   const stepSequenceWithAutoscroll = useCallback(
     (direction) => {
       transportScrollTargetRef.current = "snapshot";
       armNavigationAutoscrollIntent("snapshot", activeSnapshotId);
       const nextSnapshotIndex = onStepSequence?.(direction);
-      if (Number.isInteger(nextSnapshotIndex)) presentManualSnapshot(nextSnapshotIndex);
+      if (Number.isInteger(nextSnapshotIndex)) {
+        // Audio has already been dispatched by App. Present and reveal the
+        // target now, then discard the intent that would otherwise repeat the
+        // viewport move after App's deferred editor-state commit.
+        presentManualSnapshot(nextSnapshotIndex);
+        revealManualSnapshotIfNeeded(nextSnapshotIndex);
+        navigationAutoscrollIntentRef.current = null;
+      }
     },
     [
       activeSnapshotId,
       armNavigationAutoscrollIntent,
       onStepSequence,
       presentManualSnapshot,
+      revealManualSnapshotIfNeeded,
       transportScrollTargetRef,
     ],
   );
@@ -1882,12 +1962,22 @@ const Sequencer = ({
         cancelNavigationAutoscroll();
         cancelVirtualSequenceAnchor();
         const nextCueIndex = onStepSequenceMarker?.(direction);
-        if (Number.isInteger(nextCueIndex)) presentManualCue(nextCueIndex);
+        if (Number.isInteger(nextCueIndex)) {
+          presentManualCue(nextCueIndex, { autoScroll: false });
+        }
         return;
       }
-      cueStepViewportRequestedRef.current = true;
       const nextCueIndex = onStepSequenceMarker?.(direction);
-      if (Number.isInteger(nextCueIndex)) presentManualCue(nextCueIndex);
+      if (Number.isInteger(nextCueIndex)) {
+        // Keep cue expansion on its burst-coalesced path, but follow the
+        // already-rendered cue/snapshot row immediately and only if needed.
+        // The delayed editor commit must not force a second top alignment.
+        cueStepViewportRequestedRef.current = false;
+        presentManualCue(nextCueIndex, { autoScroll: false });
+        revealManualCueIfNeeded(nextCueIndex);
+      } else {
+        cueStepViewportRequestedRef.current = true;
+      }
     },
     [
       cancelNavigationAutoscroll,
@@ -1896,6 +1986,7 @@ const Sequencer = ({
       pendingTransportSelection?.cueIndex,
       playhead?.stopped,
       presentManualCue,
+      revealManualCueIfNeeded,
       transportScrollTargetRef,
     ],
   );
@@ -2039,6 +2130,12 @@ const Sequencer = ({
     refreshPendingSnapshotAlignment();
   }, [refreshPendingSnapshotAlignment, virtualSequenceLayout]);
 
+  navigationReadoutDefaultsRef.current = {
+    bar: playhead?.barIndex ?? 0,
+    snapshot: snapshotSelectValue,
+    cue: cueSelectValue,
+  };
+
   useEffect(() => {
     const setTransportField = (field, value) => {
       if (value != null) timedTransportFieldValuesRef.current[field] = String(value);
@@ -2065,15 +2162,16 @@ const Sequencer = ({
         setTransportField("cue", position?.cueIndex);
       },
       clearTransportPosition: () => {
-        setTransportField("bar", playhead?.barIndex ?? 0);
-        setTransportField("snapshot", snapshotSelectValue);
-        setTransportField("cue", cueSelectValue);
+        const defaults = navigationReadoutDefaultsRef.current;
+        setTransportField("bar", defaults.bar);
+        setTransportField("snapshot", defaults.snapshot);
+        setTransportField("cue", defaults.cue);
       },
     });
     timedHighlightPresenterRef.current = highlightPresenter;
     timedAutoscrollPresenterRef.current = autoscrollPresenter;
     timedReadoutPresenterRef.current = readoutPresenter;
-    timedVisualCueHandlerRef.current = (cueIndex, trigger, burst) => {
+    timedVisualCueHandlerRef.current = (cueIndex, trigger, burst, options = {}) => {
       const cueGroup = sequenceCueGroups[cueIndex] ?? null;
       const snapshotIndex = cueGroup?.snapshotIndex ?? null;
       const snapshotId = cueGroup == null ? null : (snapshots[snapshotIndex]?.id ?? null);
@@ -2096,6 +2194,7 @@ const Sequencer = ({
       });
       readoutPresenter.present(transport);
 
+      if (options.autoScroll === false) return;
       if (!autoScrollEnabledRef.current) {
         autoscrollPresenter.cancel();
         return;
@@ -2124,17 +2223,14 @@ const Sequencer = ({
       readoutPresenter.dispose();
     };
   }, [
-    cueSelectValue,
     eventRowRefs,
     playbackRowRef,
-    playhead?.barIndex,
     scrollVirtualSnapshotRowIntoView,
     scrollNodeIntoPanel,
     scrollNodesIntoPanel,
     scrollPanelRef,
     sequenceCueGroups,
     snapshotRowRefs,
-    snapshotSelectValue,
     snapshots,
     sortedBars,
     terminalBarlinePosition,
@@ -2154,12 +2250,11 @@ const Sequencer = ({
   }, [timedTransportUiState.running]);
 
   useEffect(() => {
-    if (!timedTransportUiState.running) return undefined;
     const refreshFrame = window.requestAnimationFrame(() => {
       timedHighlightPresenterRef.current?.refresh();
     });
     return () => window.cancelAnimationFrame(refreshFrame);
-  }, [timedTransportUiState.running, virtualSequenceLayout]);
+  }, [virtualSequenceLayout]);
 
   useEffect(
     () => () => {

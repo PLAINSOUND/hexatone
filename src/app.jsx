@@ -668,6 +668,8 @@ const App = () => {
     calculator: 0,
   });
   const activeManualView = workspaceTab === "manual" ? "main" : inlineManualView;
+  const snapshotPaletteVisible = !inlineManualView && workspaceTab !== "sequencer";
+  const performancePalettesVisible = snapshotPaletteVisible;
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [showRotationDebug, setShowRotationDebug] = useState(getRotationDebugDefault);
   const [rotationDebugEvents, setRotationDebugEvents] = useState([]);
@@ -3821,6 +3823,7 @@ const App = () => {
   }, [clampSnapshotPalettePos]);
 
   useEffect(() => {
+    if (!performancePalettesVisible) return undefined;
     const applyDefaultPosition = () => {
       if (!modulationPaletteUserMovedRef.current) {
         setModulationPalettePos(clampModulationPalettePos(getDefaultModulationPalettePos()));
@@ -3839,26 +3842,17 @@ const App = () => {
     window.addEventListener("resize", applyAfterLayout);
     window.addEventListener("orientationchange", applyAfterLayout);
     window.visualViewport?.addEventListener("resize", applyAfterLayout);
-    const sidebarResizeObserver =
-      typeof ResizeObserver === "function" ? new ResizeObserver(applyAfterLayout) : null;
-    const sidebarMutationObserver =
-      typeof MutationObserver === "function" ? new MutationObserver(applyAfterLayout) : null;
-    if (sidebarRef.current) {
-      sidebarResizeObserver?.observe(sidebarRef.current);
-      sidebarMutationObserver?.observe(sidebarRef.current, { childList: true, subtree: true });
-    }
     applyAfterLayout();
     return () => {
       if (frameId != null) window.cancelAnimationFrame(frameId);
-      sidebarResizeObserver?.disconnect();
-      sidebarMutationObserver?.disconnect();
       window.removeEventListener("resize", applyAfterLayout);
       window.removeEventListener("orientationchange", applyAfterLayout);
       window.visualViewport?.removeEventListener("resize", applyAfterLayout);
     };
-  }, [clampModulationPalettePos, workspaceTab]);
+  }, [clampModulationPalettePos, performancePalettesVisible]);
 
   useEffect(() => {
+    if (!snapshotPaletteVisible || snapshots.length === 0) return undefined;
     const applyDefaultPosition = () => {
       if (!snapshotPaletteUserMovedRef.current) {
         setSnapshotPalettePos(clampSnapshotPalettePos(getDefaultSnapshotPalettePos()));
@@ -3882,20 +3876,20 @@ const App = () => {
     window.addEventListener("resize", applyAfterLayout);
     window.addEventListener("orientationchange", applyAfterLayout);
     window.visualViewport?.addEventListener("resize", applyAfterLayout);
-    const sidebarResizeObserver =
+    // The snapshot palette's default position is stacked below Modulation
+    // History. When both palettes remount after visiting SEQUENCER, wait for
+    // the modulation palette's real content height (including loaded fonts)
+    // instead of retaining geometry measured while that DOM was absent.
+    const modulationResizeObserver =
       typeof ResizeObserver === "function" ? new ResizeObserver(applyAfterLayout) : null;
-    const sidebarMutationObserver =
-      typeof MutationObserver === "function" ? new MutationObserver(applyAfterLayout) : null;
-    if (sidebarRef.current) {
-      sidebarResizeObserver?.observe(sidebarRef.current);
-      sidebarMutationObserver?.observe(sidebarRef.current, { childList: true, subtree: true });
+    if (modulationPaletteRef.current) {
+      modulationResizeObserver?.observe(modulationPaletteRef.current);
     }
     applyAfterLayout();
     return () => {
       if (firstFrameId != null) window.cancelAnimationFrame(firstFrameId);
       if (settledFrameId != null) window.cancelAnimationFrame(settledFrameId);
-      sidebarResizeObserver?.disconnect();
-      sidebarMutationObserver?.disconnect();
+      modulationResizeObserver?.disconnect();
       window.removeEventListener("resize", applyAfterLayout);
       window.removeEventListener("orientationchange", applyAfterLayout);
       window.visualViewport?.removeEventListener("resize", applyAfterLayout);
@@ -3904,8 +3898,8 @@ const App = () => {
     clampSnapshotPalettePos,
     modulationPaletteCollapsed,
     modulationState?.history?.length,
+    snapshotPaletteVisible,
     snapshots.length,
-    workspaceTab,
   ]);
 
   // Long-press sidebar button to toggle latch (sustain while playing)
@@ -4075,9 +4069,6 @@ const App = () => {
     [activeModulationLibrary],
   );
   const modulationPaletteVisible = modulationHistory.length > 0;
-  const performancePalettesVisible =
-    !inlineManualView && (workspaceTab === "hexatone" || workspaceTab === "io");
-  const snapshotPaletteVisible = !inlineManualView && workspaceTab !== "sequencer";
   const currentFundamentalSummary = useMemo(() => {
     return deriveCurrentFundamentalSummary(tuningWorkspace, deferredModulationHistory, {
       fundamental: settings.fundamental,

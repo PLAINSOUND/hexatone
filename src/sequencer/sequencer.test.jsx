@@ -1549,6 +1549,80 @@ describe("Sequencer", () => {
     vi.useRealTimers();
   });
 
+  it("keeps an immediate snapshot-step highlight through the deferred playhead redraw", async () => {
+    const snapshots = [
+      {
+        id: 10,
+        length: 1,
+        description: "A",
+        notes: [{ id: "a", midicents: 69, start: 0, end: 0.5 }],
+      },
+      {
+        id: 20,
+        length: 1,
+        description: "B",
+        notes: [{ id: "b", midicents: 72, start: 0, end: 0.5 }],
+      },
+    ];
+    const baseProps = {
+      snapshots,
+      bars: [{ id: 1, position: 1 }],
+      snapshotLabelMode: "labels",
+      selectedSnapshotId: 10,
+      selectedMarker: null,
+      playingSnapshotId: 10,
+      playhead: { barIndex: 0, stepIndex: 0, markerIndex: null, stopped: false },
+      onTakeSnapshot: vi.fn(),
+      onLoadSequence: vi.fn(),
+      onSequenceNameChange: vi.fn(),
+      onSequenceDescriptionChange: vi.fn(),
+      onSequenceLegatoChange: vi.fn(),
+      onSetSnapshotLabelMode: vi.fn(),
+      onSelectSnapshot: vi.fn(),
+      onSelectMarker: vi.fn(),
+      onPlaySnapshot: vi.fn(),
+      onStopSnapshot: vi.fn(),
+      onSelectSequenceBar: vi.fn(),
+      onStepSequence: vi.fn(() => 1),
+      onStepSequenceMarker: vi.fn(),
+      onPlaySequence: vi.fn(),
+      onPlayCue: vi.fn(),
+      onResetSequencePlayhead: vi.fn(),
+      onAddBar: vi.fn(),
+      onAddTempo: vi.fn(),
+      onAddBarsBeforeSnapshots: vi.fn(),
+      onDeleteBar: vi.fn(),
+      onDeleteTempo: vi.fn(),
+      onUpdateBar: vi.fn(),
+      onUpdateTempo: vi.fn(),
+      onMoveBar: vi.fn(),
+      onDeleteSnapshot: vi.fn(),
+      onMoveSnapshot: vi.fn(),
+      onUpdateSnapshot: vi.fn(),
+      onResetSnapshotDescription: vi.fn(),
+    };
+    const { rerender } = render(<Sequencer {...baseProps} />);
+
+    fireEvent.click(screen.getByLabelText("next sequence step"));
+    const secondSnapshotRow = screen
+      .getByLabelText("snapshot 2 description")
+      .closest(".sequencer-item");
+    expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true);
+
+    rerender(
+      <Sequencer
+        {...baseProps}
+        selectedSnapshotId={20}
+        playingSnapshotId={20}
+        playhead={{ barIndex: 0, stepIndex: 1, markerIndex: null, stopped: false }}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true),
+    );
+  });
+
   it("keeps timed transport running when legato changes", () => {
     vi.useFakeTimers();
 
@@ -2384,6 +2458,7 @@ describe("Sequencer", () => {
       ],
     };
 
+    let steppedCueIndex = 0;
     function Harness() {
       const [pendingTransportSelection, setPendingTransportSelection] = useState({
         snapshotIndex: null,
@@ -2421,14 +2496,16 @@ describe("Sequencer", () => {
             );
           }}
           onStepSequenceMarker={() => {
+            steppedCueIndex += 1;
             setPendingTransportSelection({ snapshotIndex: null, cueIndex: null });
             setPlayingSnapshotId(11);
-            setPlayhead((current) => ({
+            setPlayhead(() => ({
               barIndex: 0,
               stepIndex: 1,
-              markerIndex: current.stopped ? 1 : current.markerIndex + 1,
+              markerIndex: steppedCueIndex,
               stopped: false,
             }));
+            return steppedCueIndex;
           }}
         />
       );
