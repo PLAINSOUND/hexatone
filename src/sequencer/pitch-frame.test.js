@@ -121,7 +121,7 @@ describe("sequence pitch frames", () => {
     expect(normalizeSequenceHejiName("*so125C4")).toBe("C4");
     expect(normalizeSequenceHejiName("*s*o7C4")).toBe("C4");
     expect(normalizeSequenceHejiName("*f*u11A4")).toBe("A4");
-    expect(normalizeSequenceHejiName("*n*o49D4")).toBe("D4");
+    expect(normalizeSequenceHejiName("*n*o49D4")).toBe("D4");
     expect(normalizeSequenceHejiName("*stC4*-12")).toBe("C4−12");
     expect(normalizeSequenceHejiName("2", { fallbackName: "C4" })).toBe("C2");
     expect(normalizeSequenceHejiName("6", { fallbackName: "F4−19" })).toBe("F6−19");

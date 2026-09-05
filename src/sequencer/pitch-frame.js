@@ -3,7 +3,11 @@
 // frame on each snapshot so that moves and copies remain self-contained.
 
 import { spelledHejiLabel } from "../notation/key-label.js";
-import { parseHejiToStructure, pitchStructureToBaseId } from "../notation/pitch-structure.js";
+import {
+  parseHejiToStructure,
+  pitchStructureToBaseId,
+  pitchStructureToHeji,
+} from "../notation/pitch-structure.js";
 import { createReferenceFrame } from "../notation/reference-frame.js";
 import {
   canonicalHejiAnchorLabelInput,
@@ -184,10 +188,14 @@ export function splitOctaveHejiName(value, { fallbackOctave = null, fallbackName
   const spelling = normalizeHejiPitchClassInput(pitchClassSource);
   const deviationCents = deviationText ? Number(deviationText.replace("−", "-")) : 0;
   if (!spelling || !Number.isInteger(octave) || !Number.isFinite(deviationCents)) return null;
-  const tempered = /[\uE2F1-\uE2F3]/u.test(spelling);
+  const structure = parseHejiToStructure(spelling);
+  const normalizedSpelling = structure
+    ? pitchStructureToHeji({ ...structure, cautionaryNatural: false })
+    : spelling;
+  const tempered = /[\uE2F1-\uE2F3]/u.test(normalizedSpelling);
   if (!tempered && Math.abs(deviationCents) > 1e-9) return null;
   return {
-    spelling,
+    spelling: normalizedSpelling,
     octave,
     deviationCents,
     hasDeviation: tempered || Boolean(deviationMatch),

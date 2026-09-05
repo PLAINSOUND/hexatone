@@ -3641,15 +3641,16 @@ const App = () => {
 
   const onResetSnapshotDescription = useCallback(
     (id) => {
-      setSnapshots((prev) =>
-        resetSnapshotDescriptionInWorkspace({
-          snapshots: prev,
-          snapshotId: id,
-          snapshotLabelMode,
-        }),
-      );
+      const nextSnapshots = resetSnapshotDescriptionInWorkspace({
+        snapshots: snapshotsRef.current,
+        snapshotId: id,
+        snapshotLabelMode,
+      });
+      snapshotsRef.current = nextSnapshots;
+      persistSequenceWorkspace({ snapshots: nextSnapshots });
+      setSnapshots(nextSnapshots);
     },
-    [snapshotLabelMode],
+    [persistSequenceWorkspace, snapshotLabelMode],
   );
 
   useEffect(() => {

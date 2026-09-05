@@ -211,6 +211,18 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
         )
           ? note.originalScalaInterval
           : note.scalaInterval;
+        const originalRatioText = Object.prototype.hasOwnProperty.call(note, "originalRatioText")
+          ? note.originalRatioText
+          : note.ratioText;
+        const originalMonzo = Object.prototype.hasOwnProperty.call(note, "originalMonzo")
+          ? note.originalMonzo
+          : note.monzo;
+        const originalRationalContext = Object.prototype.hasOwnProperty.call(
+          note,
+          "originalRationalContext",
+        )
+          ? note.originalRationalContext
+          : note.rationalContext;
         const namedPitch = resolveSequenceHejiName(nextLabel, snapshot.pitchFrame, options);
         const nextIdentity = namedPitch?.ratioText
           ? {
@@ -231,6 +243,9 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
           originalHejiName,
           originalMidicents,
           originalScalaInterval,
+          originalRatioText,
+          originalMonzo,
+          originalRationalContext,
           displayLabel: nextLabel,
           hejiName: nextLabel,
           displayLabelEdited: true,

@@ -6,6 +6,7 @@ import {
   restoreEventPitchLabelInSnapshot,
   updateEventFieldInSnapshot,
 } from "./sequence-mutations.js";
+import { buildSnapshotDescription } from "./labels.js";
 
 describe("sequencer sequence mutations", () => {
   const snapshot = {
@@ -373,6 +374,58 @@ describe("sequencer sequence mutations", () => {
       ratioText: "81/64",
     });
     expect(committed[0].midicents).toBeCloseTo(64.058851593, 8);
+  });
+
+  it("restores the rational identity used by automatic snapshot labels after a HEJI edit", () => {
+    const framedSnapshot = {
+      ...snapshot,
+      pitchFrame: {
+        id: "frame-1",
+        referenceLabel: "A4",
+        referenceFrequency: 440,
+        referenceInterval: "1/1",
+        hejiAnchorLabel: "*nA",
+        hejiAnchorInterval: "1/1",
+      },
+      notes: [
+        {
+          ...snapshot.notes[0],
+          hejiName: "A4",
+          ratioText: "1/1",
+          monzo: new Array(17).fill(0),
+          rationalContext: { ratioText: "1/1" },
+        },
+        {
+          ...snapshot.notes[1],
+          midicents: 76.0195500087,
+          displayLabel: "E5",
+          hejiName: "E5",
+          ratioText: "3/2",
+        },
+      ],
+    };
+    const originalDescription = buildSnapshotDescription(framedSnapshot.notes, "proportion");
+    const edited = updateEventFieldInSnapshot(
+      framedSnapshot,
+      "a",
+      "displayLabel",
+      "*nC5",
+    );
+    const editedDescription = buildSnapshotDescription(edited, "proportion");
+    const restored = restoreEventPitchLabelInSnapshot(
+      { ...framedSnapshot, notes: edited },
+      "a",
+    );
+
+    expect(editedDescription).not.toBe(originalDescription);
+    expect(buildSnapshotDescription(restored, "proportion")).toBe(originalDescription);
+    expect(restored[0]).toMatchObject({
+      displayLabel: "A",
+      hejiName: "A4",
+      ratioText: "1/1",
+      rationalContext: { ratioText: "1/1" },
+    });
+    expect(restored[0].monzo).toEqual(new Array(17).fill(0));
   });
 
   it("drops exact identity for a tempered HEJI name with cents deviation", () => {
