@@ -104,28 +104,23 @@ function shouldPersistQueryValue(value) {
 }
 
 export function useQuery(spec, defaults, skipKeys = [], localStorageSkipKeys = skipKeys) {
-  // Clear any previously persisted values for locally skipped keys
-  localStorageSkipKeys.forEach((k) => localStorage.removeItem(k));
-
-  const initial = { ...defaults };
-  if (document.location.search.length > 0) {
+  const [values, setValues] = useState(() => {
+    localStorageSkipKeys.forEach((key) => localStorage.removeItem(key));
+    const initial = { ...defaults };
     const query = new URLSearchParams(document.location.search.substring(1));
-    for (let [key, extract] of Object.entries(spec)) {
-      if (skipKeys.includes(key)) continue;
-      if (query.has(key)) {
-        initial[key] = extract.extract(query, key);
-      }
-    }
-  } else {
-    for (let [key, extract] of Object.entries(spec)) {
-      if (localStorageSkipKeys.includes(key)) continue;
-      if (localStorage.getItem(key) !== null) {
+    const fromUrl = document.location.search.length > 0;
+    for (const [key, extract] of Object.entries(spec)) {
+      if (fromUrl) {
+        if (!skipKeys.includes(key) && query.has(key)) initial[key] = extract.extract(query, key);
+      } else if (!localStorageSkipKeys.includes(key) && localStorage.getItem(key) !== null) {
         initial[key] = extract.restore(key);
       }
     }
-  }
-
-  const [values, setValues] = useState(initial);
+    return initial;
+  });
+  // Keep serialized values, not just object identities: callers may construct
+  // equal arrays during a settings update. The first commit still persists defaults.
+  const persistedValuesRef = useRef(new Map());
   const valuesRef = useRef(values);
   valuesRef.current = values;
 
@@ -137,6 +132,8 @@ export function useQuery(spec, defaults, skipKeys = [], localStorageSkipKeys = s
         output[key] = extract.extract(query, key);
       }
     }
+    valuesRef.current = output;
+    persistedValuesRef.current.clear();
     setValues(output);
   }
 
@@ -153,14 +150,18 @@ export function useQuery(spec, defaults, skipKeys = [], localStorageSkipKeys = s
       if (key in next && shouldPersistQueryValue(next[key])) {
         extract.insert(query, key, next[key]);
         if (!localStorageSkipKeys.includes(key)) {
-          extract.store(key, next[key]);
+          const encoded = extract instanceof Extract ? extract.to(next[key]) : null;
+          if (!persistedValuesRef.current.has(key) || persistedValuesRef.current.get(key) !== encoded) {
+            extract.store(key, next[key]);
+            persistedValuesRef.current.set(key, encoded);
+          }
         }
       }
     }
     if (updateUrl) {
       const url = new URL(location.toString());
       url.search = query.toString();
-      history.replaceState({}, "Hexatone WebApp", url);
+      if (url.href !== location.href) history.replaceState({}, "Hexatone WebApp", url);
     }
 
     setValues(next);

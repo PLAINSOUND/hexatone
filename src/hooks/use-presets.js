@@ -7,7 +7,7 @@
  * dirty-state tracking, and preset switching. App uses it as the owner of
  * "which tuning is active" and "what should happen when that source changes".
  */
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useMemo } from "preact/hooks";
 import {
   defaultTuningRecord,
   findPresetTuningByName,
@@ -812,12 +812,17 @@ const usePresets = (
     setSavedPresetSnapshot(null);
   };
 
+  const isPresetDirty = useMemo(
+    () => isDirty(savedPresetSnapshot, settings, currentModulationLibrary),
+    [savedPresetSnapshot, settings, currentModulationLibrary],
+  );
+
   return {
     activeSource,
     activePresetName,
     restoredOnMount,
     pendingRestoredPreset,
-    isPresetDirty: isDirty(savedPresetSnapshot, settings, currentModulationLibrary),
+    isPresetDirty,
     persistOnReload,
     setPersistOnReload,
     activatePendingPreset,

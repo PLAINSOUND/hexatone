@@ -110,6 +110,15 @@ export function isSequenceAnchorTargetReady(contentNode, anchor) {
   return true;
 }
 
+export function buildSequenceSizeIndex(items, measuredSizes = new Map()) {
+  const sizes = items.map(
+    (item) => measuredSizes.get(item.key) ?? Math.max(1, Number(item.estimatedSize) || 1),
+  );
+  const offsets = [0];
+  sizes.forEach((size) => offsets.push(offsets[offsets.length - 1] + size));
+  return { sizes, offsets, totalSize: offsets[offsets.length - 1] ?? 0 };
+}
+
 export function buildVirtualSequenceLayout({
   items = [],
   measuredSizes = new Map(),
@@ -119,13 +128,9 @@ export function buildVirtualSequenceLayout({
   pinnedIndexes = [],
   anchorIndex = null,
   enabled = true,
+  sizeIndex = null,
 } = {}) {
-  const sizes = items.map(
-    (item) => measuredSizes.get(item.key) ?? Math.max(1, Number(item.estimatedSize) || 1),
-  );
-  const offsets = [0];
-  sizes.forEach((size) => offsets.push(offsets[offsets.length - 1] + size));
-  const totalSize = offsets[offsets.length - 1] ?? 0;
+  const { sizes, offsets, totalSize } = sizeIndex ?? buildSequenceSizeIndex(items, measuredSizes);
 
   if (!enabled || items.length === 0) {
     return {
@@ -151,8 +156,15 @@ export function buildVirtualSequenceLayout({
     effectiveScrollTop + Math.max(1, Number(viewportHeight) || 1) + overscan,
   );
   const indexes = new Set();
-  for (let index = 0; index < items.length; index += 1) {
-    if (offsets[index + 1] >= start && offsets[index] <= end) indexes.add(index);
+  let low = 0;
+  let high = items.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (offsets[middle + 1] < start) low = middle + 1;
+    else high = middle;
+  }
+  for (let index = low; index < items.length && offsets[index] <= end; index += 1) {
+    indexes.add(index);
   }
   pinnedIndexes.forEach((index) => {
     const numeric = Number(index);
@@ -404,11 +416,14 @@ export function useSequenceVirtualization({
   }, [scrollPanelRef]);
 
   const revisionChanged = !Object.is(appliedRevisionRef.current, revision);
+  const sizeIndex = useMemo(
+    () => buildSequenceSizeIndex(items, revisionChanged ? new Map() : measuredSizes),
+    [items, measuredSizes, revisionChanged],
+  );
   const layout = useMemo(() => {
-    const activeMeasurements = revisionChanged ? new Map() : measuredSizes;
     return buildVirtualSequenceLayout({
       items,
-      measuredSizes: activeMeasurements,
+      sizeIndex,
       scrollTop: viewport.scrollTop,
       viewportHeight: viewport.height,
       overscan,
@@ -423,7 +438,7 @@ export function useSequenceVirtualization({
   }, [
     enabled,
     items,
-    measuredSizes,
+    sizeIndex,
     overscan,
     pinnedIndexes,
     revisionChanged,

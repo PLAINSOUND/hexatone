@@ -80,7 +80,7 @@ import {
 import {
   SEQUENCE_WORKSPACE_STORAGE_KEY,
   loadSequenceWorkspaceFromSession,
-  saveSequenceWorkspaceToSession,
+  createSequenceWorkspaceSessionWriter,
 } from "./sequencer/session-persistence.js";
 import { CALCULATOR_WORKSPACE_STORAGE_KEY } from "./calculator/session-persistence.js";
 import {
@@ -1414,9 +1414,13 @@ const App = () => {
     sequenceBarIdRef.current = workspace.ids.barId;
   }, []);
 
+  const sequenceSessionWriterRef = useRef(null);
+  if (!sequenceSessionWriterRef.current) {
+    sequenceSessionWriterRef.current = createSequenceWorkspaceSessionWriter();
+  }
   const persistSequenceWorkspace = useCallback(
     (overrides = {}) => {
-      saveSequenceWorkspaceToSession({
+      sequenceSessionWriterRef.current({
         snapshots,
         bars: sequenceBars,
         tempi: sequenceTempi,
@@ -1476,14 +1480,7 @@ const App = () => {
   }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshots]);
   const previousSequenceDisplaySnapshotsRef = useRef(null);
   const sequenceDisplaySnapshots = useMemo(() => {
-    const keys = keysRef.current;
-    const displayedSnapshots =
-      !snapSequenceToCurrentTuning || !currentSequenceSnapRuntime
-        ? snapshots
-        : remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
-            noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
-            hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
-          });
+    const displayedSnapshots = sequencePlaybackSnapshots;
     const nextDisplaySnapshots = displayedSnapshots.map((snapshot) => ({
       ...snapshot,
       description: buildSnapshotDisplayDescription(snapshot, snapshotLabelMode),
@@ -1494,7 +1491,7 @@ const App = () => {
     );
     previousSequenceDisplaySnapshotsRef.current = stableDisplaySnapshots;
     return stableDisplaySnapshots;
-  }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshotLabelMode, snapshots]);
+  }, [sequencePlaybackSnapshots, snapshotLabelMode]);
   const sequencePlaybackRuntimeToken = useMemo(
     () =>
       buildDependencyToken([

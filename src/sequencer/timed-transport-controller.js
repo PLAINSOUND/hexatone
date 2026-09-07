@@ -30,6 +30,7 @@ import {
   startTimedTransport,
   stopTimedTransport,
   updateTimedTransportSpeed,
+  nextTimedTransportDelayMs,
 } from "./timed-transport-runtime.js";
 import { clampSequencePlaybackSpeed } from "./playback-modifiers-runtime.js";
 
@@ -346,11 +347,9 @@ export default function useTimedTransportController({
 
     const schedulerToken = timedTransportSchedulerTokenRef.current;
     const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
-    const currentElapsed = currentTimedTransportElapsedSeconds(
-      timedTransportStateRef.current,
-      nowSeconds,
+    const targetDelayMs = nextTimedTransportDelayMs(
+      timedTransportStateRef.current, burst.elapsedSeconds, nowSeconds,
     );
-    const targetDelayMs = Math.max(0, (Number(burst.elapsedSeconds) - currentElapsed) * 1000);
     const delayMs = Math.min(targetDelayMs, TIMED_TRANSPORT_WAKE_SLICE_MS);
 
     const isFirstScheduleForBurst =

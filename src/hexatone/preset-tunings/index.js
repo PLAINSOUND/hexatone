@@ -8,7 +8,7 @@
  * ordering metadata, and normalizes each record into the shared tuning-record
  * format.
  */
-import { normalizeTuningGroup, normalizeTuningRecord } from "../tuning-record.js";
+import { normalizeTuningRecord } from "../tuning-record.js";
 import presetRegistry from "./preset-registry.json";
 
 function categorySlugFromPath(pathname) {
@@ -106,9 +106,13 @@ export const filePresetTuningGroups = buildFilePresetTuningGroups({
   jsonModules: filePresetJsonModules,
 });
 
+// Records have already been normalized by buildFilePresetTuningGroups.
 export const presetTuningGroups = filePresetTuningGroups
-  .map((group) => normalizeTuningGroup(group))
-  .filter(Boolean);
+  .filter((group) => group.settings.length > 0)
+  .map((group) => ({
+    ...group,
+    settings: group.settings.map((preset) => ({ ...preset, built_in_group: group.name })),
+  }));
 
 export function findPresetTuningByName(name) {
   const target = String(name ?? "").trim();

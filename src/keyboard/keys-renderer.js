@@ -18,9 +18,23 @@ import {
 } from "./color_utils";
 import { displayLabelForDegree } from "./keys-display-runtime.js";
 
+let labelScaleCaches = new WeakMap();
+if (typeof document !== "undefined") {
+  document.fonts?.addEventListener?.("loadingdone", () => { labelScaleCaches = new WeakMap(); });
+}
+
 export function fitHexLabelScale(context, name, hexSize) {
   const baseScale = (Number(hexSize) || 46) / 46;
   if (!name) return baseScale;
+  const canCache = context && typeof context.measureText === "function" &&
+    (typeof document === "undefined" || document.fonts?.status !== "loading");
+  let cache = canCache ? labelScaleCaches.get(context) : null;
+  if (canCache && (!cache || cache.measureText !== context.measureText)) {
+    cache = { measureText: context.measureText, values: new Map() };
+    labelScaleCaches.set(context, cache);
+  }
+  const cacheKey = JSON.stringify([context?.font, context?.letterSpacing, name, hexSize]);
+  if (cache?.values.has(cacheKey)) return cache.values.get(cacheKey);
   const metrics = context?.measureText?.(name);
   const measuredWidth = Math.max(
     metrics?.width ?? 0,
@@ -34,7 +48,12 @@ export function fitHexLabelScale(context, name, hexSize) {
   const maxHeight = Math.max(12, (Number(hexSize) || 46) * 1.18);
   const widthScale = measuredWidth > 0 ? maxWidth / measuredWidth : baseScale;
   const heightScale = measuredHeight > 0 ? maxHeight / measuredHeight : baseScale;
-  return Math.min(baseScale, widthScale, heightScale);
+  const result = Math.min(baseScale, widthScale, heightScale);
+  if (cache) {
+    if (cache.values.size >= 512) cache.values.delete(cache.values.keys().next().value);
+    cache.values.set(cacheKey, result);
+  }
+  return result;
 }
 
 export function scheduleGridRedraw() {
@@ -149,7 +168,15 @@ export function rebuildVisibleGridGeometry() {
     for (let dr = -max + oy; dr < max + oy; dr++) {
       const coord = new Point(r, dr);
       const hexGeometry = this._buildHexGeometry(coord);
-      coords.push(coord);
+      // Keep cached geometry available for input/controller lookups, but don't
+      // paint hexes whose shadow bounds cannot intersect the visible canvas.
+      const points = hexGeometry.x2.map((x, i) => this._transformCanvasPoint(x, hexGeometry.y2[i]));
+      const intersectsViewport = points.some((point) => Number.isFinite(point.x)) &&
+        Math.max(...points.map((point) => point.x)) >= -2 &&
+        Math.min(...points.map((point) => point.x)) <= canvasWidth + 2 &&
+        Math.max(...points.map((point) => point.y)) >= -2 &&
+        Math.min(...points.map((point) => point.y)) <= canvasHeight + 2;
+      if (intersectsViewport) coords.push(coord);
       geometry.set(this._coordKey(coord), hexGeometry);
       if (isFullyVisible(hexGeometry)) fullyVisibleCoords.push(coord);
     }

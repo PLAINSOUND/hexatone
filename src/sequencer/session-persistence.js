@@ -16,7 +16,8 @@ function clone(value) {
   return cloneJsonValue(value);
 }
 
-export function serializeSequenceWorkspace(workspace = {}) {
+export function serializeSequenceWorkspace(workspace = {}, { copy = true } = {}) {
+  const clone = copy ? cloneJsonValue : (value) => value;
   return {
     version: 2,
     snapshots: clone(
@@ -64,8 +65,21 @@ export function normalizeSequenceWorkspaceRecord(record) {
 export function saveSequenceWorkspaceToSession(workspace) {
   sessionStorage.setItem(
     SEQUENCE_WORKSPACE_STORAGE_KEY,
-    JSON.stringify(serializeSequenceWorkspace(workspace)),
+    JSON.stringify(serializeSequenceWorkspace(workspace, { copy: false })),
   );
+}
+
+// App edits replace changed arrays/objects. Reuse that revision identity to
+// avoid serializing the same edit once in its handler and again in its effect.
+export function createSequenceWorkspaceSessionWriter() {
+  let previous = null;
+  return (workspace) => {
+    const fields = Object.keys(workspace);
+    if (previous && fields.length === Object.keys(previous).length &&
+        fields.every((key) => Object.is(previous[key], workspace[key]))) return;
+    saveSequenceWorkspaceToSession(workspace);
+    previous = { ...workspace };
+  };
 }
 
 export function loadSequenceWorkspaceFromSession() {
