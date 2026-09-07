@@ -26,17 +26,20 @@ import { normalizeSequenceLegatoMode } from "./legato.js";
 
 let nextRuntimeInstanceId = 1;
 
-export function buildSequenceRuntimeModel({
-  snapshots = [],
-  displaySnapshots = null,
-  playbackSnapshots = null,
-  bars = [],
-  tempi = [],
-  repeats = [],
-  playbackRepeats = null,
-  sequenceLegato = "per-note",
-  source = "runtime",
-} = {}, { playbackModel = null } = {}) {
+export function buildSequenceRuntimeModel(
+  {
+    snapshots = [],
+    displaySnapshots = null,
+    playbackSnapshots = null,
+    bars = [],
+    tempi = [],
+    repeats = [],
+    playbackRepeats = null,
+    sequenceLegato = "per-note",
+    source = "runtime",
+  } = {},
+  { playbackModel = null } = {},
+) {
   const buildStartMs = performance.now();
   const runtimeInstanceId = nextRuntimeInstanceId;
   nextRuntimeInstanceId += 1;
@@ -55,16 +58,16 @@ export function buildSequenceRuntimeModel({
   const effectivePlaybackRepeats = Array.isArray(playbackRepeats) ? playbackRepeats : repeats;
   const sequenceLegatoMode = normalizeSequenceLegatoMode(sequenceLegato);
 
-  const sortedBars = playbackModel?.sortedBars ?? measureSequenceRuntimeStep(
-    "normalize-bars",
-    () => normalizeBarMarkers(bars),
-    entryMeta,
-  );
-  const sortedTempi = playbackModel?.sortedTempi ?? measureSequenceRuntimeStep(
-    "normalize-tempi",
-    () => (Array.isArray(tempi) ? normalizeTempoMarkers(tempi) : []),
-    entryMeta,
-  );
+  const sortedBars =
+    playbackModel?.sortedBars ??
+    measureSequenceRuntimeStep("normalize-bars", () => normalizeBarMarkers(bars), entryMeta);
+  const sortedTempi =
+    playbackModel?.sortedTempi ??
+    measureSequenceRuntimeStep(
+      "normalize-tempi",
+      () => (Array.isArray(tempi) ? normalizeTempoMarkers(tempi) : []),
+      entryMeta,
+    );
   const sequenceEvents = measureSequenceRuntimeStep(
     "derive-sequence-events",
     () =>
@@ -73,23 +76,25 @@ export function buildSequenceRuntimeModel({
       }),
     entryMeta,
   );
-  const playbackSequenceEvents = playbackModel?.playbackSequenceEvents ?? measureSequenceRuntimeStep(
-    "derive-playback-sequence-events",
-    () =>
-      playbackRenderedSnapshots === renderedSnapshots && effectivePlaybackRepeats === repeats
-        ? sequenceEvents
-        : deriveSequenceEvents(
-            playbackRenderedSnapshots,
-            sortedBars,
-            sortedTempi,
-            effectivePlaybackRepeats,
-            { legatoMode: sequenceLegatoMode },
-          ),
-    {
-      ...entryMeta,
-      eventCount: sequenceEvents.length,
-    },
-  );
+  const playbackSequenceEvents =
+    playbackModel?.playbackSequenceEvents ??
+    measureSequenceRuntimeStep(
+      "derive-playback-sequence-events",
+      () =>
+        playbackRenderedSnapshots === renderedSnapshots && effectivePlaybackRepeats === repeats
+          ? sequenceEvents
+          : deriveSequenceEvents(
+              playbackRenderedSnapshots,
+              sortedBars,
+              sortedTempi,
+              effectivePlaybackRepeats,
+              { legatoMode: sequenceLegatoMode },
+            ),
+      {
+        ...entryMeta,
+        eventCount: sequenceEvents.length,
+      },
+    );
   const sequenceCueGroups = measureSequenceRuntimeStep(
     "derive-sequence-cues",
     () => deriveSequenceCueGroupsFromEvents(sequenceEvents),
@@ -98,27 +103,31 @@ export function buildSequenceRuntimeModel({
       eventCount: sequenceEvents.length,
     },
   );
-  const playbackSequenceCueGroups = playbackModel?.playbackSequenceCueGroups ?? measureSequenceRuntimeStep(
-    "derive-playback-sequence-cues",
-    () =>
-      playbackSequenceEvents === sequenceEvents
-        ? sequenceCueGroups
-        : deriveSequenceCueGroupsFromEvents(playbackSequenceEvents),
-    {
-      ...entryMeta,
-      eventCount: playbackSequenceEvents.length,
-      cueCount: sequenceCueGroups.length,
-    },
-  );
-  const playbackNotesByCueIndex = playbackModel?.playbackNotesByCueIndex ?? measureSequenceRuntimeStep(
-    "derive-playback-notes-by-cue",
-    () => deriveSequenceNotesByCueGroups(playbackSequenceCueGroups),
-    {
-      ...entryMeta,
-      eventCount: playbackSequenceEvents.length,
-      cueCount: playbackSequenceCueGroups.length,
-    },
-  );
+  const playbackSequenceCueGroups =
+    playbackModel?.playbackSequenceCueGroups ??
+    measureSequenceRuntimeStep(
+      "derive-playback-sequence-cues",
+      () =>
+        playbackSequenceEvents === sequenceEvents
+          ? sequenceCueGroups
+          : deriveSequenceCueGroupsFromEvents(playbackSequenceEvents),
+      {
+        ...entryMeta,
+        eventCount: playbackSequenceEvents.length,
+        cueCount: sequenceCueGroups.length,
+      },
+    );
+  const playbackNotesByCueIndex =
+    playbackModel?.playbackNotesByCueIndex ??
+    measureSequenceRuntimeStep(
+      "derive-playback-notes-by-cue",
+      () => deriveSequenceNotesByCueGroups(playbackSequenceCueGroups),
+      {
+        ...entryMeta,
+        eventCount: playbackSequenceEvents.length,
+        cueCount: playbackSequenceCueGroups.length,
+      },
+    );
   const terminalBarlinePosition = measureSequenceRuntimeStep(
     "derive-terminal-barline",
     () => deriveTerminalBarlinePosition(renderedSnapshots, sortedBars),
@@ -143,50 +152,56 @@ export function buildSequenceRuntimeModel({
       cueCount: sequenceCueGroups.length,
     },
   );
-  const playbackTimeline = playbackModel?.playbackTimeline ?? measureSequenceRuntimeStep(
-    "build-playback-timeline",
-    () =>
-      buildPlaybackTimeline({
-        snapshots: playbackRenderedSnapshots,
-        bars: sortedBars,
-        tempi: sortedTempi,
-        repeats: effectivePlaybackRepeats,
-        sequenceEvents: playbackSequenceEvents,
-        sequenceCueGroups: playbackSequenceCueGroups,
-      }),
-    {
-      ...entryMeta,
-      cueCount: playbackSequenceCueGroups.length,
-      eventCount: playbackSequenceEvents.length,
-    },
-  );
+  const playbackTimeline =
+    playbackModel?.playbackTimeline ??
+    measureSequenceRuntimeStep(
+      "build-playback-timeline",
+      () =>
+        buildPlaybackTimeline({
+          snapshots: playbackRenderedSnapshots,
+          bars: sortedBars,
+          tempi: sortedTempi,
+          repeats: effectivePlaybackRepeats,
+          sequenceEvents: playbackSequenceEvents,
+          sequenceCueGroups: playbackSequenceCueGroups,
+        }),
+      {
+        ...entryMeta,
+        cueCount: playbackSequenceCueGroups.length,
+        eventCount: playbackSequenceEvents.length,
+      },
+    );
   const timedPlaybackBursts = playbackTimeline.playbackBursts;
-  const timedCueTriggers = playbackModel?.timedCueTriggers ?? measureSequenceRuntimeStep(
-    "derive-timed-cue-triggers",
-    () => deriveTimedCueTriggers(playbackTimeline),
-    {
-      ...entryMeta,
-      cueCount: playbackSequenceCueGroups.length,
-      burstCount: timedPlaybackBursts.length,
-    },
-  );
-  const timedCueTriggerBySourceIndex = playbackModel?.timedCueTriggerBySourceIndex ?? measureSequenceRuntimeStep(
-    "index-timed-cue-triggers",
-    () => {
-      const mapping = new Map();
-      timedCueTriggers.forEach((trigger) => {
-        const sourceCueIndex = Number(trigger?.cueIndex);
-        if (!Number.isFinite(sourceCueIndex)) return;
-        mapping.set(sourceCueIndex, trigger);
-      });
-      return mapping;
-    },
-    {
-      ...entryMeta,
-      cueCount: timedCueTriggers.length,
-      burstCount: timedPlaybackBursts.length,
-    },
-  );
+  const timedCueTriggers =
+    playbackModel?.timedCueTriggers ??
+    measureSequenceRuntimeStep(
+      "derive-timed-cue-triggers",
+      () => deriveTimedCueTriggers(playbackTimeline),
+      {
+        ...entryMeta,
+        cueCount: playbackSequenceCueGroups.length,
+        burstCount: timedPlaybackBursts.length,
+      },
+    );
+  const timedCueTriggerBySourceIndex =
+    playbackModel?.timedCueTriggerBySourceIndex ??
+    measureSequenceRuntimeStep(
+      "index-timed-cue-triggers",
+      () => {
+        const mapping = new Map();
+        timedCueTriggers.forEach((trigger) => {
+          const sourceCueIndex = Number(trigger?.cueIndex);
+          if (!Number.isFinite(sourceCueIndex)) return;
+          mapping.set(sourceCueIndex, trigger);
+        });
+        return mapping;
+      },
+      {
+        ...entryMeta,
+        cueCount: timedCueTriggers.length,
+        burstCount: timedPlaybackBursts.length,
+      },
+    );
 
   const model = {
     runtimeInstanceId,
@@ -232,11 +247,17 @@ export function createSequenceRuntimeModelBuilder() {
   return (options = {}) => {
     const dependencies = [
       options.playbackSnapshots ?? options.displaySnapshots ?? options.snapshots,
-      options.bars, options.tempi, options.playbackRepeats ?? options.repeats,
+      options.bars,
+      options.tempi,
+      options.playbackRepeats ?? options.repeats,
       normalizeSequenceLegatoMode(options.sequenceLegato ?? "per-note"),
     ];
-    const canReuse = previousDependencies && dependencies.every((value, index) => Object.is(value, previousDependencies[index]));
-    const model = buildSequenceRuntimeModel(options, { playbackModel: canReuse ? previousModel : null });
+    const canReuse =
+      previousDependencies &&
+      dependencies.every((value, index) => Object.is(value, previousDependencies[index]));
+    const model = buildSequenceRuntimeModel(options, {
+      playbackModel: canReuse ? previousModel : null,
+    });
     previousDependencies = dependencies;
     previousModel = model;
     return model;

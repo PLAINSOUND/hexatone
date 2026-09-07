@@ -151,7 +151,10 @@ export function useQuery(spec, defaults, skipKeys = [], localStorageSkipKeys = s
         extract.insert(query, key, next[key]);
         if (!localStorageSkipKeys.includes(key)) {
           const encoded = extract instanceof Extract ? extract.to(next[key]) : null;
-          if (!persistedValuesRef.current.has(key) || persistedValuesRef.current.get(key) !== encoded) {
+          if (
+            !persistedValuesRef.current.has(key) ||
+            persistedValuesRef.current.get(key) !== encoded
+          ) {
             extract.store(key, next[key]);
             persistedValuesRef.current.set(key, encoded);
           }

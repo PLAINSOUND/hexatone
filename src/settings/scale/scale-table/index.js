@@ -641,11 +641,19 @@ const ScaleTable = (props) => {
   const [rationalisationProgress, setRationalisationProgress] = useState(0);
   const [rationalisationError, setRationalisationError] = useState("");
   const rationalisationSourceRef = useRef(null);
-  rationalisationSourceRef.current = { scale: props.settings.scale, workspace, searchPrefs, frequencyAtDegree };
-  useEffect(() => () => {
-    rationalisationJobRef.current?.cancel();
-    rationalisationJobRef.current = null;
-  }, []);
+  rationalisationSourceRef.current = {
+    scale: props.settings.scale,
+    workspace,
+    searchPrefs,
+    frequencyAtDegree,
+  };
+  useEffect(
+    () => () => {
+      rationalisationJobRef.current?.cancel();
+      rationalisationJobRef.current = null;
+    },
+    [],
+  );
   useEffect(() => {
     rationalisationJobRef.current?.cancel();
     rationalisationJobRef.current = null;
@@ -659,41 +667,59 @@ const ScaleTable = (props) => {
     setRationalisationError("");
     const source = rationalisationSourceRef.current;
     const currentScale = props.settings.scale || [];
-    const job = startRationalisationJob({
-      settings: { scale: currentScale, fundamental: props.settings.fundamental, reference_degree: props.settings.reference_degree },
-      searchPrefs,
-      frequencies: Array.from({ length: currentScale.length + 1 }, (_, degree) => frequencyAtDegree(degree)),
-      committedCents: Array.from({ length: currentScale.length + 1 }, (_, degree) => getCommittedCentsAtDegree(degree)),
-    }, setRationalisationProgress);
+    const job = startRationalisationJob(
+      {
+        settings: {
+          scale: currentScale,
+          fundamental: props.settings.fundamental,
+          reference_degree: props.settings.reference_degree,
+        },
+        searchPrefs,
+        frequencies: Array.from({ length: currentScale.length + 1 }, (_, degree) =>
+          frequencyAtDegree(degree),
+        ),
+        committedCents: Array.from({ length: currentScale.length + 1 }, (_, degree) =>
+          getCommittedCentsAtDegree(degree),
+        ),
+      },
+      setRationalisationProgress,
+    );
     rationalisationJobRef.current = job;
     try {
       const newScale = await job.promise;
       const latest = rationalisationSourceRef.current;
-      if (rationalisationJobRef.current !== job || latest.scale !== source.scale || latest.workspace !== source.workspace || latest.searchPrefs !== source.searchPrefs || latest.frequencyAtDegree !== source.frequencyAtDegree) return;
+      if (
+        rationalisationJobRef.current !== job ||
+        latest.scale !== source.scale ||
+        latest.workspace !== source.workspace ||
+        latest.searchPrefs !== source.searchPrefs ||
+        latest.frequencyAtDegree !== source.frequencyAtDegree
+      )
+        return;
       const changed = newScale.some((entry, i) => entry !== currentScale[i]);
-    if (changed) {
-      // Switch to HEJI auto-generated labels so the rationalised note names
-      // are immediately visible.  Using onAtomicChange keeps it one state update.
-      props.onAtomicChange({ scale: newScale, key_labels: "heji" });
-      // Bump all reset versions so every TuneCell discards in-flight drag state.
-      setResetVersion((prev) => {
-        const next = { ...prev };
-        for (let i = 1; i <= newScale.length; i++) {
-          next[i] = (prev[i] ?? 0) + 1;
-        }
-        return next;
-      });
-    }
-
+      if (changed) {
+        // Switch to HEJI auto-generated labels so the rationalised note names
+        // are immediately visible.  Using onAtomicChange keeps it one state update.
+        props.onAtomicChange({ scale: newScale, key_labels: "heji" });
+        // Bump all reset versions so every TuneCell discards in-flight drag state.
+        setResetVersion((prev) => {
+          const next = { ...prev };
+          for (let i = 1; i <= newScale.length; i++) {
+            next[i] = (prev[i] ?? 0) + 1;
+          }
+          return next;
+        });
+      }
     } catch (error) {
-      if (error.name !== "AbortError" && rationalisationJobRef.current === job) setRationalisationError(error.message);
+      if (error.name !== "AbortError" && rationalisationJobRef.current === job)
+        setRationalisationError(error.message);
     } finally {
       if (rationalisationJobRef.current === job) {
         rationalisationJobRef.current = null;
         setRationalisingScale(false);
       }
     }
-  }, [props, workspace, frequencyAtDegree, searchPrefs, getCommittedCentsAtDegree]);
+  }, [props, frequencyAtDegree, searchPrefs, getCommittedCentsAtDegree]);
 
   const centsFromFrequency = (frequency) =>
     getEffectiveDegreeCents(workspace, previewState, referenceDegree) +
@@ -767,9 +793,15 @@ const ScaleTable = (props) => {
             disabled={rationalisingScale}
             title="Find best rational candidate for every scale degree and commit all at once"
           >
-            {rationalisingScale ? `Rationalising… ${rationalisationProgress}%` : "Rationalise Scale"}
+            {rationalisingScale
+              ? `Rationalising… ${rationalisationProgress}%`
+              : "Rationalise Scale"}
           </button>
-          {rationalisingScale && <button type="button" onClick={() => rationalisationJobRef.current?.cancel()}>Cancel rationalisation</button>}
+          {rationalisingScale && (
+            <button type="button" onClick={() => rationalisationJobRef.current?.cancel()}>
+              Cancel rationalisation
+            </button>
+          )}
           {rationalisationError && <span role="alert">{rationalisationError}</span>}
         </div>
       </div>
@@ -1384,60 +1416,60 @@ const ScaleTable = (props) => {
                   : undefined
               }
             >
-            <td class="scale-data-col">
-              <div class="scale-degree-cell">
-                <span
-                  class={degreeGutterClass(scale.length)}
-                  aria-label="scale degree gutter equave"
-                >
-                  {liveDegreeLed(scale.length)}
-                  <span class="degree-gutter__number">{scale.length}</span>
-                </span>
-                <div class="freq-cell">
-                  <ScalaInput
-                    context="interval"
-                    commitNegative
-                    name={`scale${scale.length - 1}`}
-                    value={equiv_interval}
-                    onChange={(str) => scaleCommitAt(scale.length - 1, str, scale.length)}
-                    showCents={!String(equiv_interval).includes(".")}
-                    aria-label={`pitch ${scale.length - 1}`}
-                  />
-                  <div class="tune-cell-spacer" aria-hidden="true" />
+              <td class="scale-data-col">
+                <div class="scale-degree-cell">
+                  <span
+                    class={degreeGutterClass(scale.length)}
+                    aria-label="scale degree gutter equave"
+                  >
+                    {liveDegreeLed(scale.length)}
+                    <span class="degree-gutter__number">{scale.length}</span>
+                  </span>
+                  <div class="freq-cell">
+                    <ScalaInput
+                      context="interval"
+                      commitNegative
+                      name={`scale${scale.length - 1}`}
+                      value={equiv_interval}
+                      onChange={(str) => scaleCommitAt(scale.length - 1, str, scale.length)}
+                      showCents={!String(equiv_interval).includes(".")}
+                      aria-label={`pitch ${scale.length - 1}`}
+                    />
+                    <div class="tune-cell-spacer" aria-hidden="true" />
+                  </div>
                 </div>
-              </div>
-            </td>
-            <td class="scale-frequency-col">
-              <FrequencyInput
-                ariaLabel="equave frequency"
-                value={frequencyAtDegree(scale.length)}
-                onCommit={(frequency) => commitFrequencyAtDegree(scale.length, frequency)}
-                deviationCents={deviationCentsAtDegree(scale.length)}
-                comparing={isComparingAtDegree(scale.length)}
-                liveModulated={modulationDisplayActive}
-              />
-            </td>
-            <td class="scale-name-col">
-              {isHeji ? (
-                <span
-                  class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}
-                >
-                  {heji_names[0] ?? ""}
-                </span>
-              ) : (
-                <input
-                  id="centered"
-                  type="text"
-                  disabled
-                  class="equiv-cell"
-                  value={note_names[0] || ""}
-                  aria-label="pitch name equave"
+              </td>
+              <td class="scale-frequency-col">
+                <FrequencyInput
+                  ariaLabel="equave frequency"
+                  value={frequencyAtDegree(scale.length)}
+                  onCommit={(frequency) => commitFrequencyAtDegree(scale.length, frequency)}
+                  deviationCents={deviationCentsAtDegree(scale.length)}
+                  comparing={isComparingAtDegree(scale.length)}
+                  liveModulated={modulationDisplayActive}
                 />
-              )}
-            </td>
-            <td class="scale-color-col">
-              <span class="scale-table__equave-label">Equave</span>
-            </td>
+              </td>
+              <td class="scale-name-col">
+                {isHeji ? (
+                  <span
+                    class={`heji-name-cell${modulationDisplayActive ? " heji-name-cell--modulated" : ""}`}
+                  >
+                    {heji_names[0] ?? ""}
+                  </span>
+                ) : (
+                  <input
+                    id="centered"
+                    type="text"
+                    disabled
+                    class="equiv-cell"
+                    value={note_names[0] || ""}
+                    aria-label="pitch name equave"
+                  />
+                )}
+              </td>
+              <td class="scale-color-col">
+                <span class="scale-table__equave-label">Equave</span>
+              </td>
             </tr>
           ) : null}
         </tbody>

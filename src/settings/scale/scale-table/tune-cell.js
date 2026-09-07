@@ -439,23 +439,46 @@ const TuneCell = ({
 class MemoTuneCell extends Component {
   shouldComponentUpdate(nextProps) {
     const keys = Object.keys(nextProps);
-    return keys.length !== Object.keys(this.props).length || keys.some(key => !Object.is(nextProps[key], this.props[key]));
+    return (
+      keys.length !== Object.keys(this.props).length ||
+      keys.some((key) => !Object.is(nextProps[key], this.props[key]))
+    );
   }
-  render() { return <TuneCell {...this.props} />; }
+  render() {
+    return <TuneCell {...this.props} />;
+  }
 }
-const EVENT_PROPS = ["onChange", "onDegree0Save", "onFundamentalChange", "onPreviewChange", "frequencyAtDegree"];
+const EVENT_PROPS = [
+  "onChange",
+  "onDegree0Save",
+  "onFundamentalChange",
+  "onPreviewChange",
+  "frequencyAtDegree",
+];
 
 // The table also renders live activity and text drafts. Keep those updates out
 // of the tuning editors, while every event reads the latest parent callbacks.
 export default function StableTuneCell(props) {
   const latest = useRef(props);
   latest.current = props;
-  const handlers = useMemo(() => Object.fromEntries(EVENT_PROPS.map(name => [name, (...args) => latest.current[name]?.(...args)])), []);
+  const handlers = useMemo(
+    () =>
+      Object.fromEntries(
+        EVENT_PROPS.map((name) => [name, (...args) => latest.current[name]?.(...args)]),
+      ),
+    [],
+  );
   const { fundamental, heji_anchor_label, heji_anchor_ratio } = props.settings ?? {};
-  const settings = useMemo(() => ({ fundamental, heji_anchor_label, heji_anchor_ratio }), [fundamental, heji_anchor_label, heji_anchor_ratio]);
+  const settings = useMemo(
+    () => ({ fundamental, heji_anchor_label, heji_anchor_ratio }),
+    [fundamental, heji_anchor_label, heji_anchor_ratio],
+  );
   const degree = props.degree;
   const preview = getDegreePreview(props.previewState, degree);
-  const previewState = useMemo(() => ({ degreePreviews: { [degree]: preview } }), [degree, preview]);
+  const previewState = useMemo(
+    () => ({ degreePreviews: { [degree]: preview } }),
+    [degree, preview],
+  );
   const editorProps = { ...props, settings, previewState };
   // This legacy prop is not consumed by TuneCell.
   delete editorProps.colorSuggestionOptions;

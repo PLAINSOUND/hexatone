@@ -441,7 +441,6 @@ export function useSequenceVirtualization({
     sizeIndex,
     overscan,
     pinnedIndexes,
-    revisionChanged,
     stabilizedIndexes,
     startAnchor,
     viewport.height,

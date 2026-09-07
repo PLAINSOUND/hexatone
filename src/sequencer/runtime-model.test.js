@@ -18,11 +18,9 @@ describe("buildSequenceRuntimeModel", () => {
       source: "test",
     });
 
-    expect(runtime.playbackNotesByCueIndex.map((notes) => notes.map((note) => note.midicents))).toEqual([
-      [60],
-      [67, 60],
-      [],
-    ]);
+    expect(
+      runtime.playbackNotesByCueIndex.map((notes) => notes.map((note) => note.midicents)),
+    ).toEqual([[60], [67, 60], []]);
   });
 
   it("keeps piled tempi in the event list in creation order", () => {
@@ -87,11 +85,16 @@ it("reuses playback timing for label changes and invalidates it for tempo or pit
   const snapshots = [{ id: "s", length: 1, notes: [{ midicents: 60, start: 0, end: 1 }] }];
   const options = { snapshots, playbackSnapshots: snapshots, bars: [], tempi: [], repeats: [] };
   const first = build(options);
-  const relabeled = build({ ...options, displaySnapshots: snapshots.map(s => ({ ...s, name: "new label" })) });
+  const relabeled = build({
+    ...options,
+    displaySnapshots: snapshots.map((s) => ({ ...s, name: "new label" })),
+  });
   expect(relabeled.sequenceEvents).not.toBe(first.sequenceEvents);
   expect(relabeled.playbackTimeline).toBe(first.playbackTimeline);
   expect(relabeled.timedCueTriggers).toBe(first.timedCueTriggers);
   const tempo = build({ ...options, tempi: [{ id: "t", position: 1, bpm: 120 }] });
   expect(tempo.playbackTimeline).not.toBe(first.playbackTimeline);
-  expect(build({ ...options, playbackSnapshots: [...snapshots] }).playbackTimeline).not.toBe(tempo.playbackTimeline);
+  expect(build({ ...options, playbackSnapshots: [...snapshots] }).playbackTimeline).not.toBe(
+    tempo.playbackTimeline,
+  );
 });

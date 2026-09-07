@@ -1510,7 +1510,8 @@ const App = () => {
     [sequenceLegato, sequencePlaybackRuntimeToken],
   );
   const sequenceRuntimeBuilderRef = useRef(null);
-  if (!sequenceRuntimeBuilderRef.current) sequenceRuntimeBuilderRef.current = createSequenceRuntimeModelBuilder();
+  if (!sequenceRuntimeBuilderRef.current)
+    sequenceRuntimeBuilderRef.current = createSequenceRuntimeModelBuilder();
   const sequenceRuntimeModel = useMemo(
     () =>
       sequenceRuntimeBuilderRef.current({
@@ -3020,11 +3021,7 @@ const App = () => {
       });
       recordManualCueBurstDiagnostic(index, startedAtMs, performance.now() - startedAtMs);
     },
-    [
-      playSequencePosition,
-      recordManualCueBurstDiagnostic,
-      sequenceCueGroups,
-    ],
+    [playSequencePosition, recordManualCueBurstDiagnostic, sequenceCueGroups],
   );
 
   const onPlayTimedSequenceCue = useCallback(
@@ -5793,11 +5790,11 @@ const App = () => {
             <em>
               To play, choose a built-in tuning or build your own scale in "Scale Settings" by
               changing "Scale Size" or clicking on "Add Scale Degree". Click or touch notes. Edit
-              the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC or
-              F8 toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in
-              SEQUENCER.
-              Visit the IO tab to choose internal sounds, connect a MIDI keyboard or an isomorphic
-              controller like Lumatone or Exquis, and retune external synths using MTS, MPE, OSC.{" "}
+              the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC
+              or F8 toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in
+              SEQUENCER. Visit the IO tab to choose internal sounds, connect a MIDI keyboard or an
+              isomorphic controller like Lumatone or Exquis, and retune external synths using MTS,
+              MPE, OSC.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -5822,158 +5819,161 @@ const App = () => {
               />
             ) : performanceWorkspaceTab === "sequencer" ? (
               <>
-              <div hidden={workspaceTab !== "sequencer"} aria-hidden={workspaceTab !== "sequencer"}>
-                <Sequencer
-                  snapshots={snapshots}
-                  runtimeModel={sequenceRuntimeModel}
-                  displaySnapshots={sequenceDisplaySnapshots}
-                  playbackSnapshots={sequencePlaybackSnapshots}
-                  bars={sequenceBars}
-                  repeats={sequenceRepeats}
-                  tempi={sequenceTempi}
-                  snapshotLabelMode={snapshotLabelMode}
-                  autoCreateBars={sequenceAutoCreateBars}
-                  activeSequenceSource={activeSequenceSource}
-                  activeSequenceBuiltInName={activeSequenceBuiltInName}
-                  activeSequenceName={activeSequenceName}
-                  activeSequenceSavedName={activeSequenceSavedName}
-                  activeSequenceDescription={activeSequenceDescription}
-                  sequenceLegato={sequenceLegato}
-                  sequencePlaybackSpeed={sequencePlaybackSpeed}
-                  sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
-                  sequenceTimbreModWheelEnabled={sequenceTimbreModWheelEnabled}
-                  sequencePlayRepeats={sequencePlayRepeats}
-                  snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
-                  sequenceAutoCreateBars={sequenceAutoCreateBars}
-                  manualArpeggiation={manualArpeggiation}
-                  selectedSnapshotId={selectedSnapshotId}
-                  selectedMarker={selectedSnapshotMarker}
-                  pendingTransportSelection={pendingTransportSelectionRef.current}
-                  playingSnapshotId={playingSnapshotId}
-                  playingSnapshotIds={manualPlayingSnapshotIds}
-                  scrollPositionRef={sequencerScrollPositionRef}
-                  playhead={sequencePlayhead}
-                  onTakeSnapshot={onTakeSnapshot}
-                  onAddEmptySnapshot={onAddEmptySnapshot}
-                  onLoadSequence={onLoadSequence}
-                  onSequenceNameChange={onSequenceNameChange}
-                  onSequenceDescriptionChange={setActiveSequenceDescription}
-                  onSequenceSaved={onSequenceSaved}
-                  onSequenceLegatoChange={(mode) =>
-                    setSequenceLegato(normalizeSequenceLegatoMode(mode))
-                  }
-                  onSequencePlaybackSpeedChange={(value) =>
-                    setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))
-                  }
-                  onSequencePlaybackPitchOffsetChange={commitSequencePlaybackPitchOffset}
-                  onSequencePlaybackPitchOffsetPreview={previewSequencePlaybackPitchOffset}
-                  onSequenceTimbreModWheelEnabledChange={onSequenceTimbreModWheelEnabledChange}
-                  onSequencePlayRepeatsChange={setSequencePlayRepeats}
-                  onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
-                  onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
-                  onManualArpeggiationChange={(updates) => {
-                    setManualArpeggiation((current) =>
-                      normalizeManualArpeggiation({
-                        ...current,
-                        ...updates,
-                      }),
-                    );
-                  }}
-                  onSetSnapshotLabelMode={setSnapshotLabelMode}
-                  onSelectSnapshot={onSelectSequencerSnapshot}
-                  onSelectMarker={onSelectSequencerMarker}
-                  onPlaySnapshot={onPlaySnapshot}
-                  onStopSnapshot={onStopSnapshot}
-                  timedTransportStopRef={timedTransportStopRef}
-                  onSelectSequenceBar={onSelectSequenceBar}
-                  onCueSequenceSnapshot={onCueSequenceSnapshot}
-                  onCueSequenceCue={onCueSequenceCue}
-                  onStepSequence={onStepSequence}
-                  onStepSequenceMarker={onStepSequenceMarker}
-                  onJumpSequenceSnapshot={onJumpSequenceSnapshot}
-                  onJumpSequenceCue={onJumpSequenceCue}
-                  onPlaySequence={onPlaySequence}
-                  onPlayCue={onPlaySequenceCue}
-                  onPlayTimedCue={onPlayTimedSequenceCue}
-                  onEnsureAudioReady={primeAudioFromUserInteraction}
-                  showActivateAudioContext={!userHasInteracted}
-                  onResetSequencePlayhead={onResetSequencePlayhead}
-                  onJumpSequenceEnd={onJumpSequenceEnd}
-                  getTimedTransportClockSeconds={getTimedTransportClockSeconds}
-                  onAddBar={onAddSequenceBar}
-                  onAddTempo={onAddSequenceTempo}
-                  onAddRepeat={onAddSequenceRepeat}
-                  onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
-                  onDeleteBar={onDeleteSequenceBar}
-                  onDeleteTempo={onDeleteSequenceTempo}
-                  onDeleteRepeat={onDeleteSequenceRepeat}
-                  onUpdateBar={onUpdateSequenceBar}
-                  onUpdateTempo={onUpdateSequenceTempo}
-                  onUpdateRepeat={onUpdateSequenceRepeat}
-                  onMoveBar={onMoveSequenceBar}
-                  onDeleteSnapshot={onDeleteSnapshot}
-                  onDeleteAllSnapshots={onDeleteAllSnapshots}
-                  onClearSequence={onClearSequence}
-                  onMoveSnapshot={onMoveSnapshot}
-                  onDuplicateSnapshot={onDuplicateSnapshot}
-                  onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
-                  onMoveSnapshotRange={onMoveSnapshotRange}
-                  onResetSnapshotRangeNoteOffsetsInPlace={onResetSnapshotRangeNoteOffsetsInPlace}
-                  onSetSnapshotRangeArticulation={onSetSnapshotRangeArticulation}
-                  onRestoreSnapshotRangeChanges={onRestoreSnapshotRangeChanges}
-                  onDeleteSnapshotRange={onDeleteSnapshotRange}
-                  onUpdateSnapshot={onUpdateSnapshot}
-                  onResetSnapshotDescription={onResetSnapshotDescription}
-                />
-              </div>
+                <div
+                  hidden={workspaceTab !== "sequencer"}
+                  aria-hidden={workspaceTab !== "sequencer"}
+                >
+                  <Sequencer
+                    snapshots={snapshots}
+                    runtimeModel={sequenceRuntimeModel}
+                    displaySnapshots={sequenceDisplaySnapshots}
+                    playbackSnapshots={sequencePlaybackSnapshots}
+                    bars={sequenceBars}
+                    repeats={sequenceRepeats}
+                    tempi={sequenceTempi}
+                    snapshotLabelMode={snapshotLabelMode}
+                    autoCreateBars={sequenceAutoCreateBars}
+                    activeSequenceSource={activeSequenceSource}
+                    activeSequenceBuiltInName={activeSequenceBuiltInName}
+                    activeSequenceName={activeSequenceName}
+                    activeSequenceSavedName={activeSequenceSavedName}
+                    activeSequenceDescription={activeSequenceDescription}
+                    sequenceLegato={sequenceLegato}
+                    sequencePlaybackSpeed={sequencePlaybackSpeed}
+                    sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
+                    sequenceTimbreModWheelEnabled={sequenceTimbreModWheelEnabled}
+                    sequencePlayRepeats={sequencePlayRepeats}
+                    snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
+                    sequenceAutoCreateBars={sequenceAutoCreateBars}
+                    manualArpeggiation={manualArpeggiation}
+                    selectedSnapshotId={selectedSnapshotId}
+                    selectedMarker={selectedSnapshotMarker}
+                    pendingTransportSelection={pendingTransportSelectionRef.current}
+                    playingSnapshotId={playingSnapshotId}
+                    playingSnapshotIds={manualPlayingSnapshotIds}
+                    scrollPositionRef={sequencerScrollPositionRef}
+                    playhead={sequencePlayhead}
+                    onTakeSnapshot={onTakeSnapshot}
+                    onAddEmptySnapshot={onAddEmptySnapshot}
+                    onLoadSequence={onLoadSequence}
+                    onSequenceNameChange={onSequenceNameChange}
+                    onSequenceDescriptionChange={setActiveSequenceDescription}
+                    onSequenceSaved={onSequenceSaved}
+                    onSequenceLegatoChange={(mode) =>
+                      setSequenceLegato(normalizeSequenceLegatoMode(mode))
+                    }
+                    onSequencePlaybackSpeedChange={(value) =>
+                      setSequencePlaybackSpeed(clampSequencePlaybackSpeed(value))
+                    }
+                    onSequencePlaybackPitchOffsetChange={commitSequencePlaybackPitchOffset}
+                    onSequencePlaybackPitchOffsetPreview={previewSequencePlaybackPitchOffset}
+                    onSequenceTimbreModWheelEnabledChange={onSequenceTimbreModWheelEnabledChange}
+                    onSequencePlayRepeatsChange={setSequencePlayRepeats}
+                    onSnapSequenceToCurrentTuningChange={setSnapSequenceToCurrentTuning}
+                    onSequenceAutoCreateBarsChange={setSequenceAutoCreateBars}
+                    onManualArpeggiationChange={(updates) => {
+                      setManualArpeggiation((current) =>
+                        normalizeManualArpeggiation({
+                          ...current,
+                          ...updates,
+                        }),
+                      );
+                    }}
+                    onSetSnapshotLabelMode={setSnapshotLabelMode}
+                    onSelectSnapshot={onSelectSequencerSnapshot}
+                    onSelectMarker={onSelectSequencerMarker}
+                    onPlaySnapshot={onPlaySnapshot}
+                    onStopSnapshot={onStopSnapshot}
+                    timedTransportStopRef={timedTransportStopRef}
+                    onSelectSequenceBar={onSelectSequenceBar}
+                    onCueSequenceSnapshot={onCueSequenceSnapshot}
+                    onCueSequenceCue={onCueSequenceCue}
+                    onStepSequence={onStepSequence}
+                    onStepSequenceMarker={onStepSequenceMarker}
+                    onJumpSequenceSnapshot={onJumpSequenceSnapshot}
+                    onJumpSequenceCue={onJumpSequenceCue}
+                    onPlaySequence={onPlaySequence}
+                    onPlayCue={onPlaySequenceCue}
+                    onPlayTimedCue={onPlayTimedSequenceCue}
+                    onEnsureAudioReady={primeAudioFromUserInteraction}
+                    showActivateAudioContext={!userHasInteracted}
+                    onResetSequencePlayhead={onResetSequencePlayhead}
+                    onJumpSequenceEnd={onJumpSequenceEnd}
+                    getTimedTransportClockSeconds={getTimedTransportClockSeconds}
+                    onAddBar={onAddSequenceBar}
+                    onAddTempo={onAddSequenceTempo}
+                    onAddRepeat={onAddSequenceRepeat}
+                    onAddBarsBeforeSnapshots={onAddBarsBeforeSnapshots}
+                    onDeleteBar={onDeleteSequenceBar}
+                    onDeleteTempo={onDeleteSequenceTempo}
+                    onDeleteRepeat={onDeleteSequenceRepeat}
+                    onUpdateBar={onUpdateSequenceBar}
+                    onUpdateTempo={onUpdateSequenceTempo}
+                    onUpdateRepeat={onUpdateSequenceRepeat}
+                    onMoveBar={onMoveSequenceBar}
+                    onDeleteSnapshot={onDeleteSnapshot}
+                    onDeleteAllSnapshots={onDeleteAllSnapshots}
+                    onClearSequence={onClearSequence}
+                    onMoveSnapshot={onMoveSnapshot}
+                    onDuplicateSnapshot={onDuplicateSnapshot}
+                    onInsertSnapshotCopyBlock={onInsertSnapshotCopyBlock}
+                    onMoveSnapshotRange={onMoveSnapshotRange}
+                    onResetSnapshotRangeNoteOffsetsInPlace={onResetSnapshotRangeNoteOffsetsInPlace}
+                    onSetSnapshotRangeArticulation={onSetSnapshotRangeArticulation}
+                    onRestoreSnapshotRangeChanges={onRestoreSnapshotRangeChanges}
+                    onDeleteSnapshotRange={onDeleteSnapshotRange}
+                    onUpdateSnapshot={onUpdateSnapshot}
+                    onResetSnapshotDescription={onResetSnapshotDescription}
+                  />
+                </div>
                 {workspaceTab === "io" ? ioSettingsSidebar : null}
               </>
             ) : workspaceTab === "io" ? (
               ioSettingsSidebar
             ) : workspaceTab === "calculator" ? null : (
               <>
-              <Settings
-                onChange={onChange}
-                onAtomicChange={onAtomicChange}
-                onImport={onImport}
-                importCount={importCount}
-                onLoadBuiltinPreset={onLoadBuiltinPreset}
-                onLoadCustomPreset={onLoadCustomPreset}
-                onClearUserPresets={onClearUserPresets}
-                activeSource={activeSource}
-                activePresetName={activePresetName}
-                pendingRestoredPreset={pendingRestoredPreset}
-                isPresetDirty={isPresetDirty}
-                currentModulationLibrary={modulationState?.history ?? presetModulationLibrary}
-                canCommitModulation={hasCommittableModulation}
-                onCommitCurrentModulation={onCommitCurrentModulation}
-                persistOnReload={persistOnReload}
-                setPersistOnReload={setPersistOnReload}
-                showActivateAudioContext={
-                  !!pendingRestoredPreset || (restoredOnMount && !userHasInteracted)
-                }
-                activateAudioContext={refreshKeyboardAndAudio}
-                activatePendingPreset={activatePendingPreset}
-                onRevertBuiltin={onRevertBuiltin}
-                onRevertUser={onRevertUser}
-                settings={settings}
-                heji_names={labelSettings.heji_names}
-                heji_names_table={tableHejiNames}
-                modulation_transposition_cents={currentFundamentalSummary?.cents ?? 0}
-                modulation_display_active={
-                  Math.abs(currentFundamentalSummary?.cents ?? 0) > 0.000001
-                }
-                heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
-                heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
-                heji_supported={structuralSettings.heji_supported}
-                heji_warning={structuralSettings.heji_warning}
-                keysRef={keysRef}
-                keysReadyRevision={keysReadyRevision}
-                playingSnapshotId={playingSnapshotId}
-                onPlaySnapshot={onPlaySnapshot}
-                onDeleteSnapshot={onDeleteSnapshot}
-              />
-              <Credits />
+                <Settings
+                  onChange={onChange}
+                  onAtomicChange={onAtomicChange}
+                  onImport={onImport}
+                  importCount={importCount}
+                  onLoadBuiltinPreset={onLoadBuiltinPreset}
+                  onLoadCustomPreset={onLoadCustomPreset}
+                  onClearUserPresets={onClearUserPresets}
+                  activeSource={activeSource}
+                  activePresetName={activePresetName}
+                  pendingRestoredPreset={pendingRestoredPreset}
+                  isPresetDirty={isPresetDirty}
+                  currentModulationLibrary={modulationState?.history ?? presetModulationLibrary}
+                  canCommitModulation={hasCommittableModulation}
+                  onCommitCurrentModulation={onCommitCurrentModulation}
+                  persistOnReload={persistOnReload}
+                  setPersistOnReload={setPersistOnReload}
+                  showActivateAudioContext={
+                    !!pendingRestoredPreset || (restoredOnMount && !userHasInteracted)
+                  }
+                  activateAudioContext={refreshKeyboardAndAudio}
+                  activatePendingPreset={activatePendingPreset}
+                  onRevertBuiltin={onRevertBuiltin}
+                  onRevertUser={onRevertUser}
+                  settings={settings}
+                  heji_names={labelSettings.heji_names}
+                  heji_names_table={tableHejiNames}
+                  modulation_transposition_cents={currentFundamentalSummary?.cents ?? 0}
+                  modulation_display_active={
+                    Math.abs(currentFundamentalSummary?.cents ?? 0) > 0.000001
+                  }
+                  heji_anchor_label_eff={structuralSettings.heji_anchor_label_effective}
+                  heji_anchor_ratio_eff={structuralSettings.heji_anchor_ratio_effective}
+                  heji_supported={structuralSettings.heji_supported}
+                  heji_warning={structuralSettings.heji_warning}
+                  keysRef={keysRef}
+                  keysReadyRevision={keysReadyRevision}
+                  playingSnapshotId={playingSnapshotId}
+                  onPlaySnapshot={onPlaySnapshot}
+                  onDeleteSnapshot={onDeleteSnapshot}
+                />
+                <Credits />
               </>
             )}
           </>

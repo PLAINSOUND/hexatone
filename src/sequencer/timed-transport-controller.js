@@ -348,7 +348,9 @@ export default function useTimedTransportController({
     const schedulerToken = timedTransportSchedulerTokenRef.current;
     const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
     const targetDelayMs = nextTimedTransportDelayMs(
-      timedTransportStateRef.current, burst.elapsedSeconds, nowSeconds,
+      timedTransportStateRef.current,
+      burst.elapsedSeconds,
+      nowSeconds,
     );
     const delayMs = Math.min(targetDelayMs, TIMED_TRANSPORT_WAKE_SLICE_MS);
 
@@ -777,33 +779,36 @@ export default function useTimedTransportController({
     timedPlaybackBursts,
   ]);
 
-  const handleTimedTransportStop = useCallback((options = {}) => {
-    const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
-    clearScheduledTimedCueCallbacks();
-    onStopSnapshot?.();
-    recordTimedTransportDiagnostic({
-      type: "stop",
-      clockSeconds: nowSeconds,
-      elapsedSeconds: currentTimedTransportElapsedSeconds(
-        timedTransportStateRef.current,
-        nowSeconds,
-      ),
-      status: timedTransportStateRef.current.status,
-    });
-    const stoppedState = stopTimedTransport(timedPlaybackBursts, {
-      speedMultiplier: sequencePlaybackSpeed,
-    });
-    timedTransportStateRef.current = stoppedState;
-    setTimedTransportState(stoppedState);
-    if (options?.restoreStartTarget !== false) restoreTimedTransportStartTarget();
-  }, [
-    clearScheduledTimedCueCallbacks,
-    onStopSnapshot,
-    recordTimedTransportDiagnostic,
-    restoreTimedTransportStartTarget,
-    sequencePlaybackSpeed,
-    timedPlaybackBursts,
-  ]);
+  const handleTimedTransportStop = useCallback(
+    (options = {}) => {
+      const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
+      clearScheduledTimedCueCallbacks();
+      onStopSnapshot?.();
+      recordTimedTransportDiagnostic({
+        type: "stop",
+        clockSeconds: nowSeconds,
+        elapsedSeconds: currentTimedTransportElapsedSeconds(
+          timedTransportStateRef.current,
+          nowSeconds,
+        ),
+        status: timedTransportStateRef.current.status,
+      });
+      const stoppedState = stopTimedTransport(timedPlaybackBursts, {
+        speedMultiplier: sequencePlaybackSpeed,
+      });
+      timedTransportStateRef.current = stoppedState;
+      setTimedTransportState(stoppedState);
+      if (options?.restoreStartTarget !== false) restoreTimedTransportStartTarget();
+    },
+    [
+      clearScheduledTimedCueCallbacks,
+      onStopSnapshot,
+      recordTimedTransportDiagnostic,
+      restoreTimedTransportStartTarget,
+      sequencePlaybackSpeed,
+      timedPlaybackBursts,
+    ],
+  );
 
   useEffect(() => {
     if (typeof globalThis === "undefined") return undefined;

@@ -1039,13 +1039,36 @@ describe("mpe_synth automatic Y/Z output", () => {
 
 it("persists once per chord and clears recovery state before stop returns", async () => {
   const output = { id: "batch-recovery", send: vi.fn() };
-  const synth = await create_mpe_synth(output, "1", 2, 9, 440, 0, 0, 60, scale12, "standard", 12, 2);
-  const runtime = { settings: { fundamental: 440, midi_velocity: 72 }, tuning: { equivSteps: 12, degree0toRef_asArray: [0, 1] }, synth, _snapshotHexes: [], _snapshotNotes: [], stopSnapshot() {} };
+  const synth = await create_mpe_synth(
+    output,
+    "1",
+    2,
+    9,
+    440,
+    0,
+    0,
+    60,
+    scale12,
+    "standard",
+    12,
+    2,
+  );
+  const runtime = {
+    settings: { fundamental: 440, midi_velocity: 72 },
+    tuning: { equivSteps: 12, degree0toRef_asArray: [0, 1] },
+    synth,
+    _snapshotHexes: [],
+    _snapshotNotes: [],
+    stopSnapshot() {},
+  };
   const read = vi.spyOn(Storage.prototype, "getItem");
   const write = vi.spyOn(Storage.prototype, "setItem");
   const remove = vi.spyOn(Storage.prototype, "removeItem");
   try {
-    const hexes = playSnapshot(runtime, [60, 64, 67].map(midicents => ({ midicents })));
+    const hexes = playSnapshot(
+      runtime,
+      [60, 64, 67].map((midicents) => ({ midicents })),
+    );
     const recoveryKey = "hexatone_active_mpe_notes:batch-recovery";
     expect(read.mock.calls.filter(([key]) => key === recoveryKey)).toHaveLength(1);
     const recoveryWrites = write.mock.calls.filter(([key]) => key === recoveryKey);
@@ -1055,6 +1078,13 @@ it("persists once per chord and clears recovery state before stop returns", asyn
     output.send.mockClear();
     stopSnapshot(hexes, runtime);
     expect(remove.mock.calls.filter(([key]) => key === recoveryKey)).toHaveLength(1);
-    expect(output.send.mock.calls.filter(([message]) => (message[0] & 0xf0) === 0x80)).toHaveLength(3);
-  } finally { read.mockRestore(); write.mockRestore(); remove.mockRestore(); synth.shutdown(); }
+    expect(output.send.mock.calls.filter(([message]) => (message[0] & 0xf0) === 0x80)).toHaveLength(
+      3,
+    );
+  } finally {
+    read.mockRestore();
+    write.mockRestore();
+    remove.mockRestore();
+    synth.shutdown();
+  }
 });

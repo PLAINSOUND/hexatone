@@ -950,12 +950,27 @@ describe("sequence virtualization", () => {
 });
 
 it("uses indexed variable heights with the same inclusive viewport boundaries", () => {
-  const items = Array.from({ length: 500 }, (_, i) => ({ key: String(i), estimatedSize: 10 + i % 7 }));
+  const items = Array.from({ length: 500 }, (_, i) => ({
+    key: String(i),
+    estimatedSize: 10 + (i % 7),
+  }));
   const sizeIndex = buildSequenceSizeIndex(items, new Map([["4", 99]]));
   for (const scrollTop of [0, 10, 100, 499, 2000, sizeIndex.totalSize]) {
-    const layout = buildVirtualSequenceLayout({ items, sizeIndex, scrollTop, viewportHeight: 75, overscan: 0 });
-    const expected = items.map((_, i) => i).filter(i => sizeIndex.offsets[i + 1] >= scrollTop && sizeIndex.offsets[i] <= scrollTop + 75);
-    expect(layout.rows.filter(row => row.type === "item").map(row => row.index)).toEqual(expected);
+    const layout = buildVirtualSequenceLayout({
+      items,
+      sizeIndex,
+      scrollTop,
+      viewportHeight: 75,
+      overscan: 0,
+    });
+    const expected = items
+      .map((_, i) => i)
+      .filter(
+        (i) => sizeIndex.offsets[i + 1] >= scrollTop && sizeIndex.offsets[i] <= scrollTop + 75,
+      );
+    expect(layout.rows.filter((row) => row.type === "item").map((row) => row.index)).toEqual(
+      expected,
+    );
     expect(layout.offsets).toBe(sizeIndex.offsets);
   }
 });

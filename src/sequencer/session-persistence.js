@@ -75,8 +75,12 @@ export function createSequenceWorkspaceSessionWriter() {
   let previous = null;
   return (workspace) => {
     const fields = Object.keys(workspace);
-    if (previous && fields.length === Object.keys(previous).length &&
-        fields.every((key) => Object.is(previous[key], workspace[key]))) return;
+    if (
+      previous &&
+      fields.length === Object.keys(previous).length &&
+      fields.every((key) => Object.is(previous[key], workspace[key]))
+    )
+      return;
     saveSequenceWorkspaceToSession(workspace);
     previous = { ...workspace };
   };

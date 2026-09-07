@@ -128,5 +128,7 @@ it("writes a workspace revision once and saves subsequent edits synchronously", 
     save({ ...workspace, activeSequenceName: "edited" });
     expect(spy).toHaveBeenCalledTimes(2);
     expect(loadSequenceWorkspaceFromSession().activeSequenceName).toBe("edited");
-  } finally { spy.mockRestore(); }
+  } finally {
+    spy.mockRestore();
+  }
 });

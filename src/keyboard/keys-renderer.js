@@ -20,13 +20,17 @@ import { displayLabelForDegree } from "./keys-display-runtime.js";
 
 let labelScaleCaches = new WeakMap();
 if (typeof document !== "undefined") {
-  document.fonts?.addEventListener?.("loadingdone", () => { labelScaleCaches = new WeakMap(); });
+  document.fonts?.addEventListener?.("loadingdone", () => {
+    labelScaleCaches = new WeakMap();
+  });
 }
 
 export function fitHexLabelScale(context, name, hexSize) {
   const baseScale = (Number(hexSize) || 46) / 46;
   if (!name) return baseScale;
-  const canCache = context && typeof context.measureText === "function" &&
+  const canCache =
+    context &&
+    typeof context.measureText === "function" &&
     (typeof document === "undefined" || document.fonts?.status !== "loading");
   let cache = canCache ? labelScaleCaches.get(context) : null;
   if (canCache && (!cache || cache.measureText !== context.measureText)) {
@@ -171,7 +175,8 @@ export function rebuildVisibleGridGeometry() {
       // Keep cached geometry available for input/controller lookups, but don't
       // paint hexes whose shadow bounds cannot intersect the visible canvas.
       const points = hexGeometry.x2.map((x, i) => this._transformCanvasPoint(x, hexGeometry.y2[i]));
-      const intersectsViewport = points.some((point) => Number.isFinite(point.x)) &&
+      const intersectsViewport =
+        points.some((point) => Number.isFinite(point.x)) &&
         Math.max(...points.map((point) => point.x)) >= -2 &&
         Math.min(...points.map((point) => point.x)) <= canvasWidth + 2 &&
         Math.max(...points.map((point) => point.y)) >= -2 &&

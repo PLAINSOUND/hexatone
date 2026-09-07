@@ -1045,7 +1045,7 @@ const SequenceControls = ({
   );
 };
 
-function PlaybackModifiersRow({
+export function PlaybackModifiersRow({
   sequencePlaybackSpeed,
   sequencePlaybackPitchOffset,
   onSequencePlaybackSpeedChange,
@@ -1258,8 +1258,14 @@ function PlaybackModifiersRow({
               class="sidebar-input sequencer-playback-input"
               aria-label="sequence playback speed"
               value={speedDraft}
-              onFocus={(e) => { speedTextCommittedRef.current = false; selectControlValue(e); }}
-              onInput={(e) => { speedTextCommittedRef.current = false; setSpeedDraft(e.currentTarget.value); }}
+              onFocus={(e) => {
+                speedTextCommittedRef.current = false;
+                selectControlValue(e);
+              }}
+              onInput={(e) => {
+                speedTextCommittedRef.current = false;
+                setSpeedDraft(e.currentTarget.value);
+              }}
               onBlur={(e) => commitSpeedDraft(e.currentTarget.value)}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
@@ -1320,8 +1326,14 @@ function PlaybackModifiersRow({
               class="sidebar-input sequencer-playback-input"
               aria-label="sequence playback pitch"
               value={pitchDraft}
-              onFocus={(e) => { pitchTextCommittedRef.current = false; selectControlValue(e); }}
-              onInput={(e) => { pitchTextCommittedRef.current = false; setPitchDraft(e.currentTarget.value); }}
+              onFocus={(e) => {
+                pitchTextCommittedRef.current = false;
+                selectControlValue(e);
+              }}
+              onInput={(e) => {
+                pitchTextCommittedRef.current = false;
+                setPitchDraft(e.currentTarget.value);
+              }}
               onBlur={(e) => commitPitchDraft(e.currentTarget.value)}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;

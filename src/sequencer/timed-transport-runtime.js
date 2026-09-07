@@ -153,8 +153,9 @@ export function updateTimedTransportSpeed(state, clockSeconds = 0, speedMultipli
 
 // Convert musical elapsed time back to a real clock delay after SPEED changes.
 export function nextTimedTransportDelayMs(state, targetElapsedSeconds, clockSeconds) {
-  const remaining = Number(targetElapsedSeconds) - currentTimedTransportElapsedSeconds(state, clockSeconds);
-  return Math.max(0, remaining * 1000 / clampSequencePlaybackSpeed(state?.speedMultiplier ?? 1));
+  const remaining =
+    Number(targetElapsedSeconds) - currentTimedTransportElapsedSeconds(state, clockSeconds);
+  return Math.max(0, (remaining * 1000) / clampSequencePlaybackSpeed(state?.speedMultiplier ?? 1));
 }
 
 export function advanceTimedTransport(state, playbackBursts = [], clockSeconds = 0) {
