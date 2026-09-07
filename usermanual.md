@@ -562,11 +562,13 @@ Choose a spelling to which a deviation of 0 cents will be assigned, and express 
 
 ### Input
 
-There are two input options: enter a HEJI spelling and octave register using the palette, or specify an offset and pitch as a ratio or cents value. The HEJI palette allows prime-based accidentals to be incremented or decremented with repeated clicks. The octave position may be specified using the ISO standard (C4 = middle C). In the `Ratio/Cents` input, `Offset` defaults to the HEJI Spelling anchor, so the chosen 0-cents note is equivalent to a `Pitch` of 1/1. Changing `Offset` adapts `Pitch` accordingly, making it easy to calculate compound ratios.
+There are two input options: enter a HEJI spelling and octave register using the palette, or specify an offset and pitch as a ratio or cents value. The HEJI palette allows prime-based accidentals to be incremented or decremented with repeated clicks. The octave position may be specified using the ISO standard (C4 = middle C). In the `Ratio/Cents` input, `Offset (from HEJI Notation Anchor)` defaults to 1/1, placing it at the chosen 0-cents note. `Pitch (from Offset)` specifies the interval from that offset. Changing `Offset` leaves `Pitch (from Offset)` unchanged and updates the calculated pitch. Choosing a spelling in the palette updates `Pitch (from Offset)` while preserving `Offset`.
 
 ### Rationalisation
 
 Toggle the section to reveal the harmonic-space parameters for rationalisation (`symmetric`, `overtonal`, or `custom`). Traditionally, JI pitch sets have been constructed symmetrically (every ratio is taken upward and downward from 1/1) or overtonally (based on the harmonic series). `Custom` allows you to specify the number of steps in each prime dimension up to 47. The search space is restricted by prime limit, odd limit, cents tolerance, and a maximum number of results. Results are sorted according to the selected criterion: search ranking, cents deviation, harmonic radius, odd radius, prime limit, or odd limit.
+
+`Nearby Rational Pitches` searches for alternatives to `Pitch (from Offset)`. Both `Harmonic radius from Offset` and `Odd radius from Offset` rank each candidate's interval from Offset, rather than from the tuning's global 1/1. Harmonic radius includes powers of 2; odd radius ignores them. Selecting a candidate puts its ratio into `Pitch (from Offset)` and leaves `Offset` unchanged. With `Normalise` selected, the search uses the octave-normalised interval from Offset.
 
 ### Data
 

@@ -104,7 +104,7 @@ Hexatone 3.3 RC2 expands the Sequencer, adds IO and CALCULATOR workspaces, and r
 - calculated data includes ratios and cents relative to the offset, HEJI anchor, reference and 1/1, plus frequency and nearest MIDI note
 - enharmonic MIDI spellings and tuning deviations are individually selectable for copying
 - optional octave normalisation and spelling/deviation display controls
-- nearby rational pitches with configurable search limits and ordering by cents deviation, harmonic radius or odd radius
+- nearby rational pitches relative to `Offset`, with configurable search limits and ordering by cents deviation, harmonic radius from Offset (including powers of 2) or odd radius from Offset (ignoring powers of 2)
 
 The Sequencer supports editable snapshots, cues, bars, tempo changes, and repeat markers in a unified event list. Captured snapshots can be expanded into individual note events whose snapshot membership, position offset, MIDI¢, Hz, displayed name, bar-relative position, and expression data can be edited directly. Bars and time signatures may be placed between snapshots,
 tempo markers support immediate and gradual changes, and repeat markers can loop between sequence positions.

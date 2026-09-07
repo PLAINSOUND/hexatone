@@ -637,12 +637,12 @@ describe("CalculatorTab", () => {
     expect(screen.getByLabelText("Calculator rationalisation sort").value).toBe("harmonicRadius");
     expect(
       within(screen.getByLabelText("Calculator rationalisation sort")).getByRole("option", {
-        name: "Harmonic radius from 1/1",
+        name: "Harmonic radius from Offset",
       }),
     ).toBeTruthy();
     expect(
       within(screen.getByLabelText("Calculator rationalisation sort")).getByRole("option", {
-        name: "Odd radius from 1/1",
+        name: "Odd radius from Offset",
       }),
     ).toBeTruthy();
     expect(screen.queryByLabelText("Calculator rationalisation region")).toBeNull();

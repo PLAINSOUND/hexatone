@@ -657,8 +657,8 @@ const CalculatorTab = ({
           >
             <option value="score">Search ranking</option>
             <option value="deviation">Cents deviation</option>
-            <option value="harmonicRadius">Harmonic radius from 1/1</option>
-            <option value="oddRadius">Odd radius from 1/1</option>
+            <option value="harmonicRadius">Harmonic radius from Offset</option>
+            <option value="oddRadius">Odd radius from Offset</option>
             <option value="prime">Prime limit</option>
             <option value="odd">Odd limit</option>
           </select>
