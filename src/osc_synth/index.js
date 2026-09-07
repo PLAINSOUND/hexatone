@@ -1,3 +1,4 @@
+import { outputTimestamp } from "../midi/output-transaction.js";
 import { VoicePool } from "../polyphony/voice-pool-nearest";
 import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
 import { debugEnabled, debugLog, warnLog } from "../debug/logging.js";
@@ -816,6 +817,7 @@ OscHex.prototype.retune = function (newCents) {
         { type: "f", value: this._freq },
       ],
       OSC_LAYER_PORTS[i],
+      outputTimestamp(),
     );
   }
 };

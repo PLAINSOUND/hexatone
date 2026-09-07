@@ -1,3 +1,4 @@
+import { withOutputTransaction } from "../midi/output-transaction.js";
 // This module owns snapshot capture/playback of currently sounding notes.
 // It serializes live note state into a portable snapshot form and can reapply
 // those notes back onto a Keys instance. It does not manage long-term
@@ -395,7 +396,11 @@ function snapshotChordCommitTimestamp(noteCount) {
     : undefined;
 }
 
-function commitPreparedSnapshotHexes(runtime, prepared, commitTimestamp) {
+function commitPreparedSnapshotHexes(...args) {
+  return withOutputTransaction(() => commitPreparedSnapshotHexesInTransaction(...args));
+}
+
+function commitPreparedSnapshotHexesInTransaction(runtime, prepared, commitTimestamp) {
   if (!prepared.length) return undefined;
   const timestamp = commitTimestamp ?? snapshotChordCommitTimestamp(prepared.length);
 
@@ -515,7 +520,11 @@ export function releaseSnapshotGestureNote(runtime, gestureId, hex) {
   );
 }
 
-export function stopSnapshotGesture(runtime, gestureId) {
+export function stopSnapshotGesture(...args) {
+  return withOutputTransaction(() => stopSnapshotGestureInTransaction(...args));
+}
+
+function stopSnapshotGestureInTransaction(runtime, gestureId) {
   if (!runtime || gestureId == null) return;
   const gestureVoices = snapshotGestureVoices(runtime);
   const ownedVoices = gestureVoices.get(gestureId);
@@ -540,7 +549,11 @@ export function stopSnapshotGesture(runtime, gestureId) {
  * @param {Array<{ midicents: number, attackVelocity?: number, releaseVelocity?: number, velocity?: number, pressure?: number, pressure14?: number, timbre?: number, timbre14?: number }>} notes
  * @returns {Array<object>} active snapshot hexes
  */
-export function playSnapshot(runtime, notes, options = {}) {
+export function playSnapshot(...args) {
+  return withOutputTransaction(() => playSnapshotInTransaction(...args));
+}
+
+function playSnapshotInTransaction(runtime, notes, options = {}) {
   const legato = !!options.legato;
   const bendOnlyRetune = !!options.bendOnlyRetune;
   const pitchOffsetCents = Number(options?.pitchOffsetCents) || 0;
@@ -700,7 +713,11 @@ export function playSnapshot(runtime, notes, options = {}) {
  * @param {Array<object>} notes snapshot notes describing the current sounding set
  * @param {{ bendOnly?: boolean }} options
  */
-export function retuneSnapshotHexes(runtime, notes, options = {}) {
+export function retuneSnapshotHexes(...args) {
+  return withOutputTransaction(() => retuneSnapshotHexesInTransaction(...args));
+}
+
+function retuneSnapshotHexesInTransaction(runtime, notes, options = {}) {
   const usedHexes = new Set();
   if (!runtime) return usedHexes;
   const bendOnly = options?.bendOnly !== false;
@@ -741,7 +758,11 @@ export function retuneSnapshotHexes(runtime, notes, options = {}) {
  * follow a live global pitch gesture. Each target is reconstructed from the
  * voice's immutable unshifted base, so skipped frames cannot accumulate error.
  */
-export function retuneActiveSnapshotHexes(runtime, pitchOffsetCents, options = {}) {
+export function retuneActiveSnapshotHexes(...args) {
+  return withOutputTransaction(() => retuneActiveSnapshotHexesInTransaction(...args));
+}
+
+function retuneActiveSnapshotHexesInTransaction(runtime, pitchOffsetCents, options = {}) {
   if (!runtime) return;
   const safePitchOffsetCents = Number(pitchOffsetCents);
   if (!Number.isFinite(safePitchOffsetCents)) return;
@@ -780,7 +801,11 @@ export function retuneActiveSnapshotHexes(runtime, pitchOffsetCents, options = {
  *
  * @param {Array<object>} snapshotHexes active snapshot hexes
  */
-export function stopSnapshot(snapshotHexes, runtime = null) {
+export function stopSnapshot(...args) {
+  return withOutputTransaction(() => stopSnapshotInTransaction(...args));
+}
+
+function stopSnapshotInTransaction(snapshotHexes, runtime = null) {
   for (const hex of snapshotHexes ?? []) {
     releaseSnapshotHex(runtime, hex, hex._snapshotReleaseVelocity ?? 0);
   }

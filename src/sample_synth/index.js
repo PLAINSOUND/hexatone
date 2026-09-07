@@ -1,3 +1,4 @@
+import { outputAudioTime } from "../midi/output-transaction.js";
 // This module owns the built-in browser sample synth.
 // It maps Hexatone note events onto decoded sample instruments and retunes them
 // in the browser AudioContext, while exposing the same makeHex/note lifecycle
@@ -647,7 +648,7 @@ ActiveHex.prototype.retune = function (newCents) {
 
   const freq = this.fundamental * Math.pow(2, (newCents - this.centsToReference) / 1200);
   const targetPlaybackRate = freq / this.sampleFreq;
-  const now = this.audioContext.currentTime;
+  const now = outputAudioTime(this.audioContext);
 
   if (delta >= 400) {
     // Large jump (octave shift): instant — no audible glide artefact.

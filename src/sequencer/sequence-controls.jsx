@@ -1074,6 +1074,8 @@ function PlaybackModifiersRow({
   const pendingPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const lastPreviewedPitchValueRef = useRef(Number(sequencePlaybackPitchOffset ?? 0));
   const committedPitchTextRef = useRef("");
+  const speedTextCommittedRef = useRef(false);
+  const pitchTextCommittedRef = useRef(false);
   const [timedTransportDisplay, setTimedTransportDisplay] = useState(
     () =>
       getTimedTransportDisplay?.() ?? {
@@ -1134,6 +1136,8 @@ function PlaybackModifiersRow({
     pitchFrameRef.current = window.requestAnimationFrame(() => {
       pitchFrameRef.current = null;
       const nextValue = pendingPitchValueRef.current;
+      setPitchSliderValue(nextValue);
+      setPitchDraft(formatSequencePlaybackPitchCents(nextValue));
       if (Math.abs(nextValue - lastPreviewedPitchValueRef.current) < 1e-9) return;
       lastPreviewedPitchValueRef.current = nextValue;
       onSequencePlaybackPitchOffsetPreview?.(nextValue);
@@ -1146,6 +1150,8 @@ function PlaybackModifiersRow({
     speedFrameRef.current = window.requestAnimationFrame(() => {
       speedFrameRef.current = null;
       const nextValue = pendingSpeedValueRef.current;
+      setSpeedSliderValue(speedToSliderExponent(nextValue));
+      setSpeedDraft(formatSequencePlaybackSpeed(nextValue));
       if (Math.abs(nextValue - lastPreviewedSpeedValueRef.current) < 1e-9) return;
       lastPreviewedSpeedValueRef.current = nextValue;
       onSequencePlaybackSpeedPreview?.(nextValue);
@@ -1158,6 +1164,11 @@ function PlaybackModifiersRow({
       setSpeedDraft(formatSequencePlaybackSpeed(sequencePlaybackSpeed ?? 1));
       return;
     }
+    if (speedTextCommittedRef.current) return;
+    speedTextCommittedRef.current = true;
+    if (speedFrameRef.current != null) window.cancelAnimationFrame(speedFrameRef.current);
+    speedFrameRef.current = null;
+    setSpeedSliderValue(speedToSliderExponent(parsed));
     onSequencePlaybackSpeedChange?.(parsed);
     setSpeedDraft(formatSequencePlaybackSpeed(parsed));
   };
@@ -1169,6 +1180,11 @@ function PlaybackModifiersRow({
       setPitchDraft(formatSequencePlaybackPitchCents(sequencePlaybackPitchOffset ?? 0));
       return;
     }
+    if (pitchTextCommittedRef.current) return;
+    pitchTextCommittedRef.current = true;
+    if (pitchFrameRef.current != null) window.cancelAnimationFrame(pitchFrameRef.current);
+    pitchFrameRef.current = null;
+    setPitchSliderValue(parsed);
     onSequencePlaybackPitchOffsetChange?.(parsed);
     const normalized = normaliseSequencePlaybackPitchInput(value);
     const nextText = normalized || formatSequencePlaybackPitchCents(parsed);
@@ -1201,23 +1217,25 @@ function PlaybackModifiersRow({
   const handleSpeedSliderInput = (nextExponent) => {
     const clampedExponent = clamp(nextExponent, -1, 1);
     const nextSpeed = sliderExponentToSpeed(clampedExponent);
-    setSpeedSliderValue(clampedExponent);
-    setSpeedDraft(formatSequencePlaybackSpeed(nextSpeed));
     scheduleSpeedChange(nextSpeed);
   };
   const handlePitchSliderInput = (nextPitch) => {
     const clampedPitch = clamp(nextPitch, -1200, 1200);
     committedPitchTextRef.current = "";
-    setPitchSliderValue(clampedPitch);
-    setPitchDraft(formatSequencePlaybackPitchCents(clampedPitch));
     schedulePitchChange(clampedPitch);
   };
   const resetSpeed = () => {
+    if (speedFrameRef.current != null) window.cancelAnimationFrame(speedFrameRef.current);
+    speedFrameRef.current = null;
+    pendingSpeedValueRef.current = 1;
+    lastPreviewedSpeedValueRef.current = 1;
     setSpeedSliderValue(0);
     setSpeedDraft(formatSequencePlaybackSpeed(1));
     onSequencePlaybackSpeedChange?.(1);
   };
   const resetPitch = () => {
+    if (pitchFrameRef.current != null) window.cancelAnimationFrame(pitchFrameRef.current);
+    pitchFrameRef.current = null;
     committedPitchTextRef.current = "";
     pendingPitchValueRef.current = 0;
     lastPreviewedPitchValueRef.current = 0;
@@ -1240,8 +1258,8 @@ function PlaybackModifiersRow({
               class="sidebar-input sequencer-playback-input"
               aria-label="sequence playback speed"
               value={speedDraft}
-              onFocus={selectControlValue}
-              onInput={(e) => setSpeedDraft(e.currentTarget.value)}
+              onFocus={(e) => { speedTextCommittedRef.current = false; selectControlValue(e); }}
+              onInput={(e) => { speedTextCommittedRef.current = false; setSpeedDraft(e.currentTarget.value); }}
               onBlur={(e) => commitSpeedDraft(e.currentTarget.value)}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
@@ -1268,6 +1286,8 @@ function PlaybackModifiersRow({
                 window.cancelAnimationFrame(speedFrameRef.current);
                 speedFrameRef.current = null;
               }
+              setSpeedSliderValue(speedToSliderExponent(nextValue));
+              setSpeedDraft(formatSequencePlaybackSpeed(nextValue));
               pendingSpeedValueRef.current = nextValue;
               if (Math.abs(nextValue - lastPreviewedSpeedValueRef.current) >= 1e-9) {
                 lastPreviewedSpeedValueRef.current = nextValue;
@@ -1300,8 +1320,8 @@ function PlaybackModifiersRow({
               class="sidebar-input sequencer-playback-input"
               aria-label="sequence playback pitch"
               value={pitchDraft}
-              onFocus={selectControlValue}
-              onInput={(e) => setPitchDraft(e.currentTarget.value)}
+              onFocus={(e) => { pitchTextCommittedRef.current = false; selectControlValue(e); }}
+              onInput={(e) => { pitchTextCommittedRef.current = false; setPitchDraft(e.currentTarget.value); }}
               onBlur={(e) => commitPitchDraft(e.currentTarget.value)}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
@@ -1328,6 +1348,8 @@ function PlaybackModifiersRow({
                 window.cancelAnimationFrame(pitchFrameRef.current);
                 pitchFrameRef.current = null;
               }
+              setPitchSliderValue(nextValue);
+              setPitchDraft(formatSequencePlaybackPitchCents(nextValue));
               pendingPitchValueRef.current = nextValue;
               // Commit dispatches one synchronous full-chord retune. Mark the
               // pending preview consumed so it cannot run afterward.

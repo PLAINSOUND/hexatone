@@ -8,7 +8,7 @@ import { scalaToCents } from "../parse-scale";
 import { normalizeColors } from "../../normalize-settings.js";
 import ScalaInput from "../scala-input.js";
 import { createScaleWorkspace } from "../../../tuning/workspace.js";
-import { scorePrimeConsistency } from "../../../tuning/rationalise.js";
+import { startRationalisationJob } from "./rationalisation-job.js";
 import { sortScaleDegreesAscending } from "../sort-scale.js";
 import ColorCell from "./color-cell.js";
 import FrequencyInput from "./frequency-input.js";
@@ -21,12 +21,7 @@ import {
   DEFAULT_SEARCH_PREFS,
   parseOptionalPositiveInt,
 } from "./search-prefs.js";
-import {
-  buildBatchRationalisationReferenceMonzos,
-  getRowRuntime,
-  getRationalisationRequest,
-  getHumanTestableRationalCandidates,
-} from "./rationalise.js";
+import { getRowRuntime } from "./rationalise.js";
 import { deleteScaleDegree, moveScaleDegree } from "../sort-scale.js";
 import {
   createTuningPreviewState,
@@ -641,109 +636,40 @@ const ScaleTable = (props) => {
   // This avoids the ordering bias of the old incremental approach, where early
   // degrees had no cross-degree signal and later degrees were locked into
   // whatever earlier degrees happened to pick.
-  const rationaliseScale = useCallback(() => {
-    // Batch rationalisation is a scale-editing operation. It writes exact ratio
-    // strings back into settings.scale; it does not affect live modulation state.
-    const currentScale = [...(props.settings.scale || [])];
-    const equaveIdx = currentScale.length - 1; // last entry is the equave — never touched
+  const rationalisationJobRef = useRef(null);
+  const [rationalisationProgress, setRationalisationProgress] = useState(0);
+  const [rationalisationError, setRationalisationError] = useState("");
+  const rationalisationSourceRef = useRef(null);
+  rationalisationSourceRef.current = { scale: props.settings.scale, workspace, searchPrefs, previewState };
+  useEffect(() => () => {
+    rationalisationJobRef.current?.cancel();
+    rationalisationJobRef.current = null;
+  }, []);
+  useEffect(() => {
+    rationalisationJobRef.current?.cancel();
+    rationalisationJobRef.current = null;
+    setRationalisingScale(false);
+  }, [workspace, searchPrefs]);
 
-    // Pre-compute scaleCents once — the pitch set is static across all degrees.
-    const byDegree = workspace?.lookup?.byDegree;
-    const scaleCents = byDegree
-      ? Array.from(byDegree.values())
-          .filter((s) => s?.cents != null)
-          .map((s) => s.cents)
-      : null;
-
-    // When existingRatios === "keep", degrees that already contain a ratio
-    // string (e.g. "3/2", "5/4") are left untouched — only cents-valued
-    // degrees are rationalised. When "search", all non-equave degrees are
-    // rationalised regardless of their current form.
-    const keepExisting = searchPrefs.existingRatios !== "search";
-    const isRatioStr = (s) => /\//.test(String(s));
-
-    // Seed reference monzos from whatever is already hand-committed in the
-    // workspace — but only in keep-existing mode, where those committed ratios
-    // are intentional anchors rather than stale bias.
-    const preCommittedMonzos = [];
-    if (keepExisting && byDegree) {
-      for (const slot of byDegree.values()) {
-        if (Array.isArray(slot?.committedIdentity?.monzo)) {
-          preCommittedMonzos.push(slot.committedIdentity.monzo);
-        }
-      }
-    }
-
-    // ── Pass 1: independent candidate search for every degree ──────────────
-    // No cross-degree consistency scoring — each degree is evaluated on its
-    // own merits. We keep the full candidate list per degree for pass 2.
-    const perDegree = currentScale.map((str, i) => {
-      if (i === equaveIdx) return null;
-      if (keepExisting && isRatioStr(str)) return null; // preserve existing ratio
-      const tuneCellDegree = i + 1;
-      const tunedCents = getCommittedCentsAtDegree(tuneCellDegree);
-      const request = getRationalisationRequest({
-        degree: tuneCellDegree,
-        tunedCents,
-        workspace,
-        settings: props.settings,
-        frequencyAtDegree,
-        searchPrefs,
-      });
-      request._scaleCents = scaleCents;
-      request._committedMonzos = []; // no cross-degree signal in pass 1
-      // When re-searching all degrees, don't let the existing committed ratio
-      // anchor the candidate set — search finds the best within-limit candidate.
-      if (!keepExisting) request.skipCommitted = true;
-      const candidates = getHumanTestableRationalCandidates(request);
-      return { str, candidates };
-    });
-
-    // Collect the naive-best monzo from each degree to form the pass-2 reference.
-    const pass1Monzos = perDegree.map((entry) => {
-      if (!entry) return null;
-      const best = entry.candidates[0];
-      return Array.isArray(best?.monzo) ? best.monzo : null;
-    });
-
-    // ── Pass 2: cross-consistent re-ranking ────────────────────────────────
-    // Each degree is rescored using the full pass-1 winner set (minus itself)
-    // as the committed-monzo reference. scorePrimeConsistency produces a graded
-    // bonus [0,2] that is added to aggregateScore to break ties in favour of
-    // harmonically adjacent choices.
-    const CONSISTENCY_BONUS_WEIGHT = 0.8; // matches weightConsistency in rationalise.js
-    let changed = false;
-    const newScale = currentScale.map((str, i) => {
-      if (i === equaveIdx) return str;
-      const entry = perDegree[i];
-      if (!entry || !entry.candidates.length) return str;
-
-      // Reference = pre-committed anchors + pass-1 winners from all OTHER degrees.
-      const refMonzos = buildBatchRationalisationReferenceMonzos({
-        keepExisting,
-        preCommittedMonzos,
-        pass1Monzos,
-        degreeIndex: i,
-      });
-
-      // Re-rank by (aggregateScore - consistency_bonus) — lower aggregateScore
-      // is better, so a positive consistency bonus lowers the effective cost.
-      const ranked = entry.candidates
-        .filter((c) => c.ratioText)
-        .map((c) => {
-          const consistency = scorePrimeConsistency(c, refMonzos);
-          const effectiveCost = c.aggregateScore - CONSISTENCY_BONUS_WEIGHT * consistency;
-          return { c, effectiveCost };
-        })
-        .sort((a, b) => a.effectiveCost - b.effectiveCost);
-
-      if (!ranked.length) return str;
-      const best = ranked[0].c;
-      if (best.ratioText === str) return str;
-      changed = true;
-      return best.ratioText;
-    });
-
+  const rationaliseScale = useCallback(async () => {
+    rationalisationJobRef.current?.cancel();
+    setRationalisingScale(true);
+    setRationalisationProgress(0);
+    setRationalisationError("");
+    const source = rationalisationSourceRef.current;
+    const currentScale = props.settings.scale || [];
+    const job = startRationalisationJob({
+      settings: { scale: currentScale, fundamental: props.settings.fundamental, reference_degree: props.settings.reference_degree },
+      searchPrefs,
+      frequencies: Array.from({ length: currentScale.length + 1 }, (_, degree) => frequencyAtDegree(degree)),
+      committedCents: Array.from({ length: currentScale.length + 1 }, (_, degree) => getCommittedCentsAtDegree(degree)),
+    }, setRationalisationProgress);
+    rationalisationJobRef.current = job;
+    try {
+      const newScale = await job.promise;
+      const latest = rationalisationSourceRef.current;
+      if (rationalisationJobRef.current !== job || latest.scale !== source.scale || latest.workspace !== source.workspace || latest.searchPrefs !== source.searchPrefs) return;
+      const changed = newScale.some((entry, i) => entry !== currentScale[i]);
     if (changed) {
       // Switch to HEJI auto-generated labels so the rationalised note names
       // are immediately visible.  Using onAtomicChange keeps it one state update.
@@ -757,7 +683,15 @@ const ScaleTable = (props) => {
         return next;
       });
     }
-    setRationalisingScale(false);
+
+    } catch (error) {
+      if (error.name !== "AbortError" && rationalisationJobRef.current === job) setRationalisationError(error.message);
+    } finally {
+      if (rationalisationJobRef.current === job) {
+        rationalisationJobRef.current = null;
+        setRationalisingScale(false);
+      }
+    }
   }, [props, workspace, frequencyAtDegree, searchPrefs, getCommittedCentsAtDegree]);
 
   const centsFromFrequency = (frequency) =>
@@ -828,17 +762,14 @@ const ScaleTable = (props) => {
           <button
             type="button"
             class="scale-table-toolbar__rationalise"
-            onClick={() => {
-              setRationalisingScale(true);
-              // Defer to next tick so the button can show a loading state before
-              // the synchronous search blocks the main thread.
-              setTimeout(rationaliseScale, 0);
-            }}
+            onClick={rationaliseScale}
             disabled={rationalisingScale}
             title="Find best rational candidate for every scale degree and commit all at once"
           >
-            {rationalisingScale ? "Rationalising…" : "Rationalise Scale"}
+            {rationalisingScale ? `Rationalising… ${rationalisationProgress}%` : "Rationalise Scale"}
           </button>
+          {rationalisingScale && <button type="button" onClick={() => rationalisationJobRef.current?.cancel()}>Cancel rationalisation</button>}
+          {rationalisationError && <span role="alert">{rationalisationError}</span>}
         </div>
       </div>
       {showSearchPrefs && (

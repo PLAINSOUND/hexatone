@@ -1,3 +1,4 @@
+import { getOutputTransaction } from "../midi/output-transaction.js";
 /**
  * mpe_synth — MPE output.
  *
@@ -38,7 +39,7 @@ function activeMpeNotesStorageKey(midiOutput) {
   return `${ACTIVE_MPE_NOTES_STORAGE_PREFIX}${String(outputIdentity)}`;
 }
 
-function readPersistedMpeNotes(midiOutput) {
+function readStoredMpeNotes(midiOutput) {
   try {
     const stored = globalThis.sessionStorage?.getItem(activeMpeNotesStorageKey(midiOutput));
     const parsed = stored ? JSON.parse(stored) : {};
@@ -61,7 +62,7 @@ function readPersistedMpeNotes(midiOutput) {
   }
 }
 
-function writePersistedMpeNotes(midiOutput, notesByChannel) {
+function writeStoredMpeNotes(midiOutput, notesByChannel) {
   try {
     const storage = globalThis.sessionStorage;
     if (!storage) return;
@@ -71,6 +72,21 @@ function writePersistedMpeNotes(midiOutput, notesByChannel) {
   } catch {
     // MIDI output must remain usable when storage is unavailable or full.
   }
+}
+
+function readPersistedMpeNotes(midiOutput) {
+  const transaction = getOutputTransaction();
+  if (!transaction) return readStoredMpeNotes(midiOutput);
+  const key = activeMpeNotesStorageKey(midiOutput);
+  if (!transaction.data.has(key)) transaction.data.set(key, readStoredMpeNotes(midiOutput));
+  return transaction.data.get(key);
+}
+function writePersistedMpeNotes(midiOutput, notesByChannel) {
+  const transaction = getOutputTransaction();
+  if (!transaction) return writeStoredMpeNotes(midiOutput, notesByChannel);
+  const key = activeMpeNotesStorageKey(midiOutput);
+  transaction.data.set(key, notesByChannel);
+  transaction.finalizers.set(key, () => writeStoredMpeNotes(midiOutput, transaction.data.get(key)));
 }
 
 function rememberMpeNoteOn(midiOutput, channel0, note) {
