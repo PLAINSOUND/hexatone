@@ -4,6 +4,7 @@ import svgr from 'vite-plugin-svgr';
 import path from 'path';
 import fs from 'fs';
 import process from 'process';
+import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -128,6 +129,8 @@ export default defineConfig({
 
   // ── Vitest ──────────────────────────────────────────────────────────────────
   test: {
+    // Bound concurrent jsdom environments to avoid CPU contention and timing failures.
+    maxWorkers: Math.min(4, availableParallelism()),
     environment: 'jsdom',
     css: false,
     environmentOptions: {

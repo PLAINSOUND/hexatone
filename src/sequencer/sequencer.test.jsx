@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
-import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import {
   loadPersistedSequencerCrashDiagnostics,
   SEQUENCER_CRASH_DIAGNOSTICS_STORAGE_KEY,
@@ -2339,7 +2339,8 @@ describe("Sequencer", () => {
     };
 
     const { container } = render(<Harness />);
-    const snapshotSelect = screen.getByLabelText("next snapshot target");
+    const playback = within(container.querySelector('[aria-label="Sequence playback"]'));
+    const snapshotSelect = playback.getByLabelText("next snapshot target");
     const scrollPanel = container.querySelector(".sequencer-scroll-panel");
     Object.defineProperty(scrollPanel, "clientHeight", { configurable: true, value: 200 });
     Object.defineProperty(scrollPanel, "scrollHeight", { configurable: true, value: 10000 });
@@ -2369,18 +2370,21 @@ describe("Sequencer", () => {
       height: 10000,
     });
 
-    expect(screen.getAllByLabelText(/^snapshot \d+ description$/).length).toBeLessThan(
-      snapshots.length,
+    // Query the labelled inputs directly without scanning every event-table element.
+    const visibleDescriptions = container.querySelectorAll(
+      'input[aria-label^="snapshot "][aria-label$=" description"]',
     );
+    expect(visibleDescriptions.length).toBeGreaterThan(0);
+    expect(visibleDescriptions.length).toBeLessThan(snapshots.length);
     expect(document.querySelector(".sequencer-virtual-spacer")).not.toBeNull();
-    expect(screen.queryByLabelText("snapshot 41 description")).toBeNull();
+    expect(container.querySelector('[aria-label="snapshot 41 description"]')).toBeNull();
 
     fireEvent.change(snapshotSelect, { target: { value: "40" } });
 
     expect(snapshotSelect.value).toBe("40");
     expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(41)");
     await waitFor(() => {
-      expect(screen.getByLabelText("snapshot 41 description")).toBeTruthy();
+      expect(container.querySelector('[aria-label="snapshot 41 description"]')).toBeTruthy();
     });
 
     fireEvent.change(snapshotSelect, { target: { value: "15" } });
@@ -2388,7 +2392,7 @@ describe("Sequencer", () => {
     expect(snapshotSelect.value).toBe("15");
     expect(snapshotSelect.selectedOptions[0]?.textContent).toBe("(16)");
     await waitFor(() => {
-      expect(screen.getByLabelText("snapshot 16 description")).toBeTruthy();
+      expect(container.querySelector('[aria-label="snapshot 16 description"]')).toBeTruthy();
     });
   });
 
@@ -2643,6 +2647,9 @@ describe("Sequencer", () => {
     });
     const originalElementRect = HTMLElement.prototype.getBoundingClientRect;
     let scrollTop = 0;
+    onTestFinished(() => {
+      HTMLElement.prototype.getBoundingClientRect = originalElementRect;
+    });
     HTMLElement.prototype.getBoundingClientRect = function getFlightCueRect() {
       if (this.classList?.contains("sequencer-scroll-panel")) {
         return { top: 0, bottom: 300, left: 0, right: 600, width: 600, height: 300 };
@@ -2741,6 +2748,8 @@ describe("Sequencer", () => {
     }
 
     const { container } = render(<Harness />);
+    // Scope label queries to the controls, avoiding repeated scans of the large event table.
+    const playback = within(container.querySelector('[aria-label="Sequence playback"]'));
     const panel = container.querySelector(".sequencer-scroll-panel");
     Object.defineProperty(panel, "clientHeight", { configurable: true, value: 300 });
     Object.defineProperty(panel, "scrollHeight", {
@@ -2770,7 +2779,7 @@ describe("Sequencer", () => {
     };
 
     for (let cueIndex = 11; cueIndex <= 16; cueIndex += 1) {
-      fireEvent.click(screen.getByLabelText("next sequence marker"));
+      fireEvent.click(playback.getByLabelText("next sequence marker"));
       await expectCueAnchorVisible(cueIndex);
     }
 
@@ -2779,16 +2788,14 @@ describe("Sequencer", () => {
     fireEvent.scroll(panel);
 
     for (let cueIndex = 15; cueIndex >= 9; cueIndex -= 1) {
-      fireEvent.click(screen.getByLabelText("previous sequence marker"));
+      fireEvent.click(playback.getByLabelText("previous sequence marker"));
       await expectCueAnchorVisible(cueIndex);
     }
 
-    fireEvent.change(screen.getByLabelText("next cue target"), {
+    fireEvent.change(playback.getByLabelText("next cue target"), {
       target: { value: "58" },
     });
     await expectCueAnchorVisible(58);
-
-    HTMLElement.prototype.getBoundingClientRect = originalElementRect;
   }, 30000);
 
   it("top-aligns snapshot selection, stepping, and Edit & Play layout changes identically", () => {
