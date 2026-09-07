@@ -90,7 +90,7 @@ const getConnectedController = (deviceId, midi, controllerOverrideId = "auto") =
  *   - MIDI-learn toggle (no state, just side-effect)
  *   - MIDI input device selection (loads per-controller anchor note)
  *   - Anchor-note persistence (localStorage keyed by controller ID)
- *   - Instrument switch (panic + latch reset)
+ *   - Instrument switch (live output handoff, preserving notes and latch)
  *   - equivSteps resize (panic, scale resize, bump importCount)
  *   - scale_divide (panic, scale replace, bump importCount, switch preset focus)
  *   - Color changes (imperative canvas push before React re-render)
@@ -235,13 +235,6 @@ const useSettingsChange = (
       if (ctrl) saveAnchorChannel(ctrl, value, s);
       sessionStorage.setItem("midiin_anchor_channel", String(value));
       // Fall through to normal setSettings
-    }
-
-    // If instrument is about to change, stop all currently playing notes.
-    // This prevents the old instrument's sounds from continuing after switch.
-    if (key === "instrument") {
-      if (keysRef.current) keysRef.current.panic();
-      setLatch(false);
     }
 
     // When equivSteps changes, resize the scale array and reset scale-related settings.

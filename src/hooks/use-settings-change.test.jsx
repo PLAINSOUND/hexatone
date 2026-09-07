@@ -5,13 +5,20 @@ import { render } from "@testing-library/preact";
 import { useEffect } from "preact/hooks";
 import useSettingsChange, { resizeScaleWithEquavePadding } from "./use-settings-change.js";
 
-const HookHarness = ({ settings, setSettings, midi, capture, keysRef = { current: null } }) => {
+const HookHarness = ({
+  settings,
+  setSettings,
+  midi,
+  capture,
+  keysRef = { current: null },
+  setLatch = vi.fn(),
+}) => {
   const handlers = useSettingsChange(settings, setSettings, {
     midi,
     setMidiLearnActive: vi.fn(),
     setHakenPedalLearnActive: vi.fn(),
     keysRef,
-    setLatch: vi.fn(),
+    setLatch,
     bumpImportCount: vi.fn(),
     onUserScaleEdit: vi.fn(),
   });
@@ -82,6 +89,30 @@ describe("resizeScaleWithEquavePadding", () => {
 });
 
 describe("useSettingsChange", () => {
+  it("changes instrument without panicking the canvas or clearing sustain", () => {
+    const settings = { instrument: "old" };
+    const setSettings = vi.fn();
+    const setLatch = vi.fn();
+    const panic = vi.fn();
+    let handlers;
+    render(
+      <HookHarness
+        settings={settings}
+        setSettings={setSettings}
+        setLatch={setLatch}
+        keysRef={{ current: { panic } }}
+        capture={(value) => {
+          handlers = value;
+        }}
+      />,
+    );
+    handlers.onChange("instrument", "new");
+    expect(panic).not.toHaveBeenCalled();
+    expect(setLatch).not.toHaveBeenCalled();
+    expect(setSettings).toHaveBeenCalledOnce();
+    expect(setSettings.mock.calls[0][0](settings).instrument).toBe("new");
+  });
+
   beforeEach(() => {
     sessionStorage.clear();
   });

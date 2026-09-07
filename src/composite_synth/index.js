@@ -18,7 +18,14 @@ function expressionState(synths) {
   return state;
 }
 
-export const create_composite_synth = (synths) => ({
+function controlledSynths(synths, retiringSynths) {
+  for (const synth of retiringSynths) {
+    if (synth.hasVoices?.() === false) retiringSynths.delete(synth);
+  }
+  return [...new Set([...synths, ...retiringSynths])];
+}
+
+export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
   family: "composite",
   families: synths.map((s) => s?.family).filter(Boolean),
   childSynths() {
@@ -62,12 +69,20 @@ export const create_composite_synth = (synths) => ({
       _compositeLastTimbre14: null,
 
       // Existing Keys note objects survive output-graph changes. Reconcile the
-      // child voices in-place so a newly enabled output (or newly loaded sample)
-      // joins currently sounding notes without restarting the sequencer.
+      // child voices in-place so a newly enabled output joins sounding notes.
+      // Replacing a sample instrument instead preserves held voices until release.
       reconcileSynths(nextSynths, timestamp) {
         const desired = Array.isArray(nextSynths) ? nextSynths.filter(Boolean) : [];
+        // A held sample voice keeps its instrument until its musical release.
+        // Store the newest graph for a later attack on this same wrapper.
+        this._nextSynths = desired;
+        const keepSample =
+          this._compositeSounding &&
+          hexSynths.some((s) => s.family === "sample") &&
+          desired.some((s) => s.family === "sample");
         for (let index = hexSynths.length - 1; index >= 0; index -= 1) {
           if (desired.includes(hexSynths[index])) continue;
+          if (keepSample && hexSynths[index].family === "sample") continue;
           if (this._compositeSounding) hexes[index]?.noteOff?.(0, timestamp);
           hexSynths.splice(index, 1);
           hexes.splice(index, 1);
@@ -75,6 +90,7 @@ export const create_composite_synth = (synths) => ({
 
         for (const nextSynth of desired) {
           if (hexSynths.includes(nextSynth) || typeof nextSynth?.makeHex !== "function") continue;
+          if (keepSample && nextSynth.family === "sample") continue;
           const nextArgs = [...args];
           nextArgs[1] = this.cents;
           nextArgs[11] = { ...(nextArgs[11] ?? {}), deferNoteOn: true };
@@ -122,6 +138,9 @@ export const create_composite_synth = (synths) => ({
       },
 
       noteOn(timestamp) {
+        if (!this._compositeSounding && this._nextSynths) {
+          this.reconcileSynths(this._nextSynths, timestamp);
+        }
         this._compositeSounding = true;
         this.release = false;
         hexes.forEach((h) => h.noteOn(timestamp));
@@ -279,7 +298,7 @@ export const create_composite_synth = (synths) => ({
   },
 
   setVolume(value) {
-    synths.forEach((s) => s.setVolume && s.setVolume(value));
+    controlledSynths(synths, retiringSynths).forEach((s) => s.setVolume && s.setVolume(value));
   },
 
   setMod(value) {
@@ -307,6 +326,7 @@ export const create_composite_synth = (synths) => ({
   },
 
   allSoundOff() {
-    synths.forEach((s) => s.allSoundOff && s.allSoundOff());
+    controlledSynths(synths, retiringSynths).forEach((s) => s.allSoundOff && s.allSoundOff());
+    retiringSynths.clear();
   },
 });

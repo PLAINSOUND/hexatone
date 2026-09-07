@@ -1907,7 +1907,7 @@ class Keys {
       if (Array.isArray(nextChildSynths)) {
         const activeHexes = new Set([
           ...(this._allActiveHexes?.() ?? []),
-          ...((this.state?.sustainedNotes && [...this.state.sustainedNotes.keys()]) || []),
+          ...(this.state?.sustainedNotes?.map(([hex]) => hex) ?? []),
           ...(this._snapshotHexes ?? []),
           ...((this._soundingSnapshotHexes instanceof Set && this._soundingSnapshotHexes) || []),
         ]);

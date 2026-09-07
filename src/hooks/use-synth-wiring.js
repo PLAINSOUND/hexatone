@@ -455,6 +455,7 @@ const useSynthWiring = (
     () => sessionStorage.getItem("octave_deferred") !== "false",
   );
   const sampleSynthRef = useRef({ key: null, synth: null });
+  const retiringSampleSynthsRef = useRef(new Set());
   const mpeSynthRef = useRef({ key: null, synth: null });
   const mtsSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
@@ -468,6 +469,8 @@ const useSynthWiring = (
   }, []);
 
   const clearAllOutputSynthRefs = useCallback(() => {
+    for (const synth of retiringSampleSynthsRef.current) synth.allSoundOff?.();
+    retiringSampleSynthsRef.current.clear();
     releaseSynthInstance(sampleSynthRef.current.synth);
     sampleSynthRef.current = { key: null, synth: null };
     releaseSynthInstance(oscSynthRef.current.synth);
@@ -810,7 +813,14 @@ const useSynthWiring = (
       };
     }
 
-    setLoading(wait);
+    // Replacing a live sample engine is a background handoff: the old sound
+    // remains playable while buffers load. Keep this decision local so stale
+    // completions only decrement counters that their own build incremented.
+    const showLoading = !(wantSample && sampleSynthRef.current.synth);
+    if (showLoading) setLoading(wait);
+    const finishLoading = () => {
+      if (showLoading) setLoading(signal);
+    };
     const promises = [];
 
     const sampleKey = wantSample
@@ -822,6 +832,7 @@ const useSynthWiring = (
         ])
       : null;
     if (!wantSample && sampleSynthRef.current.synth) {
+      for (const synth of retiringSampleSynthsRef.current) releaseSynthInstance(synth);
       releaseSynthInstance(sampleSynthRef.current.synth);
       sampleSynthRef.current = { key: null, synth: null };
     }
@@ -846,7 +857,14 @@ const useSynthWiring = (
               // its buffers. The output graph is swapped only after prepare()
               // resolves, so instrument selection never creates a silent gap.
               if (userHasInteracted && s?.prepare) await s.prepare();
-              if (!cancelled) sampleSynthRef.current = { key: sampleKey, synth: s };
+              if (!cancelled) {
+                const previous = sampleSynthRef.current.synth;
+                if (previous && previous !== s) retiringSampleSynthsRef.current.add(previous);
+                for (const retired of retiringSampleSynthsRef.current) {
+                  if (retired.hasVoices?.() === false) retiringSampleSynthsRef.current.delete(retired);
+                }
+                sampleSynthRef.current = { key: sampleKey, synth: s };
+              }
               return s;
             }),
         );
@@ -1054,7 +1072,7 @@ const useSynthWiring = (
 
     Promise.allSettled(promises).then(async (results) => {
       if (cancelled) {
-        setLoading(signal);
+        finishLoading();
         return;
       }
       for (const result of results) {
@@ -1068,13 +1086,13 @@ const useSynthWiring = (
         .filter((s) => s != null);
       if (validSynths.length === 0) {
         setSynth(null);
-        setLoading(signal);
+        finishLoading();
         return;
       }
       // Always expose a composite, even for one output. Its per-note wrappers
       // can then reconcile newly enabled/disabled child engines in place while
       // the sequencer continues to own the same logical voices.
-      const s = create_composite_synth(validSynths);
+      const s = create_composite_synth(validSynths, retiringSampleSynthsRef.current);
       // Set the synth and clear the spinner immediately — do NOT await prepare()
       // here. On iOS, prepare() calls AudioContext.resume() + decodeAudioData,
       // both of which require a running AudioContext. The synth effect runs outside
@@ -1090,7 +1108,7 @@ const useSynthWiring = (
       // old decoded buffers (a very short "peep") if the new instrument hasn't decoded
       // yet. Acceptable given that the iOS hang is the worse failure.
       if (cancelled) {
-        setLoading(signal);
+        finishLoading();
         return;
       }
       // Push current controller state into the newly-built synth immediately,
@@ -1111,7 +1129,7 @@ const useSynthWiring = (
       if (userHasInteracted && deferSampleActivation && s.prepare) {
         void s.prepare();
       }
-      setLoading(signal);
+      finishLoading();
     });
 
     return () => {

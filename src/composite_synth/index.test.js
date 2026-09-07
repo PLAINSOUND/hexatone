@@ -2,6 +2,63 @@ import { describe, it, expect, vi } from "vitest";
 import { create_composite_synth } from "./index.js";
 
 describe("composite_synth controller-state replay", () => {
+  it("keeps held sample voices through repeated sound changes and uses the latest sound on reattack", () => {
+    const makeEngine = (family) => {
+      const hex = { noteOn: vi.fn(), noteOff: vi.fn(), retune: vi.fn(), aftertouch: vi.fn() };
+      return { family, makeHex: vi.fn(() => hex), hex };
+    };
+    const old = makeEngine("sample");
+    const intermediate = makeEngine("sample");
+    const latest = makeEngine("sample");
+    const midi = makeEngine("mpe");
+    const voice = create_composite_synth([old, midi]).makeHex(null, 100);
+    voice.noteOn(1000);
+    voice.reconcileSynths([intermediate, midi], 1020);
+    voice.reconcileSynths([latest, midi], 1040);
+    voice.aftertouch(64);
+    expect(old.hex.noteOff).not.toHaveBeenCalled();
+    expect(old.hex.aftertouch).toHaveBeenCalledWith(64, null);
+    expect(intermediate.makeHex).not.toHaveBeenCalled();
+    expect(latest.makeHex).not.toHaveBeenCalled();
+    expect(midi.hex.noteOn).toHaveBeenCalledTimes(1);
+    voice.noteOff(32, 1100);
+    expect(old.hex.noteOff).toHaveBeenCalledWith(32, 1100);
+    voice.noteOn(1200);
+    expect(latest.hex.noteOn).toHaveBeenCalledWith(1200);
+    expect(old.hex.noteOn).toHaveBeenCalledTimes(1);
+    expect(intermediate.makeHex).not.toHaveBeenCalled();
+  });
+
+  it("releases a retained sample when its output is disabled", () => {
+    const oldHex = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const old = { family: "sample", makeHex: () => oldHex };
+    const replacement = { family: "sample", makeHex: vi.fn() };
+    const voice = create_composite_synth([old]).makeHex();
+    voice.noteOn();
+    voice.reconcileSynths([replacement], 100);
+    voice.reconcileSynths([], 200);
+    expect(oldHex.noteOff).toHaveBeenCalledWith(0, 200);
+    expect(replacement.makeHex).not.toHaveBeenCalled();
+  });
+
+  it("keeps volume and panic connected to retiring samples and prunes completed tails", () => {
+    const old = { hasVoices: vi.fn(() => true), setVolume: vi.fn(), allSoundOff: vi.fn() };
+    const ended = { hasVoices: () => false, setVolume: vi.fn() };
+    const current = { family: "sample", makeHex: vi.fn(() => ({})), allSoundOff: vi.fn() };
+    const retired = new Set([old, ended]);
+    const synth = create_composite_synth([current], retired);
+    synth.makeHex();
+    expect(current.makeHex).toHaveBeenCalledOnce();
+    synth.setVolume(0.5);
+    expect(old.setVolume).toHaveBeenCalledWith(0.5);
+    expect(ended.setVolume).not.toHaveBeenCalled();
+    expect(retired.has(ended)).toBe(false);
+    synth.allSoundOff();
+    expect(old.allSoundOff).toHaveBeenCalledOnce();
+    expect(current.allSoundOff).toHaveBeenCalledOnce();
+    expect(retired.size).toBe(0);
+  });
+
   it("exposes child velocities on the wrapper hex for snapshot capture", () => {
     const aHex = {
       coords: { x: 0, y: 0 },

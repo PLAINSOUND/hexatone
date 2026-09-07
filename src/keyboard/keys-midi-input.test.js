@@ -6019,6 +6019,25 @@ describe("Keys MIDI input integration", () => {
     });
   });
 
+  it("reconciles held and sustained live voices once each when outputs change", () => {
+    const keys = createKeys({}, {}, {});
+    const voices = Array.from({ length: 5 }, () => ({
+      release: false,
+      reconcileSynths: vi.fn(),
+    }));
+    keys.state.activeMouse = voices[0];
+    keys.state.activeTouch.set(1, voices[1]);
+    keys.state.activeKeyboard.set("KeyA", voices[2]);
+    keys.state.activeMidi.set(60, voices[3]);
+    keys.state.sustainedNotes = [[voices[4], 0], [voices[0], 0]];
+    const children = [{ family: "sample" }];
+    keys.updateLiveOutputState(null, { childSynths: () => children });
+    for (const voice of voices) {
+      expect(voice.reconcileSynths).toHaveBeenCalledOnce();
+      expect(voice.reconcileSynths.mock.calls[0][0]).toBe(children);
+    }
+  });
+
   it("reconciles sounding snapshot voices into a newly swapped output graph", () => {
     const oldSynth = {
       rememberControllerState: vi.fn(),
