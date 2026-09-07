@@ -499,8 +499,8 @@ export function formatHejiLabel({
   };
 }
 
-function decomposeHejiDeltaMonzo(deltaMonzo) {
-  const residual = [...deltaMonzo];
+function decomposeHejiMonzo(targetMonzo) {
+  const residual = subtractMonzos(targetMonzo, ZERO_MONZO);
   const extraIds = [];
 
   for (const family of HEJI_FAMILIES) {
@@ -522,62 +522,68 @@ function decomposeHejiDeltaMonzo(deltaMonzo) {
     }
   }
 
-  if (residual.some((value) => value !== 0)) return null;
-  return sortExtraIds(extraIds);
+  return { residual, extraIds: sortExtraIds(extraIds) };
 }
 
 const SEARCH_BASE_IDS = BASE_SYMBOLS.map((item) => item.id);
 const SEARCH_LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
 const SEARCH_SCHISMA_AMOUNTS = [-3, -2, -1, 0, 1, 2, 3];
 
-export function monzoToHeji(monzo, options = {}) {
-  const octaveMin = options.octaveMin ?? 0;
-  const octaveMax = options.octaveMax ?? 8;
-  const schismaAmounts = options.allowSchismaConventional ? SEARCH_SCHISMA_AMOUNTS : [0];
-  let best = null;
+// Base spellings contain only primes 2, 3 and 5. Higher-prime accidentals are
+// therefore independent of the base candidate and can be removed once per note.
+const BASE_SPELLING_INDEXES = new Map();
+const MAX_BASE_SPELLING_INDEXES = 8;
 
+function baseSpellingIndex(octaveMin, octaveMax, allowSchismaConventional) {
+  const key = `${octaveMin}:${octaveMax}:${!!allowSchismaConventional}`;
+  if (BASE_SPELLING_INDEXES.has(key)) return BASE_SPELLING_INDEXES.get(key);
+  const index = new Map();
+  const schismaAmounts = allowSchismaConventional ? SEARCH_SCHISMA_AMOUNTS : [0];
   for (let octave = octaveMin; octave <= octaveMax; octave += 1) {
     for (const letter of SEARCH_LETTERS) {
       for (const baseId of SEARCH_BASE_IDS) {
         for (const schismaAmount of schismaAmounts) {
-          const baseMonzo = addMonzos(
-            naturalBaseMonzo(letter, octave),
-            CHROMATIC_MONZOS[(BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"]).chromatic],
-            SYNTONIC_BY_AMOUNT[(BASE_BY_ID[baseId] ?? BASE_BY_ID["natural:0"]).syntonic] ??
-              ZERO_MONZO,
-            SCHISMA_BY_AMOUNT[schismaAmount] ?? ZERO_MONZO,
-          );
-          const delta = subtractMonzos(monzo, baseMonzo);
-          const extraIds = decomposeHejiDeltaMonzo(delta);
-          if (!extraIds) continue;
-          const candidate = hejiToMonzo({ letter, octave, baseId, schismaAmount, extraIds });
-          if (!monzosEqual(candidate, monzo)) continue;
-          const spelling = {
-            supported: true,
-            letter,
-            octave,
-            baseId,
-            schismaAmount,
-            extraIds,
-            label: formatHejiLabel({ letter, octave, baseId, schismaAmount, extraIds }),
-          };
-          if (
-            !best ||
-            compareHejiSpellings(spelling, best, { ...options, targetMonzo: monzo }) < 0
-          ) {
-            best = spelling;
-          }
+          const baseMonzo = hejiToMonzo({ letter, octave, baseId, schismaAmount });
+          const monzoKey = baseMonzo.join(",");
+          const candidates = index.get(monzoKey) ?? [];
+          candidates.push({ letter, octave, baseId, schismaAmount });
+          index.set(monzoKey, candidates);
         }
       }
     }
   }
+  // Bound retained indexes when callers use different octave search windows.
+  if (BASE_SPELLING_INDEXES.size >= MAX_BASE_SPELLING_INDEXES) {
+    BASE_SPELLING_INDEXES.delete(BASE_SPELLING_INDEXES.keys().next().value);
+  }
+  BASE_SPELLING_INDEXES.set(key, index);
+  return index;
+}
 
-  if (best) return best;
-
-  return {
-    supported: false,
-    unsupported: [...monzo],
-  };
+export function monzoToHeji(monzo, options = {}) {
+  const decomposition = decomposeHejiMonzo(monzo);
+  let best = null;
+  if (decomposition) {
+    const { residual, extraIds } = decomposition;
+    const index = baseSpellingIndex(
+      options.octaveMin ?? 0,
+      options.octaveMax ?? 8,
+      options.allowSchismaConventional,
+    );
+    for (const base of index.get(residual.join(",")) ?? []) {
+      const candidate = { ...base, extraIds };
+      if (!monzosEqual(hejiToMonzo(candidate), monzo)) continue;
+      const spelling = {
+        supported: true,
+        ...candidate,
+        label: formatHejiLabel(candidate),
+      };
+      if (!best || compareHejiSpellings(spelling, best, { ...options, targetMonzo: monzo }) < 0) {
+        best = spelling;
+      }
+    }
+  }
+  return best ?? { supported: false, unsupported: [...monzo] };
 }
 
 function compareTuples(a, b) {

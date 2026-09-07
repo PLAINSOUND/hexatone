@@ -1,4 +1,5 @@
 import {
+  EXTRA_MODIFIERS,
   glyphStringForSelection,
   hejiDeltaMonzoForSelection,
   hejiToMonzo,
@@ -133,5 +134,46 @@ describe("notation/heji", () => {
   it("marks unsupported monzos cleanly", () => {
     const unsupported = monzoToHeji([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
     expect(unsupported.supported).toBe(false);
+  });
+});
+
+describe("HEJI indexed spelling search", () => {
+  it("preserves every higher-prime modifier across notation policies", () => {
+    for (const modifier of EXTRA_MODIFIERS) {
+      const monzo = hejiToMonzo({
+        letter: "D",
+        octave: 4,
+        baseId: "natural:0",
+        extraIds: [modifier.id, modifier.id],
+      });
+      for (const notationPolicy of [null, "53_tertial_center_d", "farabi_center_c"]) {
+        const result = monzoToHeji(monzo, { notationPolicy, allowSchismaConventional: true });
+        expect(result.supported).toBe(true);
+        expect(hejiToMonzo(result)).toEqual(monzo);
+      }
+    }
+  });
+
+  it("respects different octave windows after an index has been reused", () => {
+    const monzo = hejiToMonzo({ letter: "C", octave: 4, baseId: "natural:0" });
+    const expected = monzoToHeji(monzo, { octaveMin: 2, octaveMax: 6 });
+    expect(expected.supported).toBe(true);
+    expect(monzoToHeji(monzo, { octaveMin: 10, octaveMax: 11 }).supported).toBe(false);
+    expect(monzoToHeji(monzo, { octaveMin: 2, octaveMax: 6 })).toEqual(expected);
+  });
+
+  it("does not share mutable spelling results between callers", () => {
+    const monzo = hejiToMonzo({
+      letter: "A",
+      octave: 4,
+      baseId: "natural:0",
+      extraIds: ["septimal:-1"],
+    });
+    const first = monzoToHeji(monzo);
+    const expected = JSON.parse(JSON.stringify(first));
+    first.label.glyphs = "changed";
+    first.extraIds.push("septimal:1");
+    first.letter = "C";
+    expect(monzoToHeji(monzo)).toEqual(expected);
   });
 });
