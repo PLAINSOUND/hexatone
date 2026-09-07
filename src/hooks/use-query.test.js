@@ -301,3 +301,25 @@ describe("useQuery", () => {
     unmount();
   });
 });
+
+it("restores once and skips identical settings writes", () => {
+  localStorage.clear();
+  history.replaceState({}, "", "http://localhost/");
+  let latest;
+  const capture = value => { latest = value; };
+  const read = vi.spyOn(Storage.prototype, "getItem");
+  const write = vi.spyOn(Storage.prototype, "setItem");
+  const url = vi.spyOn(history, "replaceState");
+  const view = render(h(UseQueryHarness, { capture }));
+  try {
+    const initialReads = read.mock.calls.length;
+    latest.setValues(prev => ({ ...prev }));
+    const initialWrites = write.mock.calls.length;
+    expect(initialWrites).toBeGreaterThan(0);
+    latest.setValues(prev => ({ ...prev }));
+    view.rerender(h(UseQueryHarness, { capture }));
+    expect(read).toHaveBeenCalledTimes(initialReads);
+    expect(write).toHaveBeenCalledTimes(initialWrites);
+    expect(url).toHaveBeenCalledTimes(1);
+  } finally { view.unmount(); read.mockRestore(); write.mockRestore(); url.mockRestore(); }
+});

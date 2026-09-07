@@ -65,7 +65,8 @@ function canonicalPitchClassLabel(value) {
 }
 
 const ScaleTable = (props) => {
-  const previewState = props.previewState ?? createTuningPreviewState();
+  const emptyPreviewState = useMemo(() => createTuningPreviewState(), []);
+  const previewState = props.previewState ?? emptyPreviewState;
   const onPreviewChange = props.onPreviewChange ?? (() => {});
   const modulationTranspositionCents = Number(props.modulation_transposition_cents ?? 0);
   const modulationDisplayActive = !!props.modulation_display_active;
@@ -640,7 +641,7 @@ const ScaleTable = (props) => {
   const [rationalisationProgress, setRationalisationProgress] = useState(0);
   const [rationalisationError, setRationalisationError] = useState("");
   const rationalisationSourceRef = useRef(null);
-  rationalisationSourceRef.current = { scale: props.settings.scale, workspace, searchPrefs, previewState };
+  rationalisationSourceRef.current = { scale: props.settings.scale, workspace, searchPrefs, frequencyAtDegree };
   useEffect(() => () => {
     rationalisationJobRef.current?.cancel();
     rationalisationJobRef.current = null;
@@ -649,7 +650,7 @@ const ScaleTable = (props) => {
     rationalisationJobRef.current?.cancel();
     rationalisationJobRef.current = null;
     setRationalisingScale(false);
-  }, [workspace, searchPrefs]);
+  }, [workspace, searchPrefs, frequencyAtDegree]);
 
   const rationaliseScale = useCallback(async () => {
     rationalisationJobRef.current?.cancel();
@@ -668,7 +669,7 @@ const ScaleTable = (props) => {
     try {
       const newScale = await job.promise;
       const latest = rationalisationSourceRef.current;
-      if (rationalisationJobRef.current !== job || latest.scale !== source.scale || latest.workspace !== source.workspace || latest.searchPrefs !== source.searchPrefs) return;
+      if (rationalisationJobRef.current !== job || latest.scale !== source.scale || latest.workspace !== source.workspace || latest.searchPrefs !== source.searchPrefs || latest.frequencyAtDegree !== source.frequencyAtDegree) return;
       const changed = newScale.some((entry, i) => entry !== currentScale[i]);
     if (changed) {
       // Switch to HEJI auto-generated labels so the rationalised note names
