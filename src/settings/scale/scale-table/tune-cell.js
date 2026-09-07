@@ -1,8 +1,9 @@
+import { Component } from "preact";
 // TuneCell renders the main per-degree pitch editor in the scale table.
 // It coordinates scala-entry drafting, rationalisation UI, HEJI display, and
 // live preview hooks for one degree without owning the full table state.
 
-import { useState, useRef, useCallback, useEffect } from "preact/hooks";
+import { useState, useRef, useCallback, useEffect, useMemo } from "preact/hooks";
 import { parseExactInterval } from "../../../tuning/interval.js";
 import { spelledHejiLabel } from "../../../notation/key-label.js";
 import { createReferenceFrame } from "../../../notation/reference-frame.js";
@@ -435,4 +436,29 @@ const TuneCell = ({
   );
 };
 
-export default TuneCell;
+class MemoTuneCell extends Component {
+  shouldComponentUpdate(nextProps) {
+    const keys = Object.keys(nextProps);
+    return keys.length !== Object.keys(this.props).length || keys.some(key => !Object.is(nextProps[key], this.props[key]));
+  }
+  render() { return <TuneCell {...this.props} />; }
+}
+const EVENT_PROPS = ["onChange", "onDegree0Save", "onFundamentalChange", "onPreviewChange", "frequencyAtDegree"];
+
+// The table also renders live activity and text drafts. Keep those updates out
+// of the tuning editors, while every event reads the latest parent callbacks.
+export default function StableTuneCell(props) {
+  const latest = useRef(props);
+  latest.current = props;
+  const handlers = useMemo(() => Object.fromEntries(EVENT_PROPS.map(name => [name, (...args) => latest.current[name]?.(...args)])), []);
+  const { fundamental, heji_anchor_label, heji_anchor_ratio } = props.settings ?? {};
+  const settings = useMemo(() => ({ fundamental, heji_anchor_label, heji_anchor_ratio }), [fundamental, heji_anchor_label, heji_anchor_ratio]);
+  const degree = props.degree;
+  const preview = getDegreePreview(props.previewState, degree);
+  const previewState = useMemo(() => ({ degreePreviews: { [degree]: preview } }), [degree, preview]);
+  const editorProps = { ...props, settings, previewState };
+  // This legacy prop is not consumed by TuneCell.
+  delete editorProps.colorSuggestionOptions;
+  for (const name of EVENT_PROPS) editorProps[name] = props[name] ? handlers[name] : undefined;
+  return <MemoTuneCell {...editorProps} />;
+}

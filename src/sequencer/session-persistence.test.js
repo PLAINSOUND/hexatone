@@ -1,6 +1,7 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 
 import {
+  createSequenceWorkspaceSessionWriter,
   SEQUENCE_WORKSPACE_STORAGE_KEY,
   clearSequenceWorkspaceSession,
   loadSequenceWorkspaceFromSession,
@@ -114,4 +115,18 @@ describe("sequencer session persistence", () => {
 
     expect(loadSequenceWorkspaceFromSession().sequenceLegato).toBe("all-common-tones");
   });
+});
+
+it("writes a workspace revision once and saves subsequent edits synchronously", () => {
+  const save = createSequenceWorkspaceSessionWriter();
+  const workspace = { snapshots: [{ id: "s", notes: [] }], activeSequenceName: "first" };
+  const spy = vi.spyOn(Storage.prototype, "setItem");
+  try {
+    save(workspace);
+    save({ ...workspace });
+    expect(spy).toHaveBeenCalledTimes(1);
+    save({ ...workspace, activeSequenceName: "edited" });
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(loadSequenceWorkspaceFromSession().activeSequenceName).toBe("edited");
+  } finally { spy.mockRestore(); }
 });

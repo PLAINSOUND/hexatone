@@ -36,7 +36,7 @@ export function buildSequenceRuntimeModel({
   playbackRepeats = null,
   sequenceLegato = "per-note",
   source = "runtime",
-} = {}) {
+} = {}, { playbackModel = null } = {}) {
   const buildStartMs = performance.now();
   const runtimeInstanceId = nextRuntimeInstanceId;
   nextRuntimeInstanceId += 1;
@@ -55,12 +55,12 @@ export function buildSequenceRuntimeModel({
   const effectivePlaybackRepeats = Array.isArray(playbackRepeats) ? playbackRepeats : repeats;
   const sequenceLegatoMode = normalizeSequenceLegatoMode(sequenceLegato);
 
-  const sortedBars = measureSequenceRuntimeStep(
+  const sortedBars = playbackModel?.sortedBars ?? measureSequenceRuntimeStep(
     "normalize-bars",
     () => normalizeBarMarkers(bars),
     entryMeta,
   );
-  const sortedTempi = measureSequenceRuntimeStep(
+  const sortedTempi = playbackModel?.sortedTempi ?? measureSequenceRuntimeStep(
     "normalize-tempi",
     () => (Array.isArray(tempi) ? normalizeTempoMarkers(tempi) : []),
     entryMeta,
@@ -73,7 +73,7 @@ export function buildSequenceRuntimeModel({
       }),
     entryMeta,
   );
-  const playbackSequenceEvents = measureSequenceRuntimeStep(
+  const playbackSequenceEvents = playbackModel?.playbackSequenceEvents ?? measureSequenceRuntimeStep(
     "derive-playback-sequence-events",
     () =>
       playbackRenderedSnapshots === renderedSnapshots && effectivePlaybackRepeats === repeats
@@ -98,7 +98,7 @@ export function buildSequenceRuntimeModel({
       eventCount: sequenceEvents.length,
     },
   );
-  const playbackSequenceCueGroups = measureSequenceRuntimeStep(
+  const playbackSequenceCueGroups = playbackModel?.playbackSequenceCueGroups ?? measureSequenceRuntimeStep(
     "derive-playback-sequence-cues",
     () =>
       playbackSequenceEvents === sequenceEvents
@@ -110,7 +110,7 @@ export function buildSequenceRuntimeModel({
       cueCount: sequenceCueGroups.length,
     },
   );
-  const playbackNotesByCueIndex = measureSequenceRuntimeStep(
+  const playbackNotesByCueIndex = playbackModel?.playbackNotesByCueIndex ?? measureSequenceRuntimeStep(
     "derive-playback-notes-by-cue",
     () => deriveSequenceNotesByCueGroups(playbackSequenceCueGroups),
     {
@@ -143,7 +143,7 @@ export function buildSequenceRuntimeModel({
       cueCount: sequenceCueGroups.length,
     },
   );
-  const playbackTimeline = measureSequenceRuntimeStep(
+  const playbackTimeline = playbackModel?.playbackTimeline ?? measureSequenceRuntimeStep(
     "build-playback-timeline",
     () =>
       buildPlaybackTimeline({
@@ -161,7 +161,7 @@ export function buildSequenceRuntimeModel({
     },
   );
   const timedPlaybackBursts = playbackTimeline.playbackBursts;
-  const timedCueTriggers = measureSequenceRuntimeStep(
+  const timedCueTriggers = playbackModel?.timedCueTriggers ?? measureSequenceRuntimeStep(
     "derive-timed-cue-triggers",
     () => deriveTimedCueTriggers(playbackTimeline),
     {
@@ -170,7 +170,7 @@ export function buildSequenceRuntimeModel({
       burstCount: timedPlaybackBursts.length,
     },
   );
-  const timedCueTriggerBySourceIndex = measureSequenceRuntimeStep(
+  const timedCueTriggerBySourceIndex = playbackModel?.timedCueTriggerBySourceIndex ?? measureSequenceRuntimeStep(
     "index-timed-cue-triggers",
     () => {
       const mapping = new Map();
@@ -223,4 +223,22 @@ export function buildSequenceRuntimeModel({
   }
 
   return model;
+}
+
+// One bounded cache per consumer; only immutable playback inputs invalidate it.
+export function createSequenceRuntimeModelBuilder() {
+  let previousDependencies = null;
+  let previousModel = null;
+  return (options = {}) => {
+    const dependencies = [
+      options.playbackSnapshots ?? options.displaySnapshots ?? options.snapshots,
+      options.bars, options.tempi, options.playbackRepeats ?? options.repeats,
+      normalizeSequenceLegatoMode(options.sequenceLegato ?? "per-note"),
+    ];
+    const canReuse = previousDependencies && dependencies.every((value, index) => Object.is(value, previousDependencies[index]));
+    const model = buildSequenceRuntimeModel(options, { playbackModel: canReuse ? previousModel : null });
+    previousDependencies = dependencies;
+    previousModel = model;
+    return model;
+  };
 }

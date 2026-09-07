@@ -136,7 +136,7 @@ import {
   remapSequenceNoteToRuntime,
   remapSequenceSnapshotsToRuntime,
 } from "./sequencer/runtime-pitch-map.js";
-import { buildSequenceRuntimeModel } from "./sequencer/runtime-model.js";
+import { createSequenceRuntimeModelBuilder } from "./sequencer/runtime-model.js";
 import { buildCueExpandedSnapshotIdsAt } from "./sequencer/view-runtime.js";
 import { clearPendingTransportSelection } from "./sequencer/transport-selection.js";
 import {
@@ -1509,9 +1509,11 @@ const App = () => {
     () => buildDependencyToken([sequencePlaybackRuntimeToken, sequenceLegato]),
     [sequenceLegato, sequencePlaybackRuntimeToken],
   );
+  const sequenceRuntimeBuilderRef = useRef(null);
+  if (!sequenceRuntimeBuilderRef.current) sequenceRuntimeBuilderRef.current = createSequenceRuntimeModelBuilder();
   const sequenceRuntimeModel = useMemo(
     () =>
-      buildSequenceRuntimeModel({
+      sequenceRuntimeBuilderRef.current({
         snapshots,
         displaySnapshots: sequenceDisplaySnapshots,
         playbackSnapshots: sequencePlaybackSnapshots,

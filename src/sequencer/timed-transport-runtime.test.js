@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildPlaybackTimeline } from "./playback-timeline.js";
 import {
+  nextTimedTransportDelayMs,
   applyLiveRepeatDecision,
   advanceTimedTransport,
   createTimedTransportState,
@@ -279,5 +280,22 @@ describe("timed transport runtime", () => {
     expect(findPlaybackStartIndex(playbackBursts, { sequenceTime: 2 })).toBe(2);
     expect(findPlaybackStartIndex(playbackBursts, { cueIndex: 2 })).toBe(1);
     expect(findPlaybackStartIndex(playbackBursts, { snapshotIndex: 1 })).toBe(2);
+  });
+});
+
+describe("wall-clock scheduling at live SPEED", () => {
+  it.each([0.5, 1, 2])("dispatches at the correct deadline at %sx", speedMultiplier => {
+    const bursts = [{ elapsedSeconds: 0 }, { elapsedSeconds: 1 }];
+    const state = startTimedTransport(createTimedTransportState(bursts), bursts, { clockSeconds: 10, speedMultiplier });
+    expect(nextTimedTransportDelayMs(state, 1, 10)).toBeCloseTo(1000 / speedMultiplier);
+    expect(nextTimedTransportDelayMs(state, 1, 10 + 1 / speedMultiplier)).toBeCloseTo(0);
+    expect(nextTimedTransportDelayMs(state, 1, 20)).toBe(0);
+  });
+  it("rebases a mid-note speed change without moving the musical position", () => {
+    const bursts = [{ elapsedSeconds: 0 }];
+    const state = startTimedTransport(createTimedTransportState(bursts), bursts, { clockSeconds: 10 });
+    const changed = updateTimedTransportSpeed(state, 10.25, 2);
+    expect(currentTimedTransportElapsedSeconds(changed, 10.25)).toBeCloseTo(0.25);
+    expect(nextTimedTransportDelayMs(changed, 1, 10.25)).toBeCloseTo(375);
   });
 });

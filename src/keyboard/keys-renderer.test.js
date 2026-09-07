@@ -118,3 +118,14 @@ describe("drawColorPreviewDegrees", () => {
     expect(ctx.drawGrid).not.toHaveBeenCalled();
   });
 });
+
+it("reuses label measurements but invalidates them for font or hex-size changes", () => {
+  const context = { font: "20px serif", measureText: vi.fn(() => ({ width: 80 })) };
+  fitHexLabelScale(context, "A+37", 46);
+  fitHexLabelScale(context, "A+37", 46);
+  expect(context.measureText).toHaveBeenCalledTimes(1);
+  context.font = "24px serif";
+  fitHexLabelScale(context, "A+37", 46);
+  fitHexLabelScale(context, "A+37", 50);
+  expect(context.measureText).toHaveBeenCalledTimes(3);
+});

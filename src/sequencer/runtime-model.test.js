@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSequenceRuntimeModel } from "./runtime-model.js";
+import { buildSequenceRuntimeModel, createSequenceRuntimeModelBuilder } from "./runtime-model.js";
 
 describe("buildSequenceRuntimeModel", () => {
   it("precomputes the sounding note set for direct manual cue lookup", () => {
@@ -80,4 +80,18 @@ describe("buildSequenceRuntimeModel", () => {
       withoutPlaybackRepeats.timedPlaybackBursts.some((burst) => burst.repeatJump != null),
     ).toBe(false);
   });
+});
+
+it("reuses playback timing for label changes and invalidates it for tempo or pitch edits", () => {
+  const build = createSequenceRuntimeModelBuilder();
+  const snapshots = [{ id: "s", length: 1, notes: [{ midicents: 60, start: 0, end: 1 }] }];
+  const options = { snapshots, playbackSnapshots: snapshots, bars: [], tempi: [], repeats: [] };
+  const first = build(options);
+  const relabeled = build({ ...options, displaySnapshots: snapshots.map(s => ({ ...s, name: "new label" })) });
+  expect(relabeled.sequenceEvents).not.toBe(first.sequenceEvents);
+  expect(relabeled.playbackTimeline).toBe(first.playbackTimeline);
+  expect(relabeled.timedCueTriggers).toBe(first.timedCueTriggers);
+  const tempo = build({ ...options, tempi: [{ id: "t", position: 1, bpm: 120 }] });
+  expect(tempo.playbackTimeline).not.toBe(first.playbackTimeline);
+  expect(build({ ...options, playbackSnapshots: [...snapshots] }).playbackTimeline).not.toBe(tempo.playbackTimeline);
 });
