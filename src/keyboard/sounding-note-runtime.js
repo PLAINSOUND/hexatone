@@ -24,6 +24,7 @@ export function createSoundingNoteState() {
     shiftSustainedKeys: new Set(),
     activeMouse: null,
     activeTouch: new Map(),
+    touchCoords: new Map(),
     activeKeyboard: new Map(),
     activeMidi: new Map(),
     activeMidiByChannel: new Map(),

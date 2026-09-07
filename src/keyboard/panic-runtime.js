@@ -27,6 +27,7 @@ export function panic(keys) {
   }
   keys.state.activeMouse = null;
   keys.state.activeTouch.clear();
+  keys.state.touchCoords.clear();
   keys.state.activeKeyboard.clear();
   keys.state.activeMidi.clear();
   keys.state.activeMidiByChannel.clear();

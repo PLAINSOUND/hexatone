@@ -228,6 +228,7 @@ export function onKeyUp(e) {
 }
 
 export function mouseUp(_e) {
+  if (_e?.sourceCapabilities?.firesTouchEvents) return;
   if (!this.state.isMouseDown) return;
   this.state.isMouseDown = false;
   this.state.mouseDownToggledCoord = null;
@@ -247,6 +248,7 @@ export function mouseUp(_e) {
 }
 
 export async function mouseDown(e) {
+  if (e.sourceCapabilities?.firesTouchEvents) return;
   if (this._onFirstInteraction) {
     // Do not block visual/touch responsiveness on audio wake/prepare work.
     // On iOS restore paths that async preparation can stall long enough to
@@ -266,6 +268,7 @@ export async function mouseDown(e) {
 }
 
 export function mouseActive(e) {
+  if (e.sourceCapabilities?.firesTouchEvents) return;
   let coords = this.getPointerPosition(e);
   coords = this.getHexCoordsAt(coords);
 
@@ -317,51 +320,42 @@ export function getPosition(element) {
   return { x: rect.left, y: rect.top };
 }
 
+function releaseTouch(keys, id) {
+  const hex = keys.state.activeTouch.get(id);
+  keys.state.activeTouch.delete(id);
+  keys.state.touchCoords.delete(id);
+  if (!hex) return;
+  keys.noteOff(hex, 0);
+  keys._settleModulationAfterActiveRelease();
+  if (!keys.state.sustain) keys.hexOff(hex.coords);
+}
+
 export async function handleTouch(e) {
   e.preventDefault();
   if (this._onFirstInteraction) {
-    // Let the canvas respond immediately even if the audio wake path is still
-    // preparing in the same gesture turn.
+    // Audio preparation must not delay the gesture's note lifecycle.
     void this._onFirstInteraction();
   }
 
   this.state.isTouchDown = e.targetTouches.length !== 0;
-
-  const currentIds = new Set();
-  for (let i = 0; i < e.targetTouches.length; i++) {
-    currentIds.add(e.targetTouches[i].identifier);
-  }
-
-  for (const [id, hex] of this.state.activeTouch) {
-    if (!currentIds.has(id)) {
-      const coords = hex.coords;
-      this.noteOff(hex, 0);
-      this.state.activeTouch.delete(id);
-      this._settleModulationAfterActiveRelease();
-      if (!this.state.sustain) this.hexOff(coords);
-    }
+  const currentIds = new Set(Array.from(e.targetTouches, (touch) => touch.identifier));
+  for (const id of this.state.touchCoords.keys()) {
+    if (!currentIds.has(id)) releaseTouch(this, id);
   }
 
   const rect = this.state.canvas.getBoundingClientRect();
-  for (let i = 0; i < e.targetTouches.length; i++) {
-    const touch = e.targetTouches[i];
+  for (const touch of e.targetTouches) {
     const id = touch.identifier;
     const coords = this.getHexCoordsAt(
       new Point(touch.clientX - rect.left, touch.clientY - rect.top),
     );
-    const existing = this.state.activeTouch.get(id);
-    if (existing) {
-      if (!existing.coords.equals(coords)) {
-        const oldCoords = existing.coords;
-        this.noteOff(existing, 0);
-        this.state.activeTouch.delete(id);
-        this._settleModulationAfterActiveRelease();
-        if (!this.state.sustain) this.hexOff(oldCoords);
-        this._touchStartOnCoords(id, coords);
-      }
-    } else {
-      this._touchStartOnCoords(id, coords);
-    }
+    // Track the contact even when it toggled a latched note off or its note-on
+    // was suppressed. Stationary movement and other fingers' events must not
+    // turn that same key back on.
+    if (this.state.touchCoords.get(id)?.equals(coords)) continue;
+    releaseTouch(this, id);
+    this.state.touchCoords.set(id, coords);
+    this._touchStartOnCoords(id, coords);
   }
 }
 
@@ -370,17 +364,14 @@ export function touchStartOnCoords(id, coords) {
     return;
   }
   const newHex = this.hexOn(coords);
-  this.state.activeTouch.set(id, newHex);
+  if (newHex) this.state.activeTouch.set(id, newHex);
 }
 
-export function handleTouchCancel(_e) {
-  this.state.isTouchDown = false;
-  const entries = [...this.state.activeTouch.entries()];
-  this.state.activeTouch.clear();
-  for (const [, hex] of entries) {
-    const coords = hex.coords;
-    this.noteOff(hex, 0);
-    this._settleModulationAfterActiveRelease();
-    if (!this.state.sustain) this.hexOff(coords);
-  }
+export function handleTouchCancel(e) {
+  // A browser may cancel just one contact while the other fingers remain down.
+  const ids = e?.changedTouches
+    ? Array.from(e.changedTouches, (touch) => touch.identifier)
+    : [...this.state.touchCoords.keys()];
+  for (const id of ids) releaseTouch(this, id);
+  this.state.isTouchDown = this.state.touchCoords.size > 0;
 }

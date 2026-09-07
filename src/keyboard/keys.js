@@ -444,9 +444,9 @@ class Keys {
     // Key listeners always on window — ESC key sustain must work even when sidebar is closed.
     window.addEventListener("keydown", this.onKeyDown, false);
     window.addEventListener("keyup", this.onKeyUp, false);
-    this.state.canvas.addEventListener("touchstart", this.handleTouch, false);
-    this.state.canvas.addEventListener("touchend", this.handleTouch, false);
-    this.state.canvas.addEventListener("touchmove", this.handleTouch, false);
+    this.state.canvas.addEventListener("touchstart", this.handleTouch, { passive: false });
+    this.state.canvas.addEventListener("touchend", this.handleTouch, { passive: false });
+    this.state.canvas.addEventListener("touchmove", this.handleTouch, { passive: false });
     this.state.canvas.addEventListener("touchcancel", this.handleTouchCancel, false);
     this.state.canvas.addEventListener("mousedown", this.mouseDown, false);
     window.addEventListener("mouseup", this.mouseUp, false);
@@ -2262,6 +2262,7 @@ class Keys {
     // genuinely untracked output notes.
     this.state.activeMouse = null;
     this.state.activeTouch.clear();
+    this.state.touchCoords.clear();
     this.state.activeKeyboard.clear();
     this.state.activeMidi.clear();
     this.state.activeMidiByChannel.clear();
