@@ -25,7 +25,11 @@ cc 2026 [PLAINSOUND MUSIC EDITION](https://www.plainsound.org)
 
 ## Current State
 
-Hexatone 3.3 RC2 is a live microtonal keyboard and scale workspace featuring:
+Hexatone **3.3.0-rc.2** is the current development release candidate, with ongoing refinements through September 2026. The [dev build](https://plainsound.github.io/hexatone) provides the latest development version.
+
+Five tabs organise the workspace: **HEXATONE** for tuning and keyboard layout, **SEQUENCER** for composing and playing sequences, **IO** for sound design and routing, **CALCULATOR** for HEJI pitch calculations, and **MANUAL** for documentation.
+
+Features include:
 
 - isomorphic hexagonal layout
 - rational / just intonation with automatic HEJI notation
@@ -40,6 +44,9 @@ Hexatone 3.3 RC2 is a live microtonal keyboard and scale workspace featuring:
 - MIDI Output (MTS and MPE)
 - snapshots for comparing chords and tunings
 - a Sequencer tab for editing snapshots into cue-based event sequences with bars, tempo markers, repeats, manual arpeggiation, and timed playback
+- editable HEJI and Scala note pitches in the sequencer, resolved through each snapshot's stored notation and reference frame
+- an independent HEJI Calculator with spelling, octave, ratio/cents input, frequency, nearest MIDI note and nearby rational pitches
+- sound and output adjustments in IO while playing from a controller or running a sequence
 
 PLAINSOUND HEXATONE can be used entirely in the browser:
 
@@ -79,7 +86,25 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ### 3.3 RC2 _(current release candidate)_
 
-Hexatone 3.3 RC2 substantially expands the Sequencer and HEJI notation workspace.
+Hexatone 3.3 RC2 expands the Sequencer, adds IO and CALCULATOR workspaces, and refines notation, editing and live performance. September development focuses on reducing repeated computation and improving responsiveness on slower computers.
+
+**IO and sound design**
+
+- sound selection, MIDI connections and output routing are available in a dedicated IO tab
+- timed sequences continue playing while switching to IO to adjust sounds and routing
+- outputs can be enabled or disabled during playback; a newly selected sampled instrument takes over once loaded
+- Snapshots and Modulation History palettes remain accessible in the other applicable workspaces
+- selected built-in timbres use pitch-tracking mod-wheel filters for a more consistent response across registers
+
+**HEJI Calculator**
+
+- a separate calculation workspace starts from the loaded tuning's reference information and can be edited independently
+- linked reference, 1/1 and spelling frequencies update together
+- enter a HEJI spelling with octave or a Scala ratio/cents pitch relative to an offset from the notation anchor
+- calculated data includes ratios and cents relative to the offset, HEJI anchor, reference and 1/1, plus frequency and nearest MIDI note
+- enharmonic MIDI spellings and tuning deviations are individually selectable for copying
+- optional octave normalisation and spelling/deviation display controls
+- nearby rational pitches with configurable search limits and ordering by cents deviation, harmonic radius or odd radius
 
 The Sequencer supports editable snapshots, cues, bars, tempo changes, and repeat markers in a unified event list. Captured snapshots can be expanded into individual note events whose snapshot membership, position offset, MIDI¢, Hz, displayed name, bar-relative position, and expression data can be edited directly. Bars and time signatures may be placed between snapshots,
 tempo markers support immediate and gradual changes, and repeat markers can loop between sequence positions.
@@ -139,6 +164,9 @@ The HEJI workspace has also been expanded significantly. Spelling is now tied to
 - unsaved, saved-clean, and saved-dirty states are reflected in the user-sequence workflow
 - option-drag snapshot duplication and expanded drag / reorder support
 - improved rendering and scrolling performance for long event lists
+- snapshots retain their own pitch reference frames, allowing sequences to combine material from different tunings
+- HEJI and Scala pitch edits update note spelling, MIDI¢ and Hz together, with preview, commit and revert controls
+- typed HEJI names support octave numbers, OpenType accidental ligatures, and tempered spellings with cents deviations
 
 **HEJI notation and pitch model**
 
@@ -163,8 +191,17 @@ The HEJI workspace has also been expanded significantly. Spelling is now tied to
 
 **Performance and reactivity**
 
-- reduced repeated HEJI parsing by reusing shared notation frame data in more paths
-- improved preset refresh behavior so keyboard canvas redraw stays in sync with refreshed label / colour settings
+- indexed HEJI spelling candidates and reused notation-frame data reduce repeated pitch-resolution work
+- settings restore once on mount, and unchanged settings and sequence revisions avoid redundant storage writes
+- offscreen keyboard painting is culled and label measurements are cached with font-load invalidation
+- scale editors avoid unrelated rerenders; whole-scale rationalisation runs in a worker with progress, cancellation and stale-result protection
+- sequence scrolling uses cached row sizes and indexed viewport lookup; display-only changes reuse compiled playback data
+- live SPEED changes preserve musical position and correctly adjust the next playback deadline
+- slider previews are coalesced to visual frames while final pitch edits always commit
+- synchronous chord operations share sample/OSC timestamps and batch MPE recovery-state storage while retaining immediate note-off dispatch
+- improved touch handling and keyboard redraw behaviour
+
+These changes have regression coverage for timing, cache invalidation, persistence, worker lifecycle and output transactions. JavaScript lint, CSS lint, the full test suite and the production build passed under Node 24.19.0 on macOS on 7 September 2026. Browser and hardware latency on slower Windows machines remains a separate playback-testing task.
 
 ### 3.2.3 _(current mainline feature set)_
 
@@ -248,7 +285,11 @@ Other controller paths remain exploratory or less tested. Continuum MPE+ high re
 
 ### Local development
 
+Use Node 24 and Yarn 4; `.nvmrc` pins the currently verified Node version and `package.json` selects Yarn. With nvm installed:
+
 ```sh
+nvm use
+corepack enable
 yarn install
 yarn start
 ```
@@ -256,6 +297,8 @@ yarn start
 Useful commands:
 
 ```sh
+yarn lint
+yarn lint:css
 yarn test
 yarn start
 yarn build
