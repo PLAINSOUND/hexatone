@@ -1,5 +1,8 @@
 import { useState } from "preact/hooks";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
+import { render, screen, waitFor, within } from "@testing-library/preact";
+// Preact Testing Library remaps change to input whenever compat is imported,
+// but native select controls still dispatch change (including portal controls).
+import { fireEvent } from "../test-utils/dom-events.js";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import {
   loadPersistedSequencerCrashDiagnostics,

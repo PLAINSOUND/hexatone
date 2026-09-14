@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen } from "@testing-library/preact";
+import { act, render, screen } from "@testing-library/preact";
+import { fireEvent } from "../test-utils/dom-events.js";
 import { expect, it, vi } from "vitest";
 import { PlaybackModifiersRow } from "./sequence-controls.jsx";
 it("commits text once on Enter then blur, but accepts a subsequent edit", () => {
@@ -19,6 +20,7 @@ it("commits text once on Enter then blur, but accepts a subsequent edit", () => 
     const input = screen.getByLabelText(label);
     fireEvent.input(input, { target: { value } });
     fireEvent.keyDown(input, { key: "Enter" });
+    // preact/compat maps onBlur to the bubbling focusout event.
     fireEvent.blur(input);
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith(Number(value));
