@@ -292,6 +292,7 @@ const Sequencer = ({
     snapshot: "",
     cue: "",
   });
+  const manualReadoutRef = useRef(null);
   const duplicateNoteIdRef = useRef(0);
 
   const cancelPendingCueExpansion = useCallback(() => {
@@ -1269,6 +1270,11 @@ const Sequencer = ({
       if (!cueGroup) return;
 
       const soundingAfter = sequenceRuntime.playbackNotesByCueIndex[numericCueIndex] ?? [];
+      manualReadoutRef.current = {
+        source: navigationReadoutDefaultsRef.current,
+        snapshot: String(cueGroup.snapshotIndex),
+        cue: String(numericCueIndex),
+      };
       timedVisualCueHandlerRef.current?.(
         numericCueIndex,
         { sequenceTime: cueGroup.time },
@@ -1298,6 +1304,10 @@ const Sequencer = ({
       if (!Number.isInteger(numericSnapshotIndex)) return;
       const snapshotId = snapshots[numericSnapshotIndex]?.id ?? null;
       if (snapshotId == null) return;
+      manualReadoutRef.current = {
+        source: navigationReadoutDefaultsRef.current,
+        snapshot: String(numericSnapshotIndex),
+      };
 
       timedHighlightPresenterRef.current?.present({
         snapshotId,
@@ -2134,6 +2144,18 @@ const Sequencer = ({
     snapshot: snapshotSelectValue,
     cue: cueSelectValue,
   };
+  const manualReadout = manualReadoutRef.current;
+  if (
+    manualReadout &&
+    (timedTransportUiState.running ||
+      manualReadout.source.snapshot !== snapshotSelectValue ||
+      manualReadout.source.cue !== cueSelectValue ||
+      manualReadout.source.bar !== (playhead?.barIndex ?? 0))
+  ) {
+    // The deferred commit (or an explicit location change) has caught up.
+    // Unrelated editor/expansion renders must not restore the stale position.
+    manualReadoutRef.current = null;
+  }
 
   useEffect(() => {
     const setTransportField = (field, value) => {
@@ -2276,10 +2298,20 @@ const Sequencer = ({
   const timedTransportFieldValues = timedTransportFieldValuesRef.current;
   const displayedSnapshotSelectValue = timedTransportUiState.running
     ? timedTransportFieldValues.snapshot
-    : snapshotSelectValue;
+    : (manualReadoutRef.current?.snapshot ?? snapshotSelectValue);
   const displayedCueSelectValue = timedTransportUiState.running
     ? timedTransportFieldValues.cue
-    : cueSelectValue;
+    : (manualReadoutRef.current?.cue ?? cueSelectValue);
+  const refreshManualReadout = useCallback(() => {
+    const readout = manualReadoutRef.current;
+    if (!readout) return;
+    for (const field of ["snapshot", "cue"]) {
+      const select = playbackRowRef.current?.querySelector?.(
+        `[data-timed-transport-field="${field}"]`,
+      );
+      if (select && readout[field] != null) select.value = readout[field];
+    }
+  }, [playbackRowRef]);
 
   useEffect(() => {
     if (timedPlaybackOwnsViewport) return;
@@ -3650,6 +3682,7 @@ const Sequencer = ({
         </legend>
 
         <SequenceControls
+          onRefreshTransportReadout={refreshManualReadout}
           transportTarget={transportTarget}
           showAllEvents={showAllEvents}
           newTempoPosition={newTempoPosition}

@@ -2,7 +2,7 @@
 // It owns the PLAY FROM, TIMED PLAYBACK, and SPEED/PITCH row UI, while the
 // sequencer and timed-transport controllers own the actual playback state.
 
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import { normalizeSequenceLegatoMode, SEQUENCE_LEGATO_MODES } from "./legato.js";
@@ -256,6 +256,7 @@ function TransportLocation({ target, children }) {
 }
 
 const SequenceControls = ({
+  onRefreshTransportReadout,
   transportTarget = null,
   showAllEvents,
   newTempoPosition,
@@ -341,6 +342,11 @@ const SequenceControls = ({
   onPlaybackSelectWheel,
   terminalSequenceTarget,
 }) => {
+  // Local target-button state can render before the parent editor catches up.
+  // Restore the authoritative small readout before the browser paints.
+  useLayoutEffect(() => {
+    onRefreshTransportReadout?.();
+  });
   const [playFromTarget, setPlayFromTarget] = useState(
     Number.isFinite(playhead?.markerIndex) ? "cue" : "snapshot",
   );

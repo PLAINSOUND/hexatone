@@ -1302,10 +1302,6 @@ describe("Sequencer", () => {
     expect(snapshotSelect.value).toBe("1");
     expect(cueSelect.value).toBe("2");
 
-    expect(barSelect?.value).toBe("1");
-    expect(snapshotSelect.value).toBe("1");
-    expect(cueSelect.value).toBe("2");
-
     fireEvent.click(screen.getByLabelText("pause timed transport"));
     expect(firstSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
     expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
@@ -1607,6 +1603,26 @@ describe("Sequencer", () => {
     const { rerender } = render(<Sequencer {...baseProps} />);
 
     fireEvent.click(screen.getByLabelText("next sequence step"));
+    expect(screen.getByLabelText("next snapshot target").value).toBe("1");
+    // An unrelated render arrives before App's 300ms editor commit.
+    rerender(<Sequencer {...baseProps} sequencePlaybackSpeed={1.1} />);
+    expect(screen.getByLabelText("next snapshot target").value).toBe("1");
+    baseProps.onStepSequence.mockReturnValueOnce(0);
+    fireEvent.click(screen.getByLabelText("previous sequence step"));
+    expect(screen.getByLabelText("next snapshot target").value).toBe("0");
+    fireEvent.click(screen.getByLabelText("next sequence step"));
+    expect(screen.getByLabelText("next snapshot target").value).toBe("1");
+
+    baseProps.onStepSequenceMarker.mockReturnValue(2);
+    fireEvent.click(screen.getByLabelText("next sequence marker"));
+    expect(screen.getByLabelText("next cue target").value).toBe("2");
+    rerender(<Sequencer {...baseProps} sequencePlaybackSpeed={1.2} />);
+    expect(screen.getByLabelText("next cue target").value).toBe("2");
+    baseProps.onStepSequenceMarker.mockReturnValueOnce(0);
+    fireEvent.click(screen.getByLabelText("previous sequence marker"));
+    expect(screen.getByLabelText("next cue target").value).toBe("0");
+    fireEvent.click(screen.getByLabelText("next sequence marker"));
+    expect(screen.getByLabelText("next cue target").value).toBe("2");
     const secondSnapshotRow = screen
       .getByLabelText("snapshot 2 description")
       .closest(".sequencer-item");
