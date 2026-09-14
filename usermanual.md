@@ -421,9 +421,13 @@ Repeat markers participate directly in cue playback. When cue stepping crosses a
 
 Switching to the IO tab does not interrupt live or sequenced playback. Snapshots and Modulation options remain available in floating palettes.
 
+When working with a loaded sequence, the **Sequencer Transport** fieldset below Output Routing provides the sequencer's **PLAY FROM**, **TIMED PLAYBACK**, **SPEED**, and **PITCH** controls. These operate the same transport as the SEQUENCER tab, so you can stop, resume, or adjust playback while designing sounds.
+
 ### Built-in Sounds
 
 Hexatone has a small built-in library of sampled sounds. These include several additive synthesis timbres with 1–16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching, and may be changed dynamically while playing live or sequenced material. For more sophisticated sound design, layer the MIDI and/or OSC outputs.
+
+When changing instruments, the current sound remains available while the new samples load. Held and legato notes keep their original sound until their normal release; new attacks use the newly loaded instrument. Volume and PANIC continue to affect voices from the previous sound.
 
 ### MIDI Setup
 
@@ -551,6 +555,8 @@ There are four faders for the four independently layered SynthDefs used in the c
 ## CALCULATOR tab
 
 The CALCULATOR tab obtains its initial values from the currently selected HEXATONE tuning. These values may subsequently be edited without affecting the active tuning.
+
+Entering CALCULATOR stops sequence playback. Live keyboard and external-controller notes are not interrupted.
 
 ### Reference
 

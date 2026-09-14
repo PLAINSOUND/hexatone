@@ -23,6 +23,7 @@ let lastKeyboardProps = null;
 let lastUsePresetsOptions = null;
 let mockDetectedController = null;
 let mockControllerById = null;
+let pendingIOSettingsLoad = null;
 const { guardianPanicMock } = vi.hoisted(() => ({ guardianPanicMock: vi.fn() }));
 
 vi.mock("normalize.css", () => ({}));
@@ -39,7 +40,10 @@ vi.mock("./settings", () => ({
   default: () => <div data-testid="settings">Settings Stub</div>,
 }));
 vi.mock("./settings/io-settings.jsx", () => ({
-  default: () => <div data-testid="io-settings">I/O Settings Stub</div>,
+  default: () => {
+    if (pendingIOSettingsLoad) throw pendingIOSettingsLoad;
+    return <div data-testid="io-settings">I/O Settings Stub</div>;
+  },
 }));
 vi.mock("./credits", () => ({
   default: () => <div>Credits Stub</div>,
@@ -1122,20 +1126,14 @@ describe("App workspace tabs", () => {
     fireEvent.click(nextCue);
 
     expect(keys.playSnapshot.mock.calls.map(([notes]) => notes[0]?.midicents)).toEqual([
-      60,
-      62,
-      64,
+      60, 62, 64,
     ]);
 
     const previousSnapshot = screen.getByLabelText("previous sequence step");
     fireEvent.click(previousSnapshot);
     fireEvent.click(previousSnapshot);
     expect(keys.playSnapshot.mock.calls.map(([notes]) => notes[0]?.midicents)).toEqual([
-      60,
-      62,
-      64,
-      62,
-      60,
+      60, 62, 64, 62, 60,
     ]);
 
     unmount();
@@ -1401,6 +1399,89 @@ describe("App workspace tabs", () => {
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     expect(screen.getByLabelText("play timed transport")).toBe(timedPlayButton);
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("does not suspend the sequencer while the first I/O visit loads its panel", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    const timedPlayButton = await screen.findByLabelText("play timed transport");
+    let finishLoading;
+    pendingIOSettingsLoad = new Promise((resolve) => {
+      finishLoading = resolve;
+    });
+    try {
+      await user.click(screen.getByRole("tab", { name: "I/O" }));
+      // Suspense detaches its subtree and invokes hook cleanups, including the
+      // timed scheduler cleanup. The sequencer must stay attached throughout.
+      expect(screen.queryByTestId("io-settings")).toBeNull();
+      expect(timedPlayButton.isConnected).toBe(true);
+    } finally {
+      await act(async () => {
+        pendingIOSettingsLoad = null;
+        finishLoading();
+      });
+    }
+    expect(await screen.findByTestId("io-settings")).not.toBeNull();
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    expect(screen.getByLabelText("play timed transport")).toBe(timedPlayButton);
+  });
+
+  it("shares transport and speed with I/O and stops sequence voices on entering Calculator", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        snapshots: [{ id: 1, length: 100, notes: [{ id: "note", midicents: 60, start: 0 }] }],
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        tempi: [],
+        repeats: [],
+      }),
+    );
+    render(<App />);
+    const user = userEvent.setup();
+    const keys = { stopSnapshot: vi.fn(), panic: vi.fn(), playSnapshot: vi.fn() };
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    await user.click(await screen.findByLabelText("play timed transport"));
+    expect(await screen.findByLabelText("pause timed transport")).not.toBeNull();
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    const transport = await screen.findByRole("group", { name: "Sequencer Transport" });
+    expect(transport.contains(screen.getByLabelText("pause timed transport"))).toBe(true);
+    const speed = screen.getByLabelText("sequence playback speed");
+    fireEvent.input(speed, { target: { value: "1.5" } });
+    fireEvent.keyDown(speed, { key: "Enter" });
+    const pitch = screen.getByLabelText("sequence playback pitch");
+    expect(transport.contains(pitch)).toBe(true);
+    fireEvent.input(pitch, { target: { value: "100.0" } });
+    fireEvent.keyDown(pitch, { key: "Enter" });
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    expect(Number(screen.getByLabelText("sequence playback speed").value)).toBe(1.5);
+    expect(Number(screen.getByLabelText("sequence playback pitch").value)).toBe(100);
+    expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
+    keys.stopSnapshot.mockClear();
+    await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
+    expect(keys.stopSnapshot).toHaveBeenCalled();
+    expect(keys.panic).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    expect(screen.getByLabelText("play timed transport")).not.toBeNull();
+    expect(screen.queryByLabelText("pause timed transport")).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByLabelText("play timed transport"));
+    expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
+    await user.click(screen.getByLabelText("stop timed transport"));
+    expect(screen.getByLabelText("play timed transport")).not.toBeNull();
+    await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    const restoredTransport = await screen.findByRole("group", { name: "Sequencer Transport" });
+    expect(restoredTransport.contains(screen.getByLabelText("play timed transport"))).toBe(true);
+    await user.click(screen.getByLabelText("play timed transport"));
+    expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
+    await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
+    expect(screen.queryByLabelText("pause timed transport")).toBeNull();
   });
 
   it("keeps Calculator user data mounted while switching workspace tabs", async () => {

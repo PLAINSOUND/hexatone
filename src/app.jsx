@@ -651,6 +651,7 @@ const SEQUENCE_PLAYBACK_FALLBACK_TUNING = Object.freeze({
 const App = () => {
   const [ready, setReady] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState(loadReloadWorkspaceTab);
+  const [ioTransportTarget, setIOTransportTarget] = useState(null);
   // I/O and Calculator are auxiliary views over the current musical workspace.
   // Keeping the underlying workspace separate lets a running sequence continue
   // while sound/routing controls or pitch calculations are visible.
@@ -695,17 +696,6 @@ const App = () => {
     const sidebar = sidebarRef.current;
     if (sidebar) manualScrollPositionsRef.current[activeManualView] = sidebar.scrollTop;
   }, [activeManualView]);
-  const switchWorkspaceTab = useCallback(
-    (nextTab) => {
-      rememberManualScrollPosition();
-      setInlineManualView(null);
-      if (nextTab === "hexatone" || nextTab === "sequencer") {
-        setPerformanceWorkspaceTab(nextTab);
-      }
-      setWorkspaceTab(nextTab);
-    },
-    [rememberManualScrollPosition],
-  );
   const openManualWorkspace = useCallback(() => {
     rememberManualScrollPosition();
     setInlineManualView(null);
@@ -1094,6 +1084,21 @@ const App = () => {
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
   const [snapshots, setSnapshots] = useState([]);
+  const switchWorkspaceTab = useCallback(
+    (nextTab) => {
+      rememberManualScrollPosition();
+      setInlineManualView(null);
+      if (nextTab === "hexatone" || nextTab === "sequencer") {
+        setPerformanceWorkspaceTab(nextTab);
+      } else if (nextTab === "io" && snapshots.length > 0) {
+        // A loaded sequence is also available from I/O when arriving from
+        // Hexatone. Keep its controller mounted for subsequent tab switches.
+        setPerformanceWorkspaceTab("sequencer");
+      }
+      setWorkspaceTab(nextTab);
+    },
+    [rememberManualScrollPosition, snapshots.length],
+  );
   const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
   const [manualPlayingSnapshotIds, setManualPlayingSnapshotIds] = useState([]);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
@@ -2312,16 +2317,20 @@ const App = () => {
     previousVisibleWorkspaceTabRef.current = workspaceTab;
     const leftSequencerForHexatone =
       previousTab === "sequencer" && performanceWorkspaceTab === "hexatone";
-    const openedManualFromSequencer =
+    const openedNonPlaybackTab =
       performanceWorkspaceTab === "sequencer" &&
-      previousVisibleTab !== "manual" &&
-      workspaceTab === "manual";
-    if (!leftSequencerForHexatone && !openedManualFromSequencer) return;
+      previousVisibleTab !== workspaceTab &&
+      (workspaceTab === "manual" || workspaceTab === "calculator");
+    if (!leftSequencerForHexatone && !openedNonPlaybackTab) return;
     // Leaving the Sequencer should stop only voices owned by sequencer
     // playback. Live MIDI/controller notes belong to the always-mounted Keys
     // runtime and must survive workspace navigation just as they do when
     // entering the Sequencer.
-    onStopSnapshot();
+    if (timedTransportStopRef.current) {
+      timedTransportStopRef.current({ restoreStartTarget: false });
+    } else {
+      onStopSnapshot();
+    }
   }, [onStopSnapshot, performanceWorkspaceTab, workspaceTab]);
 
   const onSelectSequenceBar = useCallback(
@@ -5012,37 +5021,41 @@ const App = () => {
     settings.midiin_anchor_channel,
   ]);
 
+  // A first visit lazy-loads I/O. Keep that suspension local: suspending the
+  // shared sidebar also cleans up the hidden Sequencer's scheduled callbacks.
   const ioSettingsSidebar = (
-    <IOSettings
-      onChange={onChange}
-      midiLearnActive={midiLearnActive}
-      hakenPedalLearnActive={hakenPedalLearnActive}
-      onVolumeChange={onVolumeChange}
-      onOscLayerVolumeChange={onOscLayerVolumeChange}
-      onOscQuickReleaseChange={onOscQuickReleaseChange}
-      onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
-      onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
-      settings={settings}
-      midi={midi}
-      midiAccess={midiAccess}
-      midiAccessError={midiAccessError}
-      enableWebMidi={ensureMidiAccess}
-      disableWebMidi={disableWebMidi}
-      midiTick={midiTick}
-      instruments={instruments}
-      keysRef={keysRef}
-      lumatoneRawPorts={lumatoneRawPorts}
-      exquisRawPorts={exquisRawPorts}
-      linnstrumentRawPorts={linnstrumentRawPorts}
-      hakenRawPorts={hakenRawPorts}
-      exquisLedStatus={exquisLedStatus}
-      snapshots={snapshots}
-      tuningRuntime={tuningRuntime}
-      onEnableLumatoneAutoSync={enableLumatoneAutoSyncNow}
-      onSendLumatoneColors={sendLumatoneColorsManually}
-      onProbeLumatoneConnection={probeLumatoneConnection}
-      lumatoneDriverReady={lumatoneDriverReady}
-    />
+    <Suspense fallback={<SidebarLoadingFallback />}>
+      <IOSettings
+        onChange={onChange}
+        midiLearnActive={midiLearnActive}
+        hakenPedalLearnActive={hakenPedalLearnActive}
+        onVolumeChange={onVolumeChange}
+        onOscLayerVolumeChange={onOscLayerVolumeChange}
+        onOscQuickReleaseChange={onOscQuickReleaseChange}
+        onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
+        onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
+        settings={settings}
+        midi={midi}
+        midiAccess={midiAccess}
+        midiAccessError={midiAccessError}
+        enableWebMidi={ensureMidiAccess}
+        disableWebMidi={disableWebMidi}
+        midiTick={midiTick}
+        instruments={instruments}
+        keysRef={keysRef}
+        lumatoneRawPorts={lumatoneRawPorts}
+        exquisRawPorts={exquisRawPorts}
+        linnstrumentRawPorts={linnstrumentRawPorts}
+        hakenRawPorts={hakenRawPorts}
+        exquisLedStatus={exquisLedStatus}
+        snapshots={snapshots}
+        tuningRuntime={tuningRuntime}
+        onEnableLumatoneAutoSync={enableLumatoneAutoSyncNow}
+        onSendLumatoneColors={sendLumatoneColorsManually}
+        onProbeLumatoneConnection={probeLumatoneConnection}
+        lumatoneDriverReady={lumatoneDriverReady}
+      />
+    </Suspense>
   );
   const calculatorSidebar = (
     <CalculatorTab
@@ -5824,6 +5837,7 @@ const App = () => {
                   aria-hidden={workspaceTab !== "sequencer"}
                 >
                   <Sequencer
+                    transportTarget={workspaceTab === "io" ? ioTransportTarget : null}
                     snapshots={snapshots}
                     runtimeModel={sequenceRuntimeModel}
                     displaySnapshots={sequenceDisplaySnapshots}
@@ -5927,6 +5941,14 @@ const App = () => {
                   />
                 </div>
                 {workspaceTab === "io" ? ioSettingsSidebar : null}
+                {workspaceTab === "io" && snapshots.length > 0 ? (
+                  <fieldset>
+                    <legend>
+                      <b>Sequencer Transport</b>
+                    </legend>
+                    <div ref={setIOTransportTarget} />
+                  </fieldset>
+                ) : null}
               </>
             ) : workspaceTab === "io" ? (
               ioSettingsSidebar

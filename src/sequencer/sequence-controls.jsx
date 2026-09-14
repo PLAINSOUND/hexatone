@@ -3,6 +3,7 @@
 // sequencer and timed-transport controllers own the actual playback state.
 
 import { useEffect, useRef, useState } from "preact/hooks";
+import { createPortal } from "preact/compat";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import { normalizeSequenceLegatoMode, SEQUENCE_LEGATO_MODES } from "./legato.js";
 import {
@@ -250,7 +251,12 @@ function StickyPlaybackSlider({
   );
 }
 
+function TransportLocation({ target, children }) {
+  return target ? createPortal(children, target) : children;
+}
+
 const SequenceControls = ({
+  transportTarget = null,
   showAllEvents,
   newTempoPosition,
   setNewTempoPosition,
@@ -749,298 +755,322 @@ const SequenceControls = ({
         />
       </label>
 
-      <div ref={playbackRowRef} class="sequencer-playback-block">
-        <div class="sequencer-playback-row" aria-label="Sequence playback">
-          <span class="sequencer-playback-label">PLAY FROM</span>
+      <TransportLocation target={transportTarget}>
+        <div ref={playbackRowRef} class="sequencer-playback-block">
+          <div class="sequencer-playback-row" aria-label="Sequence playback">
+            <span class="sequencer-playback-label">PLAY FROM</span>
 
-          <span class="sequencer-playback-control sequencer-playback-control--bar">
-            <span class="sequencer-playback-key">BAR</span>
-            <select
-              class="sidebar-input sequencer-playback-select"
-              data-timed-transport-field="bar"
-              onWheel={onPlaybackSelectWheel}
-              value={timedBarSelectValue ?? selectedBarIndex ?? playhead?.barIndex ?? 0}
-              onChange={(e) => {
-                const selectedBarIndex = Number(e.currentTarget.value);
-                e.currentTarget.blur();
-                setPlayFromTarget("cue");
-                stopTimedTransportBefore(
-                  () => {
-                    transportScrollTargetRef.current = "bar";
-                    onSelectSequenceBar?.(selectedBarIndex);
-                  },
-                  timedTransportUiState,
-                  onTimedTransportStop,
-                );
-              }}
-            >
-              {sortedBars.map((bar, index) => (
-                <option key={bar.id ?? index} value={index}>
-                  {index + 1}
-                </option>
-              ))}
-            </select>
-          </span>
-
-          <span class="sequencer-playback-control">
-            <span class="sequencer-playback-key">SNAPSHOT</span>
-            <button
-              type="button"
-              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
-              aria-label="previous sequence step"
-              title="Previous step"
-              disabled={!transportBackAvailable}
-              onClick={() => {
-                setPlayFromTarget("snapshot");
-                runTransportAction(() => onStepSequence?.(-1));
-              }}
-            >
-              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
-            </button>
-            <select
-              class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "snapshot" ? " sequencer-playback-select--active-target" : ""}`}
-              aria-label="next snapshot target"
-              data-play-from-active={playFromTarget === "snapshot" ? "true" : "false"}
-              data-timed-transport-field="snapshot"
-              onWheel={onPlaybackSelectWheel}
-              value={snapshotSelectValue}
-              onChange={(e) => {
-                const selectedSnapshotValue = e.currentTarget.value;
-                e.currentTarget.blur();
-                setPlayFromTarget("snapshot");
-                stopTimedTransportBefore(
-                  () => {
-                    if (selectedSnapshotValue === "") {
-                      return;
-                    }
-                    if (selectedSnapshotValue === terminalSequenceTarget) {
-                      return;
-                    }
-                    armPendingSnapshot(selectedSnapshotValue);
-                  },
-                  timedTransportUiState,
-                  onTimedTransportStop,
-                );
-              }}
-            >
-              {renderedSnapshots.map((snapshot, index) => (
-                <option key={snapshot.id ?? index} value={String(index)}>
-                  {impliedPendingSnapshotIndex === String(index)
-                    ? `(${index + 1})`
-                    : String(index + 1)}
-                </option>
-              ))}
-              {playheadIsEnd && snapshots.length > 0 && (
-                <option value={terminalSequenceTarget}>
-                  {impliedPendingSnapshotIndex === terminalSequenceTarget ? "(end)" : "end"}
-                </option>
-              )}
-            </select>
-            <button
-              type="button"
-              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
-              aria-label="next sequence step"
-              title="Next step"
-              disabled={
-                snapshots.length === 0 ||
-                (playheadIsOff
-                  ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
-                  : false)
-              }
-              onClick={() => {
-                setPlayFromTarget("snapshot");
-                if (playheadIsEnd) {
-                  runTransportAction(() => onJumpSequenceSnapshot?.(0));
-                  return;
-                }
-                runTransportAction(() => onStepSequence?.(1));
-              }}
-            >
-              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
-            </button>
-          </span>
-
-          <span class="sequencer-playback-control">
-            <span class="sequencer-playback-key">CUE</span>
-            <button
-              type="button"
-              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
-              aria-label="previous sequence marker"
-              title="Previous marker"
-              disabled={!transportBackAvailable}
-              onClick={() => {
-                setPlayFromTarget("cue");
-                runTransportAction(() => onStepSequenceMarker?.(-1));
-              }}
-            >
-              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--left" aria-hidden="true" />
-            </button>
-            <select
-              class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "cue" ? " sequencer-playback-select--active-target" : ""}`}
-              aria-label="next cue target"
-              data-play-from-active={playFromTarget === "cue" ? "true" : "false"}
-              data-timed-transport-field="cue"
-              onWheel={onPlaybackSelectWheel}
-              value={cueSelectValue}
-              onChange={(e) => {
-                const selectedCueValue = e.currentTarget.value;
-                e.currentTarget.blur();
-                setPlayFromTarget("cue");
-                stopTimedTransportBefore(
-                  () => {
-                    if (selectedCueValue === "") {
-                      return;
-                    }
-                    if (selectedCueValue === terminalSequenceTarget) {
-                      return;
-                    }
-                    armPendingCue(selectedCueValue);
-                  },
-                  timedTransportUiState,
-                  onTimedTransportStop,
-                );
-              }}
-            >
-              {sequenceCueGroups.map((group, index) => (
-                <option key={`${group.snapshotIndex}:${group.time}:${index}`} value={String(index)}>
-                  {impliedPendingCueIndex === String(index) ? `(${index + 1})` : String(index + 1)}
-                </option>
-              ))}
-              {playheadIsEnd && sequenceCueGroups.length > 0 && (
-                <option value={terminalSequenceTarget}>
-                  {impliedPendingCueIndex === terminalSequenceTarget ? "(end)" : "end"}
-                </option>
-              )}
-            </select>
-            <button
-              type="button"
-              class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
-              aria-label="next sequence marker"
-              title="Next marker"
-              disabled={snapshots.length === 0 || (playheadIsOff ? nextCueIndexFromBar < 0 : false)}
-              onClick={() => {
-                setPlayFromTarget("cue");
-                if (playheadIsEnd) {
-                  runTransportAction(() => onJumpSequenceCue?.(0));
-                  return;
-                }
-                runTransportAction(() => onStepSequenceMarker?.(1));
-              }}
-            >
-              <span class="sequencer-arrow-glyph sequencer-arrow-glyph--right" aria-hidden="true" />
-            </button>
-          </span>
-
-          <span class="sequencer-playback-actions">
-            <button
-              type="button"
-              class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
-              title="Move playhead to start"
-              aria-label="move sequence playhead to start"
-              disabled={snapshots.length === 0 && playheadIsOff}
-              onClick={() => {
-                runTransportAction(() => onResetSequencePlayhead?.());
-              }}
-            >
-              <svg
-                class="snapshot-start-icon"
-                viewBox="0 0 10 10"
-                aria-hidden="true"
-                focusable="false"
+            <span class="sequencer-playback-control sequencer-playback-control--bar">
+              <span class="sequencer-playback-key">BAR</span>
+              <select
+                class="sidebar-input sequencer-playback-select"
+                data-timed-transport-field="bar"
+                onWheel={onPlaybackSelectWheel}
+                value={timedBarSelectValue ?? selectedBarIndex ?? playhead?.barIndex ?? 0}
+                onChange={(e) => {
+                  const selectedBarIndex = Number(e.currentTarget.value);
+                  e.currentTarget.blur();
+                  setPlayFromTarget("cue");
+                  stopTimedTransportBefore(
+                    () => {
+                      transportScrollTargetRef.current = "bar";
+                      onSelectSequenceBar?.(selectedBarIndex);
+                    },
+                    timedTransportUiState,
+                    onTimedTransportStop,
+                  );
+                }}
               >
-                <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
-                <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="snapshot-play-btn"
-              title={`Play highlighted ${playFromTarget} target`}
-              aria-label="play current sequence position"
-              disabled={snapshots.length === 0}
-              onClick={() => {
-                runTransportAction(() => {
-                  const cueIndex =
-                    cueSelectValue === "" || cueSelectValue === terminalSequenceTarget
-                      ? NaN
-                      : Number(cueSelectValue);
-                  if (
-                    playFromTarget === "cue" &&
-                    Number.isInteger(cueIndex) &&
-                    cueIndex >= 0 &&
-                    cueIndex < sequenceCueGroups.length &&
-                    typeof onPlayCue === "function"
-                  ) {
-                    onPlayCue(cueIndex);
+                {sortedBars.map((bar, index) => (
+                  <option key={bar.id ?? index} value={index}>
+                    {index + 1}
+                  </option>
+                ))}
+              </select>
+            </span>
+
+            <span class="sequencer-playback-control">
+              <span class="sequencer-playback-key">SNAPSHOT</span>
+              <button
+                type="button"
+                class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
+                aria-label="previous sequence step"
+                title="Previous step"
+                disabled={!transportBackAvailable}
+                onClick={() => {
+                  setPlayFromTarget("snapshot");
+                  runTransportAction(() => onStepSequence?.(-1));
+                }}
+              >
+                <span
+                  class="sequencer-arrow-glyph sequencer-arrow-glyph--left"
+                  aria-hidden="true"
+                />
+              </button>
+              <select
+                class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "snapshot" ? " sequencer-playback-select--active-target" : ""}`}
+                aria-label="next snapshot target"
+                data-play-from-active={playFromTarget === "snapshot" ? "true" : "false"}
+                data-timed-transport-field="snapshot"
+                onWheel={onPlaybackSelectWheel}
+                value={snapshotSelectValue}
+                onChange={(e) => {
+                  const selectedSnapshotValue = e.currentTarget.value;
+                  e.currentTarget.blur();
+                  setPlayFromTarget("snapshot");
+                  stopTimedTransportBefore(
+                    () => {
+                      if (selectedSnapshotValue === "") {
+                        return;
+                      }
+                      if (selectedSnapshotValue === terminalSequenceTarget) {
+                        return;
+                      }
+                      armPendingSnapshot(selectedSnapshotValue);
+                    },
+                    timedTransportUiState,
+                    onTimedTransportStop,
+                  );
+                }}
+              >
+                {renderedSnapshots.map((snapshot, index) => (
+                  <option key={snapshot.id ?? index} value={String(index)}>
+                    {impliedPendingSnapshotIndex === String(index)
+                      ? `(${index + 1})`
+                      : String(index + 1)}
+                  </option>
+                ))}
+                {playheadIsEnd && snapshots.length > 0 && (
+                  <option value={terminalSequenceTarget}>
+                    {impliedPendingSnapshotIndex === terminalSequenceTarget ? "(end)" : "end"}
+                  </option>
+                )}
+              </select>
+              <button
+                type="button"
+                class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
+                aria-label="next sequence step"
+                title="Next step"
+                disabled={
+                  snapshots.length === 0 ||
+                  (playheadIsOff
+                    ? nextSnapshotIndexFromBar < 0 || nextSnapshotIndexFromBar >= snapshots.length
+                    : false)
+                }
+                onClick={() => {
+                  setPlayFromTarget("snapshot");
+                  if (playheadIsEnd) {
+                    runTransportAction(() => onJumpSequenceSnapshot?.(0));
                     return;
                   }
-                  onPlaySequence?.();
-                });
-              }}
-            >
-              <span className="snapshot-play-glyph snapshot-play-glyph--play" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              class="snapshot-play-btn snapshot-stop-btn"
-              title="Stop sequence playback"
-              aria-label="stop sequence playback"
-              disabled={!playingSnapshotId}
-              onClick={() => {
-                runTransportAction(() => onStopSnapshot?.(null, { armCurrentPosition: true }));
-              }}
-            >
-              <span class="snapshot-stop-glyph" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
-              title="Move playhead to end"
-              aria-label="move sequence playhead to end"
-              disabled={snapshots.length === 0 && playheadIsEnd}
-              onClick={() => {
-                runTransportAction(() => onJumpSequenceEnd?.());
-              }}
-            >
-              <svg
-                class="snapshot-start-icon snapshot-start-icon--end"
-                viewBox="0 0 10 10"
-                aria-hidden="true"
-                focusable="false"
+                  runTransportAction(() => onStepSequence?.(1));
+                }}
               >
-                <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
-                <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
-              </svg>
-            </button>
-          </span>
+                <span
+                  class="sequencer-arrow-glyph sequencer-arrow-glyph--right"
+                  aria-hidden="true"
+                />
+              </button>
+            </span>
 
-          <span class="sequencer-playback-row__break" aria-hidden="true" />
+            <span class="sequencer-playback-control">
+              <span class="sequencer-playback-key">CUE</span>
+              <button
+                type="button"
+                class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
+                aria-label="previous sequence marker"
+                title="Previous marker"
+                disabled={!transportBackAvailable}
+                onClick={() => {
+                  setPlayFromTarget("cue");
+                  runTransportAction(() => onStepSequenceMarker?.(-1));
+                }}
+              >
+                <span
+                  class="sequencer-arrow-glyph sequencer-arrow-glyph--left"
+                  aria-hidden="true"
+                />
+              </button>
+              <select
+                class={`sidebar-input sequencer-playback-select sequencer-playback-select--pending${playFromTarget === "cue" ? " sequencer-playback-select--active-target" : ""}`}
+                aria-label="next cue target"
+                data-play-from-active={playFromTarget === "cue" ? "true" : "false"}
+                data-timed-transport-field="cue"
+                onWheel={onPlaybackSelectWheel}
+                value={cueSelectValue}
+                onChange={(e) => {
+                  const selectedCueValue = e.currentTarget.value;
+                  e.currentTarget.blur();
+                  setPlayFromTarget("cue");
+                  stopTimedTransportBefore(
+                    () => {
+                      if (selectedCueValue === "") {
+                        return;
+                      }
+                      if (selectedCueValue === terminalSequenceTarget) {
+                        return;
+                      }
+                      armPendingCue(selectedCueValue);
+                    },
+                    timedTransportUiState,
+                    onTimedTransportStop,
+                  );
+                }}
+              >
+                {sequenceCueGroups.map((group, index) => (
+                  <option
+                    key={`${group.snapshotIndex}:${group.time}:${index}`}
+                    value={String(index)}
+                  >
+                    {impliedPendingCueIndex === String(index)
+                      ? `(${index + 1})`
+                      : String(index + 1)}
+                  </option>
+                ))}
+                {playheadIsEnd && sequenceCueGroups.length > 0 && (
+                  <option value={terminalSequenceTarget}>
+                    {impliedPendingCueIndex === terminalSequenceTarget ? "(end)" : "end"}
+                  </option>
+                )}
+              </select>
+              <button
+                type="button"
+                class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
+                aria-label="next sequence marker"
+                title="Next marker"
+                disabled={
+                  snapshots.length === 0 || (playheadIsOff ? nextCueIndexFromBar < 0 : false)
+                }
+                onClick={() => {
+                  setPlayFromTarget("cue");
+                  if (playheadIsEnd) {
+                    runTransportAction(() => onJumpSequenceCue?.(0));
+                    return;
+                  }
+                  runTransportAction(() => onStepSequenceMarker?.(1));
+                }}
+              >
+                <span
+                  class="sequencer-arrow-glyph sequencer-arrow-glyph--right"
+                  aria-hidden="true"
+                />
+              </button>
+            </span>
+
+            <span class="sequencer-playback-actions">
+              <button
+                type="button"
+                class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
+                title="Move playhead to start"
+                aria-label="move sequence playhead to start"
+                disabled={snapshots.length === 0 && playheadIsOff}
+                onClick={() => {
+                  runTransportAction(() => onResetSequencePlayhead?.());
+                }}
+              >
+                <svg
+                  class="snapshot-start-icon"
+                  viewBox="0 0 10 10"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
+                  <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="snapshot-play-btn"
+                title={`Play highlighted ${playFromTarget} target`}
+                aria-label="play current sequence position"
+                disabled={snapshots.length === 0}
+                onClick={() => {
+                  runTransportAction(() => {
+                    const cueIndex =
+                      cueSelectValue === "" || cueSelectValue === terminalSequenceTarget
+                        ? NaN
+                        : Number(cueSelectValue);
+                    if (
+                      playFromTarget === "cue" &&
+                      Number.isInteger(cueIndex) &&
+                      cueIndex >= 0 &&
+                      cueIndex < sequenceCueGroups.length &&
+                      typeof onPlayCue === "function"
+                    ) {
+                      onPlayCue(cueIndex);
+                      return;
+                    }
+                    onPlaySequence?.();
+                  });
+                }}
+              >
+                <span
+                  className="snapshot-play-glyph snapshot-play-glyph--play"
+                  aria-hidden="true"
+                />
+              </button>
+              <button
+                type="button"
+                class="snapshot-play-btn snapshot-stop-btn"
+                title="Stop sequence playback"
+                aria-label="stop sequence playback"
+                disabled={!playingSnapshotId}
+                onClick={() => {
+                  runTransportAction(() => onStopSnapshot?.(null, { armCurrentPosition: true }));
+                }}
+              >
+                <span class="snapshot-stop-glyph" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                class="snapshot-play-btn snapshot-play-btn--plain sequencer-transport-trigger-btn"
+                title="Move playhead to end"
+                aria-label="move sequence playhead to end"
+                disabled={snapshots.length === 0 && playheadIsEnd}
+                onClick={() => {
+                  runTransportAction(() => onJumpSequenceEnd?.());
+                }}
+              >
+                <svg
+                  class="snapshot-start-icon snapshot-start-icon--end"
+                  viewBox="0 0 10 10"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <rect x="1" y="1" width="1.4" height="8" rx="0.2" />
+                  <path d="M8.6 1.5 3.1 5l5.5 3.5Z" />
+                </svg>
+              </button>
+            </span>
+
+            <span class="sequencer-playback-row__break" aria-hidden="true" />
+          </div>
+
+          <TimedPlaybackRow
+            snapshots={snapshots}
+            playheadIsOff={playheadIsOff}
+            playheadIsEnd={playheadIsEnd}
+            runTransportAction={runTransportAction}
+            onResetSequencePlayhead={onResetSequencePlayhead}
+            onJumpSequenceEnd={onJumpSequenceEnd}
+            timedTransportUiState={timedTransportUiState}
+            getTimedTransportDisplay={getTimedTransportDisplay}
+            onTimedTransportPlayPause={onTimedTransportPlayPause}
+            onTimedTransportStop={onTimedTransportStop}
+          />
+
+          <PlaybackModifiersRow
+            sequencePlaybackSpeed={sequencePlaybackSpeed}
+            sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
+            onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
+            onSequencePlaybackSpeedPreview={onSequencePlaybackSpeedPreview}
+            onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
+            onSequencePlaybackPitchOffsetPreview={onSequencePlaybackPitchOffsetPreview}
+            timedTransportUiState={timedTransportUiState}
+            getTimedTransportDisplay={getTimedTransportDisplay}
+          />
         </div>
-
-        <TimedPlaybackRow
-          snapshots={snapshots}
-          playheadIsOff={playheadIsOff}
-          playheadIsEnd={playheadIsEnd}
-          runTransportAction={runTransportAction}
-          onResetSequencePlayhead={onResetSequencePlayhead}
-          onJumpSequenceEnd={onJumpSequenceEnd}
-          timedTransportUiState={timedTransportUiState}
-          getTimedTransportDisplay={getTimedTransportDisplay}
-          onTimedTransportPlayPause={onTimedTransportPlayPause}
-          onTimedTransportStop={onTimedTransportStop}
-        />
-
-        <PlaybackModifiersRow
-          sequencePlaybackSpeed={sequencePlaybackSpeed}
-          sequencePlaybackPitchOffset={sequencePlaybackPitchOffset}
-          onSequencePlaybackSpeedChange={onSequencePlaybackSpeedChange}
-          onSequencePlaybackSpeedPreview={onSequencePlaybackSpeedPreview}
-          onSequencePlaybackPitchOffsetChange={onSequencePlaybackPitchOffsetChange}
-          onSequencePlaybackPitchOffsetPreview={onSequencePlaybackPitchOffsetPreview}
-          timedTransportUiState={timedTransportUiState}
-          getTimedTransportDisplay={getTimedTransportDisplay}
-        />
-      </div>
+      </TransportLocation>
     </>
   );
 };
@@ -1317,70 +1347,72 @@ export function PlaybackModifiersRow({
         </span>
       </div>
 
-      <div class="sequencer-playback-modifier">
-        <span class="sequencer-playback-modifier__head">
-          <span class="sequencer-playback-modifier__label">PITCH</span>
-          <span class="sequencer-playback-modifier__value-wrap">
-            <input
-              type="text"
-              class="sidebar-input sequencer-playback-input"
-              aria-label="sequence playback pitch"
-              value={pitchDraft}
-              onFocus={(e) => {
-                pitchTextCommittedRef.current = false;
-                selectControlValue(e);
-              }}
-              onInput={(e) => {
-                pitchTextCommittedRef.current = false;
-                setPitchDraft(e.currentTarget.value);
-              }}
-              onBlur={(e) => commitPitchDraft(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                e.preventDefault();
-                commitPitchDraft(e.currentTarget.value);
-              }}
-            />
-            <span class="sequencer-playback-modifier__courtesy">{pitchCourtesy}</span>
+      <>
+        <div class="sequencer-playback-modifier">
+          <span class="sequencer-playback-modifier__head">
+            <span class="sequencer-playback-modifier__label">PITCH</span>
+            <span class="sequencer-playback-modifier__value-wrap">
+              <input
+                type="text"
+                class="sidebar-input sequencer-playback-input"
+                aria-label="sequence playback pitch"
+                value={pitchDraft}
+                onFocus={(e) => {
+                  pitchTextCommittedRef.current = false;
+                  selectControlValue(e);
+                }}
+                onInput={(e) => {
+                  pitchTextCommittedRef.current = false;
+                  setPitchDraft(e.currentTarget.value);
+                }}
+                onBlur={(e) => commitPitchDraft(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  commitPitchDraft(e.currentTarget.value);
+                }}
+              />
+              <span class="sequencer-playback-modifier__courtesy">{pitchCourtesy}</span>
+            </span>
           </span>
-        </span>
-        <span class="sequencer-playback-modifier__slider-row">
-          <StickyPlaybackSlider
-            ariaLabel="sequence playback pitch slider"
-            min={-1200}
-            max={1200}
-            step={1}
-            value={pitchSliderValue}
-            deadZone={24}
-            releaseZone={52}
-            onInputValue={handlePitchSliderInput}
-            onCommitValue={(nextPitch) => {
-              const nextValue = clamp(nextPitch, -1200, 1200);
-              if (pitchFrameRef.current != null) {
-                window.cancelAnimationFrame(pitchFrameRef.current);
-                pitchFrameRef.current = null;
-              }
-              setPitchSliderValue(nextValue);
-              setPitchDraft(formatSequencePlaybackPitchCents(nextValue));
-              pendingPitchValueRef.current = nextValue;
-              // Commit dispatches one synchronous full-chord retune. Mark the
-              // pending preview consumed so it cannot run afterward.
-              lastPreviewedPitchValueRef.current = nextValue;
-              onSequencePlaybackPitchOffsetChange?.(nextValue);
-            }}
-            formatAriaValue={(pitchValue) => formatSequencePlaybackPitchCourtesy(pitchValue)}
-          />
-          <button
-            type="button"
-            class="preset-action-btn sequencer-playback-reset-btn"
-            aria-label="reset playback pitch"
-            title="Reset playback pitch"
-            onClick={resetPitch}
-          >
-            ↺
-          </button>
-        </span>
-      </div>
+          <span class="sequencer-playback-modifier__slider-row">
+            <StickyPlaybackSlider
+              ariaLabel="sequence playback pitch slider"
+              min={-1200}
+              max={1200}
+              step={1}
+              value={pitchSliderValue}
+              deadZone={24}
+              releaseZone={52}
+              onInputValue={handlePitchSliderInput}
+              onCommitValue={(nextPitch) => {
+                const nextValue = clamp(nextPitch, -1200, 1200);
+                if (pitchFrameRef.current != null) {
+                  window.cancelAnimationFrame(pitchFrameRef.current);
+                  pitchFrameRef.current = null;
+                }
+                setPitchSliderValue(nextValue);
+                setPitchDraft(formatSequencePlaybackPitchCents(nextValue));
+                pendingPitchValueRef.current = nextValue;
+                // Commit dispatches one synchronous full-chord retune. Mark the
+                // pending preview consumed so it cannot run afterward.
+                lastPreviewedPitchValueRef.current = nextValue;
+                onSequencePlaybackPitchOffsetChange?.(nextValue);
+              }}
+              formatAriaValue={(pitchValue) => formatSequencePlaybackPitchCourtesy(pitchValue)}
+            />
+            <button
+              type="button"
+              class="preset-action-btn sequencer-playback-reset-btn"
+              aria-label="reset playback pitch"
+              title="Reset playback pitch"
+              onClick={resetPitch}
+            >
+              ↺
+            </button>
+          </span>
+        </div>
+      </>
     </div>
   );
 }

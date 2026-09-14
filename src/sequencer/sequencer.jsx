@@ -99,6 +99,7 @@ import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 const MANUAL_CUE_EXPANSION_SETTLE_MS = 120;
 
 const Sequencer = ({
+  transportTarget = null,
   snapshots,
   runtimeModel = null,
   displaySnapshots,
@@ -311,9 +312,7 @@ const Sequencer = ({
       const pending = pendingCueExpansionRef.current;
       pendingCueExpansionRef.current = null;
       if (pending == null) return;
-      setExpandedIds((previous) =>
-        sameSnapshotSet(previous, pending) ? previous : pending,
-      );
+      setExpandedIds((previous) => (sameSnapshotSet(previous, pending) ? previous : pending));
     }, MANUAL_CUE_EXPANSION_SETTLE_MS);
   }, []);
 
@@ -3373,7 +3372,9 @@ const Sequencer = ({
         </legend>
         <p>
           <em>
-            SHIFT+ENTER captures currently sounding notes. Add an Empty Snapshot to create a rest. The panels below allow snapshots to be played, re-ordered, copied, and edited into a musical score.
+            SHIFT+ENTER captures currently sounding notes. Add an Empty Snapshot to create a rest.
+            The panels below allow snapshots to be played, re-ordered, copied, and edited into a
+            musical score.
           </em>
         </p>
         <div class="preset-actions preset-actions--library">
@@ -3649,6 +3650,7 @@ const Sequencer = ({
         </legend>
 
         <SequenceControls
+          transportTarget={transportTarget}
           showAllEvents={showAllEvents}
           newTempoPosition={newTempoPosition}
           setNewTempoPosition={updateNewTempoPosition}
