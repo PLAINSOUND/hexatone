@@ -7,6 +7,7 @@ import {
   LUMATONE_BLOCKS,
 } from "./lumatone.js";
 import { detectHakenDeviceName } from "./hakenaudio-detect.js";
+import { rotateExquisCoords } from "./exquis-orientation.js";
 
 /**
  * controllers/registry.js
@@ -242,7 +243,7 @@ function exquisHexSpace(col, row) {
   };
 }
 
-function buildExquisMap(anchorNote) {
+function buildExquisMap(anchorNote, orientation = 90) {
   const note1 = Math.max(0, Math.min(60, anchorNote));
   const { col: anchorCol, row: anchorRow } = exquisNoteToColRow(note1);
   const { x: axPhys, y: ayPhys } = exquisHexSpace(anchorCol, anchorRow);
@@ -256,7 +257,14 @@ function buildExquisMap(anchorNote) {
     //   hy = 0.5·Δx_phys + Δy_phys
     const dx = xPhys - axPhys;
     const dy = yPhys - ayPhys;
-    entries.push({ ch: 1, note, x: Math.round(0.5 * dx - dy), y: Math.round(0.5 * dx + dy) });
+    entries.push({
+      ch: 1,
+      note,
+      ...rotateExquisCoords(
+        { x: Math.round(0.5 * dx - dy), y: Math.round(0.5 * dx + dy) },
+        orientation,
+      ),
+    });
   }
   return makeMap(entries);
 }
@@ -1000,7 +1008,7 @@ export const CONTROLLER_REGISTRY = [
     name: "Exquis (Intuitive Instruments)",
     detect: (name) => name.includes("exquis"),
     description:
-      "61-note hexagonal grid. Hexatone maps layout, colours, and toggles MPE mode. Rotate 90° CW and set Exquis' MPE Pitch Bend Range to 48 (Settings 2, Encoder 2).",
+      "61-note hexagonal grid. Hexatone maps layout, colours, and toggles MPE mode. Choose Orientation below (default: encoders at right). Set Exquis' MPE Pitch Bend Range to 48 (Settings 2, Encoder 2).",
     descriptionScale:
       "61-note hexagonal grid. User may choose Exquis Layout and MPE/Polytouch mode manually on their device. Set Exquis Pitch Bend Range to 48 (Settings 2, Encoder 2).",
     multiChannel: false,
@@ -1031,7 +1039,8 @@ export const CONTROLLER_REGISTRY = [
       },
     },
     resolveMode: (settings = {}) => (settings.midi_passthrough ? "bypass" : "layout2d"),
-    buildMap: (anchorNote) => buildExquisMap(anchorNote ?? 19),
+    buildMap: (anchorNote, _channel, _rSteps, _drSteps, orientation) =>
+      buildExquisMap(anchorNote ?? 19, orientation),
   },
 
   {

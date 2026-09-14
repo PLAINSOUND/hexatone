@@ -1223,6 +1223,9 @@ class Keys {
           anchorChannel,
           settingsLike.rSteps,
           settingsLike.drSteps,
+          settingsLike.midi_passthrough || this.inputRuntime?.target === "scale"
+            ? 90
+            : settingsLike.exquis_orientation,
         );
     const anchorAddress = this._controllerAnchorAddressForSettings(settingsLike);
     const virtualAnchorCoords =

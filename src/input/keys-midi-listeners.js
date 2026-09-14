@@ -480,6 +480,8 @@ export function rebuildControllerMap() {
     virtualAnchorX: this.settings.controller_virtual_anchor_x ?? null,
     virtualAnchorY: this.settings.controller_virtual_anchor_y ?? null,
     tonalplexusMode: this.settings.tonalplexus_input_mode,
+    exquisOrientation: this.settings.exquis_orientation,
+    mappingTarget: this.inputRuntime?.target,
     rSteps: this.settings.rSteps,
     drSteps: this.settings.drSteps,
     centerHexOffsetX: this.settings.centerHexOffset?.x,
@@ -540,7 +542,15 @@ export function rebuildControllerMap() {
 
   const rawOffsets = entry.multiChannel
     ? entry.buildMap(anchorNote, anchorChannel, entry.defaultCols)
-    : entry.buildMap(anchorNote, anchorChannel, this.settings.rSteps, this.settings.drSteps);
+    : entry.buildMap(
+        anchorNote,
+        anchorChannel,
+        this.settings.rSteps,
+        this.settings.drSteps,
+        this.settings.midi_passthrough || this.inputRuntime?.target === "scale"
+          ? 90
+          : this.settings.exquis_orientation,
+      );
   const anchorAddress = entry.multiChannel
     ? {
         channel: anchorChannel ?? entry.anchorChannelDefault ?? 1,

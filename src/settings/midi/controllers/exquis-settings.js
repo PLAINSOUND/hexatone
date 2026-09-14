@@ -1,4 +1,6 @@
 import PropTypes from "prop-types";
+import { useEffect, useState } from "preact/hooks";
+import { exquisOrientation } from "../../../controllers/exquis-orientation.js";
 import OutputPortPicker from "../output-port-picker.js";
 import CustomRangeSlider from "../../shared/range-slider.jsx";
 
@@ -27,6 +29,10 @@ const ExquisSettings = ({
   appModeEnabled,
   onChange,
 }) => {
+  const [pendingOrientation, setPendingOrientation] = useState(null);
+  useEffect(() => {
+    setPendingOrientation(null);
+  }, [appModeEnabled, rawPorts]);
   if (!appModeEnabled) {
     return <ExquisAppModeStatus />;
   }
@@ -52,6 +58,32 @@ const ExquisSettings = ({
           sessionStorage.setItem("exquis_out_port", id ?? "");
         }}
       />
+      <label class="controller-inline-row">
+        Orientation
+        <select
+          class="sidebar-input"
+          name="exquis_orientation"
+          value={pendingOrientation ?? exquisOrientation(settings.exquis_orientation)}
+          disabled={!hasSysexMidi || !portConnected || !ledStatus?.ok}
+          onChange={(event) => {
+            const value = exquisOrientation(event.target.value);
+            const driver = keysRef?.current?.exquisLEDs;
+            if (!driver?.ready) return;
+            setPendingOrientation(value);
+            driver.setOrientation(value, (applied) => {
+              onChange("exquis_orientation", applied);
+              localStorage.setItem("exquis_orientation", String(applied));
+              setPendingOrientation(null);
+            });
+          }}
+        >
+          <option value={0}>0° — Encoders at top</option>
+          <option value={90}>90° — Encoders at right</option>
+          <option value={180}>180° — Encoders at bottom</option>
+          <option value={270}>270° — Encoders at left</option>
+        </select>
+      </label>
+      {pendingOrientation !== null && <span role="status">Release keys to apply orientation.</span>}
       {versionResponseTooOld && (
         <span class="settings-form__status-value settings-form__status-value--missing settings-form__status-value--warning-tight">
           Please update the firmware on your Exquis

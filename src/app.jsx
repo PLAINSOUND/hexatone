@@ -4377,6 +4377,7 @@ const App = () => {
         settings.exquis_led_luminosity ?? 15,
         settings.exquis_led_saturation ?? 1.3,
         effectiveMpeInput,
+        settings.exquis_orientation ?? 90,
       );
       if (disposed) {
         leds.exit();
@@ -4395,6 +4396,10 @@ const App = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- LED appearance settings update the existing driver; only port/routing changes own its lifecycle.
   }, [exquisRawPorts, inputRuntime?.target, settings.midi_passthrough]);
+
+  useEffect(() => {
+    exquisLedsRef.current?.setOrientation(settings.exquis_orientation ?? 90);
+  }, [settings.exquis_orientation]);
 
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.

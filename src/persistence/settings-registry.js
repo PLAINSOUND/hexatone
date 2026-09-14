@@ -561,6 +561,14 @@ export const SETTINGS_REGISTRY = [
     description: "Exquis LED global brightness (0–100, firmware clamps above 100)",
   },
   {
+    key: "exquis_orientation",
+    tier: "local",
+    type: "int",
+    default: 90,
+    perController: false,
+    description: "Exquis clockwise physical orientation: 0, 90, 180 or 270 degrees",
+  },
+  {
     key: "exquis_led_saturation",
     tier: "local",
     type: "float",

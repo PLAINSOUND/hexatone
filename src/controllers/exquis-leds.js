@@ -1,4 +1,5 @@
 import { debugLog, warnLog } from "../debug/logging.js";
+import { exquisOrientation, exquisLayoutFlags } from "./exquis-orientation.js";
 /**
  * exquis-leds.js
  *
@@ -91,15 +92,6 @@ const HEARTBEAT = new Uint8Array([...HDR, 0xf7]);
 const PAD_REMOTE_0 = new Uint8Array([...HDR, 0x1e, 0x00, 0xf7]);
 const QUIT = new Uint8Array([...HDR, 0x03, 0xf7]);
 
-// Layout flags for Rainbow Layout: isomorphic=1, twoPath=1, flipX=1, flipY=0, flipXY=1.
-const LAYOUT_FLAGS = [
-  new Uint8Array([...HDR, 0x53, 1, 0xf7]), // isomorphic = 1
-  new Uint8Array([...HDR, 0x54, 1, 0xf7]), // twoPath    = 1
-  new Uint8Array([...HDR, 0x55, 1, 0xf7]), // flipX      = 1
-  new Uint8Array([...HDR, 0x56, 0, 0xf7]), // flipY      = 0
-  new Uint8Array([...HDR, 0x57, 1, 0xf7]), // flipXY     = 1
-];
-
 const HEARTBEAT_INTERVAL_MS = 500;
 const HEARTBEAT_STALE_MS = 3000;
 const VERSION_TIMEOUT_MS = 2000;
@@ -122,6 +114,7 @@ export class ExquisLEDs {
     luminosity = 40,
     saturation = 1.5,
     mpeEnabled = true,
+    orientation = 90,
   ) {
     this._out = outputPort;
     this._in = inputPort;
@@ -129,6 +122,9 @@ export class ExquisLEDs {
     this._luminosity = Math.max(0, Math.min(100, Math.round(luminosity)));
     this._saturation = Math.max(0.75, Math.min(2.5, saturation));
     this._mpeEnabled = !!mpeEnabled;
+    this._orientation = exquisOrientation(orientation);
+    this._orientationPending = null;
+    this._orientationTimer = null;
     this._ready = false;
     this._heartbeatTimer = null;
     this._appModeInitTimer = null;
@@ -192,6 +188,29 @@ export class ExquisLEDs {
     this._out.send(new Uint8Array([...HDR, 0x05, this._luminosity, 0xf7]));
   }
 
+  /** Apply device flags and commit the matching host geometry only with no pads held. */
+  setOrientation(value, onApplied = null) {
+    this._orientationPending = { value: exquisOrientation(value), onApplied };
+    this._applyPendingOrientation();
+  }
+
+  _applyPendingOrientation() {
+    if (this._heldPadCount || !this._orientationPending || !this._out) return;
+    const { value, onApplied } = this._orientationPending;
+    this._orientationPending = null;
+    const changed = value !== this._orientation;
+    this._orientation = value;
+    if (changed && this._ready && !this._appModeInitTimer) this._sendLayoutFlags();
+    onApplied?.(value);
+  }
+
+  _sendLayoutFlags() {
+    if (!this._out) return;
+    for (const [command, value] of exquisLayoutFlags(this._orientation)) {
+      this._out.send(new Uint8Array([...HDR, command, value, 0xf7]));
+    }
+  }
+
   /** Update saturation multiplier and resend last colors if available. No-op if not ready. */
   setSaturation(factor) {
     if (!this._ready || !this._out) return;
@@ -226,6 +245,8 @@ export class ExquisLEDs {
    * Call this on scale mode switch or device disconnect.
    */
   exit() {
+    clearTimeout(this._orientationTimer);
+    this._orientationPending = null;
     clearTimeout(this._versionTimeout);
     this._versionTimeout = null;
     this._mpeModePending = false;
@@ -255,6 +276,11 @@ export class ExquisLEDs {
       this._heldPadCount++;
     } else if (status === 0x80 || (status === 0x90 && d[2] === 0)) {
       this._heldPadCount = Math.max(0, this._heldPadCount - 1);
+      if (!this._heldPadCount && this._orientationPending) {
+        // Let all input listeners release using the old map first.
+        clearTimeout(this._orientationTimer);
+        this._orientationTimer = setTimeout(() => this._applyPendingOrientation(), 0);
+      }
     }
 
     // If pads all released and a mode switch is pending, send it now.
@@ -313,8 +339,7 @@ export class ExquisLEDs {
       this._appModeInitTimer = null;
       if (!this._out) return;
 
-      // Set layout flags to Rainbow Layout orientation.
-      for (const frame of LAYOUT_FLAGS) this._out.send(frame);
+      this._sendLayoutFlags();
 
       for (let noteId = 0; noteId < 61; noteId++) {
         this._out.send(new Uint8Array([...HDR, 0x14, noteId, 0, 0, 0, 0xf7]));

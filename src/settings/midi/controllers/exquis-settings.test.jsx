@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/preact";
+import { render, screen, fireEvent } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import ExquisSettings from "./exquis-settings.js";
 
@@ -27,6 +27,29 @@ describe("ExquisSettings", () => {
     );
 
     expect(screen.getByText("LED Output (App Mode)")).toBeTruthy();
+    expect(screen.getByLabelText("Orientation").value).toBe("90");
+    expect(screen.getByLabelText("Orientation").className).toBe("sidebar-input");
+  });
+
+  it("commits and saves orientation only after the driver allows it", () => {
+    const setOrientation = vi.fn();
+    const onChange = vi.fn();
+    render(
+      <ExquisSettings
+        {...baseProps}
+        onChange={onChange}
+        keysRef={{ current: { exquisLEDs: { ready: true, setOrientation } } }}
+        rawPorts={{ output: { id: "exquis", name: "Exquis MIDI" } }}
+        ledStatus={{ ok: true }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Orientation"), { target: { value: "0" } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toContain("Release keys");
+    const commit = setOrientation.mock.calls[0][1];
+    commit(0);
+    expect(onChange).toHaveBeenCalledWith("exquis_orientation", 0);
+    expect(localStorage.getItem("exquis_orientation")).toBe("0");
   });
 
   it("warns only when a too-old firmware version response is received", () => {
