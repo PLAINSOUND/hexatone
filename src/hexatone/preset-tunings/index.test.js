@@ -8,6 +8,20 @@ import {
 } from "./index.js";
 
 describe("preset tunings registry", () => {
+  it("places the renamed 53-Tertial replica directly after The Tree", () => {
+    const group = presetTuningGroups.find((entry) => entry.name === "Marc Sabat NYKY Ensemble");
+    const treeIndex = group.settings.findIndex(
+      (preset) => preset.name === "Sabat: The Tree + Modulations",
+    );
+    const replica = group.settings[treeIndex + 1];
+    expect(replica.name).toBe("53-tone Extended Pythagorean layout");
+    const original = findPresetTuningByName("53-Tertial (center D)");
+    expect(original).toBeTruthy();
+    expect({ ...replica, name: original.name, built_in_group: original.built_in_group }).toEqual(
+      original,
+    );
+  });
+
   it("builds file-backed tuning groups from discovered json and folder metadata", () => {
     const groups = buildFilePresetTuningGroups({
       jsonModules: {
