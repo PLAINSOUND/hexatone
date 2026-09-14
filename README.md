@@ -317,7 +317,7 @@ yarn osc-bridge
 
 **MTS output — Dynamic Bulk Dump:** new transport mode for synths that accept MTS bulk dumps but not single-note real-time SysEx. On each note-on, the carrier slot is patched in a maintained 128-note map and the full dump is sent before triggering the note. Shares carrier selection and MTS encoding with the existing real-time mode.
 
-**MTS output — Centered Static Bulk Dump:** the static 128-note map is now automatically centered around the screen's central degree (`center_degree`). The centering algorithm searches MIDI notes 57–72 (A3–C5) for the note whose 12-EDO pitch class best matches the central pitch, maximising usable keyboard coverage. Sustained notes are protected from mid-phrase map updates; Auto-Send option resends the map whenever relevant settings change.
+**MTS output — Centred Static Bulk Dump:** the static 128-note map is now automatically centred around the screen's central degree (`center_degree`). The centring algorithm searches MIDI notes 57–72 (A3–C5) for the note whose 12-EDO pitch class best matches the central pitch, maximising usable keyboard coverage. Sustained notes are protected from mid-phrase map updates; Auto-Send option resends the map whenever relevant settings change.
 
 **Expression:** mod wheel (CC1) is now routed to the sample synth's lowpass filter, matching the MPE slide (CC74) path. Channel pressure (aftertouch) now broadcasts to all sounding voices simultaneously by default (was recency-stack only). Both are also forwarded to MIDI and MPE outputs.
 

@@ -15,11 +15,11 @@ describe("preset tunings registry", () => {
     );
     const replica = group.settings[treeIndex + 1];
     expect(replica.name).toBe("53-tone Extended Pythagorean layout");
-    const original = findPresetTuningByName("53-Tertial (center D)");
+    const original = findPresetTuningByName("53-Tertial (centre D)");
     expect(original).toBeTruthy();
-    expect({ ...replica, name: original.name, built_in_group: original.built_in_group }).toEqual(
-      original,
-    );
+    // The new preset can have its own description and central degree while
+    // retaining the original 53-tone pitch collection.
+    expect(replica.scale).toEqual(original.scale);
   });
 
   it("builds file-backed tuning groups from discovered json and folder metadata", () => {

@@ -427,7 +427,7 @@ Layout, notes 0–60), and per-voice pitch bend, pressure, and CC74 are routed b
 `activeMidiByChannel`.
 
 The Exquis should be set to **12-EDO** (its default) so that the MPE pitch bend
-center is always 0 (no pre-bend from the device's own tuning). Hexatone ignores
+centre is always 0 (no pre-bend from the device's own tuning). Hexatone ignores
 the device's pitch and uses hex-grid position only.
 
 **What the Exquis displays:**

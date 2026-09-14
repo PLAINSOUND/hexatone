@@ -511,7 +511,7 @@ const HakenContinuumSettings = ({
       />
       {filterError && <div class="scale-warning">{filterError}</div>}
 
-      <label title="Shapes Continuum X bending around the current note. 0 is linear. Higher values create stronger pockets of stability around note centers and faster movement between them.">
+      <label title="Shapes Continuum X bending around the current note. 0 is linear. Higher values create stronger pockets of stability around note centres and faster movement between them.">
         X Glide Shaping
         <span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider

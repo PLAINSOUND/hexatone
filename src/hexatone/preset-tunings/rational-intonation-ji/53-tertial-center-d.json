@@ -1,5 +1,5 @@
 {
-  "name": "53-Tertial (center D)",
+  "name": "53-Tertial (centre D)",
   "description": "53-tone 3-Limit Rational Intonation scale, consisting of 53 notes per octave derived by tuning a chain of 53 3/2 perfect fifths: 26 are harmonics and 26 are subharmonics of D. This gives a symmetric, enharmonically respelled notation combining two HEJI symbols, tilde and arrow, to indicate alteration by a Syntonic Comma plus a Schisma, which is equal to a Pythagorean Comma. Jing Fang (78–37 BCE), a Chinese music theorist, observed that a sequence of 53 just fifths is very nearly equal to 31 octaves. Compare this tuning to the following tuning based on 5-Limit (with 2 enharmonic proximities added) and to the 53edo temperament.",
   "scale": [
     "531441/524288",

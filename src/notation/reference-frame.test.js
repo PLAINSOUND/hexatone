@@ -149,8 +149,8 @@ describe("notation/reference-frame", () => {
     expect(generated).toEqual(expected);
   });
 
-  it("reproduces 53-Tertial (center D) from its centered policy", () => {
-    const preset = presetRecord("53-Tertial (center D)");
+  it("reproduces 53-Tertial (centre D) from its centred policy", () => {
+    const preset = presetRecord("53-Tertial (centre D)");
     const scala = [...preset.scale];
     const expected = [...preset.note_names];
     const degrees = ["1/1", ...scala.slice(0, -1)];
