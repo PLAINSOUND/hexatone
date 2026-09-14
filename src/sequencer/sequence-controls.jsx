@@ -94,7 +94,7 @@ function selectControlValue(event) {
 
 function stopTimedTransportBefore(action, timedTransportDisplay, onTimedTransportStop) {
   if (timedTransportDisplay?.running || timedTransportDisplay?.paused) {
-    onTimedTransportStop?.();
+    onTimedTransportStop?.({ restoreStartTarget: false });
   }
   action?.();
 }
@@ -318,7 +318,7 @@ const SequenceControls = ({
   playheadIsOff,
   nextSnapshotIndexFromBar,
   playheadIsEnd,
-  runTransportAction,
+  runTransportAction: runEditAwareTransportAction,
   onJumpSequenceSnapshot,
   onStepSequence,
   cueSelectValue,
@@ -353,6 +353,31 @@ const SequenceControls = ({
   // Item 1 is not the beginning of the transport: Previous first reaches the
   // rewound state with item 1 prepared, then reaches explicit pre-start.
   const transportBackAvailable = snapshots.length > 0 && playhead?.preStart !== true;
+  const runTransportAction = (action) => {
+    // Cancel the scheduler before handing over to manual playback, even if
+    // committing an edited field defers the requested action until a rerender.
+    stopTimedTransportBefore(
+      () => runEditAwareTransportAction(action),
+      timedTransportUiState,
+      onTimedTransportStop,
+    );
+  };
+  const triggerManualTarget = (target, fallback) => {
+    // Read the scheduler before stopping it; the displayed PLAY FROM values
+    // may still represent the original start target during timed playback.
+    const cueIndex = timedTransportUiState?.running
+      ? getTimedTransportDisplay?.()?.activeCueIndex
+      : null;
+    const cue = Number.isInteger(cueIndex) ? sequenceCueGroups[cueIndex] : null;
+    if (cue) {
+      runTransportAction(() => {
+        if (target === "snapshot") onJumpSequenceSnapshot?.(cue.snapshotIndex);
+        else onJumpSequenceCue?.(cueIndex);
+      });
+      return;
+    }
+    runTransportAction(fallback);
+  };
 
   return (
     <>
@@ -799,7 +824,7 @@ const SequenceControls = ({
                 disabled={!transportBackAvailable}
                 onClick={() => {
                   setPlayFromTarget("snapshot");
-                  runTransportAction(() => onStepSequence?.(-1));
+                  triggerManualTarget("snapshot", () => onStepSequence?.(-1));
                 }}
               >
                 <span
@@ -863,7 +888,7 @@ const SequenceControls = ({
                     runTransportAction(() => onJumpSequenceSnapshot?.(0));
                     return;
                   }
-                  runTransportAction(() => onStepSequence?.(1));
+                  triggerManualTarget("snapshot", () => onStepSequence?.(1));
                 }}
               >
                 <span
@@ -883,7 +908,7 @@ const SequenceControls = ({
                 disabled={!transportBackAvailable}
                 onClick={() => {
                   setPlayFromTarget("cue");
-                  runTransportAction(() => onStepSequenceMarker?.(-1));
+                  triggerManualTarget("cue", () => onStepSequenceMarker?.(-1));
                 }}
               >
                 <span
@@ -947,7 +972,7 @@ const SequenceControls = ({
                     runTransportAction(() => onJumpSequenceCue?.(0));
                     return;
                   }
-                  runTransportAction(() => onStepSequenceMarker?.(1));
+                  triggerManualTarget("cue", () => onStepSequenceMarker?.(1));
                 }}
               >
                 <span
@@ -985,7 +1010,7 @@ const SequenceControls = ({
                 aria-label="play current sequence position"
                 disabled={snapshots.length === 0}
                 onClick={() => {
-                  runTransportAction(() => {
+                  triggerManualTarget(playFromTarget, () => {
                     const cueIndex =
                       cueSelectValue === "" || cueSelectValue === terminalSequenceTarget
                         ? NaN
@@ -1050,7 +1075,7 @@ const SequenceControls = ({
             snapshots={snapshots}
             playheadIsOff={playheadIsOff}
             playheadIsEnd={playheadIsEnd}
-            runTransportAction={runTransportAction}
+            runTransportAction={runEditAwareTransportAction}
             onResetSequencePlayhead={onResetSequencePlayhead}
             onJumpSequenceEnd={onJumpSequenceEnd}
             timedTransportUiState={timedTransportUiState}

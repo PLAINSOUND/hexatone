@@ -871,6 +871,9 @@ export default function useTimedTransportController({
 
     return {
       clock: formatTransportClock(runningElapsed),
+      activeCueIndex: Number.isFinite(lastDispatchedBurst?.sourceCueIndex)
+        ? Number(lastDispatchedBurst.sourceCueIndex) - 1
+        : null,
       barBeat: formatTransportBarBeat(displaySequenceTime),
       tempo:
         describeTransportTempo?.(

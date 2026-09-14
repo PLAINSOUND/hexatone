@@ -1484,6 +1484,51 @@ describe("App workspace tabs", () => {
     expect(screen.queryByLabelText("pause timed transport")).toBeNull();
   });
 
+  it("hands timed playback over to manual PLAY FROM buttons in both workspaces", async () => {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(
+      SEQUENCE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify({
+        snapshots: [1, 2, 3].map((id) => ({
+          id,
+          length: 100,
+          notes: [{ id: `note-${id}`, midicents: 60 + id, start: 0 }],
+        })),
+        bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
+        tempi: [],
+        repeats: [],
+      }),
+    );
+    render(<App />);
+    const user = userEvent.setup();
+    const keys = { stopSnapshot: vi.fn(), playSnapshot: vi.fn() };
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+    for (const tab of ["SEQUENCER", "I/O"]) {
+      await user.click(screen.getByRole("tab", { name: tab }));
+      for (const label of [
+        "next sequence step",
+        "next sequence marker",
+        "play current sequence position",
+      ]) {
+        await user.click(await screen.findByLabelText("play timed transport"));
+        expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
+        keys.stopSnapshot.mockClear();
+        keys.playSnapshot.mockClear();
+        // Dispatch synchronously so a pending timed cue cannot run during
+        // userEvent's pointer-event delays before the actual click.
+        fireEvent.click(screen.getByLabelText(label));
+        expect(screen.queryByLabelText("pause timed transport")).toBeNull();
+        expect(keys.stopSnapshot).toHaveBeenCalled();
+        expect(keys.playSnapshot).toHaveBeenCalled();
+        expect(keys.stopSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
+          keys.playSnapshot.mock.invocationCallOrder[0],
+        );
+        await user.click(screen.getByLabelText("stop timed transport"));
+      }
+    }
+  });
+
   it("keeps Calculator user data mounted while switching workspace tabs", async () => {
     render(<App />);
     const user = userEvent.setup();
