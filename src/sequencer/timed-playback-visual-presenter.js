@@ -5,6 +5,8 @@
 
 export const TIMED_PLAYBACK_ROW_CLASS = "sequencer-item--timed-playing";
 export const TIMED_PLAYBACK_EVENT_CLASS = "sequencer-event-row--timed-sounding";
+export const MANUAL_PLAYBACK_ROW_CLASS = "sequencer-item--manual-playing";
+export const MANUAL_PLAYBACK_EVENT_CLASS = "sequencer-event-row--manual-sounding";
 export const SEQUENCER_VIEWPORT_OWNER_NAVIGATION = "navigation";
 export const SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK = "timed-playback";
 
@@ -67,37 +69,51 @@ export function createTimedPlaybackHighlightPresenter({
   let activeSnapshotId = null;
   let activeEventIds = new Set();
   let disposed = false;
+  let manual = false;
 
   const removeSnapshotClass = (snapshotId) => {
     if (snapshotId == null) return;
-    resolveSnapshotRow?.(snapshotId)?.classList?.remove(TIMED_PLAYBACK_ROW_CLASS);
+    resolveSnapshotRow?.(snapshotId)?.classList?.remove(
+      TIMED_PLAYBACK_ROW_CLASS,
+      MANUAL_PLAYBACK_ROW_CLASS,
+    );
   };
 
   const removeEventClass = (eventId) => {
-    resolveEventRow?.(eventId)?.classList?.remove(TIMED_PLAYBACK_EVENT_CLASS);
+    resolveEventRow?.(eventId)?.classList?.remove(
+      TIMED_PLAYBACK_EVENT_CLASS,
+      MANUAL_PLAYBACK_EVENT_CLASS,
+    );
   };
 
   const refresh = () => {
     if (disposed) return;
     if (activeSnapshotId != null) {
-      resolveSnapshotRow?.(activeSnapshotId)?.classList?.add(TIMED_PLAYBACK_ROW_CLASS);
+      resolveSnapshotRow?.(activeSnapshotId)?.classList?.add(
+        manual ? MANUAL_PLAYBACK_ROW_CLASS : TIMED_PLAYBACK_ROW_CLASS,
+      );
     }
     for (const eventId of activeEventIds) {
-      resolveEventRow?.(eventId)?.classList?.add(TIMED_PLAYBACK_EVENT_CLASS);
+      resolveEventRow?.(eventId)?.classList?.add(
+        manual ? MANUAL_PLAYBACK_EVENT_CLASS : TIMED_PLAYBACK_EVENT_CLASS,
+      );
     }
   };
 
-  const present = ({ snapshotId = null, soundingEventIds = [] } = {}) => {
+  const present = ({ snapshotId = null, soundingEventIds = [], mode = "timed" } = {}) => {
     if (disposed) return;
     const nextSnapshotId = snapshotId ?? null;
     const nextEventIds = new Set(soundingEventIds.filter((eventId) => eventId != null));
 
-    if (activeSnapshotId !== nextSnapshotId) removeSnapshotClass(activeSnapshotId);
+    const nextManual = mode === "manual";
+    if (activeSnapshotId !== nextSnapshotId || manual !== nextManual)
+      removeSnapshotClass(activeSnapshotId);
     for (const eventId of activeEventIds) {
-      if (!nextEventIds.has(eventId)) removeEventClass(eventId);
+      if (!nextEventIds.has(eventId) || manual !== nextManual) removeEventClass(eventId);
     }
 
     activeSnapshotId = nextSnapshotId;
+    manual = nextManual;
     activeEventIds = nextEventIds;
     refresh();
   };

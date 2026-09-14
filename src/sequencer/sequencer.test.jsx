@@ -1626,7 +1626,8 @@ describe("Sequencer", () => {
     const secondSnapshotRow = screen
       .getByLabelText("snapshot 2 description")
       .closest(".sequencer-item");
-    expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true);
+    expect(secondSnapshotRow?.classList.contains("sequencer-item--manual-playing")).toBe(true);
+    expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
 
     rerender(
       <Sequencer
@@ -1638,7 +1639,7 @@ describe("Sequencer", () => {
     );
 
     await waitFor(() =>
-      expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true),
+      expect(secondSnapshotRow?.classList.contains("sequencer-item--manual-playing")).toBe(true),
     );
   });
 

@@ -1563,19 +1563,13 @@ td.scale-color-col .color-input {
   margin-top: 1em;
 }
 
-.sequencer-item--selected {
+.sequencer-item--selected,
+.sequencer-item--manual-playing,
+.sequencer-item--timed-playing {
   background: #e8edf5;
   box-shadow:
     inset 0 1px 0 #d6deea,
     inset 0 -1px 0 #d6deea;
-}
-
-.sequencer-item--timed-playing {
-  background: #dce8f7;
-  box-shadow:
-    inset 3px 0 0 #4779b8,
-    inset 0 1px 0 #c7d8ed,
-    inset 0 -1px 0 #c7d8ed;
 }
 
 .sequencer-item--bar {
@@ -4649,6 +4643,8 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-event-row--attack .sequencer-event__cell.sequencer-event__kind-cell--active,
+.sequencer-event-row--attack.sequencer-event-row--manual-sounding
+  .sequencer-event__cell.sequencer-event__kind-cell,
 .sequencer-event-row--attack.sequencer-event-row--timed-sounding
   .sequencer-event__cell.sequencer-event__kind-cell {
   background: #a4ec82;
@@ -4664,6 +4660,9 @@ td.scale-color-col .color-input {
 
 .sequencer-event-row--attack
   .sequencer-event__cell.sequencer-event__kind-cell--active
+  .sequencer-event__kind,
+.sequencer-event-row--attack.sequencer-event-row--manual-sounding
+  .sequencer-event__kind-cell
   .sequencer-event__kind,
 .sequencer-event-row--attack.sequencer-event-row--timed-sounding
   .sequencer-event__kind-cell

@@ -1279,7 +1279,7 @@ const Sequencer = ({
         numericCueIndex,
         { sequenceTime: cueGroup.time },
         { sequenceTime: cueGroup.time, soundingAfter },
-        { autoScroll },
+        { autoScroll, mode: "manual" },
       );
     },
     [sequenceCueGroups, sequenceRuntime.playbackNotesByCueIndex],
@@ -1312,6 +1312,7 @@ const Sequencer = ({
       timedHighlightPresenterRef.current?.present({
         snapshotId,
         soundingEventIds: [],
+        mode: "manual",
       });
       timedReadoutPresenterRef.current?.present({ snapshotIndex: numericSnapshotIndex });
     },
@@ -2212,6 +2213,7 @@ const Sequencer = ({
       highlightPresenter.present({
         snapshotId,
         soundingEventIds: [...soundingEventIds],
+        mode: options.mode ?? "timed",
       });
       readoutPresenter.present(transport);
 
