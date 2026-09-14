@@ -24,6 +24,23 @@ const frame = {
 };
 
 describe("sequence pitch frames", () => {
+  it("anchors FALL to A at zero deviation, with E a Pythagorean fourth below", () => {
+    const fallFrame = fallSequence.pitchFrames[0];
+    expect(fallFrame).toMatchObject({
+      referenceFrequency: 441,
+      referenceInterval: "27/16",
+      hejiAnchorLabel: "*nA",
+      hejiAnchorInterval: "27/16",
+    });
+    expect(formatSequencePitchFrameCompact(fallFrame)).toBe(
+      "Reference A4 = 441 Hz = 27/16 | HEJI Anchor A (0¢)",
+    );
+    const a = resolveSequenceHejiName("*nA4", fallFrame);
+    const e = resolveSequenceHejiName("*nE4", fallFrame);
+    expect(a.midicents).toBeCloseTo(69 + 12 * Math.log2(441 / 440), 10);
+    expect((e.midicents - a.midicents) * 100 + 500).toBeCloseTo(1.955000865, 7);
+  });
+
   it("deduplicates frames for export and hydrates them for editing", () => {
     const built = buildSequencePitchFrameRegistry([
       { id: 1, pitchFrame: frame, notes: [] },
