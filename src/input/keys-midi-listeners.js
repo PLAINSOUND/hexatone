@@ -818,7 +818,7 @@ export function setupMidiInput() {
           "ccIn",
           { channel: e.message.channel, cc: e.message.dataBytes[0], value: e.message.dataBytes[1] },
           () => {
-            const cc = e.message.dataBytes[0];
+            let cc = e.message.dataBytes[0];
             const value = e.message.dataBytes[1];
             const linnstrumentUfInputActive = isLinnstrumentUfInputActive.call(this);
             const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
@@ -844,6 +844,12 @@ export function setupMidiInput() {
             )
               return;
             debugLog("MIDImonitoring", "controlchange", { channel: e.message.channel, cc, value });
+
+            // Translate Exquis sustain before both output forwarding and
+            // local consumption. Finger Y (CC74) stays per-note unless assigned.
+            if (this.controller?.id === "exquis") {
+              if (cc === (this.settings.exquis_sustain_cc ?? 33)) cc = 64;
+            }
 
             if (hakenMpePlusInputActive && cc === 87) {
               this._hakenMpePlusLsbByChannel.set(e.message.channel, value);

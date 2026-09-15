@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { exquisOrientation } from "../../../controllers/exquis-orientation.js";
 import OutputPortPicker from "../output-port-picker.js";
 import CustomRangeSlider from "../../shared/range-slider.jsx";
@@ -30,11 +30,81 @@ const ExquisSettings = ({
   onChange,
 }) => {
   const [pendingOrientation, setPendingOrientation] = useState(null);
+  const [listening, setListening] = useState(null);
+  const learnedCallback = useRef(null);
+  const cancelListen = useCallback(() => {
+    const keys = keysRef?.current;
+    if (keys?._midiLearnCcCallback === learnedCallback.current) {
+      keys.setMidiCcLearnMode(false, null);
+    }
+    learnedCallback.current = null;
+    setListening(null);
+  }, [keysRef]);
+  useLayoutEffect(() => () => cancelListen(), [cancelListen, settings.midiin_device]);
+  const saveCC = (key, value) => {
+    onChange(key, value);
+    localStorage.setItem(key, String(value));
+    if (keysRef?.current) keysRef.current.settings[key] = value;
+  };
+  const ccControls = (
+    <>
+      {[["Sustain", "exquis_sustain_cc", 33]].map(([label, key, defaultCC]) => (
+        <label key={key}>
+          {label}
+          <span class="sidebar-input settings-form__inline-fields settings-form__inline-fields--spread">
+            <span class="settings-form__tabular-value settings-form__tabular-value--muted">
+              {`CC ${settings[key] ?? defaultCC}`}
+            </span>
+            <span class="settings-form__action-group">
+              <button
+                type="button"
+                class="learn-btn"
+                aria-label={`Listen for ${label} CC`}
+                onClick={() => {
+                  const wasListening = listening === key;
+                  cancelListen();
+                  if (wasListening) return;
+                  const keys = keysRef?.current;
+                  if (!keys?.setMidiCcLearnMode || !keys.midiin_data) return;
+                  const callback = (cc) => {
+                    saveCC(key, cc);
+                    learnedCallback.current = null;
+                    setListening(null);
+                  };
+                  learnedCallback.current = callback;
+                  keys.setMidiCcLearnMode(true, callback);
+                  setListening(key);
+                }}
+              >
+                {listening === key ? "● Listening…" : "Listen"}
+              </button>
+              <button
+                type="button"
+                class="learn-btn"
+                aria-label={`Reset ${label} CC`}
+                onClick={() => {
+                  cancelListen();
+                  saveCC(key, defaultCC);
+                }}
+              >
+                Reset
+              </button>
+            </span>
+          </span>
+        </label>
+      ))}
+    </>
+  );
   useEffect(() => {
     setPendingOrientation(null);
   }, [appModeEnabled, rawPorts]);
   if (!appModeEnabled) {
-    return <ExquisAppModeStatus />;
+    return (
+      <>
+        {ccControls}
+        <ExquisAppModeStatus />
+      </>
+    );
   }
 
   const portConnected = !!rawPorts;
@@ -48,6 +118,7 @@ const ExquisSettings = ({
 
   return (
     <>
+      {ccControls}
       <OutputPortPicker
         label="LED Output (App Mode)"
         rawPorts={rawPorts}

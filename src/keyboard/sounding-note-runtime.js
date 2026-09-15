@@ -72,7 +72,9 @@ export function findSustainedHexIndex(state, coords) {
 
 export function addSustainedHex(state, hex, releaseVelocity = 0) {
   const key = coordKey(hex.coords);
-  const existingIndex = findSustainedHexIndex(state, hex.coords);
+  // Retriggers can create distinct voices at the same coordinate. Retain every
+  // voice for pedal-up, but never enqueue the same voice twice.
+  const existingIndex = state.sustainedNotes.findIndex(([held]) => held === hex);
   if (existingIndex !== -1) {
     return {
       added: false,
@@ -96,7 +98,9 @@ export function removeSustainedHex(state, coords) {
   const index = findSustainedHexIndex(state, coords);
   if (index === -1) return null;
   const [entry] = state.sustainedNotes.splice(index, 1);
-  state.sustainedCoords.delete(coordKey(coords));
+  if (findSustainedHexIndex(state, coords) === -1) {
+    state.sustainedCoords.delete(coordKey(coords));
+  }
   return {
     index,
     entry,

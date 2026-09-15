@@ -17,8 +17,8 @@ const migrations = [
       referenceLabel: "A4",
       referenceFrequency: 441,
       referenceInterval: "27/16",
-      hejiAnchorLabel: "*nE",
-      hejiAnchorInterval: "81/64",
+      hejiAnchorLabel: "*nA",
+      hejiAnchorInterval: "27/16",
     },
   },
   {

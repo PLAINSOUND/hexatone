@@ -55,10 +55,15 @@ function scaleIdentityForDegree(keys, degree) {
 
 export function midiLatchToggle(keys, coords, releaseVelocity = 0) {
   if (!keys.state.latch) return false;
-  const removed = removeSustainedHex(keys.state, coords);
+  let removed = removeSustainedHex(keys.state, coords);
   if (!removed) return false;
-  const [hex, vel] = removed.entry;
-  hex.noteOff(releaseVelocity || vel);
+  do {
+    const [hex, vel] = removed.entry;
+    hex.noteOff(releaseVelocity || vel);
+    keys.recencyStack.remove(hex);
+    removed = removeSustainedHex(keys.state, coords);
+  } while (removed);
+  keys._updateWheelTarget(true);
   keys._scheduleDeferredBulkRefresh();
   hexOff(keys, coords);
   keys._emitLiveNoteDisplayState();

@@ -30,15 +30,20 @@ describe("keyboard/sounding-note-runtime", () => {
     expect(collectSoundingHexes(state)).toEqual([mouseHex, midiHex]);
   });
 
-  it("deduplicates sustained notes by coordinates", () => {
+  it("retains separate voices at one coordinate and deduplicates only voice identity", () => {
     const state = createSoundingNoteState();
     const first = makeHex(2, 3, "first");
     const second = makeHex(2, 3, "second");
 
     expect(addSustainedHex(state, first, 64).added).toBe(true);
-    expect(addSustainedHex(state, second, 32).added).toBe(false);
-    expect(state.sustainedNotes).toHaveLength(1);
+    expect(addSustainedHex(state, second, 32).added).toBe(true);
+    expect(addSustainedHex(state, first, 12).added).toBe(false);
+    expect(state.sustainedNotes).toHaveLength(2);
     expect(state.sustainedCoords.has("2,3")).toBe(true);
+    expect(removeSustainedHex(state, first.coords).entry).toEqual([first, 64]);
+    expect(state.sustainedCoords.has("2,3")).toBe(true);
+    expect(clearSustainedHexes(state)).toEqual([[second, 32]]);
+    expect(state.sustainedCoords.size).toBe(0);
   });
 
   it("removes and clears sustained notes cleanly", () => {

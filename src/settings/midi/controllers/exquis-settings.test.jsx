@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from "@testing-library/preact";
+import { render, screen, fireEvent, act } from "@testing-library/preact";
 import { describe, expect, it, vi } from "vitest";
 import ExquisSettings from "./exquis-settings.js";
 
@@ -29,6 +29,32 @@ describe("ExquisSettings", () => {
     expect(screen.getByText("LED Output (App Mode)")).toBeTruthy();
     expect(screen.getByLabelText("Orientation").value).toBe("90");
     expect(screen.getByLabelText("Orientation").className).toBe("sidebar-input");
+  });
+
+  it("learns input CCs and resets defaults without requiring App mode", () => {
+    const keys = { settings: {}, midiin_data: {}, setMidiCcLearnMode: vi.fn() };
+    keys.setMidiCcLearnMode.mockImplementation((active, callback) => {
+      keys._midiLearnCcCallback = active ? callback : null;
+    });
+    const onChange = vi.fn();
+    const { unmount } = render(
+      <ExquisSettings
+        {...baseProps}
+        appModeEnabled={false}
+        keysRef={{ current: keys }}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.queryByText("Mod/Timbre")).toBeNull();
+    expect(screen.getByText("CC 33")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Listen for Sustain CC" }));
+    act(() => keys._midiLearnCcCallback(22));
+    expect(onChange).toHaveBeenCalledWith("exquis_sustain_cc", 22);
+    fireEvent.click(screen.getByRole("button", { name: "Reset Sustain CC" }));
+    expect(onChange).toHaveBeenCalledWith("exquis_sustain_cc", 33);
+    fireEvent.click(screen.getByRole("button", { name: "Listen for Sustain CC" }));
+    unmount();
+    expect(keys._midiLearnCcCallback).toBeNull();
   });
 
   it("commits and saves orientation only after the driver allows it", () => {

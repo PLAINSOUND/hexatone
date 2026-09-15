@@ -154,6 +154,45 @@ describe("Keys MIDI input integration", () => {
     drawGridSpy = vi.spyOn(Keys.prototype, "drawGrid").mockImplementation(() => {});
   });
 
+  it.each([false, true])(
+    "releases repeated sustained voices at one coordinate (second held: %s)",
+    (secondHeld) => {
+      const keys = createKeys();
+      const first = { coords: new Point(0, 0), noteOff: vi.fn(), cents: 0 };
+      const second = { coords: new Point(0, 0), noteOff: vi.fn(), cents: 0 };
+      keys.sustainOn();
+      keys.noteOff(first, 30);
+      if (secondHeld) keys.state.activeMidi.set(19, second);
+      else keys.noteOff(second, 40);
+      expect(first.noteOff).not.toHaveBeenCalled();
+      expect(second.noteOff).not.toHaveBeenCalled();
+      keys.sustainOff();
+      expect(first.noteOff).toHaveBeenCalledExactlyOnceWith(30);
+      if (secondHeld) {
+        expect(second.noteOff).not.toHaveBeenCalled();
+        keys.state.activeMidi.delete(19);
+        keys.noteOff(second, 40);
+      }
+      expect(second.noteOff).toHaveBeenCalledExactlyOnceWith(40);
+      expect(keys.state.sustainedNotes).toEqual([]);
+      expect(keys.state.sustainedCoords.size).toBe(0);
+    },
+  );
+
+  it("latch toggle releases every sustained voice at the selected coordinate", () => {
+    const keys = createKeys();
+    const first = { coords: new Point(0, 0), noteOff: vi.fn(), cents: 0 };
+    const second = { coords: new Point(0, 0), noteOff: vi.fn(), cents: 0 };
+    keys.sustainOn();
+    keys.noteOff(first, 30);
+    keys.noteOff(second, 40);
+    keys.state.latch = true;
+    expect(keys._midiLatchToggle(first.coords, 50)).toBe(true);
+    expect(first.noteOff).toHaveBeenCalledExactlyOnceWith(50);
+    expect(second.noteOff).toHaveBeenCalledExactlyOnceWith(50);
+    expect(keys.state.sustainedNotes).toEqual([]);
+  });
+
   it("shapes Continuum pitch bend around raster-filter degrees instead of every scale degree", () => {
     const inputRuntime = {
       hakenXGlideShaping: 100,
@@ -6029,7 +6068,10 @@ describe("Keys MIDI input integration", () => {
     keys.state.activeTouch.set(1, voices[1]);
     keys.state.activeKeyboard.set("KeyA", voices[2]);
     keys.state.activeMidi.set(60, voices[3]);
-    keys.state.sustainedNotes = [[voices[4], 0], [voices[0], 0]];
+    keys.state.sustainedNotes = [
+      [voices[4], 0],
+      [voices[0], 0],
+    ];
     const children = [{ family: "sample" }];
     keys.updateLiveOutputState(null, { childSynths: () => children });
     for (const voice of voices) {
@@ -6615,6 +6657,51 @@ describe("Keys MIDI input integration", () => {
     expect(aftertouch).toHaveBeenCalledTimes(1);
     expect(aftertouch).toHaveBeenCalledWith(71);
     expect(retune).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([33, 22])("routes Exquis sustain CC%s without remapping modulation", (sustainCC) => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((eventName, maybeOptions, maybeHandler) => {
+        listeners[eventName] = typeof maybeOptions === "function" ? maybeOptions : maybeHandler;
+      }),
+      removeListener: vi.fn(),
+      name: "Exquis",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "exquis",
+        exquis_sustain_cc: sustainCC,
+      },
+      { layoutMode: "2d", mpeInput: true },
+      { rememberControllerState: vi.fn() },
+    );
+    const forward = vi.spyOn(keys, "_passthroughCC").mockImplementation(() => {});
+    const sustainOn = vi.spyOn(keys, "sustainOn").mockImplementation(() => {});
+    const sustainOff = vi.spyOn(keys, "sustainOff").mockImplementation(() => {});
+    keys.onModWheelChange = vi.fn();
+    const send = (cc, value) =>
+      listeners.controlchange({ message: { channel: 1, dataBytes: [cc, value] } });
+    send(43, 95);
+    expect(forward).toHaveBeenCalledWith(43, 95);
+    expect(keys.onModWheelChange).not.toHaveBeenCalled();
+    send(1, 95);
+    expect(forward).toHaveBeenCalledWith(1, 95);
+    expect(keys.onModWheelChange).toHaveBeenCalledWith(95);
+    send(sustainCC, 127);
+    send(sustainCC, 0);
+    expect(forward).toHaveBeenCalledWith(64, 127);
+    expect(forward).toHaveBeenCalledWith(64, 0);
+    expect(sustainOn).toHaveBeenCalledOnce();
+    expect(sustainOff).toHaveBeenCalledOnce();
+    const learned = vi.fn();
+    keys.setMidiCcLearnMode(true, learned);
+    forward.mockClear();
+    send(sustainCC, 60);
+    expect(learned).toHaveBeenCalledWith(sustainCC, 1, 60);
+    expect(forward).not.toHaveBeenCalled();
   });
 
   it("ignores Continuum test CCs for both pedal flipping and CC learn while keeping CC66 active", () => {

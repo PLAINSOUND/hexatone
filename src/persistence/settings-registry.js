@@ -569,6 +569,14 @@ export const SETTINGS_REGISTRY = [
     description: "Exquis clockwise physical orientation: 0, 90, 180 or 270 degrees",
   },
   {
+    key: "exquis_sustain_cc",
+    tier: "local",
+    type: "int",
+    default: 33,
+    perController: false,
+    description: "Exquis CC assigned to sustain",
+  },
+  {
     key: "exquis_led_saturation",
     tier: "local",
     type: "float",

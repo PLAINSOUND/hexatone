@@ -73,6 +73,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "lumatone_degree_filter_snapshots",
     "exquis_led_sync",
     "exquis_orientation",
+    "exquis_sustain_cc",
     "linnstrument_led_sync",
     "modulation_style",
   ],
