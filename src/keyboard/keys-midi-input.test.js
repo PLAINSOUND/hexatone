@@ -6704,6 +6704,54 @@ describe("Keys MIDI input integration", () => {
     expect(forward).not.toHaveBeenCalled();
   });
 
+  it("filters Continuum engine CCs before forwarding, caching and state replay", () => {
+    const listeners = {};
+    const input = {
+      addListener: vi.fn((name, options, handler) => {
+        listeners[name] = typeof options === "function" ? options : handler;
+      }),
+      removeListener: vi.fn(),
+      name: "UM-ONE",
+    };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+    const keys = createKeys(
+      {
+        midiin_device: "input-1",
+        midiin_controller_override: "hakenaudio",
+        hakenaudio_glide_flip_cc: 68,
+      },
+      { mpeInput: true },
+      { rememberControllerState: vi.fn() },
+    );
+    const forward = vi.spyOn(keys, "_passthroughCC").mockImplementation(() => {});
+    const send = (cc, value = 64) =>
+      listeners.controlchange({ message: { channel: 1, dataBytes: [cc, value] } });
+    const allowed = [1, 2, 3, 4, 7, 11, 74];
+    const blocked = [
+      8, 9, 10, 12, 13, 18, 26, 31, 56, 64, 65, 66, 69, 81, 82, 83, 84, 85, 90, 91, 92, 93, 111,
+      114, 117, 118,
+    ];
+    for (const cc of blocked) send(cc);
+    expect(forward).not.toHaveBeenCalled();
+    expect(keys._controllerCCValues.size).toBe(0);
+    for (const cc of allowed) send(cc);
+    expect(forward.mock.calls.map(([cc]) => cc)).toEqual(allowed);
+    keys._controllerCCValues.set(13, 99); // stale state from before recognition
+    expect(Object.keys(keys._getControllerState().ccValues).map(Number)).toEqual(allowed);
+    const flip = vi.spyOn(keys, "_setHakenPedalGlideFlip");
+    forward.mockClear();
+    send(68, 127);
+    send(68, 0);
+    expect(flip).toHaveBeenNthCalledWith(1, true);
+    expect(flip).toHaveBeenNthCalledWith(2, false);
+    expect(forward).not.toHaveBeenCalled();
+    const learned = vi.fn();
+    keys.setMidiCcLearnMode(true, learned);
+    send(12, 127);
+    expect(learned).toHaveBeenCalledWith(12, 1, 127);
+    expect(forward).not.toHaveBeenCalled();
+  });
+
   it("ignores Continuum test CCs for both pedal flipping and CC learn while keeping CC66 active", () => {
     const listeners = {};
     const input = {

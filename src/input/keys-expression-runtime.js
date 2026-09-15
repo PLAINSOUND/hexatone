@@ -4,6 +4,7 @@
 // modulation history; callers provide the current Keys runtime state.
 
 import { WebMidi } from "webmidi";
+import { allowsContinuumPerformanceCC } from "../controllers/continuum-cc-policy.js";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { publishEaganBrightness, publishEaganTiltEq } from "../mpe_synth/eagan-matrix.js";
 import { continuumRasterFilterSetFromRuntime } from "../controllers/continuum-raster-filters.js";
@@ -20,6 +21,11 @@ const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 
 export function passthroughCC(cc, value) {
+  if (
+    this.controller?.id === "hakenaudio" &&
+    !allowsContinuumPerformanceCC(cc, this.settings.hakenaudio_glide_flip_cc)
+  )
+    return;
   if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendControlChange(cc, value, { channels: this.settings.midi_channel + 1 });
   }
@@ -425,7 +431,13 @@ export function syncTransferredWheelBends() {
 
 export function getControllerState() {
   return {
-    ccValues: Object.fromEntries(this._controllerCCValues),
+    ccValues: Object.fromEntries(
+      [...this._controllerCCValues].filter(
+        ([cc]) =>
+          this.controller?.id !== "hakenaudio" ||
+          allowsContinuumPerformanceCC(cc, this.settings.hakenaudio_glide_flip_cc),
+      ),
+    ),
     channelPressure: this._channelPressureValue,
     pitchBend14: this._wheelValue14,
   };

@@ -8,6 +8,7 @@ import { WebMidi } from "webmidi";
 import { notes } from "../midi_synth";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import { debugLog } from "../debug/logging.js";
+import { allowsContinuumPerformanceCC } from "../controllers/continuum-cc-policy.js";
 import { withMidiJitterInput } from "../debug/midi-jitter.js";
 import {
   appendPersistedMidiRestoreDiagnostic,
@@ -855,6 +856,13 @@ export function setupMidiInput() {
               this._hakenMpePlusLsbByChannel.set(e.message.channel, value);
               return;
             }
+            // Learning and the locally consumed Raster/Bend pedal run above
+            // this gate. All other Continuum engine reports stop here.
+            if (
+              this.controller?.id === "hakenaudio" &&
+              !allowsContinuumPerformanceCC(cc, this.settings.hakenaudio_glide_flip_cc)
+            )
+              return;
 
             // ── LinnStrument User Firmware Mode X data ────────────────────────
             // CC 0-25 / 1-25 = X MSB, CC 32-57 / 33-57 = X LSB.
