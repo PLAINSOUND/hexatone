@@ -6,7 +6,7 @@ describe("ManualSidebar", () => {
   it.each([
     ["HEXATONE tab", "manual-hexatone-tab"],
     ["SEQUENCER tab", "manual-sequencer-tab"],
-    ["IO tab", "manual-io-tab"],
+    ["I/O tab", "manual-i-o-tab"],
     ["CALCULATOR tab", "manual-calculator-tab"],
   ])("opens at the requested %s section", (initialSectionTitle, expectedSectionId) => {
     const { container } = render(

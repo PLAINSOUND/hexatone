@@ -1339,7 +1339,7 @@ describe("App workspace tabs", () => {
 
     await user.click(screen.getByText("… more"));
     expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
-      "IO tab",
+      "I/O tab",
     );
 
     await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));

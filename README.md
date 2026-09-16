@@ -86,11 +86,11 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ### 3.3 RC2 _(current release candidate)_
 
-Hexatone 3.3 RC2 expands the Sequencer, adds IO and CALCULATOR workspaces, and refines notation, editing and live performance. September development focuses on reducing repeated computation and improving responsiveness on slower computers.
+Hexatone 3.3 RC2 expands the Sequencer, adds I/O and CALCULATOR workspaces, and refines notation, editing and live performance. September development focuses on reducing repeated computation and improving responsiveness on slower computers.
 
 **IO and sound design**
 
-- sound selection, MIDI connections and output routing are available in a dedicated IO tab
+- sound selection, MIDI connections and output routing are available in a dedicated I/O tab
 - timed sequences continue playing while switching to IO to adjust sounds and routing
 - outputs can be enabled or disabled during playback; a newly selected sampled instrument takes over once loaded
 - Snapshots and Modulation History palettes remain accessible in the other applicable workspaces

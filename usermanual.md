@@ -4,7 +4,7 @@ Updated: 2026-08-31
 
 ## About
 
-HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented by Erv Wilson. SEQUENCER is a sequencer for editing and performing chords captured in the workspace. Settings for selecting built-in sounds, MIDI input/output, and OSC output are located in the IO tab. CALCULATOR provides a quick-access tool for JI calculations (HEJI spelling, frequency, cents deviation, and rationalisation). The MANUAL tab provides complete documentation. Features include:
+HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented by Erv Wilson. SEQUENCER is a sequencer for editing and performing chords captured in the workspace. Settings for selecting built-in sounds, MIDI input/output, and OSC output are located in the I/O tab. CALCULATOR provides a quick-access tool for JI calculations (HEJI spelling, frequency, cents deviation, and rationalisation). The MANUAL tab provides complete documentation. Features include:
 
 - user-programmable keyboard layouts and tunings
 - playing with touch, mouse, computer keyboard, and MIDI
@@ -23,7 +23,7 @@ HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented
 WebMIDI is optional. To explore scales, compare tunings, build and recall chords:
 
 - open Hexatone in the browser, choose a tuning
-- go to the IO tab to choose built-in sounds
+- go to the I/O tab to choose built-in sounds
 - play with touch, mouse, or computer keyboard
 - use on-screen `OCT` / `SUSTAIN` / `MOD` controls or keyboard shortcuts
 - in the HEXATONE tab, edit the scale table and drag to retune individual scale degrees
@@ -417,9 +417,13 @@ A repeat row shows:
 
 Repeat markers participate directly in cue playback. When cue stepping crosses an end-repeat boundary, Hexatone jumps back to the associated start-repeat position and restarts the cue range as many times as the repeat count requires. Any carried note-offs that need to occur before the repeat bounce are preserved by the event-ordering rules.
 
-## IO tab
+## I/O tab
 
-Switching to the IO tab does not interrupt live or sequenced playback. Snapshots and Modulation options remain available in floating palettes.
+Switching to the I/O tab does not interrupt live or sequenced playback. Snapshots and Modulation options remain available in floating palettes.
+
+**Restore I/O settings on reload**, at the top of the tab, is independent of **Restore on reload**. It is enabled by default. Disable it to return to default sound and I/O settings on the next browser reload, with external connections disabled. Changing the checkbox does not interrupt the current session. Saved controller profiles and user libraries are not deleted.
+
+Restoring I/O remembers the requested setup, not browser permission or a guaranteed connection: MIDI/SysEx access must still be granted and the selected ports must be available. Port choices remain session-scoped; this option does not transfer settings between browsers or guarantee restoration in a new browser session.
 
 When working with a loaded sequence, the **Sequencer Transport** fieldset below Output Routing provides the sequencer's **PLAY FROM**, **TIMED PLAYBACK**, **SPEED**, and **PITCH** controls. These operate the same transport as the SEQUENCER tab, so you can stop, resume, or adjust playback while designing sounds.
 
@@ -428,6 +432,8 @@ When working with a loaded sequence, the **Sequencer Transport** fieldset below 
 Hexatone has a small built-in library of sampled sounds. These include several additive synthesis timbres with 1–16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching, and may be changed dynamically while playing live or sequenced material. For more sophisticated sound design, layer the MIDI and/or OSC outputs.
 
 When changing instruments, the current sound remains available while the new samples load. Held and legato notes keep their original sound until their normal release; new attacks use the newly loaded instrument. Volume and PANIC continue to affect voices from the previous sound.
+
+If audio has not yet been activated, **Activate Audio Context** appears at the bottom of Built-in Sounds. This uses the same audio-activation action as the HEXATONE and SEQUENCER tabs.
 
 ### MIDI Setup
 
