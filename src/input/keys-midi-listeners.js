@@ -4,6 +4,7 @@
 // not own harmonic frame derivation or canvas rendering directly.
 
 import Point from "../keyboard/point.js";
+import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 import { WebMidi } from "webmidi";
 import { notes } from "../midi_synth";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
@@ -893,7 +894,7 @@ export function setupMidiInput() {
               for (const resetCC of [1, 11, 64, 66, 67, 74]) {
                 this._controllerCCValues.set(resetCC, 0);
               }
-            } else if (cc !== 120 && cc !== 123) {
+            } else if (allowsPerformanceCC(cc)) {
               this._controllerCCValues.set(cc, value);
             }
 

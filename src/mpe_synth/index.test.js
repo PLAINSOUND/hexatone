@@ -512,12 +512,13 @@ describe("mpe_synth controller-state replay", () => {
 
     midi_output.send.mockClear();
     synth.applyControllerState({
-      ccValues: { 1: 88, 64: 127 },
+      ccValues: { 1: 88, 64: 127, 126: 1, 127: 0, 12: 73 },
       channelPressure: 31,
       pitchBend14: 9000,
     });
 
     expect(midi_output.send).toHaveBeenCalledWith([0xb0, 1, 88]);
+    expect(midi_output.send).toHaveBeenCalledTimes(4);
     expect(midi_output.send).toHaveBeenCalledWith([0xb0, 64, 127]);
     expect(midi_output.send).toHaveBeenCalledWith([0xd0, 31]);
     expect(midi_output.send).toHaveBeenCalledWith([0xe0, 9000 & 0x7f, (9000 >> 7) & 0x7f]);

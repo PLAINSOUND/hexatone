@@ -1,4 +1,5 @@
 import { getOutputTransaction } from "../midi/output-transaction.js";
+import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 /**
  * mpe_synth — MPE output.
  *
@@ -412,6 +413,7 @@ export const create_mpe_synth = async (
       if (!midi_output || masterCh < 0) return;
       const ccValues = state.ccValues || {};
       for (const [cc, value] of Object.entries(ccValues)) {
+        if (!allowsPerformanceCC(cc)) continue;
         midi_output.send([0xb0 + masterCh, Number(cc) & 0x7f, Math.max(0, Math.min(127, value))]);
       }
       if (state.channelPressure != null) {

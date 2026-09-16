@@ -8,6 +8,7 @@ import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
 import { buildTuningMapEntries } from "../tuning/tuning-map.js";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
 import { sendRpn } from "../midi/rpn.js";
+import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 
 function safeSend(midi_output, bytes) {
   if (!midi_output || typeof midi_output.send !== "function") return;
@@ -202,6 +203,7 @@ export const create_midi_synth = async ({
       if (!midi_output || channel == null || channel < 0) return;
       const ccValues = state.ccValues || {};
       for (const [cc, value] of Object.entries(ccValues)) {
+        if (!allowsPerformanceCC(cc)) continue;
         safeSend(midi_output, [
           0xb0 + channel,
           Number(cc) & 0x7f,

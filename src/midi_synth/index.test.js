@@ -128,12 +128,15 @@ describe("midi_synth controller-state replay", () => {
     });
 
     synth.applyControllerState({
-      ccValues: { 1: 99, 64: 127 },
+      ccValues: { 1: 99, 64: 127, 126: 1, 127: 0, 12: 73 },
       channelPressure: 33,
       pitchBend14: 10000,
     });
 
     expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 1, 99]);
+    for (const cc of [12, 126, 127]) {
+      expect(output.send.mock.calls.some(([bytes]) => bytes[0] === 0xb2 && bytes[1] === cc)).toBe(false);
+    }
     expect(output.send).toHaveBeenCalledWith([0xb0 + 2, 64, 127]);
     expect(output.send).toHaveBeenCalledWith([0xd0 + 2, 33]);
     expect(output.send).toHaveBeenCalledWith([0xe0 + 2, 10000 & 0x7f, (10000 >> 7) & 0x7f]);
