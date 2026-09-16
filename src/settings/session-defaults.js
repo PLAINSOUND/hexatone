@@ -16,6 +16,10 @@
  */
 
 import { SETTINGS_REGISTRY, CROSS_CONTROLLER_ENTRIES } from "../persistence/settings-registry.js";
+import { applyIOReloadPolicy } from "../persistence/io-reload-policy.js";
+
+// Run before reading any persisted defaults, not after App imports this module.
+applyIOReloadPolicy();
 import {
   sessionInt,
   sessionFloat,

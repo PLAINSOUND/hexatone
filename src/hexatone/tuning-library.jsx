@@ -457,7 +457,7 @@ const TuningLibrary = ({
                 checked={persistOnReload}
                 onChange={(e) => setPersistOnReload(e.target.checked)}
               />
-              <em class="settings-form__helper-text">Restore preset on reload</em>
+              <em class="settings-form__helper-text">Restore on reload</em>
             </label>
           )}
         </div>

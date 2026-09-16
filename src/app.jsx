@@ -195,16 +195,13 @@ export function applyReloadPersistencePolicy({
   if (navigationType !== "reload" || shouldPersist) return;
 
   // SCALE_KEYS_TO_CLEAR covers all scale/preset keys.
-  // Additionally clear these session flags on reload to prevent unexpected
-  // sysex traffic and stale preset-source state on startup.
+  // Clear musical workspace state only. MIDI access and auto-send intent are
+  // governed independently by the I/O reload policy before defaults are read.
   const extraKeysToClear = [
     "hexatone_preset_source",
     "hexatone_preset_name",
     SEQUENCE_WORKSPACE_STORAGE_KEY,
     CALCULATOR_WORKSPACE_STORAGE_KEY,
-    "direct_sysex_auto",
-    "mts_bulk_sysex_auto",
-    "webmidi_access",
   ];
   [...SCALE_KEYS_TO_CLEAR, ...extraKeysToClear].forEach((key) => sessionStorage.removeItem(key));
 
@@ -5031,6 +5028,8 @@ const App = () => {
   const ioSettingsSidebar = (
     <Suspense fallback={<SidebarLoadingFallback />}>
       <IOSettings
+        showActivateAudioContext={!userHasInteracted}
+        activateAudioContext={refreshKeyboardAndAudio}
         onChange={onChange}
         midiLearnActive={midiLearnActive}
         hakenPedalLearnActive={hakenPedalLearnActive}

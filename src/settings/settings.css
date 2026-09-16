@@ -1042,6 +1042,13 @@ td.scale-color-col .color-input {
   margin-top: 0;
 }
 
+.io-settings__reload-row {
+  /* Match a fieldset's 2px margin, 1px border and .75em inline padding. */
+  margin-inline: 2px;
+  margin-bottom: 1em;
+  padding-inline: calc(0.75em + 1px);
+}
+
 .settings-form__activate-audio-btn {
   flex: 0 0 auto;
 }

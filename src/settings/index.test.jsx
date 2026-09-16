@@ -21,11 +21,11 @@ vi.mock("../hexatone/tuning-library.jsx", () => ({
         <label>
           <input
             type="checkbox"
-            aria-label="Restore preset on reload"
+            aria-label="Restore on reload"
             checked={props.persistOnReload}
             onChange={(e) => props.setPersistOnReload(e.target.checked)}
           />
-          Restore preset on reload
+          Restore on reload
         </label>
       )}
       Tuning Library Stub
@@ -85,6 +85,17 @@ const baseProps = {
 };
 
 describe("Settings MIDI Setup fieldset", () => {
+  it("stores I/O restore independently without changing live settings", () => {
+    localStorage.removeItem("hexatone_restore_io_on_reload");
+    const onChange = vi.fn();
+    render(<IOSettings {...baseProps} onChange={onChange} />);
+    const checkbox = screen.getByLabelText("Restore I/O settings on reload");
+    expect(checkbox.checked).toBe(true);
+    fireEvent.click(checkbox);
+    expect(localStorage.getItem("hexatone_restore_io_on_reload")).toBe("false");
+    expect(onChange).not.toHaveBeenCalled();
+    localStorage.removeItem("hexatone_restore_io_on_reload");
+  });
   beforeEach(() => {
     scaleMockState.props.length = 0;
   });
@@ -132,7 +143,7 @@ describe("Settings MIDI Setup fieldset", () => {
     expect(activateAudioContext).toHaveBeenCalledTimes(1);
     expect(activatePendingPreset).not.toHaveBeenCalled();
     expect(setPersistOnReload).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText("Restore preset on reload")).toBeNull();
+    expect(screen.queryByLabelText("Restore on reload")).toBeNull();
   });
 
   it("requests sysex MIDI when Enable Sysex is clicked from basic state", () => {

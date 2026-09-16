@@ -46,11 +46,37 @@ import {
   SCALE_KEYS_TO_CLEAR,
   clearScaleSettings,
   mergePresetIntoSettings,
+  mergeRestoredPresetIntoSettings,
   scaleHexSizeForScreen,
   default as usePresets,
 } from "./use-presets.js";
 
 describe("scaleHexSizeForScreen", () => {
+  it("restores tuning without overriding the independently bootstrapped I/O setup", () => {
+    const settings = {
+      instrument: "current",
+      output_sample: true,
+      output_mpe: false,
+      midiin_device: "OFF",
+      midiin_anchor_note: 60,
+      midiin_anchor_channel: 1,
+    };
+    const restored = mergeRestoredPresetIntoSettings(settings, {
+      name: "Restored tuning",
+      scale: [0, 700],
+      fundamental: 441,
+      instrument: "old",
+      output_sample: false,
+      output_mpe: true,
+      midiin_device: "old-port",
+    });
+    expect(restored).toMatchObject({
+      ...settings,
+      name: "Restored tuning",
+      fundamental: 441,
+      scale: [0, 700],
+    });
+  });
   it("scales large preset hex sizes on phone portrait screens", () => {
     window.innerWidth = 390;
     window.innerHeight = 844;

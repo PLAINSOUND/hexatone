@@ -287,6 +287,15 @@ describe("Loading", () => {
 });
 
 describe("applyReloadPersistencePolicy", () => {
+  it("does not clear I/O access or auto-send intent when clearing the preset", () => {
+    for (const key of ["webmidi_access", "mts_bulk_sysex_auto"])
+      sessionStorage.setItem(key, "retained");
+    applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist: false });
+    for (const key of ["webmidi_access", "mts_bulk_sysex_auto"]) {
+      expect(sessionStorage.getItem(key)).toBe("retained");
+      sessionStorage.removeItem(key);
+    }
+  });
   it("clears the query string on reload when restore-on-reload is disabled", () => {
     history.replaceState({}, "", "http://localhost/?scale=3/2,2/1&instrument=WMRIByzantineST");
     sessionStorage.setItem(

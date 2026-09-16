@@ -8,6 +8,7 @@
  * "which tuning is active" and "what should happen when that source changes".
  */
 import { useState, useEffect, useMemo } from "preact/hooks";
+import { IO_SETTING_KEYS } from "../persistence/io-reload-policy.js";
 import {
   defaultTuningRecord,
   findPresetTuningByName,
@@ -251,6 +252,15 @@ export const mergePresetIntoSettings = (settings, preset) => {
     controller_virtual_anchor_y: null,
   };
 };
+
+export function mergeRestoredPresetIntoSettings(settings, preset) {
+  const merged = mergePresetIntoSettings(settings, preset);
+  for (const key of IO_SETTING_KEYS) {
+    if (key in settings) merged[key] = settings[key];
+    else delete merged[key];
+  }
+  return merged;
+}
 
 const snapshotOf = (s, modulationLibrary = []) => {
   return {
@@ -534,7 +544,7 @@ const usePresets = (
       setActiveSource(savedSource);
       setActivePresetName(savedName);
       const adjustedPreset = adjustPresetForRestore(savedPayload.preset);
-      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
       const savedLibrary = normalizeModulationHistory(savedPayload.preset.modulation_library, {
         zeroCounts: true,
       });
@@ -551,7 +561,7 @@ const usePresets = (
       const presetData = findPreset(savedName);
       if (presetData) {
         const adjustedPreset = adjustPresetForRestore(presetData);
-        const merged = mergePresetIntoSettings(settings, adjustedPreset);
+        const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
         const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
           zeroCounts: true,
         });
@@ -570,7 +580,7 @@ const usePresets = (
         setActiveSource("user");
         setActivePresetName(preset.name);
         const adjustedPreset = adjustPresetForRestore(preset);
-        const merged = mergePresetIntoSettings(settings, adjustedPreset);
+        const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
         const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
           zeroCounts: true,
         });
@@ -599,7 +609,7 @@ const usePresets = (
     await onUserInteraction?.();
     if (pendingPreset) {
       const adjustedPreset = adjustPresetForRestore(pendingPreset);
-      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(pendingPreset.modulation_library, {
         zeroCounts: true,
@@ -612,7 +622,7 @@ const usePresets = (
       const presetData = findPreset(name);
       if (!presetData) return false;
       const adjustedPreset = adjustPresetForRestore(presetData);
-      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
         zeroCounts: true,
@@ -625,7 +635,7 @@ const usePresets = (
       const preset = loadUserTunings().find((p) => p.name === name);
       if (!preset) return false;
       const adjustedPreset = adjustPresetForRestore(preset);
-      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
         zeroCounts: true,

@@ -20,6 +20,17 @@ const SampleSynth = (props) => (
     </label>
     {props.settings.output_sample && <Sample {...props} onVolumeChange={props.onVolumeChange} />}
     {/* Fixed velocity hard-coded to 72; midi_velocity UI hidden */}
+    {props.showActivateAudioContext && props.activateAudioContext && (
+      <div class="settings-form__reload-row settings-form__checkbox-row--sm">
+        <button
+          type="button"
+          class="preset-action-btn settings-form__activate-audio-btn"
+          onClick={() => void props.activateAudioContext()}
+        >
+          Activate Audio Context
+        </button>
+      </div>
+    )}
   </fieldset>
 );
 
@@ -31,6 +42,8 @@ SampleSynth.propTypes = {
   }).isRequired,
   midi: PropTypes.object,
   onChange: PropTypes.func.isRequired,
+  showActivateAudioContext: PropTypes.bool,
+  activateAudioContext: PropTypes.func,
 };
 
 export default SampleSynth;

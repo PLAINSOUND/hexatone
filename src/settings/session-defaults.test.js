@@ -28,6 +28,25 @@ const INT_KEYS = [
 ];
 
 describe("session-defaults integer zero round-trip", () => {
+  it("applies opt-out before reading stored MIDI defaults on reload", async () => {
+    localStorage.setItem("hexatone_restore_io_on_reload", "false");
+    sessionStorage.setItem("output_mpe", "true");
+    sessionStorage.setItem("mpe_device", "missing-port");
+    sessionStorage.setItem("webmidi_enabled", "true");
+    const navigation = vi
+      .spyOn(performance, "getEntriesByType")
+      .mockReturnValue([{ type: "reload" }]);
+    try {
+      vi.resetModules();
+      const { default: defaults } = await import("./session-defaults.js");
+      expect(defaults.output_mpe).toBe(false);
+      expect(defaults.mpe_device).toBe("OFF");
+      expect(defaults.webmidi_enabled).toBe(false);
+    } finally {
+      navigation.mockRestore();
+      localStorage.removeItem("hexatone_restore_io_on_reload");
+    }
+  });
   for (const [key, expected] of INT_KEYS) {
     it(`restores ${key} = 0 without collapsing to default`, async () => {
       // Populate before module evaluation
