@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
-import { beforeEach } from "vitest";
+import { beforeEach, vi } from "vitest";
 import { EAGAN_BRIGHTNESS_EVENT, EAGAN_TILT_EQ_EVENT } from "../../mpe_synth/eagan-matrix.js";
 import MidiOutputs from "./midioutputs.js";
 
@@ -40,6 +40,35 @@ describe("MidiOutputs FluidSynth independence", () => {
     render(<MidiOutputs {...makeProps()} />);
 
     expect(screen.getByText("Output Routing")).not.toBeNull();
+  });
+
+  it("resends monophonic pitch-bend RPN on the selected channel", () => {
+    const props = makeProps({
+      output_mono: true,
+      mono_device: "main-1",
+      mono_channel: 3,
+      mono_bend_range: 12,
+    });
+    const send = vi.fn();
+    props.midi.outputs.get("main-1").send = send;
+    render(<MidiOutputs {...props} />);
+    const button = screen.getByRole("button", { name: "Send Pitch Bend Range" });
+    fireEvent.click(button);
+    expect(send.mock.calls.map(([bytes]) => bytes)).toEqual([
+      [0xb3, 101, 0],
+      [0xb3, 100, 0],
+      [0xb3, 6, 12],
+      [0xb3, 38, 0],
+      [0xb3, 101, 127],
+      [0xb3, 100, 127],
+    ]);
+    fireEvent.click(button);
+    expect(send).toHaveBeenCalledTimes(12);
+  });
+
+  it("disables monophonic RPN sending without a connected port", () => {
+    render(<MidiOutputs {...makeProps({ output_mono: true, mono_device: "OFF" })} />);
+    expect(screen.getByRole("button", { name: "Send Pitch Bend Range" }).disabled).toBe(true);
   });
 
   it.each([false, true])(
@@ -251,7 +280,7 @@ describe("MidiOutputs FluidSynth independence", () => {
 
     expect(screen.getByLabelText("Message Style").value).toBe("standard");
     expect(screen.getByLabelText("MPE PB Range (semitones)").value).toBe("96");
-    expect(screen.getByLabelText("MPE+ PB").checked).toBe(false);
+    expect(screen.getByLabelText("MPE+ 21-bit PB (LSB on CC87)").checked).toBe(false);
     expect(screen.getByText("MPE standard: nearest notes & user PB")).not.toBeNull();
   });
 
@@ -269,7 +298,7 @@ describe("MidiOutputs FluidSynth independence", () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText("MPE+ PB"));
+    fireEvent.click(screen.getByLabelText("MPE+ 21-bit PB (LSB on CC87)"));
 
     expect(onChange).toHaveBeenCalledWith("mpe_plus_output", true);
   });

@@ -9,7 +9,7 @@ import {
   EAGAN_MATRIX_CONTROLS,
   EAGAN_TILT_EQ_EVENT,
 } from "../../mpe_synth/eagan-matrix.js";
-import { sendMpeZonePitchBendRange } from "../../midi/rpn.js";
+import { sendMpeZonePitchBendRange, sendRpn } from "../../midi/rpn.js";
 import CustomRangeSlider from "../shared/range-slider.jsx";
 import OutputPortPicker from "./output-port-picker.js";
 
@@ -248,8 +248,8 @@ const MidiOutputs = (props) => {
       </label>
       <p class="settings-form__intro-copy">
         <em>
-          Uses standard MIDI messages on a single channel to retune monophonically. For
-          polyphonic microtonal playing use the MTS or MPE options below.
+          Uses standard MIDI messages on a single channel to retune monophonically. For polyphonic
+          microtonal playing use the MTS or MPE options below.
         </em>
       </p>
       {settings.output_mono && (
@@ -289,11 +289,10 @@ const MidiOutputs = (props) => {
             PB Range (semitones)
             <input
               class="sidebar-input"
-              type="number"
-              min="1"
-              max="96"
-              step="1"
+              type="text"
+              inputMode="numeric"
               aria-label="Monophonic MIDI PB Range"
+              {...buildAutoSelectInputProps()}
               value={settings.mono_bend_range ?? 2}
               onChange={(e) =>
                 save(
@@ -303,6 +302,28 @@ const MidiOutputs = (props) => {
                 )
               }
             />
+          </label>
+          <label>
+            PB Configuration (RPN)
+            <span class="sidebar-input settings-form__activate-row">
+              <button
+                type="button"
+                class="preset-action-btn"
+                disabled={!midi?.outputs.get(settings.mono_device)}
+                aria-label="Send Pitch Bend Range"
+                onClick={() => {
+                  const output = midi?.outputs.get(settings.mono_device);
+                  const channel = Math.max(0, Math.min(15, Number(settings.mono_channel) || 0));
+                  const range = Math.max(
+                    1,
+                    Math.min(96, Math.round(Number(settings.mono_bend_range) || 2)),
+                  );
+                  sendRpn(output, channel, 0, 0, range);
+                }}
+              >
+                Send Pitch Bend Range
+              </button>
+            </span>
           </label>
           <label>
             Portamento
@@ -900,7 +921,7 @@ const MidiOutputs = (props) => {
                 </>
               )}
               <label title="When enabled, Hexatone adds MPE+ CC87 low-bit messages to outgoing pitch bend, producing 21-bit PB for compatible synths. CC74 and channel pressure retain their high-resolution CC87 data when available.">
-                MPE+ PB
+                MPE+ 21-bit PB (LSB on CC87)
                 <input
                   name="mpe_plus_output"
                   type="checkbox"
@@ -909,7 +930,7 @@ const MidiOutputs = (props) => {
                 />
               </label>
               <label>
-                MPE Configuration (RPN)
+                MPE PB Configuration (RPN)
                 <span class="sidebar-input settings-form__activate-row">
                   <button
                     type="button"
