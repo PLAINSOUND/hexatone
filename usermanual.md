@@ -423,9 +423,9 @@ Repeat markers participate directly in cue playback. When cue stepping crosses a
 
 Switching to the I/O tab does not interrupt live or sequenced playback. Snapshots and Modulation options remain available in floating palettes.
 
-**Restore I/O settings on reload**, at the top of the tab, is independent of **Restore on reload**. It is enabled by default. Disable it to return to default sound and I/O settings on the next browser reload, with external connections disabled. Changing the checkbox does not interrupt the current session. Saved controller profiles and user libraries are not deleted.
+**Restore I/O settings on reload**, at the top of the tab, is independent of **Restore on reload**. It is enabled by default. Disable it to return to default sound and I/O settings, with external connections disabled, on the next browser reload. Changing the checkbox does not interrupt the current session.
 
-Restoring I/O remembers the requested setup, not browser permission or a guaranteed connection: MIDI/SysEx access must still be granted and the selected ports must be available. Port choices remain session-scoped; this option does not transfer settings between browsers or guarantee restoration in a new browser session.
+Restoring I/O remembers the requested setup, not browser permission: MIDI/SysEx access must still be granted and the selected ports must be available. 
 
 When working with a loaded sequence, the **Sequencer Transport** fieldset below Output Routing provides the sequencer's **PLAY FROM**, **TIMED PLAYBACK**, **SPEED**, and **PITCH** controls. These operate the same transport as the SEQUENCER tab, so you can stop, resume, or adjust playback while designing sounds.
 
@@ -508,12 +508,14 @@ The second treats incoming pitch as musical material to be mapped into the curre
 
 Hexatone can send tuning and performance data through:
 
-- built-in sample synth
+- Built-in sample synth
+- Monophonic Single-Channel MIDI
 - MTS (MIDI Tuning Standard) Real-Time Tuning
   - MTS is used in a special way to allow large scales and many octaves to be used effortlessly: rather than setting up a tuning map in advance, each note is immediately assigned a slot and retuned on the fly, allowing up to 128-note microtonal polyphony in any size scale across the entire MIDI range
   - by sending Hexatone MTS Output to MTS-ESP Mini Master, instruments that do not directly support the SysEx protocol can be retuned as well
 - MTS Bulk Dump Tuning Maps for legacy synths (limited to 128 notes at a time)
 - MPE (MIDI Polyphonic Expression)
+- OSC (Open Sound Control)
 
 MPE output offers two message styles:
 
