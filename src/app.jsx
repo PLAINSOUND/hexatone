@@ -1109,8 +1109,8 @@ const App = () => {
   const [sequenceLegato, setSequenceLegato] = useState("per-note");
   const [sequencePlaybackSpeed, setSequencePlaybackSpeed] = useState(1);
   const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState(0);
-  const [sequenceTimbreModWheelEnabled, setSequenceTimbreModWheelEnabled] = useState(false);
-  const sequenceTimbreModWheelEnabledRef = useRef(false);
+  const [sequenceTimbreModWheelEnabled, setSequenceTimbreModWheelEnabled] = useState(true);
+  const sequenceTimbreModWheelEnabledRef = useRef(true);
   const sequenceTimbreModWheelValueRef = useRef(NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
@@ -4204,6 +4204,7 @@ const App = () => {
       hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 64,
       hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 20,
       hakenRasterThrottleMs: settings.hakenaudio_raster_throttle_ms ?? 10,
+      hakenRasterAttackSuppressionMs: settings.hakenaudio_raster_attack_suppression_ms ?? 80,
       hakenRasterStability: settings.hakenaudio_raster_stability ?? 25,
       hakenRasterFilterMode: settings.hakenaudio_raster_filter_mode ?? "all",
       hakenRasterFilter: settings.hakenaudio_raster_filter ?? "",
@@ -4239,6 +4240,7 @@ const App = () => {
       settings.hakenaudio_pressure_velocity,
       settings.hakenaudio_note_off_delay,
       settings.hakenaudio_raster_throttle_ms,
+      settings.hakenaudio_raster_attack_suppression_ms,
       settings.hakenaudio_raster_stability,
       settings.hakenaudio_raster_filter_mode,
       settings.hakenaudio_raster_filter,

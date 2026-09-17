@@ -6,6 +6,23 @@ import {
 } from "../../../controllers/continuum-raster-filters.js";
 
 describe("HakenContinuumSettings", () => {
+  it("shows default attack suppression and off at zero", () => {
+    const props = {
+      ctrl: { id: "hakenaudio" },
+      settings: {},
+      onChange: vi.fn(),
+      saveControllerPref: vi.fn(),
+    };
+    const { rerender } = render(<HakenContinuumSettings {...props} />);
+    expect(screen.getByText("80 ms")).toBeTruthy();
+    rerender(
+      <HakenContinuumSettings
+        {...props}
+        settings={{ hakenaudio_raster_attack_suppression_ms: 0 }}
+      />,
+    );
+    expect(screen.getByText("off")).toBeTruthy();
+  });
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

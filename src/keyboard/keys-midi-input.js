@@ -612,6 +612,13 @@ export function midinoteOn(event) {
   // to semitone offset 0 so the first bend event doesn't cause a spurious retrigger.
   if (this.controller?.id === "hakenaudio" && this.inputRuntime.mpeInput) {
     hex._rasterStartedAt = Date.now();
+    // Physical touches only: generated raster notes never restart suppression.
+    hex._rasterAttackSuppressionUntil =
+      hex._rasterStartedAt +
+      Math.max(
+        0,
+        Math.min(200, Number(this.inputRuntime.hakenRasterAttackSuppressionMs ?? 80) || 0),
+      );
     hex._rasterLastTriggerAt = hex._rasterStartedAt;
     if (this.inputRuntime.target === "scale" && coords !== null) {
       // Scale mode: onset is the distance (full step offset from origin) of the

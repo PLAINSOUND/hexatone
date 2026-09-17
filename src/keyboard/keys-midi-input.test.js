@@ -66,6 +66,7 @@ function makeSettings(overrides = {}) {
     midi_device: "OFF",
     midi_channel: -1,
     midiin_device: "OFF",
+    hakenaudio_raster_attack_suppression_ms: 0,
     midiin_modwheel_value: 0,
     midiin_modwheel_source: "",
     midiin_anchor_note: 60,
@@ -2928,6 +2929,37 @@ describe("Keys MIDI input integration", () => {
 
     expect(makeHex).toHaveBeenCalledTimes(1);
     expect(makeHex.mock.calls[0][0]).toEqual(alternate);
+  });
+
+  it("bends during per-touch attack suppression then primes the existing raster handoff", () => {
+    const keys = createKeys(
+      {},
+      { target: "scale", mpeInput: true, hakenXGlideMode: "raster_to_notes" },
+    );
+    keys.controller = { id: "hakenaudio" };
+    const retune = vi.fn();
+    const entry = {
+      hex: {
+        release: false,
+        cents: 0,
+        _baseCents: 0,
+        _rasterAttackSuppressionUntil: Date.now() + 80,
+        retune,
+      },
+      baseCents: 0,
+    };
+    const raster = vi.spyOn(keys, "_hakenRasterBend").mockImplementation(() => {});
+    const prime = vi.spyOn(keys, "_primeHakenRasterModeEntry").mockImplementation(() => {});
+    keys._applyMpePitchBend(entry, 2, 8192);
+    expect(retune).toHaveBeenCalled();
+    expect(raster).not.toHaveBeenCalled();
+    entry.hex._rasterAttackSuppressionUntil = Date.now() - 1;
+    keys._applyMpePitchBend(entry, 2, 8192);
+    expect(prime).toHaveBeenCalledTimes(1);
+    expect(raster).toHaveBeenCalledTimes(1);
+    keys._applyMpePitchBend(entry, 2, 8192);
+    expect(prime).toHaveBeenCalledTimes(1);
+    expect(raster).toHaveBeenCalledTimes(2);
   });
 
   it("routes Continuum raster X glide through discrete retrigger handling instead of continuous retune", () => {
@@ -6503,6 +6535,39 @@ describe("Keys MIDI input integration", () => {
     expect(aftertouch).toHaveBeenCalledWith(80);
     expect(standardWheelRetune).toHaveBeenCalledTimes(1);
     expect(standardWheelRetune.mock.calls[0][0]).toBeCloseTo(baseCents + 1200, 0);
+  });
+
+  it("routes Lumatone foot timbre through CC1 once and gates waiting pickup values", () => {
+    const listeners = {};
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Lumatone",
+      addListener: vi.fn((name, options, handler) => {
+        listeners[name] = typeof options === "function" ? options : handler;
+      }),
+      removeListener: vi.fn(),
+    });
+    const applyZoneModwheel = vi.fn();
+    const keys = createKeys(
+      { midiin_device: "input-1", lumatone_foot_timbre: true },
+      { layoutMode: "sequential", mpeInput: false },
+      { applyZoneModwheel, rememberControllerState: vi.fn() },
+    );
+    keys.onModWheelChange = vi.fn();
+    const forward = vi.spyOn(keys, "_passthroughCC").mockImplementation(() => {});
+    const send = (cc, value) =>
+      listeners.controlchange({ message: { channel: 1, dataBytes: [cc, value] } });
+    send(1, 80);
+    send(4, 10);
+    send(4, 86); // Calibrated to 81 before pickup and forwarding.
+    expect(forward.mock.calls).toEqual([
+      [1, 80],
+      [1, 81],
+    ]);
+    expect(applyZoneModwheel.mock.calls).toEqual([[80], [81]]);
+    // The sequencer consumes this same callback, including picked-up CC4.
+    expect(keys.onModWheelChange.mock.calls).toEqual([[80], [81]]);
+    expect(keys._getControllerState().ccValues[1]).toBe(81);
+    expect(keys._getControllerState().ccValues[4]).toBeUndefined();
   });
 
   it("dispatches MPE zone-wide CC1 once instead of once per active note", () => {

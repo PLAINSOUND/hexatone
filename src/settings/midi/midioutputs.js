@@ -827,7 +827,7 @@ const MidiOutputs = (props) => {
                 </label>
                 <label
                   class="eagan-matrix-fieldset__toggle-row"
-                  title="Map incoming modulation-wheel CC1 values to Eagan Matrix Brightness CC13 and Tilt EQ CC83, matching the Max patch."
+                  title="Map the selected timbre controller to Eagan Matrix Brightness CC13 and Tilt EQ CC83. Lumatone follows its enabled wheel/pedal options and soft pickup."
                 >
                   <input
                     name="mpe_eagan_modwheel_brightness"
@@ -835,7 +835,7 @@ const MidiOutputs = (props) => {
                     checked={!!settings.mpe_eagan_modwheel_brightness}
                     onChange={(e) => save(e.target.name, e.target.checked, onChange)}
                   />
-                  Mod Wheel → Brightness + Tilt EQ
+                  Pedal/Wheel → Brightness + Tilt EQ
                 </label>
                 {EAGAN_MATRIX_CONTROLS.map(({ key, label, cc }) => (
                   <label key={key}>

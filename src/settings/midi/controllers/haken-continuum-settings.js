@@ -60,6 +60,10 @@ const HakenContinuumSettings = ({
     0,
     Math.min(100, Number(settings.hakenaudio_raster_stability ?? 50) || 0),
   );
+  const attackSuppression = Math.max(
+    0,
+    Math.min(200, Number(settings.hakenaudio_raster_attack_suppression_ms ?? 80) || 0),
+  );
   const glideFlipCc = Number.isFinite(settings.hakenaudio_glide_flip_cc)
     ? Math.trunc(settings.hakenaudio_glide_flip_cc)
     : 67;
@@ -550,6 +554,26 @@ const HakenContinuumSettings = ({
             }}
           />
           <span class="settings-form__range-value">{pressureVelocity}</span>
+        </span>
+      </label>
+
+      <label title="After each new touch, temporarily use Rastered Attack + Pitch Bend before entering Rastered Notes. Pressure and timbre remain continuous. Set to 0 ms to disable.">
+        Raster Attack Suppression
+        <span class="sidebar-input settings-form__range-row">
+          <CustomRangeSlider
+            ariaLabel="Raster Attack Suppression"
+            min={0}
+            max={200}
+            step={1}
+            value={attackSuppression}
+            onInputValue={(value) => {
+              const v = Math.max(0, Math.min(200, Number(value) || 0));
+              updateHakenPref("hakenaudio_raster_attack_suppression_ms", v);
+            }}
+          />
+          <span class="settings-form__range-value">
+            {attackSuppression ? `${attackSuppression} ms` : "off"}
+          </span>
         </span>
       </label>
 

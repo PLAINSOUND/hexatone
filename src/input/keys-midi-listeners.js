@@ -4,6 +4,7 @@
 // not own harmonic frame derivation or canvas rendering directly.
 
 import Point from "../keyboard/point.js";
+import { calibrateLumatoneFoot, routeLumatoneTimbre } from "./lumatone-timbre.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 import { WebMidi } from "webmidi";
 import { notes } from "../midi_synth";
@@ -821,7 +822,7 @@ export function setupMidiInput() {
           { channel: e.message.channel, cc: e.message.dataBytes[0], value: e.message.dataBytes[1] },
           () => {
             let cc = e.message.dataBytes[0];
-            const value = e.message.dataBytes[1];
+            let value = e.message.dataBytes[1];
             const linnstrumentUfInputActive = isLinnstrumentUfInputActive.call(this);
             const hakenMpePlusInputActive = isHakenMpePlusInputActive.call(this);
             if (this.controller?.id === "hakenaudio" && HAKEN_IGNORED_TEST_CCS.has(cc)) return;
@@ -887,6 +888,12 @@ export function setupMidiInput() {
                 maybeApplyLinnstrumentUfX.call(this, e.message.channel, col);
                 return;
               }
+            }
+
+            if (this.controller?.id === "lumatone") {
+              if (cc === 4) value = calibrateLumatoneFoot(value);
+              cc = routeLumatoneTimbre(this, cc, value);
+              if (cc == null) return;
             }
 
             if (cc === 121) {

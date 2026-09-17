@@ -356,8 +356,21 @@ export function applyMpePitchBend(entry, channel, value14, value21 = null) {
       ? normalizePitchBend21(this._hakenMpeBend21ByChannel.get(channel))
       : null;
   this._mpeInputBendByChannel.set(channel, bend14);
-  const hakenXGlideMode = resolveHakenXGlideMode(this.inputRuntime);
+  let hakenXGlideMode = resolveHakenXGlideMode(this.inputRuntime);
   const isContinuumMpe = this.controller?.id === "hakenaudio" && this.inputRuntime.mpeInput;
+  if (isContinuumMpe && entry.hex._rasterAttackSuppressionUntil != null) {
+    const settling = Date.now() < entry.hex._rasterAttackSuppressionUntil;
+    if (hakenXGlideMode === "raster_to_notes" && settling) {
+      hakenXGlideMode = "pitch_bending";
+      entry.hex._rasterAttackWasBending = true;
+    } else if (!settling) {
+      if (hakenXGlideMode === "raster_to_notes" && entry.hex._rasterAttackWasBending) {
+        this._primeHakenRasterModeEntry(entry, channel);
+      }
+      delete entry.hex._rasterAttackSuppressionUntil;
+      delete entry.hex._rasterAttackWasBending;
+    }
+  }
   const continuumRasterMode =
     isContinuumMpe &&
     (hakenXGlideMode === "raster_to_notes" || !!entry.hex._continuumRasterPendingExitHandoff);

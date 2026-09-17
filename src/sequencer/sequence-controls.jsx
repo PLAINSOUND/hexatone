@@ -757,12 +757,12 @@ const SequenceControls = ({
 
       <label
         class="sequencer-option-row sequencer-option-row--mobile-inline"
-        title="Skew saved sequence timbre in real time: 0 minimum, 64 saved values, 127 maximum"
+        title="Use the selected timbre controller to shape saved sequence timbre: 0 minimum, 64 saved values, 127 maximum"
       >
-        <span>Mod Wheel → Sequence Timbre</span>
+        <span>Sequencer Timbre Control</span>
         <input
           type="checkbox"
-          aria-label="Mod Wheel to sequence timbre"
+          aria-label="Sequencer Timbre Control"
           checked={sequenceTimbreModWheelEnabled === true}
           onChange={(event) => onSequenceTimbreModWheelEnabledChange?.(event.currentTarget.checked)}
         />

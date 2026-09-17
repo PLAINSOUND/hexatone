@@ -986,6 +986,27 @@ const MIDIio = (props) => {
               </label>
             )}
 
+          {ctrl?.id === "lumatone" &&
+            [
+              ["Mod Wheel → Timbre", "lumatone_modwheel_timbre", true],
+              ["Foot Controller → Timbre", "lumatone_foot_timbre", false],
+            ].map(([label, key, fallback]) => (
+              <label
+                key={key}
+                title="When both are enabled, move the incoming control to the current timbre value to take over without a jump."
+              >
+                {label}
+                <input
+                  type="checkbox"
+                  checked={props.settings[key] ?? fallback}
+                  onChange={(e) => {
+                    props.onChange(key, e.target.checked);
+                    localStorage.setItem(key, String(e.target.checked));
+                  }}
+                />
+              </label>
+            ))}
+
           {showHakenContinuumUi && (
             <HakenContinuumSettings
               ctrl={ctrl}

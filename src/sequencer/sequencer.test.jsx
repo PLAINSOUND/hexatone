@@ -558,7 +558,7 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("sequence playback pitch")).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback speed slider" })).toBeTruthy();
     expect(screen.getByRole("slider", { name: "sequence playback pitch slider" })).toBeTruthy();
-    const timbreWheel = screen.getByRole("checkbox", { name: "Mod Wheel to sequence timbre" });
+    const timbreWheel = screen.getByRole("checkbox", { name: "Sequencer Timbre Control" });
     const timbreOption = timbreWheel.closest("label");
     const snapOption = screen
       .getByText("Snap Sequence to Current Hexatone Tuning")
@@ -569,7 +569,7 @@ describe("Sequencer", () => {
     expect(playbackBlock.querySelector('[aria-label="Sequence playback"]')).toBeTruthy();
     expect(playbackBlock.contains(timbreWheel)).toBe(false);
     fireEvent.click(timbreWheel);
-    expect(onSequenceTimbreModWheelEnabledChange).toHaveBeenCalledWith(true);
+    expect(onSequenceTimbreModWheelEnabledChange).toHaveBeenCalledWith(false);
     expect(screen.getByRole("combobox", { name: "manual snapshot arpeggiation mode" }).value).toBe(
       "per-snapshot",
     );

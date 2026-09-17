@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { WebMidi } from "webmidi";
 import { applyTimbreCC74, passthroughCC } from "./keys-expression-runtime.js";
+import { routeLumatoneTimbre } from "./lumatone-timbre.js";
 
 describe("input/keys-expression-runtime timbre routing", () => {
   it("routes MPE-input CC74 through polyTimbre instead of generic cc74", () => {
@@ -39,6 +40,36 @@ describe("input/keys-expression-runtime timbre routing", () => {
 });
 
 describe("input/keys-expression-runtime Eagan Matrix routing", () => {
+  it("follows Lumatone pedal pickup without sending waiting values to Eagan", () => {
+    const output = { sendControlChange: vi.fn() };
+    const spy = vi.spyOn(WebMidi, "getOutputById").mockReturnValue(output);
+    const runtime = {
+      controller: { id: "lumatone" },
+      settings: {
+        midiin_device: "lumatone",
+        lumatone_foot_timbre: true,
+        output_mpe: true,
+        mpe_device: "eagan",
+        mpe_eagan_modwheel_brightness: true,
+      },
+      _controllerCCValues: new Map(),
+    };
+    for (const [cc, value] of [
+      [1, 80],
+      [4, 10],
+      [4, 81],
+    ]) {
+      const mapped = routeLumatoneTimbre(runtime, cc, value);
+      if (mapped != null) passthroughCC.call(runtime, mapped, value);
+    }
+    expect(output.sendControlChange.mock.calls).toEqual([
+      [13, 80, { channels: 1 }],
+      [83, 80, { channels: 1 }],
+      [13, 81, { channels: 1 }],
+      [83, 81, { channels: 1 }],
+    ]);
+    spy.mockRestore();
+  });
   it("maps incoming CC1 to Brightness CC13 and Tilt EQ CC83 on the MPE manager channel", () => {
     const mpeOutput = { sendControlChange: vi.fn() };
     const getOutputSpy = vi.spyOn(WebMidi, "getOutputById").mockReturnValue(mpeOutput);

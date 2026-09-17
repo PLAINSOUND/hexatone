@@ -206,6 +206,7 @@ class Keys {
       hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 64,
       hakenNoteOffDelay: settings.hakenaudio_note_off_delay ?? 20,
       hakenRasterThrottleMs: settings.hakenaudio_raster_throttle_ms ?? 10,
+      hakenRasterAttackSuppressionMs: settings.hakenaudio_raster_attack_suppression_ms ?? 80,
       hakenRasterStability: settings.hakenaudio_raster_stability ?? 25,
       hakenRasterFilterMode: settings.hakenaudio_raster_filter_mode ?? "all",
       hakenRasterFilter: settings.hakenaudio_raster_filter ?? "",
@@ -2464,6 +2465,13 @@ class Keys {
     for (const [channel, entry] of this.state.activeMidiByChannel) {
       const bend14 = this._mpeInputBendByChannel.get(channel);
       if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
+      // Both selected modes are effectively pitch-bending during attack
+      // suppression. Pedal/space changes must not initiate a raster exit here.
+      if (Date.now() < entry.hex._rasterAttackSuppressionUntil) {
+        entry.hex._continuumRasterPendingHandoff = false;
+        entry.hex._continuumRasterPendingExitHandoff = false;
+        continue;
+      }
       if (previousMode !== "raster_to_notes" && nextMode === "raster_to_notes") {
         this._primeHakenRasterModeEntry(entry, channel);
         continue;

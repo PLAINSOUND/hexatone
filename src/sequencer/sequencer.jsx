@@ -116,7 +116,7 @@ const Sequencer = ({
   sequenceLegato,
   sequencePlaybackSpeed = 1,
   sequencePlaybackPitchOffset = 0,
-  sequenceTimbreModWheelEnabled = false,
+  sequenceTimbreModWheelEnabled = true,
   sequencePlayRepeats = true,
   snapSequenceToCurrentTuning,
   sequenceAutoCreateBars,

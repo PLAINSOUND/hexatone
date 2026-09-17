@@ -977,6 +977,8 @@ describe("App workspace tabs", () => {
 
   it("restores stored sequence timbre after Mod Wheel input when sequence shaping is unchecked", async () => {
     render(<App />);
+    fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    fireEvent.click(await screen.findByLabelText("Sequencer Timbre Control"));
     const polyTimbre = vi.fn();
     const soundingHex = {
       release: false,
@@ -1013,7 +1015,7 @@ describe("App workspace tabs", () => {
     await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
     act(() => lastKeyboardProps.onKeysReady(keys));
     fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
-    fireEvent.click(await screen.findByLabelText("Mod Wheel to sequence timbre"));
+    expect((await screen.findByLabelText("Sequencer Timbre Control")).checked).toBe(true);
     polyTimbre.mockClear();
     act(() => lastKeyboardProps.onModWheelChange(127));
 

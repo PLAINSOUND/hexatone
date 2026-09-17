@@ -402,7 +402,7 @@ describe("MidiOutputs FluidSynth independence", () => {
       />,
     );
 
-    fireEvent.click(screen.getByLabelText("Mod Wheel → Brightness + Tilt EQ"));
+    fireEvent.click(screen.getByLabelText("Pedal/Wheel → Brightness + Tilt EQ"));
     expect(onChange).toHaveBeenCalledWith("mpe_eagan_modwheel_brightness", true);
 
     fireEvent(window, new CustomEvent(EAGAN_BRIGHTNESS_EVENT, { detail: { value: 103 } }));

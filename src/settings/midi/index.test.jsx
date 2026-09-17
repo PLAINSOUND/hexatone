@@ -60,6 +60,17 @@ const makeProps = (settings = {}) => ({
   exquisRawPorts: null,
 });
 
+it("shows Lumatone timbre source defaults and saves foot selection", () => {
+  const props = makeProps({ midiin_controller_override: "lumatone" });
+  render(<MIDIio {...props} />);
+  expect(screen.getByLabelText("Mod Wheel → Timbre").checked).toBe(true);
+  const foot = screen.getByLabelText("Foot Controller → Timbre");
+  expect(foot.checked).toBe(false);
+  fireEvent.click(foot);
+  expect(props.onChange).toHaveBeenCalledWith("lumatone_foot_timbre", true);
+  expect(localStorage.getItem("lumatone_foot_timbre")).toBe("true");
+});
+
 describe("MIDIio LinnStrument controller selection", () => {
   beforeEach(() => {
     vi.clearAllMocks();

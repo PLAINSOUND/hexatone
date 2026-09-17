@@ -244,6 +244,14 @@ export const SETTINGS_REGISTRY = [
     description: "Haken Continuum Rastered Notes auto-generated note-off delay in milliseconds",
   },
   {
+    key: "hakenaudio_raster_attack_suppression_ms",
+    tier: "local",
+    type: "int",
+    default: 80,
+    perController: true,
+    description: "Initial Continuum pitch-bending period before Rastered Notes, in milliseconds",
+  },
+  {
     key: "hakenaudio_raster_throttle_ms",
     tier: "local",
     type: "int",
@@ -567,6 +575,22 @@ export const SETTINGS_REGISTRY = [
     default: 90,
     perController: false,
     description: "Exquis clockwise physical orientation: 0, 90, 180 or 270 degrees",
+  },
+  {
+    key: "lumatone_modwheel_timbre",
+    tier: "local",
+    type: "bool",
+    default: true,
+    perController: false,
+    description: "Lumatone modulation wheel controls timbre",
+  },
+  {
+    key: "lumatone_foot_timbre",
+    tier: "local",
+    type: "bool",
+    default: false,
+    perController: false,
+    description: "Lumatone foot controller controls timbre",
   },
   {
     key: "exquis_sustain_cc",
