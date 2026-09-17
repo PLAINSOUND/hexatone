@@ -49,7 +49,7 @@ export function createCreditsContent(version) {
     },
     {
       children: [
-        `Current version ${version} (August 2026) made by `,
+        `Current version ${version} (September 2026) made by `,
         link("Marc Sabat", "https://www.plainsound.org"),
         ", released under ",
         link("GPL-3.0", "https://www.gnu.org/licenses/gpl-3.0.en.html"),

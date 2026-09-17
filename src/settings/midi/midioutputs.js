@@ -233,10 +233,115 @@ const MidiOutputs = (props) => {
   };
 
   return (
-    <fieldset>
+    <fieldset class="output-routing-fieldset">
       <legend>
         <b>Output Routing</b>
       </legend>
+      <label>
+        <b>Monophonic Single-Channel MIDI</b>
+        <input
+          type="checkbox"
+          name="output_mono"
+          checked={!!settings.output_mono}
+          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+        />
+      </label>
+      <p class="settings-form__intro-copy">
+        <em>
+          Uses standard MIDI messages on a single channel to retune monophonically. For
+          polyphonic microtonal playing use the MTS or MPE options below.
+        </em>
+      </p>
+      {settings.output_mono && (
+        <>
+          <label>
+            Port
+            <select
+              class="sidebar-input"
+              aria-label="Monophonic MIDI Port"
+              value={settings.mono_device || "OFF"}
+              onChange={(e) => save("mono_device", e.target.value, onChange)}
+            >
+              <option value="OFF">OFF</option>
+              {outputs.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Channel
+            <select
+              class="sidebar-input"
+              aria-label="Monophonic MIDI Channel"
+              value={settings.mono_channel ?? 0}
+              onChange={(e) => save("mono_channel", Number(e.target.value), onChange)}
+            >
+              {Array.from({ length: 16 }, (_, i) => (
+                <option key={i} value={i}>
+                  {i + 1}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            PB Range (semitones)
+            <input
+              class="sidebar-input"
+              type="number"
+              min="1"
+              max="96"
+              step="1"
+              aria-label="Monophonic MIDI PB Range"
+              value={settings.mono_bend_range ?? 2}
+              onChange={(e) =>
+                save(
+                  "mono_bend_range",
+                  Math.max(1, Math.min(96, Math.round(Number(e.target.value) || 2))),
+                  onChange,
+                )
+              }
+            />
+          </label>
+          <label>
+            Portamento
+            <input
+              type="checkbox"
+              checked={!!settings.mono_portamento}
+              onChange={(e) => save("mono_portamento", e.target.checked, onChange)}
+            />
+          </label>
+          <label>
+            Portamento Time
+            <span class="sidebar-input settings-form__range-row">
+              <CustomRangeSlider
+                ariaLabel="Monophonic MIDI Portamento Time"
+                min={0}
+                max={500}
+                step={1}
+                disabled={!settings.mono_portamento}
+                value={settings.mono_portamento_time ?? 80}
+                onInputValue={(v) => save("mono_portamento_time", Number(v), onChange)}
+              />
+              <span class="settings-form__range-value">
+                {(settings.mono_portamento_time ?? 80) === 0
+                  ? "off"
+                  : `${settings.mono_portamento_time ?? 80} ms`}
+              </span>
+            </span>
+          </label>
+          <p class="settings-form__intro-copy">
+            <em>
+              Match the instrument's pitch-bend range; not all synths honour RPN setup. Use a
+              separate port/channel from other outputs. Slide becomes CC74 and pressure becomes
+              channel pressure; the instrument must support these controls.
+            </em>
+          </p>
+        </>
+      )}
+      <br />
+
       {/* ── MTS ────────────────────────────────────────────────────────── */}
 
       <label>
@@ -803,6 +908,31 @@ const MidiOutputs = (props) => {
                   onChange={(e) => save(e.target.name, e.target.checked, onChange)}
                 />
               </label>
+              <label>
+                MPE Configuration (RPN)
+                <span class="sidebar-input settings-form__activate-row">
+                  <button
+                    type="button"
+                    class="preset-action-btn"
+                    onClick={() => {
+                      const output = WebMidi.getOutputById(settings.mpe_device);
+                      if (output) {
+                        sendMpePitchBendRange(
+                          output,
+                          settings.midiin_mpe_manager_ch,
+                          settings.mpe_lo_ch,
+                          settings.mpe_hi_ch,
+                          visibleMpePitchbendRange,
+                          settings.mpe_pitchbend_range_manager ?? 2,
+                          visibleMpeMode,
+                        );
+                      }
+                    }}
+                  >
+                    Send Pitch Bend Range
+                  </button>
+                </span>
+              </label>
               <fieldset class="eagan-matrix-fieldset">
                 <legend>Eagan Matrix</legend>
                 <label
@@ -861,31 +991,6 @@ const MidiOutputs = (props) => {
                   </label>
                 ))}
               </fieldset>
-              <label>
-                MPE Configuration (RPN)
-                <span class="sidebar-input settings-form__activate-row">
-                  <button
-                    type="button"
-                    class="preset-action-btn"
-                    onClick={() => {
-                      const output = WebMidi.getOutputById(settings.mpe_device);
-                      if (output) {
-                        sendMpePitchBendRange(
-                          output,
-                          settings.midiin_mpe_manager_ch,
-                          settings.mpe_lo_ch,
-                          settings.mpe_hi_ch,
-                          visibleMpePitchbendRange,
-                          settings.mpe_pitchbend_range_manager ?? 2,
-                          visibleMpeMode,
-                        );
-                      }
-                    }}
-                  >
-                    Send Pitch Bend Range
-                  </button>
-                </span>
-              </label>
             </>
           )}
         </>
@@ -893,7 +998,6 @@ const MidiOutputs = (props) => {
       <br />
 
       {/* ── OSC → SuperCollider ─────────────────────────────────────────── */}
-
       <label>
         <b>OSC → SuperCollider</b>
         <input
@@ -1011,9 +1115,7 @@ const MidiOutputs = (props) => {
                   onChange("osc_quick_release", next);
                 }}
               />
-              <span class="settings-form__range-value">
-                {Math.round(oscQuickRelease * 100)}%
-              </span>
+              <span class="settings-form__range-value">{Math.round(oscQuickRelease * 100)}%</span>
             </span>
             <em class="settings-form__helper-text">
               Blend between velocity-based release and Release Time

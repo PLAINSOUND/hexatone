@@ -397,6 +397,12 @@ export const SETTINGS_REGISTRY = [
 
   // ── MPE output ────────────────────────────────────────────────────────────────
   { key: "output_mpe", tier: "session", type: "bool", default: false },
+  { key: "output_mono", tier: "session", type: "bool", default: false },
+  { key: "mono_device", tier: "session", type: "string", default: "OFF" },
+  { key: "mono_channel", tier: "session", type: "int", default: 0 },
+  { key: "mono_bend_range", tier: "session", type: "int", default: 2 },
+  { key: "mono_portamento", tier: "session", type: "bool", default: false },
+  { key: "mono_portamento_time", tier: "session", type: "int", default: 80 },
   { key: "mpe_device", tier: "session", type: "string", default: "OFF" },
   { key: "midiin_mpe_manager_ch", tier: "session", type: "string", default: "1" },
   { key: "mpe_lo_ch", tier: "session", type: "int", default: 2 },

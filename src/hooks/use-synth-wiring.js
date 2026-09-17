@@ -14,6 +14,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks"
 import { enableMidi } from "../midi/enable-webmidi";
 import { create_midi_synth } from "../midi_synth";
 import create_mpe_synth from "../mpe_synth";
+import { createMonoSynth } from "../mono_synth/index.js";
+import { scalaToCents } from "../settings/scale/parse-scale";
 import { create_composite_synth } from "../composite_synth";
 import { create_osc_synth } from "../osc_synth";
 import { detectController, getControllerById } from "../controllers/registry.js";
@@ -63,6 +65,7 @@ const MIDI_PORT_RESET = {
   midi_device: "OFF",
   mts_bulk_device: "OFF",
   mpe_device: "OFF",
+  mono_device: "OFF",
   fluidsynth_device: "",
   fluidsynth_channel: -1,
 };
@@ -457,6 +460,7 @@ const useSynthWiring = (
   const sampleSynthRef = useRef({ key: null, synth: null });
   const retiringSampleSynthsRef = useRef(new Set());
   const mpeSynthRef = useRef({ key: null, synth: null });
+  const monoSynthRef = useRef({ key: null, synth: null });
   const mtsSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
   const midiRequestRef = useRef(null);
@@ -477,6 +481,8 @@ const useSynthWiring = (
     oscSynthRef.current = { key: null, synth: null };
     releaseSynthInstance(mpeSynthRef.current.synth);
     mpeSynthRef.current = { key: null, synth: null };
+    releaseSynthInstance(monoSynthRef.current.synth);
+    monoSynthRef.current = { key: null, synth: null };
     for (const synth of mtsSynthsRef.current.values()) {
       releaseSynthInstance(synth);
     }
@@ -803,7 +809,16 @@ const useSynthWiring = (
     const { fluidsynthOutputObj } = outputRuntime;
     const wantFluidsynth = mtsOutputs.some((o) => o.output === fluidsynthOutputObj);
 
-    if (!wantSample && !wantMts && !wantFluidsynth && !wantDirect && !wantMpe && !wantOsc) {
+    const monoOutput = settings.output_mono && midi?.outputs.get(settings.mono_device);
+    if (
+      !wantSample &&
+      !wantMts &&
+      !wantFluidsynth &&
+      !wantDirect &&
+      !wantMpe &&
+      !wantOsc &&
+      !monoOutput
+    ) {
       clearAllOutputSynthRefs();
       const silentSynth = create_composite_synth([]);
       keysRef.current?.updateLiveOutputState?.(null, silentSynth);
@@ -822,6 +837,41 @@ const useSynthWiring = (
       if (showLoading) setLoading(signal);
     };
     const promises = [];
+    if (monoOutput) {
+      const key = JSON.stringify([
+        settings.mono_device,
+        settings.mono_channel,
+        settings.mono_bend_range,
+        settings.midi_velocity,
+        settings.fundamental,
+        playbackReferenceDegree,
+        playbackScale,
+      ]);
+      if (monoSynthRef.current.key !== key || monoSynthRef.current.output !== monoOutput) {
+        releaseSynthInstance(monoSynthRef.current.synth);
+        monoSynthRef.current = {
+          key,
+          output: monoOutput,
+          synth: createMonoSynth({
+            output: monoOutput,
+            channel: settings.mono_channel ?? 0,
+            bendRange: settings.mono_bend_range ?? 2,
+            fundamental: settings.fundamental || 440,
+            referenceCents:
+              playbackReferenceDegree > 0
+                ? scalaToCents(playbackScale[playbackReferenceDegree - 1])
+                : 0,
+            velocity: settings.midi_velocity ?? 72,
+            portamento: !!settings.mono_portamento,
+            time: settings.mono_portamento_time ?? 80,
+          }),
+        };
+      }
+      promises.push(Promise.resolve(monoSynthRef.current.synth));
+    } else if (monoSynthRef.current.synth) {
+      releaseSynthInstance(monoSynthRef.current.synth);
+      monoSynthRef.current = { key: null, synth: null };
+    }
 
     const sampleKey = wantSample
       ? JSON.stringify([
@@ -861,7 +911,8 @@ const useSynthWiring = (
                 const previous = sampleSynthRef.current.synth;
                 if (previous && previous !== s) retiringSampleSynthsRef.current.add(previous);
                 for (const retired of retiringSampleSynthsRef.current) {
-                  if (retired.hasVoices?.() === false) retiringSampleSynthsRef.current.delete(retired);
+                  if (retired.hasVoices?.() === false)
+                    retiringSampleSynthsRef.current.delete(retired);
                 }
                 sampleSynthRef.current = { key: sampleKey, synth: s };
               }
@@ -1156,6 +1207,10 @@ const useSynthWiring = (
     settings.output_sample,
     settings.output_mts,
     settings.output_mpe,
+    settings.output_mono,
+    settings.mono_device,
+    settings.mono_channel,
+    settings.mono_bend_range,
     settings.output_mts_bulk,
     settings.output_osc,
     settings.mts_bulk_device,
@@ -1184,6 +1239,12 @@ const useSynthWiring = (
   ]);
 
   // ── Imperative propagation ──────────────────────────────────────────────────
+  useEffect(() => {
+    monoSynthRef.current.synth?.setPortamento(
+      !!settings.mono_portamento,
+      settings.mono_portamento_time ?? 80,
+    );
+  }, [settings.mono_portamento, settings.mono_portamento_time]);
 
   useEffect(() => {
     mpeSynthRef.current.synth?.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);

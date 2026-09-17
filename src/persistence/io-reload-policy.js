@@ -6,7 +6,7 @@ export const IO_RESTORE_KEY = "hexatone_restore_io_on_reload";
 export const IO_SETTING_KEYS = new Set(
   SETTINGS_REGISTRY.filter(
     ({ key }) =>
-      /^(midi|mpe_|mts_bulk_|output_|osc_|webmidi_|fluidsynth_|sysex_|exquis_|linnstrument_|hakenaudio_|lumatone_)/.test(
+      /^(midi|mono_|mpe_|mts_bulk_|output_|osc_|webmidi_|fluidsynth_|sysex_|exquis_|linnstrument_|hakenaudio_|lumatone_)/.test(
         key,
       ) ||
       [

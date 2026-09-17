@@ -97,13 +97,14 @@ function hasRestorableWorkspace(settings = {}) {
 }
 
 // Scale preset hexSize down on phone-sized screens, but not below 20.
-// Use the short edge so iPhone landscape matches portrait behaviour.
+// Use the display's short edge so phone landscape matches portrait behaviour.
+// Window dimensions also describe split desktop windows, not just phones.
 export const scaleHexSizeForScreen = (hexSize) => {
   const size = hexSize || 42;
   const shortEdge =
     typeof window === "undefined"
       ? Infinity
-      : Math.min(window.innerWidth || Infinity, window.innerHeight || Infinity);
+      : Math.min(window.screen?.width || Infinity, window.screen?.height || Infinity);
   if (shortEdge <= 600 && size > 31) {
     return Math.max(20, Math.floor(size * 0.75));
   }

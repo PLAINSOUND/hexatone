@@ -3,7 +3,7 @@
  */
 import { render, waitFor } from "@testing-library/preact";
 import { act } from "preact/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useState } from "preact/hooks";
 
 vi.mock("../hexatone/preset-tunings/index.js", () => ({
@@ -52,6 +52,12 @@ import {
 } from "./use-presets.js";
 
 describe("scaleHexSizeForScreen", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const display = (width, height) => {
+    vi.spyOn(window.screen, "width", "get").mockReturnValue(width);
+    vi.spyOn(window.screen, "height", "get").mockReturnValue(height);
+  };
   it("restores tuning without overriding the independently bootstrapped I/O setup", () => {
     const settings = {
       instrument: "current",
@@ -78,6 +84,7 @@ describe("scaleHexSizeForScreen", () => {
     });
   });
   it("scales large preset hex sizes on phone portrait screens", () => {
+    display(390, 844);
     window.innerWidth = 390;
     window.innerHeight = 844;
 
@@ -85,6 +92,7 @@ describe("scaleHexSizeForScreen", () => {
   });
 
   it("scales large preset hex sizes on phone landscape screens", () => {
+    display(844, 390);
     window.innerWidth = 844;
     window.innerHeight = 390;
 
@@ -92,9 +100,24 @@ describe("scaleHexSizeForScreen", () => {
   });
 
   it("preserves preset hex sizes on larger screens", () => {
+    display(1024, 768);
     window.innerWidth = 1024;
     window.innerHeight = 768;
 
+    expect(scaleHexSizeForScreen(42)).toBe(42);
+  });
+
+  it("does not shrink hexes in a half-height laptop window", () => {
+    display(1440, 900);
+    window.innerWidth = 1440;
+    window.innerHeight = 450;
+    expect(scaleHexSizeForScreen(42)).toBe(42);
+  });
+
+  it("does not shrink hexes in a narrow desktop window", () => {
+    display(1920, 1080);
+    window.innerWidth = 390;
+    window.innerHeight = 844;
     expect(scaleHexSizeForScreen(42)).toBe(42);
   });
 });

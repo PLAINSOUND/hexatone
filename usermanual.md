@@ -345,7 +345,9 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 `Snap Sequence to Current Hexatone Tuning` plays saved sequence pitches through the currently active Hexatone tuning so that the same sequence may be auditioned in another scale without rewriting the stored event data; capturing the sounds while snapping is active stores the recomputed and retuned note data as new snapshots.
 
-`Mod Wheel → Sequence Timbre` allows the mod wheel to shape recorded sequence timbre while playing.
+`Sequencer Timbre Control` is enabled by default and allows the selected timbre controller to shape recorded sequence timbre while playing. For Lumatone this follows the enabled Mod Wheel and/or Foot Controller timbre assignments, including soft pickup when both are selected. Disable it to retain the recorded sequence timbre unchanged.
+
+The control shapes rather than replaces the saved values: 0 moves timbre to its minimum, 64 leaves the saved values unchanged, and 127 moves it to its maximum. Other controllers use the existing CC1 modulation-wheel path. This option affects playback expression, not the stored sequence data.
 
 ### Transport
 
@@ -475,6 +477,8 @@ The exact supported behaviour varies by controller, but the input system is desi
 
 Lumatone has two modes: the default is 2D-geometry-aware and uses a custom key layout that matches the numbering of keys in a standard Lumatone (`.ltn`) file. Notes 0–55 are ordered from left to right and top to bottom, repeated five times to form five blocks, each on a separate MIDI channel (1–5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user's chosen Anchor Note, so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes. The `Lumatone Colour Filter` can store, order, import, and export named collections of scale degrees. `Auto-Generate from Snapshots` adds filters derived from the notes present in captured snapshots.
 
+The Lumatone input options also offer `Mod Wheel → Timbre` (CC1, enabled by default) and `Foot Controller → Timbre` (CC4, disabled by default). Either can drive the existing mod-wheel timbre mapping for the active outputs. With both enabled, soft pickup prevents abrupt changes: the inactive control takes over when it reaches or crosses the current value. Lumatone foot-controller values are calibrated before pickup: 18 and below becomes 0, 125 and above becomes 127, with linear scaling between these endpoints. An unassigned foot controller retains CC4 forwarding with this calibration; disabling wheel-to-timbre suppresses its CC1 timbre route.
+
 Alternatively, some users may prefer to generate a “traditional” multichannel Lumatone layout usable outside of Hexatone, where MIDI notes and channels represent scale degrees and equave transpositions. Based on the current 2D geometry, Hexatone calculates a static mapping that is made available when 2D Geometry is bypassed. The central channel for untransposed playback (default = ch 4) may be chosen and the layout may be sent to Lumatone and edited further in the Lumatone Editor app. In 2D bypass, Hexatone will work with traditional Lumatone layouts, either single or multi-channel, but it is not possible to determine exactly which physical Lumatone key is being pressed, so automatic colour and screen position correlation is not available.
 
 LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Reduction`, and `X Input Smoothing` to stabilise expressive pitch input under light pressure.
@@ -484,6 +488,13 @@ Exquis needs to be updated to firmware 3.0.0 or higher, which allows Hexatone to
 Haken `Continuum X Glide` offers two modes: Rastered Attack + Pitch Bend and Rastered Notes, along with controls for `X Glide Shaping` (applied to Rastered Attack + Pitch Bend) and `Pressure → Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to Rastered Notes). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer's SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, with CC87 providing a one-shot high-resolution LSB for incoming Pitch Bend, CC74, and Channel Pressure X/Y/Z data). `Continuum Raster Filter` lets the user store and order named collections of scale degrees. The selected filter constrains attacks and subsequent retriggers in Rastered Notes. `Apply Raster in Pitch Bending Mode` optionally applies it to attacks in Rastered Attack + Pitch Bend. Independently, `Shape X Glide to Raster` uses the filtered degrees rather than every scale degree as the stability centres for continuous X Glide Shaping. Collections may be imported or exported together as a `.json` file, while `Auto-Generate from Snapshots` adds filters derived from captured snapshots. Optional MPE+ pitch-bend output adds high-resolution CC87 data; it may be disabled when older MIDI connections cannot sustain the additional message density.
 
 ### Input Modes
+
+`Raster Attack Suppression` gives each new Continuum touch a short period of
+Rastered Attack + Pitch Bend before entering Rastered Notes. The default is
+80 ms; 0 is displayed as `off`. The initial attack remains immediate, X Glide
+Shaping applies during suppression, and pressure/timbre continue normally.
+Afterwards, the usual mode-switch handoff avoids a forced pitch jump; generated
+raster notes do not restart the interval. Physical release always ends the touch.
 
 Hexatone can treat MIDI input broadly in two ways:
 
@@ -511,18 +522,30 @@ MPE output offers two message styles:
 
 `MPE+ PB` adds CC87 low-bit messages for higher-resolution pitch bend on compatible instruments. CC74 carries per-note timbre and Channel Pressure carries per-note pressure.
 
+### Monophonic Single-Channel MIDI
+
+In **IO → Output Routing**, this independent output sends the most recently played held note to its own **Port** and **Channel**. Releasing that note returns to the most recently held earlier note. Other enabled outputs retain their normal polyphony.
+
+Set **PB Range (semitones)** to match the receiving instrument (default **2**). Hexatone sends the corresponding MIDI pitch-bend-range RPN, but instruments that ignore it must be configured manually. Use a separate port or channel from other outputs to avoid conflicting bends and note messages.
+
+With **Portamento** enabled, overlapping notes retain the sounding carrier note whenever the next pitch fits its bend range. **Portamento Time** controls the transition of pitch, timbre (CC74), and channel pressure, including returns to earlier held notes; **0 / off** makes these transitions immediate. The default is **80 ms**. Non-overlapping attacks retrigger immediately. When a new carrier is necessary, Hexatone chooses one covering as many held pitches as possible, favouring recently played notes when not all fit.
+
+Transitions use a worker-driven, timestamped MIDI scheduler rather than animation frames, so they do not depend on visible canvas animation. Browser suspension can still interrupt processing. The receiving instrument must support CC74 and channel pressure to respond to those dimensions.
+
 ### Eagan Matrix
 
 The Eagan Matrix is a programmable modular synthesis engine designed for XYZ control from instruments such as Osmose and Haken Continuum. A set of specialised controls for this synth appears within the MPE output settings:
 
 - `Auto-Generate MPE YZ` generates per-voice timbre (Y/CC74) and pressure (Z/Channel Pressure) envelopes from attack velocity and subsequent polyphonic pressure. It applies to live input and stored sequences, including release shaping driven by note-off velocity.
-- `Mod Wheel → Brightness + Tilt EQ` mirrors incoming modulation-wheel CC1 values to Brightness / Tilt EQ and updates its displayed fader.
+- `Pedal/Wheel → Brightness + Tilt EQ` maps the selected timbre controller to Brightness / Tilt EQ and updates its displayed faders. For Lumatone it follows the enabled wheel and/or foot-controller timbre options, including soft pickup when both are enabled. Other controllers retain the modulation-wheel CC1 path.
 - `Brightness` sends CC13.
 - `Tilt EQ` sends CC83.
 - `Pre Level` sends CC26.
 - `Post Level` sends CC18.
 
 The four faders use MIDI values from 0–127 and default to 64. Enabling `Auto-Generate MPE YZ` also sends their current values so the receiving Eagan Matrix begins from the displayed state.
+
+The pedal/wheel option is independent of `Sequencer Timbre Control`: it controls the Eagan Matrix's global Brightness / Tilt EQ parameters, whereas the sequencer option shapes the saved per-note timbre. Either or both may be enabled. Lumatone's foot-controller calibration also applies to this global control path.
 
 ### OSC
 

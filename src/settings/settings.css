@@ -1421,6 +1421,22 @@ td.scale-color-col .color-input {
   min-width: 2.5em;
 }
 
+/* Reserve the same readout width for every output fader, including values
+   with units. This keeps track endpoints stable as their values change. */
+.output-routing-fieldset .settings-form__range-value {
+  flex: 0 0 4.2em;
+  min-width: 4.2em;
+  white-space: nowrap;
+}
+
+/* Keep the nested frame, without adding a second inset to its fader rows. */
+#sidebar .output-routing-fieldset .eagan-matrix-fieldset {
+  margin-inline: calc(-0.75em - 1px);
+  padding-inline: 0.75em;
+  width: calc(100% + 1.5em + 2px);
+  max-width: calc(100% + 1.5em + 2px);
+}
+
 .settings-form__exquis-slider-output {
   font-variant-numeric: tabular-nums;
 }

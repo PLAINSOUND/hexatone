@@ -14,7 +14,7 @@ Design by [Siemen Terpstra](http://siementerpstra.com/) based on [Erv Wilson's m
 
 Initial development by James Fenn with additions and modifications from [Brandon Lewis](http://brandlew.com/), [Bo Constantinsen](http://whatmusicreallyis.com/), [Chengu Wang](https://sites.google.com/site/wangchengu/), [Ashton Snelgrove](https://ashton.snelgrove.science). Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, and Soni Musicae.
 
-Current version 3.3.0-rc.2 (August 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
+Current version 3.3.0-rc.3 (September 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
 
 *The text font with embedded HEJI accidentals (Plainsound Sans) is designed by Thomas Nicholson. Unicode data for copying/pasting may be found at [w3c-cg.github.io/smufl/latest/tables](https://w3c-cg.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html).*
 
@@ -25,7 +25,7 @@ cc 2026 [PLAINSOUND MUSIC EDITION](https://www.plainsound.org)
 
 ## Current State
 
-Hexatone **3.3.0-rc.2** is the current development release candidate, with ongoing refinements through September 2026. The [dev build](https://plainsound.github.io/hexatone) provides the latest development version.
+Hexatone **3.3.0-rc.3** is the current development release candidate, with ongoing refinements through September 2026. The [dev build](https://plainsound.github.io/hexatone) provides the latest development version.
 
 Five tabs organise the workspace: **HEXATONE** for tuning and keyboard layout, **SEQUENCER** for composing and playing sequences, **IO** for sound design and routing, **CALCULATOR** for HEJI pitch calculations, and **MANUAL** for documentation.
 
@@ -41,12 +41,13 @@ Features include:
 - live retuning of scale degrees and reference frequency
 - rationalisation and modulation
 - MPE-aware MIDI input with automatic mapping of 2D controller geometries
-- MIDI Output (MTS and MPE)
+- MIDI Output (MTS, MPE, and monophonic single-channel MIDI with optional portamento)
 - snapshots for comparing chords and tunings
 - a Sequencer tab for editing snapshots into cue-based event sequences with bars, tempo markers, repeats, manual arpeggiation, and timed playback
 - editable HEJI and Scala note pitches in the sequencer, resolved through each snapshot's stored notation and reference frame
 - an independent HEJI Calculator with spelling, octave, ratio/cents input, frequency, nearest MIDI note and nearby rational pitches
 - sound and output adjustments in IO while playing from a controller or running a sequence
+- Lumatone wheel/pedal timbre selection with soft pickup, sequencer timbre shaping, and optional Eagan Matrix Brightness / Tilt EQ control
 
 PLAINSOUND HEXATONE can be used entirely in the browser:
 
@@ -84,7 +85,13 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ## Version history
 
-### 3.3 RC2 _(current release candidate)_
+### 3.3 RC3 _(current release candidate)_
+
+- independent Monophonic Single-Channel MIDI output with last-note priority, automatic carrier selection, and optional pitch/timbre/pressure portamento
+- Portamento Time spans 0–500 ms; output faders share consistent readout widths and alignment
+- phone preset hex sizing uses display dimensions, preserving normal sizes in split laptop windows
+
+### 3.3 RC2
 
 Hexatone 3.3 RC2 expands the Sequencer, adds I/O and CALCULATOR workspaces, and refines notation, editing and live performance. September development focuses on reducing repeated computation and improving responsiveness on slower computers.
 
@@ -95,6 +102,17 @@ Hexatone 3.3 RC2 expands the Sequencer, adds I/O and CALCULATOR workspaces, and 
 - outputs can be enabled or disabled during playback; a newly selected sampled instrument takes over once loaded
 - Snapshots and Modulation History palettes remain accessible in the other applicable workspaces
 - selected built-in timbres use pitch-tracking mod-wheel filters for a more consistent response across registers
+- `Restore I/O settings on reload` controls I/O restoration independently of tuning/sequence restoration; MIDI permissions and available ports still determine which connections can be restored
+- `Activate Audio Context` is also available in Built-in Sounds when audio needs activation
+
+**Timbre controllers**
+
+- Lumatone input offers `Mod Wheel → Timbre` (CC1, on by default) and `Foot Controller → Timbre` (CC4, off by default)
+- with both selected, soft pickup lets the inactive controller take over when it reaches or crosses the current timbre value, avoiding an abrupt jump
+- Lumatone CC4 is calibrated to its usable pedal range: input 18 and below maps to 0, input 125 and above maps to 127, with linear scaling between them; calibration precedes pickup and applies to CC4 forwarding as well
+- `Sequencer Timbre Control` is enabled by default and follows the selected timbre source; disable it to retain recorded sequence timbre unchanged
+- the Eagan Matrix option is now named `Pedal/Wheel → Brightness + Tilt EQ`; it follows Lumatone's selected sources and pickup, sending CC13 and CC83 and updating both displayed faders
+- other controllers retain their existing CC1 timbre path; general user-defined bindings and calibration remain planned, not yet available
 
 **HEJI Calculator**
 

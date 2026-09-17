@@ -42,6 +42,16 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByText("Output Routing")).not.toBeNull();
   });
 
+  it.each([false, true])(
+    "places monophonic routing first with mode spacing (enabled: %s)",
+    (enabled) => {
+      const { container } = render(<MidiOutputs {...makeProps({ output_mono: enabled })} />);
+      expect(container.querySelector('input[type="checkbox"]').name).toBe("output_mono");
+      const mtsLabel = screen.getByText("MTS Real-Time Tuning").closest("label");
+      expect(mtsLabel.previousElementSibling.tagName).toBe("BR");
+    },
+  );
+
   it("selects the complete tuning map number on first pointer focus", () => {
     render(<MidiOutputs {...makeProps({ midi_device: "main-1" })} />);
     const input = screen.getByLabelText("Tuning Map Number");
