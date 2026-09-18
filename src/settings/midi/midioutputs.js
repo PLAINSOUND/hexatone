@@ -12,6 +12,7 @@ import {
 import { sendMpeZonePitchBendRange, sendRpn } from "../../midi/rpn.js";
 import CustomRangeSlider from "../shared/range-slider.jsx";
 import OutputPortPicker from "./output-port-picker.js";
+import { SLIDE_CC_OPTIONS, normaliseSlideCc } from "../../midi/slide-cc-options.js";
 
 const voiceChannels = (masterCh) => {
   if (masterCh === "1") return Array.from({ length: 15 }, (_, i) => i + 2);
@@ -334,6 +335,21 @@ const MidiOutputs = (props) => {
             />
           </label>
           <label>
+            Map MPE Slide (CC74) to
+            <select
+              class="sidebar-input"
+              aria-label="Map MPE Slide (CC74) to"
+              value={normaliseSlideCc(settings.mono_slide_cc)}
+              onChange={(e) => save("mono_slide_cc", Number(e.target.value), onChange)}
+            >
+              {SLIDE_CC_OPTIONS.map(({ cc, label }) => (
+                <option key={cc} value={cc}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
             Portamento Time
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider
@@ -355,8 +371,8 @@ const MidiOutputs = (props) => {
           <p class="settings-form__intro-copy">
             <em>
               Match the instrument's pitch-bend range; not all synths honour RPN setup. Use a
-              separate port/channel from other outputs. Slide becomes CC74 and pressure becomes
-              channel pressure; the instrument must support these controls.
+              separate port/channel from other outputs. Slide uses the selected CC (default 74) and
+              pressure becomes channel pressure; the instrument must support these controls.
             </em>
           </p>
         </>

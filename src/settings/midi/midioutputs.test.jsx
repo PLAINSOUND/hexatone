@@ -42,6 +42,23 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByText("Output Routing")).not.toBeNull();
   });
 
+  it("offers named slide CC destinations excluding special messages", () => {
+    const props = makeProps({ output_mono: true });
+    props.onChange = vi.fn();
+    render(<MidiOutputs {...props} />);
+    const select = screen.getByRole("combobox", { name: "Map MPE Slide (CC74) to" });
+    expect(select.value).toBe("74");
+    expect(Array.from(select.options, (option) => Number(option.value))).toEqual(
+      Array.from({ length: 120 }, (_, i) => i).filter(
+        (cc) => ![0, 6, 32, 38, 84, 88, 96, 97, 98, 99, 100, 101].includes(cc),
+      ),
+    );
+    expect(select.selectedOptions[0].textContent).toBe("74 — Brightness");
+    fireEvent.change(select, { target: { value: "1" } });
+    expect(props.onChange).toHaveBeenCalledWith("mono_slide_cc", 1);
+    expect(sessionStorage.getItem("mono_slide_cc")).toBe("1");
+  });
+
   it("resends monophonic pitch-bend RPN on the selected channel", () => {
     const props = makeProps({
       output_mono: true,

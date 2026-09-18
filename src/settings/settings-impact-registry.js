@@ -89,6 +89,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "mono_device",
     "mono_channel",
     "mono_bend_range",
+    "mono_slide_cc",
     "mono_portamento",
     "mono_portamento_time",
     "output_mts_bulk",

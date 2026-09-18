@@ -401,6 +401,7 @@ export const SETTINGS_REGISTRY = [
   { key: "mono_device", tier: "session", type: "string", default: "OFF" },
   { key: "mono_channel", tier: "session", type: "int", default: 0 },
   { key: "mono_bend_range", tier: "session", type: "int", default: 2 },
+  { key: "mono_slide_cc", tier: "session", type: "int", default: 74 },
   { key: "mono_portamento", tier: "session", type: "bool", default: false },
   { key: "mono_portamento_time", tier: "session", type: "int", default: 80 },
   { key: "mpe_device", tier: "session", type: "string", default: "OFF" },

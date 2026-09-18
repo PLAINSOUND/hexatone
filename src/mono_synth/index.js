@@ -1,6 +1,7 @@
 import { sendRpn } from "../midi/rpn.js";
 import { getOutputTransaction } from "../midi/output-transaction.js";
 import { createMonoRamp } from "./ramp.js";
+import { normaliseSlideCc } from "../midi/slide-cc-options.js";
 
 const clamp7 = (v) => Math.max(0, Math.min(127, Math.round(Number(v) || 0)));
 
@@ -35,6 +36,7 @@ export function createMonoSynth({
   velocity = 72,
   portamento = false,
   time = 80,
+  slideCc = 74,
   schedulerOptions,
 } = {}) {
   const range = Math.max(1, Math.min(96, Math.round(Number(bendRange) || 2)));
@@ -51,7 +53,7 @@ export function createMonoSynth({
   const ramp = createMonoRamp(
     ([bend, y, z], at) => {
       send([0xe0 + channel, bend & 127, bend >> 7], at);
-      send([0xb0 + channel, 74, y], at);
+      send([0xb0 + channel, normaliseSlideCc(slideCc), y], at);
       send([0xd0 + channel, z], at);
     },
     { ...schedulerOptions, now },
@@ -120,6 +122,10 @@ export function createMonoSynth({
   sendRpn(output, channel, 0, 0, range);
   const synth = {
     family: "mono",
+    setSlideCc(value) {
+      slideCc = normaliseSlideCc(value);
+      if (active) request();
+    },
     hasVoices: () => stack.length > 0,
     setPortamento(enabled, milliseconds) {
       portamento = enabled;

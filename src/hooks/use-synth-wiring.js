@@ -864,6 +864,7 @@ const useSynthWiring = (
             velocity: settings.midi_velocity ?? 72,
             portamento: !!settings.mono_portamento,
             time: settings.mono_portamento_time ?? 80,
+            slideCc: settings.mono_slide_cc ?? 74,
           }),
         };
       }
@@ -1245,6 +1246,10 @@ const useSynthWiring = (
       settings.mono_portamento_time ?? 80,
     );
   }, [settings.mono_portamento, settings.mono_portamento_time]);
+
+  useEffect(() => {
+    monoSynthRef.current.synth?.setSlideCc(settings.mono_slide_cc ?? 74);
+  }, [settings.mono_slide_cc]);
 
   useEffect(() => {
     mpeSynthRef.current.synth?.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);

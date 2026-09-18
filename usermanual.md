@@ -532,7 +532,9 @@ Set **PB Range (semitones)** to match the receiving instrument (default **2**). 
 
 With **Portamento** enabled, overlapping notes retain the sounding carrier note whenever the next pitch fits its bend range. **Portamento Time** controls the transition of pitch, timbre (CC74), and channel pressure, including returns to earlier held notes; **0 / off** makes these transitions immediate. The default is **80 ms**. Non-overlapping attacks retrigger immediately. When a new carrier is necessary, Hexatone chooses one covering as many held pitches as possible, favouring recently played notes when not all fit.
 
-Transitions use a worker-driven, timestamped MIDI scheduler rather than animation frames, so they do not depend on visible canvas animation. Browser suspension can still interrupt processing. The receiving instrument must support CC74 and channel pressure to respond to those dimensions.
+**Map MPE Slide (CC74) to** selects the outgoing controller by number and standard name (default **74 — Brightness**), including during portamento transitions. This affects only the monophonic output. Bank selection, RPN/NRPN, data entry, portamento note selection, velocity prefix and channel-mode commands are excluded. Previously saved excluded destinations fall back to CC74. Undefined and LSB controllers remain available for instrument-specific mappings; choose a controller supported by the receiving instrument.
+
+Transitions use a worker-driven, timestamped MIDI scheduler rather than animation frames, so they do not depend on visible canvas animation. Browser suspension can still interrupt processing. The receiving instrument must support the selected slide CC and channel pressure to respond to those dimensions.
 
 ### Eagan Matrix
 
