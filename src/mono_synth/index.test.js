@@ -14,6 +14,46 @@ function setup(options = {}) {
   return { output, synth, note, ons, offs };
 }
 describe("monophonic MIDI output", () => {
+  it("sends only changing dimensions, but initializes each new attack", () => {
+    const { synth, output, note } = setup();
+    const a = note(60);
+    a.noteOn();
+    output.send.mockClear();
+    a.cc74(80);
+    a.cc74(80);
+    a.aftertouch(90);
+    a.aftertouch(90);
+    a.retune(a.cents);
+    expect(output.send.mock.calls.map(([bytes]) => bytes)).toEqual([
+      [0xb0, 74, 80],
+      [0xd0, 90],
+    ]);
+    a.noteOff();
+    output.send.mockClear();
+    a.noteOn();
+    expect(output.send.mock.calls.map(([bytes]) => bytes)).toEqual([
+      [0xe0, 0, 64],
+      [0xb0, 74, 80],
+      [0xd0, 90],
+      [0x90, 60, 90],
+    ]);
+    synth.shutdown();
+  });
+
+  it("does not repeat a stationary bend during an expression-only glide", () => {
+    const { synth, output, note } = setup({ portamento: true, time: 80 });
+    note(60).noteOn();
+    const next = note(60);
+    output.send.mockClear();
+    next.noteOn();
+    next.cc74(100);
+    next.aftertouch(90);
+    vi.advanceTimersByTime(100);
+    expect(output.send.mock.calls.some(([bytes]) => bytes[0] === 0xe0)).toBe(false);
+    expect(output.send.mock.calls).toContainEqual([[0xb0, 74, 100], expect.any(Number)]);
+    expect(output.send.mock.calls).toContainEqual([[0xd0, 90], expect.any(Number)]);
+    synth.shutdown();
+  });
   it.each([0, 6, 32, 38, 84, 88, 96, 97, 98, 99, 100, 101, 120, 127])(
     "safely restores excluded slide CC %s as CC74",
     (slideCc) => {
@@ -79,7 +119,9 @@ describe("monophonic MIDI output", () => {
     b.noteOff();
     vi.advanceTimersByTime(100);
     expect(ons()).toHaveLength(1);
-    expect(output.send.mock.calls.at(-3)[0]).toEqual([0xe0, 0, 64]);
+    expect(output.send.mock.calls.filter(([bytes]) => bytes[0] === 0xe0).at(-1)[0]).toEqual([
+      0xe0, 0, 64,
+    ]);
     synth.shutdown();
   });
   it("rearticulates out-of-range pitches using the whole held set", () => {

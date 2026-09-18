@@ -1306,6 +1306,11 @@ describe("Sequencer", () => {
     expect(firstSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
     expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(false);
     expect(attackRows[1]?.classList.contains("sequencer-event-row--timed-sounding")).toBe(false);
+    expect(barSelect?.value).toBe("1");
+    expect(snapshotSelect.value).toBe("1");
+    expect(cueSelect.value).toBe("2");
+
+    fireEvent.click(screen.getByLabelText("stop timed transport"));
     expect(barSelect?.value).toBe("0");
     expect(snapshotSelect.value).toBe("0");
     expect(cueSelect.value).toBe("0");
@@ -1935,9 +1940,14 @@ describe("Sequencer", () => {
     expect(onPlayTimedCue).toHaveBeenCalledTimes(2);
     expect(onPlayTimedCue.mock.calls[1][0]).toBe(1);
 
+    const pausedCue = screen.getByLabelText("next cue target").value;
+    const pausedSnapshot = screen.getByLabelText("next snapshot target").value;
+    expect(pausedCue).toBe("1");
     fireEvent.click(screen.getByLabelText("pause timed transport"));
     expect(onStopSnapshot).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText("play timed transport")).toBeTruthy();
+    expect(screen.getByLabelText("next cue target").value).toBe(pausedCue);
+    expect(screen.getByLabelText("next snapshot target").value).toBe(pausedSnapshot);
 
     fireEvent.click(screen.getByLabelText("play timed transport"));
     expect(screen.getByLabelText("pause timed transport")).toBeTruthy();

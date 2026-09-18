@@ -2269,8 +2269,8 @@ const Sequencer = ({
     }
     timedHighlightPresenterRef.current?.clear();
     timedAutoscrollPresenterRef.current?.cancel();
-    timedReadoutPresenterRef.current?.clear();
-  }, [timedTransportUiState.running]);
+    if (!timedTransportUiState.paused) timedReadoutPresenterRef.current?.clear();
+  }, [timedTransportUiState.running, timedTransportUiState.paused]);
 
   useEffect(() => {
     const refreshFrame = window.requestAnimationFrame(() => {
@@ -2290,7 +2290,8 @@ const Sequencer = ({
     [],
   );
 
-  if (!timedTransportUiState.running) {
+  const timedTransportOwnsReadout = timedTransportUiState.running || timedTransportUiState.paused;
+  if (!timedTransportOwnsReadout) {
     timedTransportFieldValuesRef.current = {
       bar: String(playhead?.barIndex ?? 0),
       snapshot: String(snapshotSelectValue),
@@ -2298,10 +2299,10 @@ const Sequencer = ({
     };
   }
   const timedTransportFieldValues = timedTransportFieldValuesRef.current;
-  const displayedSnapshotSelectValue = timedTransportUiState.running
+  const displayedSnapshotSelectValue = timedTransportOwnsReadout
     ? timedTransportFieldValues.snapshot
     : (manualReadoutRef.current?.snapshot ?? snapshotSelectValue);
-  const displayedCueSelectValue = timedTransportUiState.running
+  const displayedCueSelectValue = timedTransportOwnsReadout
     ? timedTransportFieldValues.cue
     : (manualReadoutRef.current?.cue ?? cueSelectValue);
   const refreshManualReadout = useCallback(() => {
@@ -3735,7 +3736,7 @@ const Sequencer = ({
           playbackRowRef={playbackRowRef}
           playhead={playhead}
           selectedBarIndex={selectedBarIndex}
-          timedBarSelectValue={timedTransportUiState.running ? timedTransportFieldValues.bar : null}
+          timedBarSelectValue={timedTransportOwnsReadout ? timedTransportFieldValues.bar : null}
           sortedBars={sortedBars}
           transportScrollTargetRef={transportScrollTargetRef}
           onSelectSequenceBar={selectSequenceBarWithViewport}

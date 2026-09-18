@@ -819,7 +819,7 @@ const MidiOutputs = (props) => {
       <p class="settings-form__intro-copy">
         <em>
           <a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a>{" "}
-          allows per-note polyphonic bend and modulation with limited polyphony.
+          allows per-note bend and modulation with limited polyphony.
         </em>
       </p>
 

@@ -50,11 +50,20 @@ export function createMonoSynth({
   let overlap = false;
   const now = schedulerOptions?.now ?? (() => performance.now());
   const send = (bytes, at) => output?.send(bytes, at);
+  // Track the last queued value, not the wall-clock value: ramp replacement
+  // already preserves timestamp ordering through ramp.boundary().
+  const lastExpression = new Map();
+  const sendExpression = (key, value, bytes, at) => {
+    if (lastExpression.get(key) === value) return;
+    send(bytes, at);
+    lastExpression.set(key, value);
+  };
   const ramp = createMonoRamp(
     ([bend, y, z], at) => {
-      send([0xe0 + channel, bend & 127, bend >> 7], at);
-      send([0xb0 + channel, normaliseSlideCc(slideCc), y], at);
-      send([0xd0 + channel, z], at);
+      const cc = normaliseSlideCc(slideCc);
+      sendExpression("bend", bend, [0xe0 + channel, bend & 127, bend >> 7], at);
+      sendExpression(`cc:${cc}`, y, [0xb0 + channel, cc, y], at);
+      sendExpression("pressure", z, [0xd0 + channel, z], at);
     },
     { ...schedulerOptions, now },
   );
@@ -89,6 +98,7 @@ export function createMonoSynth({
       active = next;
       transitionEnd = 0;
       if (carrier == null) return; // Outside MIDI's representable pitch range.
+      lastExpression.clear(); // Establish every dimension before a fresh attack.
       ramp.move(values(next), 0, at);
       send([0x90 + channel, carrier, next.velocity], at);
     } else {
@@ -124,6 +134,7 @@ export function createMonoSynth({
     family: "mono",
     setSlideCc(value) {
       slideCc = normaliseSlideCc(value);
+      lastExpression.delete(`cc:${slideCc}`);
       if (active) request();
     },
     hasVoices: () => stack.length > 0,
@@ -194,7 +205,10 @@ export function createMonoSynth({
           hex.cc74(value);
         },
         expression(value) {
-          if (hex === active) send([0xb0 + channel, 11, clamp7(value)], ramp.boundary());
+          if (hex === active) {
+            const amount = clamp7(value);
+            sendExpression("cc:11", amount, [0xb0 + channel, 11, amount], ramp.boundary());
+          }
         },
       };
       return hex;
