@@ -1296,6 +1296,46 @@ describe("App workspace tabs", () => {
     sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
   });
 
+  it("replays a manual snapshot only when a replacement instrument is ready in I/O", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: 1, length: 1, notes: [{ id: "held", midicents: 70.5, start: 0, end: 1 }] }],
+      bars: [], tempi: [], repeats: [],
+    }));
+    const previousSettings = settings;
+    synthWiringState.readySampleInstrument = "reed";
+    const keys = { settings: { note_names: [], heji_names: [] },
+      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+    const view = render(<App />);
+    try {
+      await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+      act(() => lastKeyboardProps.onKeysReady(keys));
+      fireEvent.click(screen.getByLabelText("Play snapshot 1"));
+      fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+      settings = { ...settings, instrument: "hammond" };
+      view.rerender(<App />);
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
+      synthWiringState.readySampleInstrument = "hammond";
+      view.rerender(<App />);
+      await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalledTimes(2));
+      view.rerender(<App />);
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+      fireEvent.click(screen.getByLabelText("Stop snapshot 1"));
+      synthWiringState.readySampleInstrument = "sruti";
+      view.rerender(<App />);
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+    } finally {
+      view.unmount();
+      settings = previousSettings;
+      delete synthWiringState.readySampleInstrument;
+      localStorage.removeItem("hexatone_persist_on_reload");
+      sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+    }
+  });
+
   it.each([false, true])("replays a held palette snapshot after tuning replacement (SNAP %s)", async (snap) => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),

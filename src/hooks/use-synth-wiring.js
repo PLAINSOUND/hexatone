@@ -443,6 +443,7 @@ const useSynthWiring = (
     settingsRef.current = settings;
   }, [settings]);
   const [synth, setSynth] = useState(null);
+  const [readySampleInstrument, setReadySampleInstrument] = useState(null);
   const [midi, setMidi] = useState(null);
   const [midiAccess, setMidiAccess] = useState("none");
   const [midiAccessError, setMidiAccessError] = useState(null);
@@ -1160,6 +1161,11 @@ const useSynthWiring = (
       }
       keysRef.current?.updateLiveOutputState?.(null, s);
       setSynth(s);
+      // Publish only after preparation and installation, never on selection or
+      // from a cancelled build. Other output rebuilds retain this same value.
+      if (wantSample && validSynths.includes(sampleSynthRef.current.synth)) {
+        setReadySampleInstrument(settings.instrument);
+      }
       // For iOS restored presets, sample synth construction is intentionally
       // deferred until after the first real gesture. At this exact point the
       // synth finally exists and the AudioContext has already been primed by
@@ -1657,6 +1663,7 @@ const useSynthWiring = (
 
   return {
     synth,
+    readySampleInstrument,
     midi,
     midiAccess,
     midiAccessError,
