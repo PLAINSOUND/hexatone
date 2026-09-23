@@ -1,3 +1,7 @@
+// Local SuperCollider server/audio-device configuration for the external synths.
+// Review device names and resource limits for this machine before evaluating;
+// this is not browser code or an automatically portable startup configuration.
+
 Server.scsynth;
 
 o = Server.local.options;

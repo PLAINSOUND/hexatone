@@ -1,3 +1,9 @@
+/**
+ * One-off generator for the built-in Seeds of Skies sequence JSON.
+ * Combines musical source data with HEJI/interval helpers and writes a formatted
+ * preset; inspect intended musical changes before rerunning this maintenance tool.
+ */
+
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

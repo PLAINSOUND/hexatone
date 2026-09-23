@@ -1,3 +1,9 @@
+/**
+ * Post-build documentation copier invoked by yarn build.
+ * Copies selected root Markdown files into build/; source documents remain the
+ * editable originals and generated build output is disposable.
+ */
+
 import fs from "node:fs/promises";
 import path from "node:path";
 

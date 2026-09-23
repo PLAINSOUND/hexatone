@@ -1,3 +1,9 @@
+/**
+ * Generates README's marked credits block from credits-content.js and package version.
+ * Used by credits:sync/build; --check validates without writing. Edit the shared
+ * source rather than the generated README block.
+ */
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

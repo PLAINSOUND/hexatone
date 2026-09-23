@@ -1,3 +1,10 @@
+/**
+ * Vite/Preact build, dev-server and Vitest configuration.
+ * Registers main, standalone retune and manual HTML entries, worker bundling,
+ * base-path/version injection and test asset mocks. Prefresh is opt-in so normal
+ * long-running development sessions use reloads rather than retained HMR state.
+ */
+
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import svgr from 'vite-plugin-svgr';

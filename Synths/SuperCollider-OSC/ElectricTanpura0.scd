@@ -1,3 +1,6 @@
+// Standalone SuperCollider plucked/string synthesis experiment.
+// Evaluate in SuperCollider with a configured server; this file is not loaded
+// by the browser sample synth or the OSC bridge automatically.
 
 s.waitForBoot{
 

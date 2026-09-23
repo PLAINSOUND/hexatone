@@ -119,6 +119,10 @@ yarn build
 
 This runs the production Vite build and then generates the service worker.
 
+Built-in tuning records are maintained as JSON in
+`src/hexatone/preset-tunings/`. The preset index discovers these files through
+Vite's import glob; there is no separate preset-tuning generation command.
+
 ## Preview the production build
 
 ```sh

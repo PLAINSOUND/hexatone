@@ -1,3 +1,9 @@
+/**
+ * Service-worker precache and runtime sample-cache policy consumed by generate-sw.js.
+ * Static build assets are precached; MP3 samples are cached on demand with bounded
+ * age/count. Changes affect offline/update behaviour, not the audio scheduler.
+ */
+
 export default {
   globDirectory: 'build/',
   globPatterns: ['**/*.{js,css,html,png,webmanifest}'],

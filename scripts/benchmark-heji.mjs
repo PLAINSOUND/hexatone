@@ -1,3 +1,9 @@
+/**
+ * Manual HEJI spelling benchmark using the Sabat: The Tree preset.
+ * Exercises reference-frame scale spelling for selected anchors; timings are
+ * observations for profiling, not CI pass/fail performance thresholds.
+ */
+
 import fs from "node:fs";
 import { createReferenceFrame, spellScaleFromReferenceFrame } from "../src/notation/reference-frame.js";
 

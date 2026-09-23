@@ -46,6 +46,9 @@ jobs:
       - name: Test
         run: yarn test
 
+      - name: Lint CSS
+        run: yarn lint:css
+
       - name: Build
         run: |
           echo "Base path: $VITE_BASE_PATH"

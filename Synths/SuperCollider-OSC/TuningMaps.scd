@@ -1,3 +1,7 @@
+// SuperCollider-side tuning-map data for the companion MIDI synth experiments.
+// Populates the language environment's ~tuningMap; separate from the web app's
+// preset JSON and not automatically regenerated when those presets change.
+
 ~tuningMap = Array.newClear(128);
 (0..127).do { |j| ~tuningMap[j] = Array.fill(128, { |i| i }) };
 

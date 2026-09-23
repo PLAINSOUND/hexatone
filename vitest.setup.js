@@ -1,3 +1,9 @@
+/**
+ * Shared jsdom test-environment setup configured by vite.config.js.
+ * Provides browser API shims for unit/UI tests; these are not implementations
+ * of hardware MIDI, real audio processing or actual browser layout.
+ */
+
 class MemoryStorage {
   constructor() {
     this.store = new Map();

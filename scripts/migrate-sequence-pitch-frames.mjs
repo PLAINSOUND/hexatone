@@ -1,3 +1,9 @@
+/**
+ * Maintenance migration of built-in sequence pitch-frame metadata.
+ * Reads and rewrites preset JSON using sequencer/pitch-frame helpers; this is not
+ * a browser reload migration and should be run only with reviewed reference data.
+ */
+
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

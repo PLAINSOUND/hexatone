@@ -1,3 +1,8 @@
+// Companion multi-server SuperCollider instrument setup for external playback.
+// Review local audio routing before evaluation. Startup closes windows and kills
+// existing scsynth processes; do not run alongside unrelated server sessions.
+// The browser OSC backend reaches layer servers through osc-bridge/index.js.
+
 ( // Run this first to set up and start five servers
 // ~to_headphones and ~to_speakers assume you are running an aggregate device (macOS) with a 2 channel audio loopback device (Blackhole) on the first 2 channels, followed by Headphones on 3-4 and Built-In on 5-6; otherwise set the audio channels for headphones and speakers accordingly
 

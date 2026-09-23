@@ -1,3 +1,9 @@
+/**
+ * Builds standalone OSC-bridge executables using Node's Single Executable Application
+ * flow and postject. Reads the bridge entry point and stages platform-specific
+ * artifacts; this packaging tool is not part of the browser bundle.
+ */
+
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

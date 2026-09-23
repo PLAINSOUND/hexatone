@@ -2,6 +2,10 @@
 
 Reviewed release candidate **3.3.0-rc.3**, starting at commit `90ffa33`.
 
+**Implementation update:** recommendations 1–5 below have now been implemented.
+The original findings remain as the audit record; see the follow-up section at the
+end for changes, verification and the remaining streamlining order.
+
 ## Scope and changes
 
 This is a module-level ownership, dependency and cleanup review, with deeper
@@ -210,3 +214,77 @@ establish real-world low latency or background-worker timing.
 - No physical MIDI/controller session, real-browser performance profile, or
   SuperCollider execution was performed. Those remain acceptance work for the
   behavioural fixes proposed above.
+
+## Follow-up: recommendations 1–5 implemented
+
+### Changes
+
+1. **Live performance CC policy:** switched the safety test to the production
+   `src/input/keys-expression-runtime.js`, observed its failure, then added the
+   standard allowlist to forwarding and controller-state replay. The narrower
+   Continuum restriction remains in force. Filtering stays after controller
+   decoding/learning, and explicitly generated RPN and Eagan macro messages remain
+   separate. Added tests through the real Keys listener and MPE manager output.
+2. **Mono lifecycle:** normal release/shutdown now cancels the ramp, releases only
+   the owned carrier and invalidates held voices. It sends no channel-wide pedal,
+   pressure or mode reset. Explicit Panic retains those reset messages. Release
+   also cancels a pending output-transaction finalizer, preventing a deferred chord
+   commit after cleanup. Tests cover queued-ramp timestamps, stale callbacks/voices,
+   shared-port replacement, transaction cancellation and explicit Panic.
+3. **Independent MIDI guardian:** `src/midi/output-targets.js` enumerates enabled
+   mono, MTS, bulk-MTS and MPE destinations, validates channels and deduplicates
+   `(port, channel)` pairs. A failed/disconnected route does not stop recovery on
+   other routes. Mounted-hook tests cover current settings, mono-only use without
+   Keys, unload, listener disposal and route failures. Unload deliberately retains
+   the existing hard-panic policy; it is not used for routine reconstruction.
+4. **Dead-code removal:** removed all seven identified orphaned modules and the
+   three tests dedicated to the obsolete math/facade/scheduler implementations.
+   Useful coordinate/pitch and dispatch-cursor cases now test Keys,
+   MidiCoordResolver and timed-transport-runtime. The abandoned relative channel
+   wrapping convention was not imposed on the current resolver. Facade-only tests
+   were removed, not recreated for a facade with no clients. Deleted files are
+   recoverable from Git; musical assets and external synth experiments are unchanged.
+5. **Tooling:** removed the broken `generate:preset-tunings` command and documented
+   direct JSON maintenance/import-glob discovery in `DEVELOPER_QUICKSTART.md`.
+   Added `yarn lint:css` to the GitHub Pages deployment workflow.
+
+### Verification
+
+- Focused live MIDI/mono/guardian/coordinate/transport checks: **276 passed**.
+- Full suite: **153 files / 2,301 tests passed**. The net reduction from the audit
+  baseline is removal of obsolete implementation tests, partly offset by new live-path tests.
+- `yarn lint`, `yarn lint:css`, `yarn build`, `git diff --check`: passed.
+- No remaining source imports/references to the removed modules were found.
+- Hardware/browser acceptance remains outstanding. In particular, two senders on
+  one MIDI channel still share pitch bend, pressure and controller state by MIDI
+  design; avoiding global resets during teardown does not provide channel isolation.
+- An in-progress commit (`1a63694`) captured the review and some early fixes during
+  this work; subsequent changes preserve that commit and remain in the worktree.
+
+### Further streamlining: recommended order
+
+1. **Measure before more playback refactoring.** Capture reproducible Firefox and
+   Chromium traces for rapid manual cues and accelerated timed playback of Flight
+   and FALL. Use existing runtime diagnostics to measure rebuild counts, long tasks,
+   trigger-to-dispatch time and rendering cost with Edit & Play open/closed.
+2. **Unify backend lifecycle contracts.** Document and test `releaseAll`,
+   `allSoundOff`, `shutdown`, retained tails and queued-message ownership across
+   mono/MPE/MTS/OSC/sample outputs. Then extract lifecycle reconciliation from
+   `use-synth-wiring.js`, without changing backend reuse keys or sound-switch behaviour
+   in the same batch. Extend the route model only where callers have matching semantics.
+3. **Separate editor commits from transport presentation.** Extract sequencer
+   draft/commit/revert orchestration behind its existing runtime-model boundary.
+   Gate on zero musical-model rebuilds for counter/highlight/scroll-only changes,
+   unchanged note-on/off ordering, and no stale pitch after commit/revert.
+4. **Make controller policy explicit.** Consolidate per-controller decoding,
+   internally consumed controls and forwarded controls as separate policies, ready
+   for Bindings. Preserve Exquis sustain, Continuum MPE+/pedals, LinnStrument firmware
+   messages and Lumatone soft pickup; do not apply a generic allowlist to raw input.
+5. **Split UI/CSS by ownership last.** Move cohesive settings sections out of large
+   coordinators and styles into component/workspace groups, maintaining cascade
+   order. Verify phone portrait, sidebar collapse, both palettes and tab switching.
+
+Keep persistence TODOs, notation-font offline caching and optional external-script
+deduplication as independent low-risk follow-ups. They should not be bundled with
+timing-sensitive transport work. Prefer one extraction with real callers switched
+over per change, avoiding new parallel implementations that only tests exercise.

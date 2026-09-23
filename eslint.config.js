@@ -1,3 +1,8 @@
+/**
+ * Flat ESLint configuration for first-party browser source and test conventions.
+ * Used by yarn lint and lint-staged; this is separate from CSS and build validation.
+ */
+
 import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
