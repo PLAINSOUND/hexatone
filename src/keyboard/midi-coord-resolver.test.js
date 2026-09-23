@@ -32,6 +32,22 @@ function setStepTables(resolver, steps, coords) {
 }
 
 describe("MidiCoordResolver", () => {
+  it("maps notes/channels to grid distances using the live legacy-channel policy", () => {
+    const resolver = createResolver();
+    Object.assign(resolver.settings, { rSteps: 2, drSteps: 1, midiin_channel_legacy: true });
+    for (const [note, channel, expected] of [[60, 1, 0], [62, 1, 2], [61, 1, 1], [72, 1, 12], [60, 2, 12], [64, 1, 4], [67, 1, 7], [60, 9, 0]]) {
+      const steps = resolver.noteToSteps(note, channel);
+      expect(steps).toBe(expected);
+      const coords = resolver.fallbackCoordForSteps(steps);
+      expect(coords.x * 2 + coords.y).toBe(expected);
+    }
+    // The abandoned helper wrapped relative offsets into -4..3. Production
+    // wraps channel numbers into 1..8, then measures from the anchor instead.
+    expect(resolver.channelToStepsOffset(8)).toBe(84);
+    resolver.settings.rSteps = 4;
+    resolver.settings.drSteps = 2;
+    expect(resolver.fallbackCoordForSteps(3)).toBeNull();
+  });
   it("reuses the same visible coord for a repeated live input address", () => {
     const resolver = createResolver();
     const center = new Point(0, 0);

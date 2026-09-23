@@ -2,7 +2,6 @@
  * Active MIDI Input settings coordinator, mounted by io-settings.jsx.
  * Resolves controller overrides/detection and delegates device-specific panels;
  * controller-anchor.js persists preferences and input runtimes apply them.
- * Do not confuse this entry point with the unused controllers/index.js copy.
  */
 
 import PropTypes from "prop-types";

@@ -14,6 +14,62 @@ function setup(options = {}) {
   return { output, synth, note, ons, offs };
 }
 describe("monophonic MIDI output", () => {
+  it("cancels a deferred chord commit when released inside its transaction", () => {
+    const { synth, output, note } = setup();
+    withOutputTransaction(() => {
+      note(60).noteOn(100);
+      synth.releaseAll();
+    });
+    expect(output.send).not.toHaveBeenCalled();
+    synth.shutdown();
+  });
+  it.each(["releaseAll", "shutdown"])(
+    "%s releases only its carrier after queued ramps",
+    (method) => {
+      const { synth, output, note } = setup({ portamento: true });
+      output.clear = vi.fn();
+      const a = note(60),
+        b = note(61);
+      a.noteOn();
+      b.noteOn();
+      b.cc74(100);
+      vi.advanceTimersByTime(8);
+      const lastQueuedAt = Math.max(...output.send.mock.calls.map(([, at]) => at));
+      output.send.mockClear();
+      synth[method]();
+      expect(output.send.mock.calls).toEqual([[[0x80, 60, 0], expect.any(Number)]]);
+      expect(output.send.mock.calls[0][1]).toBeGreaterThanOrEqual(lastQueuedAt);
+      expect(output.clear).not.toHaveBeenCalled();
+      expect(a.release && b.release).toBe(true);
+      expect(synth.hasVoices()).toBe(false);
+      vi.advanceTimersByTime(200);
+      a.aftertouch(100);
+      b.noteOff();
+      expect(output.send).toHaveBeenCalledTimes(1);
+      // A new owner on the same port/channel is not silenced by old cleanup.
+      const next = createMonoSynth({ output, schedulerOptions: { worker: false } });
+      next.makeHex(null, -900).noteOn();
+      output.send.mockClear();
+      synth.shutdown();
+      vi.advanceTimersByTime(100);
+      expect(output.send).not.toHaveBeenCalled();
+      next.shutdown();
+    },
+  );
+
+  it("reserves channel-wide reset for explicit panic", () => {
+    const { synth, output, note } = setup();
+    note(60).noteOn();
+    output.send.mockClear();
+    synth.allSoundOff();
+    expect(output.send.mock.calls.map(([bytes]) => bytes)).toEqual([
+      [0x80, 60, 0],
+      [0xb0, 64, 0],
+      [0xb0, 120, 0],
+      [0xd0, 0],
+    ]);
+    synth.shutdown();
+  });
   it("sends only changing dimensions, but initializes each new attack", () => {
     const { synth, output, note } = setup();
     const a = note(60);

@@ -155,6 +155,37 @@ describe("Keys MIDI input integration", () => {
     drawGridSpy = vi.spyOn(Keys.prototype, "drawGrid").mockImplementation(() => {});
   });
 
+  it("blocks mode/config CCs at the real forwarding boundary while allowing pedals", () => {
+    const listeners = {};
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Generic keyboard",
+      addListener: (name, handler) => { listeners[name] = handler; },
+      removeListener: vi.fn(),
+    });
+    const sendControlChange = vi.fn();
+    const keys = createKeys({ midiin_device: "input-1", midi_device: "output", midi_channel: 0 });
+    keys.midiout_data = { sendControlChange };
+    for (const cc of [12, 87, 98, 99, 100, 101, 120, 121, 123, 124, 125, 126, 127]) {
+      listeners.controlchange({ message: { channel: 1, dataBytes: [cc, 1] } });
+    }
+    expect(sendControlChange).not.toHaveBeenCalled();
+    for (const cc of [1, 2, 3, 4, 7, 11, 64, 66, 67]) {
+      listeners.controlchange({ message: { channel: 1, dataBytes: [cc, 64] } });
+      expect(sendControlChange).toHaveBeenCalledWith(cc, 64, { channels: 1 });
+    }
+  });
+
+  it.each([[0, 0, 0], [1, 0, 200], [0, 1, 100], [6, 0, 1200], [-1, 0, -200]])(
+    "uses live Keys pitch math for (%s,%s)", (x, y, expected) => {
+      const keys = createKeys({ rSteps: 2, drSteps: 1 });
+      const [cents, , distance, , , prev, next] = keys.hexCoordsToCents(new Point(x, y));
+      expect(cents).toBe(expected);
+      expect(distance).toBe(x * 2 + y);
+      expect(prev).toBe(expected - 100);
+      expect(next).toBe(expected + 100);
+    },
+  );
+
   it.each([false, true])(
     "releases repeated sustained voices at one coordinate (second held: %s)",
     (secondHeld) => {

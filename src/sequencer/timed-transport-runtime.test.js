@@ -17,6 +17,23 @@ import {
 } from "./timed-transport-runtime.js";
 
 describe("timed transport runtime", () => {
+  it("advances through structural bursts once and resumes at the next undispatched index", () => {
+    const bursts = [
+      { playbackIndex: 0, elapsedSeconds: 0, sourceCueIndex: 1 },
+      { playbackIndex: 1, elapsedSeconds: 0, sourceCueIndex: null },
+      { playbackIndex: 2, elapsedSeconds: 0.1, sourceCueIndex: 2 },
+      { playbackIndex: 3, elapsedSeconds: 0.25, sourceCueIndex: 3 },
+    ];
+    const start = startTimedTransport(createTimedTransportState(bursts), bursts);
+    const first = advanceTimedTransport(start, bursts, 0.15);
+    expect(first.dueBursts).toEqual(bursts.slice(0, 3));
+    expect(first.dueBursts.filter((b) => Number.isFinite(b.sourceCueIndex))).toEqual([bursts[0], bursts[2]]);
+    expect(first.state.nextPlaybackIndex).toBe(3);
+    expect(advanceTimedTransport(first.state, bursts, 0.2).dueBursts).toEqual([]);
+    const last = advanceTimedTransport(first.state, bursts, 0.25);
+    expect(last.dueBursts).toEqual([bursts[3]]);
+    expect(advanceTimedTransport(last.state, bursts, 1).dueBursts).toEqual([]);
+  });
   it("starts and dispatches due playback bursts by clock time", () => {
     const playbackBursts = buildPlaybackTimeline({
       snapshots: [

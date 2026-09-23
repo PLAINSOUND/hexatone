@@ -122,6 +122,9 @@ export function createMonoSynth({
     } else update(at);
   };
   const releaseOwned = () => {
+    const tx = getOutputTransaction();
+    tx?.finalizers.delete(synth);
+    tx?.data.delete(synth);
     const at = ramp.boundary();
     ramp.cancel();
     stack.forEach((h) => {
