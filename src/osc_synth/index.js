@@ -1,7 +1,7 @@
 /**
  * osc_synth — sends note events directly to SuperCollider via WebSocket → OSC bridge.
  *
- * Implements the same interface as midi_synth and sample_synth:
+ * Implements the shared voice interface used by midi_synth and sample_synth:
  *   makeHex(coords, cents, ...) → { noteOn(), noteOff(), retune(), aftertouch() }
  *
  * Routing:

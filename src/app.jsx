@@ -6,7 +6,7 @@
  * This file composes the major runtime layers: persisted settings, tuning
  * normalization, keyboard/synth wiring, controller integration, manual/help
  * surfaces, and the two primary workspaces (Hexatone and Sequencer). It is the
- * orchestration boundary where domain modules are combined into the live app.
+ * orchestration boundary where domain modules are combined into the running app.
  */
 import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
@@ -3638,6 +3638,33 @@ const App = () => {
     ],
   );
 
+  const pendingEditedSnapshotReplayRef = useRef(null);
+  useEffect(() => {
+    const pending = pendingEditedSnapshotReplayRef.current;
+    pendingEditedSnapshotReplayRef.current = null;
+    if (pending == null) return;
+    const position = sequencePlayheadRef.current;
+    if (position.stopped || position.markerIndex !== pending.markerIndex ||
+        position.stepIndex !== pending.stepIndex ||
+        Number.isFinite(timedPlaybackUiRef.current.clockSeconds) ||
+        (position.markerIndex == null && snapshots[position.stepIndex]?.id !== pending.id)) return;
+    if (position.markerIndex != null) {
+      const pitches = sequencePlaybackNotesAtPosition(position.stepIndex, position.markerIndex)
+        .map(note => note.midicents).sort((a, b) => a - b);
+      if (JSON.stringify(pitches) === pending.cuePitches) return;
+    }
+    // Wait for the edited notes and derived playback callbacks, not the old
+    // render's snapshot. This is edit-driven; cursor/scroll updates do no work.
+    cancelPendingManualCueUiCommit();
+    cancelManualSnapshotGestures();
+    if (position.markerIndex != null) {
+      playSequencePosition(position.stepIndex, position.markerIndex, { hardRestart: true });
+    } else {
+      playManualSnapshotAtIndex(position.stepIndex);
+    }
+  }, [snapshots, cancelPendingManualCueUiCommit, cancelManualSnapshotGestures,
+    playManualSnapshotAtIndex, playSequencePosition, sequencePlaybackNotesAtPosition]);
+
   const onUpdateSnapshot = useCallback(
     (id, updates) => {
       const diagnosticContext = getActiveSequencerDiagnosticTransaction() ?? {};
@@ -3664,6 +3691,23 @@ const App = () => {
         updates,
         snapshotLabelMode,
       });
+      const before = snapshotsRef.current.find(snapshot => snapshot.id === id);
+      const after = nextSnapshots.find(snapshot => snapshot.id === id);
+      const pitches = snapshot => JSON.stringify(
+        (snapshot?.notes ?? []).map(note => note.midicents).sort((a, b) => a - b),
+      );
+      const position = sequencePlayheadRef.current;
+      if (updates.notes && before?.notes?.length === after?.notes?.length &&
+          pitches(before) !== pitches(after) && !position.stopped &&
+          !Number.isFinite(timedPlaybackUiRef.current.clockSeconds) &&
+          (position.markerIndex != null || snapshotsRef.current[position.stepIndex]?.id === id)) {
+        pendingEditedSnapshotReplayRef.current = {
+          id, stepIndex: position.stepIndex, markerIndex: position.markerIndex,
+          cuePitches: JSON.stringify(sequencePlaybackNotesAtPosition(
+            position.stepIndex, position.markerIndex,
+          ).map(note => note.midicents).sort((a, b) => a - b)),
+        };
+      }
       appendPersistedSequencerCrashDiagnostic({
         type: "snapshot-update-applied",
         detail: "Applied snapshot workspace update",
@@ -3689,7 +3733,8 @@ const App = () => {
       });
       setSnapshots(nextSnapshots);
     },
-    [persistSequenceWorkspace, selectedSnapshotId, snapshotLabelMode, workspaceTab],
+    [persistSequenceWorkspace, selectedSnapshotId, snapshotLabelMode, workspaceTab,
+      sequencePlaybackNotesAtPosition],
   );
 
   const onResetSnapshotDescription = useCallback(

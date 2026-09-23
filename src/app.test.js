@@ -1296,6 +1296,52 @@ describe("App workspace tabs", () => {
     sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
   });
 
+  it.each(["next sequence step", "next sequence marker"])("replays an edited sounding note after %s with the resolved HEJI pitch", async (trigger) => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: 1, length: 1,
+        pitchFrame: { id: "frame", referenceLabel: "A4", referenceFrequency: 440,
+          referenceInterval: "1/1", hejiAnchorLabel: "*nA", hejiAnchorInterval: "1/1" },
+        notes: [{ id: "held", midicents: 69, displayLabel: "*nA4", start: 0, end: 1 }] }],
+      bars: [], tempi: [], repeats: [],
+    }));
+    const keys = { settings: { note_names: [], heji_names: [] },
+      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+    const view = render(<App />);
+    try {
+      await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+      act(() => lastKeyboardProps.onKeysReady(keys));
+      fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+      fireEvent.click(await screen.findByLabelText(trigger));
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
+      const name = await screen.findByLabelText("snapshot 1 attack name");
+      fireEvent.input(name, { target: { value: "a5" } });
+      fireEvent.keyDown(name, { key: "Enter" });
+      await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalledTimes(2));
+      expect(keys.playSnapshot.mock.calls.at(-1)[0][0].midicents).toBeCloseTo(81, 6);
+      const unchanged = screen.getByLabelText("snapshot 1 attack name");
+      fireEvent.keyDown(unchanged, { key: "Enter" });
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+      fireEvent.click(screen.getByLabelText("restore snapshot 1 attack captured pitch and name"));
+      await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalledTimes(3));
+      expect(keys.playSnapshot.mock.calls.at(-1)[0][0].midicents).toBeCloseTo(69, 6);
+      fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+      fireEvent.click(screen.getByLabelText("Stop snapshot 1"));
+      fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+      const stopped = screen.getByLabelText("snapshot 1 attack name");
+      fireEvent.input(stopped, { target: { value: "a3" } });
+      fireEvent.keyDown(stopped, { key: "Enter" });
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(3);
+    } finally {
+      view.unmount();
+      localStorage.removeItem("hexatone_persist_on_reload");
+      sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+    }
+  });
+
   it("replays a manual snapshot only when a replacement instrument is ready in I/O", async () => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
