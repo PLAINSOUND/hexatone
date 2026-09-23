@@ -2,8 +2,37 @@ import { describe, expect, it } from "vitest";
 import { parseExactInterval } from "../tuning/interval.js";
 import { captureSnapshot } from "./snapshots.js";
 import { remapSequenceSnapshotsToRuntime } from "./runtime-pitch-map.js";
+import { buildSequenceRuntimeModel } from "./runtime-model.js";
 
 describe("runtime-pitch-map", () => {
+  it("keeps legacy voice identities through snapping, including pitches merging onto one degree", () => {
+    const snapshots = [
+      {
+        id: "legacy",
+        length: 2,
+        notes: [
+          { midicents: 70.4, start: 0 },
+          { midicents: 70.5, start: 0 },
+        ],
+      },
+    ];
+    const mapped = remapSequenceSnapshotsToRuntime(snapshots, {
+      scale: [0, 200],
+      equivInterval: 1200,
+      referenceDegree: 0,
+      fundamental: 440,
+    });
+    const sourceModel = buildSequenceRuntimeModel({ snapshots });
+    const snappedModel = buildSequenceRuntimeModel({ snapshots: mapped });
+    // Pitch sorting can change when notes converge; voice membership must not.
+    const identities = (model) =>
+      model.playbackNotesByCueIndex.map((notes) => notes.map((note) => note.instanceKey).sort());
+    expect(identities(snappedModel)).toEqual(identities(sourceModel));
+    expect(snappedModel.playbackNotesByCueIndex[0]).toHaveLength(2);
+    expect(mapped[0].notes.map(note => note.midicents)).toEqual([71, 71]);
+    expect(snapshots[0].notes.map(note => note.id)).toEqual([undefined, undefined]);
+    expect(snapshots[0].notes.map(note => note.midicents)).toEqual([70.4, 70.5]);
+  });
   it("snaps stored sequence notes to the nearest degree of the current tuning", () => {
     const snapshots = [
       {

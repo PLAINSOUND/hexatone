@@ -1178,6 +1178,7 @@ const App = () => {
   const snapshotPaletteDragRef = useRef(null);
   const snapshotPaletteUserMovedRef = useRef(false);
   const previousSnapshotPaletteCollapsedRef = useRef(snapshotPaletteCollapsed);
+  const previousSnapshotPaletteWorkspaceRef = useRef(workspaceTab);
 
   useEffect(() => {
     snapshotsRef.current = snapshots;
@@ -1190,9 +1191,19 @@ const App = () => {
   useEffect(() => {
     const wasCollapsed = previousSnapshotPaletteCollapsedRef.current;
     previousSnapshotPaletteCollapsedRef.current = snapshotPaletteCollapsed;
-    if (!wasCollapsed || snapshotPaletteCollapsed) return;
+    const previousWorkspace = previousSnapshotPaletteWorkspaceRef.current;
+    previousSnapshotPaletteWorkspaceRef.current = workspaceTab;
+    const revealedByTab = previousWorkspace === "sequencer" && workspaceTab !== "sequencer";
+    if ((!wasCollapsed && !revealedByTab) || snapshotPaletteCollapsed) return;
 
-    const soundingSnapshotId = manualPlayingSnapshotIds.at(-1) ?? playingSnapshotId;
+    // The manual audio cursor leads the deferred presentation during fast
+    // stepping. Reveal that snapshot even before the tab handoff commits UI.
+    const livePosition = sequencePlayheadRef.current;
+    const liveSnapshotId =
+      revealedByTab && !livePosition.stopped && livePosition.markerIndex == null
+        ? snapshots[livePosition.stepIndex]?.id
+        : null;
+    const soundingSnapshotId = liveSnapshotId ?? manualPlayingSnapshotIds.at(-1) ?? playingSnapshotId;
     const body = snapshotPaletteBodyRef.current;
     if (soundingSnapshotId == null || !body) return;
     const row = [...body.querySelectorAll(".snapshot-row")].find(
@@ -1202,9 +1213,19 @@ const App = () => {
 
     const bodyRect = body.getBoundingClientRect();
     const rowRect = row.getBoundingClientRect();
+    if (revealedByTab) {
+      const visibleTop = bodyRect.top + body.clientTop;
+      const visibleBottom = visibleTop + body.clientHeight;
+      if (rowRect.top < visibleTop) {
+        body.scrollTop = Math.max(0, body.scrollTop + rowRect.top - visibleTop);
+      } else if (rowRect.bottom > visibleBottom) {
+        body.scrollTop += rowRect.bottom - visibleBottom;
+      }
+      return;
+    }
     const rowTop = rowRect.top - bodyRect.top + body.scrollTop;
     body.scrollTop = Math.max(0, rowTop - (body.clientHeight - rowRect.height) / 2);
-  }, [manualPlayingSnapshotIds, playingSnapshotId, snapshotPaletteCollapsed]);
+  }, [manualPlayingSnapshotIds, playingSnapshotId, snapshotPaletteCollapsed, snapshots, workspaceTab]);
 
   const appendSequenceSnapshot = useCallback(
     (notes = []) => {
@@ -1465,6 +1486,9 @@ const App = () => {
 
   // Sequencer workspace derivation and playback-ready snapshot views.
   const currentSequenceSnapRuntime = (() => {
+    // A blank workspace still mounts a hidden one-note Keys runtime so the
+    // sequencer can play. That fallback is not a user-selected canvas tuning.
+    if (!Array.isArray(settings.scale) || settings.scale.length === 0) return null;
     const keys = keysRef.current;
     const frame = keys?._activeFrame?.();
     const liveRuntime = keys?._effectiveScaleRuntimeForFrame?.(frame);
@@ -2060,7 +2084,7 @@ const App = () => {
     previousSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
     liveSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
     if (
-      previousSnap === snapSequenceToCurrentTuning &&
+      (previousSnap === snapSequenceToCurrentTuning || !currentSequenceSnapRuntime) &&
       (previousPitch === sequencePlaybackPitchOffset || pitchAlreadyApplied)
     )
       return;
@@ -2068,10 +2092,14 @@ const App = () => {
     // tracks its sounding position separately. SNAP must still bend the active
     // timed voices immediately, just like the live playback-pitch control.
     const timedPosition = timedPlaybackUiRef.current;
+    // Manual arrows update the audio cursor immediately but defer presentation.
+    // A SNAP toggle during that interval must use the sounding position, not
+    // consume the change against the stale (possibly still stopped) UI cursor.
+    const livePosition = sequencePlayheadRef.current;
     const activePosition =
-      sequencePlayhead?.stopped && Number.isFinite(timedPosition?.clockSeconds)
+      livePosition?.stopped && Number.isFinite(timedPosition?.clockSeconds)
         ? timedPosition
-        : sequencePlayhead;
+        : livePosition;
     if (activePosition?.stopped) return;
     if (!Number.isFinite(activePosition?.stepIndex) || activePosition.stepIndex < 0) return;
     const currentNotes = sequencePlaybackNotesAtPosition(
@@ -2096,6 +2124,7 @@ const App = () => {
     }
     appliedSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
   }, [
+    currentSequenceSnapRuntime,
     sequenceLegato,
     sequencePlaybackNotesAtPosition,
     sequencePlayhead,
@@ -2318,6 +2347,21 @@ const App = () => {
       performanceWorkspaceTab === "sequencer" &&
       previousVisibleTab !== workspaceTab &&
       (workspaceTab === "manual" || workspaceTab === "calculator");
+    const livePosition = sequencePlayheadRef.current;
+    const heldManualSnapshot =
+      !livePosition.stopped &&
+      livePosition.stepIndex >= 0 &&
+      livePosition.markerIndex == null &&
+      !Number.isFinite(timedPlaybackUiRef.current.clockSeconds);
+    if (previousVisibleTab !== workspaceTab && workspaceTab !== "sequencer" && heldManualSnapshot) {
+      // Snapshot playback belongs to the shared palette, not the sequencer tab.
+      // Flush only its pending visual state so a rapid arrow-then-tab switch
+      // highlights the sounding snapshot immediately, without another attack.
+      const pending = pendingManualCueUiCommitRef.current.payload;
+      cancelPendingManualCueUiCommit();
+      if (pending) commitSequencePlaybackUi(pending);
+      return;
+    }
     if (!leftSequencerForHexatone && !openedNonPlaybackTab) return;
     // Leaving the Sequencer should stop only voices owned by sequencer
     // playback. Live MIDI/controller notes belong to the always-mounted Keys
@@ -2328,7 +2372,13 @@ const App = () => {
     } else {
       onStopSnapshot();
     }
-  }, [onStopSnapshot, performanceWorkspaceTab, workspaceTab]);
+  }, [
+    onStopSnapshot,
+    performanceWorkspaceTab,
+    workspaceTab,
+    cancelPendingManualCueUiCommit,
+    commitSequencePlaybackUi,
+  ]);
 
   const onSelectSequenceBar = useCallback(
     (barIndex) => {
@@ -4341,6 +4391,37 @@ const App = () => {
     prevMusicalSurfaceRef.current = musicalSurfaceResetImpactKey;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the registry key is the complete reset boundary; callback identities and preset-library updates must not reset the musical surface.
   }, [musicalSurfaceResetImpactKey]);
+
+  // Tuning changes replace Keys and release its owned voices. Restore a manually
+  // held snapshot only after the replacement has been published and rendered,
+  // so SNAP resolves against its new tuning, not the retired runtime. Timed
+  // transport and ordinary MIDI/output rebinding keep their own lifecycle.
+  const snapshotReplayKeys = keysRef.current;
+  const previousSnapshotReplaySurfaceRef = useRef(null);
+  useEffect(() => {
+    if (!snapshotReplayKeys || snapshotReplayKeys !== keysRef.current) return;
+    const previous = previousSnapshotReplaySurfaceRef.current;
+    if (previous?.keys === snapshotReplayKeys) return;
+    previousSnapshotReplaySurfaceRef.current = {
+      keys: snapshotReplayKeys,
+      surface: musicalSurfaceResetImpactKey,
+    };
+    if (!previous || previous.surface === musicalSurfaceResetImpactKey) return;
+    const position = sequencePlayheadRef.current;
+    if (workspaceTab !== "hexatone" || position.stopped || position.markerIndex != null) return;
+    if (!snapshots[position.stepIndex]) return;
+    cancelPendingManualCueUiCommit();
+    cancelManualSnapshotGestures();
+    playManualSnapshotAtIndex(position.stepIndex);
+  }, [
+    snapshotReplayKeys,
+    musicalSurfaceResetImpactKey,
+    workspaceTab,
+    snapshots,
+    cancelPendingManualCueUiCommit,
+    cancelManualSnapshotGestures,
+    playManualSnapshotAtIndex,
+  ]);
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   // Lives here (not in Keyboard) so App Mode is active even before a scale is

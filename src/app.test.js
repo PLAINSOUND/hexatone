@@ -1184,7 +1184,23 @@ describe("App workspace tabs", () => {
     expect(soundingHex.sequenceRetune).toHaveBeenCalledWith(1);
   });
 
-  it("snaps sounding timed-playback voices immediately while the navigation playhead is stopped", async () => {
+  it.each([
+    [true, "play timed transport"],
+    [false, "play timed transport"],
+    [true, "next sequence marker"],
+    [false, "next sequence marker"],
+    [true, "next sequence step"],
+    [false, "next sequence step"],
+    [true, "play timed transport", false],
+    [true, "next sequence marker", false],
+  ])("snaps sounding voices only with an active tuning (stored note id: %s, trigger: %s, canvas: %s)", async (hasId, trigger, hasCanvas = true) => {
+    const previousSettings = settings;
+    if (!hasCanvas) settings = { ...settings, scale: [] };
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(
       SEQUENCE_WORKSPACE_STORAGE_KEY,
@@ -1193,7 +1209,15 @@ describe("App workspace tabs", () => {
           {
             id: 1,
             length: 1,
-            notes: [{ id: "note", midicents: 70.5, start: 0, end: 1, attackVelocity: 90 }],
+            notes: [
+              {
+                ...(hasId ? { id: "note" } : {}),
+                midicents: 70.5,
+                start: 0,
+                end: 1,
+                attackVelocity: 90,
+              },
+            ],
           },
         ],
         bars: [{ id: 1, position: 1, numerator: 4, denominator: 4 }],
@@ -1209,7 +1233,7 @@ describe("App workspace tabs", () => {
       sequenceRetune: vi.fn(),
     };
     const tuningRuntime = {
-      scale: [0, 200, 1200],
+      scale: hasCanvas ? [0, 200, 1200] : [0],
       referenceDegree: 0,
       fundamental: 440,
       equivInterval: 1200,
@@ -1225,7 +1249,8 @@ describe("App workspace tabs", () => {
       _activeFrame: () => ({}),
       _effectiveScaleRuntimeForFrame: () => tuningRuntime,
       playSnapshot: vi.fn((notes) => {
-        soundingHex._snapshotInstanceKey = notes[0]?.instanceKey ?? null;
+        soundingHex._snapshotInstanceKey =
+          notes[0]?.instanceKey ?? (notes[0]?.id ? `:${notes[0].id}` : null);
         keys._snapshotHexes = [soundingHex];
       }),
       stopSnapshot: vi.fn(),
@@ -1239,22 +1264,98 @@ describe("App workspace tabs", () => {
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
-    fireEvent.click(await screen.findByLabelText("play timed transport"));
+    const triggerButton = await screen.findByLabelText(trigger);
+    // Also check future attacks while SNAP is enabled on the hidden fallback.
+    if (!hasCanvas) {
+      fireEvent.click(screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"));
+    }
+    fireEvent.click(triggerButton);
     await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalled());
 
     fireEvent.click(screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"));
 
-    expect(soundingHex.sequenceRetune).toHaveBeenCalled();
-    expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(200, 6);
+    if (hasCanvas) {
+      expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(200, 6);
+    } else {
+      expect(soundingHex.sequenceRetune).not.toHaveBeenCalled();
+      expect(keys.playSnapshot.mock.calls[0][0][0].midicents).toBe(70.5);
+    }
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByLabelText("Snap Sequence to Current Hexatone Tuning"));
-    expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(150, 6);
+    if (hasCanvas) {
+      expect(soundingHex.sequenceRetune.mock.calls.at(-1)[0]).toBeCloseTo(150, 6);
+    } else {
+      expect(soundingHex.sequenceRetune).not.toHaveBeenCalled();
+    }
     expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
 
     unmount();
+    settings = previousSettings;
     localStorage.removeItem("hexatone_persist_on_reload");
     sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+  });
+
+  it.each([false, true])("replays a held palette snapshot after tuning replacement (SNAP %s)", async (snap) => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
+    const previousSettings = settings;
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: 1, length: 1, notes: [{ id: "held", midicents: 70.5, start: 0, end: 1 }] }],
+      bars: [], tempi: [], repeats: [],
+    }));
+    const makeKeys = scale => ({
+      settings: { fundamental: 440, note_names: [], heji_names: [] },
+      _activeFrame: () => ({}),
+      _effectiveScaleRuntimeForFrame: () => ({
+        scale, fundamental: 440, referenceDegree: 0, equivInterval: 1200,
+      }),
+      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn(),
+    });
+    const first = makeKeys([0, 200]);
+    const replacement = makeKeys([0, 100]);
+    const view = render(<App />);
+    try {
+      await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+      act(() => lastKeyboardProps.onKeysReady(first));
+      if (snap) fireEvent.click(screen.getByLabelText("Snap palette snapshots to current tuning"));
+      fireEvent.click(screen.getByLabelText("Play snapshot 1"));
+      expect(first.playSnapshot).toHaveBeenCalledTimes(1);
+      const previousReconstructionKey = lastKeyboardProps.reconstructionKey;
+
+      settings = { ...settings, scale: ["100.", "1200."], equivSteps: 2 };
+      view.rerender(<App />);
+      await waitFor(() => expect(lastKeyboardProps.reconstructionKey).not.toBe(previousReconstructionKey));
+      // A changed setting is not sufficient: wait for the new Keys instance.
+      expect(first.playSnapshot).toHaveBeenCalledTimes(1);
+      act(() => lastKeyboardProps.onKeysReady(replacement));
+      await waitFor(() => expect(replacement.playSnapshot).toHaveBeenCalledTimes(1));
+      expect(replacement.playSnapshot.mock.calls[0][0][0].midicents).toBeCloseTo(snap ? 70 : 70.5, 6);
+      expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(false);
+      view.rerender(<App />);
+      expect(replacement.playSnapshot).toHaveBeenCalledTimes(1);
+
+      // A MIDI-only rebuild must not cause an unsolicited retrigger.
+      const rebound = makeKeys([0, 100]);
+      act(() => lastKeyboardProps.onKeysReady(rebound));
+      expect(rebound.playSnapshot).not.toHaveBeenCalled();
+
+      // Stopping before the next runtime is ready must not resurrect the note.
+      fireEvent.click(screen.getByLabelText("Stop snapshot 1"));
+      settings = { ...settings, scale: ["300.", "1200."] };
+      view.rerender(<App />);
+      const stopped = makeKeys([0, 300]);
+      act(() => lastKeyboardProps.onKeysReady(stopped));
+      expect(stopped.playSnapshot).not.toHaveBeenCalled();
+      expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(true);
+    } finally {
+      view.unmount();
+      settings = previousSettings;
+      localStorage.removeItem("hexatone_persist_on_reload");
+      sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+    }
   });
 
   it("resizes and redraws the keyboard after toggling the sidebar", async () => {
@@ -1678,6 +1779,81 @@ describe("App workspace tabs", () => {
     localStorage.removeItem("hexatone_persist_on_reload");
     sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
   });
+
+  it.each(["HEXATONE", "I/O", "CALCULATOR", "MANUAL"].flatMap(
+    (destination) => ["snapshot", "cue"].map((target) => [destination, target]),
+  ))(
+    "handles a switch to %s after manual %s playback",
+    async (destination, target) => {
+      let rowTop = 250;
+      const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+        const top = this.classList.contains("snapshot-palette-body") ? 100
+          : this.dataset.snapshotId === "2" ? rowTop : 0;
+        const height = this.classList.contains("snapshot-palette-body") ? 100 : 20;
+        return { top, bottom: top + height, height, left: 0, right: 200, width: 200 };
+      });
+      const height = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function () {
+        return this.classList.contains("snapshot-palette-body") ? 100 : 0;
+      });
+      window.matchMedia = vi.fn().mockReturnValue({
+        matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      });
+      localStorage.setItem("hexatone_persist_on_reload", "true");
+      sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+        snapshots: [60, 64].map((midicents, index) => ({
+          id: index + 1, length: 1,
+          notes: [{ id: `note-${index}`, midicents, start: 0, end: 1 }],
+        })),
+        bars: [], tempi: [], repeats: [],
+      }));
+      const keys = {
+        settings: { note_names: [], heji_names: [] },
+        playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn(),
+      };
+      const view = render(<App />);
+      try {
+        await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+        act(() => lastKeyboardProps.onKeysReady(keys));
+        fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+        const next = await screen.findByLabelText(
+          target === "snapshot" ? "next sequence step" : "next sequence marker",
+        );
+        fireEvent.click(next);
+        fireEvent.click(next);
+        expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+        const stops = keys.stopSnapshot.mock.calls.length;
+        // Switch before the 300 ms manual presentation commit.
+        fireEvent.click(screen.getByRole("tab", { name: destination }));
+        if (target === "cue") {
+          expect(keys.stopSnapshot).toHaveBeenCalledTimes(stops + (destination === "I/O" ? 0 : 1));
+          expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+          return;
+        }
+        expect(keys.stopSnapshot).toHaveBeenCalledTimes(stops);
+        expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+        const stop = screen.getByLabelText("Stop snapshot 2");
+        expect(stop.disabled).toBe(false);
+        expect(stop.closest(".snapshot-row").classList.contains("snapshot-playing")).toBe(true);
+        expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(true);
+        expect(document.querySelector(".snapshot-palette-body").scrollTop).toBe(70);
+        // Re-enter with the row already visible: leave the scroll position alone.
+        fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+        rowTop = 150;
+        fireEvent.click(screen.getByRole("tab", { name: destination }));
+        expect(document.querySelector(".snapshot-palette-body").scrollTop).toBe(0);
+        expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+        fireEvent.click(screen.getByLabelText("Stop snapshot 2"));
+        expect(keys.stopSnapshot).toHaveBeenCalledTimes(stops + 1);
+        expect(screen.getByLabelText("Stop snapshot 2").disabled).toBe(true);
+      } finally {
+        view.unmount();
+        rect.mockRestore();
+        height.mockRestore();
+        localStorage.removeItem("hexatone_persist_on_reload");
+        sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+      }
+    },
+  );
 
   it("stops sequencer playback when switching from I/O to Hexatone", async () => {
     render(<App />);

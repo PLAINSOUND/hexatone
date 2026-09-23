@@ -3,6 +3,7 @@
 // snapshot pitches into nearest current-scale pitches before playback.
 
 import { findNearestDegree } from "../input/scale-mapper.js";
+import { noteIdentity } from "./value-runtime.js";
 
 function mod(value, modulus) {
   if (!modulus) return value;
@@ -155,7 +156,16 @@ export function remapSequenceSnapshotsToRuntime(snapshots, runtime, options = {}
   return snapshots.map((snapshot) => ({
     ...snapshot,
     notes: Array.isArray(snapshot?.notes)
-      ? snapshot.notes.map((note) => remapSequenceNoteToRuntime(note, runtime, options))
+      ? snapshot.notes.map((note) =>
+          remapSequenceNoteToRuntime(
+            // Legacy note identities include pitch. Freeze that source identity
+            // in this playback-only projection before SNAP changes the pitch,
+            // so active voices and their releases still match across toggles.
+            { ...note, id: noteIdentity(note, snapshot.length ?? 1) },
+            runtime,
+            options,
+          ),
+        )
       : [],
   }));
 }
