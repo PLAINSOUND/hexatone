@@ -42,6 +42,7 @@ import { resolveBulkDumpName } from "../tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 import { localBool, localFloat } from "../persistence/storage-utils.js";
 import { debugLog, warnLog } from "../debug/logging.js";
+import { clearOutputSynthRefs, releaseSynthInstance } from "../audio/output-lifecycle.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
@@ -466,28 +467,13 @@ const useSynthWiring = (
   const midiRequestRef = useRef(null);
   const midiPortsChangedListenerRef = useRef(null);
 
-  const releaseSynthInstance = useCallback((synth) => {
-    if (!synth) return;
-    if (typeof synth.shutdown === "function") synth.shutdown();
-    else if (typeof synth.releaseAll === "function") synth.releaseAll();
-  }, []);
-
   const clearAllOutputSynthRefs = useCallback(() => {
-    for (const synth of retiringSampleSynthsRef.current) synth.allSoundOff?.();
-    retiringSampleSynthsRef.current.clear();
-    releaseSynthInstance(sampleSynthRef.current.synth);
-    sampleSynthRef.current = { key: null, synth: null };
-    releaseSynthInstance(oscSynthRef.current.synth);
-    oscSynthRef.current = { key: null, synth: null };
-    releaseSynthInstance(mpeSynthRef.current.synth);
-    mpeSynthRef.current = { key: null, synth: null };
-    releaseSynthInstance(monoSynthRef.current.synth);
-    monoSynthRef.current = { key: null, synth: null };
-    for (const synth of mtsSynthsRef.current.values()) {
-      releaseSynthInstance(synth);
-    }
-    mtsSynthsRef.current.clear();
-  }, [releaseSynthInstance]);
+    clearOutputSynthRefs({
+      activeRefs: [sampleSynthRef, oscSynthRef, mpeSynthRef, monoSynthRef],
+      mtsRef: mtsSynthsRef,
+      retiringSamplesRef: retiringSampleSynthsRef,
+    });
+  }, []);
 
   const clearMidiSelections = useCallback(() => {
     Object.entries(MIDI_PORT_RESET).forEach(([key, value]) => {
@@ -1190,7 +1176,6 @@ const useSynthWiring = (
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is stable; settings covered field-by-field below
   }, [
     clearAllOutputSynthRefs,
-    releaseSynthInstance,
     settings.instrument,
     // MIDI output runtimes derive anchors and tuning context from the current
     // fundamental and center degree, so those changes must rebuild the synth.

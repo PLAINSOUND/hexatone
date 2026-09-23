@@ -4,8 +4,7 @@
 // modulation history; callers provide the current Keys runtime state.
 
 import { WebMidi } from "webmidi";
-import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
-import { allowsContinuumPerformanceCC } from "../controllers/continuum-cc-policy.js";
+import { allowsForwardedCC } from "../controllers/forwarded-cc-policy.js";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { publishEaganBrightness, publishEaganTiltEq } from "../mpe_synth/eagan-matrix.js";
 import { continuumRasterFilterSetFromRuntime } from "../controllers/continuum-raster-filters.js";
@@ -24,11 +23,7 @@ const RETUNE_GLIDE_SNAP_CENTS = 0.1;
 export function passthroughCC(cc, value) {
   // Filter at the output boundary, after controller-specific decoding/learning.
   // Explicit RPN and device configuration use their own output paths.
-  if (!allowsPerformanceCC(cc)) return;
-  if (
-    this.controller?.id === "hakenaudio" &&
-    !allowsContinuumPerformanceCC(cc, this.settings.hakenaudio_glide_flip_cc)
-  )
+  if (!allowsForwardedCC(cc, this.controller?.id, this.settings.hakenaudio_glide_flip_cc))
     return;
   if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendControlChange(cc, value, { channels: this.settings.midi_channel + 1 });
@@ -450,10 +445,7 @@ export function getControllerState() {
   return {
     ccValues: Object.fromEntries(
       [...this._controllerCCValues].filter(
-        ([cc]) =>
-          allowsPerformanceCC(cc) &&
-          (this.controller?.id !== "hakenaudio" ||
-            allowsContinuumPerformanceCC(cc, this.settings.hakenaudio_glide_flip_cc)),
+        ([cc]) => allowsForwardedCC(cc, this.controller?.id, this.settings.hakenaudio_glide_flip_cc),
       ),
     ),
     channelPressure: this._channelPressureValue,

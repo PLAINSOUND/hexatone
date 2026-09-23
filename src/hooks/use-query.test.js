@@ -1,7 +1,7 @@
 /**
  * Tests for src/hooks/use-query.js
  *
- * Covers the Extract/ExtractArray classes and the named extractors.
+ * Covers the Extract class and the live named extractors.
  * The useQuery hook itself is integration-level and relies on
  * window.location / localStorage / history — tested via jsdom.
  */
@@ -11,7 +11,6 @@ import { h } from "preact";
 import { useEffect } from "preact/hooks";
 import {
   Extract,
-  ExtractArray,
   ExtractString,
   ExtractJoinedString,
   ExtractFloat,
@@ -88,31 +87,6 @@ describe("ExtractString falsy round-trip", () => {
   });
 });
 
-// ── ExtractArray class ────────────────────────────────────────────────────────
-
-describe("ExtractArray", () => {
-  const ex = new ExtractArray(
-    (x) => parseInt(x),
-    (x) => x.toString(),
-  );
-
-  it("extract() returns all values for a repeated key", () => {
-    const q = new URLSearchParams("n=1&n=2&n=3");
-    expect(ex.extract(q, "n")).toEqual([1, 2, 3]);
-  });
-
-  it("extract() returns null when key is absent", () => {
-    const q = new URLSearchParams("");
-    expect(ex.extract(q, "n")).toBeNull();
-  });
-
-  it("insert() appends multiple values", () => {
-    const q = new URLSearchParams();
-    ex.insert(q, "n", [10, 20]);
-    expect(q.getAll("n")).toEqual(["10", "20"]);
-  });
-});
-
 // ── Named extractors ──────────────────────────────────────────────────────────
 
 describe("ExtractString", () => {
@@ -123,6 +97,12 @@ describe("ExtractString", () => {
 });
 
 describe("ExtractJoinedString", () => {
+  it("round-trips the application's scale array through localStorage", () => {
+    const scale = ["1/1", "3/2", "1200.0", "7\\12"];
+    ExtractJoinedString.store("scale", scale);
+    expect(ExtractJoinedString.restore("scale")).toEqual(scale);
+    localStorage.removeItem("scale");
+  });
   it("splits comma-separated values on extract", () => {
     const q = new URLSearchParams("k=a%2Cb%2Cc");
     expect(ExtractJoinedString.extract(q, "k")).toEqual(["a", "b", "c"]);

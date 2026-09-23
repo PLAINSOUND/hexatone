@@ -36,37 +36,7 @@ export class Extract {
   }
 }
 
-export class ExtractArray {
-  constructor(from, to) {
-    this.to = to;
-    this.from = from;
-  }
-
-  extract(query, key) {
-    if (query.has(key)) {
-      return query.getAll(key).map(this.from);
-    } else {
-      return null;
-    }
-  }
-  insert(query, key, values) {
-    values.map(this.to).forEach((v) => query.append(key, v));
-  }
-
-  restore(_key) {
-    return null; // TODO
-  }
-
-  store(_key, _value) {
-    return null; // TODO
-  }
-}
-
 export const ExtractString = new Extract(
-  (x) => x,
-  (x) => x,
-);
-export const ExtractStringArray = new ExtractArray(
   (x) => x,
   (x) => x,
 );
@@ -78,23 +48,11 @@ export const ExtractFloat = new Extract(
   (x) => Number.parseFloat(x),
   (x) => x.toString(),
 );
-export const ExtractFloatArray = new Extract(
-  (x) => Number.parseFloat(x),
-  (x) => x.toString(),
-);
 export const ExtractInt = new Extract(
   (x) => Number.parseInt(x),
   (x) => x.toString(),
 );
-export const ExtractIntArray = new Extract(
-  (x) => Number.parseInt(x),
-  (x) => x.toString(),
-);
 export const ExtractBool = new Extract(
-  (x) => x === "true",
-  (x) => x.toString(),
-);
-export const ExtractBoolArray = new Extract(
   (x) => x === "true",
   (x) => x.toString(),
 );

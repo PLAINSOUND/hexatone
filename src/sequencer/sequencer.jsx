@@ -78,11 +78,7 @@ import {
   repeatBarRelativeDraftKey,
   tempoBarRelativeDraftKey,
 } from "./sequence-drafts.js";
-import {
-  commitEventPitchLabelInSnapshot,
-  restoreEventPitchLabelInSnapshot,
-  updateEventFieldInSnapshot,
-} from "./sequence-mutations.js";
+import useEventEditingController from "./event-editing-controller.js";
 import { normalizeManualArpeggiation } from "./manual-snapshot-arpeggiation.js";
 import { normalizeSequenceLegatoMode } from "./legato.js";
 import {
@@ -2690,44 +2686,8 @@ const Sequencer = ({
     );
   }, [onManualArpeggiationChange, onRestoreSnapshotRangeChanges, rangeEditUndo]);
 
-  // Local mutation adapters passed down into row components.
-  const updateEventField = useCallback(
-    (snapshot, noteRef, field, rawValue) => {
-      const notes = updateEventFieldInSnapshot(snapshot, noteRef, field, rawValue);
-      if (!notes) return;
-      onUpdateSnapshot(snapshot.id, { notes });
-    },
-    [onUpdateSnapshot],
-  );
-
-  const toggleEventReattack = useCallback(
-    (snapshot, noteRef) => {
-      const notes = (snapshot?.notes ?? []).map((note) => {
-        const matches =
-          (noteRef?.noteId != null && note?.id === noteRef.noteId) ||
-          (noteRef?.noteId == null && noteMatchesReference(note, noteRef));
-        return matches ? { ...note, forceReattack: note.forceReattack !== true } : note;
-      });
-      onUpdateSnapshot(snapshot.id, { notes });
-    },
-    [onUpdateSnapshot],
-  );
-
-  const restoreEventPitchLabel = useCallback(
-    (snapshot, noteRef) => {
-      const notes = restoreEventPitchLabelInSnapshot(snapshot, noteRef);
-      onUpdateSnapshot(snapshot.id, { notes });
-    },
-    [onUpdateSnapshot],
-  );
-
-  const commitEventPitchLabel = useCallback(
-    (snapshot, noteRef) => {
-      const notes = commitEventPitchLabelInSnapshot(snapshot, noteRef);
-      onUpdateSnapshot(snapshot.id, { notes });
-    },
-    [onUpdateSnapshot],
-  );
+  const { updateEventField, toggleEventReattack, restoreEventPitchLabel, commitEventPitchLabel } =
+    useEventEditingController(onUpdateSnapshot);
 
   const updateBarPosition = useCallback(
     (barId, rawValue) => {
