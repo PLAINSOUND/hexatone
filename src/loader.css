@@ -1,3 +1,8 @@
+/**
+ * Loading-overlay animation and presentation used by loading-icon.jsx.
+ * Keep visual loading feedback independent of keyboard geometry and audio timing.
+ */
+
 @keyframes blue_ani {
   0% {
     fill: #abd1ff;

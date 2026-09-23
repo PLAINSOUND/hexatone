@@ -1,14 +1,3 @@
-import {
-  lumatoneNoteOffset,
-  lumatoneAddressForCoords,
-  lumatoneBlockOffset,
-  lumatoneNoteCoords,
-  LUMATONE_NOTES_PER_BLOCK,
-  LUMATONE_BLOCKS,
-} from "./lumatone.js";
-import { detectHakenDeviceName } from "./hakenaudio-detect.js";
-import { rotateExquisCoords } from "./exquis-orientation.js";
-
 /**
  * controllers/registry.js
  *
@@ -52,6 +41,17 @@ import { rotateExquisCoords } from "./exquis-orientation.js";
  * or email hexatone@plainsound.org — include controller name, MIDI note layout,
  * and a photo or diagram of the physical key arrangement.
  */
+
+import {
+  lumatoneNoteOffset,
+  lumatoneAddressForCoords,
+  lumatoneBlockOffset,
+  lumatoneNoteCoords,
+  LUMATONE_NOTES_PER_BLOCK,
+  LUMATONE_BLOCKS,
+} from "./lumatone.js";
+import { detectHakenDeviceName } from "./hakenaudio-detect.js";
+import { rotateExquisCoords } from "./exquis-orientation.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

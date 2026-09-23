@@ -1,5 +1,7 @@
 /**
  * Pure functions extracted from keys.js for testability.
+ * Only keyboard_math.test.js currently imports this copy. Live calculations
+ * remain in the Keys runtime; tests here alone cannot detect drift there.
  *
  * These are the coordinate-space and MIDI-channel calculations that are
  * currently embedded as methods on the Keys class.  Exporting them here

@@ -1,3 +1,9 @@
+/**
+ * Built-in Sounds fieldset wrapper, shared by workspace settings.
+ * Delegates instrument/volume editing to sample.js; sample_synth and synth wiring
+ * own audio activation, decoding and voice lifetime.
+ */
+
 import PropTypes from "prop-types";
 import Sample from "./sample";
 

@@ -1,7 +1,7 @@
-// This module owns live expression handling after notes already exist.
-// It applies pitch bend, aftertouch, CC74, and retune glides across the active
-// note set and output backends. It does not resolve note addresses or maintain
-// modulation history; callers provide the current Keys runtime state.
+// Legacy duplicate of the expression runtime; Keys uses src/input/ instead.
+// performance-cc-policy.test.js still imports this copy, so passing those tests
+// does not establish that the live forwarding path applies the same policy.
+// Consolidate callers/tests before removing this file (see the codebase review).
 
 import { WebMidi } from "webmidi";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";

@@ -1,3 +1,8 @@
+/**
+ * Test-only event adapter combining Preact rendering with DOM event helpers.
+ * Used by sequencer interaction regressions; not a production browser entry point.
+ */
+
 import { fireEvent as preactFireEvent } from "@testing-library/preact";
 import { createEvent } from "@testing-library/dom";
 

@@ -1,3 +1,9 @@
+/**
+ * Standard MIDI file parser for the standalone retuning editor.
+ * Turns track events, tempo changes and paired note events into editable note
+ * data; this is file import, not the Web MIDI live-controller input path.
+ */
+
 function readAscii(bytes, start, length) {
   return String.fromCharCode(...bytes.slice(start, start + length));
 }

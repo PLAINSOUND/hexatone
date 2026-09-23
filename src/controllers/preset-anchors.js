@@ -1,10 +1,10 @@
-import { getControllerById } from "./registry.js";
-
 /**
  * Controller anchors that belong to a tuning preset rather than to the
  * controller preference store. Keep the JSON field names here so exporting,
  * preset loading, manual edits, and MIDI learn all use the same mapping.
  */
+
+import { getControllerById } from "./registry.js";
 export const CONTROLLER_PRESET_ANCHOR_CONFIGS = [
   {
     controllerId: "lumatone",

@@ -1,3 +1,9 @@
+/**
+ * Hexatone lattice/layout editor: size, directions, rotation and related settings.
+ * Emits settings changes to the parent; Keys and its geometry/renderer modules
+ * apply them to the canvas rather than this UI calculating controller layouts.
+ */
+
 import { useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { buildAutoSelectInputProps } from "../ui/input-selection.js";

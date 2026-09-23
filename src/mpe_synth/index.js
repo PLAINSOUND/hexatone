@@ -1,5 +1,3 @@
-import { getOutputTransaction } from "../midi/output-transaction.js";
-import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 /**
  * mpe_synth — MPE output.
  *
@@ -22,6 +20,9 @@ import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
  *   selects the SOUNDING channel whose bend is nearest to the incoming note's
  *   bend, minimising the audible pitch jump on the stolen tail.
  */
+
+import { getOutputTransaction } from "../midi/output-transaction.js";
+import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 
 import { VoicePool } from "../polyphony/voice-pool-oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";

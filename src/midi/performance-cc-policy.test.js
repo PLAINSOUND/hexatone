@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { allowsPerformanceCC } from "./performance-cc-policy.js";
-import { getControllerState, passthroughCC } from "../keyboard/keys-expression-runtime.js";
+import { getControllerState, passthroughCC } from "../input/keys-expression-runtime.js";
 
 describe("automatic performance CC policy", () => {
   it("allows only selected performance controls", () => {

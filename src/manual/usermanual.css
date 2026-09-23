@@ -1,3 +1,9 @@
+/**
+ * Standalone usermanual.html page layout and typography.
+ * Shared manual content styling lives in manual-shared.css; the sidebar has its
+ * own settings layout and should not inherit these page-level rules.
+ */
+
 @font-face {
   font-family: "Plainsound Sans";
   src: url("../fonts/PlainsoundSans-Regular.woff2") format("woff2");

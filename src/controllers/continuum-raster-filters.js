@@ -1,3 +1,9 @@
+/**
+ * Parsing, normalisation and localStorage library for Continuum degree filters.
+ * The Haken settings panel edits these records; input pitch/raster handling uses
+ * the resulting degree Set. Filtering does not itself send MIDI.
+ */
+
 export const CONTINUUM_RASTER_FILTER_LIBRARY_KEY = "hexatone_continuum_raster_filters";
 export const CONTINUUM_RASTER_FILTER_SELECTED_KEY = "hexatone_continuum_raster_filter_selected";
 export const CONTINUUM_RASTER_FILTER_ALL = "all";

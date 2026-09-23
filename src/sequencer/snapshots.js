@@ -1,8 +1,9 @@
-import { withOutputTransaction } from "../midi/output-transaction.js";
 // This module owns snapshot capture/playback of currently sounding notes.
 // It serializes live note state into a portable snapshot form and can reapply
 // those notes back onto a Keys instance. It does not manage long-term
 // sequencing timelines; it is the lightweight snapshot layer used by the app.
+
+import { withOutputTransaction } from "../midi/output-transaction.js";
 
 import Point from "../keyboard/point.js";
 import { buildSnapshotRationalContext } from "./snapshot-rational-identity.js";

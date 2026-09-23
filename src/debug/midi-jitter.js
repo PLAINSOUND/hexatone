@@ -1,3 +1,9 @@
+/**
+ * Opt-in MIDI input/output timing correlation for diagnosing latency and bursts.
+ * Wraps synchronous input handling with a context read by outgoing trace calls;
+ * this measures scheduling and must not become a prerequisite for playback.
+ */
+
 import { debugEnabled } from "./logging.js";
 
 const INPUT_PREFIX = "[midijitter:in]";

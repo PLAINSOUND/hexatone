@@ -1,3 +1,7 @@
+// Unreferenced legacy copy of the MIDI Input coordinator, not a barrel export.
+// Its parent-relative imports do not resolve from this directory. The active
+// implementation is ../index.js; do not wire this copy into the application.
+
 import PropTypes from "prop-types";
 import {
   controllerRequiresMpeInput,

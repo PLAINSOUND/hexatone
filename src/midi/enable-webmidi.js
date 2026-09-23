@@ -1,3 +1,8 @@
+/**
+ * Small WebMidi.enable adapter for permission requests in use-synth-wiring.
+ * The caller owns user intent, SysEx choice, error presentation and device discovery.
+ */
+
 import { WebMidi } from "webmidi";
 
 export function enableMidi(options = {}) {

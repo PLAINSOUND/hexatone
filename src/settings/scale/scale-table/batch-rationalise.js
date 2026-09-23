@@ -1,3 +1,9 @@
+/**
+ * Whole-scale rationalisation algorithm used by the worker and fallback job path.
+ * Builds candidates against a committed workspace, then applies contextual prime
+ * consistency across degrees; returns scale data rather than mutating the UI.
+ */
+
 import { createScaleWorkspace } from "../../../tuning/workspace.js";
 import { scorePrimeConsistency } from "../../../tuning/rationalise.js";
 import {

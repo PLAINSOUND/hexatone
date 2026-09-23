@@ -1,9 +1,9 @@
-import PropTypes from "prop-types";
-
 // This module owns the always-visible, controller-agnostic top section of the
 // MIDI Input settings panel: selected input port, mapping target, and controller
 // geometry override. It does not render controller-
 // specific controls or scale-mode behavior beyond the input-mode selector.
+
+import PropTypes from "prop-types";
 const GeneralInputSettings = ({
   hasBasicMidi,
   midi,

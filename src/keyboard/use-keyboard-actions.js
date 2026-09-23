@@ -3,8 +3,9 @@
  *
  * Stable imperative interface to the live Keys canvas instance.
  *
- * All calls to keysRef.current scattered across settings panels, synth wiring,
- * and app.jsx are centralised here. Each returned function:
+ * Currently exercised only by its own tests; application callers still use
+ * keysRef directly. This is a proposed facade, not an adopted boundary.
+ * Each returned function:
  *   • Closes over keysRef so callers always reach the live instance
  *   • Guards silently when keysRef.current is null (canvas not yet mounted)
  *   • Documents the intended purpose of each Keys method
@@ -13,9 +14,8 @@
  * ref object for the component's lifetime — wrapping in useCallback would add
  * hook infrastructure with no memoisation benefit.
  *
- * This hook is the boundary between the React/Preact settings layer and the
- * imperative canvas renderer. When keys.js is refactored, only this file needs
- * to change — all callers stay untouched.
+ * Integrating or removing this facade requires reviewing the actual Keys
+ * callers; its tests alone do not cover those application integrations.
  *
  * Usage:
  *   const kb = useKeyboardActions(keysRef);

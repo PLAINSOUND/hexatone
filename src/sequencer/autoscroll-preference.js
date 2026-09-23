@@ -1,3 +1,9 @@
+/**
+ * Persisted Auto-Scroll preference shared by sequencer viewport controls.
+ * Reading/writing this flag does not move rows; autoscroll controllers perform
+ * presentation-only movement independently of musical dispatch.
+ */
+
 const AUTO_SCROLL_STORAGE_KEY = "hexatone_sequencer_auto_scroll_enabled";
 
 export function loadSequencerAutoScrollPreference(storage = globalThis.localStorage) {

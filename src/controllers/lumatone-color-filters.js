@@ -1,3 +1,9 @@
+/**
+ * Parsing, normalisation and localStorage library for Lumatone LED degree filters.
+ * The Lumatone settings panel and snapshot-filter generator supply lists; keyboard
+ * LED rendering consumes the selected filter without changing the played tuning.
+ */
+
 export const LUMATONE_COLOR_FILTER_LIBRARY_KEY = "hexatone_lumatone_color_filters";
 export const LUMATONE_COLOR_FILTER_SELECTED_KEY = "hexatone_lumatone_color_filter_selected";
 export const LUMATONE_COLOR_FILTER_ALL = "all";

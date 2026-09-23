@@ -1,3 +1,9 @@
+/**
+ * Reusable Scala interval text editor for scale and related settings.
+ * Keeps an editable draft and normalises committed ratios/cents/equal divisions
+ * through parse-scale.js; consumers decide how the parsed interval affects tuning.
+ */
+
 import { useState, useEffect, useRef } from "preact/hooks";
 import { normaliseDegree, parseScalaInterval } from "./parse-scale.js";
 

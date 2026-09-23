@@ -1,9 +1,9 @@
-import PropTypes from "prop-types";
-
 // This module owns the Tonal Plexus-specific mode selector in MIDI Input. It
 // decides how the controller's incoming note layout should be interpreted
 // before the more general anchor, channel, and pitch controls render below. It
 // does not own the shared anchor UI or any of the later pitch-bend settings.
+
+import PropTypes from "prop-types";
 const TonalPlexusSettings = ({ value, controller, settings, onChange, saveControllerPref }) => (
   <label>
     Tonal Plexus Mode

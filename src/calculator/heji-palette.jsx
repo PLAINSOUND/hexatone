@@ -1,3 +1,9 @@
+/**
+ * Calculator's editable HEJI palette: letter, octave, accidentals and cents.
+ * Uses notation/pitch-structure and calculator/runtime to report a resolved pitch
+ * back to tab.jsx; it does not change the main tuning or own sound output.
+ */
+
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import { BASE_BY_ID, BASE_SYMBOLS, HEJI_FAMILIES } from "../notation/heji.js";

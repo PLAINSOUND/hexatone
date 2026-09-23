@@ -1,3 +1,9 @@
+/**
+ * Shared EaganMatrix macro CC definitions and lightweight UI notification events.
+ * Input expression routing publishes brightness/tilt changes; Output Routing
+ * listens to reflect them without coupling live MIDI handling to Preact state.
+ */
+
 export const EAGAN_BRIGHTNESS_EVENT = "hexatone:eagan-brightness";
 export const EAGAN_TILT_EQ_EVENT = "hexatone:eagan-tilt-eq";
 

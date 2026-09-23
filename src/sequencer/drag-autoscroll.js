@@ -1,3 +1,8 @@
+/**
+ * Edge-speed calculation for scrolling the sequencer during drag operations.
+ * Used by the drag/autoscroll controller, not by the timed playback scheduler.
+ */
+
 export function deriveDragAutoscrollVelocity({
   pointerY,
   visibleTop,

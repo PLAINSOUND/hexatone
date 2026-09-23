@@ -1,6 +1,9 @@
 /**
  * src/settings/scale/scale-table/use-live-scale-table-snapshot.js
  *
+ * Unadopted subscription hook: no current production or test importer.
+ * The description below records its intended role, not an active UI boundary.
+ *
  * Subscribes the scale-table UI to the live per-degree snapshot exposed by the
  * Keys canvas.
  *

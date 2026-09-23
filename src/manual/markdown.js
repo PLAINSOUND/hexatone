@@ -1,3 +1,9 @@
+/**
+ * Build-time-imported usermanual.md parser and section/anchor model.
+ * Feeds both the sidebar manual and standalone manual page; this small renderer
+ * supports the project's Markdown subset, not arbitrary untrusted Markdown.
+ */
+
 import manualMarkdown from "../../usermanual.md?raw";
 
 function escapeHtml(text) {

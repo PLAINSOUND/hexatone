@@ -1,3 +1,9 @@
+/**
+ * Separates active I/O restoration from tuning/sequence preset restoration.
+ * Selects I/O keys from settings-registry and resets session connection intent when
+ * restore is disabled, without deleting saved controller preference profiles.
+ */
+
 import { SETTINGS_REGISTRY } from "./settings-registry.js";
 
 export const IO_RESTORE_KEY = "hexatone_restore_io_on_reload";

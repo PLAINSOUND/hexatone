@@ -1,10 +1,11 @@
-import { useState } from "preact/hooks";
-import PropTypes from "prop-types";
-
 // This shared UI helper owns the "click to choose a MIDI output port" pattern
 // used by controller-specific LED/output controls. It does not know anything
 // about controller semantics; callers provide the detected raw port, the full
 // output list, and the persistence callback for the chosen override id.
+
+import { useState } from "preact/hooks";
+import PropTypes from "prop-types";
+
 function OutputPortPicker({
   label,
   rawPorts,

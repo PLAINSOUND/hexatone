@@ -1,3 +1,8 @@
+/**
+ * Styles scoped to the standalone retuning editor and its score/piano-roll views.
+ * Loaded by retune/app.jsx, not by the main Hexatone settings sidebar.
+ */
+
 @font-face {
   font-family: "Plainsound Sans";
   src: url("../fonts/PlainsoundSans-Regular.woff2") format("woff2");

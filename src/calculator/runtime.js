@@ -1,3 +1,9 @@
+/**
+ * Pure pitch-lookup calculations for calculator/tab.jsx and its HEJI palette.
+ * Keeps frequency/reference placement separate from the notation anchor and
+ * Offset interval, and shares exact-interval, spelling and rationalisation engines.
+ */
+
 import { canonicalHejiAnchorLabelInput } from "../notation/heji-normalization.js";
 import { spelledHejiLabel } from "../notation/key-label.js";
 import { BASE_BY_ID } from "../notation/heji.js";

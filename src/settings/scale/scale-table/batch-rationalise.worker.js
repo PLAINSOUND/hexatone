@@ -1,3 +1,9 @@
+/**
+ * Module-worker entry point for whole-scale rationalisation.
+ * Receives one job payload, forwards progress, and posts the resulting scale or
+ * error; rationalisation-job.js owns worker termination and cancellation.
+ */
+
 import { rationaliseScaleBatch } from "./batch-rationalise.js";
 self.onmessage = ({ data }) => {
   try {

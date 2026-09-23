@@ -1,3 +1,9 @@
+// This module owns the Haken Continuum-specific MIDI Input controls that only
+// make sense for MPE input modes. It renders the Continuum X Glide mode
+// selector unconditionally when the Haken is active, and keeps the shared
+// performance controls visible across both live X-glide modes so the player
+// can flip between them without losing access to the paired settings.
+
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import OutputPortPicker from "../output-port-picker.js";
@@ -14,12 +20,6 @@ import {
   writeContinuumRasterFilterLibrary,
 } from "../../../controllers/continuum-raster-filters.js";
 import { deriveSnapshotFilterEntries } from "../../../sequencer/snapshot-filter-library.js";
-
-// This module owns the Haken Continuum-specific MIDI Input controls that only
-// make sense for MPE input modes. It renders the Continuum X Glide mode
-// selector unconditionally when the Haken is active, and keeps the shared
-// performance controls visible across both live X-glide modes so the player
-// can flip between them without losing access to the paired settings.
 
 const HakenContinuumSettings = ({
   ctrl,

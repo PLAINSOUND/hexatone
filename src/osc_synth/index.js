@@ -1,8 +1,3 @@
-import { outputTimestamp } from "../midi/output-transaction.js";
-import { VoicePool } from "../polyphony/voice-pool-nearest";
-import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
-import { debugEnabled, debugLog, warnLog } from "../debug/logging.js";
-
 /**
  * osc_synth — sends note events directly to SuperCollider via WebSocket → OSC bridge.
  *
@@ -14,12 +9,18 @@ import { debugEnabled, debugLog, warnLog } from "../debug/logging.js";
  *   /n_set mod                                → broadcast to all four servers, node 1
  *   /n_set vol (fader)                        → node 1 on specific layer server (57101–57104)
  *
- * Node IDs are derived from a shared 128-slot nearest-note voice pool, matching
- * the MTS1 real-time allocation model and keeping IDs stable and bounded.
+ * A shared 128-slot nearest-note pool bounds active voice bookkeeping.
+ * Each attack gets fresh, increasing SC node IDs per layer so releasing tails
+ * are not confused with a replacement voice reusing the same pool slot.
  *
  * Requires the osc-bridge Node.js process to be running locally:
  *   node osc-bridge/index.js
  */
+
+import { outputTimestamp } from "../midi/output-transaction.js";
+import { VoicePool } from "../polyphony/voice-pool-nearest";
+import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
+import { debugEnabled, debugLog, warnLog } from "../debug/logging.js";
 
 const WS_URL_DEFAULT = "ws://localhost:8089";
 const SC_DISPATCH_PORT = 57100;

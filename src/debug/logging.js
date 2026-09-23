@@ -1,3 +1,9 @@
+/**
+ * Category-gated browser diagnostics shared by controller and playback modules.
+ * Reads hexatone_debug flags from storage; debug logging is opt-in while warning
+ * and error helpers provide the common reporting path.
+ */
+
 const DEBUG_STORAGE_KEY = "hexatone_debug";
 // Enable categories by setting localStorage/sessionStorage, e.g.
 //   localStorage.setItem("hexatone_debug", "MIDImonitoring,midi")

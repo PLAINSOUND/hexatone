@@ -1,7 +1,8 @@
-import { Component } from "preact";
 // TuneCell renders the main per-degree pitch editor in the scale table.
 // It coordinates scala-entry drafting, rationalisation UI, HEJI display, and
 // live preview hooks for one degree without owning the full table state.
+
+import { Component } from "preact";
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "preact/hooks";
 import { parseExactInterval } from "../../../tuning/interval.js";

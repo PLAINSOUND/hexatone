@@ -1,3 +1,9 @@
+/**
+ * Vocal formant presets and OSC argument packing for the OSC synth backend.
+ * The frequency/amplitude/resonance arrays must match the receiving SuperCollider
+ * formant controls; this module selects data, not audio nodes.
+ */
+
 export const FORMANT_PRESETS = [
   {
     name: "sopranoA",

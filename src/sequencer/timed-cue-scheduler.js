@@ -1,7 +1,6 @@
-// This module owns the current lookahead scheduler for timed cue playback.
-// It turns the playback timeline into near-future bursts that can be triggered
-// on a tight interval loop, without yet committing to a full timestamped MIDI
-// export scheduler.
+// Standalone lookahead-burst helper, currently referenced only by its tests.
+// Live playback uses timed-transport-controller.js and timed-transport-runtime.js;
+// changing this helper alone does not change the application's scheduler.
 
 function normalizeIndex(value) {
   const numeric = Math.max(0, Math.round(Number(value) || 0));

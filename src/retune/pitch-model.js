@@ -1,3 +1,9 @@
+/**
+ * Pure spelling, monzo, ratio and staff-position helpers for retune/app.jsx.
+ * Uses heji-subset.js's research vocabulary and reference convention, independently
+ * of the live app's configurable notation/reference frames.
+ */
+
 import {
   BASE_BY_ID,
   CHROMATIC_MONZOS,

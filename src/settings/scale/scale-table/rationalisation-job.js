@@ -1,3 +1,9 @@
+/**
+ * Cancellable worker/job wrapper for whole-scale rationalisation in ScaleTable.
+ * Owns settlement and worker cleanup; the no-Worker fallback runs the same batch
+ * algorithm synchronously once started and cannot interrupt its inner computation.
+ */
+
 import { rationaliseScaleBatch } from "./batch-rationalise.js";
 
 export function startRationalisationJob(input, onProgress = () => {}) {

@@ -1,3 +1,10 @@
+// This module owns the LinnStrument-specific sections of MIDI Input after the
+// shared anchor row: bypass channel-allocation choices, MPE zone details for
+// LinnStrument bypass mode, User Firmware LED/output controls, User Firmware
+// row-glide controls, and LinnStrument-specific pitch-bending interval UI. It
+// does not render the shared controller anchor row or global non-controller-
+// specific wheel/bend settings.
+
 import PropTypes from "prop-types";
 import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 import ScalaInput from "../../scale/scala-input.js";
@@ -25,13 +32,6 @@ function LinnUserFirmwareStatus({ active }) {
 LinnUserFirmwareStatus.propTypes = {
   active: PropTypes.bool.isRequired,
 };
-
-// This module owns the LinnStrument-specific sections of MIDI Input after the
-// shared anchor row: bypass channel-allocation choices, MPE zone details for
-// LinnStrument bypass mode, User Firmware LED/output controls, User Firmware
-// row-glide controls, and LinnStrument-specific pitch-bending interval UI. It
-// does not render the shared controller anchor row or global non-controller-
-// specific wheel/bend settings.
 const LinnstrumentSettings = ({
   ctrl,
   settings,

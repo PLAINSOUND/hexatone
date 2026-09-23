@@ -1,3 +1,10 @@
+/**
+ * Output Routing UI for mono MIDI, MTS, MPE/EaganMatrix and OSC destinations.
+ * Persists user choices and sends explicit configuration/control actions; actual
+ * voice allocation, playback and output lifecycle belong to the synth backends
+ * and use-synth-wiring.js, not to this component's render cycle.
+ */
+
 import { useEffect, useRef, useState } from "preact/hooks";
 import { WebMidi } from "webmidi";
 import PropTypes from "prop-types";

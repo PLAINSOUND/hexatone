@@ -1,3 +1,9 @@
+/**
+ * Exquis MIDI Input panel: LED output, orientation and learned sustain control.
+ * Sends setting changes to App/Keys; the Exquis driver owns App Mode and LEDs,
+ * while the input runtime applies orientation and handles note/sustain lifetime.
+ */
+
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { exquisOrientation } from "../../../controllers/exquis-orientation.js";
@@ -15,10 +21,6 @@ function ExquisAppModeStatus() {
   );
 }
 
-// This module owns the active Exquis controller-output UI in MIDI Input:
-// output-port status, auto-send controls, and LED brightness/saturation. It
-// does not own the dormant dev-mode test panel, which remains in index.js
-// until that diagnostic path is either removed or intentionally revived.
 const ExquisSettings = ({
   settings,
   rawPorts,

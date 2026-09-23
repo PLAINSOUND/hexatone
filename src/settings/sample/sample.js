@@ -1,3 +1,9 @@
+/**
+ * Built-in instrument and volume controls backed by sample_synth/instruments.js.
+ * Reports selections and live volume changes to the parent; it does not instantiate
+ * an AudioContext or release sounding voices itself.
+ */
+
 import { useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import CustomRangeSlider from "../shared/range-slider.jsx";

@@ -1,3 +1,9 @@
+/**
+ * LinnStrument User Firmware Mode lifecycle adapter used by App and input settings.
+ * Coordinates NRPN activation and attachment of the LED driver from
+ * linnstrument-config.js; keep device enable/disable paired with driver cleanup.
+ */
+
 import {
   LinnStrumentLEDs,
   configureLinnStrument,

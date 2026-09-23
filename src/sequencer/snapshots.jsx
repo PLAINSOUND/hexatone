@@ -1,4 +1,8 @@
 /**
+ * Legacy snapshot-list component, currently without production importers.
+ * The active sequencer/floating palette UI lives elsewhere; snapshots.js is
+ * the active capture/playback runtime and is not this component.
+ *
  * Snapshots — sidebar panel for capturing and replaying note snapshots.
  *
  * Each snapshot stores an array of {

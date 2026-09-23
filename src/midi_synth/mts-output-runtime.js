@@ -1,3 +1,9 @@
+/**
+ * Keys-bound MTS bulk-map output and deferred refresh helpers.
+ * Combines tuning-map/anchor encoders with sounding-note protection so map refreshes
+ * do not retune release tails prematurely; Keys owns the timers and live state.
+ */
+
 import { WebMidi } from "webmidi";
 import {
   computeNaturalAnchor,

@@ -1,3 +1,9 @@
+/**
+ * Derives timed playback events and bursts from sequencer cues and tempo/repeat data.
+ * Runtime-model caches the result; timed-transport-controller dispatches it.
+ * Keep musical timeline derivation independent of editor rendering and scrolling.
+ */
+
 import { deriveRepeatSections } from "./repeat-playback-runtime.js";
 import { remapSequenceSnapshotsToRuntime } from "./runtime-pitch-map.js";
 import {

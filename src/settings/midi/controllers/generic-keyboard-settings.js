@@ -1,11 +1,11 @@
-import PropTypes from "prop-types";
-import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
-
 // This module owns the explicit Generic Keyboard controller-geometry section
 // inside MIDI Input. It renders the generic controller description, the
 // central anchor-note row, and the explanatory note that Generic Keyboard
 // bypasses 2D controller geometry. It does not render generic unknown-
 // controller fallback UI, MPE controls, or global pitch/channel settings.
+
+import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 const GenericKeyboardSettings = ({
   centerDegree,
   centralNote,

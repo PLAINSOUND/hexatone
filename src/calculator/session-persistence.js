@@ -1,3 +1,9 @@
+/**
+ * Versioned sessionStorage records for independent Calculator workspaces.
+ * The tab loads/saves drafts by workspace key; app reload policy decides whether
+ * they survive a browser reload. This is not the saved tuning library.
+ */
+
 export const CALCULATOR_WORKSPACE_STORAGE_KEY = "hexatone_calculator_workspace";
 
 export function loadCalculatorWorkspace(workspaceKey, storage = globalThis.sessionStorage) {

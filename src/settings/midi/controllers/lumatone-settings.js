@@ -1,3 +1,9 @@
+/**
+ * Lumatone-specific MIDI Input panel: LED routing/filters and wheel/pedal controls.
+ * Persists controller preferences and requests live LED updates through Keys;
+ * controller drivers and input runtimes own device messages and soft pickup.
+ */
+
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import OutputPortPicker from "../output-port-picker.js";

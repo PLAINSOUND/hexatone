@@ -1,3 +1,9 @@
+/**
+ * Pure legato-mode normalisation and continuation flags for snapshot notes.
+ * Matches pitch, note slot and touching boundaries; playback callers own voice
+ * retention, note-off delivery and output-specific articulation.
+ */
+
 export const SEQUENCE_LEGATO_MODES = [
   { value: "off", label: "Off" },
   { value: "per-note", label: "Per Note" },

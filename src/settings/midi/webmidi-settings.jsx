@@ -1,3 +1,9 @@
+/**
+ * Explicit Web MIDI and SysEx permission controls for the IO tab.
+ * Persists user intent through App callbacks; use-synth-wiring requests browser
+ * permission and handles connection discovery/restoration.
+ */
+
 import PropTypes from "prop-types";
 
 // Persist a WebMIDI intent key both to the settings object and to sessionStorage

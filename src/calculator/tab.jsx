@@ -1,3 +1,9 @@
+/**
+ * Calculator workspace UI, seeded from Hexatone but edited independently.
+ * Owns committed/draft inputs, linked frequencies, result selection and search
+ * preferences; runtime.js derives pitches and session-persistence.js stores state.
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import FrequencyInput, {

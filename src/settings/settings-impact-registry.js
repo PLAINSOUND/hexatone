@@ -1,3 +1,10 @@
+/**
+ * Settings-to-runtime impact groups used by App and synth/keyboard wiring.
+ * Determines which edits need geometry, tuning, input or output updates; keep this
+ * aligned with persistence/settings-registry without turning cosmetic changes
+ * into audio or canvas rebuilds.
+ */
+
 export const SETTINGS_IMPACT_FIELDS = {
   tuning: ["scale", "equivSteps", "reference_degree", "fundamental"],
   layout: ["rSteps", "drSteps", "center_degree", "hexSize", "rotation"],

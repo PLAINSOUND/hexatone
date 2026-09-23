@@ -1,5 +1,3 @@
-import { debugLog, warnLog } from "../debug/logging.js";
-import { exquisOrientation, exquisLayoutFlags } from "./exquis-orientation.js";
 /**
  * exquis-leds.js
  *
@@ -40,6 +38,9 @@ import { exquisOrientation, exquisLayoutFlags } from "./exquis-orientation.js";
  * exit() sends quit and stops the heartbeat. Called only on genuine exits:
  * scale mode switch or device disconnect.
  */
+
+import { debugLog, warnLog } from "../debug/logging.js";
+import { exquisOrientation, exquisLayoutFlags } from "./exquis-orientation.js";
 
 const HDR = [0xf0, 0x00, 0x21, 0x7e];
 

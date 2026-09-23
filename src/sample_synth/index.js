@@ -1,8 +1,9 @@
-import { outputAudioTime } from "../midi/output-transaction.js";
 // This module owns the built-in browser sample synth.
 // It maps Hexatone note events onto decoded sample instruments and retunes them
 // in the browser AudioContext, while exposing the same makeHex/note lifecycle
 // interface as the other synth backends. It does not resolve controller input.
+
+import { outputAudioTime } from "../midi/output-transaction.js";
 
 import { instruments } from "./instruments";
 import { scalaToCents } from "../settings/scale/parse-scale";

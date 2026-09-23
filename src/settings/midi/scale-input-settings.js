@@ -1,10 +1,10 @@
-import PropTypes from "prop-types";
-import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
-
 // This module owns the extra MIDI Input controls that appear only in
 // "MIDI to Nearest Scale Degree" mode. It is intentionally small and pure:
 // callers provide the current settings and change handler, and it persists the
 // tolerance/fallback fields without knowing anything about controllers.
+
+import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 const ScaleInputSettings = ({ settings, onChange }) => (
   <>
     <label title="Maximum distance in cents before a note is considered out of tolerance">

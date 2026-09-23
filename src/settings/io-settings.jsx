@@ -1,3 +1,9 @@
+/**
+ * IO workspace composition: restore preference, permissions, controllers, outputs,
+ * optional shared sequencer transport and built-in sounds. App/use-synth-wiring
+ * own connection and playback state so changing tabs does not recreate the transport.
+ */
+
 import SampleSynth from "./sample";
 import { useState } from "preact/hooks";
 import { IO_RESTORE_KEY, restoreIOOnReload } from "../persistence/io-reload-policy.js";

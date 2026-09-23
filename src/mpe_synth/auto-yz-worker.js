@@ -1,3 +1,9 @@
+/**
+ * Worker entry point for velocity-derived MPE timbre/pressure envelopes.
+ * Runs auto-yz.js's ramp engine off the presentation clock and posts scheduled
+ * samples to the owning backend; it does not access MIDI ports or the DOM.
+ */
+
 import {
   AUTO_MPE_YZ_MIDI_LEAD_MS,
   AUTO_MPE_YZ_SAMPLE_MS,

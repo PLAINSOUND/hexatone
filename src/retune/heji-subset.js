@@ -1,3 +1,9 @@
+/**
+ * Limited HEJI vocabulary for the standalone retuning research editor.
+ * Supplies glyph selections and monzo deltas to pitch-model.js; this is not the
+ * full live-app notation/heji.js parser and should not silently replace it.
+ */
+
 export const PRIME_COUNT = 15;
 
 export const BASE_SYMBOLS = [

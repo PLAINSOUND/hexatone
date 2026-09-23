@@ -1,11 +1,11 @@
-import PropTypes from "prop-types";
-import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
-
 // This module owns the compact MPE input zone controls used by MIDI Input for
 // unknown controllers and controller-specific MPE-capable paths. It only
 // renders/settings manager channel, member channel bounds, and input-side MPE
 // pitch bend range; callers provide the allowed channel set and persistence
 // behavior.
+
+import PropTypes from "prop-types";
+import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 const MpeInputSettings = ({ settings, memberChannels, defaultLo, defaultHi, onChange }) => {
   const hakenContinuumActive = settings.midiin_controller_override === "hakenaudio";
   const visibleBendRange = settings.midiin_scale_bend_range ?? (hakenContinuumActive ? 96 : 48);

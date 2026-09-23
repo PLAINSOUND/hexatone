@@ -1,3 +1,9 @@
+/**
+ * HEXATONE settings panel composed from tuning-library, scale and layout controls.
+ * Receives settings and actions from App; it does not own the committed tuning
+ * workspace, device lifecycle or the separate IO tab.
+ */
+
 import { useMemo, useState } from "preact/hooks";
 import Info from "./scale/info";
 import Scale from "./scale";

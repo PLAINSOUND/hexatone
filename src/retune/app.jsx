@@ -1,3 +1,9 @@
+/**
+ * Standalone retune.html research editor, separate from the live Hexatone shell.
+ * Imports MIDI/corpus data, edits per-note spelling and monzo annotations, and
+ * renders staff/piano-roll views using this directory's limited pitch model.
+ */
+
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import "./retune.css";
 import CustomRangeSlider from "../settings/shared/range-slider.jsx";

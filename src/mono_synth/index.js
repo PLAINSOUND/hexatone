@@ -1,3 +1,10 @@
+/**
+ * Single-channel last-note-priority MIDI backend composed by use-synth-wiring.
+ * Owns held voice identities, carrier selection and pitch/slide/pressure output;
+ * ramp.js supplies worker-ticked timestamped transitions and output transactions
+ * coalesce synchronous chord changes. Raw MIDI channels here are zero-based.
+ */
+
 import { sendRpn } from "../midi/rpn.js";
 import { getOutputTransaction } from "../midi/output-transaction.js";
 import { createMonoRamp } from "./ramp.js";
@@ -114,7 +121,7 @@ export function createMonoSynth({
       tx.finalizers.set(synth, () => update(tx.data.get(synth)));
     } else update(at);
   };
-  const panic = () => {
+  const releaseOwned = () => {
     const at = ramp.boundary();
     ramp.cancel();
     stack.forEach((h) => {
@@ -122,12 +129,17 @@ export function createMonoSynth({
     });
     stack.length = 0;
     if (carrier != null) send([0x80 + channel, carrier, 0], at);
-    send([0xb0 + channel, 64, 0], at);
-    send([0xb0 + channel, 120, 0], at);
-    send([0xd0 + channel, 0], at);
     active = null;
     carrier = null;
     transitionEnd = 0;
+    lastExpression.clear();
+    return at;
+  };
+  const panic = () => {
+    const at = releaseOwned();
+    send([0xb0 + channel, 64, 0], at);
+    send([0xb0 + channel, 120, 0], at);
+    send([0xd0 + channel, 0], at);
   };
   sendRpn(output, channel, 0, 0, range);
   const synth = {
@@ -214,9 +226,10 @@ export function createMonoSynth({
       return hex;
     },
     allSoundOff: panic,
-    releaseAll: panic,
+    releaseAll: releaseOwned,
     shutdown() {
-      panic();
+      // Normal replacement must not reset another sender's shared channel.
+      releaseOwned();
       stopped = true;
       ramp.dispose();
     },

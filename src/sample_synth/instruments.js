@@ -1,3 +1,9 @@
+/**
+ * Built-in sampled-instrument catalogue and playback/filter defaults.
+ * Sample selection UI and sample_synth/index.js share these groups; fileName values
+ * refer to public sound assets, while envelope/loop/tracking fields shape playback.
+ */
+
 export const instruments = [
   {
     name: "Additive Synthesis Timbres",
