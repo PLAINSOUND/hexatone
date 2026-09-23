@@ -782,6 +782,68 @@ describe("osc_synth pooled slot allocation", () => {
     expect(modeUpdates.map((message) => message.args[2].value)).toEqual([0, 0, 1, 1]);
   });
 
+  it("orders an immediate release after a future activation attack", async () => {
+    const synth = await create_osc_synth("ws://future-release", ["tone"], [0.5]);
+    await Promise.resolve();
+    const ws = MockWebSocket.instances[0];
+    ws.sent = [];
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1,
+      { deferNoteOn: true });
+    hex.noteOn(performance.now() + 100);
+    hex.noteOff(0);
+    await Promise.resolve();
+    const attack = ws.sent.find(p => p.messages?.[0].address === "/s_new");
+    const release = ws.sent.find(p => p.messages?.[0].address === "/n_set");
+    expect(release.timetagUnixMs).toBeGreaterThan(attack.timetagUnixMs);
+    synth.shutdown();
+  });
+
+  it("compacts completed offline notes and retains held attacks beyond 64 packets", async () => {
+    DelayedWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", DelayedWebSocket);
+    const synth = await create_osc_synth("ws://offline-overflow", ["tone"], [0.5]);
+    const make = x => synth.makeHex({ x, y: 0 }, x * 10, 0, 0, 1, 0, 0, undefined, 72, 1, 1,
+      { deferNoteOn: true });
+    for (let i = 0; i < 100; i++) {
+      const hex = make(i);
+      hex.noteOn();
+      hex.noteOff(0);
+    }
+    const held = Array.from({ length: 80 }, (_, i) => make(i));
+    held.forEach(hex => hex.noteOn());
+    const ws = DelayedWebSocket.instances[0];
+    ws.open();
+    expect(ws.sent.filter(p => p.address === "/s_new")).toHaveLength(80);
+    held.forEach(hex => hex.noteOff(0));
+    const releases = ws.sent.filter(p => p.address === "/n_set" &&
+      p.args.some((arg, i) => arg.value === "gate" && p.args[i + 1]?.value === 0));
+    expect(releases).toHaveLength(80);
+    synth.shutdown();
+  });
+
+  it("retains releases for already transmitted voices across a disconnect", async () => {
+    vi.useFakeTimers();
+    DelayedWebSocket.instances = [];
+    vi.stubGlobal("WebSocket", DelayedWebSocket);
+    const synth = await create_osc_synth("ws://offline-release", ["tone"], [0.5]);
+    try {
+      DelayedWebSocket.instances[0].open();
+      const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1,
+        { deferNoteOn: true });
+      hex.noteOn();
+      DelayedWebSocket.instances[0].onclose();
+      hex.noteOff(0);
+      await vi.advanceTimersByTimeAsync(2000);
+      const reconnected = DelayedWebSocket.instances[1];
+      reconnected.open();
+      expect(reconnected.sent.some(p => p.address === "/n_set" &&
+        p.args.some((arg, i) => arg.value === "gate" && p.args[i + 1]?.value === 0))).toBe(true);
+    } finally {
+      synth.shutdown();
+      vi.useRealTimers();
+    }
+  });
+
   it("shutdown clears queued OSC messages and closes the socket so disabled OSC cannot leak on reopen", async () => {
     DelayedWebSocket.instances = [];
     vi.stubGlobal("WebSocket", DelayedWebSocket);

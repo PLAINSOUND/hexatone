@@ -168,7 +168,7 @@ class OscSocket {
       }
       debugLog("osc", "Connected to osc-bridge:", this._url);
       this._ws = ws;
-      for (const msg of this._queue) ws.send(msg);
+      for (const msg of this._queue) ws.send(JSON.stringify(msg));
       this._queue = [];
     };
 
@@ -199,8 +199,35 @@ class OscSocket {
   _sendSerialized(message) {
     if (this._ws && this._ws.readyState === WebSocket.OPEN) {
       this._ws.send(message);
-    } else if (this._queue.length < 64) {
-      this._queue.push(message);
+    } else {
+      // Buffer by voice lifetime, not a fixed packet count: dropping a release
+      // while retaining its attack leaves a permanent voice at the receiver.
+      const packet = JSON.parse(message);
+      for (const msg of packet.messages ?? [packet]) {
+        const entry = packet.messages ? { ...packet, messages: [msg] } : packet;
+        const node = msg.args?.[msg.address === "/s_new" ? 1 : 0]?.value;
+        const sameNode = (queued) => {
+          const prior = queued.messages?.[0] ?? queued;
+          return queued.port === entry.port &&
+            prior.args?.[prior.address === "/s_new" ? 1 : 0]?.value === node;
+        };
+        const terminal = msg.address === "/n_free" || (msg.address === "/n_set" &&
+          msg.args.some((arg, i) => arg.value === "gate" && msg.args[i + 1]?.value === 0));
+        if (terminal) {
+          const neverSent = this._queue.some((queued) => sameNode(queued) &&
+            (queued.messages?.[0] ?? queued).address === "/s_new");
+          this._queue = this._queue.filter((queued) => !sameNode(queued));
+          if (neverSent) continue; // Entire note ended before connection opened.
+        } else if (msg.address === "/n_set") {
+          const parameters = JSON.stringify(msg.args.filter((_, i) => i % 2 === 1));
+          this._queue = this._queue.filter((queued) => {
+            const prior = queued.messages?.[0] ?? queued;
+            return !sameNode(queued) || prior.address !== "/n_set" ||
+              JSON.stringify(prior.args.filter((_, i) => i % 2 === 1)) !== parameters;
+          });
+        }
+        this._queue.push(entry);
+      }
     }
   }
 
@@ -681,6 +708,7 @@ OscHex.prototype.noteOn = function (timestamp) {
     return;
   }
   const { slot } = this._pool.noteOn(this.coords, this._targetMidiFloat());
+  this._attackTimestamp = Number.isFinite(timestamp) ? timestamp : null;
   this._slot = slot;
   this._nodeIds = this._synthNames.map((_, i) => nextNodeId(i));
   debugLog("osc", "OscHex.noteOn", {
@@ -735,6 +763,12 @@ OscHex.prototype.noteOn = function (timestamp) {
 OscHex.prototype.noteOff = function (release_velocity, timestamp) {
   if (this.release) return;
   this.release = true;
+  // Output activation may schedule the attack ahead of a physical key release.
+  // Give the server a strictly later gate event, even across separate bundles.
+  const requested = Number.isFinite(timestamp) ? timestamp : performance.now();
+  if (this._attackTimestamp != null && requested <= this._attackTimestamp) {
+    timestamp = this._attackTimestamp + 1;
+  }
   const resolvedSlot = this._pool.noteOff(this.coords);
   const slot = resolvedSlot ?? this._slot;
   debugLog("osc", "OscHex.noteOff", {
@@ -780,7 +814,9 @@ OscHex.prototype.forceFree = function () {
   for (let i = 0; i < this._synthNames.length; i++) {
     const nodeId = this._nodeIds[i];
     if (nodeId == null) continue;
-    this._socket.send("/n_free", [{ type: "i", value: nodeId }], OSC_LAYER_PORTS[i]);
+    const timestamp = this._attackTimestamp != null && performance.now() <= this._attackTimestamp
+      ? this._attackTimestamp + 1 : undefined;
+    this._socket.send("/n_free", [{ type: "i", value: nodeId }], OSC_LAYER_PORTS[i], timestamp);
     this._knownNodeIds.delete(nodeId);
     if (slot != null) {
       const slotState = this._slotState[i][slot];

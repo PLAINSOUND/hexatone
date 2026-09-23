@@ -345,6 +345,10 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 `Snap Sequence to Current Hexatone Tuning` plays saved sequence pitches through the currently active Hexatone tuning so that the same sequence may be auditioned in another scale without rewriting the stored event data; capturing the sounds while snapping is active stores the recomputed and retuned note data as new snapshots.
 
+With a blank Hexatone canvas (no scale loaded), this option has no effect: the sequence keeps its stored pitches.
+
+A manually triggered SNAPSHOT keeps sounding when you switch to HEXATONE, I/O, CALCULATOR or MANUAL, with the active snapshot highlighted in the floating palette. You can stop it there. This does not change the tab-switching behaviour of CUE or timed playback.
+
 `Sequencer Timbre Control` is enabled by default and allows the selected timbre controller to shape recorded sequence timbre while playing. For Lumatone this follows the enabled Mod Wheel and/or Foot Controller timbre assignments, including soft pickup when both are selected. Disable it to retain the recorded sequence timbre unchanged.
 
 The control shapes rather than replaces the saved values: 0 moves timbre to its minimum, 64 leaves the saved values unchanged, and 127 moves it to its maximum. Other controllers use the existing CC1 modulation-wheel path. This option affects playback expression, not the stored sequence data.
