@@ -9,9 +9,7 @@
  * orchestration boundary where domain modules are combined into the running app.
  */
 import { Suspense, lazy } from "preact/compat";
-import { recordReloadDiagnostic } from "./debug/reload-diagnostics.js";
-import { useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "preact/hooks";
-import { useReloadDiagnosticState as useState } from "./debug/use-reload-diagnostic-state.js";
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
 import { sendLumatoneBlankLayout } from "./keyboard/keys-controller-leds.js";
@@ -19,6 +17,7 @@ import { primeSharedSampleAudio } from "./sample_synth/prime-shared-audio.js";
 import { normalizeColors, normalizeStructural } from "./settings/normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
+import { restoreIOOnReload } from "./persistence/io-reload-policy.js";
 import {
   createHarmonicFrame,
   deriveActiveHejiFrame,
@@ -215,11 +214,12 @@ export function applyReloadPersistencePolicy({
 }
 
 export const RELOAD_WORKSPACE_TAB_KEY = "hexatone_reload_workspace_tab";
-const RELOADABLE_WORKSPACE_TABS = new Set(["sequencer", "calculator"]);
+const RELOADABLE_WORKSPACE_TABS = new Set(["sequencer", "calculator", "io"]);
 
 export function loadReloadWorkspaceTab(storage = globalThis.sessionStorage) {
   try {
     const storedTab = storage?.getItem(RELOAD_WORKSPACE_TAB_KEY);
+    if (storedTab === "io" && !restoreIOOnReload()) return "hexatone";
     return RELOADABLE_WORKSPACE_TABS.has(storedTab) ? storedTab : "hexatone";
   } catch {
     return "hexatone";
@@ -648,18 +648,17 @@ const SEQUENCE_PLAYBACK_FALLBACK_TUNING = Object.freeze({
 // normalized into the live runtime slices consumed by Keyboard, Settings, and
 // Sequencer.
 const App = () => {
-  recordReloadDiagnostic("app-render");
-  const [ready, setReady] = useState("app.ready", false);
-  const [workspaceTab, setWorkspaceTab] = useState("app.workspaceTab", loadReloadWorkspaceTab);
+  const [ready, setReady] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState(loadReloadWorkspaceTab);
   const ioTransportTargetRef = useRef(null);
   // I/O and Calculator are auxiliary views over the current musical workspace.
   // Keeping the underlying workspace separate lets a running sequence continue
   // while sound/routing controls or pitch calculations are visible.
-  const [performanceWorkspaceTab, setPerformanceWorkspaceTab] = useState("app.performanceWorkspaceTab", () =>
+  const [performanceWorkspaceTab, setPerformanceWorkspaceTab] = useState(() =>
     workspaceTab === "sequencer" ? "sequencer" : "hexatone",
   );
-  const [inlineManualView, setInlineManualView] = useState("app.inlineManualView", null);
-  const [manualSectionTitles, setManualSectionTitles] = useState("app.manualSectionTitles", MANUAL_VIEW_DEFAULT_SECTIONS);
+  const [inlineManualView, setInlineManualView] = useState(null);
+  const [manualSectionTitles, setManualSectionTitles] = useState(MANUAL_VIEW_DEFAULT_SECTIONS);
   const sidebarRef = useRef(null);
   const manualScrollPositionsRef = useRef({
     main: 0,
@@ -679,16 +678,16 @@ const App = () => {
   }, [workspaceTab, activeManualView]);
   const snapshotPaletteVisible = !inlineManualView && workspaceTab !== "sequencer";
   const performancePalettesVisible = snapshotPaletteVisible;
-  const [userHasInteracted, setUserHasInteracted] = useState("app.userHasInteracted", false);
-  const [showRotationDebug, setShowRotationDebug] = useState("app.showRotationDebug", getRotationDebugDefault);
-  const [rotationDebugEvents, setRotationDebugEvents] = useState("app.rotationDebugEvents", []);
-  const [, setRotationSettleRevision] = useState("app.rotationSettleRevision", 0);
-  const [banner, setBanner] = useState("app.banner", getInitialBanner);
-  const [landscapeSafeSide, setLandscapeSafeSide] = useState("app.landscapeSafeSide", "none");
-  const [textEntryActive, setTextEntryActive] = useState("app.textEntryActive", false);
-  const [viewportKeyboardOpen, setViewportKeyboardOpen] = useState("app.viewportKeyboardOpen", false);
+  const [userHasInteracted, setUserHasInteracted] = useState(false);
+  const [showRotationDebug, setShowRotationDebug] = useState(getRotationDebugDefault);
+  const [rotationDebugEvents, setRotationDebugEvents] = useState([]);
+  const [, setRotationSettleRevision] = useState(0);
+  const [banner, setBanner] = useState(getInitialBanner);
+  const [landscapeSafeSide, setLandscapeSafeSide] = useState("none");
+  const [textEntryActive, setTextEntryActive] = useState(false);
+  const [viewportKeyboardOpen, setViewportKeyboardOpen] = useState(false);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
-  const [keysReadyRevision, setKeysReadyRevision] = useState("app.keysReadyRevision", 0);
+  const [keysReadyRevision, setKeysReadyRevision] = useState(0);
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
   const viewportBaselineRef = useRef(0);
   const audioNeedsHardRefreshRef = useRef(false);
@@ -978,11 +977,11 @@ const App = () => {
     PRESET_SKIP_KEYS,
   );
 
-  const [modulationArmed, setModulationArmed] = useState("app.modulationArmed", false);
-  const [modulationMode, setModulationMode] = useState("app.modulationMode", "idle");
-  const [modulationState, setModulationState] = useState("app.modulationState", null);
-  const [presetModulationLibrary, setPresetModulationLibrary] = useState("app.presetModulationLibrary", []);
-  const [presetRuntimeResetRevision, setPresetRuntimeResetRevision] = useState("app.presetRuntimeResetRevision", 0);
+  const [modulationArmed, setModulationArmed] = useState(false);
+  const [modulationMode, setModulationMode] = useState("idle");
+  const [modulationState, setModulationState] = useState(null);
+  const [presetModulationLibrary, setPresetModulationLibrary] = useState([]);
+  const [presetRuntimeResetRevision, setPresetRuntimeResetRevision] = useState(0);
 
   const { onImport, importCount, bumpImportCount } = useImport(settings, setSettings, {
     onReady: () => setReady(true),
@@ -1075,24 +1074,24 @@ const App = () => {
     };
   }, []);
 
-  const [active, setActive] = useState("app.active", false);
-  const [latch, setLatch] = useState("app.latch", false);
-  const [modulationPalettePos, setModulationPalettePos] = useState("app.modulationPalettePos", getDefaultModulationPalettePos);
-  const [modulationPaletteCollapsed, setModulationPaletteCollapsed] = useState("app.modulationPaletteCollapsed", false);
-  const [snapshotPalettePos, setSnapshotPalettePos] = useState("app.snapshotPalettePos", getDefaultSnapshotPalettePos);
-  const [snapshotPaletteCollapsed, setSnapshotPaletteCollapsed] = useState("app.snapshotPaletteCollapsed", false);
+  const [active, setActive] = useState(false);
+  const [latch, setLatch] = useState(false);
+  const [modulationPalettePos, setModulationPalettePos] = useState(getDefaultModulationPalettePos);
+  const [modulationPaletteCollapsed, setModulationPaletteCollapsed] = useState(false);
+  const [snapshotPalettePos, setSnapshotPalettePos] = useState(getDefaultSnapshotPalettePos);
+  const [snapshotPaletteCollapsed, setSnapshotPaletteCollapsed] = useState(false);
 
   // Exquis LED App Mode status — set asynchronously after firmware version check.
   // null = pending / not connected; { ok: true } = active; { ok: false, reason } = failed.
-  const [exquisLedStatus, setExquisLedStatus] = useState("app.exquisLedStatus", null);
+  const [exquisLedStatus, setExquisLedStatus] = useState(null);
   const exquisLedsRef = useRef(null);
   const lumatoneLedsRef = useRef(null);
-  const [lumatoneDriverReady, setLumatoneDriverReady] = useState("app.lumatoneDriverReady", false);
+  const [lumatoneDriverReady, setLumatoneDriverReady] = useState(false);
   const lumatoneAutoSyncKeyRef = useRef("");
   const linnstrumentLedsRef = useRef(null);
 
   // ── Snapshots ─────────────────────────────────────────────────────────────
-  const [snapshots, setSnapshots] = useState("app.snapshots", []);
+  const [snapshots, setSnapshots] = useState([]);
   const switchWorkspaceTab = useCallback(
     (nextTab) => {
       rememberManualScrollPosition();
@@ -1108,29 +1107,29 @@ const App = () => {
     },
     [rememberManualScrollPosition, snapshots.length],
   );
-  const [playingSnapshotId, setPlayingSnapshotId] = useState("app.playingSnapshotId", null);
-  const [manualPlayingSnapshotIds, setManualPlayingSnapshotIds] = useState("app.manualPlayingSnapshotIds", []);
-  const [selectedSnapshotId, setSelectedSnapshotId] = useState("app.selectedSnapshotId", null);
-  const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState("app.selectedSnapshotMarker", null);
-  const [snapshotLabelMode, setSnapshotLabelMode] = useState("app.snapshotLabelMode", "proportion");
-  const [activeSequenceSource, setActiveSequenceSource] = useState("app.activeSequenceSource", "");
-  const [activeSequenceBuiltInName, setActiveSequenceBuiltInName] = useState("app.activeSequenceBuiltInName", "");
-  const [activeSequenceName, setActiveSequenceName] = useState("app.activeSequenceName", "");
-  const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("app.activeSequenceSavedName", "");
-  const [activeSequenceDescription, setActiveSequenceDescription] = useState("app.activeSequenceDescription", "");
-  const [sequenceLegato, setSequenceLegato] = useState("app.sequenceLegato", "per-note");
-  const [sequencePlaybackSpeed, setSequencePlaybackSpeed] = useState("app.sequencePlaybackSpeed", 1);
-  const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState("app.sequencePlaybackPitchOffset", 0);
-  const [sequenceTimbreModWheelEnabled, setSequenceTimbreModWheelEnabled] = useState("app.sequenceTimbreModWheelEnabled", true);
+  const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
+  const [manualPlayingSnapshotIds, setManualPlayingSnapshotIds] = useState([]);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
+  const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState(null);
+  const [snapshotLabelMode, setSnapshotLabelMode] = useState("proportion");
+  const [activeSequenceSource, setActiveSequenceSource] = useState("");
+  const [activeSequenceBuiltInName, setActiveSequenceBuiltInName] = useState("");
+  const [activeSequenceName, setActiveSequenceName] = useState("");
+  const [activeSequenceSavedName, setActiveSequenceSavedName] = useState("");
+  const [activeSequenceDescription, setActiveSequenceDescription] = useState("");
+  const [sequenceLegato, setSequenceLegato] = useState("per-note");
+  const [sequencePlaybackSpeed, setSequencePlaybackSpeed] = useState(1);
+  const [sequencePlaybackPitchOffset, setSequencePlaybackPitchOffset] = useState(0);
+  const [sequenceTimbreModWheelEnabled, setSequenceTimbreModWheelEnabled] = useState(true);
   const sequenceTimbreModWheelEnabledRef = useRef(true);
   const sequenceTimbreModWheelValueRef = useRef(NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL);
-  const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState("app.snapSequenceToCurrentTuning", false);
-  const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState("app.sequenceAutoCreateBars", true);
-  const [manualArpeggiation, setManualArpeggiation] = useState("app.manualArpeggiation", () => normalizeManualArpeggiation());
-  const [sequenceBars, setSequenceBars] = useState("app.sequenceBars", defaultSequenceBars);
-  const [sequenceTempi, setSequenceTempi] = useState("app.sequenceTempi", defaultSequenceTempi);
-  const [sequenceRepeats, setSequenceRepeats] = useState("app.sequenceRepeats", []);
-  const [sequencePlayRepeats, setSequencePlayRepeats] = useState("app.sequencePlayRepeats", true);
+  const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
+  const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
+  const [manualArpeggiation, setManualArpeggiation] = useState(() => normalizeManualArpeggiation());
+  const [sequenceBars, setSequenceBars] = useState(defaultSequenceBars);
+  const [sequenceTempi, setSequenceTempi] = useState(defaultSequenceTempi);
+  const [sequenceRepeats, setSequenceRepeats] = useState([]);
+  const [sequencePlayRepeats, setSequencePlayRepeats] = useState(true);
   const sequencerScrollPositionRef = useRef(0);
   const timedTransportStopRef = useRef(null);
   const pendingManualCueUiCommitRef = useRef({ timerId: null, payload: null });
@@ -1143,7 +1142,7 @@ const App = () => {
     maximumApplyDurationMs: 0,
     latestCueIndex: null,
   });
-  const [sequencePlayhead, setSequencePlayhead] = useState("app.sequencePlayhead", {
+  const [sequencePlayhead, setSequencePlayhead] = useState({
     barIndex: 0,
     stepIndex: -1,
     markerIndex: null,
@@ -1181,7 +1180,7 @@ const App = () => {
   }
   const sequenceBarsRef = useRef(defaultSequenceBars);
   const dragIdRef = useRef(null);
-  const [dragOverId, setDragOverId] = useState("app.dragOverId", null);
+  const [dragOverId, setDragOverId] = useState(null);
   const modulationPaletteRef = useRef(null);
   const modulationPaletteDragRef = useRef(null);
   const modulationPaletteUserMovedRef = useRef(false);

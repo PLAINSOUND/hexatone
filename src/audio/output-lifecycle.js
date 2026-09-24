@@ -10,6 +10,18 @@ export function releaseSynthInstance(synth) {
   else if (typeof synth?.releaseAll === "function") synth.releaseAll();
 }
 
+// A stale composite may still reference a shut-down backend until a replacement
+// finishes loading. Preserve the logical note, but never allocate a new output
+// voice on that closed engine. Reconciliation will attach its live replacement.
+export function silentOutputHex(coords, cents) {
+  return {
+    coords, cents, release: false,
+    noteOn() {},
+    noteOff() { this.release = true; },
+    retune(value) { this.cents = value; },
+  };
+}
+
 export function clearOutputSynthRefs({ activeRefs, mtsRef, retiringSamplesRef }) {
   for (const synth of retiringSamplesRef.current) synth.allSoundOff?.();
   retiringSamplesRef.current.clear();

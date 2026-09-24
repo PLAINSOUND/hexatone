@@ -183,6 +183,7 @@ vi.mock("./hooks/use-midi-guardian.js", () => ({
   useMidiGuardian: () => ({ panic: guardianPanicMock }),
 }));
 vi.mock("./persistence/settings-registry.js", () => ({
+  SETTINGS_REGISTRY: [],
   buildQuerySpec: () => ({}),
   buildRegistryDefaults: () => ({}),
   PRESET_SKIP_KEYS: [],
@@ -331,6 +332,7 @@ describe("applyReloadPersistencePolicy", () => {
 describe("reload workspace tab", () => {
   beforeEach(() => {
     sessionStorage.removeItem(RELOAD_WORKSPACE_TAB_KEY);
+    localStorage.removeItem("hexatone_restore_io_on_reload");
   });
 
   it.each(["sequencer", "calculator"])("restores the %s workspace", (workspaceTab) => {
@@ -339,7 +341,7 @@ describe("reload workspace tab", () => {
     expect(loadReloadWorkspaceTab()).toBe(workspaceTab);
   });
 
-  it.each(["hexatone", "io", "manual"])(
+  it.each(["hexatone", "manual"])(
     "returns to Hexatone after leaving the %s workspace active",
     (workspaceTab) => {
       sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, "sequencer");
@@ -350,6 +352,17 @@ describe("reload workspace tab", () => {
       expect(sessionStorage.getItem(RELOAD_WORKSPACE_TAB_KEY)).toBeNull();
     },
   );
+
+  it("restores I/O only while its restore preference is enabled", () => {
+    saveReloadWorkspaceTab("io");
+    expect(loadReloadWorkspaceTab()).toBe("io");
+    localStorage.setItem("hexatone_restore_io_on_reload", "false");
+    expect(loadReloadWorkspaceTab()).toBe("hexatone");
+    // Changing the checkbox while remaining in I/O must take effect too.
+    localStorage.setItem("hexatone_restore_io_on_reload", "true");
+    expect(loadReloadWorkspaceTab()).toBe("io");
+    localStorage.removeItem("hexatone_restore_io_on_reload");
+  });
 
   it("falls back to Hexatone when stored navigation state is invalid", () => {
     sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, "unknown");
@@ -965,6 +978,7 @@ describe("App workspace tabs", () => {
   it.each([
     ["sequencer", "SEQUENCER"],
     ["calculator", "CALCULATOR"],
+    ["io", "I/O"],
   ])("opens the restored %s workspace on startup", async (storedTab, tabName) => {
     sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, storedTab);
 

@@ -8,7 +8,6 @@
  * and writes updates back out.
  */
 import { useState, useEffect, useRef } from "preact/hooks";
-import { recordReloadDiagnostic } from "../debug/reload-diagnostics.js";
 
 export class Extract {
   constructor(from, to) {
@@ -100,10 +99,6 @@ export function useQuery(spec, defaults, skipKeys = [], localStorageSkipKeys = s
     const { updateUrl = true } = options;
     const query = new URLSearchParams();
     const next = next_f(valuesRef.current);
-    recordReloadDiagnostic("settings-update", {
-      changedKeys: Object.keys(next).filter(key => !Object.is(next[key], valuesRef.current[key])),
-      sameObject: next === valuesRef.current,
-    });
     // Update the ref immediately so that multiple synchronous setState calls
     // within the same event handler each compose on top of the previous result,
     // rather than all computing from the same pre-render snapshot.

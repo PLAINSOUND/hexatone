@@ -10,9 +10,7 @@
  * and callbacks it returns.
  */
 
-import { useEffect, useCallback, useMemo, useRef } from "preact/hooks";
-import { useReloadDiagnosticState as useState } from "../debug/use-reload-diagnostic-state.js";
-import { recordReloadDiagnostic } from "../debug/reload-diagnostics.js";
+import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "../midi/enable-webmidi";
 import { create_midi_synth } from "../midi_synth";
 import create_mpe_synth from "../mpe_synth";
@@ -45,6 +43,8 @@ import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 import { localBool, localFloat } from "../persistence/storage-utils.js";
 import { debugLog, warnLog } from "../debug/logging.js";
 import { clearOutputSynthRefs, releaseSynthInstance } from "../audio/output-lifecycle.js";
+import { adoptOutputCandidate, createOutputCandidateRequests } from "../audio/output-candidate.js";
+import { createOutputPortIdentity } from "../audio/output-port-identity.js";
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
@@ -444,21 +444,21 @@ const useSynthWiring = (
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
-  const [synth, setSynth] = useState("wiring.synth", null);
-  const [readySampleInstrument, setReadySampleInstrument] = useState("wiring.readySampleInstrument", null);
-  const [midi, setMidi] = useState("wiring.midi", null);
-  const [midiAccess, setMidiAccess] = useState("wiring.midiAccess", "none");
-  const [midiAccessError, setMidiAccessError] = useState("wiring.midiAccessError", null);
-  const [midiLearnActive, setMidiLearnActive] = useState("wiring.midiLearnActive", false);
-  const [hakenPedalLearnActive, setHakenPedalLearnActive] = useState("wiring.hakenPedalLearnActive", false);
+  const [synth, setSynth] = useState(null);
+  const [readySampleInstrument, setReadySampleInstrument] = useState(null);
+  const [midi, setMidi] = useState(null);
+  const [midiAccess, setMidiAccess] = useState("none");
+  const [midiAccessError, setMidiAccessError] = useState(null);
+  const [midiLearnActive, setMidiLearnActive] = useState(false);
+  const [hakenPedalLearnActive, setHakenPedalLearnActive] = useState(false);
   // Incremented on every MIDI onstatechange so dependent effects re-run when
   // devices connect or disconnect (e.g. FluidSynth starting after page load).
-  const [midiTick, setMidiTick] = useState("wiring.midiTick", 0);
+  const [midiTick, setMidiTick] = useState(0);
   // Counter so multiple overlapping async operations don't prematurely hide
   // the loading spinner (see wait / signal helpers above).
-  const [loading, setLoading] = useState("wiring.loading", 0);
-  const [octaveTranspose, setOctaveTranspose] = useState("wiring.octaveTranspose", 0);
-  const [octaveDeferred, setOctaveDeferred] = useState("wiring.octaveDeferred",
+  const [loading, setLoading] = useState(0);
+  const [octaveTranspose, setOctaveTranspose] = useState(0);
+  const [octaveDeferred, setOctaveDeferred] = useState(
     () => sessionStorage.getItem("octave_deferred") !== "false",
   );
   const sampleSynthRef = useRef({ key: null, synth: null });
@@ -468,7 +468,16 @@ const useSynthWiring = (
   const mtsSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
   const midiRequestRef = useRef(null);
+  const midiDisableRef = useRef(null);
+  const midiPermissionGenerationRef = useRef(0);
   const midiPortsChangedListenerRef = useRef(null);
+  const mountedRef = useRef(true);
+  const sampleRequestsRef = useRef(null);
+  if (!sampleRequestsRef.current) sampleRequestsRef.current = createOutputCandidateRequests();
+  const midiRequestsRef = useRef(null);
+  if (!midiRequestsRef.current) midiRequestsRef.current = createOutputCandidateRequests();
+  const outputPortIdentityRef = useRef(null);
+  if (!outputPortIdentityRef.current) outputPortIdentityRef.current = createOutputPortIdentity();
 
   const clearAllOutputSynthRefs = useCallback(() => {
     clearOutputSynthRefs({
@@ -477,6 +486,14 @@ const useSynthWiring = (
       retiringSamplesRef: retiringSampleSynthsRef,
     });
   }, []);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearAllOutputSynthRefs();
+    };
+  }, [clearAllOutputSynthRefs]);
 
   const clearMidiSelections = useCallback(() => {
     Object.entries(MIDI_PORT_RESET).forEach(([key, value]) => {
@@ -489,8 +506,12 @@ const useSynthWiring = (
 
   const ensureMidiAccess = useCallback(
     async ({ sysex = false } = {}) => {
+      const generation = midiPermissionGenerationRef.current;
+      const disabling = midiDisableRef.current;
+      if (disabling) await disabling;
+      if (generation !== midiPermissionGenerationRef.current) return false;
       const targetAccess = sysex ? "sysex" : "basic";
-      if (midiAccessRank[midiAccess] >= midiAccessRank[targetAccess]) return true;
+      if (!disabling && WebMidi.enabled && midiAccessRank[midiAccess] >= midiAccessRank[targetAccess]) return true;
       if (!navigator.requestMIDIAccess) {
         setMidiAccessError("Web MIDI is not available in this browser.");
         return false;
@@ -503,12 +524,12 @@ const useSynthWiring = (
         setMidiAccessError(null);
         try {
           const enabledWebMidi = await enableMidi({ sysex });
+          if (generation !== midiPermissionGenerationRef.current) return false;
           const midiAccessObj = enabledWebMidi?.interface ?? WebMidi.interface;
           if (!midiAccessObj) throw new Error("WebMidi did not expose its MIDI access interface.");
           debugLog("midi", sysex ? "Web MIDI API with sysex is ready!" : "Web MIDI API is ready!");
           midiPortsChangedListenerRef.current?.();
           const refreshMidiPorts = () => {
-            recordReloadDiagnostic("midi-ports-changed");
             setMidiTick((t) => t + 1);
           };
           const webMidiPortsListener = WebMidi.addListener("portschanged", refreshMidiPorts);
@@ -526,6 +547,7 @@ const useSynthWiring = (
           sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, targetAccess);
           return true;
         } catch (err) {
+          if (generation !== midiPermissionGenerationRef.current) return false;
           warnLog("Web MIDI could not initialise:", err);
           if (midiAccessRank[midiAccess] > midiAccessRank.none) {
             sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, midiAccess);
@@ -537,7 +559,7 @@ const useSynthWiring = (
           );
           return false;
         } finally {
-          midiRequestRef.current = null;
+          if (generation === midiPermissionGenerationRef.current) midiRequestRef.current = null;
         }
       })();
 
@@ -549,6 +571,19 @@ const useSynthWiring = (
 
   const disableMidiAccess = useCallback(
     async ({ reenableBasic = false, clearSelections = true } = {}) => {
+      midiPermissionGenerationRef.current += 1;
+      if (midiDisableRef.current) return midiDisableRef.current;
+      const pendingAccess = midiRequestRef.current?.promise;
+      // Stop output engines while their ports are still usable. All MIDI routes
+      // are closing here, so queued attacks may safely be cancelled per port.
+      for (const output of midi?.outputs.values() ?? []) output.clear?.();
+      mpeSynthRef.current.synth?.shutdown?.({ disconnected: true });
+      mpeSynthRef.current = { key: null, synth: null };
+      monoSynthRef.current.synth?.shutdown?.({ disconnected: true });
+      monoSynthRef.current = { key: null, synth: null };
+      for (const synth of mtsSynthsRef.current.values()) releaseSynthInstance(synth);
+      mtsSynthsRef.current.clear();
+      keysRef.current?.disconnectMidiInput?.();
       if (clearSelections) clearMidiSelections();
       setMidi(null);
       setMidiAccess("none");
@@ -557,19 +592,25 @@ const useSynthWiring = (
       midiPortsChangedListenerRef.current?.();
       midiPortsChangedListenerRef.current = null;
       sessionStorage.setItem(MIDI_ACCESS_SESSION_KEY, "none");
-      try {
-        if (typeof WebMidi.disable === "function") {
-          await WebMidi.disable();
+      const closing = (async () => {
+        try {
+          // An earlier permission prompt may still be resolving. It must finish
+          // before disable, and cannot publish its obsolete access state.
+          if (pendingAccess) await pendingAccess;
+          await WebMidi.disable?.();
+        } catch (err) {
+          warnLog("Web MIDI disable could not complete cleanly:", err);
         }
-      } catch (err) {
-        warnLog("Web MIDI disable could not complete cleanly:", err);
-      }
+      })();
+      midiDisableRef.current = closing;
+      await closing;
+      if (midiDisableRef.current === closing) midiDisableRef.current = null;
       if (reenableBasic) {
         return ensureMidiAccess({ sysex: false });
       }
       return true;
     },
-    [clearMidiSelections, ensureMidiAccess],
+    [clearMidiSelections, ensureMidiAccess, keysRef, midi],
   );
 
   useEffect(
@@ -581,7 +622,7 @@ const useSynthWiring = (
   );
 
   useEffect(() => {
-    if (midi) return;
+    if (midi || midiDisableRef.current) return;
     const recoveredMidi = snapshotWebMidiPorts();
     if (!recoveredMidi) return;
     setMidi(recoveredMidi);
@@ -749,18 +790,15 @@ const useSynthWiring = (
   useEffect(() => {
     if (!ready) return;
 
-    recordReloadDiagnostic("synth-build", {
-      outputs: ["sample", "mono", "mts", "mts_bulk", "mpe", "osc"]
-        .filter(name => settings[`output_${name}`]),
-      midiTick,
-    });
-
     // Guard against stale async resolutions: if this effect re-runs (settings
     // changed again before the previous Promise.all resolved), the old chain
     // should not call setSynth. Without this, rapid toggles can leave the synth
     // in a stale configuration — e.g. toggling MPE on then sample off could end
     // up with a composite(sample+mpe) synth if the first Promise.all resolved last.
     let cancelled = false;
+    const permissionGeneration = midiPermissionGenerationRef.current;
+    const isCurrentBuild = () => !cancelled &&
+      permissionGeneration === midiPermissionGenerationRef.current;
 
     const wantSample =
       !deferSampleActivation &&
@@ -831,8 +869,11 @@ const useSynthWiring = (
     // completions only decrement counters that their own build incremented.
     const showLoading = !(wantSample && sampleSynthRef.current.synth);
     if (showLoading) setLoading(wait);
+    let loadingFinished = false;
     const finishLoading = () => {
-      if (showLoading) setLoading(signal);
+      if (loadingFinished) return;
+      loadingFinished = true;
+      if (showLoading && mountedRef.current) setLoading(signal);
     };
     const promises = [];
     if (monoOutput) {
@@ -891,22 +932,24 @@ const useSynthWiring = (
         promises.push(Promise.resolve(sampleSynthRef.current.synth));
       } else {
         promises.push(
-          loadSampleSynthModule()
-            .then(({ create_sample_synth }) =>
-              create_sample_synth(
-                settings.instrument,
-                settings.fundamental,
-                playbackReferenceDegree,
-                playbackScale,
+          sampleRequestsRef.current(
+            JSON.stringify([sampleKey, userHasInteracted]),
+            () => loadSampleSynthModule().then(({ create_sample_synth }) =>
+                create_sample_synth(
+                  settings.instrument,
+                  settings.fundamental,
+                  playbackReferenceDegree,
+                  playbackScale,
+                ),
               ),
-            )
-            .then(async (s) => {
+            {
+              isCurrent: isCurrentBuild,
               // While playback is running, keep the previous sample engine in
               // service until the replacement has fetched and decoded all of
               // its buffers. The output graph is swapped only after prepare()
               // resolves, so instrument selection never creates a silent gap.
-              if (userHasInteracted && s?.prepare) await s.prepare();
-              if (!cancelled) {
+              prepare: userHasInteracted ? candidate => candidate.prepare?.() : undefined,
+              adopt: s => {
                 const previous = sampleSynthRef.current.synth;
                 if (previous && previous !== s) retiringSampleSynthsRef.current.add(previous);
                 for (const retired of retiringSampleSynthsRef.current) {
@@ -914,9 +957,9 @@ const useSynthWiring = (
                     retiringSampleSynthsRef.current.delete(retired);
                 }
                 sampleSynthRef.current = { key: sampleKey, synth: s };
-              }
-              return s;
-            }),
+              },
+            },
+          ),
         );
       }
     }
@@ -927,6 +970,7 @@ const useSynthWiring = (
         const mtsKey = JSON.stringify([
           outputMode.transportMode,
           outputMode.output?.id,
+          outputPortIdentityRef.current(outputMode.output),
           outputMode.channel,
           outputMode.velocity,
           outputMode.deviceId,
@@ -935,7 +979,13 @@ const useSynthWiring = (
           outputMode.isFluidsynthMirror,
           outputMode.mapName,
           outputMode.anchorNote,
+          outputMode.pitchBendRange,
           outputMode.sysexType,
+          settings.midiin_anchor_note,
+          settings.midiin_device,
+          tuningRuntime?.degree0toRefAsArray,
+          tuningRuntime?.equivInterval,
+          tuningRuntime?.name,
           settings.fundamental,
           settings.reference_degree,
           settings.center_degree,
@@ -961,7 +1011,7 @@ const useSynthWiring = (
               : "MTS1";
 
         promises.push(
-          create_midi_synth({
+          midiRequestsRef.current(JSON.stringify(["mts", mtsKey, permissionGeneration]), () => create_midi_synth({
             outputMode: {
               ...outputMode,
               anchorNote,
@@ -990,15 +1040,16 @@ const useSynthWiring = (
                     ),
                   })
                 : null,
-          }).then((s) => {
-            if (!cancelled) mtsSynthsRef.current.set(mtsKey, s);
-            return s;
+          }), {
+            isCurrent: () => isCurrentBuild() &&
+              midi?.outputs.get(outputMode.output.id) === outputMode.output,
+            adopt: s => mtsSynthsRef.current.set(mtsKey, s),
           }),
         );
       }
       for (const [key, synth] of mtsSynthsRef.current) {
         if (!desiredMtsKeys.has(key)) {
-          synth.releaseAll?.();
+          releaseSynthInstance(synth);
           mtsSynthsRef.current.delete(key);
         }
       }
@@ -1017,6 +1068,8 @@ const useSynthWiring = (
       if (oscSynthRef.current.key === oscKey && oscSynthRef.current.synth) {
         promises.push(Promise.resolve(oscSynthRef.current.synth));
       } else {
+        releaseSynthInstance(oscSynthRef.current.synth);
+        oscSynthRef.current = { key: null, synth: null };
         promises.push(
           create_osc_synth(
             settings.osc_bridge_url || "ws://localhost:8089",
@@ -1033,10 +1086,10 @@ const useSynthWiring = (
               sustainBuzzFormant: deriveOscSustainBuzzFormant(settingsRef.current),
               retriggerBuzzFormant: deriveOscRetriggerBuzzFormant(settingsRef.current),
             },
-          ).then((s) => {
-            if (!cancelled) oscSynthRef.current = { key: oscKey, synth: s };
-            return s;
-          }),
+          ).then((s) => adoptOutputCandidate(s, {
+            isCurrent: isCurrentBuild,
+            adopt: s => { oscSynthRef.current = { key: oscKey, synth: s }; },
+          })),
         );
       }
     } else {
@@ -1065,9 +1118,17 @@ const useSynthWiring = (
     const allowMpePlaybackOnSelectedPort = !(
       reservedHakenOutputId && settings.mpe_device === reservedHakenOutputId
     );
-    if (wantMpe && allowMpePlaybackOnSelectedPort) {
+    const mpeOutput = midi?.outputs.get(settings.mpe_device);
+    // An engine bound to an obsolete connection must not be reused just because
+    // the replacement has the same device ID. Ordinary owned-voice release only.
+    if (mpeSynthRef.current.synth && mpeSynthRef.current.output !== mpeOutput) {
+      releaseSynthInstance(mpeSynthRef.current.synth);
+      mpeSynthRef.current = { key: null, synth: null };
+    }
+    if (wantMpe && allowMpePlaybackOnSelectedPort && mpeOutput) {
       const mpeKey = JSON.stringify([
         settings.mpe_device,
+        outputPortIdentityRef.current(mpeOutput),
         settings.midiin_mpe_manager_ch,
         settings.mpe_lo_ch,
         settings.mpe_hi_ch,
@@ -1087,9 +1148,11 @@ const useSynthWiring = (
         mpeSynthRef.current.synth.setAutoGenerateMpeYzEnabled?.(!!settings.mpe_auto_generate_yz);
         promises.push(Promise.resolve(mpeSynthRef.current.synth));
       } else {
+        releaseSynthInstance(mpeSynthRef.current.synth);
+        mpeSynthRef.current = { key: null, synth: null };
         promises.push(
-          create_mpe_synth(
-            midi.outputs.get(settings.mpe_device),
+          midiRequestsRef.current(JSON.stringify(["mpe", mpeKey, permissionGeneration]), () => create_mpe_synth(
+            mpeOutput,
             settings.midiin_mpe_manager_ch,
             settings.mpe_lo_ch,
             settings.mpe_hi_ch,
@@ -1107,11 +1170,13 @@ const useSynthWiring = (
             undefined,
             !!settings.mpe_plus_output,
             !!settings.mpe_auto_generate_yz,
-          ).then((s) => {
-            s?.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
-            s?.setAutoGenerateMpeYzEnabled?.(!!settings.mpe_auto_generate_yz);
-            if (!cancelled) mpeSynthRef.current = { key: mpeKey, synth: s };
-            return s;
+          ), {
+            isCurrent: () => isCurrentBuild() && midi.outputs.get(settings.mpe_device) === mpeOutput,
+            adopt: s => {
+              s?.setMpePlusPitchBendEnabled?.(!!settingsRef.current.mpe_plus_output);
+              s?.setAutoGenerateMpeYzEnabled?.(!!settingsRef.current.mpe_auto_generate_yz);
+              mpeSynthRef.current = { key: mpeKey, synth: s, output: mpeOutput };
+            },
           }),
         );
       }
@@ -1121,7 +1186,7 @@ const useSynthWiring = (
     }
 
     Promise.allSettled(promises).then(async (results) => {
-      if (cancelled) {
+      if (!isCurrentBuild()) {
         finishLoading();
         return;
       }
@@ -1157,7 +1222,7 @@ const useSynthWiring = (
       // Trade-off: on desktop, the first note after a preset change may briefly use the
       // old decoded buffers (a very short "peep") if the new instrument hasn't decoded
       // yet. Acceptable given that the iOS hang is the worse failure.
-      if (cancelled) {
+      if (!isCurrentBuild()) {
         finishLoading();
         return;
       }
@@ -1189,6 +1254,7 @@ const useSynthWiring = (
 
     return () => {
       cancelled = true;
+      finishLoading();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keysRef is stable; settings covered field-by-field below
   }, [
@@ -1200,6 +1266,13 @@ const useSynthWiring = (
     settings.reference_degree,
     settings.center_degree,
     settings.scale,
+    settings.equivSteps,
+    settings.equivInterval,
+    settings.name,
+    settings.short_description,
+    settings.midiin_anchor_note,
+    settings.midiin_device,
+    settings.midiin_controller_override,
     settings.midi_device,
     settings.midi_channel,
     settings.midi_mapping,

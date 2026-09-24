@@ -1971,7 +1971,7 @@ class Keys {
       layoutMode: nextRuntime?.layoutMode ?? this.inputRuntime?.layoutMode,
       mpeInput: !!(nextRuntime?.mpeInput ?? this.inputRuntime?.mpeInput),
     });
-    if (previousRouteKey !== nextRouteKey) this.allnotesOff();
+    if (previousRouteKey !== nextRouteKey) this.allnotesOff({ disconnect: true });
     if (nextRuntime) {
       nextRuntime.hakenSpaceGlideFlip = !!this.inputRuntime?.hakenSpaceGlideFlip;
       nextRuntime.hakenPedalGlideFlip = !!this.inputRuntime?.hakenPedalGlideFlip;
@@ -2440,8 +2440,13 @@ class Keys {
     return KeysMidiInput.midinoteOff.call(this, e);
   };
 
-  allnotesOff = () => {
-    return KeysMidiInput.allnotesOff.call(this);
+  allnotesOff = (options) => {
+    return KeysMidiInput.allnotesOff.call(this, options);
+  };
+
+  disconnectMidiInput = () => {
+    InputMidiListeners.teardownMidiInput.call(this);
+    this.allnotesOff({ disconnect: true });
   };
 
   _hakenRasterBend(entry, channel, bend14, scaleMode) {

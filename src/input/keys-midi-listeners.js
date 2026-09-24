@@ -587,6 +587,7 @@ export function rebuildControllerMap() {
 }
 
 export function teardownMidiInput() {
+  this._midiInputGeneration = (this._midiInputGeneration ?? 0) + 1;
   if (this.midiin_data) {
     for (const eventName of MIDI_INPUT_EVENT_NAMES) {
       try {
@@ -671,6 +672,7 @@ export function ensureMidiInputBinding(options = {}) {
 }
 
 export function setupMidiInput() {
+  const generation = this._midiInputGeneration ?? 0;
   //console.log('[Keys] MIDI init — device:', JSON.stringify(this.settings.midiin_device), 'passthrough:', this.settings.midi_passthrough);
   if (this.settings.midiin_device !== "OFF") {
     // get the MIDI noteons and noteoffs to play the internal sounds
@@ -717,6 +719,7 @@ export function setupMidiInput() {
                 await this.synth.prepare();
               }
             }
+            if (generation !== (this._midiInputGeneration ?? 0)) return;
             if (isLinnstrumentUfInputActive.call(this)) {
               const key = `${e.message.channel}.${e.note.number}`;
               this._linnUfXLsb.delete(key);
@@ -923,6 +926,7 @@ export function setupMidiInput() {
               this._applyTimbreCC74(hex, value); // Y → timbre/slide
             } else if (cc === 64) {
               // Sustain pedal
+              this._midiSustainActive = value > 0;
               if (value > 0) {
                 this.sustainOn();
               } else {
@@ -937,6 +941,7 @@ export function setupMidiInput() {
               this.allnotesOff();
             } else if (cc === 121) {
               // Reset All Controllers
+              this._midiSustainActive = false;
               this.sustainOff();
             } else if (cc === 1) {
               // Mod Wheel is zone-wide for every controller. Optional Eagan

@@ -754,7 +754,29 @@ export function midinoteOff(event) {
   }
 }
 
-export function allnotesOff() {
+export function allnotesOff({ disconnect = false } = {}) {
+  // Permission/input-route loss cannot rely on receiving the pedal/key release.
+  // Do not turn this into a global panic: mouse, keyboard and snapshot voices
+  // retain their own lifetime, including their explicitly latched notes.
+  if (disconnect) {
+    const midiHexes = new Set(this.state.activeMidi.values());
+    for (const [hex] of this.state.sustainedNotes) {
+      if (hex._notePlayed != null) midiHexes.add(hex);
+    }
+    for (const hex of midiHexes) {
+      hex.noteOff(0);
+      this.recencyStack.remove(hex);
+    }
+    this.state.sustainedNotes = this.state.sustainedNotes.filter(([hex]) => !midiHexes.has(hex));
+    this.state.sustainedCoords = new Set(
+      this.state.sustainedNotes.map(([hex]) => `${hex.coords.x},${hex.coords.y}`),
+    );
+    this.state.activeMidi.clear();
+    notes.played = [];
+    if (this._midiSustainActive && !this.state.latch) this.state.sustain = false;
+    this._midiSustainActive = false;
+    for (const hex of midiHexes) this.hexOff(hex.coords);
+  }
   flushAllPendingRasterReleases(this);
   this._retuneGlides.clear();
   this._suppressedMidiNotes?.clear();

@@ -150,6 +150,27 @@ function createKeys(
 }
 
 describe("Keys MIDI input integration", () => {
+  it("clears MIDI-held and MIDI-sustained notes on disconnect without releasing other sources", () => {
+    const keys = createKeys();
+    const held = { coords: new Point(0, 0), _notePlayed: 60, noteOff: vi.fn() };
+    const sustained = { coords: new Point(1, 0), _notePlayed: 61, noteOff: vi.fn() };
+    const mouse = { coords: new Point(2, 0), noteOff: vi.fn() };
+    keys.state.sustain = true;
+    keys.state.activeMidi.set(60, held);
+    keys.state.sustainedNotes = [[sustained, 64], [mouse, 64]];
+    keys.state.sustainedCoords = new Set(["1,0", "2,0"]);
+    keys.hexOff = vi.fn();
+    keys.disconnectMidiInput();
+    expect(held.noteOff).toHaveBeenCalledExactlyOnceWith(0);
+    expect(sustained.noteOff).toHaveBeenCalledExactlyOnceWith(0);
+    expect(mouse.noteOff).not.toHaveBeenCalled();
+    expect(keys.state.activeMidi.size).toBe(0);
+    expect(keys.state.sustainedNotes).toEqual([[mouse, 64]]);
+    expect([...keys.state.sustainedCoords]).toEqual(["2,0"]);
+    keys.disconnectMidiInput();
+    expect(held.noteOff).toHaveBeenCalledOnce();
+    keys.deconstruct();
+  });
   let drawGridSpy;
 
   beforeEach(() => {

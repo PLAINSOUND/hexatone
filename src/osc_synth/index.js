@@ -19,6 +19,7 @@
  */
 
 import { outputTimestamp } from "../midi/output-transaction.js";
+import { silentOutputHex } from "../audio/output-lifecycle.js";
 import { VoicePool } from "../polyphony/voice-pool-nearest";
 import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
 import { debugEnabled, debugLog, warnLog } from "../debug/logging.js";
@@ -540,6 +541,7 @@ export const create_osc_synth = async (
       bend,
       degree0toRef_ratio,
     ) => {
+      if (shutdown) return silentOutputHex(coords, cents);
       return new OscHex(
         coords,
         cents,

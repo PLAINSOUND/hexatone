@@ -22,6 +22,32 @@ beforeEach(() => {
 });
 
 describe("mpe_synth startup state", () => {
+  it("releases pending note-offs when permission shutdown cancels the MIDI queue", async () => {
+    const output = { send: vi.fn() };
+    const synth = await create_mpe_synth(output, 1, 2, 4, 440, 0, 0, 60, scale12);
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, 0, 100, 60, 80);
+    hex.noteOff(0, performance.now() + 1000);
+    output.send.mockClear();
+    synth.shutdown({ disconnected: true });
+    const offs = output.send.mock.calls.filter(([data]) => (data[0] & 0xf0) === 0x80);
+    expect(offs).toHaveLength(1);
+    expect(offs[0]).toHaveLength(1);
+    output.send.mockClear();
+    synth.makeHex({ x: 1, y: 0 }, 100, 1, 0, 12, 0, 200, 61, 80).noteOn();
+    expect(output.send).not.toHaveBeenCalled();
+  });
+  it("releases immediately on permission shutdown after queued attacks are cleared", async () => {
+    const output = { send: vi.fn() };
+    const synth = await create_mpe_synth(output, 1, 2, 4, 440, 0, 0, 60, scale12);
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, 0, 100, 60, 80,
+      undefined, undefined, { deferNoteOn: true });
+    hex.noteOn(performance.now() + 1000);
+    output.send.mockClear();
+    synth.shutdown({ disconnected: true });
+    const offs = output.send.mock.calls.filter(([data]) => (data[0] & 0xf0) === 0x80);
+    expect(offs).toHaveLength(1);
+    expect(offs[0]).toHaveLength(1);
+  });
   beforeEach(() => {
     vi.useFakeTimers();
   });

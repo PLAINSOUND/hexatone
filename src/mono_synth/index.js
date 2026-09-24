@@ -124,11 +124,11 @@ export function createMonoSynth({
       tx.finalizers.set(synth, () => update(tx.data.get(synth)));
     } else update(at);
   };
-  const releaseOwned = () => {
+  const releaseOwned = (immediate = false) => {
     const tx = getOutputTransaction();
     tx?.finalizers.delete(synth);
     tx?.data.delete(synth);
-    const at = ramp.boundary();
+    const at = immediate ? now() : ramp.boundary();
     ramp.cancel();
     stack.forEach((h) => {
       h.release = true;
@@ -234,9 +234,9 @@ export function createMonoSynth({
     },
     allSoundOff: panic,
     releaseAll: releaseOwned,
-    shutdown() {
+    shutdown({ disconnected = false } = {}) {
       // Normal replacement must not reset another sender's shared channel.
-      releaseOwned();
+      releaseOwned(disconnected);
       stopped = true;
       ramp.dispose();
     },

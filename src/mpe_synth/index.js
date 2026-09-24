@@ -23,6 +23,7 @@
 
 import { getOutputTransaction } from "../midi/output-transaction.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
+import { silentOutputHex } from "../audio/output-lifecycle.js";
 
 import { VoicePool } from "../polyphony/voice-pool-oldest";
 import { scalaToCents } from "../settings/scale/parse-scale";
@@ -355,6 +356,7 @@ export const create_mpe_synth = async (
       _degree0toRef_ratio,
       playbackOptions,
     ) => {
+      if (shuttingDown) return silentOutputHex(coords, cents);
       const hex = new MpeHex(
         coords,
         cents,
@@ -427,7 +429,21 @@ export const create_mpe_synth = async (
 
     releaseAll: releaseAllVoices,
 
-    shutdown: () => {
+    shutdown: ({ disconnected = false } = {}) => {
+      if (shuttingDown) return;
+      // Permission shutdown clears the port's future queue first. Its pending
+      // attacks no longer exist, so release owned notes immediately as well.
+      if (disconnected) {
+        // A timestamped Note Off may already have removed its hex from the
+        // active set. Clearing the port queue cancels that release too.
+        for (const channel of voiceIds) {
+          const note = pool.getLastNote(channel);
+          if (pool.getChannelState(channel) === "RELEASING" && note != null) {
+            midi_output.send([0x80 + channel - 1, note, 0]);
+          }
+        }
+        for (const hex of activeHexes) hex._noteOnTimestamp = null;
+      }
       for (const hex of [...activeHexes]) hex.noteOff(0);
       shuttingDown = true;
       for (const timerId of deferredTimers) clearTimeout(timerId);
