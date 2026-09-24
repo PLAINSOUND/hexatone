@@ -179,6 +179,20 @@ const EventRow = ({
   };
   const resolveNameInput = (eventArg) =>
     editing.updateEventField(sourceSnapshot, noteRef, "displayLabel", eventArg.currentTarget.value);
+  const lockedPitchProps = editing.snapSequenceToCurrentTuning ? {
+    role: "button",
+    tabIndex: 0,
+    "aria-label": "Disable Snap to edit pitch",
+    "data-snap-locked": "true",
+    onClick: (e) => { e.stopPropagation(); editing.requestDisableSnap?.(); },
+    onKeyDown: (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        editing.requestDisableSnap?.();
+      }
+    },
+  } : {};
   // Scala resolution can parse and factor rational pitch data. Keep it out of
   // ordinary HEJI/timing cue renders, and retain the result while only the
   // playhead changes.
@@ -390,7 +404,7 @@ const EventRow = ({
           </span>
         )}
       </div>
-      <div class="sequencer-event__cell sequencer-grid-offset">
+      <div class="sequencer-event__cell sequencer-grid-offset" {...lockedPitchProps}>
         <input
           key={`${event.eventId}-midicents-${event.midicents}`}
           type="text"
@@ -420,7 +434,7 @@ const EventRow = ({
           )}
         />
       </div>
-      <div class="sequencer-event__cell sequencer-grid-offset">
+      <div class="sequencer-event__cell sequencer-grid-offset" {...lockedPitchProps}>
         <input
           key={`${event.eventId}-frequency-${event.frequency}`}
           type="text"
@@ -450,7 +464,7 @@ const EventRow = ({
           )}
         />
       </div>
-      <div class="sequencer-event__cell sequencer-grid-offset">
+      <div class="sequencer-event__cell sequencer-grid-offset" {...lockedPitchProps}>
         {view.currentEventPane === "expression" ? (
           <input
             key={`${event.eventId}-scala-${currentScalaInterval}-${event.displayLabelEdited ? "edited" : "captured"}`}

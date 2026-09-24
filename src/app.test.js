@@ -1296,6 +1296,25 @@ describe("App workspace tabs", () => {
     sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
   });
 
+  it("remembers independent sidebar positions when changing workspaces", async () => {
+    const view = render(<App />);
+    try {
+      const sidebar = view.container.querySelector("#sidebar");
+      sidebar.scrollTop = 670;
+      fireEvent.scroll(sidebar);
+      fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+      expect(sidebar.scrollTop).toBe(0);
+      sidebar.scrollTop = 230;
+      fireEvent.scroll(sidebar);
+      fireEvent.click(screen.getByRole("tab", { name: "HEXATONE" }));
+      expect(sidebar.scrollTop).toBe(670);
+      fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+      expect(sidebar.scrollTop).toBe(230);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it.each(["next sequence step", "next sequence marker"])("replays an edited sounding note after %s with the resolved HEJI pitch", async (trigger) => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),

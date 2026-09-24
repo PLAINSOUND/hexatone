@@ -9,7 +9,7 @@
  * orchestration boundary where domain modules are combined into the running app.
  */
 import { Suspense, lazy } from "preact/compat";
-import { useState, useEffect, useMemo, useCallback, useRef } from "preact/hooks";
+import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
 import { sendLumatoneBlankLayout } from "./keyboard/keys-controller-leds.js";
@@ -666,6 +666,14 @@ const App = () => {
     calculator: 0,
   });
   const activeManualView = workspaceTab === "manual" ? "main" : inlineManualView;
+  const workspaceScrollPositionsRef = useRef({});
+  useLayoutEffect(() => {
+    // The sidebar is shared DOM, but each workspace owns its viewing position.
+    // Manual views retain their separate section-specific scroll handling.
+    if (!activeManualView && sidebarRef.current) {
+      sidebarRef.current.scrollTop = workspaceScrollPositionsRef.current[workspaceTab] ?? 0;
+    }
+  }, [workspaceTab, activeManualView]);
   const snapshotPaletteVisible = !inlineManualView && workspaceTab !== "sequencer";
   const performancePalettesVisible = snapshotPaletteVisible;
   const [userHasInteracted, setUserHasInteracted] = useState(false);
@@ -5837,7 +5845,11 @@ const App = () => {
         </div>
       )}
 
-      <nav id="sidebar" ref={sidebarRef}>
+      <nav id="sidebar" ref={sidebarRef} onScroll={event => {
+        if (event.target === sidebarRef.current && !activeManualView) {
+          workspaceScrollPositionsRef.current[workspaceTab] = event.currentTarget.scrollTop;
+        }
+      }}>
         <div class="workspace-tabs" role="tablist" aria-label="Workspace">
           <button
             type="button"
@@ -5984,6 +5996,7 @@ const App = () => {
                   aria-hidden={workspaceTab !== "sequencer"}
                 >
                   <Sequencer
+                    workspaceVisible={workspaceTab === "sequencer"}
                     transportTarget={workspaceTab === "io" ? ioTransportTarget : null}
                     snapshots={snapshots}
                     runtimeModel={sequenceRuntimeModel}

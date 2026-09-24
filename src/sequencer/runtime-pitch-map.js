@@ -130,11 +130,15 @@ export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
   if (!Number.isFinite(nextFrequency) || !Number.isFinite(nextMidicents)) return note;
   const reducedDegree = mod(nearest.steps, scaleLength);
   const exactIdentity = displacedExactIdentity(nearest.steps, reducedDegree, runtime);
+  const destinationLabel = labelForDegree(reducedDegree, options) || note?.displayLabel || "";
   return {
     ...note,
     midicents: nextMidicents,
     frequency: nextFrequency,
-    displayLabel: labelForDegree(reducedDegree, options) || note?.displayLabel || "",
+    displayLabel: destinationLabel,
+    // Event rows prefer hejiName over displayLabel. Never retain the source
+    // tuning's spelling in this playback/display-only projection.
+    hejiName: destinationLabel,
     displayLabelEdited: false,
     ratioText: exactIdentity?.ratioText,
     monzo: exactIdentity?.monzo,

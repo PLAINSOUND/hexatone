@@ -123,6 +123,7 @@ const Sequencer = ({
   playingSnapshotId,
   playingSnapshotIds = [],
   scrollPositionRef = null,
+  workspaceVisible = true,
   playhead,
   onTakeSnapshot,
   onAddEmptySnapshot,
@@ -227,6 +228,8 @@ const Sequencer = ({
   const [newBarPositionIsSuggested, setNewBarPositionIsSuggested] = useState(true);
   const [newBarMeterIsSuggested, setNewBarMeterIsSuggested] = useState(true);
   const [confirmClearSnapshots, setConfirmClearSnapshots] = useState(false);
+  const [confirmDisableSnap, setConfirmDisableSnap] = useState(false);
+  const requestDisableSnap = useCallback(() => setConfirmDisableSnap(true), []);
   const [dragOverId, setDragOverId] = useState(null);
   const [dragOverSide, setDragOverSide] = useState("before");
   const [draggedId, setDraggedId] = useState(null);
@@ -1056,7 +1059,8 @@ const Sequencer = ({
     (node) => {
       const previousPanel = scrollPanelRef.current;
       if (!(node instanceof HTMLElement) && previousPanel instanceof HTMLElement) {
-        if (scrollPositionRef) scrollPositionRef.current = previousPanel.scrollTop;
+        if (scrollPositionRef && !previousPanel.closest("[hidden]"))
+          scrollPositionRef.current = previousPanel.scrollTop;
       }
       scrollPanelRef.current = node;
       if (node instanceof HTMLElement && scrollPositionRef) {
@@ -1068,20 +1072,20 @@ const Sequencer = ({
   );
   const rememberScrollPosition = useCallback(
     (event) => {
-      if (!scrollPositionRef) return;
+      if (!scrollPositionRef || !workspaceVisible || event.currentTarget?.closest("[hidden]")) return;
       scrollPositionRef.current = Math.max(0, Number(event.currentTarget?.scrollTop) || 0);
     },
-    [scrollPositionRef],
+    [scrollPositionRef, workspaceVisible],
   );
   useLayoutEffect(() => {
     const panel = scrollPanelRef.current;
-    if (!(panel instanceof HTMLElement) || !scrollPositionRef) return undefined;
+    if (!(panel instanceof HTMLElement) || !scrollPositionRef || !workspaceVisible) return undefined;
     const restoredTop = Number(scrollPositionRef.current);
     panel.scrollTop = Number.isFinite(restoredTop) ? Math.max(0, restoredTop) : 0;
     return () => {
-      scrollPositionRef.current = panel.scrollTop;
+      if (!panel.closest("[hidden]")) scrollPositionRef.current = panel.scrollTop;
     };
-  }, [scrollPanelRef, scrollPositionRef]);
+  }, [scrollPanelRef, scrollPositionRef, workspaceVisible]);
 
   const measureSequenceBottomOcclusion = useCallback(() => {
     const visiblePanel = visibleElementBounds(scrollPanelRef.current);
@@ -3188,6 +3192,7 @@ const Sequencer = ({
       handleEnterCommit,
       handleBlurCommit,
       snapSequenceToCurrentTuning,
+      requestDisableSnap,
       restoreEventPitchLabel,
       commitEventPitchLabel,
       updateEventBarRelativeDraftField,
@@ -3205,6 +3210,7 @@ const Sequencer = ({
       onSelectMarker,
       restoreEventPitchLabel,
       snapSequenceToCurrentTuning,
+      requestDisableSnap,
       updateEventBarRelativeDraftField,
       updateEventField,
       toggleEventReattack,
@@ -3331,6 +3337,21 @@ const Sequencer = ({
   // runtime state and controller hooks assembled above.
   return (
     <div role="group" aria-label="Sequencer workspace">
+      {confirmDisableSnap && (
+        <dialog
+          class="sequencer-snap-confirm"
+          aria-label="Disable Snap Sequence to Current Hexatone Tuning?"
+          ref={node => { if (node && !node.open) node.showModal(); }}
+          onCancel={() => setConfirmDisableSnap(false)}
+        >
+          <p>Disable “Snap Sequence to Current Hexatone Tuning”?</p>
+          <button type="button" onClick={() => {
+            setConfirmDisableSnap(false);
+            onSnapSequenceToCurrentTuningChange?.(false);
+          }}>Yes</button>
+          <button type="button" autoFocus onClick={() => setConfirmDisableSnap(false)}>No</button>
+        </dialog>
+      )}
       <SequenceLibrary
         snapshots={snapshots}
         bars={bars}

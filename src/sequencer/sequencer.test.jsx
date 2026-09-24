@@ -21,6 +21,32 @@ import {
 } from "./snapshot-workspace-runtime.js";
 
 describe("Sequencer", () => {
+  it("asks before disabling Snap when a locked pitch field is clicked", () => {
+    const original = HTMLDialogElement.prototype.showModal;
+    HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+    onTestFinished(() => {
+      if (original) HTMLDialogElement.prototype.showModal = original;
+      else delete HTMLDialogElement.prototype.showModal;
+    });
+    const change = vi.fn();
+    render(<Sequencer
+      snapshots={[{ id: 1, length: 1, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }]}
+      bars={[]} tempi={[]} repeats={[]}
+      snapSequenceToCurrentTuning={true}
+      onSnapSequenceToCurrentTuningChange={change}
+    />);
+    const locked = screen.getAllByRole("button", { name: "Disable Snap to edit pitch" });
+    expect(screen.getByLabelText("snapshot 1 attack midicents").disabled).toBe(true);
+    fireEvent.click(locked[0]);
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "No" }));
+    expect(change).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.keyDown(locked[0], { key: "Enter" });
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes" }));
+    expect(change).toHaveBeenCalledWith(false);
+  });
+
   beforeEach(() => {
     sessionStorage.clear();
     localStorage.clear();
@@ -308,6 +334,13 @@ describe("Sequencer", () => {
     firstPanel.scrollTop = 640;
     fireEvent.scroll(firstPanel);
     expect(scrollPositionRef.current).toBe(640);
+    first.rerender(<div hidden><Sequencer {...props} workspaceVisible={false} /></div>);
+    const hiddenPanel = first.container.querySelector(".sequencer-scroll-panel");
+    hiddenPanel.scrollTop = 0;
+    fireEvent.scroll(hiddenPanel);
+    expect(scrollPositionRef.current).toBe(640);
+    first.rerender(<div><Sequencer {...props} workspaceVisible={true} /></div>);
+    expect(first.container.querySelector(".sequencer-scroll-panel").scrollTop).toBe(640);
     first.unmount();
 
     const second = render(<Sequencer {...props} />);
