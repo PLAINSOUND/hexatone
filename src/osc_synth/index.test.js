@@ -844,6 +844,70 @@ describe("osc_synth pooled slot allocation", () => {
     }
   });
 
+  it("shutdown gates held voices without cutting existing release tails", async () => {
+    const synth = await create_osc_synth("ws://graceful-shutdown", ["tone"], [0.5]);
+    await Promise.resolve();
+    const ws = MockWebSocket.instances[0];
+    const make = x => synth.makeHex({ x, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1,
+      { deferNoteOn: true });
+    const tail = make(0);
+    tail.noteOn();
+    tail.noteOff(0);
+    const held = make(1);
+    held.noteOn(performance.now() + 100);
+    synth.shutdown();
+    const messages = ws.sent.flatMap(p => p.messages ?? [p]);
+    expect(messages.filter(p => p.address === "/s_new")).toHaveLength(2);
+    expect(messages.filter(p => p.address === "/n_set" &&
+      p.args.some((arg, i) => arg.value === "gate" && p.args[i + 1]?.value === 0))).toHaveLength(2);
+    expect(messages.some(p => ["/n_free", "/g_freeAll"].includes(p.address))).toBe(false);
+    const attack = ws.sent.find(p => p.messages?.[0].address === "/s_new");
+    const release = ws.sent.find(p => p.messages?.[0].address === "/n_set");
+    expect(release.timetagUnixMs).toBeGreaterThan(attack.timetagUnixMs);
+    expect(ws.close).toHaveBeenCalledTimes(1);
+    const count = ws.sent.length;
+    synth.shutdown();
+    held.noteOff(0);
+    await Promise.resolve();
+    expect(ws.sent).toHaveLength(count);
+  });
+
+  it("releaseAll preserves envelopes and leaves the output usable", async () => {
+    const synth = await create_osc_synth("ws://graceful-release", ["tone"], [0.5]);
+    await Promise.resolve();
+    const ws = MockWebSocket.instances[0];
+    synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1).noteOn();
+    synth.releaseAll();
+    await Promise.resolve();
+    expect(ws.sent.flatMap(p => p.messages ?? [p]).some(p => p.address === "/g_freeAll")).toBe(false);
+    expect(ws.sent.flatMap(p => p.messages ?? [p]).some(p => p.address === "/n_set" &&
+      p.args.some((arg, i) => arg.value === "gate" && p.args[i + 1]?.value === 0))).toBe(true);
+    expect(ws.close).not.toHaveBeenCalled();
+    synth.shutdown();
+  });
+
+  it("shutting down one owner does not silence another owner on the shared socket", async () => {
+    const first = await create_osc_synth("ws://shared-release", ["tone"], [0.5]);
+    const second = await create_osc_synth("ws://shared-release", ["tone"], [0.5]);
+    const ws = MockWebSocket.instances[0];
+    const make = synth => synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1,
+      { deferNoteOn: true });
+    make(first).noteOn();
+    make(second).noteOn(performance.now() + 100);
+    first.shutdown();
+    const messages = ws.sent.flatMap(p => p.messages ?? [p]);
+    const attacks = messages.filter(p => p.address === "/s_new");
+    const releases = messages.filter(p => p.address === "/n_set" &&
+      p.args.some((arg, i) => arg.value === "gate" && p.args[i + 1]?.value === 0));
+    expect(attacks).toHaveLength(2);
+    expect(releases).toHaveLength(1);
+    expect(releases[0].args[0].value).toBe(attacks[0].args[1].value);
+    expect(messages.some(p => p.address === "/g_freeAll")).toBe(false);
+    expect(ws.close).not.toHaveBeenCalled();
+    second.shutdown();
+    expect(ws.close).toHaveBeenCalledTimes(1);
+  });
+
   it("shutdown clears queued OSC messages and closes the socket so disabled OSC cannot leak on reopen", async () => {
     DelayedWebSocket.instances = [];
     vi.stubGlobal("WebSocket", DelayedWebSocket);

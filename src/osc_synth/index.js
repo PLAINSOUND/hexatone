@@ -487,6 +487,24 @@ export const create_osc_synth = async (
     }
   };
 
+  // Routing changes release envelopes; only Panic deletes nodes and tails.
+  const releaseAllNotes = () => {
+    const now = performance.now();
+    for (let i = 0; i < _slotState.length; i++) {
+      for (const slot of _slotState[i]) {
+        if (!slot.active || slot.nodeId == null) continue;
+        const timestamp = slot.attackTimestamp != null && slot.attackTimestamp >= now
+          ? slot.attackTimestamp + 1 : now;
+        releaseNode(socket, OSC_LAYER_PORTS[i], slot.nodeId, 0, timestamp);
+        slot.active = false;
+        slot.nodeId = null;
+        slot.token += 1;
+      }
+    }
+    _knownNodeIds.clear();
+    _pool.clear();
+  };
+
   const freeAllKnownNodes = () => {
     for (const nodeId of _knownNodeIds) {
       for (const port of OSC_LAYER_PORTS) {
@@ -618,15 +636,17 @@ export const create_osc_synth = async (
 
     releaseAll() {
       debugLog("osc", "osc_synth.releaseAll", { knownNodeCount: _knownNodeIds.size });
-      freeAllKnownNodes();
+      releaseAllNotes();
     },
 
     shutdown() {
       if (shutdown) return;
       shutdown = true;
       debugLog("osc", "osc_synth.shutdown", { knownNodeCount: _knownNodeIds.size });
-      freeAllKnownNodes();
-      socket.clearQueue();
+      releaseAllNotes();
+      // Send scheduled attacks and their subsequent gate releases before closing.
+      // Do not clear the shared socket's queue: another output may still own it.
+      socket._flushBundles();
       socket.release();
     },
   };
@@ -731,6 +751,7 @@ OscHex.prototype.noteOn = function (timestamp) {
     slotState.active = true;
     slotState.onVel = this._onVel;
     slotState.nodeId = this._nodeIds[i];
+    slotState.attackTimestamp = this._attackTimestamp;
     slotState.quickReleaseEnabled = this._quickReleaseRasterOnlyRef.value
       ? this._rasterGenerated === true
       : true;
