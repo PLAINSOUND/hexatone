@@ -1644,6 +1644,32 @@ describe("App workspace tabs", () => {
     expect(screen.getByLabelText("play timed transport")).toBe(timedPlayButton);
   });
 
+  it("keeps the I/O portal host stable across workspace changes and suspended I/O loading", async () => {
+    render(<App />);
+    const user = userEvent.setup();
+    const host = document.getElementById("io-sequencer-transport-host");
+    expect(host).not.toBeNull();
+    let finishLoading;
+    pendingIOSettingsLoad = new Promise(resolve => { finishLoading = resolve; });
+    try {
+      await user.click(screen.getByRole("tab", { name: "I/O" }));
+      expect(screen.queryByTestId("io-settings")).toBeNull();
+      expect(document.getElementById("io-sequencer-transport-host")).toBe(host);
+      expect(host.isConnected).toBe(true);
+    } finally {
+      await act(async () => {
+        pendingIOSettingsLoad = null;
+        finishLoading();
+      });
+    }
+    await screen.findByTestId("io-settings");
+    for (const name of ["SEQUENCER", "I/O", "HEXATONE", "I/O"]) {
+      await user.click(screen.getByRole("tab", { name }));
+      expect(document.getElementById("io-sequencer-transport-host")).toBe(host);
+      expect(host.isConnected).toBe(true);
+    }
+  });
+
   it("shares transport and speed with I/O and stops sequence voices on entering Calculator", async () => {
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(

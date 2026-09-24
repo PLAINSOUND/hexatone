@@ -1,5 +1,6 @@
 /**
  * osc_synth — sends note events directly to SuperCollider via WebSocket → OSC bridge.
+ * Ordinary routing shutdown lets release tails finish; Panic remains an immediate stop.
  *
  * Implements the shared voice interface used by midi_synth and sample_synth:
  *   makeHex(coords, cents, ...) → { noteOn(), noteOff(), retune(), aftertouch() }

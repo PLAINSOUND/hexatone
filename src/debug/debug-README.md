@@ -1,5 +1,31 @@
 # debug README
 
+## Reload freeze counters
+
+For the I/O-restoration investigation, enable lightweight counters, then reload:
+
+```js
+localStorage.setItem("hexatone_debug_reload", "true");
+location.reload();
+```
+
+Counts App renders, named state changes in App and synth wiring (`state:app.*`
+and `state:wiring.*`), settings updates (changed key names only), MIDI port events,
+and synth builds. State values are not recorded. Checkpoints are synchronous every 50 events after the first ten,
+so a busy microtask queue cannot starve them. Detail history is capped at 12 entries;
+no Performance recording is required. The preceding capture survives one reload
+in the same tab. Export before additional reloads overwrite it:
+
+```js
+copy(JSON.stringify({
+  current: JSON.parse(sessionStorage.getItem("hexatone_reload_diagnostics") || "null"),
+  previous: JSON.parse(sessionStorage.getItem("hexatone_reload_diagnostics_previous") || "null")
+}, null, 2));
+```
+
+Disable with `localStorage.removeItem("hexatone_debug_reload")`, then reload.
+The flag is read only at module startup, not on every render.
+
 Hexatone currently exposes three kinds of debug controls:
 
 1. Log-category flags via `localStorage` / `sessionStorage`

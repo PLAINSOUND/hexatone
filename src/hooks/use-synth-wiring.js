@@ -10,7 +10,9 @@
  * and callbacks it returns.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
+import { useEffect, useCallback, useMemo, useRef } from "preact/hooks";
+import { useReloadDiagnosticState as useState } from "../debug/use-reload-diagnostic-state.js";
+import { recordReloadDiagnostic } from "../debug/reload-diagnostics.js";
 import { enableMidi } from "../midi/enable-webmidi";
 import { create_midi_synth } from "../midi_synth";
 import create_mpe_synth from "../mpe_synth";
@@ -442,21 +444,21 @@ const useSynthWiring = (
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
-  const [synth, setSynth] = useState(null);
-  const [readySampleInstrument, setReadySampleInstrument] = useState(null);
-  const [midi, setMidi] = useState(null);
-  const [midiAccess, setMidiAccess] = useState("none");
-  const [midiAccessError, setMidiAccessError] = useState(null);
-  const [midiLearnActive, setMidiLearnActive] = useState(false);
-  const [hakenPedalLearnActive, setHakenPedalLearnActive] = useState(false);
+  const [synth, setSynth] = useState("wiring.synth", null);
+  const [readySampleInstrument, setReadySampleInstrument] = useState("wiring.readySampleInstrument", null);
+  const [midi, setMidi] = useState("wiring.midi", null);
+  const [midiAccess, setMidiAccess] = useState("wiring.midiAccess", "none");
+  const [midiAccessError, setMidiAccessError] = useState("wiring.midiAccessError", null);
+  const [midiLearnActive, setMidiLearnActive] = useState("wiring.midiLearnActive", false);
+  const [hakenPedalLearnActive, setHakenPedalLearnActive] = useState("wiring.hakenPedalLearnActive", false);
   // Incremented on every MIDI onstatechange so dependent effects re-run when
   // devices connect or disconnect (e.g. FluidSynth starting after page load).
-  const [midiTick, setMidiTick] = useState(0);
+  const [midiTick, setMidiTick] = useState("wiring.midiTick", 0);
   // Counter so multiple overlapping async operations don't prematurely hide
   // the loading spinner (see wait / signal helpers above).
-  const [loading, setLoading] = useState(0);
-  const [octaveTranspose, setOctaveTranspose] = useState(0);
-  const [octaveDeferred, setOctaveDeferred] = useState(
+  const [loading, setLoading] = useState("wiring.loading", 0);
+  const [octaveTranspose, setOctaveTranspose] = useState("wiring.octaveTranspose", 0);
+  const [octaveDeferred, setOctaveDeferred] = useState("wiring.octaveDeferred",
     () => sessionStorage.getItem("octave_deferred") !== "false",
   );
   const sampleSynthRef = useRef({ key: null, synth: null });
@@ -505,7 +507,10 @@ const useSynthWiring = (
           if (!midiAccessObj) throw new Error("WebMidi did not expose its MIDI access interface.");
           debugLog("midi", sysex ? "Web MIDI API with sysex is ready!" : "Web MIDI API is ready!");
           midiPortsChangedListenerRef.current?.();
-          const refreshMidiPorts = () => setMidiTick((t) => t + 1);
+          const refreshMidiPorts = () => {
+            recordReloadDiagnostic("midi-ports-changed");
+            setMidiTick((t) => t + 1);
+          };
           const webMidiPortsListener = WebMidi.addListener("portschanged", refreshMidiPorts);
           // Firefox may add a native port in the closed state. WebMidi.js only
           // synthesizes `portschanged` for a narrower set of state/connection
@@ -743,6 +748,12 @@ const useSynthWiring = (
 
   useEffect(() => {
     if (!ready) return;
+
+    recordReloadDiagnostic("synth-build", {
+      outputs: ["sample", "mono", "mts", "mts_bulk", "mpe", "osc"]
+        .filter(name => settings[`output_${name}`]),
+      midiTick,
+    });
 
     // Guard against stale async resolutions: if this effect re-runs (settings
     // changed again before the previous Promise.all resolved), the old chain
