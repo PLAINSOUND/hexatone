@@ -6113,6 +6113,21 @@ describe("Keys MIDI input integration", () => {
     expect(hexOn.mock.calls[0][0]).toEqual(new Point(12, 0));
   });
 
+  it("seeds joining outputs with selected timbre before held-note handover", () => {
+    const retained = { applyZoneModwheel: vi.fn() };
+    const keys = createKeys({}, {}, { childSynths: () => [retained] });
+    keys._controllerCCValues.set(1, 93); // selected wheel or calibrated/picked-up pedal
+    const order = [];
+    const joining = { rememberControllerState: vi.fn(() => order.push("remember")),
+      applyControllerState: vi.fn(() => order.push("controllers")),
+      applyZoneModwheel: vi.fn(() => order.push("timbre")) };
+    keys.state.activeMouse = { release: false, reconcileSynths: () => order.push("attack") };
+    keys.updateLiveOutputState(null, { childSynths: () => [retained, joining] });
+    expect(order).toEqual(["remember", "controllers", "timbre", "attack"]);
+    expect(joining.applyZoneModwheel).toHaveBeenCalledWith(93);
+    expect(retained.applyZoneModwheel).not.toHaveBeenCalled();
+  });
+
   it("replays remembered controller state to a newly swapped synth", () => {
     const oldSynth = {
       rememberControllerState: vi.fn(),

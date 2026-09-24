@@ -328,8 +328,12 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
     synths.forEach((s) => s.rememberControllerState && s.rememberControllerState(state));
   },
 
-  applyControllerState(state) {
-    synths.forEach((s) => s.applyControllerState && s.applyControllerState(state));
+  applyControllerState(state, options) {
+    synths.forEach((s) => {
+      if (!s.applyControllerState) return;
+      if (options === undefined) s.applyControllerState(state);
+      else s.applyControllerState(state, options);
+    });
   },
 
   allSoundOff() {

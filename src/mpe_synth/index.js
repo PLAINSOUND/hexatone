@@ -412,11 +412,16 @@ export const create_mpe_synth = async (
       });
     },
 
-    applyControllerState: (state = {}) => {
+    applyControllerState: (state = {}, { eaganModwheelBrightness = false } = {}) => {
       if (!midi_output || masterCh < 0) return;
       const ccValues = state.ccValues || {};
       for (const [cc, value] of Object.entries(ccValues)) {
         if (!allowsPerformanceCC(cc)) continue;
+        if (Number(cc) === 1 && eaganModwheelBrightness) {
+          for (const mapped of [13, 83])
+            midi_output.send([0xb0 + masterCh, mapped, Math.max(0, Math.min(127, value))]);
+          continue;
+        }
         midi_output.send([0xb0 + masterCh, Number(cc) & 0x7f, Math.max(0, Math.min(127, value))]);
       }
       if (state.channelPressure != null) {

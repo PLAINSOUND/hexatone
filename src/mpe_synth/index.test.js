@@ -22,6 +22,14 @@ beforeEach(() => {
 });
 
 describe("mpe_synth startup state", () => {
+  it("restores the selected timbre through the Eagan mapping when enabled", async () => {
+    const output = { send: vi.fn() };
+    const synth = await create_mpe_synth(output, 1, 2, 4, 440, 0, 0, 60, scale12);
+    output.send.mockClear();
+    synth.applyControllerState({ ccValues: { 1: 93 } }, { eaganModwheelBrightness: true });
+    expect(output.send.mock.calls.map(([data]) => data)).toEqual([[0xb0, 13, 93], [0xb0, 83, 93]]);
+    synth.shutdown();
+  });
   it("releases pending note-offs when permission shutdown cancels the MIDI queue", async () => {
     const output = { send: vi.fn() };
     const synth = await create_mpe_synth(output, 1, 2, 4, 440, 0, 0, 60, scale12);

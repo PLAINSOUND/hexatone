@@ -15,7 +15,6 @@ import { enableMidi } from "../midi/enable-webmidi";
 import { create_midi_synth } from "../midi_synth";
 import create_mpe_synth from "../mpe_synth";
 import { createMonoSynth } from "../mono_synth/index.js";
-import { scalaToCents } from "../settings/scale/parse-scale";
 import { create_composite_synth } from "../composite_synth";
 import { create_osc_synth } from "../osc_synth";
 import { detectController, getControllerById } from "../controllers/registry.js";
@@ -42,9 +41,28 @@ import { resolveBulkDumpName } from "../tuning/mts-format.js";
 import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 import { localBool, localFloat } from "../persistence/storage-utils.js";
 import { debugLog, warnLog } from "../debug/logging.js";
-import { clearOutputSynthRefs, releaseSynthInstance } from "../audio/output-lifecycle.js";
-import { adoptOutputCandidate, createOutputCandidateRequests } from "../audio/output-candidate.js";
+import {
+  adoptSampleOutput, clearOutputRef as detachOutputRef,
+  clearOutputSynthRefs as detachOutputSynthRefs, clearSampleOutputs as detachSampleOutputs,
+  pruneOutputMap as detachOutputMap, runOutputCleanup,
+} from "../audio/output-lifecycle.js";
+import { createOutputCandidateRequests } from "../audio/output-candidate.js";
+import { completeOutputBuild } from "../audio/output-build.js";
 import { createOutputPortIdentity } from "../audio/output-port-identity.js";
+import { monoOutputConfig, sampleOutputConfig, mtsOutputConfig, oscOutputConfig,
+  mpeOutputConfig } from "../audio/output-config.js";
+
+// Backend teardown must not prevent graph replacement, unmount cleanup or MIDI
+// permission reset. Helpers detach ownership and attempt all releases first.
+const reportCleanupFailures = action => (...args) => {
+  try { return action(...args); }
+  catch (error) { warnLog("Output cleanup could not complete cleanly:", error); }
+};
+const clearOutputRef = reportCleanupFailures(detachOutputRef);
+const clearOutputSynthRefs = reportCleanupFailures(detachOutputSynthRefs);
+const clearSampleOutputs = reportCleanupFailures(detachSampleOutputs);
+const pruneOutputMap = reportCleanupFailures(detachOutputMap);
+const cleanUpOutputs = reportCleanupFailures(runOutputCleanup);
 
 // Functional updaters for the loading counter. Using a counter (not a boolean)
 // lets multiple async operations overlap without prematurely hiding the spinner.
@@ -128,6 +146,26 @@ export const deriveOscRetriggerBuzzFormant = (settings) =>
     REGISTRY_BY_KEY.osc_retrigger_buzz_formant.key,
     settings.osc_retrigger_buzz_formant ?? false,
   );
+
+function readOscRuntimeControls(settings) {
+  return {
+    volumes: [...deriveOscVolumes(settings)],
+    quickRelease: deriveOscQuickRelease(settings),
+    quickReleaseTime: deriveOscQuickReleaseTime(settings),
+    rasterOnly: deriveOscQuickReleaseRasterOnly(settings),
+    sustain: deriveOscSustainBuzzFormant(settings),
+    retrigger: deriveOscRetriggerBuzzFormant(settings),
+  };
+}
+
+function applyOscRuntimeControls(synth, controls) {
+  controls.volumes.forEach((value, index) => synth?.setLayerVolume?.(index, value));
+  synth?.setQuickRelease?.(controls.quickRelease);
+  synth?.setQuickReleaseTime?.(controls.quickReleaseTime);
+  synth?.setQuickReleaseRasterOnly?.(controls.rasterOnly);
+  synth?.setSustainBuzzFormant?.(controls.sustain);
+  synth?.setRetriggerBuzzFormant?.(controls.retrigger);
+}
 
 export const resolveInputController = (input, controllerOverrideId = "auto") => {
   if (controllerOverrideId && controllerOverrideId !== "auto") {
@@ -476,6 +514,10 @@ const useSynthWiring = (
   if (!sampleRequestsRef.current) sampleRequestsRef.current = createOutputCandidateRequests();
   const midiRequestsRef = useRef(null);
   if (!midiRequestsRef.current) midiRequestsRef.current = createOutputCandidateRequests();
+  const oscRequestsRef = useRef(null);
+  if (!oscRequestsRef.current) oscRequestsRef.current = createOutputCandidateRequests();
+  const oscRuntimeControlsRef = useRef(null);
+  if (!oscRuntimeControlsRef.current) oscRuntimeControlsRef.current = readOscRuntimeControls(settings);
   const outputPortIdentityRef = useRef(null);
   if (!outputPortIdentityRef.current) outputPortIdentityRef.current = createOutputPortIdentity();
 
@@ -576,14 +618,11 @@ const useSynthWiring = (
       const pendingAccess = midiRequestRef.current?.promise;
       // Stop output engines while their ports are still usable. All MIDI routes
       // are closing here, so queued attacks may safely be cancelled per port.
-      for (const output of midi?.outputs.values() ?? []) output.clear?.();
-      mpeSynthRef.current.synth?.shutdown?.({ disconnected: true });
-      mpeSynthRef.current = { key: null, synth: null };
-      monoSynthRef.current.synth?.shutdown?.({ disconnected: true });
-      monoSynthRef.current = { key: null, synth: null };
-      for (const synth of mtsSynthsRef.current.values()) releaseSynthInstance(synth);
-      mtsSynthsRef.current.clear();
-      keysRef.current?.disconnectMidiInput?.();
+      cleanUpOutputs([...midi?.outputs.values() ?? []].map(output => () => output.clear?.()));
+      clearOutputRef(mpeSynthRef, { disconnected: true });
+      clearOutputRef(monoSynthRef, { disconnected: true });
+      pruneOutputMap(mtsSynthsRef);
+      cleanUpOutputs([() => keysRef.current?.disconnectMidiInput?.()]);
       if (clearSelections) clearMidiSelections();
       setMidi(null);
       setMidiAccess("none");
@@ -715,9 +754,11 @@ const useSynthWiring = (
   // │    mpe_hi_ch           — last member channel                            │
   // │    mpe_pitchbend_range — pitch bend range baked at MPE init             │
   // │    mpe_mode            — Ableton workaround vs standard MPE             │
+  // │    midiin_anchor_note  — constructor anchor for MPE and legacy MTS       │
   // │                                                                         │
   // │  OSC output:                                                            │
   // │    output_osc          — enable/disable OSC WebSocket bridge            │
+  // │    osc_bridge_url / osc_synth_names — connection and layer identity      │
   // │                                                                         │
   // │  MIDI state:                                                            │
   // │    midi                — MIDI access object (initial grant or revoke)   │
@@ -744,7 +785,7 @@ const useSynthWiring = (
   // └─────────────────────────────────────────────────────────────────────────┘
   //
   // ┌─────────────────────────────────────────────────────────────────────────┐
-  // │ CANVAS-ONLY UPDATE (no synth rebuild)                                   │
+  // │ CANVAS UPDATE PATH (may accompany an output rebuild)                    │
   // │ Imperative call to keysRef.current — bypasses React render.             │
   // │                                                                         │
   // │    fundamental         → keysRef.current.updateFundamental()            │
@@ -778,14 +819,15 @@ const useSynthWiring = (
   // │    retuning_mode       — transpose vs recalculate (keys.js per-note)    │
   // │    wheel_to_recent     — modwheel routing (keys.js per-event)           │
   // │    wheel_scale_aware   — wheel snap mode (keys.js per-event)            │
-  // │    midiin_anchor_note   — anchor note for incoming MIDI (keys.js)       │
   // │    midi_passthrough    — MIDI pass-through flag (keys.js)               │
   // │    lumatone_led_sync   — LED feedback toggle (keys.js)                  │
   // └─────────────────────────────────────────────────────────────────────────┘
   //
   // ── Synth creation ───────────────────────────────────────────────────────────
-  // Reconstructs the composite synth whenever any relevant setting or MIDI
-  // state changes. Runs only after the app is ready (setReady has fired).
+  // Reconsiders the composite when relevant settings or MIDI state change.
+  // output-config.js defines per-engine identity; unchanged children are reused.
+  // Candidate requests own pending work, lifecycle helpers own cache teardown,
+  // and completeOutputBuild guards publication. Runs only after app readiness.
 
   useEffect(() => {
     if (!ready) return;
@@ -876,55 +918,28 @@ const useSynthWiring = (
       if (showLoading && mountedRef.current) setLoading(signal);
     };
     const promises = [];
+    const playbackTuning = { referenceDegree: playbackReferenceDegree, scale: playbackScale,
+      centerDegree: playbackCenterDegree, equivSteps: playbackEquivSteps,
+      equivInterval: playbackEquivInterval };
     if (monoOutput) {
-      const key = JSON.stringify([
-        settings.mono_device,
-        settings.mono_channel,
-        settings.mono_bend_range,
-        settings.midi_velocity,
-        settings.fundamental,
-        playbackReferenceDegree,
-        playbackScale,
-      ]);
+      const { key, args } = monoOutputConfig(settings, playbackTuning, monoOutput, outputPortIdentityRef.current);
       if (monoSynthRef.current.key !== key || monoSynthRef.current.output !== monoOutput) {
-        releaseSynthInstance(monoSynthRef.current.synth);
+        clearOutputRef(monoSynthRef);
         monoSynthRef.current = {
           key,
           output: monoOutput,
-          synth: createMonoSynth({
-            output: monoOutput,
-            channel: settings.mono_channel ?? 0,
-            bendRange: settings.mono_bend_range ?? 2,
-            fundamental: settings.fundamental || 440,
-            referenceCents:
-              playbackReferenceDegree > 0
-                ? scalaToCents(playbackScale[playbackReferenceDegree - 1])
-                : 0,
-            velocity: settings.midi_velocity ?? 72,
-            portamento: !!settings.mono_portamento,
-            time: settings.mono_portamento_time ?? 80,
-            slideCc: settings.mono_slide_cc ?? 74,
-          }),
+          synth: createMonoSynth(args),
         };
       }
       promises.push(Promise.resolve(monoSynthRef.current.synth));
     } else if (monoSynthRef.current.synth) {
-      releaseSynthInstance(monoSynthRef.current.synth);
-      monoSynthRef.current = { key: null, synth: null };
+      clearOutputRef(monoSynthRef);
     }
 
-    const sampleKey = wantSample
-      ? JSON.stringify([
-          settings.instrument,
-          settings.fundamental,
-          playbackReferenceDegree,
-          playbackScale,
-        ])
-      : null;
-    if (!wantSample && sampleSynthRef.current.synth) {
-      for (const synth of retiringSampleSynthsRef.current) releaseSynthInstance(synth);
-      releaseSynthInstance(sampleSynthRef.current.synth);
-      sampleSynthRef.current = { key: null, synth: null };
+    const sampleConfig = sampleOutputConfig(settings, playbackTuning);
+    const sampleKey = sampleConfig.key;
+    if (!wantSample) {
+      clearSampleOutputs(sampleSynthRef, retiringSampleSynthsRef);
     }
 
     if (wantSample) {
@@ -935,12 +950,7 @@ const useSynthWiring = (
           sampleRequestsRef.current(
             JSON.stringify([sampleKey, userHasInteracted]),
             () => loadSampleSynthModule().then(({ create_sample_synth }) =>
-                create_sample_synth(
-                  settings.instrument,
-                  settings.fundamental,
-                  playbackReferenceDegree,
-                  playbackScale,
-                ),
+                create_sample_synth(...sampleConfig.args),
               ),
             {
               isCurrent: isCurrentBuild,
@@ -950,13 +960,7 @@ const useSynthWiring = (
               // resolves, so instrument selection never creates a silent gap.
               prepare: userHasInteracted ? candidate => candidate.prepare?.() : undefined,
               adopt: s => {
-                const previous = sampleSynthRef.current.synth;
-                if (previous && previous !== s) retiringSampleSynthsRef.current.add(previous);
-                for (const retired of retiringSampleSynthsRef.current) {
-                  if (retired.hasVoices?.() === false)
-                    retiringSampleSynthsRef.current.delete(retired);
-                }
-                sampleSynthRef.current = { key: sampleKey, synth: s };
+                adoptSampleOutput(sampleSynthRef, retiringSampleSynthsRef, sampleKey, s);
               },
             },
           ),
@@ -967,134 +971,51 @@ const useSynthWiring = (
       const desiredMtsKeys = new Set();
       for (const outputMode of mtsOutputs) {
         if (!outputMode.output) continue;
-        const mtsKey = JSON.stringify([
-          outputMode.transportMode,
-          outputMode.output?.id,
-          outputPortIdentityRef.current(outputMode.output),
-          outputMode.channel,
-          outputMode.velocity,
-          outputMode.deviceId,
-          outputMode.mapNumber,
-          outputMode.allocationMode,
-          outputMode.isFluidsynthMirror,
-          outputMode.mapName,
-          outputMode.anchorNote,
-          outputMode.pitchBendRange,
-          outputMode.sysexType,
-          settings.midiin_anchor_note,
-          settings.midiin_device,
-          tuningRuntime?.degree0toRefAsArray,
-          tuningRuntime?.equivInterval,
-          tuningRuntime?.name,
-          settings.fundamental,
-          settings.reference_degree,
-          settings.center_degree,
-          settings.scale,
-        ]);
+        const { key: mtsKey, args } = mtsOutputConfig(settings, tuningRuntime, outputMode,
+          outputPortIdentityRef.current, () => ({
+            deviceId: settingsRef.current.mts_bulk_device_id ?? 127,
+            mapNumber: settingsRef.current.mts_bulk_tuning_map_number ?? 0,
+            name: resolveBulkDumpName(settingsRef.current.mts_bulk_tuning_map_name,
+              settingsRef.current.short_description, settingsRef.current.name),
+          }));
         desiredMtsKeys.add(mtsKey);
         const existing = mtsSynthsRef.current.get(mtsKey);
         if (existing) {
           promises.push(Promise.resolve(existing));
           continue;
         }
-        const anchorNote =
-          outputMode.transportMode === "bulk_dynamic_map" ||
-          outputMode.transportMode === "bulk_static_map"
-            ? outputMode.anchorNote
-            : settings.midiin_anchor_note;
-        const midiMapping =
-          outputMode.transportMode === "bulk_dynamic_map" ||
-          outputMode.transportMode === "bulk_static_map"
-            ? "MTS_BULK"
-            : outputMode.allocationMode === "mts2"
-              ? "MTS2"
-              : "MTS1";
-
         promises.push(
-          midiRequestsRef.current(JSON.stringify(["mts", mtsKey, permissionGeneration]), () => create_midi_synth({
-            outputMode: {
-              ...outputMode,
-              anchorNote,
-              midiMapping,
-            },
-            tuningContext: {
-              fundamental: tuningRuntime?.fundamental,
-              degree0toRefAsArray: tuningRuntime?.degree0toRefAsArray,
-              scale: tuningRuntime?.scale,
-              equivInterval: tuningRuntime?.equivInterval,
-              name: tuningRuntime?.name,
-            },
-            legacyInput: {
-              midiin_device: settings.midiin_device,
-              midiin_anchor_note: anchorNote,
-            },
-            getDynamicBulkConfig:
-              outputMode.transportMode === "bulk_dynamic_map"
-                ? () => ({
-                    deviceId: settingsRef.current.mts_bulk_device_id ?? 127,
-                    mapNumber: settingsRef.current.mts_bulk_tuning_map_number ?? 0,
-                    name: resolveBulkDumpName(
-                      settingsRef.current.mts_bulk_tuning_map_name,
-                      settingsRef.current.short_description,
-                      settingsRef.current.name,
-                    ),
-                  })
-                : null,
-          }), {
+          midiRequestsRef.current(JSON.stringify(["mts", mtsKey, permissionGeneration]), () => create_midi_synth(args), {
             isCurrent: () => isCurrentBuild() &&
               midi?.outputs.get(outputMode.output.id) === outputMode.output,
             adopt: s => mtsSynthsRef.current.set(mtsKey, s),
           }),
         );
       }
-      for (const [key, synth] of mtsSynthsRef.current) {
-        if (!desiredMtsKeys.has(key)) {
-          releaseSynthInstance(synth);
-          mtsSynthsRef.current.delete(key);
-        }
-      }
+      pruneOutputMap(mtsSynthsRef, desiredMtsKeys);
     } else if (mtsSynthsRef.current.size > 0) {
-      for (const synth of mtsSynthsRef.current.values()) releaseSynthInstance(synth);
-      mtsSynthsRef.current.clear();
+      pruneOutputMap(mtsSynthsRef);
     }
     if (wantOsc) {
-      const oscKey = JSON.stringify([
-        settings.osc_bridge_url || "ws://localhost:8089",
-        settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
-        settings.fundamental,
-        playbackReferenceDegree,
-        playbackScale,
-      ]);
+      const oscConfig = oscOutputConfig(settings, playbackTuning);
+      const oscKey = oscConfig.key;
       if (oscSynthRef.current.key === oscKey && oscSynthRef.current.synth) {
         promises.push(Promise.resolve(oscSynthRef.current.synth));
       } else {
-        releaseSynthInstance(oscSynthRef.current.synth);
-        oscSynthRef.current = { key: null, synth: null };
+        clearOutputRef(oscSynthRef);
         promises.push(
-          create_osc_synth(
-            settings.osc_bridge_url || "ws://localhost:8089",
-            settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
-            deriveOscVolumes(settingsRef.current),
-            deriveOscQuickRelease(settingsRef.current),
-            deriveOscQuickReleaseTime(settingsRef.current),
-            deriveOscQuickReleaseRasterOnly(settingsRef.current),
-            settings.fundamental,
-            playbackReferenceDegree,
-            playbackScale,
-            1,
-            {
-              sustainBuzzFormant: deriveOscSustainBuzzFormant(settingsRef.current),
-              retriggerBuzzFormant: deriveOscRetriggerBuzzFormant(settingsRef.current),
-            },
-          ).then((s) => adoptOutputCandidate(s, {
+          oscRequestsRef.current(oscKey, () => create_osc_synth(
+            ...oscConfig.args(readOscRuntimeControls(settingsRef.current))), {
             isCurrent: isCurrentBuild,
-            adopt: s => { oscSynthRef.current = { key: oscKey, synth: s }; },
-          })),
+            adopt: s => {
+              applyOscRuntimeControls(s, oscRuntimeControlsRef.current);
+              oscSynthRef.current = { key: oscKey, synth: s };
+            },
+          }),
         );
       }
     } else {
-      releaseSynthInstance(oscSynthRef.current.synth);
-      oscSynthRef.current = { key: null, synth: null };
+      clearOutputRef(oscSynthRef);
     }
     const activeInputControllerId = (() => {
       if (settings.midiin_controller_override && settings.midiin_controller_override !== "auto") {
@@ -1110,11 +1031,6 @@ const useSynthWiring = (
       activeInputControllerId,
     );
     const hakenMpeActive = activeInputControllerId === "hakenaudio";
-    const effectiveMpeMode = hakenMpeActive ? "standard" : settings.mpe_mode;
-    const effectiveMpePitchbendRange = hakenMpeActive ? 96 : (settings.mpe_pitchbend_range ?? 48);
-    const effectiveMpePitchbendRangeManager = hakenMpeActive
-      ? 2
-      : (settings.mpe_pitchbend_range_manager ?? 2);
     const allowMpePlaybackOnSelectedPort = !(
       reservedHakenOutputId && settings.mpe_device === reservedHakenOutputId
     );
@@ -1122,55 +1038,19 @@ const useSynthWiring = (
     // An engine bound to an obsolete connection must not be reused just because
     // the replacement has the same device ID. Ordinary owned-voice release only.
     if (mpeSynthRef.current.synth && mpeSynthRef.current.output !== mpeOutput) {
-      releaseSynthInstance(mpeSynthRef.current.synth);
-      mpeSynthRef.current = { key: null, synth: null };
+      clearOutputRef(mpeSynthRef);
     }
     if (wantMpe && allowMpePlaybackOnSelectedPort && mpeOutput) {
-      const mpeKey = JSON.stringify([
-        settings.mpe_device,
-        outputPortIdentityRef.current(mpeOutput),
-        settings.midiin_mpe_manager_ch,
-        settings.mpe_lo_ch,
-        settings.mpe_hi_ch,
-        settings.fundamental,
-        playbackReferenceDegree,
-        playbackCenterDegree,
-        settings.midiin_anchor_note,
-        playbackScale,
-        effectiveMpeMode,
-        effectiveMpePitchbendRange,
-        effectiveMpePitchbendRangeManager,
-        playbackEquivSteps,
-        playbackEquivInterval,
-      ]);
+      const { key: mpeKey, args } = mpeOutputConfig(settings, playbackTuning, mpeOutput,
+        outputPortIdentityRef.current, hakenMpeActive);
       if (mpeSynthRef.current.key === mpeKey && mpeSynthRef.current.synth) {
         mpeSynthRef.current.synth.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
         mpeSynthRef.current.synth.setAutoGenerateMpeYzEnabled?.(!!settings.mpe_auto_generate_yz);
         promises.push(Promise.resolve(mpeSynthRef.current.synth));
       } else {
-        releaseSynthInstance(mpeSynthRef.current.synth);
-        mpeSynthRef.current = { key: null, synth: null };
+        clearOutputRef(mpeSynthRef);
         promises.push(
-          midiRequestsRef.current(JSON.stringify(["mpe", mpeKey, permissionGeneration]), () => create_mpe_synth(
-            mpeOutput,
-            settings.midiin_mpe_manager_ch,
-            settings.mpe_lo_ch,
-            settings.mpe_hi_ch,
-            settings.fundamental,
-            playbackReferenceDegree,
-            playbackCenterDegree,
-            settings.midiin_anchor_note,
-            playbackScale,
-            effectiveMpeMode,
-            effectiveMpePitchbendRange,
-            effectiveMpePitchbendRangeManager,
-            playbackEquivSteps,
-            playbackEquivInterval,
-            undefined,
-            undefined,
-            !!settings.mpe_plus_output,
-            !!settings.mpe_auto_generate_yz,
-          ), {
+          midiRequestsRef.current(JSON.stringify(["mpe", mpeKey, permissionGeneration]), () => create_mpe_synth(...args), {
             isCurrent: () => isCurrentBuild() && midi.outputs.get(settings.mpe_device) === mpeOutput,
             adopt: s => {
               s?.setMpePlusPitchBendEnabled?.(!!settingsRef.current.mpe_plus_output);
@@ -1181,75 +1061,38 @@ const useSynthWiring = (
         );
       }
     } else if (mpeSynthRef.current.synth) {
-      releaseSynthInstance(mpeSynthRef.current.synth);
-      mpeSynthRef.current = { key: null, synth: null };
+      clearOutputRef(mpeSynthRef);
     }
 
-    Promise.allSettled(promises).then(async (results) => {
-      if (!isCurrentBuild()) {
-        finishLoading();
-        return;
-      }
-      for (const result of results) {
-        if (result.status === "rejected") {
-          warnLog("Synth build failed:", result.reason);
+    void completeOutputBuild({
+      pending: promises,
+      isCurrent: isCurrentBuild,
+      finish: finishLoading,
+      onError: (error, phase) => warnLog(`Synth ${phase} failed:`, error),
+      install: (validSynths) => {
+        // Even an entirely failed build publishes an empty composite: logical
+        // held notes detach obsolete children instead of retaining a dead graph.
+        const s = create_composite_synth(validSynths, retiringSampleSynthsRef.current);
+        if (s.setVolume) {
+          const muted = localStorage.getItem("synth_muted") === "true";
+          const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
+          s.setVolume(muted ? 0 : volume);
         }
-      }
-      const validSynths = results
-        .filter((result) => result.status === "fulfilled")
-        .map((result) => result.value)
-        .filter((s) => s != null);
-      if (validSynths.length === 0) {
-        setSynth(null);
-        finishLoading();
-        return;
-      }
-      // Always expose a composite, even for one output. Its per-note wrappers
-      // can then reconcile newly enabled/disabled child engines in place while
-      // the sequencer continues to own the same logical voices.
-      const s = create_composite_synth(validSynths, retiringSampleSynthsRef.current);
-      // Set the synth and clear the spinner immediately — do NOT await prepare()
-      // here. On iOS, prepare() calls AudioContext.resume() + decodeAudioData,
-      // both of which require a running AudioContext. The synth effect runs outside
-      // the original gesture window (React defers effects), so resume() stalls and
-      // decodeAudioData never resolves, leaving the loading counter permanently at 1.
-      //
-      // prepare() is called in two safe places instead:
-      //  1. presetChanged() in hooks/use-presets.js — directly inside the gesture handler,
-      //     before setSettings fires, so the AudioContext is within the gesture window.
-      //  2. The userHasInteracted effect below — fires when the user next taps the canvas.
-      //
-      // Trade-off: on desktop, the first note after a preset change may briefly use the
-      // old decoded buffers (a very short "peep") if the new instrument hasn't decoded
-      // yet. Acceptable given that the iOS hang is the worse failure.
-      if (!isCurrentBuild()) {
-        finishLoading();
-        return;
-      }
-      // Push current controller state into the newly-built synth immediately,
-      // without waiting for the next Keyboard render/effect cycle. This closes
-      // a timing gap where a freshly swapped sample synth could briefly become
-      // active with default wheel/mod state after an instrument change.
-      if (s.setVolume) {
-        const muted = localStorage.getItem("synth_muted") === "true";
-        const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
-        s.setVolume(muted ? 0 : volume);
-      }
-      keysRef.current?.updateLiveOutputState?.(null, s);
-      setSynth(s);
-      // Publish only after preparation and installation, never on selection or
-      // from a cancelled build. Other output rebuilds retain this same value.
-      if (wantSample && validSynths.includes(sampleSynthRef.current.synth)) {
-        setReadySampleInstrument(settings.instrument);
-      }
-      // For iOS restored presets, sample synth construction is intentionally
-      // deferred until after the first real gesture. At this exact point the
-      // synth finally exists and the AudioContext has already been primed by
-      // that gesture, so trigger preparation here rather than making App guess.
-      if (userHasInteracted && deferSampleActivation && s.prepare) {
-        void s.prepare();
-      }
-      finishLoading();
+        // Reconcile before publishing React state. No await may separate these
+        // steps: another build must not interleave with this handoff.
+        keysRef.current?.updateLiveOutputState?.(null, s);
+        setSynth(s);
+        if (wantSample && validSynths.includes(sampleSynthRef.current.synth)) {
+          setReadySampleInstrument(settings.instrument);
+        }
+        // Do not await graph preparation here: browser audio activation may
+        // require a fresh user gesture. Sample handoff preparation is owned by
+        // its candidate; this preserves the existing restored-iOS activation.
+        if (userHasInteracted && deferSampleActivation && s.prepare) {
+          void Promise.resolve(s.prepare()).catch(error =>
+            warnLog("Synth preparation failed:", error));
+        }
+      },
     });
 
     return () => {
@@ -1289,6 +1132,8 @@ const useSynthWiring = (
     settings.mono_bend_range,
     settings.output_mts_bulk,
     settings.output_osc,
+    settings.osc_bridge_url,
+    settings.osc_synth_names,
     settings.mts_bulk_device,
     settings.mts_bulk_mode,
     settings.mts_bulk_channel,
@@ -1335,20 +1180,13 @@ const useSynthWiring = (
   }, [settings.mpe_auto_generate_yz]);
 
   useEffect(() => {
-    oscSynthRef.current.synth?.setSustainBuzzFormant?.(
-      deriveOscSustainBuzzFormant({
-        osc_sustain_buzz_formant: settings.osc_sustain_buzz_formant,
-      }),
-    );
-  }, [settings.osc_sustain_buzz_formant]);
-
-  useEffect(() => {
-    oscSynthRef.current.synth?.setRetriggerBuzzFormant?.(
-      deriveOscRetriggerBuzzFormant({
-        osc_retrigger_buzz_formant: settings.osc_retrigger_buzz_formant,
-      }),
-    );
-  }, [settings.osc_retrigger_buzz_formant]);
+    oscRuntimeControlsRef.current = readOscRuntimeControls(settings);
+    applyOscRuntimeControls(oscSynthRef.current.synth, oscRuntimeControlsRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- control inputs listed individually; unrelated settings must not overwrite an uncommitted live drag
+  }, [settings.osc_volumes, settings.osc_volume_pluck, settings.osc_volume_buzz,
+    settings.osc_volume_formant, settings.osc_volume_saw, settings.osc_quick_release,
+    settings.osc_quick_release_time, settings.osc_quick_release_raster_only,
+    settings.osc_sustain_buzz_formant, settings.osc_retrigger_buzz_formant]);
 
   // Keep synthRef in sync so volume control and preset loading can reach the
   // live synth without depending on the React render cycle.
@@ -1556,6 +1394,7 @@ const useSynthWiring = (
   }, []);
 
   const onOscLayerVolumeChange = useCallback((index, value) => {
+    oscRuntimeControlsRef.current.volumes[index] = value;
     const oscSynth = oscSynthRef.current.synth;
     // Runtime transport control only: do not write app settings here.
     // The UI persists the chosen value on commit, but live drag must stay on
@@ -1564,16 +1403,19 @@ const useSynthWiring = (
   }, []);
 
   const onOscQuickReleaseChange = useCallback((value) => {
+    oscRuntimeControlsRef.current.quickRelease = value;
     const oscSynth = oscSynthRef.current.synth;
     if (oscSynth?.setQuickRelease) oscSynth.setQuickRelease(value);
   }, []);
 
   const onOscQuickReleaseTimeChange = useCallback((value) => {
+    oscRuntimeControlsRef.current.quickReleaseTime = value;
     const oscSynth = oscSynthRef.current.synth;
     if (oscSynth?.setQuickReleaseTime) oscSynth.setQuickReleaseTime(value);
   }, []);
 
   const onOscQuickReleaseRasterOnlyChange = useCallback((value) => {
+    oscRuntimeControlsRef.current.rasterOnly = value;
     const oscSynth = oscSynthRef.current.synth;
     if (oscSynth?.setQuickReleaseRasterOnly) oscSynth.setQuickReleaseRasterOnly(value);
   }, []);

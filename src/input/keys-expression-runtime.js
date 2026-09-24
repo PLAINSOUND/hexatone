@@ -458,7 +458,9 @@ export function pushControllerStateToSynth() {
     this.synth.rememberControllerState(this._getControllerState());
   }
   if (this.synth?.applyControllerState) {
-    this.synth.applyControllerState(this._getControllerState());
+    if (this.settings.mpe_eagan_modwheel_brightness) {
+      this.synth.applyControllerState(this._getControllerState(), { eaganModwheelBrightness: true });
+    } else this.synth.applyControllerState(this._getControllerState());
   }
 }
 

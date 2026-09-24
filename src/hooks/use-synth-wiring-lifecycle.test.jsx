@@ -44,6 +44,150 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("still closes MIDI permissions after queue clearing and engine shutdown fail", async () => {
+  const first = { id: "port", clear: vi.fn(() => { throw new Error("disconnected port"); }) };
+  const second = { id: "other", clear: vi.fn() };
+  WebMidi.enabled = true;
+  WebMidi.interface = { inputs: new Map(), outputs: new Map([["port", first], ["other", second]]) };
+  const old = { shutdown: vi.fn(() => { throw new Error("release failed"); }) };
+  factories.mpe.mockResolvedValue(old);
+  const settings = { ...base, output_sample: false, output_mpe: true,
+    mpe_device: "port", mpe_lo_ch: 2, mpe_hi_ch: 8 };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([old]));
+  await act(async () => current.disableWebMidi());
+  expect(second.clear).toHaveBeenCalledOnce();
+  expect(old.shutdown).toHaveBeenCalledExactlyOnceWith({ disconnected: true });
+  expect(keysRef.current.disconnectMidiInput).toHaveBeenCalledOnce();
+  expect(WebMidi.disable).toHaveBeenCalledOnce();
+  expect(current.midi).toBeNull();
+  view.unmount();
+  expect(old.shutdown).toHaveBeenCalledOnce();
+});
+
+it("installs a replacement even when the previous OSC engine cannot shut down cleanly", async () => {
+  const old = { shutdown: vi.fn(() => { throw new Error("closed bridge"); }) };
+  const next = engine();
+  factories.osc.mockResolvedValueOnce(old).mockResolvedValueOnce(next);
+  const settings = { ...base, output_sample: false, output_osc: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([old]));
+  view.rerender(<Harness settings={{ ...settings, osc_bridge_url: "ws://localhost:8099" }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([next]));
+  expect(old.shutdown).toHaveBeenCalledOnce();
+  expect(current.loading).toBe(0);
+});
+
+it("releases retired samples only once when disabling sample alongside another output", async () => {
+  const old = { ...engine(), hasVoices: () => true };
+  const next = engine(), osc = engine();
+  factories.sample.mockResolvedValueOnce(old).mockResolvedValueOnce(next);
+  factories.osc.mockResolvedValue(osc);
+  const settings = { ...base, output_osc: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([old, osc]));
+  view.rerender(<Harness settings={{ ...settings, instrument: "B" }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([next, osc]));
+  expect(old.shutdown).not.toHaveBeenCalled();
+  view.rerender(<Harness settings={{ ...settings, instrument: "B", output_sample: false }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([osc]));
+  expect(old.shutdown).toHaveBeenCalledOnce();
+  expect(next.shutdown).toHaveBeenCalledOnce();
+  view.unmount();
+  expect(old.shutdown).toHaveBeenCalledOnce();
+  expect(old.allSoundOff).not.toHaveBeenCalled();
+  expect(next.shutdown).toHaveBeenCalledOnce();
+});
+
+it("finishes loading after a reconciliation error and retries using the cached engine", async () => {
+  const selected = engine();
+  factories.osc.mockResolvedValue(selected);
+  keysRef.current.updateLiveOutputState.mockImplementationOnce(() => { throw new Error("handoff failed"); });
+  const settings = { ...base, output_sample: false, output_osc: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(keysRef.current.updateLiveOutputState).toHaveBeenCalledOnce());
+  await waitFor(() => expect(current.loading).toBe(0));
+  expect(current.synth).toBeNull();
+  expect(selected.shutdown).not.toHaveBeenCalled();
+  view.rerender(<Harness settings={{ ...settings, instrument: "B" }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([selected]));
+  expect(factories.osc).toHaveBeenCalledOnce();
+});
+
+it("detaches old output children when every replacement fails", async () => {
+  const old = engine();
+  factories.osc.mockResolvedValueOnce(old).mockRejectedValueOnce(new Error("offline"));
+  const settings = { ...base, output_sample: false, output_osc: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([old]));
+  view.rerender(<Harness settings={{ ...settings, osc_bridge_url: "ws://localhost:8099" }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([]));
+  expect(keysRef.current.updateLiveOutputState.mock.calls.at(-1)[1].children).toEqual([]);
+  expect(current.loading).toBe(0);
+  expect(old.shutdown).toHaveBeenCalledOnce();
+});
+
+it("shares pending OSC creation and applies live controls before installing it", async () => {
+  const pending = deferred();
+  factories.osc.mockReturnValue(pending.promise);
+  const settings = { ...base, output_sample: false, output_osc: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(factories.osc).toHaveBeenCalledOnce());
+  act(() => {
+    current.onOscLayerVolumeChange(1, 0.17);
+    current.onOscQuickReleaseChange(0.8);
+    current.onOscQuickReleaseTimeChange(0.12);
+    current.onOscQuickReleaseRasterOnlyChange(false);
+  });
+  view.rerender(<Harness settings={{ ...settings, instrument: "B" }} />);
+  await act(async () => {});
+  const selected = { ...engine(), setLayerVolume: vi.fn(), setQuickRelease: vi.fn(),
+    setQuickReleaseTime: vi.fn(), setQuickReleaseRasterOnly: vi.fn() };
+  keysRef.current.updateLiveOutputState.mockImplementationOnce(() => {
+    expect(selected.setLayerVolume).toHaveBeenCalledWith(1, 0.17);
+    expect(selected.setQuickRelease).toHaveBeenLastCalledWith(0.8);
+  });
+  await act(async () => pending.resolve(selected));
+  await waitFor(() => expect(current.synth?.children).toEqual([selected]));
+  expect(factories.osc).toHaveBeenCalledOnce();
+  expect(selected.setQuickReleaseTime).toHaveBeenLastCalledWith(0.12);
+  expect(selected.setQuickReleaseRasterOnly).toHaveBeenLastCalledWith(false);
+  expect(selected.shutdown).not.toHaveBeenCalled();
+});
+
+it("applies OSC mode changes made while creation is pending without rebuilding", async () => {
+  const pending = deferred();
+  factories.osc.mockReturnValue(pending.promise);
+  const settings = { ...base, output_sample: false, output_osc: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(factories.osc).toHaveBeenCalledOnce());
+  view.rerender(<Harness settings={{ ...settings, osc_sustain_buzz_formant: true,
+    osc_retrigger_buzz_formant: true }} />);
+  await act(async () => {});
+  const selected = { ...engine(), setSustainBuzzFormant: vi.fn(), setRetriggerBuzzFormant: vi.fn() };
+  await act(async () => pending.resolve(selected));
+  await waitFor(() => expect(current.synth?.children).toEqual([selected]));
+  expect(selected.setSustainBuzzFormant).toHaveBeenLastCalledWith(true);
+  expect(selected.setRetriggerBuzzFormant).toHaveBeenLastCalledWith(true);
+  expect(factories.osc).toHaveBeenCalledOnce();
+});
+
+it("rebuilds OSC for a changed bridge URL and rejects the obsolete pending result", async () => {
+  const a = deferred(), b = deferred();
+  factories.osc.mockReturnValueOnce(a.promise).mockReturnValueOnce(b.promise);
+  const settings = { ...base, output_sample: false, output_osc: true, osc_bridge_url: "ws://localhost:8089" };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(factories.osc).toHaveBeenCalledOnce());
+  view.rerender(<Harness settings={{ ...settings, osc_bridge_url: "ws://localhost:8090" }} />);
+  await waitFor(() => expect(factories.osc).toHaveBeenCalledTimes(2));
+  const old = engine(), selected = engine();
+  await act(async () => { b.resolve(selected); a.resolve(old); });
+  await waitFor(() => expect(current.synth?.children).toEqual([selected]));
+  expect(factories.osc.mock.calls[1][0]).toBe("ws://localhost:8090");
+  expect(old.shutdown).toHaveBeenCalledOnce();
+  expect(selected.shutdown).not.toHaveBeenCalled();
+});
+
 it("rebuilds MTS when its pitch-bend range changes", async () => {
   WebMidi.enabled = true;
   WebMidi.interface = { inputs: new Map(), outputs: new Map([["port", { id: "port" }]]) };

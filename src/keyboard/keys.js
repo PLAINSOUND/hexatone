@@ -1902,6 +1902,7 @@ class Keys {
   };
 
   updateLiveOutputState = (nextSettings, synth) => {
+    if (nextSettings) Object.assign(this.settings, nextSettings);
     // Live output/runtime architecture update only. This is the boundary used
     // for output-family toggles and routing changes that should not reconstruct
     // Keys. Fine-grained runtime transport controls such as sustain, OCT,
@@ -1910,6 +1911,20 @@ class Keys {
     if (synth && synth !== this.synth) {
       const nextChildSynths = synth.childSynths?.();
       if (Array.isArray(nextChildSynths)) {
+        const previousChildren = new Set(this.synth?.childSynths?.() ?? []);
+        const controllerState = this._getControllerState();
+        const wheel = controllerState.ccValues?.[1];
+        // Seed only joining engines, before any held note is constructed or
+        // attacked. Replaying a zone update to retained engines would overwrite
+        // their per-note/snapshot expression during unrelated graph changes.
+        for (const child of nextChildSynths) {
+          if (previousChildren.has(child)) continue;
+          child.rememberControllerState?.(controllerState);
+          child.applyControllerState?.(controllerState, {
+            eaganModwheelBrightness: !!this.settings.mpe_eagan_modwheel_brightness,
+          });
+          if (Number.isFinite(wheel)) child.applyZoneModwheel?.(wheel);
+        }
         const activeHexes = new Set([
           ...(this._allActiveHexes?.() ?? []),
           ...(this.state?.sustainedNotes?.map(([hex]) => hex) ?? []),
@@ -1931,7 +1946,6 @@ class Keys {
       }
       this.synth = synth;
     }
-    if (nextSettings) Object.assign(this.settings, nextSettings);
     if (
       this.settings.output_mts &&
       this.settings.midi_device !== "OFF" &&
