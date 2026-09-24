@@ -9,6 +9,7 @@ import { calculateRotationMatrix } from "./matrix";
 import Point from "./point";
 import Euclid from "./euclidean";
 import { WebMidi } from "webmidi";
+import { withOutputTransaction } from "../midi/output-transaction.js";
 import { RecencyStack } from "../polyphony/recency-stack.js";
 import { MidiCoordResolver } from "./midi-coord-resolver.js";
 import { degree0ToRef, computeNaturalAnchor } from "../tuning/center-anchor.js";
@@ -1919,10 +1920,14 @@ class Keys {
           typeof globalThis.performance?.now === "function"
             ? globalThis.performance.now() + 20
             : undefined;
-        for (const hex of activeHexes) {
-          if (!hex || hex.release === true) continue;
-          hex.reconcileSynths?.(nextChildSynths, timestamp);
-        }
+        // Joining an output is one chord handover, not a run of solo attacks.
+        // Mono resolves its recency stack once, after every held voice joins.
+        withOutputTransaction(() => {
+          for (const hex of activeHexes) {
+            if (!hex || hex.release === true) continue;
+            hex.reconcileSynths?.(nextChildSynths, timestamp);
+          }
+        });
       }
       this.synth = synth;
     }

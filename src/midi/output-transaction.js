@@ -1,5 +1,12 @@
 // Synchronous chord transactions share clocks and flush recovery state before returning.
 let current = null;
+let attackOrder = 0;
+// A transaction is a simultaneous chord; independent attacks get newer groups.
+export function outputAttackGroup() {
+  if (!current) return ++attackOrder;
+  current.attackGroup ??= ++attackOrder;
+  return current.attackGroup;
+}
 export function getOutputTransaction() {
   return current;
 }

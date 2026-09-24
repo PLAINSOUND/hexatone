@@ -7,6 +7,8 @@
  *   // then pass synth to Keyboard as normal
  */
 
+import { outputAttackGroup } from "../midi/output-transaction.js";
+
 const expressionStateBySynths = new WeakMap();
 
 function expressionState(synths) {
@@ -99,6 +101,7 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
           hexSynths.push(nextSynth);
           hexes.push(child);
           if (!this._compositeSounding) continue;
+          child._attackGroup = this._attackGroup;
           child.noteOn?.(timestamp);
           if (this._compositeLastPressure != null || this._compositeLastPressure14 != null) {
             const pressure = this._compositeLastPressure ?? this._compositeLastPressure14 >> 7;
@@ -143,7 +146,11 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
         }
         this._compositeSounding = true;
         this.release = false;
-        hexes.forEach((h) => h.noteOn(timestamp));
+        this._attackGroup = outputAttackGroup();
+        hexes.forEach((h) => {
+          h._attackGroup = this._attackGroup;
+          h.noteOn(timestamp);
+        });
       },
 
       noteOff(release_velocity, timestamp) {

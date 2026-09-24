@@ -2,6 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import Keys from "./keys.js";
 import Point from "./point.js";
 import { WebMidi } from "webmidi";
+import { createMonoSynth } from "../mono_synth/index.js";
 import { ensureMidiInputBinding, rebuildControllerMap } from "../input/keys-midi-listeners.js";
 import { parseExactInterval } from "../tuning/interval.js";
 import {
@@ -6119,6 +6120,35 @@ describe("Keys MIDI input integration", () => {
       channelPressure: 54,
       pitchBend14: 12000,
     });
+  });
+
+  it("enables mono over a held snapshot with only the final voice attack", () => {
+    const output = { send: vi.fn() };
+    const mono = createMonoSynth({ output, schedulerOptions: { worker: false } });
+    output.send.mockClear();
+    const keys = createKeys({}, {}, {});
+    const voices = [60, 64, 67, 71].map((pitch, i) => {
+      const voice = mono.makeHex({ x: i, y: 0 }, (pitch - 69) * 100,
+        0, 0, 0, 0, 0, pitch, 70 + i);
+      return { release: false, reconcileSynths: (_children, at) => {
+        voice.noteOn(at);
+        voice.applySnapshotPressure(100);
+      } };
+    });
+    keys._snapshotHexes = voices;
+    keys._soundingSnapshotHexes = new Set(voices);
+    try {
+      keys.updateLiveOutputState(null, { childSynths: () => [mono] });
+      const ons = output.send.mock.calls.filter(([bytes]) => bytes[0] === 0x90);
+      expect(ons).toHaveLength(1);
+      // Carrier 69 covers held notes 67 and 71; maximum bend selects final 71.
+      expect(ons[0][0]).toEqual([0x90, 69, 73]);
+      expect(output.send.mock.calls.filter(([bytes]) => bytes[0] === 0xe0)
+        .map(([bytes]) => bytes)).toEqual([[0xe0, 127, 127]]);
+      expect(output.send.mock.calls.filter(([bytes]) => bytes[0] === 0x80)).toHaveLength(0);
+    } finally {
+      mono.shutdown();
+    }
   });
 
   it("reconciles held and sustained live voices once each when outputs change", () => {

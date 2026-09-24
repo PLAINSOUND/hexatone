@@ -6,7 +6,7 @@
  */
 
 import { sendRpn } from "../midi/rpn.js";
-import { getOutputTransaction } from "../midi/output-transaction.js";
+import { getOutputTransaction, outputAttackGroup } from "../midi/output-transaction.js";
 import { createMonoRamp } from "./ramp.js";
 import { normaliseSlideCc } from "../midi/slide-cc-options.js";
 
@@ -83,6 +83,9 @@ export function createMonoSynth({
   ];
   const update = (at = now()) => {
     if (stopped) return;
+    // Latest attack group wins; within a simultaneous chord choose its highest
+    // effective pitch. Keep this order for carrier selection and release fallback.
+    stack.sort((a, b) => a.attackGroup - b.attackGroup || pitch(a) - pitch(b));
     at = ramp.boundary(at);
     const next = stack.at(-1) ?? null;
     if (!next) {
@@ -177,6 +180,7 @@ export function createMonoSynth({
         noteOn(at) {
           if (stopped) return;
           hex.release = false;
+          hex.attackGroup = hex._attackGroup ?? outputAttackGroup();
           overlap = stack.length > 0;
           const index = stack.indexOf(hex);
           if (index >= 0) stack.splice(index, 1);
@@ -192,7 +196,7 @@ export function createMonoSynth({
         },
         retune(value) {
           hex.cents = value;
-          if (!hex.release && hex === stack.at(-1)) request();
+          if (!hex.release && stack.includes(hex)) request();
         },
         sequenceRetune(value) {
           hex.retune(value);

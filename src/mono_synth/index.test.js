@@ -1,6 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { chooseMonoCarrier, createMonoSynth } from "./index.js";
 import { withOutputTransaction } from "../midi/output-transaction.js";
+import { create_composite_synth } from "../composite_synth/index.js";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -14,6 +15,43 @@ function setup(options = {}) {
   return { output, synth, note, ons, offs };
 }
 describe("monophonic MIDI output", () => {
+  it("selects the highest simultaneous pitch, then newer attacks, with grouped release fallback", () => {
+    const { synth, note, ons } = setup();
+    const high = note(76), low = note(60), middle = note(67), later = note(55);
+    withOutputTransaction(() => {
+      high.noteOn(); low.noteOn(); middle.noteOn();
+    });
+    expect(ons().at(-1)[0][1]).toBe(76);
+    expect(ons()).toHaveLength(1);
+    later.noteOn();
+    expect(ons().at(-1)[0][1]).toBe(55);
+    later.noteOff();
+    expect(ons().at(-1)[0][1]).toBe(76);
+    high.noteOff();
+    expect(ons().at(-1)[0][1]).toBe(67);
+    synth.shutdown();
+  });
+
+  it("preserves attack recency when mono joins existing composite voices", () => {
+    const { synth, ons } = setup();
+    const composite = create_composite_synth([]);
+    const note = pitch => composite.makeHex(null, (pitch - 69) * 100,
+      0, 0, 0, 0, 0, pitch, 90);
+    const high = note(76), low = note(60), later = note(55);
+    withOutputTransaction(() => { high.noteOn(); low.noteOn(); });
+    later.noteOn();
+    withOutputTransaction(() => {
+      later.reconcileSynths([synth]);
+      low.reconcileSynths([synth]);
+      high.reconcileSynths([synth]);
+    });
+    expect(ons()).toHaveLength(1);
+    expect(ons()[0][0][1]).toBe(55);
+    later.noteOff();
+    expect(ons().at(-1)[0][1]).toBe(76);
+    synth.shutdown();
+  });
+
   it("cancels a deferred chord commit when released inside its transaction", () => {
     const { synth, output, note } = setup();
     withOutputTransaction(() => {
