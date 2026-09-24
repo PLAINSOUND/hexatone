@@ -156,6 +156,7 @@ const Sequencer = ({
   onPlaySequence,
   onPlayCue,
   onPlayTimedCue,
+  onPresentTimedCue,
   onEnsureAudioReady,
   showActivateAudioContext = false,
   onResetSequencePlayhead,
@@ -950,6 +951,9 @@ const Sequencer = ({
   }, [activeCueIndex, cueExpandedSnapshotIdsAt, sequenceEvents, soundingAttackEventIds]);
 
   const presentTimedCue = useCallback((cueIndex, trigger, burst) => {
+    // Audio has already been dispatched. The small palette update need not wait
+    // for the batched editor presentation (and must not trigger an App render).
+    onPresentTimedCue?.(cueIndex);
     const notification = { cueIndex, trigger, burst };
     pendingTimedVisualNotificationRef.current = notification;
     if (timedVisualNotificationFrameRef.current != null) return;
@@ -964,7 +968,7 @@ const Sequencer = ({
         notification.burst,
       );
     });
-  }, []);
+  }, [onPresentTimedCue]);
 
   const {
     timedTransportUiState,
@@ -1311,12 +1315,16 @@ const Sequencer = ({
 
       timedHighlightPresenterRef.current?.present({
         snapshotId,
-        soundingEventIds: [],
+        // Snapshot triggers attack its notes together. Update mounted ON rows
+        // through the small presenter, not the 300 ms editor-state commit.
+        soundingEventIds: (snapshotEventsById.get(snapshotId) ?? [])
+          .filter(event => event.kind === "attack")
+          .map(event => event.eventId),
         mode: "manual",
       });
       timedReadoutPresenterRef.current?.present({ snapshotIndex: numericSnapshotIndex });
     },
-    [snapshots],
+    [snapshots, snapshotEventsById],
   );
 
   const virtualSequenceItems = useMemo(

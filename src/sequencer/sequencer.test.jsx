@@ -1225,6 +1225,7 @@ describe("Sequencer", () => {
     let nowSeconds = 0;
     const onPlayCue = vi.fn();
     const onPlayTimedCue = vi.fn();
+    const onPresentTimedCue = vi.fn();
 
     render(
       <Sequencer
@@ -1270,6 +1271,7 @@ describe("Sequencer", () => {
         onPlaySequence={vi.fn()}
         onPlayCue={onPlayCue}
         onPlayTimedCue={onPlayTimedCue}
+        onPresentTimedCue={onPresentTimedCue}
         onResetSequencePlayhead={vi.fn()}
         onAddBar={vi.fn()}
         onAddTempo={vi.fn()}
@@ -1290,6 +1292,11 @@ describe("Sequencer", () => {
     fireEvent.click(screen.getByLabelText("play timed transport"));
     expect(onPlayTimedCue).toHaveBeenCalledTimes(1);
     expect(onPlayTimedCue.mock.calls[0][0]).toBe(0);
+    // Palette presentation follows audio immediately, before any queued frame.
+    expect(onPresentTimedCue).toHaveBeenCalledWith(0);
+    expect(onPresentTimedCue.mock.invocationCallOrder[0]).toBeGreaterThan(
+      onPlayTimedCue.mock.invocationCallOrder[0],
+    );
     vi.runOnlyPendingTimers();
 
     expect(onPlayTimedCue).toHaveBeenCalledTimes(1);
@@ -1326,6 +1333,9 @@ describe("Sequencer", () => {
     nowSeconds = 4.1;
     vi.advanceTimersByTime(50);
     expect(onPlayTimedCue).toHaveBeenCalledTimes(3);
+    expect(onPresentTimedCue.mock.calls.map(([index]) => index)).toEqual(
+      onPlayTimedCue.mock.calls.map(([index]) => index),
+    );
     flushQueuedFrames();
 
     expect(secondSnapshotRow?.classList.contains("sequencer-item--timed-playing")).toBe(true);
@@ -1642,9 +1652,14 @@ describe("Sequencer", () => {
 
     fireEvent.click(screen.getByLabelText("next sequence step"));
     expect(screen.getByLabelText("next snapshot target").value).toBe("1");
+    const soundingRows = () => document.querySelectorAll(".sequencer-event-row--manual-sounding");
+    // No timer advance or App playhead update: ON rows must follow the sound.
+    expect(soundingRows()).toHaveLength(1);
+    expect(soundingRows()[0].closest(".sequencer-item").querySelector('[aria-label="snapshot 2 description"]')).toBeTruthy();
     // An unrelated render arrives before App's 300ms editor commit.
     rerender(<Sequencer {...baseProps} sequencePlaybackSpeed={1.1} />);
     expect(screen.getByLabelText("next snapshot target").value).toBe("1");
+    expect(soundingRows()).toHaveLength(1);
     baseProps.onStepSequence.mockReturnValueOnce(0);
     fireEvent.click(screen.getByLabelText("previous sequence step"));
     expect(screen.getByLabelText("next snapshot target").value).toBe("0");
@@ -1907,6 +1922,7 @@ describe("Sequencer", () => {
     let nowSeconds = 0;
     const onPlayTimedCue = vi.fn();
     const onStopSnapshot = vi.fn();
+    const onCueSequenceCue = vi.fn();
 
     render(
       <Sequencer
@@ -1940,6 +1956,7 @@ describe("Sequencer", () => {
         onSelectMarker={vi.fn()}
         onPlaySnapshot={vi.fn()}
         onStopSnapshot={onStopSnapshot}
+        onCueSequenceCue={onCueSequenceCue}
         onSelectSequenceBar={vi.fn()}
         onStepSequence={vi.fn()}
         onStepSequenceMarker={vi.fn()}
@@ -1981,11 +1998,22 @@ describe("Sequencer", () => {
     expect(screen.getByLabelText("play timed transport")).toBeTruthy();
     expect(screen.getByLabelText("next cue target").value).toBe(pausedCue);
     expect(screen.getByLabelText("next snapshot target").value).toBe(pausedSnapshot);
+    expect(onCueSequenceCue).not.toHaveBeenCalled();
+    nowSeconds = 12;
+    vi.advanceTimersByTime(400);
+    expect(onPlayTimedCue).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("next cue target").value).toBe(pausedCue);
 
     fireEvent.click(screen.getByLabelText("play timed transport"));
     expect(screen.getByLabelText("pause timed transport")).toBeTruthy();
     expect(onPlayTimedCue).toHaveBeenCalledTimes(3);
     expect(onPlayTimedCue.mock.calls[2][0]).toBe(1);
+
+    fireEvent.click(screen.getByLabelText("stop timed transport"));
+    expect(onCueSequenceCue).toHaveBeenCalledExactlyOnceWith(0);
+    expect(onStopSnapshot).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(400);
+    expect(onPlayTimedCue).toHaveBeenCalledTimes(3);
 
     vi.useRealTimers();
   });

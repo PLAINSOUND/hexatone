@@ -2,6 +2,32 @@ import { render, screen } from "@testing-library/preact";
 import { fireEvent } from "../test-utils/dom-events.js";
 import SequenceControls from "./sequence-controls.jsx";
 
+it.each(["start", "end"])("timed %s navigation stops before a deferred edit commit", (target) => {
+  const calls = [];
+  let pending;
+  render(
+    <SequenceControls
+      snapshots={[{ id: 1, notes: [] }]}
+      renderedSnapshots={[{ id: 1, notes: [] }]}
+      sortedBars={[]}
+      sequenceCueGroups={[]}
+      playhead={{ stepIndex: 0 }}
+      timedTransportUiState={{ running: true }}
+      runTransportAction={(action) => { calls.push("queue"); pending = action; }}
+      onTimedTransportStop={(options) => {
+        expect(options).toEqual({ restoreStartTarget: false });
+        calls.push("stop");
+      }}
+      onResetSequencePlayhead={() => calls.push("start")}
+      onJumpSequenceEnd={() => calls.push("end")}
+    />,
+  );
+  fireEvent.click(screen.getByLabelText(`move timed transport to ${target}`));
+  expect(calls).toEqual(["stop", "queue"]);
+  pending();
+  expect(calls).toEqual(["stop", "queue", target]);
+});
+
 it.each([
   ["next sequence marker", "cue", 1],
   ["previous sequence marker", "cue", 1],

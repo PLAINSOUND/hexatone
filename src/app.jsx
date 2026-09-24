@@ -90,6 +90,8 @@ import {
   defaultSequenceBars,
   defaultSequenceTempi,
 } from "./sequencer/workspace-runtime.js";
+import { sequenceWorkspaceTransition } from "./sequencer/workspace-transition.js";
+import { presentSnapshotPalette } from "./sequencer/snapshot-palette-presenter.js";
 import {
   effectiveManualSnapshotArticulation,
   normalizeManualArpeggiation,
@@ -655,7 +657,7 @@ const App = () => {
   // Keeping the underlying workspace separate lets a running sequence continue
   // while sound/routing controls or pitch calculations are visible.
   const [performanceWorkspaceTab, setPerformanceWorkspaceTab] = useState(() =>
-    workspaceTab === "sequencer" ? "sequencer" : "hexatone",
+    workspaceTab === "sequencer" || workspaceTab === "io" ? "sequencer" : "hexatone",
   );
   const [inlineManualView, setInlineManualView] = useState(null);
   const [manualSectionTitles, setManualSectionTitles] = useState(MANUAL_VIEW_DEFAULT_SECTIONS);
@@ -1186,6 +1188,7 @@ const App = () => {
   const modulationPaletteUserMovedRef = useRef(false);
   const snapshotPaletteRef = useRef(null);
   const snapshotPaletteBodyRef = useRef(null);
+  const timedPaletteSnapshotRef = useRef(null);
   const snapshotPaletteDragRef = useRef(null);
   const snapshotPaletteUserMovedRef = useRef(false);
   const previousSnapshotPaletteCollapsedRef = useRef(snapshotPaletteCollapsed);
@@ -1647,6 +1650,14 @@ const App = () => {
     });
   }, [selectedSnapshotId, sequenceRuntimeModel, snapshots.length, workspaceTab]);
   const sequenceCueGroups = sequenceRuntimeModel.sequenceCueGroups;
+  const onPresentTimedPaletteCue = useCallback((cueIndex) => {
+    // A stopped or replaced transport must not revive a queued visual update.
+    if (!Number.isFinite(timedPlaybackUiRef.current.clockSeconds)) return;
+    const group = sequenceCueGroups[cueIndex];
+    const id = snapshots[group?.snapshotIndex]?.id ?? null;
+    timedPaletteSnapshotRef.current = id;
+    presentSnapshotPalette(snapshotPaletteBodyRef.current, id);
+  }, [sequenceCueGroups, snapshots]);
   const sequenceRepeatSections = sequenceRuntimeModel.sequenceRepeatSections;
   const sortedSequenceBars = sequenceRuntimeModel.sortedBars;
 
@@ -1743,6 +1754,10 @@ const App = () => {
   }, []);
 
   const resetTimedPlaybackUi = useCallback((nextState = {}) => {
+    if (timedPaletteSnapshotRef.current != null) {
+      presentSnapshotPalette(snapshotPaletteBodyRef.current, null);
+      timedPaletteSnapshotRef.current = null;
+    }
     timedPlaybackUiRef.current = buildTimedPlaybackUiResetState(nextState);
   }, []);
 
@@ -2287,6 +2302,11 @@ const App = () => {
 
   const onStopSnapshot = useCallback(
     (id = null, options = {}) => {
+      if (id != null && id === timedPaletteSnapshotRef.current &&
+        Number.isFinite(timedPlaybackUiRef.current.clockSeconds)) {
+        timedTransportStopRef.current?.({ restoreStartTarget: false });
+        return;
+      }
       cancelPendingManualCueUiCommit();
       const hasManualGesture =
         id == null
@@ -2352,19 +2372,12 @@ const App = () => {
     previousPerformanceWorkspaceTabRef.current = performanceWorkspaceTab;
     const previousVisibleTab = previousVisibleWorkspaceTabRef.current;
     previousVisibleWorkspaceTabRef.current = workspaceTab;
-    const leftSequencerForHexatone =
-      previousTab === "sequencer" && performanceWorkspaceTab === "hexatone";
-    const openedNonPlaybackTab =
-      performanceWorkspaceTab === "sequencer" &&
-      previousVisibleTab !== workspaceTab &&
-      (workspaceTab === "manual" || workspaceTab === "calculator");
-    const livePosition = sequencePlayheadRef.current;
-    const heldManualSnapshot =
-      !livePosition.stopped &&
-      livePosition.stepIndex >= 0 &&
-      livePosition.markerIndex == null &&
-      !Number.isFinite(timedPlaybackUiRef.current.clockSeconds);
-    if (previousVisibleTab !== workspaceTab && workspaceTab !== "sequencer" && heldManualSnapshot) {
+    const transition = sequenceWorkspaceTransition({
+      previousPerformanceTab: previousTab, performanceTab: performanceWorkspaceTab,
+      previousTab: previousVisibleTab, tab: workspaceTab,
+      playhead: sequencePlayheadRef.current, timedClockSeconds: timedPlaybackUiRef.current.clockSeconds,
+    });
+    if (transition === "flush-manual-snapshot") {
       // Snapshot playback belongs to the shared palette, not the sequencer tab.
       // Flush only its pending visual state so a rapid arrow-then-tab switch
       // highlights the sounding snapshot immediately, without another attack.
@@ -2373,7 +2386,7 @@ const App = () => {
       if (pending) commitSequencePlaybackUi(pending);
       return;
     }
-    if (!leftSequencerForHexatone && !openedNonPlaybackTab) return;
+    if (transition !== "stop-sequencer") return;
     // Leaving the Sequencer should stop only voices owned by sequencer
     // playback. Live MIDI/controller notes belong to the always-mounted Keys
     // runtime and must survive workspace navigation just as they do when
@@ -5586,7 +5599,9 @@ const App = () => {
             <div className="snapshot-palette-body" ref={snapshotPaletteBodyRef}>
               {snapshots.map((snap, index) => {
                 const isPlaying =
-                  snap.id === playingSnapshotId || manualPlayingSnapshotIds.includes(snap.id);
+                  Number.isFinite(timedPlaybackUiRef.current.clockSeconds) && timedPaletteSnapshotRef.current != null
+                    ? snap.id === timedPaletteSnapshotRef.current
+                    : snap.id === playingSnapshotId || manualPlayingSnapshotIds.includes(snap.id);
                 const isEmpty = !Array.isArray(snap.notes) || snap.notes.length === 0;
                 const isDragOver = dragOverId === snap.id;
                 return (
@@ -6071,6 +6086,7 @@ const App = () => {
                     onPlaySequence={onPlaySequence}
                     onPlayCue={onPlaySequenceCue}
                     onPlayTimedCue={onPlayTimedSequenceCue}
+                    onPresentTimedCue={onPresentTimedPaletteCue}
                     onEnsureAudioReady={primeAudioFromUserInteraction}
                     showActivateAudioContext={!userHasInteracted}
                     onResetSequencePlayhead={onResetSequencePlayhead}

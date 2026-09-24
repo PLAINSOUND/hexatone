@@ -4,6 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
+import { createManualTransportActions, stopTimedTransportBefore } from "./transport-actions.js";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import { normalizeSequenceLegatoMode, SEQUENCE_LEGATO_MODES } from "./legato.js";
 import {
@@ -90,13 +91,6 @@ function formatEffectiveTempoCourtesy(tempo) {
 
 function selectControlValue(event) {
   event.currentTarget.select?.();
-}
-
-function stopTimedTransportBefore(action, timedTransportDisplay, onTimedTransportStop) {
-  if (timedTransportDisplay?.running || timedTransportDisplay?.paused) {
-    onTimedTransportStop?.({ restoreStartTarget: false });
-  }
-  action?.();
 }
 
 function clamp(value, min, max) {
@@ -359,31 +353,15 @@ const SequenceControls = ({
   // Item 1 is not the beginning of the transport: Previous first reaches the
   // rewound state with item 1 prepared, then reaches explicit pre-start.
   const transportBackAvailable = snapshots.length > 0 && playhead?.preStart !== true;
-  const runTransportAction = (action) => {
-    // Cancel the scheduler before handing over to manual playback, even if
-    // committing an edited field defers the requested action until a rerender.
-    stopTimedTransportBefore(
-      () => runEditAwareTransportAction(action),
-      timedTransportUiState,
-      onTimedTransportStop,
-    );
-  };
-  const triggerManualTarget = (target, fallback) => {
-    // Read the scheduler before stopping it; the displayed PLAY FROM values
-    // may still represent the original start target during timed playback.
-    const cueIndex = timedTransportUiState?.running
-      ? getTimedTransportDisplay?.()?.activeCueIndex
-      : null;
-    const cue = Number.isInteger(cueIndex) ? sequenceCueGroups[cueIndex] : null;
-    if (cue) {
-      runTransportAction(() => {
-        if (target === "snapshot") onJumpSequenceSnapshot?.(cue.snapshotIndex);
-        else onJumpSequenceCue?.(cueIndex);
-      });
-      return;
-    }
-    runTransportAction(fallback);
-  };
+  const { runTransportAction, triggerManualTarget } = createManualTransportActions({
+    timedTransportUiState,
+    onTimedTransportStop,
+    runEditAwareTransportAction,
+    getTimedTransportDisplay,
+    sequenceCueGroups,
+    onJumpSequenceSnapshot,
+    onJumpSequenceCue,
+  });
 
   return (
     <>
@@ -1081,7 +1059,7 @@ const SequenceControls = ({
             snapshots={snapshots}
             playheadIsOff={playheadIsOff}
             playheadIsEnd={playheadIsEnd}
-            runTransportAction={runEditAwareTransportAction}
+            runTransportAction={runTransportAction}
             onResetSequencePlayhead={onResetSequencePlayhead}
             onJumpSequenceEnd={onJumpSequenceEnd}
             timedTransportUiState={timedTransportUiState}
@@ -1512,13 +1490,7 @@ function TimedPlaybackRow({
           aria-label="move timed transport to start"
           disabled={snapshots.length === 0 && playheadIsOff}
           onClick={() => {
-            runTransportAction(() =>
-              stopTimedTransportBefore(
-                () => onResetSequencePlayhead?.(),
-                timedTransportUiState,
-                onTimedTransportStop,
-              ),
-            );
+            runTransportAction(() => onResetSequencePlayhead?.());
           }}
         >
           <svg class="snapshot-start-icon" viewBox="0 0 10 10" aria-hidden="true" focusable="false">
@@ -1559,13 +1531,7 @@ function TimedPlaybackRow({
           aria-label="move timed transport to end"
           disabled={snapshots.length === 0 && playheadIsEnd}
           onClick={() => {
-            runTransportAction(() =>
-              stopTimedTransportBefore(
-                () => onJumpSequenceEnd?.(),
-                timedTransportUiState,
-                onTimedTransportStop,
-              ),
-            );
+            runTransportAction(() => onJumpSequenceEnd?.());
           }}
         >
           <svg

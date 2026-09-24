@@ -981,12 +981,23 @@ describe("App workspace tabs", () => {
     ["io", "I/O"],
   ])("opens the restored %s workspace on startup", async (storedTab, tabName) => {
     sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, storedTab);
+    if (storedTab === "io") {
+      localStorage.setItem("hexatone_persist_on_reload", "true");
+      sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+        snapshots: [{ id: 1, notes: [{ id: "a", midicents: 60, start: 0, end: 1 }] }],
+        bars: [], tempi: [], repeats: [],
+      }));
+    }
 
     render(<App />);
 
     await waitFor(() =>
       expect(screen.getByRole("tab", { name: tabName }).getAttribute("aria-selected")).toBe("true"),
     );
+    if (storedTab === "io") {
+      const play = await screen.findByLabelText("play timed transport");
+      expect(document.getElementById("io-sequencer-transport-host").contains(play)).toBe(true);
+    }
   });
 
   it("restores stored sequence timbre after Mod Wheel input when sequence shaping is unchecked", async () => {
@@ -1718,6 +1729,23 @@ describe("App workspace tabs", () => {
     expect(Number(screen.getByLabelText("sequence playback pitch").value)).toBe(100);
     expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
     keys.stopSnapshot.mockClear();
+    // Paused transport and its readouts survive moving the same controls to I/O.
+    fireEvent.click(screen.getByLabelText("pause timed transport"));
+    const pausedCue = screen.getByLabelText("next cue target").value;
+    const pausedSnapshot = screen.getByLabelText("next snapshot target").value;
+    const stopCount = keys.stopSnapshot.mock.calls.length;
+    const attackCount = keys.playSnapshot.mock.calls.length;
+    for (const tab of ["I/O", "SEQUENCER", "I/O", "SEQUENCER"]) {
+      await user.click(screen.getByRole("tab", { name: tab }));
+      expect(screen.getByLabelText("play timed transport")).not.toBeNull();
+      expect(screen.getByLabelText("next cue target").value).toBe(pausedCue);
+      expect(screen.getByLabelText("next snapshot target").value).toBe(pausedSnapshot);
+      expect(keys.stopSnapshot).toHaveBeenCalledTimes(stopCount);
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(attackCount);
+    }
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
+    keys.stopSnapshot.mockClear();
     await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
     expect(keys.stopSnapshot).toHaveBeenCalled();
     expect(keys.panic).not.toHaveBeenCalled();
@@ -1739,6 +1767,45 @@ describe("App workspace tabs", () => {
     expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
     await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
     expect(screen.queryByLabelText("pause timed transport")).toBeNull();
+  });
+
+  it("follows timed playback in the I/O snapshot palette without a manual playhead commit", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback =>
+      window.setTimeout(() => callback(performance.now()), 16));
+    const caf = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(id => window.clearTimeout(id));
+    try {
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [
+        { id: 1, length: 0.1, notes: [{ id: "a", midicents: 60, start: 0, end: 0.1 }] },
+        { id: 2, length: 100, notes: [{ id: "b", midicents: 64, start: 0, end: 100 }] },
+      ], bars: [{ id: 1, position: 1 }], tempi: [], repeats: [],
+    }));
+    render(<App />);
+    const user = userEvent.setup();
+    let clock = 0;
+    const keys = { stopSnapshot: vi.fn(), panic: vi.fn(), playSnapshot: vi.fn(),
+      synth: { currentTime: () => clock } };
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+    await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    await user.click(await screen.findByLabelText("play timed transport"));
+    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await waitFor(() => {
+      if (screen.getByLabelText("Stop snapshot 2").disabled) clock += 0.1;
+      expect(screen.getByLabelText("Stop snapshot 2").disabled).toBe(false);
+    }, { timeout: 3000 });
+    expect(screen.getByLabelText("Stop snapshot 1").closest(".snapshot-row").classList.contains("snapshot-playing")).toBe(false);
+    expect(screen.getByLabelText("Stop snapshot 2").closest(".snapshot-row").classList.contains("snapshot-playing")).toBe(true);
+    await user.click(screen.getByLabelText("Stop snapshot 2"));
+    expect(screen.queryByLabelText("pause timed transport")).toBeNull();
+    expect(document.querySelector(".snapshot-palette-body .snapshot-playing")).toBeNull();
+    expect(keys.panic).not.toHaveBeenCalled();
+    } finally {
+      raf.mockRestore();
+      caf.mockRestore();
+    }
   });
 
   it("hands timed playback over to manual PLAY FROM buttons in both workspaces", async () => {

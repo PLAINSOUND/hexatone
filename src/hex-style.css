@@ -817,9 +817,8 @@ a:hover {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
-  transition:
-    background-color 0.085s ease,
-    color 0.085s ease;
+  /* Playback indicators should change on the next paint, without a colour fade. */
+  transition: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
