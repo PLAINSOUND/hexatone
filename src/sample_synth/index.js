@@ -4,6 +4,7 @@
 // interface as the other synth backends. It does not resolve controller input.
 
 import { outputAudioTime } from "../midi/output-transaction.js";
+import { installAudioGestureRecovery } from "./gesture-recovery.js";
 
 import { instruments } from "./instruments";
 import { scalaToCents } from "../settings/scale/parse-scale";
@@ -45,6 +46,8 @@ let iosVisibilityHandler = null;
 let iosPageShowHandler = null;
 let iosPageHideHandler = null;
 let iosForceRecreateOnPrepare = false;
+let removeAudioGestureRecovery = null;
+let iosNeedsGestureRestart = false;
 
 const createSharedAudioContext = () => {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -52,6 +55,7 @@ const createSharedAudioContext = () => {
   // Windows shared-mode backends where the default hint can feel sluggish.
   sharedAudioContext = new AudioContextClass({ latencyHint: "interactive" });
   iosForceRecreateOnPrepare = false;
+  iosNeedsGestureRestart = false;
   setupIOSAudioHandler();
   return sharedAudioContext;
 };
@@ -111,6 +115,21 @@ const clearKeepAliveNode = () => {
 
 const setupIOSAudioHandler = () => {
   if (!isIOS) return;
+  removeAudioGestureRecovery?.();
+  removeAudioGestureRecovery = installAudioGestureRecovery(
+    document,
+    () => sharedAudioContext,
+    () => {
+      // A resumed graph is usable: don't destroy it on the next prepare.
+      iosForceRecreateOnPrepare = false;
+    },
+    (error) => warnLog("iOS: Audio gesture resume failed:", error.message),
+    () => {
+      const interrupted = iosNeedsGestureRestart;
+      iosNeedsGestureRestart = false;
+      return interrupted;
+    },
+  );
 
   // Remove existing handler if any
   if (iosVisibilityHandler) {
@@ -120,6 +139,7 @@ const setupIOSAudioHandler = () => {
   iosVisibilityHandler = async () => {
     if (document.visibilityState === "hidden") {
       iosForceRecreateOnPrepare = true;
+      iosNeedsGestureRestart = true;
       return;
     }
     if (document.visibilityState === "visible" && sharedAudioContext) {
@@ -164,6 +184,7 @@ const setupIOSAudioHandler = () => {
 
   iosPageHideHandler = () => {
     iosForceRecreateOnPrepare = true;
+    iosNeedsGestureRestart = true;
   };
 
   window.addEventListener("pagehide", iosPageHideHandler);

@@ -147,7 +147,7 @@ describe("modulation-frame-runtime", () => {
 
     expect(routeTranspositionDeltaCents(route)).toBeCloseTo(-701.9550008653874, 8);
     expect(routeTranspositionRatioText(route, workspace)).toBe("2/3");
-    expect(modulationEntryDisplayText(route, workspace)).toBe("[1 -1> (-702¢)");
+    expect(modulationEntryDisplayText(route, workspace)).toBe("-702¢");
     expect(modulationRouteLabelPair(route, degreeLabel, workspace)).toEqual({
       sourceLabel: "d0",
       targetLabel: "d2",

@@ -84,6 +84,7 @@ const synthWiringState = {
   setOctaveTranspose: vi.fn(),
   octaveDeferred: false,
   shiftOctave: vi.fn(),
+  resetOctave: vi.fn(),
   toggleOctaveDeferred: vi.fn(),
   onVolumeChange: vi.fn(),
   onAnchorLearn: vi.fn(),
@@ -493,7 +494,7 @@ describe("sequence-only playback surface", () => {
 });
 
 describe("modulationRouteLabelPair", () => {
-  it("renders an equave offset for an octave-displaced target ratio", () => {
+  it("omits the equave annotation for an octave-displaced target ratio", () => {
     const pair = modulationRouteLabelPair(
       {
         sourceDegree: 0,
@@ -516,7 +517,7 @@ describe("modulationRouteLabelPair", () => {
 
     expect(pair).toEqual({
       sourceLabel: "1/1",
-      targetLabel: "7/4[-1eq]",
+      targetLabel: "7/4",
     });
   });
 });
@@ -565,13 +566,13 @@ describe("commitModulationHistoryToPreset", () => {
 });
 
 describe("modulationCurrentSummaryDisplay", () => {
-  it("renders the actual current monzo without equave-offset suffixes", () => {
+  it("renders signed cents without monzo or equave annotations for exact ratios", () => {
     expect(
       modulationCurrentSummaryDisplay({
         ratioText: "7/8",
         cents: parseExactInterval("7/8").cents,
       }),
-    ).toBe("[-3 0 0 1> (-231¢)");
+    ).toBe("-231¢");
   });
 
   it("renders cents only when the current ratio is not exact", () => {
@@ -1384,6 +1385,70 @@ describe("App workspace tabs", () => {
       localStorage.removeItem("hexatone_persist_on_reload");
       sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
     }
+  });
+
+  it.each(["Play snapshot 1", "next sequence step", "next sequence marker", "play timed transport"])(
+    "PANIC clears playback highlights after %s, including deferred presentation", async (trigger) => {
+      window.matchMedia = vi.fn().mockReturnValue({
+        matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+      });
+      localStorage.setItem("hexatone_persist_on_reload", "true");
+      sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+        snapshots: [{ id: 1, length: 100, notes: [{ id: "held", midicents: 69, start: 0, end: 100 }] }],
+        bars: [], tempi: [], repeats: [],
+      }));
+      const keys = { playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+      const view = render(<App />);
+      try {
+        await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+        act(() => lastKeyboardProps.onKeysReady(keys));
+        if (trigger !== "Play snapshot 1") {
+          fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+        }
+        fireEvent.click(await screen.findByLabelText(trigger));
+        expect(keys.playSnapshot).toHaveBeenCalled();
+        fireEvent.click(screen.getByRole("button", { name: "PANIC" }));
+        expect(keys.panic).toHaveBeenCalledOnce();
+        const highlights = ".snapshot-playing, .sequencer-item--manual-playing, .sequencer-item--timed-playing, .sequencer-event-row--manual-sounding, .sequencer-event-row--timed-sounding";
+        await waitFor(() => expect(document.querySelector(highlights)).toBeNull());
+        const attackCount = keys.playSnapshot.mock.calls.length;
+        // Wait past the 300 ms manual UI commit and queued visual frames.
+        await act(async () => { await new Promise(resolve => setTimeout(resolve, 350)); });
+        expect(document.querySelector(highlights)).toBeNull();
+        expect(keys.playSnapshot).toHaveBeenCalledTimes(attackCount);
+        expect(screen.queryByLabelText("pause timed transport")).toBeNull();
+        fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+        expect((await screen.findByLabelText("Stop snapshot 1")).disabled).toBe(true);
+      } finally {
+        view.unmount();
+      }
+    },
+  );
+
+  it("keeps a restored invalid HEJI edit clean after Enter followed by blur", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: 1, length: 1,
+        pitchFrame: { id: "frame", referenceLabel: "A4", referenceFrequency: 440,
+          referenceInterval: "1/1", hejiAnchorLabel: "*nA", hejiAnchorInterval: "1/1" },
+        notes: [{ id: "held", midicents: 69, displayLabel: "A", hejiName: "*nA4", start: 0, end: 1 }] }],
+      bars: [], tempi: [], repeats: [],
+    }));
+    const view = render(<App />);
+    try {
+      fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+      const input = await screen.findByLabelText("snapshot 1 attack name");
+      fireEvent.focus(input);
+      fireEvent.input(input, { target: { value: "rubbish!" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      const restored = screen.getByLabelText("snapshot 1 attack name");
+      expect(restored.value).not.toBe("rubbish!");
+      fireEvent.blur(restored);
+      expect(screen.getByLabelText("snapshot 1 attack name").classList.contains("sequencer-event__pitch-draft")).toBe(false);
+    } finally { view.unmount(); }
   });
 
   it("replays a manual snapshot only when a replacement instrument is ready in I/O", async () => {

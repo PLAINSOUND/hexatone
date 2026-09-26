@@ -14,6 +14,7 @@ import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } fr
 import Keyboard from "./keyboard";
 import { sendLumatoneBlankLayout } from "./keyboard/keys-controller-leds.js";
 import { primeSharedSampleAudio } from "./sample_synth/prime-shared-audio.js";
+import { bringPaletteToFront } from "./ui/palette-stacking.js";
 import { normalizeColors, normalizeStructural } from "./settings/normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
@@ -3805,6 +3806,20 @@ const App = () => {
     });
   }, [sequenceCueGroups, snapshots]);
 
+  const panicPlayback = useCallback(() => {
+    // Cancel schedulers and deferred UI commits before silencing engines so
+    // neither a queued cue nor its presentation can revive after PANIC.
+    if (timedTransportStopRef.current) {
+      timedTransportStopRef.current({ restoreStartTarget: false });
+    } else {
+      onStopSnapshot();
+    }
+    presentSnapshotPalette(snapshotPaletteBodyRef.current, null);
+    guardianPanic();
+    keysRef.current?.panic();
+    resetOctave();
+  }, [guardianPanic, onStopSnapshot, resetOctave]);
+
   const suppressTouchClickUntilRef = useRef(0);
   const runTouchControlAction = useCallback((e, action) => {
     if (e.pointerType !== "touch") return false;
@@ -5477,15 +5492,11 @@ const App = () => {
             onClick={(e) => {
               if (skipSuppressedTouchClick(e)) return;
               e.stopPropagation();
-              guardianPanic();
-              if (keysRef.current) keysRef.current.panic();
-              resetOctave();
+              panicPlayback();
             }}
             onPointerDown={(e) => {
               runTouchControlAction(e, () => {
-                guardianPanic();
-                if (keysRef.current) keysRef.current.panic();
-                resetOctave();
+                panicPlayback();
               });
             }}
             onContextMenu={(e) => e.preventDefault()}
@@ -5533,6 +5544,9 @@ const App = () => {
       {snapshotPaletteVisible && snapshots.length > 0 && (
         <div
           id="snapshot-palette"
+          onPointerDownCapture={bringPaletteToFront}
+          onClickCapture={bringPaletteToFront}
+          onFocusCapture={bringPaletteToFront}
           ref={snapshotPaletteRef}
           style={{
             left: `${snapshotPalettePos.x}px`,
@@ -5701,6 +5715,9 @@ const App = () => {
       {modulationPaletteVisible && performancePalettesVisible && (
         <div
           id="modulation-palette"
+          onPointerDownCapture={bringPaletteToFront}
+          onClickCapture={bringPaletteToFront}
+          onFocusCapture={bringPaletteToFront}
           ref={modulationPaletteRef}
           style={{
             left: `${modulationPalettePos.x}px`,

@@ -181,7 +181,7 @@ export function structuralEventInstanceKey(item) {
   return base;
 }
 
-export function commitTextInput(target, commit) {
+export function commitTextInput(target, commit, normalize = null) {
   if (!(target instanceof HTMLInputElement)) return { committed: false, metadata: null };
   const value = target.value;
   if (target.dataset.lastCommittedValue === value) return { committed: false, metadata: null };
@@ -189,5 +189,9 @@ export function commitTextInput(target, commit) {
   // rerender or blur must not submit the same edit against an older snapshot.
   target.dataset.lastCommittedValue = value;
   const metadata = commit(value) ?? null;
+  if (typeof normalize === "function") normalize();
+  // Enter may restore an invalid value or canonicalise a valid one. The later
+  // blur must compare against that displayed result, not the rejected raw text.
+  target.dataset.lastCommittedValue = target.value;
   return { committed: true, metadata };
 }

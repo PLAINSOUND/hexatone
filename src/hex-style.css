@@ -976,6 +976,11 @@ a:hover {
   line-height: 1;
 }
 
+#snapshot-palette[data-palette-front="true"],
+#modulation-palette[data-palette-front="true"] {
+  z-index: 13;
+}
+
 .modulation-palette-header {
   display: flex;
   align-items: center;
@@ -991,7 +996,7 @@ a:hover {
 
 .modulation-palette-row {
   display: grid;
-  grid-template-columns: minmax(7.5em, 1fr) max-content 1.2em 2.2em 1.2em 1.25em;
+  grid-template-columns: minmax(7.5em, 1fr) max-content 1.2em 2.2em 1.2em 2.85em;
   align-items: center;
   column-gap: 5px;
   line-height: 1;
@@ -1012,6 +1017,7 @@ a:hover {
 }
 
 .modulation-palette-close-slot {
+  margin-left: 1.6em;
   width: 1.25em;
   min-width: 1.25em;
   height: 1.25em;
@@ -1173,7 +1179,7 @@ a:hover {
 
 .modulation-palette-summary {
   display: grid;
-  grid-template-columns: minmax(7.5em, 1fr) max-content 1.2em 2.2em 1.2em 1.25em;
+  grid-template-columns: minmax(7.5em, 1fr) max-content 1.2em 2.2em 1.2em 2.85em;
   align-items: center;
   column-gap: 5px;
   min-width: 0;
@@ -1281,7 +1287,7 @@ a:hover {
     min-width: 10.5rem;
     max-width: min(78vw, 16rem);
     transform: translateY(1.5rem);
-    gap: 4px;
+    gap: 3px;
     padding: 6px 8px;
     border-radius: 12px;
     font-size: 0.9em;
@@ -1292,13 +1298,15 @@ a:hover {
   }
 
   .modulation-palette-row {
-    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 1.45em;
+    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 4.2em;
+    min-height: 1.85em;
+    height: auto;
     column-gap: 4px;
     font-size: 0.9em;
   }
 
   .modulation-palette-summary {
-    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 1.45em;
+    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 4.2em;
     column-gap: 4px;
     font-size: 0.9em;
   }
@@ -1360,7 +1368,7 @@ a:hover {
   .modulation-palette-route,
   .modulation-palette-modulation,
   .modulation-palette-count {
-    font-size: 0.9em;
+    font-size: 1em;
   }
 
   .modulation-palette-route-arrow {
@@ -1390,17 +1398,24 @@ a:hover {
   }
 
   .modulation-palette-row {
-    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 1.45em;
+    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 3.05em;
     column-gap: 4px;
     line-height: 0.98;
     font-size: 0.86em;
   }
 
   .modulation-palette-summary {
-    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 1.45em;
+    grid-template-columns: minmax(6.1em, 1fr) max-content 1.25em 1.7em 1.25em 3.05em;
     column-gap: 4px;
     line-height: 0.98;
     font-size: 0.86em;
+  }
+}
+
+@media (max-height: 500px) and (max-width: 950px) and (pointer: coarse) and (orientation: landscape) {
+  .modulation-palette-row {
+    min-height: 1.85em;
+    height: auto;
   }
 }
 

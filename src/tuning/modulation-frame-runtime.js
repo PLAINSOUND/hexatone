@@ -105,6 +105,8 @@ export function routeTranspositionRatioText(entry, tuningWorkspace) {
   return ratioAdjustedToCentsText(ratio, ratioCents, deltaCents, tuningWorkspace);
 }
 
+/* Monzo/equave display may be useful to reinstate, but is currently disabled
+ * to simplify palette feedback, especially on phones. Exact data stays intact.
 function formatMonzoTextFromRatioText(ratioText) {
   if (typeof ratioText !== "string" || !ratioText.trim()) return null;
   const parsed = parseExactInterval(ratioText.trim());
@@ -118,6 +120,7 @@ function formatEquaveOffset(offset) {
   if (!Number.isFinite(offset) || offset === 0) return "";
   return `[${offset > 0 ? "+" : ""}${offset}eq]`;
 }
+*/
 
 export function modulationRouteEquaveOffset(entry, tuningWorkspace) {
   const transpositionDeltaCents = routeTranspositionDeltaCents(entry);
@@ -141,14 +144,15 @@ export function modulationRouteEquaveOffset(entry, tuningWorkspace) {
 export function modulationCurrentSummaryDisplay(summary) {
   if (!summary) return "";
   const centsText = formatSignedWholeCents(summary.cents);
-  const monzoText = formatMonzoTextFromRatioText(summary.ratioText);
-  if (!monzoText) return centsText;
-  return `${monzoText} (${centsText})`;
+  // Disabled for compact feedback; may be reinstated with the helper above.
+  // const monzoText = formatMonzoTextFromRatioText(summary.ratioText);
+  // if (monzoText) return `${monzoText} (${centsText})`;
+  return centsText;
 }
 
-export function modulationEntryDisplayText(entry, tuningWorkspace) {
+export function modulationEntryDisplayText(entry /*, tuningWorkspace */) {
   return modulationCurrentSummaryDisplay({
-    ratioText: routeTranspositionRatioText(entry, tuningWorkspace),
+    // ratioText: routeTranspositionRatioText(entry, tuningWorkspace),
     cents: routeTranspositionDeltaCents(entry),
   });
 }
@@ -356,13 +360,15 @@ export function deriveModulationPaletteTitles(history = [], degreeLabel, tuningW
   });
 }
 
-export function modulationRouteLabelPair(entry, degreeLabel, tuningWorkspace) {
+export function modulationRouteLabelPair(entry, degreeLabel /*, tuningWorkspace */) {
   const sourceLabel = degreeLabel(entry?.sourceDegree);
   const fallbackTargetLabel = degreeLabel(entry?.targetDegree);
-  const equaveOffset = modulationRouteEquaveOffset(entry, tuningWorkspace);
+  // Disabled for compact feedback; cents already express the full displacement.
+  // const equaveOffset = modulationRouteEquaveOffset(entry, tuningWorkspace);
 
   return {
     sourceLabel,
-    targetLabel: `${fallbackTargetLabel}${formatEquaveOffset(equaveOffset)}`,
+    // targetLabel: `${fallbackTargetLabel}${formatEquaveOffset(equaveOffset)}`,
+    targetLabel: fallbackTargetLabel,
   };
 }

@@ -32,11 +32,9 @@ import { deriveTempoAtSequencePosition } from "./playback-timeline.js";
 import { buildDependencyToken } from "./dependency-token.js";
 import { buildSequenceRuntimeModel } from "./runtime-model.js";
 import useTimedTransportController from "./timed-transport-controller.js";
+import { createVisualUpdateController } from "./visual-update-controller.js";
+import { createPlaybackPresentation } from "./playback-presentation.js";
 import {
-  createTimedPlaybackAutoscrollPresenter,
-  createTimedPlaybackHighlightPresenter,
-  createTimedTransportReadoutPresenter,
-  deriveTimedPageFollowPosition,
   resolveSequencerViewportOwner,
   SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK,
 } from "./timed-playback-visual-presenter.js";
@@ -269,8 +267,14 @@ const Sequencer = ({
   const timedHighlightPresenterRef = useRef(null);
   const timedAutoscrollPresenterRef = useRef(null);
   const timedReadoutPresenterRef = useRef(null);
-  const pendingTimedVisualNotificationRef = useRef(null);
-  const timedVisualNotificationFrameRef = useRef(null);
+  const immediateTimedPresentationRef = useRef(onPresentTimedCue);
+  immediateTimedPresentationRef.current = onPresentTimedCue;
+  const timedVisualUpdates = useMemo(() => createVisualUpdateController({
+    presentImmediate: (cueIndex) => immediateTimedPresentationRef.current?.(cueIndex),
+    presentEditor: (...args) => timedVisualCueHandlerRef.current?.(...args),
+    requestFrame: (callback) => window.requestAnimationFrame(callback),
+    cancelFrame: (id) => window.cancelAnimationFrame(id),
+  }), []);
   const navigationAutoscrollIntentRef = useRef(null);
   const workspaceMutationViewportRef = useRef(null);
   const previousSnapshotIdsRef = useRef(new Set(snapshots.map((snapshot) => snapshot.id)));
@@ -950,25 +954,7 @@ const Sequencer = ({
     });
   }, [activeCueIndex, cueExpandedSnapshotIdsAt, sequenceEvents, soundingAttackEventIds]);
 
-  const presentTimedCue = useCallback((cueIndex, trigger, burst) => {
-    // Audio has already been dispatched. The small palette update need not wait
-    // for the batched editor presentation (and must not trigger an App render).
-    onPresentTimedCue?.(cueIndex);
-    const notification = { cueIndex, trigger, burst };
-    pendingTimedVisualNotificationRef.current = notification;
-    if (timedVisualNotificationFrameRef.current != null) return;
-    timedVisualNotificationFrameRef.current = window.requestAnimationFrame(() => {
-      timedVisualNotificationFrameRef.current = null;
-      const notification = pendingTimedVisualNotificationRef.current;
-      pendingTimedVisualNotificationRef.current = null;
-      if (!notification) return;
-      timedVisualCueHandlerRef.current?.(
-        notification.cueIndex,
-        notification.trigger,
-        notification.burst,
-      );
-    });
-  }, [onPresentTimedCue]);
+  const presentTimedCue = timedVisualUpdates.present;
 
   const {
     timedTransportUiState,
@@ -2173,85 +2159,28 @@ const Sequencer = ({
         playbackRowRef.current?.querySelector?.(`[data-timed-transport-field="${field}"]`) ?? null;
       if (select && value != null) select.value = String(value);
     };
-    const highlightPresenter = createTimedPlaybackHighlightPresenter({
-      resolveSnapshotRow: (snapshotId) => snapshotRowRefs.current.get(snapshotId) ?? null,
-      resolveEventRow: (eventId) => eventRowRefs.current.get(eventId) ?? null,
-    });
-    const autoscrollPresenter = createTimedPlaybackAutoscrollPresenter({
-      isEnabled: () => autoScrollEnabledRef.current,
+    const presentation = createPlaybackPresentation({
+      sequenceCueGroups, snapshots, sequenceEvents, sortedBars, terminalBarlinePosition,
+      isAutoScrollEnabled: () => autoScrollEnabledRef.current,
       resolveSnapshotRow: (snapshotId) => snapshotRowRefs.current.get(snapshotId) ?? null,
       resolveEventRow: (eventId) => eventRowRefs.current.get(eventId) ?? null,
       prepareSnapshotRow: scrollVirtualSnapshotRowIntoView,
       scrollSnapshotRow: scrollNodeIntoPanel,
       scrollSnapshotRows: scrollNodesIntoPanel,
+      setTransportField,
+      getReadoutDefaults: () => navigationReadoutDefaultsRef.current,
     });
-    const readoutPresenter = createTimedTransportReadoutPresenter({
-      presentTransportPosition: (position) => {
-        setTransportField("bar", position?.barIndex);
-        setTransportField("snapshot", position?.snapshotIndex);
-        setTransportField("cue", position?.cueIndex);
-      },
-      clearTransportPosition: () => {
-        const defaults = navigationReadoutDefaultsRef.current;
-        setTransportField("bar", defaults.bar);
-        setTransportField("snapshot", defaults.snapshot);
-        setTransportField("cue", defaults.cue);
-      },
-    });
-    timedHighlightPresenterRef.current = highlightPresenter;
-    timedAutoscrollPresenterRef.current = autoscrollPresenter;
-    timedReadoutPresenterRef.current = readoutPresenter;
-    timedVisualCueHandlerRef.current = (cueIndex, trigger, burst, options = {}) => {
-      const cueGroup = sequenceCueGroups[cueIndex] ?? null;
-      const snapshotIndex = cueGroup?.snapshotIndex ?? null;
-      const snapshotId = cueGroup == null ? null : (snapshots[snapshotIndex]?.id ?? null);
-      const soundingAfter = Array.isArray(burst?.soundingAfter) ? burst.soundingAfter : [];
-      const soundingEventIds = new Set(
-        soundingAfter.map((note) => note?.eventId).filter((eventId) => eventId != null),
-      );
-      const sequenceTime = Number(burst?.sequenceTime ?? trigger?.sequenceTime);
-      const barBeat = Number.isFinite(sequenceTime)
-        ? absolutePositionToBarBeat(sequenceTime, sortedBars, 1, 9, terminalBarlinePosition)
-        : null;
-      const transport = {
-        barIndex: Number.isFinite(barBeat?.barNumber) ? barBeat.barNumber - 1 : null,
-        snapshotIndex,
-        cueIndex,
-      };
-      highlightPresenter.present({
-        snapshotId,
-        soundingEventIds: [...soundingEventIds],
-        mode: options.mode ?? "timed",
-      });
-      readoutPresenter.present(transport);
-
-      if (options.autoScroll === false) return;
-      if (!autoScrollEnabledRef.current) {
-        autoscrollPresenter.cancel();
-        return;
-      }
-
-      const pageFollowPosition = deriveTimedPageFollowPosition({
-        burst,
-        sequenceEvents,
-        snapshots,
-        fallbackSnapshotIndex: snapshotIndex,
-        fallbackSnapshotId: snapshotId,
-      });
-      // Newly attacked rows are preferred. When this playback position has no
-      // note-ON, its current snapshot row still drives the page turn. Sustained
-      // old notes never become scroll targets.
-      if (pageFollowPosition != null) autoscrollPresenter.enqueue(pageFollowPosition);
-    };
+    timedHighlightPresenterRef.current = presentation.highlight;
+    timedAutoscrollPresenterRef.current = presentation.autoscroll;
+    timedReadoutPresenterRef.current = presentation.readout;
+    timedVisualCueHandlerRef.current = presentation.present;
 
     return () => {
       timedVisualCueHandlerRef.current = null;
       timedHighlightPresenterRef.current = null;
       timedAutoscrollPresenterRef.current = null;
       timedReadoutPresenterRef.current = null;
-      highlightPresenter.dispose();
-      autoscrollPresenter.dispose();
-      readoutPresenter.dispose();
+      presentation.dispose();
     };
   }, [
     eventRowRefs,
@@ -2270,15 +2199,11 @@ const Sequencer = ({
 
   useEffect(() => {
     if (timedTransportUiState.running) return;
-    pendingTimedVisualNotificationRef.current = null;
-    if (timedVisualNotificationFrameRef.current != null) {
-      window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
-      timedVisualNotificationFrameRef.current = null;
-    }
+    timedVisualUpdates.cancel();
     timedHighlightPresenterRef.current?.clear();
     timedAutoscrollPresenterRef.current?.cancel();
     if (!timedTransportUiState.paused) timedReadoutPresenterRef.current?.clear();
-  }, [timedTransportUiState.running, timedTransportUiState.paused]);
+  }, [timedTransportUiState.running, timedTransportUiState.paused, timedVisualUpdates]);
 
   useEffect(() => {
     const refreshFrame = window.requestAnimationFrame(() => {
@@ -2287,16 +2212,17 @@ const Sequencer = ({
     return () => window.cancelAnimationFrame(refreshFrame);
   }, [virtualSequenceLayout]);
 
-  useEffect(
-    () => () => {
-      pendingTimedVisualNotificationRef.current = null;
-      if (timedVisualNotificationFrameRef.current != null) {
-        window.cancelAnimationFrame(timedVisualNotificationFrameRef.current);
-        timedVisualNotificationFrameRef.current = null;
-      }
-    },
-    [],
-  );
+  useEffect(() => {
+    if (playhead?.stopped !== true || timedTransportUiState.running) return;
+    // Manual highlights bypass Preact for responsiveness. Clear that layer
+    // too when App stops playback (including PANIC), not just the row props.
+    timedVisualUpdates.cancel();
+    timedHighlightPresenterRef.current?.clear();
+    timedAutoscrollPresenterRef.current?.cancel();
+    manualReadoutRef.current = null;
+  }, [playhead, timedTransportUiState.running, timedVisualUpdates]);
+
+  useEffect(() => () => timedVisualUpdates.cancel(), [timedVisualUpdates]);
 
   const timedTransportOwnsReadout = timedTransportUiState.running || timedTransportUiState.paused;
   if (!timedTransportOwnsReadout) {
@@ -2988,8 +2914,7 @@ const Sequencer = ({
 
   const handleBlurCommit = useCallback(
     (e, commit, afterCommit = null) => {
-      const result = commitTextInput(e.currentTarget, commit);
-      if (typeof afterCommit === "function") afterCommit();
+      const result = commitTextInput(e.currentTarget, commit, afterCommit);
       if (result.committed) notifyEditCommitted(result.metadata ?? {});
     },
     [notifyEditCommitted],

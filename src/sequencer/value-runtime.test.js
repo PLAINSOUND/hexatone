@@ -52,6 +52,15 @@ describe("sequencer value runtime", () => {
     expect(commit).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["rubbish!", "a4", "905.000000"])("does not recommit normalised or restored %s on blur", (value) => {
+    const input = document.createElement("input");
+    input.value = value;
+    const commit = vi.fn();
+    commitTextInput(input, commit, () => { input.value = "restored display"; });
+    expect(commitTextInput(input, commit).committed).toBe(false);
+    expect(commit).toHaveBeenCalledOnce();
+  });
+
   it("marks an input before invoking a re-entrant commit callback", () => {
     const input = document.createElement("input");
     input.value = "A2";
