@@ -297,15 +297,20 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       if (preparePromise) return preparePromise;
       preparePromise = (async () => {
         if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
-          try {
-            await sharedAudioContext.close();
-          } catch (e) {
-            warnLog("iOS: Failed to close stale AudioContext:", e.message);
-          }
+          const staleContext = sharedAudioContext;
+          // Explicit recovery must not await a wedged iOS close() promise or
+          // lose the user gesture before creating/resuming the replacement.
           sharedAudioContext = null;
           clearKeepAliveNode();
           masterGain = null;
           decodedBuffers = null;
+          try {
+            Promise.resolve(staleContext?.close()).catch((e) => {
+              warnLog("iOS: Failed to close stale AudioContext:", e.message);
+            });
+          } catch (e) {
+            warnLog("iOS: Failed to close stale AudioContext:", e.message);
+          }
         }
 
         if (!sharedAudioContext || sharedAudioContext.state === "closed") {
@@ -395,6 +400,9 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       },
 
       forceAudioRebuild: async () => {
+        // Manual recovery intentionally ends this engine's voices; automatic
+        // gesture recovery preserves the graph and continues to use ensureAwake.
+        if (isIOS) for (const hex of [...knownHexes]) hex.allSoundOff();
         if (isIOS) iosForceRecreateOnPrepare = true;
         await prepareSynth();
       },

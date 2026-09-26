@@ -3851,8 +3851,15 @@ const App = () => {
       if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
       return;
     }
-    if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
-    if (synthRef.current?.prepare) await synthRef.current.prepare();
+    // Explicit iOS refresh is the escape hatch for a context which reports
+    // running but produces no audio. Do not await normal resume first: that
+    // promise itself can stall after a lock-screen interruption.
+    if (isIOS && synthRef.current?.forceAudioRebuild) {
+      await synthRef.current.forceAudioRebuild();
+    } else {
+      if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
+      if (synthRef.current?.prepare) await synthRef.current.prepare();
+    }
     if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
   }, [
     activatePendingPreset,
