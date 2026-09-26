@@ -2188,7 +2188,6 @@ const Sequencer = ({
     scrollVirtualSnapshotRowIntoView,
     scrollNodeIntoPanel,
     scrollNodesIntoPanel,
-    scrollPanelRef,
     sequenceCueGroups,
     snapshotRowRefs,
     snapshots,
@@ -2197,13 +2196,17 @@ const Sequencer = ({
     sequenceEvents,
   ]);
 
-  useEffect(() => {
-    if (timedTransportUiState.running) return;
+  const clearPlaybackHighlights = useCallback(() => {
     timedVisualUpdates.cancel();
     timedHighlightPresenterRef.current?.clear();
     timedAutoscrollPresenterRef.current?.cancel();
+  }, [timedVisualUpdates]);
+
+  useEffect(() => {
+    if (timedTransportUiState.running) return;
+    clearPlaybackHighlights();
     if (!timedTransportUiState.paused) timedReadoutPresenterRef.current?.clear();
-  }, [timedTransportUiState.running, timedTransportUiState.paused, timedVisualUpdates]);
+  }, [timedTransportUiState.running, timedTransportUiState.paused, clearPlaybackHighlights]);
 
   useEffect(() => {
     const refreshFrame = window.requestAnimationFrame(() => {
@@ -2216,11 +2219,9 @@ const Sequencer = ({
     if (playhead?.stopped !== true || timedTransportUiState.running) return;
     // Manual highlights bypass Preact for responsiveness. Clear that layer
     // too when App stops playback (including PANIC), not just the row props.
-    timedVisualUpdates.cancel();
-    timedHighlightPresenterRef.current?.clear();
-    timedAutoscrollPresenterRef.current?.cancel();
+    clearPlaybackHighlights();
     manualReadoutRef.current = null;
-  }, [playhead, timedTransportUiState.running, timedVisualUpdates]);
+  }, [playhead, timedTransportUiState.running, clearPlaybackHighlights]);
 
   useEffect(() => () => timedVisualUpdates.cancel(), [timedVisualUpdates]);
 
