@@ -431,6 +431,7 @@ export const SETTINGS_REGISTRY = [
   { key: "fluidsynth_device", tier: "session", type: "string", default: "" },
   { key: "fluidsynth_channel", tier: "session", type: "int", default: -1 },
   { key: "output_osc", tier: "session", type: "bool", default: false },
+  { key: "osc_local", tier: "session", type: "bool", default: true },
   { key: "osc_bridge_url", tier: "session", type: "string", default: "ws://localhost:8089" },
   // OSC layer volumes — written by onOscLayerVolumeChange in hooks/use-synth-wiring.js
   // via both setSettings (so deriveOscVolumes reads the live value on every
@@ -453,7 +454,7 @@ export const SETTINGS_REGISTRY = [
     key: "osc_quick_release_raster_only",
     tier: "local",
     type: "bool",
-    default: true,
+    default: false,
     perController: false,
   },
   {
@@ -467,7 +468,7 @@ export const SETTINGS_REGISTRY = [
     key: "osc_retrigger_buzz_formant",
     tier: "local",
     type: "bool",
-    default: false,
+    default: true,
     perController: false,
   },
   // WebMIDI permission/access level restored on refresh so the explicit

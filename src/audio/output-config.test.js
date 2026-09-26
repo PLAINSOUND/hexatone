@@ -38,6 +38,7 @@ describe("output construction plans", () => {
       { sustainBuzzFormant: true, retriggerBuzzFormant: false }]);
     expect(oscOutputConfig({ ...settings, osc_quick_release: 1 }, tuning).key).toBe(plan.key);
     expect(oscOutputConfig({ ...settings, osc_bridge_url: "ws://other" }, tuning).key).not.toBe(plan.key);
+    expect(oscOutputConfig({ ...settings, osc_local: true }, tuning).key).not.toBe(plan.key);
     expect(oscOutputConfig(settings, { ...tuning, scale: ["2/1"] }).key).not.toBe(plan.key);
   });
 

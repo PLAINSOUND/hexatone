@@ -918,7 +918,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      <p class="settings-form__intro-copy">
+      {!settings.osc_local && <p class="settings-form__intro-copy">
         <em>
           Sends notes directly to SuperCollider via a local WebSocket→OSC bridge. Run "yarn
           osc-bridge" in a locally cloned repo and use the Synths/SuperCollider-OSC folder to
@@ -927,10 +927,20 @@ const MidiOutputs = (props) => {
         Run </em> (&nbsp;<code>yarn osc-bridge</code>&nbsp;) <em> locally and load SC patch with
         OSCResponders.scd.*/}
         </em>
-      </p>
+      </p>}
 
       {settings.output_osc && (
         <>
+          <label class="settings-form__checkbox-row">
+            <input type="checkbox" name="osc_local" checked={!!settings.osc_local}
+              onChange={(e) => save(e.target.name, e.target.checked, onChange)} />
+            Local SuperSonic (experimental)
+          </label>
+          {settings.osc_local && <p class="settings-form__intro-copy">
+            Runs the same layers in this browser; no OSC bridge required. Switching
+            engines stops the old sound and retriggers held notes when ready.
+          </p>}
+          {!settings.osc_local && (
           <label>
             Bridge URL
             <input
@@ -946,6 +956,7 @@ const MidiOutputs = (props) => {
               }}
             />
           </label>
+          )}
 
           {[
             ["osc_volume_pluck", "Pluck"],
@@ -978,19 +989,6 @@ const MidiOutputs = (props) => {
               </span>
             </label>
           ))}
-          <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
-            <input
-              name="osc_sustain_buzz_formant"
-              type="checkbox"
-              checked={!!settings.osc_sustain_buzz_formant}
-              onChange={(e) => {
-                const enabled = e.target.checked;
-                localStorage.setItem("osc_sustain_buzz_formant", String(enabled));
-                save("osc_sustain_buzz_formant", enabled, onChange);
-              }}
-            />
-            <em class="settings-form__helper-text">Sustain Buzz + Formant until note-off</em>
-          </label>
           <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
             <input
               name="osc_retrigger_buzz_formant"
@@ -1119,6 +1117,7 @@ MidiOutputs.propTypes = {
     mpe_eagan_post_level: PropTypes.number,
     output_osc: PropTypes.bool,
     osc_bridge_url: PropTypes.string,
+    osc_local: PropTypes.bool,
     osc_volume_pluck: PropTypes.number,
     osc_volume_buzz: PropTypes.number,
     osc_volume_formant: PropTypes.number,

@@ -69,6 +69,7 @@ Hexatone also supports:
 - LED feedback on supported controllers
 - MTS and MPE output routings
 - OSC -> SuperCollider output through a local bridge in a cloned repo
+- Experimental local SuperSonic + DFM1 alternative in the OSC section, with the same layer controls (requires the assets described in `tools/supersonic/README.md`)
 
 Hexatone is a live performance and composition companion to [Scale Workshop](https://scaleworkshop.plainsound.org).
 

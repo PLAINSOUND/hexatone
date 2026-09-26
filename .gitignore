@@ -10,6 +10,10 @@ osc-bridge/dist/
 # Vite / Vitest cache
 .vite/
 coverage/
+tools/supersonic/generated/
+tools/supersonic/upstream/
+tools/supersonic/sc3-plugins/
+public/supersonic/
 
 # Yarn 4
 .yarn/cache/

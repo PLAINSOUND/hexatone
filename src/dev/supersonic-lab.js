@@ -8,7 +8,7 @@ import { COMPARISON_GROUP, COMPARISON_INSTRUMENTS, createComparisonVoice,
 const el = id => document.getElementById(id);
 const log = text => { el("log").textContent = `${text}\n${el("log").textContent}`.slice(0, 12000); };
 const values = () => Object.fromEntries(
-  ["frequency", "velocity", "level", "mod", "filter", "sustain", "retrigger"].map(key =>
+  ["frequency", "velocity", "level", "mod", "filter", "retrigger"].map(key =>
     [key, el(key).type === "checkbox" ? el(key).checked : el(key).value]),
 );
 let sonic;
@@ -30,13 +30,18 @@ const panic = () => { browserVoice?.panic(); nativeVoice?.panic(); };
 
 el("boot").onclick = protect(async () => {
   el("boot").disabled = true;
+  el("core").disabled = true;
   try {
     // Keep GPL core assets separately served; this page is not a production entry.
     const url = "/node_modules/supersonic-scsynth/dist/supersonic.js";
     const { SuperSonic } = await import(/* @vite-ignore */ url);
+    const core = el("core").value;
+    const corePath = core === "stock" ? "/node_modules/supersonic-scsynth-core/"
+      : `/tools/supersonic/generated/${core}-core/`;
+    log(`Engine: ${core}; reload this page to change build.`);
     sonic = new SuperSonic({
       baseURL: new URL("/node_modules/supersonic-scsynth/dist/", location.href).href,
-      coreBaseURL: new URL("/node_modules/supersonic-scsynth-core/", location.href).href,
+      coreBaseURL: new URL(corePath, location.href).href,
       mode: "postMessage",
       synthdefBaseURL: new URL("/tools/supersonic/generated/", location.href).href,
     });
@@ -67,6 +72,7 @@ el("boot").onclick = protect(async () => {
     await sonic?.destroy();
     sonic = null;
     el("boot").disabled = false;
+    el("core").disabled = false;
     throw error;
   }
 });
@@ -110,7 +116,7 @@ el("release").onclick = protect(release);
 el("panic").onclick = protect(panic);
 el("destination").onchange = protect(panic);
 el("instrument").onchange = protect(release);
-for (const key of ["frequency", "velocity", "level", "mod", "filter", "sustain", "retrigger"]) {
+for (const key of ["frequency", "velocity", "level", "mod", "filter", "retrigger"]) {
   el(key).oninput = protect(() => selectedVoice().update(values()));
 }
 window.addEventListener("pagehide", () => {

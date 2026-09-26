@@ -355,7 +355,9 @@ export const create_osc_synth = async (
   targetGroup = 1,
   performanceOptions = {},
 ) => {
-  const socket = getSocket(wsUrl);
+  // Local scsynth implements this same transport contract; all articulation,
+  // random formants and controller mappings remain shared with external OSC.
+  const socket = performanceOptions.transport ?? getSocket(wsUrl);
   let shutdown = false;
   const sendJitter = createOscJitterTracker(socket);
   const _volumes = [...volumes];
@@ -363,7 +365,7 @@ export const create_osc_synth = async (
   const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
   const _quickReleaseTime = { value: Math.max(0.001, Math.min(2.5, quickReleaseTime)) };
   const _quickReleaseRasterOnly = { value: quickReleaseRasterOnly === true };
-  const _sustainBuzzFormant = { value: performanceOptions.sustainBuzzFormant === true };
+  const _sustainBuzzFormant = { value: false }; // Legacy control retired.
   const _retriggerBuzzFormant = { value: performanceOptions.retriggerBuzzFormant === true };
   const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
   const _knownNodeIds = new Set();
@@ -528,6 +530,7 @@ export const create_osc_synth = async (
 
   return {
     family: "osc",
+    local: !!performanceOptions.transport,
     makeHex: (
       coords,
       cents,
@@ -599,8 +602,10 @@ export const create_osc_synth = async (
     },
 
     prepare() {
-      return Promise.resolve();
+      return socket.prepare?.() ?? Promise.resolve();
     },
+
+    ensureAwake() { return socket.prepare?.() ?? Promise.resolve(); },
 
     setVolume(_value) {
       // No-op for the OSC synth — each layer has its own volume controlled by
@@ -624,8 +629,8 @@ export const create_osc_synth = async (
       setQuickReleaseRasterOnly(value);
     },
 
-    setSustainBuzzFormant(value) {
-      setBuzzFormantMode("sustain_mode", _sustainBuzzFormant, value);
+    setSustainBuzzFormant() {
+      setBuzzFormantMode("sustain_mode", _sustainBuzzFormant, false);
     },
 
     setRetriggerBuzzFormant(value) {
@@ -634,6 +639,7 @@ export const create_osc_synth = async (
 
     allSoundOff() {
       debugLog("osc", "osc_synth.allSoundOff", { knownNodeCount: _knownNodeIds.size });
+      socket.cancelScheduled?.();
       freeAllKnownNodes();
     },
 
@@ -642,15 +648,18 @@ export const create_osc_synth = async (
       releaseAllNotes();
     },
 
-    shutdown() {
+    shutdown(options) {
       if (shutdown) return;
       shutdown = true;
       debugLog("osc", "osc_synth.shutdown", { knownNodeCount: _knownNodeIds.size });
-      releaseAllNotes();
+      if (options?.panic) {
+        socket.cancelScheduled?.();
+        freeAllKnownNodes();
+      } else releaseAllNotes();
       // Send scheduled attacks and their subsequent gate releases before closing.
       // Do not clear the shared socket's queue: another output may still own it.
       socket._flushBundles();
-      socket.release();
+      socket.release({ graceful: !options?.panic });
     },
   };
 };

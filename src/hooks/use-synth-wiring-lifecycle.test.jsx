@@ -4,7 +4,8 @@ import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import useSynthWiring from "./use-synth-wiring.js";
 import { WebMidi } from "webmidi";
 
-const factories = vi.hoisted(() => ({ sample: vi.fn(), osc: vi.fn(), mpe: vi.fn(), mts: vi.fn() }));
+const factories = vi.hoisted(() => ({ sample: vi.fn(), osc: vi.fn(), local: vi.fn(), mpe: vi.fn(), mts: vi.fn() }));
+vi.mock("../supersonic_synth/index.js", () => ({ create_supersonic_synth: factories.local }));
 vi.mock("../sample_synth", () => ({ create_sample_synth: factories.sample }));
 vi.mock("../osc_synth", () => ({ create_osc_synth: factories.osc }));
 vi.mock("../mpe_synth", () => ({ default: factories.mpe }));
@@ -36,6 +37,7 @@ beforeEach(() => {
   sessionStorage.clear();
   factories.sample.mockReset();
   factories.osc.mockReset();
+  factories.local.mockReset();
   factories.mpe.mockReset();
   factories.mts.mockReset();
   WebMidi.enabled = false;
@@ -43,6 +45,45 @@ beforeEach(() => {
   WebMidi.disable = vi.fn(async () => { WebMidi.enabled = false; WebMidi.interface = null; });
 });
 afterEach(cleanup);
+
+it("retains all four live OSC mix levels across articulation toggles and engine switches", async () => {
+  const old = { ...engine(), setLayerVolume: vi.fn(), setSustainBuzzFormant: vi.fn(), setRetriggerBuzzFormant: vi.fn() };
+  const local = { ...engine(), local: true, setLayerVolume: vi.fn() };
+  factories.osc.mockResolvedValue(old);
+  factories.local.mockResolvedValue(local);
+  const settings = { ...base, output_sample: false, output_osc: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([old]));
+  const mix = [0.12, 0.23, 0.34, 0.45];
+  act(() => mix.forEach((value, index) => current.onOscLayerVolumeChange(index, value)));
+  old.setLayerVolume.mockClear();
+  const toggled = { ...settings, osc_sustain_buzz_formant: true, osc_retrigger_buzz_formant: true };
+  view.rerender(<Harness settings={toggled} />);
+  await waitFor(() => expect(old.setRetriggerBuzzFormant).toHaveBeenLastCalledWith(true));
+  expect(old.setSustainBuzzFormant).toHaveBeenLastCalledWith(false);
+  expect(old.setLayerVolume).not.toHaveBeenCalled();
+  view.rerender(<Harness settings={{ ...toggled, osc_local: true }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  mix.forEach((value, index) => expect(local.setLayerVolume).toHaveBeenCalledWith(index, value));
+});
+
+it("panics the old OSC destination and adopts local output only after it is ready", async () => {
+  const old = engine(), local = { ...engine(), local: true };
+  const pending = deferred();
+  factories.osc.mockResolvedValue(old);
+  factories.local.mockReturnValue(pending.promise);
+  const settings = { ...base, output_sample: false, output_osc: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([old]));
+  view.rerender(<Harness settings={{ ...settings, osc_local: true }} />);
+  await waitFor(() => expect(factories.local).toHaveBeenCalledOnce());
+  expect(old.shutdown).toHaveBeenCalledExactlyOnceWith({ panic: true });
+  await act(async () => pending.resolve(local));
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  expect(keysRef.current.updateLiveOutputState).toHaveBeenLastCalledWith(null, current.synth);
+  view.rerender(<Harness settings={settings} />);
+  await waitFor(() => expect(local.shutdown).toHaveBeenCalledExactlyOnceWith({ panic: true }));
+});
 
 it("still closes MIDI permissions after queue clearing and engine shutdown fail", async () => {
   const first = { id: "port", clear: vi.fn(() => { throw new Error("disconnected port"); }) };
@@ -167,7 +208,7 @@ it("applies OSC mode changes made while creation is pending without rebuilding",
   const selected = { ...engine(), setSustainBuzzFormant: vi.fn(), setRetriggerBuzzFormant: vi.fn() };
   await act(async () => pending.resolve(selected));
   await waitFor(() => expect(current.synth?.children).toEqual([selected]));
-  expect(selected.setSustainBuzzFormant).toHaveBeenLastCalledWith(true);
+  expect(selected.setSustainBuzzFormant).toHaveBeenLastCalledWith(false);
   expect(selected.setRetriggerBuzzFormant).toHaveBeenLastCalledWith(true);
   expect(factories.osc).toHaveBeenCalledOnce();
 });

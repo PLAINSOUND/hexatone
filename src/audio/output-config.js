@@ -34,7 +34,7 @@ export function oscOutputConfig(settings, tuning) {
     settings.osc_synth_names || ["pluck", "string", "formant", "tone"]];
   const pitch = [settings.fundamental, tuning.referenceDegree, tuning.scale];
   return {
-    key: JSON.stringify([...connection, ...pitch]),
+    key: JSON.stringify([...connection, ...pitch, !!settings.osc_local]),
     // Live controls are supplied at construction time, not captured in the key.
     args: controls => [...connection, controls.volumes, controls.quickRelease,
       controls.quickReleaseTime, controls.rasterOnly, ...pitch, 1,

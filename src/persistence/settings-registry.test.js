@@ -78,6 +78,12 @@ describe("SETTINGS_REGISTRY structure", () => {
     }
   });
 
+  it("defaults to local SuperSonic with cycling voices and release on all notes", () => {
+    expect(REGISTRY_BY_KEY.osc_local.default).toBe(true);
+    expect(REGISTRY_BY_KEY.osc_retrigger_buzz_formant.default).toBe(true);
+    expect(REGISTRY_BY_KEY.osc_quick_release_raster_only.default).toBe(false);
+  });
+
   it("uses the updated Haken Continuum performance defaults", () => {
     expect(REGISTRY_BY_KEY.hakenaudio_x_glide_mode.default).toBe("pitch_bending");
     expect(REGISTRY_BY_KEY.hakenaudio_x_glide_shaping.default).toBe(100);

@@ -6,7 +6,9 @@
 
 export default {
   globDirectory: 'build/',
-  globPatterns: ['**/*.{js,css,html,png,webmanifest}'],
+  globPatterns: ['**/*.{js,css,html,png,webmanifest,wasm,scsyndef}'],
+  // Keep engine/definitions versioned together; source archives remain downloadable.
+  maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
   swDest: 'build/sw.js',
   clientsClaim: true,
   skipWaiting: true,

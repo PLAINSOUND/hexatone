@@ -62,6 +62,7 @@ SynthDef(\string, { |freq, transpose=1, bend=1,
 	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
 	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot, held_mode;
+	var attack_time, cycle_done;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
 	var min_note_hz = 20;
 	var max_note_hz = 16000;
@@ -82,18 +83,24 @@ SynthDef(\string, { |freq, transpose=1, bend=1,
 
 	normal_release = 0.5 + (off_vel * 3);
 	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
-	held_mode = (sustain_mode + retrigger_mode).clip(0, 1);
-	effective_release = effective_release.blend(quick_release_time.max(0.001), held_mode);
+	held_mode = retrigger_mode.clip(0, 1); // Legacy sustain_mode is intentionally ignored.
 	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate + Impulse.kr(0), doneAction: Done.freeSelf);
-	articulation_trigger = Impulse.kr(0) + Dust.kr(0.32 * retrigger_mode.clip(0, 1) * gate.clip(0, 1));
-	one_shot = EnvGen.ar(Env([0, 1, 1, 0], [(on_vel.linexp(0, 127, 2.5, 1)), [1,1.25,1.5,1.75,2].choose, [1,1.5,2,2.5].choose * off_vel], 'sin'), articulation_trigger);
-	// Sustain supplies the held body; retrigger adds recurring Tanpura-like attacks.
-	e = SelectX.ar(sustain_mode.clip(0, 1).lag(0.05), [one_shot, 1 + (one_shot * retrigger_mode.clip(0, 1) * 0.35)]);
+	articulation_trigger = Impulse.kr(0) + ((LocalIn.kr(1) * held_mode + HPZ1.kr(held_mode).max(0)) * gate.clip(0, 1));
+	// Recurrence breathes in slow waves; retain the quicker live one-shot shape.
+	attack_time = Select.kr(held_mode, [on_vel.linexp(0, 127, 2.5, 1), TRand.kr(3, 6, articulation_trigger)]);
+	one_shot = EnvGen.ar(Env([0, 1, 1, 0], [attack_time,
+		Select.kr(held_mode, [TRand.kr(1, 2, articulation_trigger), TRand.kr(1, 3, articulation_trigger)]),
+		Select.kr(held_mode, [TRand.kr(1, 2.5, articulation_trigger) * off_vel, TRand.kr(3, 6, articulation_trigger)])], 'sin'), articulation_trigger);
+	// A completed cycle schedules its successor, never truncating an envelope.
+	// Independent random generators per node/layer keep held chords asynchronous.
+	cycle_done = HPZ1.kr(Done.kr(one_shot)).max(0);
+	LocalOut.kr(TDelay.kr(cycle_done, TRand.kr(1, 4, articulation_trigger)));
+	e = one_shot;
 
 	o = WhiteNoise.ar(1);
 	o = Pluck.ar(
 		in: o,
-		trig: Impulse.ar(0),
+		trig: K2A.ar(articulation_trigger),
 		maxdelaytime: 1 / min_note_hz,
 		delaytime: 1 / pitched_freq.lag(0.3),
 		decaytime: 1 + (on_vel.linlin(0,127,20,1) * 19),
@@ -119,6 +126,7 @@ SynthDef(\formant_array, { |freq, transpose=1, bend=1,
 	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
 	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot, held_mode;
+	var attack_time, cycle_done, vowel_table, vowel_index, cycle_vowel;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
 	var body_lpf_freq;
 	var min_note_hz = 20;
@@ -143,12 +151,21 @@ SynthDef(\formant_array, { |freq, transpose=1, bend=1,
 
 	normal_release = 0.02 + off_vel;
 	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
-	held_mode = (sustain_mode + retrigger_mode).clip(0, 1);
-	effective_release = effective_release.blend(quick_release_time.max(0.001), held_mode);
+	held_mode = retrigger_mode.clip(0, 1);
 	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate, doneAction: Done.freeSelf);
-	articulation_trigger = Impulse.kr(0) + Dust.kr(0.2 * retrigger_mode.clip(0, 1) * gate.clip(0, 1));
-	one_shot = EnvGen.ar(Env([0, 1, 0], [[1, 2, 3, 4].choose, 0.4 * [3, 4, 5, 6, 7].choose], curve: 'sin'), articulation_trigger);
-	e = SelectX.ar(sustain_mode.clip(0, 1).lag(0.05), [one_shot, 1 + (one_shot * retrigger_mode.clip(0, 1) * 0.35)]);
+	articulation_trigger = Impulse.kr(0) + ((LocalIn.kr(1) * held_mode + HPZ1.kr(held_mode).max(0)) * gate.clip(0, 1));
+	attack_time = Select.kr(held_mode, [TRand.kr(1, 4, articulation_trigger), TRand.kr(4, 8, articulation_trigger)]);
+	one_shot = EnvGen.ar(Env([0, 1, 0], [attack_time, Select.kr(held_mode, [TRand.kr(1.2, 2.8, articulation_trigger), attack_time])], curve: 'sin'), articulation_trigger);
+	cycle_done = HPZ1.kr(Done.kr(one_shot)).max(0);
+	LocalOut.kr(TDelay.kr(cycle_done, TRand.kr(1, 9, articulation_trigger)));
+	// FormantTable is expanded by sclang into constants; no browser Quark needed.
+	vowel_table = FormantTable.keys.asArray.sort.collect { |key| FormantTable.get(key) };
+	vowel_index = TIRand.kr(0, vowel_table.size - 1, articulation_trigger);
+	cycle_vowel = (PulseCount.kr(articulation_trigger) > 1);
+	formant_freq = Array.fill(5, { |i| Select.kr(cycle_vowel, [formant_freq[i], Select.kr(vowel_index, vowel_table.collect { |v| v[0][i] })]) });
+	formant_amp = Array.fill(5, { |i| Select.kr(cycle_vowel, [formant_amp[i], Select.kr(vowel_index, vowel_table.collect { |v| v[1][i] })]) });
+	formant_reso = Array.fill(5, { |i| Select.kr(cycle_vowel, [formant_reso[i], Select.kr(vowel_index, vowel_table.collect { |v| v[2][i] })]) });
+	e = one_shot;
 	o = Saw.ar(pitched_freq.lag(0.3));
 
 	o = Mix.new(BBandPass.ar(o, formant_freq, formant_reso, formant_amp));
@@ -172,6 +189,7 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
 	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot, held_mode;
+	var attack_time, cycle_done, vowel_table, vowel_index, cycle_vowel;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
 	var body_lpf_freq, safe_formants, safe_formant_reso, safe_formant_amp;
 	var min_note_hz = 20;
@@ -198,12 +216,20 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 
 	normal_release = 0.02 + off_vel;
 	effective_release = normal_release.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
-	held_mode = (sustain_mode + retrigger_mode).clip(0, 1);
-	effective_release = effective_release.blend(quick_release_time.max(0.001), held_mode);
+	held_mode = retrigger_mode.clip(0, 1);
 	f = EnvGen.ar(Env.asr(attackTime: 0.001, sustainLevel: 1.0, releaseTime: effective_release, curve:'sin'), gate, doneAction: Done.freeSelf);
-	articulation_trigger = Impulse.kr(0) + Dust.kr(0.2 * retrigger_mode.clip(0, 1) * gate.clip(0, 1));
-	one_shot = EnvGen.ar(Env([0, 1, 0], [[1, 2, 3, 4].choose, 0.4 * [3, 4, 5, 6, 7].choose], curve: 'sin'), articulation_trigger);
-	e = SelectX.ar(sustain_mode.clip(0, 1).lag(0.05), [one_shot, 1 + (one_shot * retrigger_mode.clip(0, 1) * 0.35)]);
+	articulation_trigger = Impulse.kr(0) + ((LocalIn.kr(1) * held_mode + HPZ1.kr(held_mode).max(0)) * gate.clip(0, 1));
+	attack_time = Select.kr(held_mode, [TRand.kr(1, 4, articulation_trigger), TRand.kr(4, 8, articulation_trigger)]);
+	one_shot = EnvGen.ar(Env([0, 1, 0], [attack_time, Select.kr(held_mode, [TRand.kr(1.2, 2.8, articulation_trigger), attack_time])], curve: 'sin'), articulation_trigger);
+	cycle_done = HPZ1.kr(Done.kr(one_shot)).max(0);
+	LocalOut.kr(TDelay.kr(cycle_done, TRand.kr(1, 9, articulation_trigger)));
+	vowel_table = FormantTable.keys.asArray.sort.collect { |key| FormantTable.get(key) };
+	vowel_index = TIRand.kr(0, vowel_table.size - 1, articulation_trigger);
+	cycle_vowel = (PulseCount.kr(articulation_trigger) > 1);
+	safe_formants = Array.fill(5, { |i| Select.kr(cycle_vowel, [safe_formants[i], Select.kr(vowel_index, vowel_table.collect { |v| v[0][i] })]) });
+	safe_formant_amp = Array.fill(5, { |i| Select.kr(cycle_vowel, [safe_formant_amp[i], Select.kr(vowel_index, vowel_table.collect { |v| v[1][i] })]) });
+	safe_formant_reso = Array.fill(5, { |i| Select.kr(cycle_vowel, [safe_formant_reso[i], Select.kr(vowel_index, vowel_table.collect { |v| v[2][i] })]) });
+	e = one_shot;
 	o = Saw.ar(pitched_freq.lag(0.3));
 
 	o = Mix.new(BBandPass.ar(o, safe_formants, safe_formant_reso, safe_formant_amp));

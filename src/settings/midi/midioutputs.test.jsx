@@ -227,7 +227,7 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(sessionStorage.getItem("osc_volume_pluck")).toBe("0.73");
   });
 
-  it("uses one Sustain toggle and one Retrigger toggle for Buzz and Formant", () => {
+  it("offers Retrigger but no retired Sustain toggle for Buzz and Formant", () => {
     const onChange = vi.fn();
     render(
       <MidiOutputs
@@ -240,14 +240,10 @@ describe("MidiOutputs FluidSynth independence", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("checkbox", { name: "Sustain Buzz + Formant until note-off" }),
-    );
+    expect(screen.queryByRole("checkbox", { name: "Sustain Buzz + Formant until note-off" })).toBeNull();
     fireEvent.click(screen.getByRole("checkbox", { name: "Retrigger Buzz + Formant while held" }));
 
-    expect(onChange).toHaveBeenCalledWith("osc_sustain_buzz_formant", true);
     expect(onChange).toHaveBeenCalledWith("osc_retrigger_buzz_formant", true);
-    expect(localStorage.getItem("osc_sustain_buzz_formant")).toBe("true");
     expect(localStorage.getItem("osc_retrigger_buzz_formant")).toBe("true");
   });
 

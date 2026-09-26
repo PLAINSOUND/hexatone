@@ -132,19 +132,16 @@ export const deriveOscQuickReleaseTime = (settings) =>
 export const deriveOscQuickReleaseRasterOnly = (settings) =>
   localBool(
     REGISTRY_BY_KEY.osc_quick_release_raster_only.key,
-    settings.osc_quick_release_raster_only ?? true,
+    settings.osc_quick_release_raster_only ?? REGISTRY_BY_KEY.osc_quick_release_raster_only.default,
   );
 
-export const deriveOscSustainBuzzFormant = (settings) =>
-  localBool(
-    REGISTRY_BY_KEY.osc_sustain_buzz_formant.key,
-    settings.osc_sustain_buzz_formant ?? false,
-  );
+// Retired preference: old sessions must not restore a constant held body.
+export const deriveOscSustainBuzzFormant = () => false;
 
 export const deriveOscRetriggerBuzzFormant = (settings) =>
   localBool(
     REGISTRY_BY_KEY.osc_retrigger_buzz_formant.key,
-    settings.osc_retrigger_buzz_formant ?? false,
+    settings.osc_retrigger_buzz_formant ?? REGISTRY_BY_KEY.osc_retrigger_buzz_formant.default,
   );
 
 function readOscRuntimeControls(settings) {
@@ -1002,10 +999,14 @@ const useSynthWiring = (
       if (oscSynthRef.current.key === oscKey && oscSynthRef.current.synth) {
         promises.push(Promise.resolve(oscSynthRef.current.synth));
       } else {
-        clearOutputRef(oscSynthRef);
+        const switchingEngine = oscSynthRef.current.synth &&
+          !!oscSynthRef.current.synth.local !== !!settings.osc_local;
+        clearOutputRef(oscSynthRef, switchingEngine ? { panic: true } : undefined);
         promises.push(
-          oscRequestsRef.current(oscKey, () => create_osc_synth(
-            ...oscConfig.args(readOscRuntimeControls(settingsRef.current))), {
+          oscRequestsRef.current(oscKey, () => settings.osc_local
+            ? import("../supersonic_synth/index.js").then(({ create_supersonic_synth }) =>
+              create_supersonic_synth(...oscConfig.args(readOscRuntimeControls(settingsRef.current))))
+            : create_osc_synth(...oscConfig.args(readOscRuntimeControls(settingsRef.current))), {
             isCurrent: isCurrentBuild,
             adopt: s => {
               applyOscRuntimeControls(s, oscRuntimeControlsRef.current);
@@ -1133,6 +1134,7 @@ const useSynthWiring = (
     settings.output_mts_bulk,
     settings.output_osc,
     settings.osc_bridge_url,
+    settings.osc_local,
     settings.osc_synth_names,
     settings.mts_bulk_device,
     settings.mts_bulk_mode,
@@ -1180,13 +1182,44 @@ const useSynthWiring = (
   }, [settings.mpe_auto_generate_yz]);
 
   useEffect(() => {
-    oscRuntimeControlsRef.current = readOscRuntimeControls(settings);
-    applyOscRuntimeControls(oscSynthRef.current.synth, oscRuntimeControlsRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- control inputs listed individually; unrelated settings must not overwrite an uncommitted live drag
+    const volumes = [...deriveOscVolumes(settings)];
+    oscRuntimeControlsRef.current.volumes = volumes;
+    volumes.forEach((value, index) => oscSynthRef.current.synth?.setLayerVolume?.(index, value));
+    // Articulation changes must not reload defaults over imperative fader values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- volume inputs only
   }, [settings.osc_volumes, settings.osc_volume_pluck, settings.osc_volume_buzz,
-    settings.osc_volume_formant, settings.osc_volume_saw, settings.osc_quick_release,
-    settings.osc_quick_release_time, settings.osc_quick_release_raster_only,
-    settings.osc_sustain_buzz_formant, settings.osc_retrigger_buzz_formant]);
+    settings.osc_volume_formant, settings.osc_volume_saw]);
+
+  useEffect(() => {
+    const value = deriveOscQuickRelease(settings);
+    oscRuntimeControlsRef.current.quickRelease = value;
+    oscSynthRef.current.synth?.setQuickRelease?.(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
+  }, [settings.osc_quick_release]);
+  useEffect(() => {
+    const value = deriveOscQuickReleaseTime(settings);
+    oscRuntimeControlsRef.current.quickReleaseTime = value;
+    oscSynthRef.current.synth?.setQuickReleaseTime?.(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
+  }, [settings.osc_quick_release_time]);
+  useEffect(() => {
+    const value = deriveOscQuickReleaseRasterOnly(settings);
+    oscRuntimeControlsRef.current.rasterOnly = value;
+    oscSynthRef.current.synth?.setQuickReleaseRasterOnly?.(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
+  }, [settings.osc_quick_release_raster_only]);
+  useEffect(() => {
+    const value = deriveOscSustainBuzzFormant(settings);
+    oscRuntimeControlsRef.current.sustain = value;
+    oscSynthRef.current.synth?.setSustainBuzzFormant?.(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
+  }, [settings.osc_sustain_buzz_formant]);
+  useEffect(() => {
+    const value = deriveOscRetriggerBuzzFormant(settings);
+    oscRuntimeControlsRef.current.retrigger = value;
+    oscSynthRef.current.synth?.setRetriggerBuzzFormant?.(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
+  }, [settings.osc_retrigger_buzz_formant]);
 
   // Keep synthRef in sync so volume control and preset loading can reach the
   // live synth without depending on the React render cycle.

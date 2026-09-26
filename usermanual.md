@@ -559,6 +559,13 @@ The pedal/wheel option is independent of `Sequencer Timbre Control`: it controls
 
 ### OSC
 
+Development builds with the optional SuperSonic assets also offer **Local
+SuperSonic (experimental)** under **OSC → SuperCollider**. This runs the four
+layers in the browser without a WebSocket bridge, using the same faders and
+articulation controls. Switching this checkbox stops the old engine and
+retriggers held notes once the new engine is ready. Start at a low volume.
+Local mode currently requires a prepared build; see `tools/supersonic/README.md`.
+
 Hexatone also includes an OSC output path for users who want:
 
 - a custom synthesis backend
@@ -589,7 +596,21 @@ This mode requires a local clone of the repo and a locally running bridge:
 
 This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 
-There are four faders for the four independently layered SynthDefs used in the custom SuperCollider patch made for PLAINSOUND HEXATONE. The resonance layers may be used in single-trigger mode (default), sustain mode, and/or retrigger mode. The release envelope may be shortened and blended with a velocity-driven release. The drier sound may be applied only to rastered glissandi generated from Haken Continuum or applied to all notes.
+There are four faders for the four independently layered SynthDefs used in the custom SuperCollider patch made for PLAINSOUND HEXATONE. The resonance layers may be used in single-trigger mode (default) or retrigger mode. The release envelope may be shortened and blended with a velocity-driven release. The drier sound may be applied only to rastered glissandi generated from Haken Continuum or applied to all notes.
+
+**Retrigger Buzz + Formant** runs independent slow cycles for each held note and
+layer. Buzz receives fresh plucked-string excitation each cycle, with a 3–6 second
+swell, 1–3 second body, 3–6 second decay and 1–4 second pause, independently
+varied each time. Its non-retriggered attack is unchanged. Formant has an 8–16 second swell/decay,
+then a 1–9 second pause, choosing new vocal filters for the next cycle. These
+cycles run in the audio engine, not browser timers. Unlike the original Tanpura
+Pbinds, this bounded version completes each layer's cycle before its next attack;
+it does not yet overlap multiple formant voices within one held note.
+The old Sustain option is retired and ignored in saved settings.
+Note-off stops recurrence and uses the natural release. **Release Envelope** blends toward **Release
+Time** only where the Raster-only setting permits it. To shorten ordinary played
+notes, uncheck **Apply release envelope to Rastered Glissando only** and increase
+the Release Envelope amount toward the chosen short Release Time.
 
 ## CALCULATOR tab
 

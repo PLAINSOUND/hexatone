@@ -6,6 +6,7 @@
  *   const synth = create_composite_synth([sampleSynth, mtsSynth]);
  *   // then pass synth to Keyboard as normal
  */
+import { stopRetiredSuperSonicOutputs } from "../supersonic_synth/transport.js";
 
 import { outputAttackGroup } from "../midi/output-transaction.js";
 
@@ -337,6 +338,7 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
   },
 
   allSoundOff() {
+    stopRetiredSuperSonicOutputs();
     controlledSynths(synths, retiringSynths).forEach((s) => s.allSoundOff && s.allSoundOff());
     retiringSynths.clear();
   },

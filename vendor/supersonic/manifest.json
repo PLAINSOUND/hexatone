@@ -1,0 +1,28 @@
+{
+  "version": "0.86.0-dfm1",
+  "files": {
+    "README.md": "0e5c74663fecd75d0c592a0742e64500a92fa728f675d8d9a564521de3be5f48",
+    "core/.gitignore": "fd7819810af6a20c0ff22826a45826209694950eaae0d4c06a3a2b43cd3266ff",
+    "core/DFM1-COPYING": "ddb9db7630752f8fdc6898f7c99a99eaeeac5213627ecb093df9c82f56175dc7",
+    "core/LICENSE": "3e57e4867b2003c4ae171ae961e24133873da4b02bd8dbce110facae45f6e727",
+    "core/README.md": "7df9a5a09d4fd4dbab151ee75116a7473a5f9db78e91ca14759f869287194fc5",
+    "core/index.js": "a49f1416b5fccd453515fc89656df336f8ff12be97226ab55fea34240bafc2fd",
+    "core/package.json": "72c43c71752636b8cb0be5a9db26de894980b14ad039d82f1f4cfad7ba958a4f",
+    "core/wasm/clockwork_gamepad_bg.wasm": "43c37686ee55f2cf7861b2b4b4acc67a1396aacd0a93b0296f153b98d785f563",
+    "core/wasm/clockwork_midi_bg.wasm": "dd2082da9fc07be8ecb32ffd6bc80d56443165256f4cd36cc332780f7700d201",
+    "core/wasm/scsynth-nrt.wasm": "6d49311f30b58e554546f919a9b8f5b06d0a35c37978ee725cf2cd02406882ac",
+    "core/workers/clockwork_audio_worklet.js": "1538dfe53f9becbd607cff5e71d846bc9db6be86bb21f727805fa9da21420f03",
+    "sources/LumatoneSynths.scd": "fd644276df1192cd183630d12112957952401a83988e64d06450583f14650dfa",
+    "sources/TOOLCHAIN.md": "ebf752e46c9b981b055d0ff81b29e815fb7336ef4e53332a970d04feb7cb4b2f",
+    "sources/build-dfm1.sh": "ac598323386706563a3bcbea66333202f183b8cfd91153c983748421ca680bd2",
+    "sources/clockwork.tar.gz": "6e399943131d8485816b5daac980d5f48d18951b429b3f5fce256604b8d652f9",
+    "sources/compile.scd": "28ee90651febf7b04fce32bd1196fa0b7130bd7fcc17bb9f75d4a020921789cf",
+    "sources/dfm1-registration.patch": "63f42c81543f4079debc2964b25def7e4001a29d10ccc6efbaef2f38b842b75d",
+    "sources/sc3-plugins.tar.gz": "cee6043bc8da7cb3e008c90ecf3a6a0a54633401f2cf7f15cfa283afcfd6abf7",
+    "sources/supersonic.tar.gz": "859d6392ea7526163df9175360e0ab2f7f4787b6bb7a8c00d6fcb0c41f8b1f88",
+    "synthdefs/hexlab_formant.scsyndef": "276231bfb053c65810f6021e0f690276a727c4c6fc2ce0f70bef593ea3ab997f",
+    "synthdefs/hexlab_pluck.scsyndef": "1796d943c123ed4b25dc1c129061553636c9b1d6a5c60468168af91b495fb3cb",
+    "synthdefs/hexlab_string.scsyndef": "1984bd899db19c223065ba09a57512931497b4e9f8cd3c2fa1ec8e0afc71de6f",
+    "synthdefs/hexlab_tone.scsyndef": "5af76fc0c42a055bf92e420423f58e04691fa75e809138b4bb397cf77dc243f0"
+  }
+}

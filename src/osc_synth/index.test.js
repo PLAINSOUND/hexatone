@@ -737,7 +737,7 @@ describe("osc_synth pooled slot allocation", () => {
     expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(2.5, 5);
   });
 
-  it("applies shared sustain and retrigger modes only to Buzz and Formant", async () => {
+  it("ignores legacy sustain and applies retrigger only to Buzz and Formant", async () => {
     const synth = await create_osc_synth(
       "ws://test-osc-buzz-formant-modes",
       ["pluck", "string", "formant", "tone"],
@@ -764,8 +764,8 @@ describe("osc_synth pooled slot allocation", () => {
     };
 
     expect(valueAfter(noteOns[0], "sustain_mode")).toBeUndefined();
-    expect(valueAfter(noteOns[1], "sustain_mode")).toBe(1);
-    expect(valueAfter(noteOns[2], "sustain_mode")).toBe(1);
+    expect(valueAfter(noteOns[1], "sustain_mode")).toBe(0);
+    expect(valueAfter(noteOns[2], "sustain_mode")).toBe(0);
     expect(valueAfter(noteOns[3], "sustain_mode")).toBeUndefined();
     expect(valueAfter(noteOns[1], "retrigger_mode")).toBe(0);
     expect(valueAfter(noteOns[2], "retrigger_mode")).toBe(0);

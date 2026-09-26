@@ -2383,6 +2383,48 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@thi.ng/api@npm:^8.12.28":
+  version: 8.12.28
+  resolution: "@thi.ng/api@npm:8.12.28"
+  checksum: 10c0/3257ba74eb0bd3a38cd9ecbcb4d87150419136d5bdc21ea715a9a1f5373738953eb5364688e19dd98200a8d4b54169c807092a9d8cac937c499c92d1e579575d
+  languageName: node
+  linkType: hard
+
+"@thi.ng/binary@npm:^3.6.17":
+  version: 3.6.17
+  resolution: "@thi.ng/binary@npm:3.6.17"
+  dependencies:
+    "@thi.ng/api": "npm:^8.12.28"
+  checksum: 10c0/daa9c1c72f4140af3625a3fca2149d89845c0e0ed20f5e3b78bd14b890405b723657cc579fd86a0fba168068dc23b1770ac159e77e954dae1b5b213e3fc5f94c
+  languageName: node
+  linkType: hard
+
+"@thi.ng/checks@npm:^3.11.1":
+  version: 3.11.1
+  resolution: "@thi.ng/checks@npm:3.11.1"
+  checksum: 10c0/eb684ae33a3b413f7be32c167adcca89abafc631e8f02f893b6c0d802052b27fc7fccb1123a91b45e113897d57270120c526ef55dece4ab2c9b7d85a21cd079f
+  languageName: node
+  linkType: hard
+
+"@thi.ng/errors@npm:^2.6.17":
+  version: 2.6.17
+  resolution: "@thi.ng/errors@npm:2.6.17"
+  checksum: 10c0/9538b69a6b38982e06912c322a9c7f317429803e0ad9e91161595165d7f02ca54c290dd65209b6ec5c643bf6e8ff2adf7e6472df2e4a45f9721db2bf9272b316
+  languageName: node
+  linkType: hard
+
+"@thi.ng/malloc@npm:^6.1.128":
+  version: 6.1.151
+  resolution: "@thi.ng/malloc@npm:6.1.151"
+  dependencies:
+    "@thi.ng/api": "npm:^8.12.28"
+    "@thi.ng/binary": "npm:^3.6.17"
+    "@thi.ng/checks": "npm:^3.11.1"
+    "@thi.ng/errors": "npm:^2.6.17"
+  checksum: 10c0/8882762c6a49add5440021841b26fefeb2b2d8ffbc8abd6d97e5998a9ced4df0f51bde0e36b060e4f93e0d38c3e7c54eabc34fb0faf98c26d31540b7b8471f01
+  languageName: node
+  linkType: hard
+
 "@trickfilm400/rollup-plugin-off-main-thread@npm:^3.0.0-pre1":
   version: 3.0.0-pre1
   resolution: "@trickfilm400/rollup-plugin-off-main-thread@npm:3.0.0-pre1"
@@ -5686,6 +5728,8 @@ __metadata:
     prop-types: "npm:^15.8.1"
     stylelint: "npm:^17.14.0"
     stylelint-config-standard: "npm:^40.0.0"
+    supersonic-scsynth: "npm:0.86.0"
+    supersonic-scsynth-core: "npm:0.86.0"
     vite: "npm:^8.2.0"
     vite-plugin-svgr: "npm:^5.2.0"
     vitest: "npm:^4.1.10"
@@ -6693,6 +6737,22 @@ __metadata:
   bin:
     stylelint: bin/stylelint.mjs
   checksum: 10c0/79a1b1035043c2c601ae293ba6440b37dd5cb92a0d67683866d221c85825947bdffcec6e947f9c167af00a4baa9c4a01ec10ac677bb9c14841f5d407bd235e1d
+  languageName: node
+  linkType: hard
+
+"supersonic-scsynth-core@npm:0.86.0":
+  version: 0.86.0
+  resolution: "supersonic-scsynth-core@npm:0.86.0"
+  checksum: 10c0/07c596e3fea64b2b3f43a9b292f136943713c62f975a6c481c0c58824bec4236b2c89abf912aac4c1221a86b9970a2bf45118c50fcaf6b978823eef3ed6eb96a
+  languageName: node
+  linkType: hard
+
+"supersonic-scsynth@npm:0.86.0":
+  version: 0.86.0
+  resolution: "supersonic-scsynth@npm:0.86.0"
+  dependencies:
+    "@thi.ng/malloc": "npm:^6.1.128"
+  checksum: 10c0/591b85fe0fcf0cc994b9566a21ea91050036f1f6efef79fd0bcadc239d842a5e9a74ca29cd63822583d6e5fc279cb52300cb83dc8d1d21479f1a0a1983bd54ab
   languageName: node
   linkType: hard
 

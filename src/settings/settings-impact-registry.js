@@ -129,6 +129,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "mpe_eagan_modwheel_brightness",
     "fluidsynth_out_port",
     "osc_bridge_url",
+    "osc_local",
   ],
 };
 

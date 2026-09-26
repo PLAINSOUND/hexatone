@@ -1,6 +1,8 @@
 /** Shared native/browser comparison messages. Owns only laboratory nodes;
  * never frees a server root or Hexatone's existing voices. No audio scheduler.
  */
+import { formantPresetToOscArgs, pickRandomFormantPreset } from "../osc_synth/formant-table.js";
+
 export const COMPARISON_GROUP = 193260926;
 export const COMPARISON_INSTRUMENTS = ["string", "formant", "pluck", "tone"];
 
@@ -14,23 +16,26 @@ export function comparisonControls(values) {
     "on_vel", bounded("velocity", 80, 1, 127),
     "off_vel", 64, "vol", bounded("level", 0.06, 0, 0.3),
     "mod", bounded("mod", 1, 1, 2), "filter", bounded("filter", 1, 1, 2),
-    "sustain_mode", values.sustain ? 1 : 0,
+    "sustain_mode", 0,
     "retrigger_mode", values.retrigger ? 1 : 0,
   ];
 }
 
-export function createComparisonVoice(send, allocateId) {
+export function createComparisonVoice(send, allocateId, random = Math.random) {
   let current = null;
+  const controls = comparisonControls;
   return {
     attack(instrument, values) {
       if (!COMPARISON_INSTRUMENTS.includes(instrument)) throw new Error("Unknown instrument");
       this.release();
       current = allocateId();
+      const formants = instrument === "formant"
+        ? formantPresetToOscArgs(pickRandomFormantPreset(random)).map(arg => arg.value) : [];
       send("/s_new", `hexlab_${instrument}`, current, 0, COMPARISON_GROUP,
-        ...comparisonControls(values), "gate", 1);
+        ...controls(values), ...formants, "gate", 1);
     },
     update(values) {
-      if (current != null) send("/n_set", current, ...comparisonControls(values));
+      if (current != null) send("/n_set", current, ...controls(values));
     },
     release() {
       if (current != null) send("/n_set", current, "gate", 0);

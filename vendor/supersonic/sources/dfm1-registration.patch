@@ -1,0 +1,19 @@
+diff --git a/dsp/scsynth/synth/server/SC_Lib_Cintf.cpp b/dsp/scsynth/synth/server/SC_Lib_Cintf.cpp
+--- a/dsp/scsynth/synth/server/SC_Lib_Cintf.cpp
++++ b/dsp/scsynth/synth/server/SC_Lib_Cintf.cpp
+@@ -95,6 +95,8 @@ void LinkUGen_Load(InterfaceTable* table);
+ // SPLimiter: look-ahead limiter for the master bus. C++ linkage to
+ // match the PluginLoad() macro.
+ void SPLimiterUGen_Load(InterfaceTable* table);
++// Hexatone: unchanged SC3-plugins DFM1, statically linked for the AudioWorklet.
++void TJUgens_Load(InterfaceTable* table);
+ 
+ extern void DiskIO_Unload(void);
+ extern void UIUGens_Unload(void);
+@@ -148,5 +150,6 @@ void initialize_library(const char* uGensPluginPath) {
+     DemoUGens_Load(&gInterfaceTable);
+     LinkUGen_Load(&gInterfaceTable);
+     SPLimiterUGen_Load(&gInterfaceTable);
++    TJUgens_Load(&gInterfaceTable);
+ #endif // STATIC_PLUGINS
+ }
