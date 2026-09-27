@@ -252,15 +252,16 @@ a:hover {
   display: contents;
 }
 
-/* Spacer at the bottom of sidebar content prevents iOS bounce hiding items */
+/* Scroll clearance lets the last controls in every workspace move above the
+   fixed OCT/SUSTAIN/MODULATION controls at the bottom of the screen. */
 #sidebar-spacer {
-  height: 0.7em;
+  height: 3.5em;
 }
 
 /* Phone portrait: sidebar slides down from top */
 @media (max-width: 480px) {
   #sidebar-spacer {
-    height: 3em;
+    height: calc(5.5em + env(safe-area-inset-bottom, 0px));
   }
 
   #sidebar {
@@ -365,11 +366,11 @@ a:hover {
   }
 }
 
-/* iOS landscape: button moves below Dynamic Island, sidebar spacer shrinks */
+/* Landscape: retain enough scroll room for the fixed bottom controls. */
 @media (max-height: 500px) and (orientation: landscape) {
   #sidebar-spacer {
     top: 75vh;
-    height: 1.5em;
+    height: calc(4.5em + env(safe-area-inset-bottom, 0px));
   }
 
   #sidebar-button {
