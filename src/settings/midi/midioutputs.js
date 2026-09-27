@@ -920,7 +920,7 @@ const MidiOutputs = (props) => {
 
       {!settings.osc_local && <p class="settings-form__intro-copy">
         <em>
-          Sends notes directly to SuperCollider via a local WebSocket→OSC bridge. Run "yarn
+          Sends OSC to SuperCollider via a local WebSocket→OSC bridge. Run "yarn
           osc-bridge" in a locally cloned repo and use the Synths/SuperCollider-OSC folder to
           initialise the synths and servers.
           {/*/<br />
@@ -934,11 +934,10 @@ const MidiOutputs = (props) => {
           <label class="settings-form__checkbox-row">
             <input type="checkbox" name="osc_local" checked={!!settings.osc_local}
               onChange={(e) => save(e.target.name, e.target.checked, onChange)} />
-            Local SuperSonic (experimental)
+            SuperSonic
           </label>
           {settings.osc_local && <p class="settings-form__intro-copy">
-            Runs the same layers in this browser; no OSC bridge required. Switching
-            engines stops the old sound and retriggers held notes when ready.
+            SynthDefs run directly in the browser; no OSC bridge to a local server required.
           </p>}
           {!settings.osc_local && (
           <label>
