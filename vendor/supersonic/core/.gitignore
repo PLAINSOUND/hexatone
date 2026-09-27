@@ -1,2 +1,1 @@
-# These runtime files are built upstream and intentionally included in the
-# Hexatone distribution, so Git must track them in this vendored package.
+# Runtime WASM and worker assets are intentionally vendored for GitHub Pages.
