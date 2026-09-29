@@ -34,6 +34,7 @@ export async function create_supersonic_synth(...args) {
       mode: "postMessage", audioContext: context, maxNodes: 4096 });
     let failure = null;
     sonic.on("in", msg => {
+      if (msg?.[0] === "/fail") console.log("SuperSonic /fail:", msg);
       if (msg[0] === "/fail" && msg[1] === "/d_recv") failure = msg[2];
     });
     await sonic.init();
