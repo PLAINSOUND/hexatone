@@ -446,10 +446,22 @@ class Keys {
     // Key listeners always on window — ESC key sustain must work even when sidebar is closed.
     window.addEventListener("keydown", this.onKeyDown, false);
     window.addEventListener("keyup", this.onKeyUp, false);
-    this.state.canvas.addEventListener("touchstart", this.handleTouch, { passive: false });
-    this.state.canvas.addEventListener("touchend", this.handleTouch, { passive: false });
-    this.state.canvas.addEventListener("touchmove", this.handleTouch, { passive: false });
-    this.state.canvas.addEventListener("touchcancel", this.handleTouchCancel, false);
+    this.usesPointerTouchInput = typeof window.PointerEvent === "function";
+    if (this.usesPointerTouchInput) {
+      // Pointer capture keeps each touchscreen contact routed to the canvas
+      // through movement/release, while touch-action:none suppresses native
+      // pan/zoom gestures. Keep mouse input on its existing path below.
+      this.state.canvas.addEventListener("pointerdown", this.handlePointerDown, { passive: false });
+      this.state.canvas.addEventListener("pointermove", this.handlePointerMove, { passive: false });
+      this.state.canvas.addEventListener("pointerup", this.handlePointerEnd, { passive: false });
+      this.state.canvas.addEventListener("pointercancel", this.handlePointerEnd, { passive: false });
+      this.state.canvas.addEventListener("lostpointercapture", this.handlePointerEnd, { passive: false });
+    } else {
+      this.state.canvas.addEventListener("touchstart", this.handleTouch, { passive: false });
+      this.state.canvas.addEventListener("touchend", this.handleTouch, { passive: false });
+      this.state.canvas.addEventListener("touchmove", this.handleTouch, { passive: false });
+      this.state.canvas.addEventListener("touchcancel", this.handleTouchCancel, false);
+    }
     this.state.canvas.addEventListener("mousedown", this.mouseDown, false);
     window.addEventListener("mouseup", this.mouseUp, false);
 
@@ -2325,10 +2337,18 @@ class Keys {
 
     window.removeEventListener("keydown", this.onKeyDown, false);
     window.removeEventListener("keyup", this.onKeyUp, false);
-    this.state.canvas.removeEventListener("touchstart", this.handleTouch, false);
-    this.state.canvas.removeEventListener("touchend", this.handleTouch, false);
-    this.state.canvas.removeEventListener("touchmove", this.handleTouch, false);
-    this.state.canvas.removeEventListener("touchcancel", this.handleTouchCancel, false);
+    if (this.usesPointerTouchInput) {
+      this.state.canvas.removeEventListener("pointerdown", this.handlePointerDown, false);
+      this.state.canvas.removeEventListener("pointermove", this.handlePointerMove, false);
+      this.state.canvas.removeEventListener("pointerup", this.handlePointerEnd, false);
+      this.state.canvas.removeEventListener("pointercancel", this.handlePointerEnd, false);
+      this.state.canvas.removeEventListener("lostpointercapture", this.handlePointerEnd, false);
+    } else {
+      this.state.canvas.removeEventListener("touchstart", this.handleTouch, false);
+      this.state.canvas.removeEventListener("touchend", this.handleTouch, false);
+      this.state.canvas.removeEventListener("touchmove", this.handleTouch, false);
+      this.state.canvas.removeEventListener("touchcancel", this.handleTouchCancel, false);
+    }
     this.state.canvas.removeEventListener("mousedown", this.mouseDown, false);
     window.removeEventListener("mouseup", this.mouseUp, false);
     this.state.canvas.removeEventListener("mousemove", this.mouseActive, false);
@@ -2750,6 +2770,18 @@ class Keys {
 
   handleTouch = (e) => {
     return KeysBrowserInput.handleTouch.call(this, e);
+  };
+
+  handlePointerDown = (e) => {
+    return KeysBrowserInput.handlePointerDown.call(this, e);
+  };
+
+  handlePointerMove = (e) => {
+    return KeysBrowserInput.handlePointerMove.call(this, e);
+  };
+
+  handlePointerEnd = (e) => {
+    return KeysBrowserInput.handlePointerEnd.call(this, e);
   };
 
   // Helper: start a touch note at coords for the given touch identifier.

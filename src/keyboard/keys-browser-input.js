@@ -330,6 +330,53 @@ function releaseTouch(keys, id) {
   if (!keys.state.sustain) keys.hexOff(hex.coords);
 }
 
+function releaseCapturedPointer(canvas, pointerId) {
+  try {
+    if (canvas.hasPointerCapture?.(pointerId)) canvas.releasePointerCapture(pointerId);
+  } catch {
+    // Pointer capture may already have been released by the browser.
+  }
+}
+
+export function handlePointerDown(e) {
+  if (e.pointerType === "mouse") return;
+  e.preventDefault?.();
+  if (this._onFirstInteraction) void this._onFirstInteraction();
+
+  const id = e.pointerId;
+  // A reused pointer id should never leave an earlier voice owned.
+  releaseTouch(this, id);
+  const coords = this.getHexCoordsAt(this.getPointerPosition(e));
+  this.state.touchCoords.set(id, coords);
+  this.state.isTouchDown = true;
+  this._touchStartOnCoords(id, coords);
+
+  try {
+    e.currentTarget.setPointerCapture?.(id);
+  } catch {
+    // Some synthetic/older pointer implementations do not support capture.
+  }
+}
+
+export function handlePointerMove(e) {
+  if (e.pointerType === "mouse" || !this.state.touchCoords.has(e.pointerId)) return;
+  e.preventDefault?.();
+  const id = e.pointerId;
+  const coords = this.getHexCoordsAt(this.getPointerPosition(e));
+  if (this.state.touchCoords.get(id)?.equals(coords)) return;
+  releaseTouch(this, id);
+  this.state.touchCoords.set(id, coords);
+  this._touchStartOnCoords(id, coords);
+}
+
+export function handlePointerEnd(e) {
+  if (e.pointerType === "mouse") return;
+  e.preventDefault?.();
+  releaseTouch(this, e.pointerId);
+  releaseCapturedPointer(e.currentTarget, e.pointerId);
+  this.state.isTouchDown = this.state.touchCoords.size > 0;
+}
+
 export async function handleTouch(e) {
   e.preventDefault();
   if (this._onFirstInteraction) {

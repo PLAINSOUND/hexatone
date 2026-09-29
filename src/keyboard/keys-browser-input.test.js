@@ -86,6 +86,41 @@ describe("canvas touch input", () => {
     expect(keys.state.isTouchDown).toBe(false);
   });
 
+  it("keeps simultaneous pointer contacts on the canvas and releases them independently", () => {
+    const keys = makeKeys();
+    const canvas = keys.state.canvas;
+    const pointer = (pointerId, clientX, type = "touch") => ({
+      pointerId,
+      pointerType: type,
+      clientX,
+      clientY: 5,
+      currentTarget: canvas,
+      preventDefault: vi.fn(),
+    });
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0 });
+    canvas.setPointerCapture = vi.fn();
+    canvas.hasPointerCapture = vi.fn(() => false);
+    canvas.releasePointerCapture = vi.fn();
+
+    input.handlePointerDown.call(keys, pointer(11, 5));
+    input.handlePointerDown.call(keys, pointer(12, 25));
+    expect(keys.state.activeTouch.size).toBe(2);
+    expect(canvas.setPointerCapture).toHaveBeenCalledWith(11);
+    expect(canvas.setPointerCapture).toHaveBeenCalledWith(12);
+
+    input.handlePointerMove.call(keys, pointer(11, 15));
+    expect(keys.state.activeTouch.get(11).coords).toEqual(new Point(1, 0));
+    expect(keys.state.activeTouch.get(12).coords).toEqual(new Point(2, 0));
+
+    input.handlePointerEnd.call(keys, pointer(11, 15));
+    expect(keys.state.activeTouch.has(11)).toBe(false);
+    expect(keys.state.activeTouch.has(12)).toBe(true);
+    input.handlePointerEnd.call(keys, pointer(12, 25));
+    expect(keys.state.activeTouch.size).toBe(0);
+    expect(keys.state.touchCoords.size).toBe(0);
+    expect(keys.state.isTouchDown).toBe(false);
+  });
+
   it("cancels only the affected contact without retriggering the remaining finger", async () => {
     const keys = makeKeys();
     await input.handleTouch.call(keys, event(touch(1), touch(2, 25)));
