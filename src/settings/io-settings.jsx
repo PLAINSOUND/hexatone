@@ -39,7 +39,6 @@ const IOSettings = ({
   snapshots,
   tuningRuntime,
   onEnableLumatoneAutoSync,
-  onSendLumatoneColors,
   onProbeLumatoneConnection,
   lumatoneDriverReady,
 }) => {
@@ -95,7 +94,6 @@ const IOSettings = ({
         exquisLedStatus={exquisLedStatus}
         keysRef={keysRef}
         onEnableLumatoneAutoSync={onEnableLumatoneAutoSync}
-        onSendLumatoneColors={onSendLumatoneColors}
         onProbeLumatoneConnection={onProbeLumatoneConnection}
         lumatoneDriverReady={lumatoneDriverReady}
       />

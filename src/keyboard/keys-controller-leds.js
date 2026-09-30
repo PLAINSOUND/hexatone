@@ -19,6 +19,7 @@ import {
   LUMATONE_COLOR_FILTER_DARK,
 } from "../controllers/lumatone-color-filters.js";
 import { detectController } from "../controllers/registry.js";
+import { applyControllerPresetAnchor } from "../controllers/preset-anchors.js";
 import { loadAnchorSettingsUpdate } from "../input/controller-anchor.js";
 import { modulatedControllerCoords } from "./modulation-controller-runtime.js";
 
@@ -195,6 +196,26 @@ export function sendLumatoneLayout() {
   return sendLumatoneBlankLayout(this.lumatoneLEDs);
 }
 
+/** Build the standard 2D MIDI assignment with current geometry colours. */
+export function buildLumatoneLayoutAndColourEntries() {
+  if (!this.controllerMap) return null;
+  const colours = new Map(
+    buildLumatoneColorEntries.call(this).map((entry) => [`${entry.board}.${entry.key}`, entry.hexColor]),
+  );
+  return buildLumatoneBlankLayoutEntries().map((entry) => ({
+    ...entry,
+    hexColor: colours.get(`${entry.board}.${entry.key}`) ?? "#000000",
+  }));
+}
+
+export function sendLumatoneLayoutAndColours() {
+  if (!this.lumatoneLEDs) return false;
+  const entries = buildLumatoneLayoutAndColourEntries.call(this);
+  if (!entries) return false;
+  this.lumatoneLEDs.sendLayout(entries, [{ cmd: 0x0e, board: 0, value: 1 }]);
+  return true;
+}
+
 function chooseLumatoneBypassAssignment(steps, centerDegree, equivSteps, anchorChannel) {
   for (const candidate of lumatoneBypassChannelCandidates(anchorChannel)) {
     const rawNote =
@@ -212,18 +233,25 @@ function chooseLumatoneBypassAssignment(steps, centerDegree, equivSteps, anchorC
 }
 
 export function buildLumatoneBypassLayoutEntries() {
-  const layout2dSettings = this.settings?.midi_passthrough
-    ? {
-        ...this.settings,
-        ...loadAnchorSettingsUpdate(this.controller, {
-          ...this.settings,
+  const buildingFromBypass = this.settings?.midi_passthrough === true;
+  const layout2dSettings = buildingFromBypass
+    ? (() => {
+        const geometrySettings = { ...this.settings, midi_passthrough: false };
+        const loaded = loadAnchorSettingsUpdate(this.controller, geometrySettings);
+        return {
+          ...geometrySettings,
+          ...loaded,
+          ...applyControllerPresetAnchor(geometrySettings, this.controller?.id, loaded),
           midi_passthrough: false,
-        }),
-        midi_passthrough: false,
-      }
+        };
+      })()
     : this.settings;
-  const controllerMap =
-    this.controllerMap ?? this._buildControllerMapForSettings?.(layout2dSettings);
+  // In bypass mode the active controller map is intentionally sequential (and
+  // may be absent or stale). Rebuild the 2D map from the resolved geometry
+  // anchor, including any anchor carried by the loaded tuning preset.
+  const controllerMap = buildingFromBypass
+    ? this._buildControllerMapForSettings?.(layout2dSettings)
+    : this.controllerMap ?? this._buildControllerMapForSettings?.(layout2dSettings);
   if (!controllerMap) return null;
 
   const entries = [];

@@ -5171,9 +5171,6 @@ const App = () => {
     settings.midiin_anchor_note,
     settings.midiin_anchor_channel,
   ]);
-  const sendLumatoneColorsManually = useCallback(() => {
-    return sendLumatoneColorsNow(keysRef.current, lumatoneLedsRef.current);
-  }, []);
   const probeLumatoneConnection = useCallback(() => {
     const leds = lumatoneLedsRef.current;
     if (!leds?.probeConnection) {
@@ -5279,7 +5276,6 @@ const App = () => {
         snapshots={snapshots}
         tuningRuntime={tuningRuntime}
         onEnableLumatoneAutoSync={enableLumatoneAutoSyncNow}
-        onSendLumatoneColors={sendLumatoneColorsManually}
         onProbeLumatoneConnection={probeLumatoneConnection}
         lumatoneDriverReady={lumatoneDriverReady}
       />

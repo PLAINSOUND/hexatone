@@ -837,8 +837,9 @@ export const CONTROLLER_REGISTRY = [
     mpeInputPolicy: "never", // channels encode block geometry, not per-voice MPE expression
     anchorDefault: 26, // note 26 in centre block is the default centre key
     anchorChannelDefault: 3, // centre block
-    // In sequential/bypass mode: channels 1–5 map to blocks — transposition by equave
-    // and mod-8 wrapping are both needed for correct note mapping.
+    // Channel arithmetic uses one equave per channel. In 2D/map interpretation,
+    // legacy mod-8 wrapping supports the traditional five-block layout; generated
+    // bypass layouts instead use channels 1–16 directly (see mode defaults below).
     sequentialTransposeDefault: null, // null = equave (one equave per channel)
     sequentialLegacyDefault: true, // wrap channels 9–16 → 1–8
     supportsVirtualAnchor: true,
@@ -876,6 +877,8 @@ export const CONTROLLER_REGISTRY = [
         defaultPrefs: {
           anchorNote: 60, // MIDI note 60 in sequential mode (full 0–127 range)
           anchorChannel: 4,
+          midiin_steps_per_channel: null, // one equave per MIDI channel
+          midiin_channel_legacy: false, // bypass layouts may use channels 1–16 directly
           midi_passthrough: true,
           midiin_mapping_target: "hex_layout",
         },

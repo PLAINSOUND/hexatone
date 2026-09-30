@@ -79,7 +79,7 @@ describe("LumatoneSettings", () => {
     );
   });
 
-  it("keeps Send Colours disabled until its driver is ready", () => {
+  it("keeps Send Layout and Colours disabled until its driver is ready", () => {
     render(
       <LumatoneSettings
         settings={{ midi_passthrough: false, lumatone_led_sync: true }}
@@ -92,7 +92,25 @@ describe("LumatoneSettings", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Send Colours" }).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Send Layout and Colours" }).disabled).toBe(true);
+  });
+
+  it("sends the current 2D layout and colours from the manual button", () => {
+    const sendLumatoneLayoutAndColours = vi.fn();
+    render(
+      <LumatoneSettings
+        settings={{ midi_passthrough: false, lumatone_led_sync: true }}
+        rawPorts={{ output: { id: "lumatone", name: "Lumatone" }}}
+        midiOutputs={new Map()}
+        keysRef={{ current: { sendLumatoneLayoutAndColours } }}
+        hasSysexMidi={true}
+        driverReady={true}
+        onChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Send Layout and Colours" }));
+    expect(sendLumatoneLayoutAndColours).toHaveBeenCalledOnce();
   });
 
   it("applies a saved colour filter from the selector", () => {
@@ -456,7 +474,7 @@ describe("LumatoneSettings", () => {
     ]);
   });
 
-  it("sends a generated 2D bypass layout and reports coverage", () => {
+  it("sends a generated 2D bypass layout without a blocking alert", () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
     const sendLumatoneBypassLayout = vi.fn(() => ({
       exactCount: 270,
@@ -489,9 +507,7 @@ describe("LumatoneSettings", () => {
     fireEvent.click(screen.getByText("Send Layout and Colours").closest("button"));
 
     expect(sendLumatoneBypassLayout).toHaveBeenCalledTimes(1);
-    expect(alertSpy).toHaveBeenCalledWith(
-      "Sent Lumatone 2D bypass layout.\n\nExact keys: 270/280\nDisabled dark keys: 10/280",
-    );
+    expect(alertSpy).not.toHaveBeenCalled();
     alertSpy.mockRestore();
   });
 

@@ -2174,6 +2174,10 @@ class Keys {
     return KeysControllerLeds.sendLumatoneLayout.call(this);
   };
 
+  sendLumatoneLayoutAndColours = () => {
+    return KeysControllerLeds.sendLumatoneLayoutAndColours.call(this);
+  };
+
   sendLumatoneBypassLayout = () => {
     return KeysControllerLeds.sendLumatoneBypassLayout.call(this);
   };

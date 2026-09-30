@@ -111,6 +111,8 @@ const LUMATONE_MODES = {
       defaultPrefs: {
         anchorNote: 60,
         anchorChannel: 4,
+        midiin_steps_per_channel: null,
+        midiin_channel_legacy: false,
         midi_passthrough: true,
       },
     },
@@ -666,11 +668,11 @@ describe("Lumatone mode-aware controller prefs", () => {
     expect(update.midiin_channel_legacy).toBe(true);
   });
 
-  it("does NOT apply sequential transposition in bypass mode", () => {
+  it("defaults Lumatone bypass to equave transposition without legacy channel wrapping", () => {
     const update = loadAnchorSettingsUpdate(LUMATONE_MODES, { midi_passthrough: true });
-    expect(update.midiin_steps_per_channel).toBeUndefined();
+    expect(update.midiin_steps_per_channel).toBe(null);
     expect(update.midiin_channel_group_size).toBeUndefined();
-    expect(update.midiin_channel_legacy).toBeUndefined();
+    expect(update.midiin_channel_legacy).toBe(false);
   });
 });
 

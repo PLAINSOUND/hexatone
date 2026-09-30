@@ -44,7 +44,6 @@ const LumatoneSettings = ({
   hasSysexMidi,
   onChange,
   onEnableLumatoneAutoSync,
-  onSendLumatoneColors,
   onProbeLumatoneConnection,
   driverReady = true,
   saveControllerPref,
@@ -319,12 +318,7 @@ const LumatoneSettings = ({
   };
 
   const handleSendBypassLayout = () => {
-    const result = keysRef?.current?.sendLumatoneBypassLayout?.();
-    if (!result) return;
-    const { exactCount, disabledCount, totalCount } = result;
-    window.alert(
-      `Sent Lumatone 2D bypass layout.\n\nExact keys: ${exactCount}/${totalCount}\nDisabled dark keys: ${disabledCount}/${totalCount}`,
-    );
+    keysRef?.current?.sendLumatoneBypassLayout?.();
   };
 
   return (
@@ -415,9 +409,10 @@ const LumatoneSettings = ({
                   type="button"
                   class="preset-action-btn"
                   disabled={!hasSysexMidi || !driverReady}
-                  onClick={() => onSendLumatoneColors?.() ?? keysRef?.current?.syncLumatoneLEDs?.()}
+                  title="Send the current 2D MIDI note/channel layout and colours to the Lumatone"
+                  onClick={() => keysRef?.current?.sendLumatoneLayoutAndColours?.()}
                 >
-                  Send Colours
+                  Send Layout and Colours
                 </button>
               </span>
             </label>
@@ -603,7 +598,6 @@ LumatoneSettings.propTypes = {
   hasSysexMidi: PropTypes.bool.isRequired,
   onChange: PropTypes.func.isRequired,
   onEnableLumatoneAutoSync: PropTypes.func,
-  onSendLumatoneColors: PropTypes.func,
   onProbeLumatoneConnection: PropTypes.func,
   driverReady: PropTypes.bool,
   saveControllerPref: PropTypes.func,

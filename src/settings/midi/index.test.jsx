@@ -495,6 +495,8 @@ describe("MIDIio LinnStrument controller selection", () => {
       midi_passthrough: true,
       midiin_anchor_note: 60,
       midiin_anchor_channel: 4,
+      midiin_steps_per_channel: null,
+      midiin_channel_legacy: false,
     });
     props.midi = {
       inputs: new Map([["input-1", { id: "input-1", name: "Lumatone" }]]),
@@ -509,6 +511,21 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(label).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Learn" })).toBeNull();
     expect(screen.getByText("MIDI Note 60 plays Central Degree (0)")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Channel Transposition" }).value).toBe("equave");
+  });
+
+  it("sets equave transposition and direct channels when enabling Lumatone bypass", () => {
+    const props = makeProps({ midiin_controller_override: "lumatone" });
+    props.midi = {
+      inputs: new Map([["input-1", { id: "input-1", name: "Lumatone" }]]),
+      outputs: new Map(),
+    };
+
+    render(<MIDIio {...props} />);
+    fireEvent.click(screen.getByLabelText("Sequential mode (bypass 2D geometry)"));
+
+    expect(props.onChange).toHaveBeenCalledWith("midiin_steps_per_channel", null);
+    expect(props.onChange).toHaveBeenCalledWith("midiin_channel_legacy", false);
   });
 
   it("renders Lumatone LED controls from its dedicated controller module", () => {
@@ -526,6 +543,7 @@ describe("MIDIio LinnStrument controller selection", () => {
     render(<MIDIio {...props} />);
 
     expect(screen.getByText("Send Blank Layout")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Send Layout and Colours" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: /Automatically Send LED Colours/ })).toBeTruthy();
   });
 

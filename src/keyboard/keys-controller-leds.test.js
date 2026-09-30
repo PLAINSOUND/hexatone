@@ -4,8 +4,10 @@ import {
   buildLumatoneBlankLayoutEntries,
   buildLumatoneBypassLayoutEntries,
   buildLumatoneColorEntries,
+  buildLumatoneLayoutAndColourEntries,
   sendLumatoneBlankLayout,
   sendLumatoneLayout,
+  sendLumatoneLayoutAndColours,
   updateColors,
 } from "./keys-controller-leds.js";
 
@@ -223,6 +225,8 @@ describe("buildLumatoneBypassLayoutEntries", () => {
         midi_passthrough: true,
         midiin_anchor_note: 60,
         midiin_anchor_channel: 4,
+        lumatone_anchor_note: 32,
+        lumatone_anchor_channel: 2,
         center_degree: 0,
         equivSteps: 12,
       },
@@ -253,9 +257,9 @@ describe("buildLumatoneBypassLayoutEntries", () => {
       controllerMap: null,
       _buildControllerMapForSettings(nextSettings) {
         expect(nextSettings.midi_passthrough).toBe(false);
-        expect(nextSettings.midiin_anchor_note).toBe(26);
-        expect(nextSettings.midiin_anchor_channel).toBe(3);
-        return new Map([["3.26", { x: 0, y: 0 }]]);
+        expect(nextSettings.midiin_anchor_note).toBe(32);
+        expect(nextSettings.midiin_anchor_channel).toBe(2);
+        return new Map([["2.32", { x: 0, y: 0 }]]);
       },
       hexCoordsToCents() {
         return [0, 0, 0];
@@ -266,7 +270,7 @@ describe("buildLumatoneBypassLayoutEntries", () => {
     });
 
     expect(payload.entries).toEqual([
-      { board: 3, key: 26, note: 60, channel: 3, keyType: 0x01, hexColor: "#abcdef" },
+      { board: 2, key: 32, note: 60, channel: 3, keyType: 0x01, hexColor: "#abcdef" },
     ]);
     expect(payload.exactCount).toBe(1);
     expect(payload.disabledCount).toBe(0);
@@ -328,5 +332,45 @@ describe("sendLumatoneLayout", () => {
       hexColor: "#000000",
     });
     expect(preamble).toEqual([{ cmd: 0x0e, board: 0, value: 1 }]);
+  });
+});
+
+describe("sendLumatoneLayoutAndColours", () => {
+  it("combines the standard 2D note/channel map with current geometry colours", () => {
+    const context = {
+      controllerMap: new Map([["3.26", { x: 0, y: 0 }]]),
+      settings: {},
+      hexCoordsToCents: () => [0, 0, 0],
+      _getLumatoneHexColor: () => "#abcdef",
+    };
+
+    const entries = buildLumatoneLayoutAndColourEntries.call(context);
+    expect(entries).toHaveLength(280);
+    expect(entries.find(({ board, key }) => board === 3 && key === 26)).toEqual({
+      board: 3,
+      key: 26,
+      note: 26,
+      channel: 2,
+      keyType: 0x01,
+      hexColor: "#abcdef",
+    });
+    expect(entries.find(({ board, key }) => board === 3 && key === 25).hexColor).toBe("#000000");
+  });
+
+  it("sends the complete 2D layout and colours through the Lumatone driver", () => {
+    const sendLayout = vi.fn();
+    const result = sendLumatoneLayoutAndColours.call({
+      lumatoneLEDs: { sendLayout },
+      controllerMap: new Map([["1.0", { x: 0, y: 0 }]]),
+      settings: {},
+      hexCoordsToCents: () => [0, 0, 0],
+      _getLumatoneHexColor: () => "#abcdef",
+    });
+
+    expect(result).toBe(true);
+    expect(sendLayout).toHaveBeenCalledWith(expect.any(Array), [
+      { cmd: 0x0e, board: 0, value: 1 },
+    ]);
+    expect(sendLayout.mock.calls[0][0]).toHaveLength(280);
   });
 });

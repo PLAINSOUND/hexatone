@@ -387,6 +387,16 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
     if (modeDefault !== undefined) update[key] = modeDefault;
   }
 
+  // Lumatone bypass layouts distribute pitches over MIDI channels 1–16. The
+  // sequential input mapping must therefore interpret each channel directly
+  // and transpose by one equave, matching the generated key assignments.
+  if (controller.id === "lumatone" && modeKey === "bypass") {
+    for (const key of ["midiin_steps_per_channel", "midiin_channel_legacy"]) {
+      const modeDefault = getModeDefault(controller, modeKey, key);
+      if (modeDefault !== undefined) update[key] = modeDefault;
+    }
+  }
+
   const ch = loadSavedAnchorChannel(controller, settings, { preferStored });
   if (ch !== null) {
     // midiin_anchor_channel drives the channel-offset formula in channelToStepsOffset()
@@ -421,10 +431,9 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
     }
   }
 
-  // Apply controller-specific sequential transposition defaults (e.g. Lumatone:
-  // equave transposition + mod-8 wrapping for its 5-block channel layout).
-  // Skip in bypass mode — the controller is acting as a plain MIDI device and
-  // channel-based transposition would produce wrong pitches.
+  // Apply controller-specific sequential transposition defaults for the normal
+  // channel/block interpretation. Mode-aware bypass layouts can provide their
+  // own defaults below when their generated channel assignments require them.
   const activeMode = getControllerMode(controller, settings, null, { preferStored });
   const isLayout = !isModeAwareController(controller) || activeMode !== "bypass";
   if (isLayout) {
