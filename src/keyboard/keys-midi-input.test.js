@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import Keys from "./keys.js";
+import * as KeysBrowserInput from "./keys-browser-input.js";
 import Point from "./point.js";
 import { WebMidi } from "webmidi";
 import { createMonoSynth } from "../mono_synth/index.js";
@@ -237,14 +238,119 @@ describe("Keys MIDI input integration", () => {
     const keys = createKeys();
     const first = { coords: new Point(0, 0), noteOff: vi.fn(), cents: 0 };
     const second = { coords: new Point(0, 0), noteOff: vi.fn(), cents: 0 };
+    const controllerHeld = { coords: new Point(0, 0), noteOff: vi.fn(), cents: 0, _notePlayed: 19 };
+    const touchHeld = { coords: new Point(0, 0), noteOff: vi.fn(), cents: 0 };
+    const touchId = 7;
     keys.sustainOn();
     keys.noteOff(first, 30);
     keys.noteOff(second, 40);
     keys.state.latch = true;
+    keys.state.activeMidi.set(19, controllerHeld);
+    keys.state.activeTouch.set(touchId, touchHeld);
+    keys.state.touchCoords.set(touchId, new Point(0, 0));
     expect(keys._midiLatchToggle(first.coords, 50)).toBe(true);
     expect(first.noteOff).toHaveBeenCalledExactlyOnceWith(50);
     expect(second.noteOff).toHaveBeenCalledExactlyOnceWith(50);
+    expect(controllerHeld.noteOff).toHaveBeenCalledExactlyOnceWith(50);
+    expect(touchHeld.noteOff).toHaveBeenCalledExactlyOnceWith(50);
     expect(keys.state.sustainedNotes).toEqual([]);
+    expect(keys.state.activeMidi.size).toBe(0);
+    expect(keys.state.activeTouch.size).toBe(0);
+    // The physical contact remains tracked until its own pointer-up.
+    expect(keys.state.touchCoords.has(touchId)).toBe(true);
+    expect(keys._suppressedMidiNotes.has(19)).toBe(true);
+  });
+
+  it("lets a controller trigger toggle off a note still held by touch in latch mode", () => {
+    const keys = createKeys();
+    const touchId = 3;
+    const touchHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      noteOff: vi.fn(function noteOff() {
+        this.release = true;
+      }),
+    };
+    keys.sustainOn();
+    keys.state.latch = true;
+    keys.state.activeTouch.set(touchId, touchHex);
+    keys.state.touchCoords.set(touchId, touchHex.coords);
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
+    vi.spyOn(keys, "drawHex").mockImplementation(() => {});
+    vi.spyOn(keys, "centsToColor").mockReturnValue(["#000", "#fff"]);
+
+    const event = makeMidiEvent(60);
+    keys.midinoteOn(event);
+    expect(touchHex.noteOff).toHaveBeenCalledOnce();
+    expect(keys.state.activeTouch.size).toBe(0);
+    expect(keys.state.activeMidi.size).toBe(0);
+    expect(keys._suppressedMidiNotes.has(60)).toBe(true);
+
+    // The controller's eventual physical key-up must not create a new release
+    // or leave a latched voice behind.
+    keys.midinoteOff(event);
+    expect(touchHex.noteOff).toHaveBeenCalledOnce();
+    expect(keys.state.sustainedNotes).toHaveLength(0);
+    keys.deconstruct();
+  });
+
+  it("lets an onscreen click toggle off a controller note before controller key-up", () => {
+    const canvas = makeCanvas();
+    const keys = createKeys();
+    const controllerHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      noteOff: vi.fn(function noteOff() {
+        this.release = true;
+      }),
+      _notePlayed: 60,
+    };
+    keys.state.latch = true;
+    keys.state.sustain = true;
+    keys.state.activeMidi.set(60, controllerHex);
+    keys.getHexCoordsAt = vi.fn(() => new Point(0, 0));
+    vi.spyOn(keys, "drawHex").mockImplementation(() => {});
+    vi.spyOn(keys, "centsToColor").mockReturnValue(["#000", "#fff"]);
+
+    KeysBrowserInput.mouseActive.call(keys, {
+      currentTarget: canvas,
+      clientX: 5,
+      clientY: 5,
+    });
+    expect(controllerHex.noteOff).toHaveBeenCalledOnce();
+    expect(keys.state.activeMidi.size).toBe(0);
+    expect(keys.state.activeMouse).toBeNull();
+    expect(keys.state.sustainedNotes).toHaveLength(0);
+    expect(keys._suppressedMidiNotes.has(60)).toBe(true);
+
+    keys.midinoteOff(makeMidiEvent(60));
+    expect(controllerHex.noteOff).toHaveBeenCalledOnce();
+    keys.deconstruct();
+  });
+
+  it("treats a repeated held MIDI identity as a latch toggle, not a retrigger", () => {
+    const keys = createKeys();
+    const controllerHex = {
+      coords: new Point(0, 0),
+      cents: 0,
+      noteOff: vi.fn(function noteOff() {
+        this.release = true;
+      }),
+      _notePlayed: 60,
+    };
+    keys.state.latch = true;
+    keys.state.sustain = true;
+    keys.state.activeMidi.set(60, controllerHex);
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
+    vi.spyOn(keys, "drawHex").mockImplementation(() => {});
+    vi.spyOn(keys, "centsToColor").mockReturnValue(["#000", "#fff"]);
+
+    keys.midinoteOn(makeMidiEvent(60));
+    expect(controllerHex.noteOff).toHaveBeenCalledOnce();
+    expect(keys.state.activeMidi.size).toBe(0);
+    expect(keys.state.sustainedNotes).toHaveLength(0);
+    expect(keys._suppressedMidiNotes.has(60)).toBe(true);
+    keys.deconstruct();
   });
 
   it("shapes Continuum pitch bend around raster-filter degrees instead of every scale degree", () => {

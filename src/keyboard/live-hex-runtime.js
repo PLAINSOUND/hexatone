@@ -8,7 +8,6 @@
 import {
   addSustainedHex,
   clearSustainedHexes,
-  removeSustainedHex,
 } from "./sounding-note-runtime.js";
 import {
   createTransferredHex,

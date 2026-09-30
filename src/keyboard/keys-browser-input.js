@@ -316,13 +316,12 @@ export function mouseActive(e) {
 
   if (this.state.latch) {
     const key = `${coords.x},${coords.y}`;
-    if (findSustainedIndexAt(this.state, coords) !== -1) {
+    if (toggleLatchedAt(this, coords)) {
       const oldCoords = first.coords;
       this.noteOff(first, 0);
       this.state.activeMouse = null;
       this._settleModulationAfterActiveRelease();
       this.hexOff(oldCoords);
-      releaseSustainedAt(this, coords);
       this.state.mouseDownToggledCoord = key;
       return;
     }

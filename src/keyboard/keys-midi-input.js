@@ -493,6 +493,12 @@ export function midinoteOn(event) {
   this._suppressedMidiNotes?.delete(notePlayed);
 
   const existingHex = this.state.activeMidi.get(notePlayed);
+  if (existingHex && this.state.latch && this._midiLatchToggle(existingHex.coords, velocityPlayed)) {
+    // A repeated trigger is still a latch toggle, even when it reuses the same
+    // physical MIDI identity before the controller has sent its note-off.
+    this._suppressedMidiNotes?.add(notePlayed);
+    return;
+  }
   if (existingHex) {
     this.state.activeMidi.delete(notePlayed);
     if (
