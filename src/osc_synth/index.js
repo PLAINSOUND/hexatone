@@ -757,7 +757,7 @@ OscHex.prototype.noteOn = function (timestamp) {
     this.release = true;
     return;
   }
-  const { slot } = this._pool.noteOn(this.coords, this._targetMidiFloat());
+  const { slot } = this._pool.noteOn(this.coords, this._targetMidiFloat(), this);
   this._attackTimestamp = Number.isFinite(timestamp) ? timestamp : null;
   this._slot = slot;
   this._nodeIds = this._synthNames.map((_, i) => nextNodeId(i));
@@ -820,7 +820,7 @@ OscHex.prototype.noteOff = function (release_velocity, timestamp) {
   if (this._attackTimestamp != null && requested <= this._attackTimestamp) {
     timestamp = this._attackTimestamp + 1;
   }
-  const resolvedSlot = this._pool.noteOff(this.coords);
+  const resolvedSlot = this._pool.noteOff(this.coords, this);
   const slot = resolvedSlot ?? this._slot;
   debugLog("osc", "OscHex.noteOff", {
     coords: this.coords,
@@ -853,7 +853,7 @@ OscHex.prototype.noteOff = function (release_velocity, timestamp) {
 OscHex.prototype.forceFree = function () {
   if (this.release) return;
   this.release = true;
-  const resolvedSlot = this._pool.noteOff(this.coords);
+  const resolvedSlot = this._pool.noteOff(this.coords, this);
   const slot = resolvedSlot ?? this._slot;
   debugLog("osc", "OscHex.forceFree", {
     coords: this.coords,

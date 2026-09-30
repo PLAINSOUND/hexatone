@@ -30,15 +30,17 @@ export class VoicePool {
 
     // Per-slot state: null = free, otherwise the coords currently playing
     this._coords = new Map(); // slot → coords | null
+    this._voiceKeys = new Map(); // slot → unique trigger identity | null
     this._lastUsed = new Map(); // slot → timestamp (ms)
     this._releasedAt = new Map(); // slot → release timestamp (ms)
     for (const s of slotIds) {
       this._coords.set(s, null);
+      this._voiceKeys.set(s, null);
       this._lastUsed.set(s, 0);
       this._releasedAt.set(s, 0);
     }
 
-    // Fast reverse lookup: coordsKey → slot
+    // Reverse lookup uses trigger identity, not pitch/canvas coordinates.
     this._active = new Map();
   }
 
@@ -58,8 +60,8 @@ export class VoicePool {
    *   distance    — semitones between target and allocated carrier
    *   retrigger   — true if coords was already active
    */
-  noteOn(coords, targetMIDIFloat) {
-    const key = coordsKey(coords);
+  noteOn(coords, targetMIDIFloat, voiceKey = coordsKey(coords)) {
+    const key = voiceKey;
     const now = Date.now();
 
     // Retrigger: already active, refresh timestamp
@@ -90,6 +92,7 @@ export class VoicePool {
           if (!allowGuarded && this._isSlotGuarded(candidate, now)) continue;
 
           this._coords.set(candidate, coords);
+          this._voiceKeys.set(candidate, key);
           this._lastUsed.set(candidate, now);
           this._active.set(key, candidate);
           debugLog("osc", "VoicePoolNearest.noteOn allocate", {
@@ -140,10 +143,11 @@ export class VoicePool {
     }
 
     const stolenCoords = this._coords.get(victimSlot);
-    const stolenKey = coordsKey(stolenCoords);
+    const stolenKey = this._voiceKeys.get(victimSlot);
 
     this._active.delete(stolenKey);
     this._coords.set(victimSlot, coords);
+    this._voiceKeys.set(victimSlot, key);
     this._lastUsed.set(victimSlot, Date.now());
     this._active.set(key, victimSlot);
     debugLog("osc", "VoicePoolNearest.noteOn steal", {
@@ -164,8 +168,8 @@ export class VoicePool {
   }
 
   /** Release the slot assigned to `coords`. */
-  noteOff(coords) {
-    const key = coordsKey(coords);
+  noteOff(coords, voiceKey = coordsKey(coords)) {
+    const key = voiceKey;
     const slot = this._active.get(key);
     if (slot == null) {
       debugLog("osc", "VoicePoolNearest.noteOff miss", {
@@ -176,6 +180,7 @@ export class VoicePool {
       return null;
     }
     this._coords.set(slot, null);
+    this._voiceKeys.set(slot, null);
     this._releasedAt.set(slot, Date.now());
     this._active.delete(key);
     debugLog("osc", "VoicePoolNearest.noteOff hit", { key, slot, coords });
@@ -183,8 +188,13 @@ export class VoicePool {
   }
 
   /** Return the carrier note number for `coords`, or null if not active. */
-  getSlot(coords) {
-    return this._active.get(coordsKey(coords)) ?? null;
+  getSlot(coords, voiceKey = coordsKey(coords)) {
+    void coords;
+    return this._active.get(voiceKey) ?? null;
+  }
+
+  ownsVoice(slot, voiceKey) {
+    return this._coords.get(slot) !== null && this._voiceKeys.get(slot) === voiceKey;
   }
 
   /**
@@ -194,10 +204,11 @@ export class VoicePool {
   clear() {
     const victims = [];
     for (const [_key, slot] of this._active) {
-      victims.push({ coords: this._coords.get(slot), slot });
+      victims.push({ coords: this._coords.get(slot), slot, voiceKey: this._voiceKeys.get(slot) });
     }
     for (const s of this._allSlots) {
       this._coords.set(s, null);
+      this._voiceKeys.set(s, null);
       this._releasedAt.set(s, 0);
     }
     this._active.clear();

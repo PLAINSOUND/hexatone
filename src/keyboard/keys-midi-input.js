@@ -379,6 +379,16 @@ function maybeResolveDistinctHakenCoords(keys, coords, steps, inputAddress) {
   return chooseAlternateCoordsForStep(keys, steps, inputAddress, coords);
 }
 
+function maybeResolveDistinctScaleInputCoords(keys, coords, steps, inputAddress) {
+  // Scale matching can collapse distinct MIDI addresses (including the same
+  // key number on different channels) onto one scale degree. Keep each live
+  // voice on its own equivalent canvas hex even when the controller is not
+  // classified as MPE/per-channel-expression capable.
+  if (keys.inputRuntime?.target !== "scale") return coords;
+  if (steps == null || !coords || !inputAddress || !activeHexAtCoords(keys, coords)) return coords;
+  return chooseAlternateCoordsForStep(keys, steps, inputAddress, coords);
+}
+
 function findLatestActiveHexForChannel(channel) {
   const activeHexes = new Set(this.state.activeMidi.values());
   for (const hex of this.recencyStack.all) {
@@ -518,7 +528,7 @@ export function midinoteOn(event) {
     );
     rasterOnsetStepsOverride = onsetSteps;
     coords = this.coordResolver.coordForSteps(onsetSteps, inputAddress);
-    coords = maybeResolveDistinctHakenCoords(this, coords, onsetSteps, inputAddress);
+    coords = maybeResolveDistinctScaleInputCoords(this, coords, onsetSteps, inputAddress);
     if (usesPerChannelExpression(this.inputRuntime)) {
       liveInputAddress = inputAddress;
     }

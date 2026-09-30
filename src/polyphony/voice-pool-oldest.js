@@ -49,7 +49,7 @@ export class VoicePool {
     this._nextAllocationToken = 1;
 
     // Active voice linked list (oldest head → newest tail)
-    this._active = new Map(); // coordsKey → entry { key, coords, slot, allocationToken, prev, next }
+    this._active = new Map(); // trigger identity → entry { key, coords, slot, allocationToken, prev, next }
     this._head = null;
     this._tail = null;
 
@@ -75,8 +75,8 @@ export class VoicePool {
    * The caller is responsible for sending PB(newBend) then noteOn to `slot`.
    * Do NOT send a PB reset to any channel — let releasing tails decay.
    */
-  noteOn(coords, incomingBend = 8192, incomingNote = null, incomingPitch = null) {
-    const key = coordsKey(coords);
+  noteOn(coords, incomingBend = 8192, incomingNote = null, incomingPitch = null, voiceKey = coordsKey(coords)) {
+    const key = voiceKey;
 
     // Retrigger: note already active, just refresh its position in the LRU list
     if (this._active.has(key)) {
@@ -87,6 +87,7 @@ export class VoicePool {
         slot: entry.slot,
         allocationToken: entry.allocationToken,
         stolen: null,
+        stolenVoiceKey: null,
         stolenSlot: null,
         stolenNote: null,
         retrigger: true,
@@ -97,7 +98,8 @@ export class VoicePool {
     this._expireReleasing();
 
     let slot = null;
-    let stolen = null,
+      let stolen = null,
+      stolenVoiceKey = null,
       stolenSlot = null,
       stolenNote = null;
     // 1. Take from front of idle queue — round-robin by release order.
@@ -145,6 +147,7 @@ export class VoicePool {
           : this._head;
         if (!victim) throw new Error("VoicePool: no channels available");
         stolen = victim.coords;
+        stolenVoiceKey = victim.key;
         stolenNote = this._lastNote.get(victim.slot) ?? 60;
         this._remove(victim);
         this._active.delete(victim.key);
@@ -176,6 +179,7 @@ export class VoicePool {
       slot,
       allocationToken: entry.allocationToken,
       stolen,
+      stolenVoiceKey,
       stolenSlot,
       stolenNote,
       retrigger: false,
@@ -187,8 +191,8 @@ export class VoicePool {
    * Marks it RELEASING (not immediately available) to let the tail decay.
    * Returns the slot, or null if coords wasn't active.
    */
-  noteOff(coords, allocationToken = null) {
-    const key = coordsKey(coords);
+  noteOff(coords, allocationToken = null, voiceKey = coordsKey(coords)) {
+    const key = voiceKey;
     const entry = this._active.get(key);
     if (!entry) return null;
     if (allocationToken !== null && entry.allocationToken !== allocationToken) return null;
@@ -253,8 +257,9 @@ export class VoicePool {
     return this._lastPitch.get(slot) ?? this.getLastNote(slot);
   }
 
-  getSlot(coords) {
-    const entry = this._active.get(coordsKey(coords));
+  getSlot(coords, voiceKey = coordsKey(coords)) {
+    void coords;
+    const entry = this._active.get(voiceKey);
     return entry ? entry.slot : null;
   }
 
@@ -263,8 +268,9 @@ export class VoicePool {
    * and channel. The token distinguishes same-coordinate retriggers, where
    * channel and coordinate alone are not sufficient ownership identifiers.
    */
-  owns(coords, slot, allocationToken) {
-    const entry = this._active.get(coordsKey(coords));
+  owns(coords, slot, allocationToken, voiceKey = coordsKey(coords)) {
+    void coords;
+    const entry = this._active.get(voiceKey);
     return entry?.slot === slot && entry?.allocationToken === allocationToken;
   }
 

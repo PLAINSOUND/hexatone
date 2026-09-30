@@ -26,6 +26,47 @@ afterEach(() => {
 });
 
 describe("midi_synth controller-state replay", () => {
+  it("keeps same-hex MTS triggers on separate carriers and releases independently", async () => {
+    const output = { send: vi.fn() };
+    const synth = await create_midi_synth({
+      outputMode: {
+        output,
+        channel: 0,
+        midiMapping: "MTS1",
+        transportMode: "single_note_realtime",
+        velocity: 72,
+        sysexType: 127,
+        deviceId: 127,
+        mapNumber: 0,
+        anchorNote: 60,
+        pitchBendRange: 2,
+      },
+      tuningContext: {
+        fundamental: 440,
+        degree0toRefAsArray: [0, 1],
+        scale: scale12,
+        equivInterval: 1200,
+        name: "test",
+      },
+      legacyInput: { midiin_device: "input-1", midiin_anchor_note: 60 },
+    });
+    const coords = { x: 0, y: 0 };
+    const controllerHex = synth.makeHex(coords, 0, 0, 0, 12, -100, 100, 60, 72, 0, 1);
+    const pointerHex = synth.makeHex(coords, 0, 0, 0, 12, -100, 100, 60, 72, 0, 1);
+    controllerHex.noteOn();
+    pointerHex.noteOn();
+    expect(controllerHex.steps).not.toBe(pointerHex.steps);
+
+    output.send.mockClear();
+    controllerHex.noteOff(40);
+
+    expect(output.send.mock.calls.map(([message]) => message)).toEqual([
+      [0x80, controllerHex.steps, 40],
+    ]);
+    pointerHex.noteOff(50);
+    expect(output.send.mock.calls.at(-1)[0]).toEqual([0x80, pointerHex.steps, 50]);
+  });
+
   it("sends a full pitch-bend-range RPN on synth creation", async () => {
     const output = { send: vi.fn() };
     await create_midi_synth({

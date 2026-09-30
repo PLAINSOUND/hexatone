@@ -904,13 +904,13 @@ describe("mpe_synth MPE+ emission", () => {
     expect(displaced.hasDisplacedVoice()).toBe(false);
   });
 
-  it("does not let an older same-coordinate retrigger release the newer allocation", async () => {
+  it("keeps distinct same-coordinate triggers in independent MPE voices", async () => {
     const midi_output = { send: vi.fn() };
     const synth = await create_mpe_synth(
       midi_output,
       "1",
       2,
-      2,
+      3,
       440,
       0,
       0,
@@ -927,6 +927,7 @@ describe("mpe_synth MPE+ emission", () => {
     );
     const older = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, -100, 100, 69, 72, 0, 1);
     const newer = synth.makeHex({ x: 0, y: 0 }, 400, 4, 0, 12, 300, 500, 73, 72, 0, 1);
+    expect(older.channel).not.toBe(newer.channel);
     midi_output.send.mockClear();
 
     older.noteOff(40);
@@ -936,7 +937,10 @@ describe("mpe_synth MPE+ emission", () => {
     const messages = midi_output.send.mock.calls.map(([message]) => message);
     const noteOffs = messages.filter((message) => (message[0] & 0xf0) === 0x80);
     const bends = messages.filter((message) => (message[0] & 0xf0) === 0xe0);
-    expect(noteOffs).toEqual([[0x81, newer.note, 50]]);
+    expect(noteOffs).toEqual([
+      [0x80 + older.channel - 1, older.note, 40],
+      [0x80 + newer.channel - 1, newer.note, 50],
+    ]);
     expect(bends).toHaveLength(1);
     expect(older.release).toBe(true);
     expect(newer.release).toBe(true);

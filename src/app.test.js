@@ -739,6 +739,36 @@ describe("autoSyncLumatoneSurface", () => {
 });
 
 describe("App input runtime", () => {
+  it.each(["scale", "hex_layout"])(
+    "treats sequential Lumatone %s input as channel-polyphonic",
+    async (target) => {
+      Object.assign(settings, {
+        midiin_device: "input-1",
+        midiin_controller_override: "auto",
+        midiin_mapping_target: target,
+        midi_passthrough: true,
+        midiin_mpe_input: false,
+      });
+      synthWiringState.midi = {
+        inputs: new Map([["input-1", { id: "input-1", name: "Lumatone" }]]),
+        outputs: new Map(),
+      };
+      mockDetectedController = { id: "lumatone" };
+      window.matchMedia = vi.fn().mockReturnValue({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      });
+
+      render(<App />);
+
+      await waitFor(() => expect(screen.getByTestId("keyboard")).not.toBeNull());
+      expect(lastKeyboardProps.inputRuntime.layoutMode).toBe("sequential");
+      expect(lastKeyboardProps.inputRuntime.target).toBe(target);
+      expect(lastKeyboardProps.inputRuntime.perChannelExpression).toBe(true);
+    },
+  );
+
   it("keeps configured wheel semitones and forces standard wheel mode for LinnStrument bypass with MPE input off", async () => {
     Object.assign(settings, {
       midiin_device: "input-1",

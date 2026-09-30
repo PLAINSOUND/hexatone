@@ -8906,4 +8906,47 @@ describe("Keys MIDI input integration", () => {
     );
     expect(keyAftertouchRegistrations).toHaveLength(1);
   });
+
+  it("assigns same-pitch sequential Lumatone notes on different channels to distinct hexes", () => {
+    const keys = createKeys(
+      {},
+      {
+        target: "scale",
+        layoutMode: "sequential",
+        perChannelExpression: true,
+      },
+    );
+    const firstHex = { coords: new Point(0, 0), cents: 0, noteOff: vi.fn() };
+    const secondHex = { coords: new Point(1, 0), cents: 0, noteOff: vi.fn() };
+    keys.coordResolver.coordForSteps = vi.fn(() => firstHex.coords);
+    keys.coordResolver.stepsToFullyVisibleCoords = vi.fn(() => [firstHex.coords, secondHex.coords]);
+    keys.hexOn = vi.fn().mockReturnValueOnce(firstHex).mockReturnValueOnce(secondHex);
+    keys.noteOff = vi.fn();
+    keys.hexOff = vi.fn();
+
+    // Both channels resolve to the same scale degree, but channel+note is the
+    // voice identity, so the second live voice must get another hex of that pitch.
+    keys.midinoteOn(makeMidiEvent(60, 2));
+    keys.midinoteOn(makeMidiEvent(60, 3));
+
+    expect(keys.coordResolver.coordForSteps).toHaveBeenCalledTimes(2);
+    expect(keys.coordResolver.coordForSteps.mock.calls[1][0]).toBe(
+      keys.coordResolver.coordForSteps.mock.calls[0][0],
+    );
+    expect(keys.hexOn.mock.calls[1][0]).toEqual(secondHex.coords);
+    expect(firstHex.coords).not.toEqual(secondHex.coords);
+    expect(keys.state.activeMidi.get(60 + 128)).toBe(firstHex);
+    expect(keys.state.activeMidi.get(60 + 256)).toBe(secondHex);
+    expect(firstHex._inputChannel).toBe(2);
+    expect(secondHex._inputChannel).toBe(3);
+    expect(keys.state.activeMidiByChannel.get(2).hexes.has(firstHex)).toBe(true);
+    expect(keys.state.activeMidiByChannel.get(3).hexes.has(secondHex)).toBe(true);
+
+    keys.midinoteOff(makeMidiEvent(60, 2, 96, 55));
+
+    expect(keys.noteOff).toHaveBeenCalledWith(firstHex, 55);
+    expect(keys.state.activeMidi.has(60 + 128)).toBe(false);
+    expect(keys.state.activeMidi.get(60 + 256)).toBe(secondHex);
+    expect(keys.state.activeMidiByChannel.has(3)).toBe(true);
+  });
 });

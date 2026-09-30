@@ -379,11 +379,9 @@ export const create_mpe_synth = async (
         scheduleDeferred,
         playbackOptions?.deferNoteOn === true,
       );
-      if (hex._stolenCoords) {
+      if (hex._stolenVoiceKey) {
         const victim = [...activeHexes].find(
-          (candidate) =>
-            candidate?.coords?.x === hex._stolenCoords?.x &&
-            candidate?.coords?.y === hex._stolenCoords?.y,
+          (candidate) => candidate === hex._stolenVoiceKey,
         );
         victim?._invalidateDisplacedVoice();
       }
@@ -535,16 +533,20 @@ function MpeHex(
   const { note: noteGuess } = freqToMidiAndCents(freq, center_degree, 1, scale, mode);
   const bendGuess = deviationToBend((midiPitch - noteGuess) * 100, bendRange);
 
-  const { slot, allocationToken, stolen, stolenSlot, stolenNote, retrigger } = pool.noteOn(
-    coords,
-    bendGuess,
-    noteGuess,
-    midiPitch,
-  );
+  const {
+    slot,
+    allocationToken,
+    stolen,
+    stolenVoiceKey,
+    stolenSlot,
+    stolenNote,
+    retrigger,
+  } = pool.noteOn(coords, bendGuess, noteGuess, midiPitch, this);
 
   this.channel = slot; // 1-based
   this.allocationToken = allocationToken;
   this._stolenCoords = stolen;
+  this._stolenVoiceKey = stolenVoiceKey;
 
   // Recalculate with actual channel (matters for Ableton_workaround mode)
   const { note, deviation } = freqToMidiAndCents(freq, center_degree, this.channel, scale, mode);
@@ -629,7 +631,7 @@ MpeHex.prototype.transitionSnapshotExpression = function (note, durationMs) {
 };
 
 MpeHex.prototype._ownsVoiceChannel = function () {
-  return this.pool?.owns?.(this.coords, this.channel, this.allocationToken) === true;
+  return this.pool?.owns?.(this.coords, this.channel, this.allocationToken, this) === true;
 };
 
 MpeHex.prototype._invalidateDisplacedVoice = function () {
@@ -672,7 +674,7 @@ MpeHex.prototype.recoverDisplacedVoice = function (note = null, timestamp) {
     this.mode,
   );
   const bendGuess = deviationToBend((midiPitch - noteGuess) * 100, this.bendRange);
-  const allocation = this.pool.noteOn(this.coords, bendGuess, noteGuess, midiPitch);
+  const allocation = this.pool.noteOn(this.coords, bendGuess, noteGuess, midiPitch, this);
   // The availability check and allocation run synchronously. Keep this guard
   // defensive in case the pool policy changes later.
   if (allocation.stolen != null) return false;
@@ -746,7 +748,7 @@ MpeHex.prototype.noteOff = function (release_velocity, timestamp) {
     this.autoMpeYzScheduler?.release(this.channel, vel, at ?? undefined);
   }
   // Mark RELEASING in pool (starts the guard timer)
-  this.pool.noteOff(this.coords, this.allocationToken);
+  this.pool.noteOff(this.coords, this.allocationToken, this);
   // Guard against aftertouch arriving after release
   this.release = true;
 

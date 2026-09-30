@@ -28,6 +28,22 @@ describe("VoicePool release generations", () => {
 
     expect(pool.completeRelease(2, released.allocationToken)).toBe(false);
   });
+
+  it("allocates distinct MPE voices for distinct triggers on the same hex", () => {
+    const pool = new VoicePool([2, 3], 50);
+    const coords = [0, 0];
+    const lumatoneTrigger = {};
+    const pointerTrigger = {};
+    const lumatone = pool.noteOn(coords, 8192, 60, 60, lumatoneTrigger);
+    const pointer = pool.noteOn(coords, 8192, 60, 60, pointerTrigger);
+
+    expect(lumatone.slot).not.toBe(pointer.slot);
+    expect(lumatone.retrigger).toBe(false);
+    expect(pointer.retrigger).toBe(false);
+    expect(pool.noteOff(coords, lumatone.allocationToken, lumatoneTrigger)).toBe(lumatone.slot);
+    expect(pool.owns(coords, pointer.slot, pointer.allocationToken, pointerTrigger)).toBe(true);
+    expect(pool.noteOff(coords, pointer.allocationToken, pointerTrigger)).toBe(pointer.slot);
+  });
 });
 
 describe("VoicePool chord-aware stealing", () => {

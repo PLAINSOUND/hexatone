@@ -309,7 +309,7 @@ function MidiHex(
         stolen,
         distance: _distance,
         retrigger: _retrigger,
-      } = pool.noteOn(coords, targetMIDIFloat);
+      } = pool.noteOn(coords, targetMIDIFloat, this);
 
       // If voice was stolen, send noteOff on that slot
       if (stolen !== null) {
@@ -341,6 +341,7 @@ function MidiHex(
       }
 
       this._pool = pool;
+      this._poolSlot = slot;
     }
 
     this.coords = coords;
@@ -407,7 +408,7 @@ MidiHex.prototype.noteOn = function (timestamp) {
 
 MidiHex.prototype.aftertouch = function (value) {
   // Polyphonic key pressure on the carrier note.
-  if (this.midi_output && this.steps != null) {
+  if (this.midi_output && this.steps != null && this._pool?.ownsVoice(this._poolSlot, this)) {
     this.midi_output.send([0xa0 + this.channel, this.steps, Math.max(0, Math.min(127, value))]);
     traceMidiOutput("mtsAftertouchOut", {
       family: "mts",
@@ -421,7 +422,7 @@ MidiHex.prototype.aftertouch = function (value) {
 
 // pressure: channel pressure on the output channel (coarser than poly AT, but widely supported).
 MidiHex.prototype.pressure = function (value) {
-  if (this.release || !this.midi_output) return;
+  if (this.release || !this.midi_output || !this._pool?.ownsVoice(this._poolSlot, this)) return;
   this.midi_output.send([0xd0 + this.channel, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsPressureOut", {
     family: "mts",
@@ -434,7 +435,7 @@ MidiHex.prototype.pressure = function (value) {
 
 // cc74: brightness / timbre on the output channel.
 MidiHex.prototype.cc74 = function (value) {
-  if (this.release || !this.midi_output) return;
+  if (this.release || !this.midi_output || !this._pool?.ownsVoice(this._poolSlot, this)) return;
   this.midi_output.send([0xb0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsCC74Out", {
     family: "mts",
@@ -447,17 +448,21 @@ MidiHex.prototype.cc74 = function (value) {
 
 // modwheel: CC1 on the output channel.
 MidiHex.prototype.modwheel = function (value) {
-  if (!this.midi_output) return;
+  if (!this.midi_output || !this._pool?.ownsVoice(this._poolSlot, this)) return;
   this.midi_output.send([0xb0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
 };
 
 // expression: CC11 on the output channel.
 MidiHex.prototype.expression = function (value) {
-  if (!this.midi_output) return;
+  if (!this.midi_output || !this._pool?.ownsVoice(this._poolSlot, this)) return;
   this.midi_output.send([0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
 MidiHex.prototype.noteOff = function (release_velocity, timestamp) {
+  if (this._pool && !this._pool.ownsVoice(this._poolSlot, this)) {
+    this.release = true;
+    return;
+  }
   const velocity = release_velocity != null ? release_velocity : this.velocity;
   const message = [128 + this.channel, this.steps, velocity];
   if (Number.isFinite(Number(timestamp))) this.midi_output.send(message, Number(timestamp));
@@ -473,7 +478,7 @@ MidiHex.prototype.noteOff = function (release_velocity, timestamp) {
 
   // Return slot to pool
   if (this._pool) {
-    this._pool.noteOff(this.coords);
+    this._pool.noteOff(this.coords, this);
   }
 };
 
@@ -496,7 +501,7 @@ const MTS_JUMP_THRESHOLD_CENTS = 400;
  *   and leave the last retuned note stuck.
  */
 MidiHex.prototype.retune = function (newCents) {
-  if (this.release) return;
+  if (this.release || !this._pool?.ownsVoice(this._poolSlot, this)) return;
   const delta = Math.abs(newCents - this.cents);
   this.cents = newCents;
 
@@ -634,11 +639,14 @@ function createBulkDynamicTransport({
   };
 
   return {
-    allocate(coords, targetMidiFloat) {
-      return pool.noteOn(coords, targetMidiFloat);
+    allocate(coords, targetMidiFloat, voiceKey) {
+      return pool.noteOn(coords, targetMidiFloat, voiceKey);
     },
-    release(coords) {
-      pool.noteOff(coords);
+    release(coords, voiceKey) {
+      return pool.noteOff(coords, voiceKey);
+    },
+    owns(slot, voiceKey) {
+      return pool.ownsVoice(slot, voiceKey);
     },
     noteOn({ coords: _coords, carrier, triplet, velocity: noteVelocity, timestamp }) {
       // Cancel any pending coalesced retune — the noteOn dump supersedes it.
@@ -694,6 +702,7 @@ function createBulkDynamicTransport({
 
 function buildDynamicBulkAllocation({
   coords,
+  voiceKey,
   cents,
   _cents_prev,
   _cents_next,
@@ -706,7 +715,7 @@ function buildDynamicBulkAllocation({
   const ref_cents = cents + ref_offset;
   const targetMIDIFloat = ref_cents * 0.01 + 60;
   const idealNote = Math.max(0, Math.min(Math.round(targetMIDIFloat), 127));
-  const allocation = transport.allocate(coords, targetMIDIFloat);
+  const allocation = transport.allocate(coords, targetMIDIFloat, voiceKey);
   const carrier = allocation.slot;
   const triplet = centsToMTS(carrier, (targetMIDIFloat - carrier) * 100);
   return {
@@ -761,6 +770,7 @@ DynamicBulkHex.prototype.noteOn = function (timestamp) {
   if (this.channel >= 0 && this.midi_output && this.transport) {
     const allocation = buildDynamicBulkAllocation({
       coords: this.coords,
+      voiceKey: this,
       cents: this.cents,
       cents_prev: this.cents_prev,
       cents_next: this.cents_next,
@@ -790,13 +800,14 @@ DynamicBulkHex.prototype.noteOff = function (release_velocity, timestamp) {
   this.release = true;
   if (this.channel >= 0 && this.midi_output && this.transport && this.carrier != null) {
     const vel = release_velocity != null ? release_velocity : this.velocity;
+    if (!this.transport.owns(this.carrier, this)) return;
     this.transport.noteOff({ carrier: this.carrier, velocity: vel, timestamp });
-    this.transport.release(this.coords);
+    this.transport.release(this.coords, this);
   }
 };
 
 DynamicBulkHex.prototype.aftertouch = function (value) {
-  if (this.release || !this.midi_output) return;
+  if (this.release || !this.midi_output || !this._ownsCarrier()) return;
   this.midi_output.send([0xa0 + this.channel, this.carrier, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsBulkAftertouchOut", {
     family: "mts_bulk",
@@ -807,7 +818,7 @@ DynamicBulkHex.prototype.aftertouch = function (value) {
 };
 
 DynamicBulkHex.prototype.pressure = function (value) {
-  if (this.release || !this.midi_output) return;
+  if (this.release || !this.midi_output || !this._ownsCarrier()) return;
   this.midi_output.send([0xd0 + this.channel, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsBulkPressureOut", {
     family: "mts_bulk",
@@ -818,7 +829,7 @@ DynamicBulkHex.prototype.pressure = function (value) {
 };
 
 DynamicBulkHex.prototype.cc74 = function (value) {
-  if (this.release || !this.midi_output) return;
+  if (this.release || !this.midi_output || !this._ownsCarrier()) return;
   this.midi_output.send([0xb0 + this.channel, 74, Math.max(0, Math.min(127, value))]);
   traceMidiOutput("mtsBulkCC74Out", {
     family: "mts_bulk",
@@ -829,17 +840,17 @@ DynamicBulkHex.prototype.cc74 = function (value) {
 };
 
 DynamicBulkHex.prototype.modwheel = function (value) {
-  if (!this.midi_output) return;
+  if (!this.midi_output || !this._ownsCarrier()) return;
   this.midi_output.send([0xb0 + this.channel, 1, Math.max(0, Math.min(127, value))]);
 };
 
 DynamicBulkHex.prototype.expression = function (value) {
-  if (!this.midi_output) return;
+  if (!this.midi_output || !this._ownsCarrier()) return;
   this.midi_output.send([0xb0 + this.channel, 11, Math.max(0, Math.min(127, value))]);
 };
 
 DynamicBulkHex.prototype.retune = function (newCents) {
-  if (this.release || !this.transport || this.carrier == null) return;
+  if (this.release || !this.transport || this.carrier == null || !this._ownsCarrier()) return;
   this.cents = newCents;
   const targetMIDIFloat =
     (newCents + 1200 * Math.log2(this.fundamental / this.degree0toRef_ratio / 261.6255653)) * 0.01 +
@@ -858,7 +869,7 @@ DynamicBulkHex.prototype.retune = function (newCents) {
 // a performance control, so a held bulk-map carrier must receive a live map
 // update. The transport coalesces a chord's updates into one dump.
 DynamicBulkHex.prototype.sequenceRetune = function (newCents) {
-  if (this.release || !this.transport || this.carrier == null) return;
+  if (this.release || !this.transport || this.carrier == null || !this._ownsCarrier()) return;
   this.cents = newCents;
   const targetMIDIFloat =
     (newCents + 1200 * Math.log2(this.fundamental / this.degree0toRef_ratio / 261.6255653)) * 0.01 +
@@ -866,6 +877,10 @@ DynamicBulkHex.prototype.sequenceRetune = function (newCents) {
   const triplet = centsToMTS(this.carrier, (targetMIDIFloat - this.carrier) * 100);
   this.mts = [this.carrier, ...triplet];
   this.transport.retune?.({ carrier: this.carrier, triplet });
+};
+
+DynamicBulkHex.prototype._ownsCarrier = function () {
+  return this.carrier != null && this.transport?.owns?.(this.carrier, this) === true;
 };
 
 /**

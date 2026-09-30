@@ -20,7 +20,7 @@ describe("keyboard/sounding-note-runtime", () => {
   it("tracks active notes across input sources", () => {
     const state = createSoundingNoteState();
     const mouseHex = makeHex(0, 0, "mouse");
-    const midiHex = makeHex(1, 0, "midi");
+    const midiHex = makeHex(0, 0, "midi");
     state.activeMouse = mouseHex;
     state.activeMidi.set("n1", midiHex);
 

@@ -4302,6 +4302,8 @@ const App = () => {
     (settings.linnstrument_channel_allocation || "single_channel") === "single_channel";
   const forceScaleTarget =
     inputController?.id === "tonalplexus" && settings.tonalplexus_input_mode === "layout_205";
+  const inputTarget = forceScaleTarget ? "scale" : settings.midiin_mapping_target || "hex_layout";
+  const lumatoneSequentialInput = inputController?.id === "lumatone" && settings.midi_passthrough;
   const inputNormalizationSettings = useMemo(
     () => ({
       tonalplexus_input_mode: settings.tonalplexus_input_mode,
@@ -4338,7 +4340,7 @@ const App = () => {
 
   const inputRuntime = useMemo(
     () => ({
-      target: forceScaleTarget ? "scale" : settings.midiin_mapping_target || "hex_layout",
+      target: inputTarget,
       layoutMode:
         inputController?.id === "hakenaudio"
           ? "controller_geometry"
@@ -4361,7 +4363,10 @@ const App = () => {
       // unified the old separate "Wheel Range (Scala)" field into Pitch Bend Interval.
       wheelToRecent: linnstrumentBypassNonMpe ? false : settings.wheel_to_recent,
       wheelRange: settings.midiin_bend_range ?? "28/27",
-      perChannelExpression: linnstrumentBypassChannelPerRow,
+      // In sequential/bypass mode, each Lumatone channel is an independent
+      // polyphonic input stream in either Hex Layout or nearest-scale mode.
+      // Keep bend/pressure/timbre attached to notes from that channel.
+      perChannelExpression: linnstrumentBypassChannelPerRow || lumatoneSequentialInput,
       wheelUsesInterval: linnstrumentBypassSingleChannel,
       wheelScaleAware: settings.wheel_scale_aware,
       wheelSemitones: settings.midi_wheel_semitones ?? 2,
@@ -4384,10 +4389,10 @@ const App = () => {
       hakenShapeXGlideToRaster: settings.hakenaudio_shape_x_glide_to_raster ?? false,
     }),
     [
-      forceScaleTarget,
       inputController,
+      inputTarget,
+      lumatoneSequentialInput,
       normalizedSeqAnchor,
-      settings.midiin_mapping_target,
       settings.midi_passthrough,
       effectiveMpeInput,
       settings.midiin_steps_per_channel,
