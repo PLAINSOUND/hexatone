@@ -2383,8 +2383,9 @@ class Keys {
     return MtsOutputRuntime.mtsSendMap.call(this, midiOutput, protectHeld, protectRecentReleased);
   };
 
-  // Helper: if latch is active and coords is already sustained, toggle it off.
-  // Returns true if the note was toggled off (caller should return/continue).
+  // Helper: in latch mode each coordinate is one shared toggle target across
+  // all input sources, whether its voice is active or already sustained.
+  // Returns true when the trigger toggles that coordinate off.
   _midiLatchToggle(coords, releaseVelocity = 0) {
     return LiveHexRuntime.midiLatchToggle(this, coords, releaseVelocity);
   }
