@@ -100,6 +100,13 @@ function releaseSustainedAt(keys, coords) {
   return true;
 }
 
+function toggleLatchedAt(keys, coords) {
+  if (!keys.state.latch) return false;
+  return keys._latchToggleAtCoord
+    ? keys._latchToggleAtCoord(coords)
+    : releaseSustainedAt(keys, coords);
+}
+
 export function inputIsFocused() {
   const tag = document.activeElement && document.activeElement.tagName;
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
@@ -196,7 +203,7 @@ export function onKeyDown(e) {
   if (this.state.pressedKeys.has(e.code)) return;
 
   const coords = keyboardCoordsForCode(this, e.code);
-  if (this.state.latch && this._latchToggleAtCoord?.(coords)) return;
+  if (toggleLatchedAt(this, coords)) return;
 
   this.state.pressedKeys.add(e.code);
   const hex = this.hexOn(coords);
@@ -293,7 +300,7 @@ export function mouseActive(e) {
     // Shift-latched notes are sustained independently of the global latch.
     // Playing the same canvas key must therefore toggle either kind off.
     if (
-      (this.state.latch && this._latchToggleAtCoord?.(coords)) ||
+      toggleLatchedAt(this, coords) ||
       (!this.state.latch && isShiftLatchedAt(this, coords) && releaseSustainedAt(this, coords))
     ) {
       this.state.mouseDownToggledCoord = key;
@@ -431,7 +438,7 @@ export async function handleTouch(e) {
 
 export function touchStartOnCoords(id, coords) {
   if (
-    (this.state.latch && this._latchToggleAtCoord?.(coords)) ||
+    toggleLatchedAt(this, coords) ||
     (!this.state.latch && isShiftLatchedAt(this, coords) && releaseSustainedAt(this, coords))
   ) {
     return;
