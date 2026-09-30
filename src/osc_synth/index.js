@@ -23,6 +23,7 @@ import { silentOutputHex } from "../audio/output-lifecycle.js";
 import { VoicePool } from "../polyphony/voice-pool-nearest";
 import { formantPresetToOscArgs, pickRandomFormantPreset } from "./formant-table.js";
 import { debugEnabled, debugLog, warnLog } from "../debug/logging.js";
+import { recordLiveAudioDiagnostic } from "../dev/live-audio-diagnostics.js";
 
 const WS_URL_DEFAULT = "ws://localhost:8089";
 const SC_DISPATCH_PORT = 57100;
@@ -247,6 +248,7 @@ class OscSocket {
 
   send(address, args, port = OSC_LAYER_PORTS[0], timestamp) {
     if (this._disposed) return;
+    recordLiveAudioDiagnostic("osc:send", { address, port });
     const at = Number(timestamp);
     if (Number.isFinite(at)) {
       const key = `${port}:${at}`;
@@ -660,6 +662,22 @@ export const create_osc_synth = async (
       // Do not clear the shared socket's queue: another output may still own it.
       socket._flushBundles();
       socket.release({ graceful: !options?.panic });
+    },
+
+    getDiagnostics() {
+      return {
+        backend: performanceOptions.transport ? "supersonic" : "osc-bridge",
+        synthLayers: [...synthNames],
+        logicalActiveVoices: _pool.activeCount ?? null,
+        activeNodesByLayer: Object.fromEntries(synthNames.map((name, i) => [
+          name,
+          _slotState[i].reduce((count, slot) => count + (slot.active ? 1 : 0), 0),
+        ])),
+        knownNodeIds: _knownNodeIds.size,
+        bufferedSocketMessages: socket._queue?.length ?? 0,
+        engine: performanceOptions.transport?.getDiagnostics?.() ?? null,
+        disposed: shutdown,
+      };
     },
   };
 };

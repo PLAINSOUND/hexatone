@@ -19,6 +19,8 @@ import { normalizeColors, normalizeStructural } from "./settings/normalize-setti
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
 import { restoreIOOnReload } from "./persistence/io-reload-policy.js";
+import "./dev/live-audio-diagnostics.js";
+import { WebMidi } from "webmidi";
 import {
   createHarmonicFrame,
   deriveActiveHejiFrame,
@@ -979,6 +981,35 @@ const App = () => {
     [],
     PRESET_SKIP_KEYS,
   );
+
+  useEffect(() => {
+    const diagnostics = globalThis.__hexatoneAudioDiagnostics;
+    if (!diagnostics) return;
+    const inputId = settings.midiin_device;
+    let input = null;
+    try { input = inputId && inputId !== "OFF" ? WebMidi.getInputById?.(inputId) : null; } catch { /* MIDI access may not have been granted yet. */ }
+    const controller = settings.midiin_controller_override && settings.midiin_controller_override !== "auto"
+      ? settings.midiin_controller_override
+      : input?.name?.toLowerCase().includes("continuum") ? "hakenaudio" : null;
+    diagnostics.configure({
+      workspaceTab,
+      outputBackend: settings.output_osc ? settings.osc_local ? "supersonic" : "osc-bridge" : "other-or-disabled",
+      oscBridgeUrl: settings.osc_bridge_url || "ws://localhost:8089",
+      synthLayers: settings.osc_synth_names || ["pluck", "string", "formant", "tone"],
+      layerVolumes: settings.osc_volumes ?? [settings.osc_volume_pluck, settings.osc_volume_buzz, settings.osc_volume_formant, settings.osc_volume_saw],
+      rasterMode: settings.hakenaudio_x_glide_mode === "raster_to_notes" || settings.hakenaudio_x_glide_mode === "raster",
+      raster: {
+        glideMode: settings.hakenaudio_x_glide_mode ?? null,
+        attackSuppressionMs: settings.hakenaudio_raster_attack_suppression_ms ?? null,
+        throttleMs: settings.hakenaudio_raster_throttle_ms ?? null,
+        stability: settings.hakenaudio_raster_stability ?? null,
+        filterMode: settings.hakenaudio_raster_filter_mode ?? null,
+      },
+      input: { controller, deviceName: input?.name ?? null, deviceId: inputId ?? null },
+      release: { quickRelease: settings.osc_quick_release ?? null, releaseTime: settings.osc_quick_release_time ?? null },
+    });
+    diagnostics.setEngineProvider(() => synthRef.current?.getDiagnostics?.() ?? null);
+  }, [settings, workspaceTab]);
 
   const [modulationArmed, setModulationArmed] = useState(false);
   const [modulationMode, setModulationMode] = useState("idle");

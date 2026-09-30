@@ -4,6 +4,7 @@
 // or harmonic frames.
 
 import Point from "./point";
+import { recordLivePointerDiagnostic } from "../dev/live-audio-diagnostics.js";
 
 function isModulationToggleKeyCode(code) {
   return code === "Backquote" || code === "IntlBackslash";
@@ -340,6 +341,7 @@ function releaseCapturedPointer(canvas, pointerId) {
 
 export function handlePointerDown(e) {
   if (e.pointerType === "mouse") return;
+  recordLivePointerDiagnostic("down", e.pointerId, this.state.touchCoords.size + 1);
   e.preventDefault?.();
   if (this._onFirstInteraction) void this._onFirstInteraction();
 
@@ -360,6 +362,7 @@ export function handlePointerDown(e) {
 
 export function handlePointerMove(e) {
   if (e.pointerType === "mouse" || !this.state.touchCoords.has(e.pointerId)) return;
+  recordLivePointerDiagnostic("move", e.pointerId, this.state.touchCoords.size);
   e.preventDefault?.();
   const id = e.pointerId;
   const coords = this.getHexCoordsAt(this.getPointerPosition(e));
@@ -371,6 +374,7 @@ export function handlePointerMove(e) {
 
 export function handlePointerEnd(e) {
   if (e.pointerType === "mouse") return;
+  recordLivePointerDiagnostic(e.type === "pointercancel" ? "cancel" : "up", e.pointerId, this.state.touchCoords.size);
   e.preventDefault?.();
   releaseTouch(this, e.pointerId);
   releaseCapturedPointer(e.currentTarget, e.pointerId);
@@ -379,6 +383,7 @@ export function handlePointerEnd(e) {
 
 export async function handleTouch(e) {
   e.preventDefault();
+  recordLivePointerDiagnostic(e.type === "touchstart" ? "down" : e.type === "touchend" ? "up" : "move", e.changedTouches?.[0]?.identifier ?? -1, e.targetTouches?.length ?? 0);
   if (this._onFirstInteraction) {
     // Audio preparation must not delay the gesture's note lifecycle.
     void this._onFirstInteraction();

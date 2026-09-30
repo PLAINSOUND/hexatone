@@ -37,6 +37,13 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
   containsFamily(name) {
     return synths.some((s) => s?.family === name);
   },
+  getDiagnostics() {
+    return {
+      family: "composite",
+      families: synths.map((s) => s?.family).filter(Boolean),
+      outputs: synths.map((s) => s?.getDiagnostics?.() ?? { family: s?.family ?? "unknown" }),
+    };
+  },
 
   makeHex: (...args) => {
     let hexSynths = [...synths];

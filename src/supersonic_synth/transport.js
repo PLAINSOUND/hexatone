@@ -43,6 +43,22 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     }
   });
   return {
+    getDiagnostics() {
+      try {
+        const metrics = sonic.getMetrics();
+        const tree = sonic.getRawTree();
+        return {
+          metrics,
+          nodes: { count: tree.nodeCount, droppedCount: tree.droppedCount, trackedLayerNodes: nodes.size },
+          audioContext: {
+            state: sonic.audioContext?.state ?? null,
+            sampleRate: sonic.audioContext?.sampleRate ?? null,
+            baseLatency: sonic.audioContext?.baseLatency ?? null,
+            outputLatency: sonic.audioContext?.outputLatency ?? null,
+          },
+        };
+      } catch (error) { return { metricsError: error.message, trackedLayerNodes: nodes.size }; }
+    },
     prepare: () => sonic.audioContext.resume(),
     send(address, typedArgs, port, timestamp) {
       if (closed || draining || !groups.has(port)) return;

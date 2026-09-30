@@ -27,6 +27,7 @@ const { createServer } = require("node:http");
 const { createSocket } = require("node:dgram");
 const { createHash } = require("node:crypto");
 const { performance } = require("node:perf_hooks");
+const { decodeOscMessage, createBridgeTrafficCounters } = require("./diagnostics.js");
 
 const WS_PORT = 8089;
 const SC_HOST = "127.0.0.1";
@@ -41,6 +42,9 @@ let JITTER_LAST_BRIDGE_PERF = null;
 // ── UDP socket to sclang ─────────────────────────────────────────────────────
 
 const udp = createSocket("udp4");
+const bridgeTraffic = createBridgeTrafficCounters();
+const pendingStatusRequests = new Map();
+const lastStatusRequestByClient = new WeakMap();
 udp.bind(0, () => {
   console.log(`[osc-bridge] UDP ready → ${SC_HOST}:${SC_PORT}`);
 });
@@ -48,6 +52,7 @@ udp.on("error", (err) => console.error("[osc-bridge] UDP error:", err.message));
 
 function sendOsc(address, args, port = SC_PORT) {
   const buf = encodeOsc(address, args);
+  bridgeTraffic.record(address, port, buf.length);
   const parameterName = address === "/n_set" ? oscArgValue(args?.[1]) : null;
   if (PITCH_TRACE_ENABLED && parameterName === "freq") {
     const nodeId = oscArgValue(args?.[0]);
@@ -76,16 +81,113 @@ function sendOsc(address, args, port = SC_PORT) {
   //   );
   // }
   udp.send(buf, port, SC_HOST, (err) => {
-    if (err) console.error("[osc-bridge] UDP send error:", err.message);
+    if (err) {
+      bridgeTraffic.recordError();
+      console.error("[osc-bridge] UDP send error:", err.message);
+    }
   });
 }
 
 function sendOscBundle(messages, timetagUnixMs, port = SC_PORT) {
   const buf = encodeOscBundle(messages, timetagUnixMs);
+  messages.forEach((message, index) =>
+    bridgeTraffic.record(message.address, port, index === 0 ? buf.length : 0));
   udp.send(buf, port, SC_HOST, (err) => {
-    if (err) console.error("[osc-bridge] UDP bundle send error:", err.message);
+    if (err) {
+      bridgeTraffic.recordError();
+      console.error("[osc-bridge] UDP bundle send error:", err.message);
+    }
   });
 }
+
+function sendWebSocketJson(client, value) {
+  if (client.destroyed || !client.writable) return;
+  const payload = Buffer.from(JSON.stringify(value));
+  let header;
+  if (payload.length < 126) {
+    header = Buffer.from([0x81, payload.length]);
+  } else if (payload.length <= 0xffff) {
+    header = Buffer.alloc(4);
+    header[0] = 0x81;
+    header[1] = 126;
+    header.writeUInt16BE(payload.length, 2);
+  } else {
+    header = Buffer.alloc(10);
+    header[0] = 0x81;
+    header[1] = 127;
+    header.writeBigUInt64BE(BigInt(payload.length), 2);
+  }
+  client.write(Buffer.concat([header, payload]));
+}
+
+function statusReplyData(args) {
+  if (args.length < 9) throw new Error("Incomplete scsynth /status.reply");
+  return {
+    ugens: args[1],
+    synths: args[2],
+    groups: args[3],
+    synthDefs: args[4],
+    averageCpuPct: args[5],
+    peakCpuPct: args[6],
+    nominalSampleRate: args[7],
+    actualSampleRate: args[8],
+  };
+}
+
+function requestServerStatus(client, request) {
+  const port = Number(request.port);
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+    sendWebSocketJson(client, { diagnostic: "sample", requestId: request.requestId,
+      sampleIndex: request.sampleIndex, error: "Invalid SuperCollider server port" });
+    return;
+  }
+  const now = performance.now();
+  const previous = lastStatusRequestByClient.get(client) ?? -Infinity;
+  if (now - previous < 125) {
+    sendWebSocketJson(client, { diagnostic: "sample", requestId: request.requestId,
+      sampleIndex: request.sampleIndex, error: "Status sampling is limited to 8 Hz" });
+    return;
+  }
+  lastStatusRequestByClient.set(client, now);
+  const existing = pendingStatusRequests.get(port);
+  if (existing) clearTimeout(existing.timeout);
+  const pending = { client, requestId: request.requestId, sampleIndex: request.sampleIndex,
+    bridge: bridgeTraffic.snapshot(), requestedAt: new Date().toISOString(), timeout: null };
+  pending.timeout = setTimeout(() => {
+    if (pendingStatusRequests.get(port) !== pending) return;
+    pendingStatusRequests.delete(port);
+    sendWebSocketJson(client, { diagnostic: "sample", requestId: pending.requestId,
+      sampleIndex: pending.sampleIndex, sampledAt: pending.requestedAt,
+      bridge: pending.bridge, server: null, error: `No /status.reply from 127.0.0.1:${port}` });
+  }, 700);
+  pendingStatusRequests.set(port, pending);
+  // Send directly so this instrumentation does not inflate OSC traffic counts.
+  udp.send(encodeOsc("/status", []), port, SC_HOST, error => {
+    if (!error) return;
+    clearTimeout(pending.timeout);
+    if (pendingStatusRequests.get(port) === pending) pendingStatusRequests.delete(port);
+    bridgeTraffic.recordError();
+    sendWebSocketJson(client, { diagnostic: "sample", requestId: pending.requestId,
+      sampleIndex: pending.sampleIndex, bridge: bridgeTraffic.snapshot(), server: null,
+      error: `Could not query scsynth: ${error.message}` });
+  });
+}
+
+udp.on("message", (packet, remote) => {
+  let reply;
+  try { reply = decodeOscMessage(packet); } catch { return; }
+  if (reply.address !== "/status.reply") return;
+  const pending = pendingStatusRequests.get(remote.port);
+  if (!pending) return;
+  clearTimeout(pending.timeout);
+  pendingStatusRequests.delete(remote.port);
+  let server = null;
+  let error = null;
+  try { server = statusReplyData(reply.args); } catch (caught) { error = caught.message; }
+  sendWebSocketJson(pending.client, { diagnostic: "sample", requestId: pending.requestId,
+    sampleIndex: pending.sampleIndex, sampledAt: pending.requestedAt,
+    server, bridge: pending.bridge, error });
+});
 
 function oscArgValue(arg) {
   if (arg && typeof arg === "object" && "value" in arg) return arg.value;
@@ -191,6 +293,21 @@ server.on("upgrade", (req, socket, head) => {
         msg = JSON.parse(payload.toString("utf8"));
       } catch (e) {
         console.warn("[osc-bridge] Bad JSON:", payload.toString());
+        continue;
+      }
+
+      if (msg?.diagnostic === "start") {
+        bridgeTraffic.reset();
+        sendWebSocketJson(socket, { diagnostic: "started", at: new Date().toISOString() });
+        continue;
+      }
+      if (msg?.diagnostic === "sample") {
+        requestServerStatus(socket, msg);
+        continue;
+      }
+      if (msg?.diagnostic === "stop") {
+        sendWebSocketJson(socket, { diagnostic: "stopped", at: new Date().toISOString(),
+          bridge: bridgeTraffic.snapshot() });
         continue;
       }
 
