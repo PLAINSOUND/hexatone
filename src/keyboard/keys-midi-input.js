@@ -328,6 +328,24 @@ function ensureActiveMidiChannelEntry(channel) {
   return entry;
 }
 
+export function forgetMidiInputIdentity(notePlayed) {
+  this.state.activeMidi.delete(notePlayed);
+  notes.played = notes.played.filter((activeNote) => activeNote !== notePlayed);
+  this._suppressedMidiNotes?.add(notePlayed);
+}
+
+export function clearMidiInputChannelExpression(channel) {
+  this._mpeInputBendByChannel.delete(channel);
+  this._mpeInputBendSmoothingByChannel.delete(channel);
+  this._mpeInputAftertouchByChannel.delete(channel);
+  this._mpeInputCC74ByChannel.delete(channel);
+  this._hakenMpeBend21ByChannel.delete(channel);
+  this._hakenMpePressure14ByChannel.delete(channel);
+  this._hakenMpeCC7414ByChannel.delete(channel);
+  this._hakenMpePlusLsbByChannel.delete(channel);
+  this._scaleModePreBend21.delete(channel);
+}
+
 function isHakenPitchBendingCollisionAvoidanceActive(keys) {
   return (
     keys.controller?.id === "hakenaudio" &&
@@ -578,7 +596,10 @@ export function midinoteOn(event) {
   }
 
   if (coords === null) return;
-  if (this._midiLatchToggle(coords, velocityPlayed)) return;
+  if (this._midiLatchToggle(coords, velocityPlayed)) {
+    this._suppressedMidiNotes?.add(notePlayed);
+    return;
+  }
   const hex = this.hexOn(coords, notePlayed, velocityPlayed, bend, { liveInputAddress });
   if (!hex) {
     if (this._lastHexOnSuppressed) this._suppressedMidiNotes?.add(notePlayed);

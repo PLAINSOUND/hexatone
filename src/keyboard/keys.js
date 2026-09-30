@@ -446,7 +446,10 @@ class Keys {
     // Key listeners always on window — ESC key sustain must work even when sidebar is closed.
     window.addEventListener("keydown", this.onKeyDown, false);
     window.addEventListener("keyup", this.onKeyUp, false);
-    this.usesPointerTouchInput = typeof window.PointerEvent === "function";
+    this.usesPointerTouchInput = KeysBrowserInput.shouldUsePointerTouchInput(
+      window,
+      globalThis.navigator,
+    );
     if (this.usesPointerTouchInput) {
       // Pointer capture keeps each touchscreen contact routed to the canvas
       // through movement/release, while touch-action:none suppresses native
@@ -2384,6 +2387,18 @@ class Keys {
   // Returns true if the note was toggled off (caller should return/continue).
   _midiLatchToggle(coords, releaseVelocity = 0) {
     return LiveHexRuntime.midiLatchToggle(this, coords, releaseVelocity);
+  }
+
+  _latchToggleAtCoord(coords, releaseVelocity = 0) {
+    return LiveHexRuntime.latchToggleAtCoord(this, coords, releaseVelocity);
+  }
+
+  _forgetMidiInputIdentity(notePlayed) {
+    return KeysMidiInput.forgetMidiInputIdentity.call(this, notePlayed);
+  }
+
+  _clearMidiInputChannelExpression(channel) {
+    return KeysMidiInput.clearMidiInputChannelExpression.call(this, channel);
   }
 
   // Yields every active hex object across all four input sources.

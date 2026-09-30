@@ -6,6 +6,20 @@
 import Point from "./point";
 import { recordLivePointerDiagnostic } from "../dev/live-audio-diagnostics.js";
 
+// Windows benefits from Pointer Events plus pointer capture: preventDefault and
+// touch-action:none keep the OS from interpreting multi-touch canvas gestures
+// as scrolling. iOS's established Touch Events path has more reliable tap/latch
+// semantics across Safari-based browsers, so retain it there.
+export function shouldUsePointerTouchInput(windowObject, navigatorObject) {
+  if (typeof windowObject?.PointerEvent !== "function") return false;
+  const platform = String(navigatorObject?.platform ?? "");
+  const userAgent = String(navigatorObject?.userAgent ?? "");
+  const isAppleTouchDevice =
+    /iPhone|iPad|iPod/i.test(userAgent) ||
+    (platform === "MacIntel" && Number(navigatorObject?.maxTouchPoints) > 1);
+  return !isAppleTouchDevice;
+}
+
 function isModulationToggleKeyCode(code) {
   return code === "Backquote" || code === "IntlBackslash";
 }
@@ -56,6 +70,7 @@ function isShiftLatchedAt(keys, coords) {
 }
 
 function releaseSustainedAt(keys, coords) {
+  if (keys.state.latch && keys._latchToggleAtCoord?.(coords)) return true;
   const hexIndex = findSustainedIndexAt(keys.state, coords);
   if (hexIndex === -1) return false;
   const [hex, vel] = keys.state.sustainedNotes[hexIndex];
@@ -181,7 +196,7 @@ export function onKeyDown(e) {
   if (this.state.pressedKeys.has(e.code)) return;
 
   const coords = keyboardCoordsForCode(this, e.code);
-  if (this.state.latch && releaseSustainedAt(this, coords)) return;
+  if (this.state.latch && this._latchToggleAtCoord?.(coords)) return;
 
   this.state.pressedKeys.add(e.code);
   const hex = this.hexOn(coords);
@@ -277,7 +292,10 @@ export function mouseActive(e) {
     const key = `${coords.x},${coords.y}`;
     // Shift-latched notes are sustained independently of the global latch.
     // Playing the same canvas key must therefore toggle either kind off.
-    if ((this.state.latch || isShiftLatchedAt(this, coords)) && releaseSustainedAt(this, coords)) {
+    if (
+      (this.state.latch && this._latchToggleAtCoord?.(coords)) ||
+      (!this.state.latch && isShiftLatchedAt(this, coords) && releaseSustainedAt(this, coords))
+    ) {
       this.state.mouseDownToggledCoord = key;
       return;
     }
@@ -412,7 +430,10 @@ export async function handleTouch(e) {
 }
 
 export function touchStartOnCoords(id, coords) {
-  if ((this.state.latch || isShiftLatchedAt(this, coords)) && releaseSustainedAt(this, coords)) {
+  if (
+    (this.state.latch && this._latchToggleAtCoord?.(coords)) ||
+    (!this.state.latch && isShiftLatchedAt(this, coords) && releaseSustainedAt(this, coords))
+  ) {
     return;
   }
   const newHex = this.hexOn(coords);

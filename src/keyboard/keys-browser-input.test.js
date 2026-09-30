@@ -37,6 +37,33 @@ function sustain(keys, shift = false) {
 }
 
 describe("canvas touch input", () => {
+  it("keeps iPhone and iPad touch input on the established Touch Events path", () => {
+    const pointerWindow = { PointerEvent: function PointerEvent() {} };
+    expect(
+      input.shouldUsePointerTouchInput(pointerWindow, {
+        platform: "iPhone",
+        userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)",
+        maxTouchPoints: 5,
+      }),
+    ).toBe(false);
+    expect(
+      input.shouldUsePointerTouchInput(pointerWindow, {
+        platform: "MacIntel",
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X)",
+        maxTouchPoints: 5,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps Windows touchscreen input on Pointer Events", () => {
+    expect(
+      input.shouldUsePointerTouchInput(
+        { PointerEvent: function PointerEvent() {} },
+        { platform: "Win32", userAgent: "Windows", maxTouchPoints: 10 },
+      ),
+    ).toBe(true);
+  });
+
   it.each([false, true])("keeps a toggled-off note off through movement and other contacts (shift=%s)", async (shift) => {
     const keys = makeKeys();
     const hex = sustain(keys, shift);
@@ -54,6 +81,31 @@ describe("canvas touch input", () => {
     await input.handleTouch.call(keys, event(touch(1)));
     expect(keys.hexOn).toHaveBeenCalledTimes(2);
     expect(keys.state.activeTouch.get(1).coords).toEqual(new Point(0, 0));
+  });
+
+  it("allows phone-style stationary taps to toggle notes on and off under sustain", async () => {
+    const keys = makeKeys();
+    keys.state.latch = true;
+    keys.state.sustain = true;
+    keys.noteOff = vi.fn((hex, velocity) => {
+      hex.noteOff(velocity);
+      keys.state.sustainedNotes.push([hex, velocity]);
+      keys.state.sustainedCoords.add(`${hex.coords.x},${hex.coords.y}`);
+    });
+
+    // First tap attacks the note; lifting the finger stores it under sustain.
+    await input.handleTouch.call(keys, event(touch(1)));
+    const hex = keys.state.activeTouch.get(1);
+    await input.handleTouch.call(keys, event());
+    expect(hex.noteOff).toHaveBeenCalledOnce();
+    expect(keys.state.sustainedNotes).toEqual([[hex, 0]]);
+
+    // A second stationary tap toggles the sustained note off, with no slide.
+    await input.handleTouch.call(keys, event(touch(2)));
+    await input.handleTouch.call(keys, event());
+    expect(hex.noteOff).toHaveBeenCalledTimes(2);
+    expect(keys.state.sustainedNotes).toHaveLength(0);
+    expect(keys.state.activeTouch.size).toBe(0);
   });
 
   it("allows a toggling finger to slide to another key and back", async () => {

@@ -54,16 +54,72 @@ function scaleIdentityForDegree(keys, degree) {
 }
 
 export function midiLatchToggle(keys, coords, releaseVelocity = 0) {
+  return latchToggleAtCoord(keys, coords, releaseVelocity);
+}
+
+/**
+ * In latch mode a hex is one toggle target, regardless of which input source
+ * currently owns its voice. Remove every live/sustained owner at that
+ * coordinate before releasing, so the physical key-up from an overlapping
+ * controller or finger cannot later turn the note back into a sustained voice.
+ */
+export function latchToggleAtCoord(keys, coords, releaseVelocity = 0) {
   if (!keys.state.latch) return false;
-  let removed = removeSustainedHex(keys.state, coords);
-  if (!removed) return false;
-  do {
-    const [hex, vel] = removed.entry;
-    hex.noteOff(releaseVelocity || vel);
-    keys.recencyStack.remove(hex);
-    removed = removeSustainedHex(keys.state, coords);
-  } while (removed);
+  const sameCoord = (hex) =>
+    !!hex?.coords && hex.coords.x === coords.x && hex.coords.y === coords.y;
+  const matchingHexes = new Set([
+    ...keys._allActiveHexes(),
+    ...keys.state.sustainedNotes.map(([hex]) => hex),
+  ].filter(sameCoord));
+  if (matchingHexes.size === 0) return false;
+
+  if (keys.state.activeMouse && matchingHexes.has(keys.state.activeMouse)) {
+    keys.state.activeMouse = null;
+  }
+  for (const [pointerId, hex] of keys.state.activeTouch) {
+    if (matchingHexes.has(hex)) keys.state.activeTouch.delete(pointerId);
+    // Keep touchCoords until physical up. This prevents a held contact from
+    // being mistaken for a fresh down, while allowing later movement to work.
+  }
+  for (const [code, hex] of keys.state.activeKeyboard) {
+    if (!matchingHexes.has(hex)) continue;
+    keys.state.activeKeyboard.delete(code);
+    keys.state.shiftSustainedKeys.delete(code);
+    // Keep pressedKeys until key-up so keyboard auto-repeat cannot reattack.
+  }
+  for (const [notePlayed, hex] of keys.state.activeMidi) {
+    if (!matchingHexes.has(hex)) continue;
+    keys._forgetMidiInputIdentity?.(notePlayed);
+  }
+  for (const [channel, entry] of keys.state.activeMidiByChannel) {
+    for (const hex of matchingHexes) entry.hexes?.delete(hex);
+    if (matchingHexes.has(entry.hex)) {
+      entry.hex = [...(entry.hexes ?? [])].at(-1) ?? null;
+      if (entry.hex) entry.baseCents = entry.hex._baseCents ?? entry.hex.cents;
+    }
+    if (!entry.hexes?.size) {
+      keys.state.activeMidiByChannel.delete(channel);
+      keys._clearMidiInputChannelExpression?.(channel);
+    }
+  }
+  keys.state.sustainedNotes = keys.state.sustainedNotes.filter(([hex]) => !matchingHexes.has(hex));
+  if (!keys.state.sustainedNotes.some(([hex]) => sameCoord(hex))) {
+    keys.state.sustainedCoords.delete(`${coords.x},${coords.y}`);
+  }
+
+  // Use the normal note lifecycle cleanup, but temporarily bypass sustain so
+  // this explicit latch toggle really releases rather than re-queues the voice.
+  const sustainWasActive = keys.state.sustain;
+  keys.state.sustain = false;
+  try {
+    for (const hex of matchingHexes) {
+      keys.noteOff(hex, releaseVelocity);
+    }
+  } finally {
+    keys.state.sustain = sustainWasActive;
+  }
   keys._updateWheelTarget(true);
+  keys._syncAwaitingModulationSource?.();
   keys._scheduleDeferredBulkRefresh();
   hexOff(keys, coords);
   keys._emitLiveNoteDisplayState();
