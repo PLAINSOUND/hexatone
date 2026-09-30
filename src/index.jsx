@@ -3,8 +3,8 @@
  *
  * Browser entrypoint for the main Hexatone SPA.
  *
- * It mounts App, installs development-time prop-type checking, owns version /
- * cache-busting startup behaviour, and registers the production service worker.
+ * It mounts App, installs development-time prop-type checking, and registers
+ * the production service worker without interrupting active sessions on update.
  */
 import { render } from "preact";
 import { options } from "preact";
@@ -29,37 +29,6 @@ if (import.meta.env.DEV) {
   };
 }
 
-// ── Version tracking for cache busting ─────────────────────────────────────
-// Derived from package.json via Vite so release versioning stays single-source.
-const APP_VERSION = import.meta.env.VITE_APP_VERSION;
-
-// Check stored version and force reload if mismatch
-const storedVersion = localStorage.getItem("hexatone_version");
-if (storedVersion && storedVersion !== APP_VERSION) {
-  debugLog("lifecycle", `Version changed: ${storedVersion} → ${APP_VERSION}, clearing caches...`);
-
-  // Clear all caches
-  if ("caches" in window) {
-    caches.keys().then((names) => {
-      names.forEach((name) => caches.delete(name));
-    });
-  }
-
-  // Unregister any service workers
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      registrations.forEach((reg) => reg.unregister());
-    });
-  }
-
-  // Update stored version and reload
-  localStorage.setItem("hexatone_version", APP_VERSION);
-  window.location.reload();
-} else {
-  // Store current version
-  localStorage.setItem("hexatone_version", APP_VERSION);
-}
-
 // ── Register service worker (production only) ──────────────────────────────
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -72,18 +41,13 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
         // Check for updates on page load
         reg.update();
 
-        // When a new SW is waiting, force it to activate
-        if (reg.waiting) {
-          reg.waiting.postMessage({ type: "SKIP_WAITING" });
-        }
-
-        // When a new SW activates, reload the page
+        // Updates wait until this page is naturally closed/reloaded. Never
+        // take control of a live session or reload while the user is working.
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing;
           newWorker.addEventListener("statechange", () => {
             if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
-              debugLog("lifecycle", "New version available, reloading...");
-              newWorker.postMessage({ type: "SKIP_WAITING" });
+              debugLog("lifecycle", "Service Worker update ready; it will activate on a later visit.");
             }
           });
         });
@@ -91,11 +55,6 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
       .catch((err) => {
         warnLog("Service Worker registration failed:", err);
       });
-
-    // Reload when controller changes (new SW took over)
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      window.location.reload();
-    });
   });
 }
 

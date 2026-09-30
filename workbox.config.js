@@ -10,8 +10,8 @@ export default {
   // Keep engine/definitions versioned together; source archives remain downloadable.
   maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
   swDest: 'build/sw.js',
-  clientsClaim: true,
-  skipWaiting: true,
+  // Let an update wait until the user naturally reloads or closes the app.
+  // Immediate takeover can interrupt preset selection and active playback.
   runtimeCaching: [
     {
       urlPattern: /\/sounds\/.*\.mp3$/,
