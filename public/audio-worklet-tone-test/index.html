@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AudioWorklet tone test</title>
+  </head>
+  <body>
+    <h1>AudioWorklet tone test</h1>
+    <button id="toggle">Start tone</button>
+    <pre id="status"></pre>
+
+    <script type="module">
+      const button = document.querySelector("#toggle");
+      const status = document.querySelector("#status");
+      let context = null;
+      let node = null;
+
+      status.textContent =
+        `Secure context: ${isSecureContext}\n` +
+        `AudioWorklet supported: ${"audioWorklet" in AudioContext.prototype}\n` +
+        `Cross-origin isolated: ${crossOriginIsolated}`;
+
+      button.addEventListener("click", async () => {
+        if (node) {
+          node.disconnect();
+          await context.close();
+          node = null;
+          context = null;
+          button.textContent = "Start tone";
+          return;
+        }
+
+        try {
+          context = new AudioContext();
+          await context.audioWorklet.addModule("./tone-processor.js");
+          node = new AudioWorkletNode(context, "tone-processor", {
+            outputChannelCount: [2],
+          });
+          node.connect(context.destination);
+          await context.resume();
+          button.textContent = "Stop tone";
+          status.textContent += `\nAudioContext state: ${context.state}`;
+        } catch (error) {
+          status.textContent += `\nERROR: ${error.message}`;
+          if (context) await context.close();
+          context = null;
+          node = null;
+        }
+      });
+    </script>
+  </body>
+</html>
