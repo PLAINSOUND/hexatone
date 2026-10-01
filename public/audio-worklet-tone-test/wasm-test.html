@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WASM in AudioWorklet test</title>
+  </head>
+  <body>
+    <h1>WASM in AudioWorklet test</h1>
+    <button id="start">Run WASM probe</button>
+    <pre id="status"></pre>
+
+    <script type="module">
+      const button = document.querySelector("#start");
+      const status = document.querySelector("#status");
+      let context;
+
+      status.textContent = `Cross-origin isolated: ${crossOriginIsolated}`;
+
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+
+        try {
+          context = new AudioContext();
+          await context.resume();
+
+          const response = await fetch("./tiny.wasm");
+          if (!response.ok) throw new Error(`WASM fetch failed: ${response.status}`);
+          const wasmBytes = await response.arrayBuffer();
+
+          await context.audioWorklet.addModule("./wasm-probe.js");
+
+          const node = new AudioWorkletNode(context, "wasm-probe", {
+            numberOfInputs: 0,
+            numberOfOutputs: 1,
+            outputChannelCount: [2],
+            processorOptions: { wasmBytes },
+          });
+
+          node.port.onmessage = (event) => {
+            if (event.data.type === "ready") {
+              status.textContent += `\nWASM loaded inside worklet; result: ${event.data.result}`;
+            } else {
+              status.textContent += `\nWorklet error: ${event.data.message}\n${event.data.stack ?? ""}`;
+            }
+          };
+
+          node.onprocessorerror = () => {
+            status.textContent += "\nAudioWorklet processor error; check the browser console.";
+          };
+
+          node.connect(context.destination);
+          status.textContent += "\nWorklet started; waiting for WASM…";
+        } catch (error) {
+          status.textContent += `\nERROR: ${error.message}`;
+          button.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
