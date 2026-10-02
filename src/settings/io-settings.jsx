@@ -10,6 +10,8 @@ import { IO_RESTORE_KEY, restoreIOOnReload } from "../persistence/io-reload-poli
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
+import SuperColliderSettings from "./supercollider-settings.jsx";
+import FluidSynthSettings from "./fluidsynth-settings.jsx";
 
 const IOSettings = ({
   showActivateAudioContext,
@@ -67,6 +69,15 @@ const IOSettings = ({
         instruments={instruments}
         onVolumeChange={onVolumeChange}
       />
+      <FluidSynthSettings settings={settings} onChange={onChange} />
+      <SuperColliderSettings
+        settings={settings}
+        onChange={onChange}
+        onOscLayerVolumeChange={onOscLayerVolumeChange}
+        onOscQuickReleaseChange={onOscQuickReleaseChange}
+        onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
+        onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
+      />
       <WebMIDISettings
         settings={settings}
         midi={midi}
@@ -99,10 +110,6 @@ const IOSettings = ({
       />
       <MidiOutputs
         onChange={onChange}
-        onOscLayerVolumeChange={onOscLayerVolumeChange}
-        onOscQuickReleaseChange={onOscQuickReleaseChange}
-        onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
-        onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
         settings={settings}
         midi={midi}
         midiAccess={midiAccess}

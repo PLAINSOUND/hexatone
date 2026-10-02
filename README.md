@@ -104,7 +104,7 @@ Hexatone 3.3 RC2 expands the Sequencer, adds I/O and CALCULATOR workspaces, and 
 - Snapshots and Modulation History palettes remain accessible in the other applicable workspaces
 - selected built-in timbres use pitch-tracking mod-wheel filters for a more consistent response across registers
 - `Restore I/O settings on reload` controls I/O restoration independently of tuning/sequence restoration; MIDI permissions and available ports still determine which connections can be restored
-- `Activate Audio Context` is also available in Built-in Sounds when audio needs activation
+- `Activate Audio Context` is also available in Built-in Samples when audio needs activation
 
 **Timbre controllers**
 

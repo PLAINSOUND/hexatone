@@ -59,10 +59,10 @@ WebMIDI is optional. To explore scales, compare tunings, build and recall chords
   - Copy & Insert
   - Edit & Play / Sequence Event List
 - IO
-  - Built-in Sounds
+  - Built-in Samples
   - MIDI Setup
   - MIDI Input
-  - Output Routing (MTS / MPE / OSC)
+  - MIDI Output (MTS / MPE)
 - CALCULATOR
   - Reference
   - HEJI Spelling
@@ -431,15 +431,15 @@ Switching to the I/O tab does not interrupt live or sequenced playback. Snapshot
 
 Restoring I/O remembers the requested setup, not browser permission: MIDI/SysEx access must still be granted and the selected ports must be available. 
 
-When working with a loaded sequence, the **Sequencer Transport** fieldset below Output Routing provides the sequencer's **PLAY FROM**, **TIMED PLAYBACK**, **SPEED**, and **PITCH** controls. These operate the same transport as the SEQUENCER tab, so you can stop, resume, or adjust playback while designing sounds.
+When working with a loaded sequence, the **Sequencer Transport** fieldset below MIDI Output provides the sequencer's **PLAY FROM**, **TIMED PLAYBACK**, **SPEED**, and **PITCH** controls. These operate the same transport as the SEQUENCER tab, so you can stop, resume, or adjust playback while designing sounds.
 
-### Built-in Sounds
+### Built-in Samples
 
 Hexatone has a small built-in library of sampled sounds. These include several additive synthesis timbres with 1–16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching, and may be changed dynamically while playing live or sequenced material. For more sophisticated sound design, layer the MIDI and/or OSC outputs.
 
 When changing instruments, the current sound remains available while the new samples load. Held and legato notes keep their original sound until their normal release; new attacks use the newly loaded instrument. Volume and PANIC continue to affect voices from the previous sound.
 
-If audio has not yet been activated, **Activate Audio Context** appears at the bottom of Built-in Sounds. This uses the same audio-activation action as the HEXATONE and SEQUENCER tabs.
+If audio has not yet been activated, **Activate Audio Context** appears at the bottom of Built-in Samples. This uses the same audio-activation action as the HEXATONE and SEQUENCER tabs.
 
 ### MIDI Setup
 
@@ -532,7 +532,7 @@ MPE output offers two message styles:
 
 ### Monophonic Single-Channel MIDI
 
-In **IO → Output Routing**, this independent output sends the most recently played held note to its own **Port** and **Channel**. Releasing that note returns to the most recently held earlier note. Other enabled outputs retain their normal polyphony.
+In **I/O → MIDI Output**, this independent output sends the most recently played held note to its own **Port** and **Channel**. Releasing that note returns to the most recently held earlier note. Other enabled outputs retain their normal polyphony.
 
 Set **PB Range (semitones)** to match the receiving instrument (default **2**). Hexatone sends the corresponding MIDI pitch-bend-range RPN, but instruments that ignore it must be configured manually. Use a separate port or channel from other outputs to avoid conflicting bends and note messages.
 
@@ -560,7 +560,7 @@ The pedal/wheel option is independent of `Sequencer Timbre Control`: it controls
 ### OSC
 
 Development builds with the optional SuperSonic assets also offer **Local
-SuperSonic (experimental)** under **OSC → SuperCollider**. This runs the four
+SuperSonic (experimental)** under **OSC**. This runs the four
 layers in the browser without a WebSocket bridge, using the same faders and
 articulation controls. Switching this checkbox stops the old engine and
 retriggers held notes once the new engine is ready. Start at a low volume.
@@ -592,7 +592,7 @@ This mode requires a local clone of the repo and a locally running bridge:
      ```
 
 3. Load the matching SuperCollider patch/responders locally.
-4. Enable `OSC → SuperCollider` in Hexatone.
+4. Enable `OSC` in Hexatone.
 
 This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 

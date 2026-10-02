@@ -118,6 +118,8 @@ export const SETTINGS_IMPACT_FIELDS = {
     "mts_bulk_tuning_map_name",
     "fluidsynth_device",
     "fluidsynth_channel",
+    "output_fluidsynth",
+    "fluidsynth_runtime_revision",
     "mpe_device",
     "mpe_lo_ch",
     "mpe_hi_ch",
@@ -160,6 +162,7 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
     "mpe_eagan_tilt_eq",
     "mpe_eagan_pre_level",
     "mpe_eagan_post_level",
+    "fluidsynth_preset",
   ],
   permissionState: ["webmidi_enabled", "webmidi_sysex_enabled", "webmidi_access"],
   ledDriverLifecycle: [

@@ -920,6 +920,53 @@ td.scale-color-col .color-input {
   line-height: 1.5em;
 }
 
+.preset-actions--end {
+  justify-content: flex-end;
+}
+
+.fluidsynth-settings__load-row {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  gap: 0;
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.fluidsynth-settings__load-actions {
+  width: 50%;
+  margin-left: auto;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+}
+
+.fluidsynth-settings__load-actions > .preset-action-btn:first-of-type {
+  flex: 1.35 1 0;
+  padding-right: 0.1em;
+  padding-left: 0.1em;
+}
+
+.fluidsynth-settings__load-actions > .preset-action-btn:last-of-type {
+  flex: 1 1 0;
+  padding-right: 0em;
+  padding-left: 0em;
+}
+
+.fluidsynth-settings__load-actions > .preset-action-btn {
+  min-width: 0;
+}
+
+.fluidsynth-settings__loaded-name {
+  flex: 0 1 50%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.fluidsynth-settings__mts-hint {
+  margin-bottom: 0;
+}
+
 .preset-actions--library {
   min-height: calc(1.5em + 0.2em + 2px);
 }

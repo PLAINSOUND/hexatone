@@ -31,7 +31,7 @@ const Sample = (props) => {
   return (
     <>
       <label>
-        Sampled Instrument
+        Instrument
         <Instruments
           value={props.settings.instrument}
           groups={props.instruments}
@@ -39,10 +39,10 @@ const Sample = (props) => {
         />
       </label>
       <label>
-        <span>Synth Volume</span>
+        <span>Volume</span>
         <span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider
-            ariaLabel="Synth Volume"
+            ariaLabel="Volume"
             min={0}
             max={1}
             step={0.01}

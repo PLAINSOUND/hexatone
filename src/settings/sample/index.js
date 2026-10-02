@@ -1,5 +1,5 @@
 /**
- * Built-in Sounds fieldset wrapper, shared by workspace settings.
+ * Built-in Samples fieldset wrapper, shared by workspace settings.
  * Delegates instrument/volume editing to sample.js; sample_synth and synth wiring
  * own audio activation, decoding and voice lifetime.
  */
@@ -10,10 +10,10 @@ import Sample from "./sample";
 const SampleSynth = (props) => (
   <fieldset>
     <legend>
-      <b>Built-in Sounds</b>
+      <b>Built-in Samples</b>
     </legend>
     <label>
-      Use Internal Synth
+      Use Internal Sounds
       <input
         name="output_sample"
         type="checkbox"

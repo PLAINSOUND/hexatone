@@ -1,5 +1,5 @@
 /**
- * Output Routing UI for mono MIDI, MTS, MPE/EaganMatrix and OSC destinations.
+ * MIDI Output Routing UI for mono MIDI, MTS and MPE/EaganMatrix destinations.
  * Persists user choices and sends explicit configuration/control actions; actual
  * voice allocation, playback and output lifecycle belong to the synth backends
  * and use-synth-wiring.js, not to this component's render cycle.
@@ -30,33 +30,6 @@ const voiceChannels = (masterCh) => {
 const save = (name, value, onChange) => {
   onChange(name, value);
   sessionStorage.setItem(name, value);
-};
-
-const clampOscVolume = (value) => Math.max(0, Math.min(1, value));
-const clampOscQuickRelease = (value) => Math.max(0, Math.min(1, value));
-const clampOscQuickReleaseTime = (value) => Math.max(0.001, Math.min(2.5, value));
-
-const readOscVolume = (name, fallback = 0.5) => {
-  const local = parseFloat(localStorage.getItem(name) ?? "");
-  if (Number.isFinite(local)) return clampOscVolume(local);
-  return clampOscVolume(fallback);
-};
-
-const readOscQuickRelease = (name, fallback = 0) => {
-  const local = parseFloat(localStorage.getItem(name) ?? "");
-  if (Number.isFinite(local)) return clampOscQuickRelease(local);
-  return clampOscQuickRelease(fallback);
-};
-
-const readOscQuickReleaseTime = (name, fallback = 0.1) => {
-  const local = parseFloat(localStorage.getItem(name) ?? "");
-  if (Number.isFinite(local)) return clampOscQuickReleaseTime(local);
-  return clampOscQuickReleaseTime(fallback);
-};
-
-const saveOscVolume = (name, value) => {
-  localStorage.setItem(name, String(value));
-  sessionStorage.setItem(name, String(value));
 };
 
 const readEaganCc = (name, fallback = 64) => {
@@ -95,18 +68,6 @@ const MidiOutputs = (props) => {
   const [fsVolume, setFsVolume] = useState(
     parseInt(localStorage.getItem("fluidsynth_volume_pref") ?? "127"),
   );
-  const [oscDraftVolumes, setOscDraftVolumes] = useState({
-    osc_volume_pluck: readOscVolume("osc_volume_pluck", settings.osc_volume_pluck ?? 0.5),
-    osc_volume_buzz: readOscVolume("osc_volume_buzz", settings.osc_volume_buzz ?? 0.5),
-    osc_volume_formant: readOscVolume("osc_volume_formant", settings.osc_volume_formant ?? 0.5),
-    osc_volume_saw: readOscVolume("osc_volume_saw", settings.osc_volume_saw ?? 0.5),
-  });
-  const [oscQuickRelease, setOscQuickRelease] = useState(
-    readOscQuickRelease("osc_quick_release", settings.osc_quick_release ?? 0.5),
-  );
-  const [oscQuickReleaseTime, setOscQuickReleaseTime] = useState(
-    readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25),
-  );
   const [eaganCcDrafts, setEaganCcDrafts] = useState(() => ({
     mpe_eagan_brightness: readEaganCc("mpe_eagan_brightness", settings.mpe_eagan_brightness ?? 64),
     mpe_eagan_tilt_eq: readEaganCc("mpe_eagan_tilt_eq", settings.mpe_eagan_tilt_eq ?? 64),
@@ -133,30 +94,6 @@ const MidiOutputs = (props) => {
     settings.name,
   );
   const hasSysexMidi = props.midiAccess === "sysex";
-
-  useEffect(() => {
-    setOscDraftVolumes({
-      osc_volume_pluck: readOscVolume("osc_volume_pluck", settings.osc_volume_pluck ?? 0.5),
-      osc_volume_buzz: readOscVolume("osc_volume_buzz", settings.osc_volume_buzz ?? 0.5),
-      osc_volume_formant: readOscVolume("osc_volume_formant", settings.osc_volume_formant ?? 0.5),
-      osc_volume_saw: readOscVolume("osc_volume_saw", settings.osc_volume_saw ?? 0.5),
-    });
-  }, [
-    settings.osc_volume_pluck,
-    settings.osc_volume_buzz,
-    settings.osc_volume_formant,
-    settings.osc_volume_saw,
-  ]);
-
-  useEffect(() => {
-    setOscQuickRelease(readOscQuickRelease("osc_quick_release", settings.osc_quick_release ?? 0.5));
-  }, [settings.osc_quick_release]);
-
-  useEffect(() => {
-    setOscQuickReleaseTime(
-      readOscQuickReleaseTime("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25),
-    );
-  }, [settings.osc_quick_release_time]);
 
   useEffect(() => {
     setEaganCcDrafts({
@@ -243,7 +180,7 @@ const MidiOutputs = (props) => {
   return (
     <fieldset class="output-routing-fieldset">
       <legend>
-        <b>Output Routing</b>
+        <b>MIDI Output</b>
       </legend>
       <MonoOutputSettings
         settings={settings}
@@ -519,10 +456,7 @@ const MidiOutputs = (props) => {
 
       <p class="settings-form__intro-copy">
         <em>
-          Old-school non-real-time 128 note mapping. Two modes are available: Dynamic emulates
-          real-time MTS by sending a new map before each note on, performance depends on synth.
-          Static is the classic approach: send a map (automatically or manually) and then play on
-          one channel.
+          Old-school non-real-time 128 note mapping. Dynamic mode emulates real-time MTS by sending a new map before each note on, performance depends on synth. Static mode sends a map and plays on one channel.
         </em>
       </p>
 
@@ -905,172 +839,6 @@ const MidiOutputs = (props) => {
           )}
         </>
       )}
-      <br />
-
-      {/* ── OSC → SuperCollider ─────────────────────────────────────────── */}
-      <label>
-        <b>OSC → SuperCollider</b>
-        <input
-          name="output_osc"
-          type="checkbox"
-          checked={!!settings.output_osc}
-          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
-        />
-      </label>
-
-      {!settings.osc_local && <p class="settings-form__intro-copy">
-        <em>
-          Sends OSC to SuperCollider via a local WebSocket→OSC bridge. Run "yarn
-          osc-bridge" in a locally cloned repo and use the Synths/SuperCollider-OSC folder to
-          initialise the synths and servers.
-          {/*/<br />
-        Run </em> (&nbsp;<code>yarn osc-bridge</code>&nbsp;) <em> locally and load SC patch with
-        OSCResponders.scd.*/}
-        </em>
-      </p>}
-
-      {settings.output_osc && (
-        <>
-          <label class="settings-form__checkbox-row">
-            <input type="checkbox" name="osc_local" checked={!!settings.osc_local}
-              onChange={(e) => save(e.target.name, e.target.checked, onChange)} />
-            SuperSonic
-          </label>
-          {settings.osc_local && <p class="settings-form__intro-copy">
-            SynthDefs run directly in the browser; no OSC bridge to a local server required.
-          </p>}
-          {!settings.osc_local && (
-          <label>
-            Bridge URL
-            <input
-              name="osc_bridge_url"
-              type="text"
-              class="sidebar-input"
-              key={settings.osc_bridge_url}
-              defaultValue={settings.osc_bridge_url || "ws://localhost:8089"}
-              onBlur={(e) => {
-                const val = e.target.value.trim();
-                if (val) save("osc_bridge_url", val, onChange);
-                else e.target.value = settings.osc_bridge_url || "ws://localhost:8089";
-              }}
-            />
-          </label>
-          )}
-
-          {[
-            ["osc_volume_pluck", "Pluck"],
-            ["osc_volume_buzz", "Buzz"],
-            ["osc_volume_formant", "Formant"],
-            ["osc_volume_saw", "Saw"],
-          ].map(([key, label], index) => (
-            <label key={key}>
-              {label}
-              <span class="sidebar-input settings-form__range-row">
-                <CustomRangeSlider
-                  ariaLabel={`${label} volume`}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={oscDraftVolumes[key] ?? 0.5}
-                  onInputValue={(nextValue) => {
-                    const next = clampOscVolume(parseFloat(nextValue));
-                    setOscDraftVolumes((prev) => ({ ...prev, [key]: next }));
-                    props.onOscLayerVolumeChange?.(index, next);
-                  }}
-                  onCommitValue={(nextValue) => {
-                    const next = clampOscVolume(parseFloat(nextValue));
-                    saveOscVolume(key, next);
-                  }}
-                />
-                <span class="settings-form__range-value">
-                  {(oscDraftVolumes[key] ?? 0.5).toFixed(2)}
-                </span>
-              </span>
-            </label>
-          ))}
-          <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
-            <input
-              name="osc_retrigger_buzz_formant"
-              type="checkbox"
-              checked={!!settings.osc_retrigger_buzz_formant}
-              onChange={(e) => {
-                const enabled = e.target.checked;
-                localStorage.setItem("osc_retrigger_buzz_formant", String(enabled));
-                save("osc_retrigger_buzz_formant", enabled, onChange);
-              }}
-            />
-            <em class="settings-form__helper-text">Retrigger Buzz + Formant while held</em>
-          </label>
-          <label>
-            Release Envelope
-            <span class="sidebar-input settings-form__range-row">
-              <CustomRangeSlider
-                ariaLabel="Release Override Amount"
-                min={0}
-                max={1}
-                step={0.01}
-                value={oscQuickRelease}
-                onInputValue={(nextValue) => {
-                  const next = clampOscQuickRelease(parseFloat(nextValue));
-                  setOscQuickRelease(next);
-                  props.onOscQuickReleaseChange?.(next);
-                }}
-                onCommitValue={(nextValue) => {
-                  const next = clampOscQuickRelease(parseFloat(nextValue));
-                  localStorage.setItem("osc_quick_release", String(next));
-                  sessionStorage.setItem("osc_quick_release", String(next));
-                  onChange("osc_quick_release", next);
-                }}
-              />
-              <span class="settings-form__range-value">{Math.round(oscQuickRelease * 100)}%</span>
-            </span>
-            <em class="settings-form__helper-text">
-              Blend between velocity-based release and Release Time
-            </em>
-          </label>
-          <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
-            <input
-              type="checkbox"
-              checked={!!settings.osc_quick_release_raster_only}
-              onChange={(e) => {
-                localStorage.setItem("osc_quick_release_raster_only", String(e.target.checked));
-                sessionStorage.setItem("osc_quick_release_raster_only", String(e.target.checked));
-                props.onOscQuickReleaseRasterOnlyChange?.(e.target.checked);
-                onChange("osc_quick_release_raster_only", e.target.checked);
-              }}
-            />
-            <em class="settings-form__helper-text">
-              Apply release envelope to Rastered Glissando only
-            </em>
-          </label>
-          <label>
-            Release Time
-            <span class="sidebar-input settings-form__range-row">
-              <CustomRangeSlider
-                ariaLabel="Release Time"
-                min={0.01}
-                max={2.5}
-                step={0.005}
-                value={oscQuickReleaseTime}
-                onInputValue={(nextValue) => {
-                  const next = clampOscQuickReleaseTime(parseFloat(nextValue));
-                  setOscQuickReleaseTime(next);
-                  props.onOscQuickReleaseTimeChange?.(next);
-                }}
-                onCommitValue={(nextValue) => {
-                  const next = clampOscQuickReleaseTime(parseFloat(nextValue));
-                  localStorage.setItem("osc_quick_release_time", String(next));
-                  sessionStorage.setItem("osc_quick_release_time", String(next));
-                  onChange("osc_quick_release_time", next);
-                }}
-              />
-              <span class="settings-form__range-value">
-                {Math.round(oscQuickReleaseTime * 1000)} ms
-              </span>
-            </span>
-          </label>
-        </>
-      )}
     </fieldset>
   );
 };
@@ -1114,28 +882,12 @@ MidiOutputs.propTypes = {
     mpe_eagan_tilt_eq: PropTypes.number,
     mpe_eagan_pre_level: PropTypes.number,
     mpe_eagan_post_level: PropTypes.number,
-    output_osc: PropTypes.bool,
-    osc_bridge_url: PropTypes.string,
-    osc_local: PropTypes.bool,
-    osc_volume_pluck: PropTypes.number,
-    osc_volume_buzz: PropTypes.number,
-    osc_volume_formant: PropTypes.number,
-    osc_volume_saw: PropTypes.number,
-    osc_quick_release: PropTypes.number,
-    osc_quick_release_time: PropTypes.number,
-    osc_quick_release_raster_only: PropTypes.bool,
-    osc_sustain_buzz_formant: PropTypes.bool,
-    osc_retrigger_buzz_formant: PropTypes.bool,
   }).isRequired,
   midi: PropTypes.object,
   midiAccess: PropTypes.string,
   midiAccessError: PropTypes.string,
   ensureMidiAccess: PropTypes.func,
   onChange: PropTypes.func.isRequired,
-  onOscLayerVolumeChange: PropTypes.func,
-  onOscQuickReleaseChange: PropTypes.func,
-  onOscQuickReleaseTimeChange: PropTypes.func,
-  onOscQuickReleaseRasterOnlyChange: PropTypes.func,
   keysRef: PropTypes.object,
 };
 

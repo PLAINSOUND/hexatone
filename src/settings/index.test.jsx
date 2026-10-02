@@ -41,7 +41,14 @@ vi.mock("./scale", () => ({
   },
 }));
 vi.mock("./layout", () => ({ default: () => <div>Layout Stub</div> }));
-vi.mock("./sample", () => ({ default: () => <div>Sample Stub</div> }));
+vi.mock("./sample", () => ({
+  default: () => (
+    <fieldset>
+      <legend>Built-in Samples</legend>
+      <div>Sample Stub</div>
+    </fieldset>
+  ),
+}));
 vi.mock("./midi", () => ({ default: () => <div>MIDI In Stub</div> }));
 vi.mock("./midi/midioutputs", () => ({ default: () => <div>MIDI Out Stub</div> }));
 
@@ -105,6 +112,20 @@ describe("Settings MIDI Setup fieldset", () => {
     expect(screen.getByText("MIDI Setup")).not.toBeNull();
     expect(screen.getByLabelText("Enable MIDI")).not.toBeNull();
     expect(screen.getByLabelText("Enable Sysex")).not.toBeNull();
+  });
+
+  it("places FluidSynth and SuperCollider fieldsets before MIDI Setup", () => {
+    render(<IOSettings {...baseProps} />);
+    const legends = Array.from(document.querySelectorAll(".io-settings > fieldset > legend")).map(
+      (legend) => legend.textContent.trim(),
+    );
+    expect(legends.indexOf("Built-in Samples")).toBeLessThan(
+      legends.indexOf("Built-in SoundFont Player"),
+    );
+    expect(legends.indexOf("Built-in SoundFont Player")).toBeLessThan(
+      legends.indexOf("Built-in scsynth"),
+    );
+    expect(legends.indexOf("Built-in scsynth")).toBeLessThan(legends.indexOf("MIDI Setup"));
   });
 
   it("requests basic MIDI when Enable MIDI is clicked from none state", () => {

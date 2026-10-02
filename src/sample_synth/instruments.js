@@ -130,7 +130,7 @@ export const instruments = [
     ],
   },
   {
-    name: "Sampled Instruments",
+    name: "Instruments",
     instruments: [
       {
         fileName: "wurli",

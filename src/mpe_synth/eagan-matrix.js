@@ -1,6 +1,6 @@
 /**
  * Shared EaganMatrix macro CC definitions and lightweight UI notification events.
- * Input expression routing publishes brightness/tilt changes; Output Routing
+ * Input expression routing publishes brightness/tilt changes; MIDI Output
  * listens to reflect them without coupling live MIDI handling to Preact state.
  */
 

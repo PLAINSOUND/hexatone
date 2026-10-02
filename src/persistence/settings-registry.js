@@ -374,6 +374,11 @@ export const SETTINGS_REGISTRY = [
   { key: "output_sample", tier: "url", type: "bool", default: true },
   { key: "instrument", tier: "url", type: "string", default: "WMRIByzantineST" },
 
+  // ── In-browser FluidSynth ───────────────────────────────────────────────────
+  { key: "output_fluidsynth", tier: "session", type: "bool", default: false },
+  { key: "fluidsynth_preset", tier: "session", type: "string", default: "0:0" },
+  { key: "fluidsynth_runtime_revision", tier: "session", type: "int", default: 0 },
+
   // ── MTS real-time output ──────────────────────────────────────────────────────
   { key: "output_mts", tier: "session", type: "bool", default: false },
   { key: "midi_device", tier: "session", type: "string", default: "OFF" },

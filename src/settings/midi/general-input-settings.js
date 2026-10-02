@@ -48,6 +48,7 @@ const GeneralInputSettings = ({
       <select
         class="sidebar-input"
         value={controllerOverrideId}
+        disabled={!hasBasicMidi}
         onChange={(e) => {
           const nextCtrl = resolveControllerSelection(e.target.value, detectedController);
           const nextLinnstrumentUserFirmwareEligible = isLinnstrumentUserFirmwareEligible({
@@ -84,6 +85,7 @@ const GeneralInputSettings = ({
       <select
         class="sidebar-input"
         value={settings.midiin_mapping_target || "hex_layout"}
+        disabled={!hasBasicMidi}
         onChange={(e) => {
           if (linnstrumentUserFirmwareEligible && e.target.value !== "hex_layout") {
             deactivateLinnstrumentUserFirmwareNow();

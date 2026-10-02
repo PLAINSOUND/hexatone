@@ -17,6 +17,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
           type="checkbox"
           name="output_mono"
           checked={!!settings.output_mono}
+          disabled={!midi}
           onChange={(e) => onSettingChange(e.target.name, e.target.checked)}
         />
       </label>

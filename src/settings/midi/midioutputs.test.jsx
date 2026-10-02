@@ -36,10 +36,15 @@ describe("MidiOutputs FluidSynth independence", () => {
     sessionStorage.clear();
   });
 
-  it("labels the section as output routing", () => {
+  it("labels the section as MIDI Output", () => {
     render(<MidiOutputs {...makeProps()} />);
 
-    expect(screen.getByText("Output Routing")).not.toBeNull();
+    expect(screen.getByText("MIDI Output")).not.toBeNull();
+  });
+
+  it("disables the monophonic output toggle without Web MIDI access", () => {
+    render(<MidiOutputs {...makeProps()} midi={null} />);
+    expect(screen.getByRole("checkbox", { name: "Monophonic Single-Channel MIDI" }).disabled).toBe(true);
   });
 
   it("offers named slide CC destinations excluding special messages", () => {
@@ -199,83 +204,6 @@ describe("MidiOutputs FluidSynth independence", () => {
 
     const button = screen.getByRole("button", { name: "In use via Port" });
     expect(button.disabled).toBe(true);
-  });
-
-  it("updates OSC layer volume through the custom slider and persists locally on commit", () => {
-    const onChange = vi.fn();
-    const onOscLayerVolumeChange = vi.fn();
-
-    render(
-      <MidiOutputs
-        {...makeProps({
-          output_osc: true,
-          osc_volume_pluck: 0.72,
-        })}
-        onChange={onChange}
-        onOscLayerVolumeChange={onOscLayerVolumeChange}
-      />,
-    );
-
-    const slider = screen.getByRole("slider", { name: "Pluck volume" });
-    fireEvent.keyDown(slider, { key: "ArrowRight" });
-
-    expect(onOscLayerVolumeChange).toHaveBeenCalledWith(0, 0.73);
-    expect(onChange).not.toHaveBeenCalledWith("osc_volume_pluck", 0.73);
-
-    expect(onChange).not.toHaveBeenCalledWith("osc_volume_pluck", 0.73);
-    expect(localStorage.getItem("osc_volume_pluck")).toBe("0.73");
-    expect(sessionStorage.getItem("osc_volume_pluck")).toBe("0.73");
-  });
-
-  it("offers Retrigger but no retired Sustain toggle for Buzz and Formant", () => {
-    const onChange = vi.fn();
-    render(
-      <MidiOutputs
-        {...makeProps({
-          output_osc: true,
-          osc_sustain_buzz_formant: false,
-          osc_retrigger_buzz_formant: false,
-        })}
-        onChange={onChange}
-      />,
-    );
-
-    expect(screen.queryByRole("checkbox", { name: "Sustain Buzz + Formant until note-off" })).toBeNull();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Retrigger Buzz + Formant while held" }));
-
-    expect(onChange).toHaveBeenCalledWith("osc_retrigger_buzz_formant", true);
-    expect(localStorage.getItem("osc_retrigger_buzz_formant")).toBe("true");
-  });
-
-  it("offers the renamed Release Time control up to 2500 ms", () => {
-    render(
-      <MidiOutputs
-        {...makeProps({
-          output_osc: true,
-          osc_quick_release_time: 0.25,
-        })}
-      />,
-    );
-
-    const releaseTime = screen.getByLabelText("Release Time");
-    expect(releaseTime.getAttribute("aria-valuemax")).toBe("2.5");
-    expect(screen.queryByLabelText("Quick Release Time")).toBeNull();
-  });
-
-  it("labels the release envelope as a release-time override blend", () => {
-    render(
-      <MidiOutputs
-        {...makeProps({
-          output_osc: true,
-          osc_quick_release: 0.5,
-        })}
-      />,
-    );
-
-    expect(screen.getByLabelText("Release Override Amount")).toBeTruthy();
-    expect(screen.getByText("50%")).toBeTruthy();
-    expect(screen.getByText("Blend between velocity-based release and Release Time")).toBeTruthy();
-    expect(screen.queryByLabelText("Quick Release")).toBeNull();
   });
 
   it("shows Haken Continuum MPE output defaults as standard mode with 96-semitone bend range", () => {
