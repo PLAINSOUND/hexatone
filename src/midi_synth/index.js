@@ -9,6 +9,10 @@ import { buildTuningMapEntries } from "../tuning/tuning-map.js";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
 import { sendRpn } from "../midi/rpn.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
+import {
+  ensureFluidSynthEngineAwake,
+  forceFluidSynthEngineRebuild,
+} from "../fluidsynth_synth/index.js";
 
 function safeSend(midi_output, bytes) {
   if (!midi_output || typeof midi_output.send !== "function") return;
@@ -106,6 +110,17 @@ export const create_midi_synth = async ({
 
   return {
     family: "mts",
+    // The internal FluidSynth output is an AudioWorklet attached to the shared
+    // sample AudioContext. iOS recovery can replace that context, so expose its
+    // rebind/reload hook through the normal composite-synth lifecycle.
+    ensureAwake:
+      midi_output?.id === "hexatone-internal-fluidsynth"
+        ? ensureFluidSynthEngineAwake
+        : undefined,
+    forceAudioRebuild:
+      midi_output?.id === "hexatone-internal-fluidsynth"
+        ? forceFluidSynthEngineRebuild
+        : undefined,
     makeHex: (
       coords,
       cents,

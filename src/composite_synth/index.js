@@ -297,11 +297,20 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
     return Promise.all(wakeables.map((s) => (s.ensureAwake ? s.ensureAwake() : s.prepare())));
   },
 
-  forceAudioRebuild() {
-    const rebuildables = synths.filter((s) => s.forceAudioRebuild || s.prepare);
-    return Promise.all(
-      rebuildables.map((s) => (s.forceAudioRebuild ? s.forceAudioRebuild() : s.prepare())),
+  async forceAudioRebuild() {
+    // Rebuild the shared-context owner first. AudioWorklets such as the local
+    // FluidSynth backend must then rebind to the replacement context. Keep
+    // these phases ordered because recreating the context invalidates old nodes.
+    const contextOwner = synths.filter((s) => s.family === "sample" && s.forceAudioRebuild);
+    const rebuilders = synths.filter(
+      (s) => s.forceAudioRebuild && !contextOwner.includes(s),
     );
+    await Promise.all(contextOwner.map((s) => s.forceAudioRebuild()));
+    await Promise.all(rebuilders.map((s) => s.forceAudioRebuild()));
+    const wakeables = synths.filter(
+      (s) => !rebuilders.includes(s) && !contextOwner.includes(s) && (s.ensureAwake || s.prepare),
+    );
+    await Promise.all(wakeables.map((s) => (s.ensureAwake ? s.ensureAwake() : s.prepare())));
   },
 
   currentTime() {

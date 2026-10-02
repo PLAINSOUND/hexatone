@@ -17,3 +17,13 @@ export async function primeSharedSampleAudio() {
   const { primeSharedSampleAudio: prime } = await loadSampleSynthModule();
   return prime();
 }
+
+export async function recoverSharedAudioContext(options) {
+  const { recoverSharedAudioContext: recover } = await loadSampleSynthModule();
+  return recover(options);
+}
+
+export async function peekSharedAudioContext() {
+  const { peekSharedAudioContext: peek } = await loadSampleSynthModule();
+  return peek();
+}

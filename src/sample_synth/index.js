@@ -78,6 +78,42 @@ export const primeSharedSampleAudio = async () => {
   return sharedAudioContext;
 };
 
+export const peekSharedAudioContext = () => sharedAudioContext;
+
+// Explicit audio recovery is also used by AudioWorklet backends which share
+// this context but do not own a sample-synth instance. Honor iOS's stale
+// context flag before simply resuming the old graph.
+export const recoverSharedAudioContext = async ({ forceRecreate = false } = {}) => {
+  if (
+    isIOS &&
+    (iosForceRecreateOnPrepare || forceRecreate) &&
+    sharedAudioContext?.state !== "closed"
+  ) {
+    const staleContext = sharedAudioContext;
+    sharedAudioContext = null;
+    clearKeepAliveNode();
+    decodedBufferCache = {};
+    decodedBufferCacheContext = null;
+    try {
+      Promise.resolve(staleContext?.close()).catch((error) => {
+        warnLog("iOS: Failed to close stale AudioContext:", error.message);
+      });
+    } catch (error) {
+      warnLog("iOS: Failed to close stale AudioContext:", error.message);
+    }
+  }
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+    sharedAudioContext = createSharedAudioContext();
+    decodedBufferCache = {};
+    decodedBufferCacheContext = null;
+  }
+  if (sharedAudioContext.state === "suspended" || sharedAudioContext.state === "interrupted") {
+    await sharedAudioContext.resume();
+  }
+  ensureKeepAliveNode();
+  return sharedAudioContext;
+};
+
 const ensureKeepAliveNode = () => {
   if (!sharedAudioContext || sharedAudioContext.state === "closed") return;
   if (keepAliveSource && keepAliveGain) return;

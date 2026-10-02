@@ -448,4 +448,23 @@ describe("composite_synth controller-state replay", () => {
     expect(mpeHex.retune).toHaveBeenCalledWith(147, true);
     expect(mtsHex.sequenceRetune).toHaveBeenCalledWith(147);
   });
+
+  it("rebuilds the shared sample AudioContext before waking dependent outputs", async () => {
+    let contextReady = false;
+    const sampleRebuild = vi.fn(async () => {
+      contextReady = true;
+    });
+    const fluidsynthRebuild = vi.fn(async () => {
+      expect(contextReady).toBe(true);
+    });
+    const synth = create_composite_synth([
+      { family: "mts", forceAudioRebuild: fluidsynthRebuild },
+      { family: "sample", forceAudioRebuild: sampleRebuild },
+    ]);
+
+    await synth.forceAudioRebuild();
+
+    expect(sampleRebuild).toHaveBeenCalledOnce();
+    expect(fluidsynthRebuild).toHaveBeenCalledOnce();
+  });
 });

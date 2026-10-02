@@ -4,35 +4,149 @@
  * MIDI output so Hexatone can reuse its existing MTS allocator and note lifecycle.
  */
 
-import { primeSharedSampleAudio } from "../sample_synth/index.js";
+import {
+  peekSharedAudioContext,
+  primeSharedSampleAudio,
+  recoverSharedAudioContext,
+} from "../sample_synth/prime-shared-audio.js";
 import { warnLog } from "../debug/logging.js";
 
 let enginePromise = null;
 let engine = null;
 let pendingLoad = null;
+let wasmBytesPromise = null;
 
 const baseUrl = import.meta.env.BASE_URL || "/";
 
-const waitForMessage = (predicate, failOnError = false) =>
+const waitForMessage = (node, predicate, failOnError = false) =>
   new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      engine?.node.port.removeEventListener("message", onMessage);
+      node.port.removeEventListener("message", onMessage);
       reject(new Error("FluidSynth AudioWorklet did not respond in time"));
     }, 30000);
     const onMessage = ({ data }) => {
       if (data?.type === "error" && failOnError) {
         clearTimeout(timeout);
-        engine?.node.port.removeEventListener("message", onMessage);
+        node.port.removeEventListener("message", onMessage);
         reject(new Error(data.message || "FluidSynth AudioWorklet failed"));
       } else if (predicate(data)) {
         clearTimeout(timeout);
-        engine?.node.port.removeEventListener("message", onMessage);
+        node.port.removeEventListener("message", onMessage);
         resolve(data);
       }
     };
-    engine?.node.port.addEventListener("message", onMessage);
-    engine?.node.port.start();
+    node.port.addEventListener("message", onMessage);
+    node.port.start();
   });
+
+async function createWorkletNode(context) {
+  wasmBytesPromise ??= (async () => {
+    const wasmUrl = `${baseUrl}fluidsynth/fluidsynth.wasm`;
+    let response;
+    try {
+      response = await fetch(wasmUrl);
+    } catch (error) {
+      throw new Error(`Could not fetch FluidSynth WASM from ${wasmUrl}: ${error.message}`, {
+        cause: error,
+      });
+    }
+    if (!response.ok) {
+      throw new Error(`FluidSynth WASM request failed (${response.status}): ${wasmUrl}`);
+    }
+    return response.arrayBuffer();
+  })();
+  const wasmBytes = await wasmBytesPromise;
+  const processorUrl = `${baseUrl}fluidsynth/processor.js`;
+  try {
+    await context.audioWorklet.addModule(processorUrl);
+  } catch (error) {
+    throw new Error(`Could not load FluidSynth AudioWorklet module ${processorUrl}: ${error.message}`, {
+      cause: error,
+    });
+  }
+  const node = new AudioWorkletNode(context, "hexatone-fluidsynth", {
+    numberOfInputs: 0,
+    numberOfOutputs: 1,
+    outputChannelCount: [2],
+    processorOptions: { wasmBytes },
+  });
+  const ready = waitForMessage(node, (message) => message?.type === "ready", true);
+  node.connect(context.destination);
+  node.onprocessorerror = () => warnLog("FluidSynth AudioWorklet processor error");
+  await ready;
+  return node;
+}
+
+async function installSoundFont(active, source, preset = null) {
+  const replacing = active.soundfontId != null;
+  const bytes = await source.arrayBuffer();
+  const loaded = waitForMessage(
+    active.node,
+    (message) => message?.type === "soundfont-loaded",
+    true,
+  );
+  active.node.port.postMessage(
+    { type: replacing ? "replace-soundfont" : "load-soundfont", bytes },
+    [bytes],
+  );
+  const result = await loaded;
+  active.soundfontId = result.soundfontId;
+  active.presets = result.presets || [];
+  const selected = active.presets.find(
+    (item) => item.bank === preset?.bank && item.program === preset?.program,
+  ) ?? active.presets[0];
+  if (selected) active.selectPreset(selected);
+  active.setVolume(active.volume);
+  return result;
+}
+
+async function rebindEngineToContext(context) {
+  const nextNode = await createWorkletNode(context);
+  const oldNode = engine.node;
+  oldNode?.disconnect?.();
+  try {
+    oldNode?.port?.close?.();
+  } catch {
+    // The old AudioContext may already have closed its message port.
+  }
+  engine.context = context;
+  engine.node = nextNode;
+  if (engine.soundfontSource) {
+    const previousPreset = engine.selectedPreset;
+    engine.soundfontId = null;
+    engine.presets = [];
+    engine.selectedPreset = null;
+    await installSoundFont(engine, engine.soundfontSource, previousPreset);
+  }
+}
+
+export async function ensureFluidSynthEngineAwake() {
+  if (!engine) return false;
+  const context = await recoverSharedAudioContext();
+  if (context.state !== "running") await context.resume();
+  if (engine.context === context && engine.node && context.state === "running") {
+    if (engine.soundfontSource && engine.soundfontId == null) {
+      await installSoundFont(engine, engine.soundfontSource, engine.selectedPreset);
+    }
+    return true;
+  }
+  await rebindEngineToContext(context);
+  return context.state === "running";
+}
+
+export async function forceFluidSynthEngineRebuild() {
+  if (!engine) return false;
+  const currentContext = await peekSharedAudioContext();
+  // If another backend has already replaced the shared context, only rebind
+  // FluidSynth. Otherwise this is a FluidSynth-only graph, so request the same
+  // explicit iOS context recreation the sample backend performs.
+  const contextWasAlreadyRebuilt = engine.context !== currentContext;
+  const context = await recoverSharedAudioContext({ forceRecreate: !contextWasAlreadyRebuilt });
+  if (context !== engine.context || !engine.node || context.state !== "running") {
+    await rebindEngineToContext(context);
+  }
+  return context.state === "running";
+}
 
 export async function getFluidSynthEngine() {
   if (engine) return engine;
@@ -46,40 +160,15 @@ export async function getFluidSynthEngine() {
           cause: error,
         });
       }
-      const wasmUrl = `${baseUrl}fluidsynth/fluidsynth.wasm`;
-      let response;
-      try {
-        response = await fetch(wasmUrl);
-      } catch (error) {
-        throw new Error(`Could not fetch FluidSynth WASM from ${wasmUrl}: ${error.message}`, {
-          cause: error,
-        });
-      }
-      if (!response.ok) {
-        throw new Error(`FluidSynth WASM request failed (${response.status}): ${wasmUrl}`);
-      }
-      const wasmBytes = await response.arrayBuffer();
-      const processorUrl = `${baseUrl}fluidsynth/processor.js`;
-      try {
-        await context.audioWorklet.addModule(processorUrl);
-      } catch (error) {
-        throw new Error(`Could not load FluidSynth AudioWorklet module ${processorUrl}: ${error.message}`, {
-          cause: error,
-        });
-      }
-      const node = new AudioWorkletNode(context, "hexatone-fluidsynth", {
-        numberOfInputs: 0,
-        numberOfOutputs: 1,
-        outputChannelCount: [2],
-        processorOptions: { wasmBytes },
-      });
-      engine = { context, node, soundfontId: null, presets: [], selectedPreset: null, volume: 100 };
-      const ready = waitForMessage((message) => message?.type === "ready", true);
-      node.connect(context.destination);
-      node.onprocessorerror = () => {
-        warnLog("FluidSynth AudioWorklet processor error");
+      engine = {
+        context,
+        node: await createWorkletNode(context),
+        soundfontId: null,
+        presets: [],
+        selectedPreset: null,
+        soundfontSource: null,
+        volume: 100,
       };
-      await ready;
 
       engine.output = {
         id: "hexatone-internal-fluidsynth",
@@ -88,6 +177,7 @@ export async function getFluidSynthEngine() {
           if (!engine?.node || !data?.length) return;
           engine.node.port.postMessage({ type: "midi", data: Array.from(data) });
         },
+        ensureAwake: ensureFluidSynthEngineAwake,
       };
       engine.setVolume = (value) => {
         engine.volume = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
@@ -121,13 +211,22 @@ export async function loadFluidSynthSoundFont(
   const active = await getFluidSynthEngine();
   if (pendingLoad) return pendingLoad;
   pendingLoad = (async () => {
-    const replacing = active.soundfontId != null;
-    const bytes = await file.arrayBuffer(onDownloadProgress);
+    // Keep the File/hosted source object, not another copy of the potentially
+    // large bank bytes. iOS may replace the shared AudioContext on recovery,
+    // requiring a fresh worklet synth and SoundFont load.
+    const source = file;
+    const bytes = await source.arrayBuffer(onDownloadProgress);
     onDownloadComplete?.();
+    const replacing = active.soundfontId != null;
+    const previousPreset = active.selectedPreset;
     active.soundfontId = null;
     active.presets = [];
     active.selectedPreset = null;
-    const loaded = waitForMessage((message) => message?.type === "soundfont-loaded", true);
+    const loaded = waitForMessage(
+      active.node,
+      (message) => message?.type === "soundfont-loaded",
+      true,
+    );
     active.node.port.postMessage(
       { type: replacing ? "replace-soundfont" : "load-soundfont", bytes },
       [bytes],
@@ -136,13 +235,18 @@ export async function loadFluidSynthSoundFont(
       const result = await loaded;
       active.soundfontId = result.soundfontId;
       active.presets = result.presets || [];
-      if (active.presets.length) active.selectPreset(active.presets[0]);
+      active.soundfontSource = source;
+      const selected = active.presets.find(
+        (item) => item.bank === previousPreset?.bank && item.program === previousPreset?.program,
+      ) ?? active.presets[0];
+      if (selected) active.selectPreset(selected);
       active.setVolume(active.volume);
       return result;
     } catch (error) {
       active.soundfontId = null;
       active.presets = [];
       active.selectedPreset = null;
+      active.soundfontSource = null;
       throw error;
     }
   })().finally(() => {
