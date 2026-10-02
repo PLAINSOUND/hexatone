@@ -22,7 +22,7 @@ below, test them, then run `node tools/supersonic/package-assets.mjs` and commit
 the updated vendor bundle/manifest together with the source edits. Run staging
 again before testing the integrated output. Generated working files remain ignored.
 
-Enable **OSC → SuperCollider** in I/O. **Local SuperSonic
+Enable **OSC** in I/O. **Local SuperSonic
 (experimental)** and Retrigger default on; raster-only release defaults off.
 The four layer faders, quick-release and retrigger
 controls are shared with the external backend. Unchecking restores the external

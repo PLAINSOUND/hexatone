@@ -1,4 +1,4 @@
-#set synth.sample-rate 48000
+set synth.sample-rate 48000
 set audio.sample-format 24bits
 set audio.file.format s24
 set audio.period-size 64
@@ -15,7 +15,7 @@ set audio.coreaudio.device default
 #set audio.wasapi.device "Line Out 3-4 (RME Fireface UCX)"
 #set audio.wasapi.device "Default"
 
-#set midi.winmidi.device 11
+#set midi.winmidi.device 1
 
 #set synth.verbose "True"
 set synth.gain 1

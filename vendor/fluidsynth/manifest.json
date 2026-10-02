@@ -1,0 +1,34 @@
+{
+  "version": "2.6.1-plainsound-wasm-audioworklet",
+  "source": {
+    "repository": "https://github.com/PLAINSOUND/fluidsynth",
+    "upstreamRepository": "https://github.com/FluidSynth/fluidsynth",
+    "revision": "71e85b2ca6bf48641ba7e2261d8f2640ae473773",
+    "release": "v2.6.1",
+    "patches": [
+      "sources/emscripten-cxx17.patch"
+    ],
+    "submodules": {
+      "gcem": "012ae73c6d0a2cb09ffe86475f5c6fba3926e200",
+      "signalsmith-audio-basics": "012d2be17b0eb6839628f8c73687c4ccccc1bb01"
+    },
+    "toolchain": {
+      "emscripten": "4.0.21",
+      "cmake": "4.4.3"
+    }
+  },
+  "files": {
+    "README.md": "5f16e958d8ba37c72777af07f63c77348f894fbf5c747fac5033e55b51be4e50",
+    "fluidsynth.js": "8cc4906007c32d75fec2f7586d8ee4c5893dbca5a1186184c4d21cce2f8308d3",
+    "fluidsynth.wasm": "f9ec8d85754d79fa031a9fa84cf042fac3d1e217ceee8c8995ba0128df816279",
+    "licenses/FLUIDSYNTH-LGPL-2.1.txt": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95",
+    "licenses/GCEM-APACHE-2.0.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+    "licenses/SIGNALSMITH-MIT.txt": "b81eab3abab58e20eb74c74e70b8f3cbf7160ae3b3f1951b8f5e6692b52d10b5",
+    "processor.js": "0ad7b6a09f6092e6a547ef365a181b90c3bb39465b57ec932166f27f2bb6fa06",
+    "sources/adapter_core.cpp": "688d143edfbaaa5c4e10a08889f3b520cc35ec139c1e798d5a9d663df60c1a86",
+    "sources/emscripten-cxx17.patch": "71b1b33e85e1fb8c54cf9436fc98dacd0e7116f7eed6f6d03b46612f020b134a",
+    "sources/fluidsynth-2.6.1-71e85b2.tar.gz": "188840c6bb017405e596f0e9dc09f55684559e3fe00ce255652bae2951a619cc",
+    "sources/gcem-012ae73.tar.gz": "e289e5d6e793bb70b54bd5302256b46b26fb3180dd862e75e5dd421e6d4c8c1f",
+    "sources/signalsmith-audio-basics-012d2be.tar.gz": "610b10d909731508d2b8326a387d723c49e69ff966cd586d4c19fd3e7fee1071"
+  }
+}

@@ -14,6 +14,7 @@ tools/supersonic/generated/
 tools/supersonic/upstream/
 tools/supersonic/sc3-plugins/
 public/supersonic/
+public/fluidsynth/
 
 # Yarn 4
 .yarn/cache/
