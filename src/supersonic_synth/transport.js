@@ -3,7 +3,6 @@
  * This transport exclusively owns its engine; panic may clear its scheduler.
  */
 import { warnLog } from "../debug/logging.js";
-import { recordWindowsEvent } from "../dev/windows-performance.js";
 
 // Retiring engines no longer belong to the active output graph, but PANIC
 // must still reach them. Bound overlap during repeated output toggles.
@@ -35,7 +34,6 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     if (closed) return;
     if (purging) { pending.push([address, args, timestamp]); return; }
     const delay = Number.isFinite(timestamp) ? (timestamp - performance.now()) / 1000 : 0;
-    recordWindowsEvent(`osc:${address}`);
     if (delay > 0) sonic.sendOSC(encodeBundle(sonic.clock.now() + delay, [[address, ...args]]));
     else sonic.send(address, ...args);
   };

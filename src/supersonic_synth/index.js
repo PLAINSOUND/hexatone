@@ -5,21 +5,18 @@
 import { create_osc_synth } from "../osc_synth/index.js";
 import { createLocalOscTransport } from "./transport.js";
 import { warnLog } from "../debug/logging.js";
-import { registerWindowsBackend, recordWindowsEvent } from "../dev/windows-performance.js";
 
 export async function create_supersonic_synth(...args) {
   const base = new URL(`${import.meta.env.BASE_URL}supersonic/`, location.href).href;
   let sonic;
   let context;
   let disposed = false;
-  let unregisterDiagnostics;
   const wake = () => {
     if (context && context.state !== "closed") void context.resume().catch(() => {});
   };
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    unregisterDiagnostics?.();
     document.removeEventListener("pointerdown", wake, true);
     document.removeEventListener("keydown", wake, true);
     void Promise.resolve(sonic?.destroy()).catch(error => warnLog("SuperSonic shutdown:", error));
@@ -40,8 +37,6 @@ export async function create_supersonic_synth(...args) {
       scsynthOptions: { maxNodes: 4096, realTimeMemorySize: 64 * 1024 } });
     let failure = null;
     sonic.on("in", msg => {
-      if (msg[0] === "/fail") recordWindowsEvent("supersonic:fail", { message: msg.slice(1) });
-      if (msg[0] === "/n_end") recordWindowsEvent("supersonic:node-end");
       if (msg[0] === "/fail" && msg[1] === "/d_recv") failure = msg[2];
     });
     await sonic.init();
@@ -56,7 +51,6 @@ export async function create_supersonic_synth(...args) {
       if (failure) throw new Error(failure);
     }
     const transport = createLocalOscTransport(sonic, SuperSonic.osc.encodeBundle, dispose);
-    unregisterDiagnostics = registerWindowsBackend(() => transport.getDiagnostics());
     args[10] = { ...args[10], transport };
     return await create_osc_synth(...args);
   } catch (error) {

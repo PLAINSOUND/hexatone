@@ -12,7 +12,6 @@ import MIDIio from "./midi";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
 import SuperColliderSettings from "./supercollider-settings.jsx";
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
-import WindowsDiagnostics from "./windows-diagnostics.jsx";
 
 const IOSettings = ({
   showActivateAudioContext,
@@ -71,7 +70,6 @@ const IOSettings = ({
         onVolumeChange={onVolumeChange}
       />
       <FluidSynthSettings settings={settings} onChange={onChange} />
-      {settings.output_osc && settings.osc_local && <WindowsDiagnostics settings={settings} />}
       <SuperColliderSettings
         settings={settings}
         onChange={onChange}
