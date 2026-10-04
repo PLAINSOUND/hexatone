@@ -222,6 +222,8 @@ const FluidSynthSettings = ({ settings, onChange }) => {
         />
       </label>
 
+      {settings.output_fluidsynth && (
+        <>
       <p class="settings-form__intro-copy">
         <em>
           Hexatone SoundFont banks are fetched from soundfonts.plainsound.org. Alternately, choose a
@@ -292,8 +294,6 @@ const FluidSynthSettings = ({ settings, onChange }) => {
         </div>
       </div>
 
-      {settings.output_fluidsynth && (
-        <>
           <label>
             Preset
             <select
@@ -330,8 +330,6 @@ const FluidSynthSettings = ({ settings, onChange }) => {
               <span class="settings-form__range-value">{volume}</span>
             </span>
           </label>
-        </>
-      )}
       
       {busy && loadingProgress ? (
         <div
@@ -368,6 +366,8 @@ const FluidSynthSettings = ({ settings, onChange }) => {
           {status}
         </p>
       ) : null}
+        </>
+      )}
     </fieldset>
   );
 };

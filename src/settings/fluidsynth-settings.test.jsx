@@ -17,7 +17,7 @@ describe("FluidSynth settings", () => {
   it("remembers the last hosted bank after refresh and loads it without reselection", async () => {
     localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrganGedackt.sf2");
     fluidsynthMock.load.mockResolvedValue({ presets: [{ bank: 0, program: 0 }] });
-    render(<FluidSynthSettings settings={{}} onChange={vi.fn()} />);
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
     const menu = screen.getByLabelText("Hexatone FluidSynth SoundFont");
     expect(menu.value).toBe("PlainsoundOrganGedackt.sf2");
     expect(menu.style.color).toBeTruthy();
@@ -55,13 +55,13 @@ describe("FluidSynth settings", () => {
     fluidsynthMock.listeners.clear();
   });
 
-  it("keeps SoundFont loading available while collapsed and reveals playback controls when enabled", () => {
+  it("hides all SoundFont controls while disabled and reveals them when enabled", () => {
     const onChange = vi.fn();
     const { rerender } = render(<FluidSynthSettings settings={{}} onChange={onChange} />);
 
-    expect(screen.getByLabelText("Hexatone FluidSynth SoundFont")).toBeTruthy();
-    expect(screen.getByLabelText("FluidSynth SoundFont")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Choose Local File" })).toBeTruthy();
+    expect(screen.queryByLabelText("Hexatone FluidSynth SoundFont")).toBeNull();
+    expect(screen.queryByLabelText("FluidSynth SoundFont")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Choose Local File" })).toBeNull();
     expect(screen.queryByLabelText("FluidSynth preset")).toBeNull();
     expect(screen.queryByRole("slider", { name: "FluidSynth volume" })).toBeNull();
     expect(screen.getByLabelText("Use FluidSynth output").checked).toBe(false);
