@@ -76,7 +76,7 @@ describe("SuperCollider scsynth settings", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Release Time").getAttribute("aria-valuemax")).toBe("2.5");
+    expect(screen.getByLabelText("Release Time").getAttribute("aria-valuemax")).toBe("2");
     expect(screen.getByLabelText("Release Override Amount")).toBeTruthy();
     expect(screen.getByText("50%")).toBeTruthy();
     expect(screen.getByText("Blend between velocity-based release and Release Time")).toBeTruthy();

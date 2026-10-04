@@ -36,8 +36,8 @@ export async function create_supersonic_synth(...args) {
     sonic = new SuperSonic({ baseURL: `${base}client/`, coreBaseURL: `${base}core/`,
       mode: "postMessage", audioContext: context,
       // scsynth expresses this pool in KB. Give overlapping release tails
-      // 256 MB of synthesis memory instead of the engine's 8 MB default.
-      scsynthOptions: { maxNodes: 4096, realTimeMemorySize: 256 * 1024 } });
+      // 64 MB of synthesis memory instead of the engine's 8 MB default.
+      scsynthOptions: { maxNodes: 4096, realTimeMemorySize: 64 * 1024 } });
     let failure = null;
     sonic.on("in", msg => {
       if (msg[0] === "/fail") recordWindowsEvent("supersonic:fail", { message: msg.slice(1) });
