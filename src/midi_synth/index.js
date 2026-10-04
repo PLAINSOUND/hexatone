@@ -4,6 +4,7 @@
 // sequencing against external MIDI devices. It does not resolve keyboard input.
 
 import { VoicePool } from "../polyphony/voice-pool-nearest";
+import { createInternalVoiceSynth } from "../fluidsynth_synth/voices.js";
 import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
 import { buildTuningMapEntries } from "../tuning/tuning-map.js";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
@@ -30,6 +31,10 @@ export const create_midi_synth = async ({
   legacyInput,
   getDynamicBulkConfig = null,
 }) => {
+  if (outputMode.output?.sendCommand) {
+    return createInternalVoiceSynth({ outputMode, tuningContext,
+      ensureAwake: ensureFluidSynthEngineAwake, forceAudioRebuild: forceFluidSynthEngineRebuild });
+  }
   const {
     output: midi_output,
     channel,
@@ -385,6 +390,7 @@ function MidiHex(
 }
 
 MidiHex.prototype.noteOn = function (timestamp) {
+  this._lastSentMts = this.mts.join(",");
   if (this.mts.length > 0) {
     // F0 <rt> <device_id> 08 02 00 01 <slot> <note> <fine_msb> <fine_lsb> F7
     // rt: single-note real-time MUST always be 0x7F (not affected by sysex_type setting)
@@ -574,6 +580,10 @@ MidiHex.prototype._sendMtsTuning = function (cents) {
   if (fine === 16384) fine = 16383;
   this.mts[2] = (fine & 16383) >> 7;
   this.mts[3] = fine & 127;
+
+  const encoded = this.mts.join(",");
+  if (encoded === this._lastSentMts) return;
+  this._lastSentMts = encoded;
 
   // Send real-time single-note tuning message
   this.midi_output.send([

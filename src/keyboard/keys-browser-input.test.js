@@ -138,6 +138,22 @@ describe("canvas touch input", () => {
     expect(keys.state.isTouchDown).toBe(false);
   });
 
+  it("gracefully releases active canvas contacts when the page is backgrounded", async () => {
+    const keys = makeKeys();
+    await input.handleTouch.call(keys, event(touch(1), touch(2, 25)));
+    const first = keys.state.activeTouch.get(1);
+    const second = keys.state.activeTouch.get(2);
+
+    input.releaseActiveBrowserNotes.call(keys);
+
+    expect(first.noteOff).toHaveBeenCalledOnce();
+    expect(second.noteOff).toHaveBeenCalledOnce();
+    expect(keys.state.activeTouch.size).toBe(0);
+    expect(keys.state.touchCoords.size).toBe(0);
+    expect(keys.state.isTouchDown).toBe(false);
+    expect(keys._settleModulationAfterActiveRelease).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps simultaneous pointer contacts on the canvas and releases them independently", () => {
     const keys = makeKeys();
     const canvas = keys.state.canvas;

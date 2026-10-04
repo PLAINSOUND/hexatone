@@ -10,7 +10,6 @@ import { WebMidi } from "webmidi";
 import { notes } from "../midi_synth";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import { debugLog } from "../debug/logging.js";
-import { recordLiveAudioDiagnostic } from "../dev/live-audio-diagnostics.js";
 import { allowsContinuumPerformanceCC } from "../controllers/continuum-cc-policy.js";
 import { withMidiJitterInput } from "../debug/midi-jitter.js";
 import {
@@ -694,7 +693,6 @@ export function setupMidiInput() {
       this._midiLearnCcCallback = null; // set by setMidiCcLearnMode()
 
       this.midiin_data.addListener("noteon", (e) => {
-        recordLiveAudioDiagnostic("midi:noteOn", { channel: e.message.channel });
         void withMidiJitterInput(
           "noteOnIn",
           { channel: e.message.channel, note: e.note.number, value: e.note.rawAttack },
@@ -742,7 +740,6 @@ export function setupMidiInput() {
       });
 
       this.midiin_data.addListener("noteoff", (e) => {
-        recordLiveAudioDiagnostic("midi:noteOff", { channel: e.message.channel });
         withMidiJitterInput(
           "noteOffIn",
           { channel: e.message.channel, note: e.note.number, value: e.note.rawRelease },
@@ -780,7 +777,6 @@ export function setupMidiInput() {
       });
 
       this.midiin_data.addListener("keyaftertouch", (e) => {
-        recordLiveAudioDiagnostic("midi:keyAftertouch", { channel: e.message.channel });
         withMidiJitterInput(
           "keyAftertouchIn",
           {
@@ -824,7 +820,6 @@ export function setupMidiInput() {
       this._linnUfXReleaseState = new Map(); // low-pressure release tracking to avoid snap-back before note-off
       this._linnUfXInitPending = new Set();
       this.midiin_data.addListener("controlchange", (e) => {
-        recordLiveAudioDiagnostic("midi:cc", { channel: e.message.channel, cc: e.message.dataBytes[0] });
         withMidiJitterInput(
           "ccIn",
           { channel: e.message.channel, cc: e.message.dataBytes[0], value: e.message.dataBytes[1] },
@@ -1003,7 +998,6 @@ export function setupMidiInput() {
 
       // Universal channel-pressure (aftertouch) listener.
       this.midiin_data.addListener("channelaftertouch", (e) => {
-        recordLiveAudioDiagnostic("midi:channelPressure", { channel: e.message.channel });
         withMidiJitterInput(
           "channelAftertouchIn",
           { channel: e.message.channel, value: e.message.dataBytes[0] },
@@ -1085,7 +1079,6 @@ export function setupMidiInput() {
 
       // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
       this.midiin_data.addListener("pitchbend", (e) => {
-        recordLiveAudioDiagnostic("midi:pitchBend", { channel: e.message.channel });
         withMidiJitterInput(
           "pitchbendIn",
           {

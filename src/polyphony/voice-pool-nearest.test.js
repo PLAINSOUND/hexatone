@@ -21,4 +21,5 @@ describe("nearest-note voice ownership", () => {
     expect(pool.noteOff(coords, pointerTrigger)).toBe(pointer.slot);
     expect(pool.activeCount).toBe(0);
   });
+
 });

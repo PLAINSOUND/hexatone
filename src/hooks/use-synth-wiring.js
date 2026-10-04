@@ -1165,9 +1165,8 @@ const useSynthWiring = (
         // held notes detach obsolete children instead of retaining a dead graph.
         const s = create_composite_synth(validSynths, retiringSampleSynthsRef.current);
         if (s.setVolume) {
-          const muted = localStorage.getItem("synth_muted") === "true";
           const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
-          s.setVolume(muted ? 0 : volume);
+          s.setVolume(volume);
         }
         // Reconcile before publishing React state. No await may separate these
         // steps: another build must not interleave with this handoff.
@@ -1213,6 +1212,7 @@ const useSynthWiring = (
     settings.midi_mapping,
     settings.midi_velocity,
     settings.midi_wheel_semitones,
+    settings.midiin_scale_bend_range,
     settings.device_id,
     settings.tuning_map_number,
     settings.output_sample,
@@ -1326,9 +1326,8 @@ const useSynthWiring = (
   useEffect(() => {
     synthRef.current = synth;
     if (synth?.setVolume) {
-      const muted = localStorage.getItem("synth_muted") === "true";
       const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
-      synth.setVolume(muted ? 0 : volume);
+      synth.setVolume(volume);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [synth]); // synthRef is a stable ref, intentionally omitted
@@ -1517,9 +1516,9 @@ const useSynthWiring = (
 
   // ── Volume / anchor learn ───────────────────────────────────────────────────
 
-  const onVolumeChange = useCallback((volume, muted) => {
+  const onVolumeChange = useCallback((volume) => {
     if (synthRef.current && synthRef.current.setVolume) {
-      synthRef.current.setVolume(muted ? 0 : volume);
+      synthRef.current.setVolume(volume);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- synthRef is a stable ref
   }, []);

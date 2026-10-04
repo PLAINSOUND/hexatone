@@ -1,11 +1,16 @@
 /** FluidSynth browser backend controls: local SoundFont, enumerated preset and level. */
 
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import CustomRangeSlider from "./shared/range-slider.jsx";
-import { loadFluidSynthSoundFont, peekFluidSynthEngine } from "../fluidsynth_synth/index.js";
+import {
+  loadFluidSynthSoundFont,
+  peekFluidSynthEngine,
+  subscribeFluidSynthEngine,
+} from "../fluidsynth_synth/index.js";
 
 const VOLUME_KEY = "fluidsynth_internal_volume";
+const LAST_BANK_KEY = "fluidsynth_last_hosted_soundfont";
 const HOSTED_SOUNDFONTS = [
   "PlainsoundOrgan.sf2",
   "PlainsoundOrganGedackt.sf2",
@@ -60,14 +65,38 @@ async function readResponseWithProgress(response, onProgress) {
 const FluidSynthSettings = ({ settings, onChange }) => {
   const [presets, setPresets] = useState(() => peekFluidSynthEngine()?.presets ?? []);
   const [soundfontName, setSoundfontName] = useState("");
-  const [hostedSoundfont, setHostedSoundfont] = useState("");
+  const [hostedSoundfont, setHostedSoundfont] = useState(() => {
+    const sourceName = peekFluidSynthEngine()?.soundfontSource?.name;
+    const remembered = localStorage.getItem(LAST_BANK_KEY);
+    return HOSTED_SOUNDFONTS.includes(sourceName) ? sourceName
+      : HOSTED_SOUNDFONTS.includes(remembered) ? remembered : "";
+  });
   const [volume, setVolume] = useState(readVolume);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(null);
   const localFileInputRef = useRef(null);
+  const downloadControllerRef = useRef(null);
+  const loadGenerationRef = useRef(0);
   const activeEngine = peekFluidSynthEngine();
-  const loaded = !!activeEngine?.soundfontId && presets.length > 0;
+  useEffect(() => {
+    const syncEngineState = (nextEngine = peekFluidSynthEngine()) => {
+      setPresets(nextEngine?.presets ?? []);
+      if (nextEngine?.soundfontSource?.name) {
+        setSoundfontName(nextEngine.soundfontSource.name);
+        setHostedSoundfont(
+          HOSTED_SOUNDFONTS.includes(nextEngine.soundfontSource.name)
+            ? nextEngine.soundfontSource.name
+            : "",
+        );
+      } else if (nextEngine?.soundfontId == null) {
+        setSoundfontName("");
+      }
+    };
+    syncEngineState();
+    return subscribeFluidSynthEngine(syncEngineState);
+  }, []);
+  const loaded = activeEngine?.soundfontId != null && presets.length > 0;
   const selectedPreset = settings.fluidsynth_preset || "0:0";
 
   const changeVolume = (nextValue) => {
@@ -78,8 +107,10 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     peekFluidSynthEngine()?.setVolume(next);
   };
 
-  const loadSoundFont = async (source) => {
+  const loadSoundFont = async (source, signal) => {
     if (!source) return;
+    const generation = ++loadGenerationRef.current;
+    const current = () => generation === loadGenerationRef.current;
     setBusy(true);
     setStatus(`${loaded ? "Replacing" : "Loading"} ${source.name}…`);
     setLoadingProgress({
@@ -90,18 +121,25 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     });
     try {
       const result = await loadFluidSynthSoundFont(source, {
+        signal,
         onDownloadProgress: ({ loaded: bytesLoaded, total }) => {
+          if (!current()) return;
           setLoadingProgress((current) => ({
             ...current,
             percent: total ? Math.min(100, Math.floor((bytesLoaded / total) * 100)) : null,
           }));
         },
-        onDownloadComplete: () =>
-          setLoadingProgress((current) => ({ ...current, percent: 100, phase: "Installing" })),
+        onDownloadComplete: () => {
+          if (current()) setLoadingProgress((progress) => ({ ...progress, percent: 100, phase: "Installing" }));
+        },
       });
+      if (!current()) return;
       const nextPresets = result.presets || [];
       setPresets(nextPresets);
       setSoundfontName(source.name);
+      if (source.url && HOSTED_SOUNDFONTS.includes(source.name)) {
+        localStorage.setItem(LAST_BANK_KEY, source.name);
+      }
       if (nextPresets.length) {
         const first = nextPresets[0];
         const value = `${first.bank}:${first.program}`;
@@ -114,6 +152,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       }
       peekFluidSynthEngine()?.setVolume(volume);
     } catch (error) {
+      if (!current() || error.name === "AbortError") return;
       setStatus(`SoundFont load failed: ${error.message}`);
       setPresets([]);
       setSoundfontName("");
@@ -123,8 +162,11 @@ const FluidSynthSettings = ({ settings, onChange }) => {
         (Number(settings.fluidsynth_runtime_revision) || 0) + 1,
       );
     } finally {
-      setBusy(false);
-      setLoadingProgress(null);
+      if (current()) {
+        setBusy(false);
+        setLoadingProgress(null);
+        downloadControllerRef.current = null;
+      }
     }
   };
 
@@ -141,17 +183,19 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     if (!hostedSoundfont) return;
     const name = hostedSoundfont;
     const url = new URL(encodeURIComponent(name), "https://soundfonts.plainsound.org/").href;
+    const controller = new AbortController();
+    downloadControllerRef.current = controller;
     void loadSoundFont({
       name,
       url,
       async arrayBuffer(onProgress) {
         // The soundfonts subdomain's document root already maps to the
         // webspace /soundfonts directory, so the URL path starts at /.
-        const response = await fetch(url, { mode: "cors" });
+        const response = await fetch(url, { mode: "cors", signal: controller.signal });
         if (!response.ok) throw new Error(`SoundFont download failed (${response.status})`);
         return readResponseWithProgress(response, onProgress);
       },
-    });
+    }, controller.signal);
   };
 
   const selectPreset = (event) => {
@@ -181,7 +225,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       <p class="settings-form__intro-copy">
         <em>
           Hexatone SoundFont banks are fetched from soundfonts.plainsound.org. Alternately, choose a
-          local file in .sf2 or .sf3 format. Hexatone sends MTS-format 14-bit tuning messages on map 0 to a local WedAssembly port of FluidSynth.</em>
+          local file in .sf2 or .sf3 format. The built-in WebAssembly player supports independent per-note tuning and expression.</em>
       </p>
 
       <label>
@@ -191,6 +235,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
           aria-label="Hexatone FluidSynth SoundFont"
           value={hostedSoundfont}
           disabled={busy}
+          style={!loaded && hostedSoundfont ? { color: "var(--muted-text, #888)" } : undefined}
           onChange={(event) => setHostedSoundfont(event.currentTarget.value)}
         >
           <option value="">Choose an instrument</option>
@@ -219,8 +264,19 @@ const FluidSynthSettings = ({ settings, onChange }) => {
           <button
             type="button"
             class="preset-action-btn"
-            disabled={busy}
-            onClick={() => localFileInputRef.current?.click()}
+            disabled={busy && loadingProgress?.phase !== "Downloading"}
+            onClick={() => {
+              if (downloadControllerRef.current && loadingProgress?.phase === "Downloading") {
+                ++loadGenerationRef.current;
+                downloadControllerRef.current.abort();
+                downloadControllerRef.current = null;
+                setBusy(false);
+                setLoadingProgress(null);
+                setStatus("Download cancelled.");
+              }
+              localFileInputRef.current.disabled = false;
+              localFileInputRef.current?.click();
+            }}
           >
             Choose Local File
           </button>
@@ -278,7 +334,11 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       )}
       
       {busy && loadingProgress ? (
-        <div class="settings-form__helper-text" role="status" aria-live="polite">
+        <div
+          class="settings-form__helper-text fluidsynth-settings__download-status"
+          role="status"
+          aria-live="polite"
+        >
           <p>
             {loadingProgress.phase} {loadingProgress.name}
             {loadingProgress.url ? (

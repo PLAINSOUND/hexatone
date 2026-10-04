@@ -15,6 +15,16 @@ let enginePromise = null;
 let engine = null;
 let pendingLoad = null;
 let wasmBytesPromise = null;
+const engineListeners = new Set();
+
+function notifyEngineListeners() {
+  engineListeners.forEach((listener) => listener(engine));
+}
+
+export function subscribeFluidSynthEngine(listener) {
+  engineListeners.add(listener);
+  return () => engineListeners.delete(listener);
+}
 
 const baseUrl = import.meta.env.BASE_URL || "/";
 
@@ -72,12 +82,18 @@ async function createWorkletNode(context) {
   });
   const ready = waitForMessage(node, (message) => message?.type === "ready", true);
   node.connect(context.destination);
-  node.onprocessorerror = () => warnLog("FluidSynth AudioWorklet processor error");
-  await ready;
+  node.onprocessorerror = () => {
+    warnLog("FluidSynth AudioWorklet processor error");
+  };
+  try { await ready; } catch (error) {
+    node.disconnect();
+    node.port.close();
+    throw error;
+  }
   return node;
 }
 
-async function installSoundFont(active, source, preset = null) {
+async function installSoundFont(active, source, preset = null, { notify = true } = {}) {
   const replacing = active.soundfontId != null;
   const bytes = await source.arrayBuffer();
   const loaded = waitForMessage(
@@ -97,27 +113,73 @@ async function installSoundFont(active, source, preset = null) {
   ) ?? active.presets[0];
   if (selected) active.selectPreset(selected);
   active.setVolume(active.volume);
+  if (notify) notifyEngineListeners();
   return result;
 }
 
 async function rebindEngineToContext(context) {
   const nextNode = await createWorkletNode(context);
   const oldNode = engine.node;
+  const source = engine.soundfontSource;
+  const previousPreset = engine.selectedPreset;
+
+  if (source) {
+    // Keep the current engine's visible/selected state intact while the new
+    // worklet loads. Some mobile browsers interrupt this longer operation.
+    const candidate = {
+      node: nextNode,
+      soundfontId: null,
+      presets: [],
+      selectedPreset: null,
+      volume: engine.volume,
+      selectPreset(preset) {
+        if (!preset || candidate.soundfontId == null) return;
+        candidate.selectedPreset = { bank: preset.bank, program: preset.program };
+        candidate.node.port.postMessage({
+          type: "select-program",
+          soundfontId: candidate.soundfontId,
+          bank: preset.bank,
+          program: preset.program,
+        });
+      },
+      setVolume(value) {
+        const volume = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
+        candidate.volume = volume;
+        candidate.node.port.postMessage({ type: "midi-batch", events:
+          Array.from({ length: 128 }, (_, channel) => ({
+            command: { channel, op: "cc", a: 7, b: volume },
+          })) });
+      },
+    };
+    try {
+      await installSoundFont(candidate, source, previousPreset, { notify: false });
+    } catch (error) {
+      nextNode.disconnect?.();
+      try {
+        nextNode.port.close?.();
+      } catch {
+        // The candidate worklet may already have failed or closed its port.
+      }
+      throw error;
+    }
+    engine.context = context;
+    engine.node = nextNode;
+    engine.soundfontId = candidate.soundfontId;
+    engine.presets = candidate.presets;
+    engine.selectedPreset = candidate.selectedPreset;
+    engine.volume = candidate.volume;
+  } else {
+    engine.context = context;
+    engine.node = nextNode;
+  }
+
   oldNode?.disconnect?.();
   try {
     oldNode?.port?.close?.();
   } catch {
     // The old AudioContext may already have closed its message port.
   }
-  engine.context = context;
-  engine.node = nextNode;
-  if (engine.soundfontSource) {
-    const previousPreset = engine.selectedPreset;
-    engine.soundfontId = null;
-    engine.presets = [];
-    engine.selectedPreset = null;
-    await installSoundFont(engine, engine.soundfontSource, previousPreset);
-  }
+  notifyEngineListeners();
 }
 
 export async function ensureFluidSynthEngineAwake() {
@@ -169,19 +231,40 @@ export async function getFluidSynthEngine() {
         soundfontSource: null,
         volume: 100,
       };
+      notifyEngineListeners();
 
+      let pendingMidi = [];
+      let midiFlushScheduled = false;
+      const enqueue = (event, timestamp) => {
+        if (!engine?.node) return;
+        const active = engine;
+        const frame = Math.ceil((active.context.currentTime +
+          (Number.isFinite(timestamp) ? Math.max(0, timestamp - performance.now()) / 1000 : 0)) * active.context.sampleRate);
+        pendingMidi.push({ ...event, frame });
+        if (midiFlushScheduled) return;
+        midiFlushScheduled = true;
+        queueMicrotask(() => {
+          midiFlushScheduled = false;
+          const events = pendingMidi;
+          pendingMidi = [];
+          if (engine === active) active.node.port.postMessage({ type: "midi-batch", events });
+        });
+      };
       engine.output = {
         id: "hexatone-internal-fluidsynth",
         name: "Hexatone FluidSynth",
-        send(data) {
+        sendCommand(command, timestamp) { enqueue({ command }, timestamp); },
+        send(data, timestamp) {
           if (!engine?.node || !data?.length) return;
-          engine.node.port.postMessage({ type: "midi", data: Array.from(data) });
+          enqueue({ data: Array.from(data) }, timestamp);
         },
         ensureAwake: ensureFluidSynthEngineAwake,
       };
       engine.setVolume = (value) => {
         engine.volume = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
-        engine.output.send([0xb0, 7, engine.volume]);
+        for (let channel = 0; channel < 128; channel++) {
+          engine.output.sendCommand({ channel, op: "cc", a: 7, b: engine.volume });
+        }
       };
       engine.selectPreset = (preset) => {
         if (!preset || engine.soundfontId == null) return;
@@ -205,17 +288,24 @@ export async function getFluidSynthEngine() {
 
 export async function loadFluidSynthSoundFont(
   file,
-  { onDownloadProgress, onDownloadComplete } = {},
+  { onDownloadProgress, onDownloadComplete, signal } = {},
 ) {
   if (!file) throw new Error("Choose a SoundFont file first");
   const active = await getFluidSynthEngine();
-  if (pendingLoad) return pendingLoad;
+  signal?.throwIfAborted();
+  if (pendingLoad) {
+    try { await pendingLoad; } catch (error) {
+      if (error.name !== "AbortError") throw error;
+    }
+    signal?.throwIfAborted();
+  }
   pendingLoad = (async () => {
     // Keep the File/hosted source object, not another copy of the potentially
     // large bank bytes. iOS may replace the shared AudioContext on recovery,
     // requiring a fresh worklet synth and SoundFont load.
     const source = file;
     const bytes = await source.arrayBuffer(onDownloadProgress);
+    signal?.throwIfAborted();
     onDownloadComplete?.();
     const replacing = active.soundfontId != null;
     const previousPreset = active.selectedPreset;
@@ -241,12 +331,14 @@ export async function loadFluidSynthSoundFont(
       ) ?? active.presets[0];
       if (selected) active.selectPreset(selected);
       active.setVolume(active.volume);
+      notifyEngineListeners();
       return result;
     } catch (error) {
       active.soundfontId = null;
       active.presets = [];
       active.selectedPreset = null;
       active.soundfontSource = null;
+      notifyEngineListeners();
       throw error;
     }
   })().finally(() => {

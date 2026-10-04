@@ -133,7 +133,9 @@ export function fluidSynthOutputConfig(settings, tuningRuntime, output, portIden
     isFluidsynthMirror: false,
     anchorNote: settings.midiin_anchor_note,
     sysexType: 127,
-    pitchBendRange: settings.midi_wheel_semitones ?? 2,
+    // Controller profiles already set the member-note range (Continuum: 96).
+    // The internal channel is a member voice, not the global wheel/manager.
+    pitchBendRange: settings.midiin_scale_bend_range ?? 48,
   };
   return mtsOutputConfig(settings, tuningRuntime, outputMode, portIdentity, null);
 }

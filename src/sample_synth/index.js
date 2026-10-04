@@ -404,6 +404,9 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
     return {
       family: "sample",
+      getDiagnostics: () => ({ family: "sample", retainedHexes: knownHexes.size,
+        audioContext: { state: sharedAudioContext?.state, sampleRate: sharedAudioContext?.sampleRate,
+          currentTime: sharedAudioContext?.currentTime, baseLatency: sharedAudioContext?.baseLatency } }),
       hasVoices: () => knownHexes.size > 0,
       // ── Call once after a user gesture (e.g. preset selection) ───────────────
       // Creates/resumes the AudioContext and decodes all samples so that noteOn

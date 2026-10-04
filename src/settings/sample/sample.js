@@ -9,7 +9,6 @@ import PropTypes from "prop-types";
 import CustomRangeSlider from "../shared/range-slider.jsx";
 
 const Sample = (props) => {
-  const [muted, setMuted] = useState(() => localStorage.getItem("synth_muted") === "true");
   const [volume, setVolume] = useState(
     () => parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0,
   );
@@ -18,15 +17,9 @@ const Sample = (props) => {
     const val = parseFloat(e.target.value);
     setVolume(val);
     localStorage.setItem("synth_volume", val);
-    if (props.onVolumeChange) props.onVolumeChange(val, muted);
+    if (props.onVolumeChange) props.onVolumeChange(val, false);
   };
 
-  const handleMute = (e) => {
-    const m = e.target.checked;
-    setMuted(m);
-    localStorage.setItem("synth_muted", m);
-    if (props.onVolumeChange) props.onVolumeChange(volume, m);
-  };
 
   return (
     <>
@@ -59,12 +52,6 @@ const Sample = (props) => {
           </span>
         </span>
       </label>
-      {
-        <label>
-          Mute
-          <input type="checkbox" name="synth_mute" checked={muted} onChange={handleMute} />
-        </label>
-      }
     </>
   );
 };

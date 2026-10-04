@@ -5,7 +5,6 @@
 import { create_osc_synth } from "../osc_synth/index.js";
 import { createLocalOscTransport } from "./transport.js";
 import { warnLog } from "../debug/logging.js";
-import { recordLiveAudioDiagnostic } from "../dev/live-audio-diagnostics.js";
 
 export async function create_supersonic_synth(...args) {
   const base = new URL(`${import.meta.env.BASE_URL}supersonic/`, location.href).href;
@@ -38,23 +37,6 @@ export async function create_supersonic_synth(...args) {
       if (msg[0] === "/fail" && msg[1] === "/d_recv") failure = msg[2];
     });
     await sonic.init();
-    globalThis.__hexatoneAudioDiagnostics?.setEngineProvider(() => {
-      try {
-        const metrics = sonic.getMetrics();
-        const tree = sonic.getRawTree();
-        return {
-          metrics,
-          nodes: { count: tree.nodeCount, droppedCount: tree.droppedCount },
-          systemReport: sonic.getSystemReport?.() ?? null,
-          audioContext: {
-            state: context.state,
-            sampleRate: context.sampleRate,
-            baseLatency: context.baseLatency,
-            outputLatency: context.outputLatency,
-          },
-        };
-      } catch (error) { return { metricsError: error.message }; }
-    });
     sonic.send("/notify", 1);
     for (const name of args[1] ?? ["pluck", "string", "formant", "tone"]) {
       if (!["pluck", "string", "formant", "tone"].includes(name)) {
@@ -66,7 +48,6 @@ export async function create_supersonic_synth(...args) {
       if (failure) throw new Error(failure);
     }
     const transport = createLocalOscTransport(sonic, SuperSonic.osc.encodeBundle, dispose);
-    recordLiveAudioDiagnostic("engine:ready", { backend: "supersonic" });
     args[10] = { ...args[10], transport };
     return await create_osc_synth(...args);
   } catch (error) {

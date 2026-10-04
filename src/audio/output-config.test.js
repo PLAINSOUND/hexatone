@@ -197,5 +197,10 @@ describe("output construction plans", () => {
       sysexType: 127,
     });
     expect(plan.args.tuningContext.scale).toBe(tuning.scale);
+    expect(plan.args.outputMode.pitchBendRange).toBe(48);
+    const continuum = fluidSynthOutputConfig({ ...settings, midiin_scale_bend_range: 96 },
+      runtime, output, createOutputPortIdentity());
+    expect(continuum.args.outputMode.pitchBendRange).toBe(96);
+    expect(continuum.key).not.toBe(plan.key);
   });
 });

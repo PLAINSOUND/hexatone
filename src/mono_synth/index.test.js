@@ -15,6 +15,26 @@ function setup(options = {}) {
   return { output, synth, note, ons, offs };
 }
 describe("monophonic MIDI output", () => {
+  it("sends no pitch bend or automatic RPN at range zero and rounds microtonal pitches", () => {
+    const output = { send: vi.fn() };
+    const synth = createMonoSynth({ output, bendRange: 0, portamento: true,
+      schedulerOptions: { worker: false } });
+    const note = pitch => synth.makeHex(null, (pitch - 69) * 100,
+      0, 0, 0, 0, 0, pitch, 90);
+    expect(output.send).not.toHaveBeenCalled();
+    const first = note(60.2), second = note(62.7);
+    first.noteOn();
+    second.noteOn();
+    second.retune((64.2 - 69) * 100);
+    second.aftertouch(80);
+    second.cc74(90);
+    second.noteOff();
+    first.noteOff();
+    synth.shutdown();
+    expect(output.send.mock.calls.filter(([bytes]) => (bytes[0] & 0xf0) === 0xe0)).toEqual([]);
+    expect(output.send.mock.calls.filter(([bytes]) => bytes[0] === 0x90).map(([bytes]) => bytes[1]))
+      .toEqual([60, 63, 64, 60]);
+  });
   it("selects the highest simultaneous pitch, then newer attacks, with grouped release fallback", () => {
     const { synth, note, ons } = setup();
     const high = note(76), low = note(60), middle = note(67), later = note(55);

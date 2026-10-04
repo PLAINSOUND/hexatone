@@ -61,7 +61,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
             </select>
           </label>
           <label>
-            PB Range (semitones)
+            PB Range (semitones; 0 = off)
             <input
               class="sidebar-input"
               type="text"
@@ -72,7 +72,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
               onChange={(e) =>
                 onSettingChange(
                   "mono_bend_range",
-                  Math.max(1, Math.min(96, Math.round(Number(e.target.value) || 2))),
+                  Math.max(0, Math.min(96, Math.round(Number(e.target.value) || 0))),
                 )
               }
             />
@@ -83,7 +83,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
               <button
                 type="button"
                 class="preset-action-btn"
-                disabled={!midi?.outputs.get(settings.mono_device)}
+                disabled={!midi?.outputs.get(settings.mono_device) || Number(settings.mono_bend_range ?? 2) === 0}
                 aria-label="Send Pitch Bend Range"
                 onClick={() => {
                   const output = midi?.outputs.get(settings.mono_device);

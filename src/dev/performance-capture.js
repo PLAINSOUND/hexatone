@@ -9,6 +9,7 @@ export function createPerformanceCapture(metadata, startedAt = new Date().toISOS
     },
     sample(value) {
       samples.push(clone(value));
+      if (samples.length > 1800) samples.shift();
     },
     updateSample(index, patch) {
       if (samples[index]) Object.assign(samples[index], patch);

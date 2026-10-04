@@ -2804,6 +2804,10 @@ class Keys {
     return KeysBrowserInput.handlePointerEnd.call(this, e);
   };
 
+  releaseActiveBrowserNotes = () => {
+    return KeysBrowserInput.releaseActiveBrowserNotes.call(this);
+  };
+
   // Helper: start a touch note at coords for the given touch identifier.
   // Handles latch-toggle (if the coord is already sustained, toggle it off
   // instead of playing a new note). Otherwise plays and stores in activeTouch.

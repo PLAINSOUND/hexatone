@@ -14,6 +14,10 @@ const clamp7 = (v) => Math.max(0, Math.min(127, Math.round(Number(v) || 0)));
 
 export function chooseMonoCarrier(pitches, range) {
   const active = pitches.at(-1);
+  if (range === 0) {
+    const note = Math.round(active);
+    return note >= 0 && note <= 127 ? note : null;
+  }
   let best = null;
   for (let note = 0; note < 128; note++) {
     if (Math.abs(active - note) > range) continue;
@@ -46,7 +50,8 @@ export function createMonoSynth({
   slideCc = 74,
   schedulerOptions,
 } = {}) {
-  const range = Math.max(1, Math.min(96, Math.round(Number(bendRange) || 2)));
+  const parsedRange = Number(bendRange);
+  const range = Math.max(0, Math.min(96, Math.round(Number.isFinite(parsedRange) ? parsedRange : 2)));
   channel = Math.max(0, Math.min(15, Math.round(Number(channel) || 0)));
   const stack = []; // Voice identities, not coordinates: repeated pitches remain distinct.
   let active = null;
@@ -68,7 +73,7 @@ export function createMonoSynth({
   const ramp = createMonoRamp(
     ([bend, y, z], at) => {
       const cc = normaliseSlideCc(slideCc);
-      sendExpression("bend", bend, [0xe0 + channel, bend & 127, bend >> 7], at);
+      if (range > 0) sendExpression("bend", bend, [0xe0 + channel, bend & 127, bend >> 7], at);
       sendExpression(`cc:${cc}`, y, [0xb0 + channel, cc, y], at);
       sendExpression("pressure", z, [0xd0 + channel, z], at);
     },
@@ -77,7 +82,7 @@ export function createMonoSynth({
   const pitch = (hex) =>
     69 + 12 * Math.log2(fundamental / 440) + (hex.cents - referenceCents) / 100;
   const values = (hex) => [
-    Math.max(0, Math.min(16383, Math.round(8192 + ((pitch(hex) - carrier) / range) * 8192))),
+    range === 0 ? 8192 : Math.max(0, Math.min(16383, Math.round(8192 + ((pitch(hex) - carrier) / range) * 8192))),
     hex.y,
     hex.z,
   ];
@@ -98,8 +103,9 @@ export function createMonoSynth({
       return;
     }
     const changed = next !== active;
-    const bendable = carrier != null && Math.abs(pitch(next) - carrier) <= range;
-    const legato = !!active && overlap && portamento && bendable;
+    const bendable = carrier != null && (range === 0
+      ? Math.round(pitch(next)) === carrier : Math.abs(pitch(next) - carrier) <= range);
+    const legato = range > 0 && !!active && overlap && portamento && bendable;
     if (!bendable || (changed && !legato)) {
       const replacement = chooseMonoCarrier(stack.map(pitch), range);
       ramp.cancel();
@@ -147,7 +153,7 @@ export function createMonoSynth({
     send([0xb0 + channel, 120, 0], at);
     send([0xd0 + channel, 0], at);
   };
-  sendRpn(output, channel, 0, 0, range);
+  if (range > 0) sendRpn(output, channel, 0, 0, range);
   const synth = {
     family: "mono",
     setSlideCc(value) {
