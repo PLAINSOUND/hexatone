@@ -61,6 +61,31 @@ export function startWindowsCapture(settings = {}) {
   };
   window.addEventListener("keydown", onKey);
   cleanup.push(() => window.removeEventListener("keydown", onKey));
+  // Keep markers reachable without opening the sidebar or using two hands.
+  const markers = document.createElement("div");
+  markers.setAttribute("role", "group");
+  markers.setAttribute("aria-label", "Live diagnostic markers");
+  Object.assign(markers.style, { position: "fixed", top: "70px", right: "10px",
+    zIndex: "1000", display: "flex", flexDirection: "column", gap: "8px",
+    padding: "8px", background: "var(--color-bg, white)", borderRadius: "8px" });
+  const feedback = document.createElement("span");
+  feedback.setAttribute("role", "status");
+  feedback.textContent = "Diagnostics recording";
+  for (const [label, mark] of [["Mark silence", markWindowsSilence], ["Mark recovery", markWindowsRecovery]]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    Object.assign(button.style, { minHeight: "44px", padding: "8px 14px", touchAction: "manipulation" });
+    button.addEventListener("pointerdown", event => event.stopPropagation());
+    button.addEventListener("click", event => {
+      event.stopPropagation(); mark();
+      feedback.textContent = `${label === "Mark silence" ? "Silence" : "Recovery"} marked`;
+    });
+    markers.append(button);
+  }
+  markers.append(feedback);
+  document.body.append(markers);
+  cleanup.push(() => markers.remove());
   if (globalThis.PerformanceObserver?.supportedEntryTypes?.includes("longtask")) {
     capture.longTasks.available = true;
     observer = new PerformanceObserver(list => {

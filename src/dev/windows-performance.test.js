@@ -36,3 +36,15 @@ it("does not poll engines or retain events when disabled", () => {
   expect(stopWindowsCapture()).toBeNull();
   expect(read).not.toHaveBeenCalled(); unregister();
 });
+
+it("provides live touch-friendly markers and removes them when capture stops", () => {
+  startWindowsCapture();
+  const markers = document.querySelector('[aria-label="Live diagnostic markers"]');
+  expect(markers).not.toBeNull();
+  const buttons = markers.querySelectorAll("button");
+  buttons[0].click(); buttons[1].click();
+  expect(markers.querySelector('[role="status"]').textContent).toBe("Recovery marked");
+  const report = stopWindowsCapture();
+  expect(report.events.map(event => event.name)).toEqual(["audible-silence", "audible-recovery"]);
+  expect(document.querySelector('[aria-label="Live diagnostic markers"]')).toBeNull();
+});

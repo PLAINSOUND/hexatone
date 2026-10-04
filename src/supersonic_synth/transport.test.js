@@ -14,6 +14,29 @@ function setup() {
   return { sonic, encode, dispose, transport, ended: id => incoming(["/n_end", id]) };
 }
 describe("local OSC transport", () => {
+  it("prunes oldest released tails more strongly at higher percentages, never held nodes", () => {
+    const { sonic, transport, ended } = setup();
+    transport.send("/s_new", typed("tone", 99, 1, 1), 57104);
+    for (let id = 100; id < 120; id++) {
+      transport.send("/s_new", typed("tone", id, 1, 1), 57104);
+      transport.send("/n_set", typed(id, "gate", 0), 57104);
+    }
+    ended(100);
+    sonic.send.mockClear();
+    transport.setTailPruning(1);
+    expect(sonic.send.mock.calls).toEqual([101, 102, 103].map(id => ["/n_set", id, "gate", -1.05]));
+    transport.release();
+  });
+  it("forgets freed layers so stale releases cannot recreate tail pressure", () => {
+    const { sonic, transport } = setup();
+    transport.send("/s_new", typed("tone", 100, 1, 1), 57104);
+    transport.send("/g_freeAll", typed(1), 57104);
+    sonic.send.mockClear();
+    transport.send("/n_set", typed(100, "gate", 0), 57104);
+    transport.setTailPruning(1);
+    expect(sonic.send).not.toHaveBeenCalled();
+    transport.release();
+  });
   it("lets ordinary shutdown tails finish, rejecting new attacks until disposal", async () => {
     const { sonic, transport, dispose, ended } = setup();
     transport.send("/s_new", typed("tone", 100, 1, 1), 57104);

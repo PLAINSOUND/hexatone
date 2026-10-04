@@ -15,6 +15,8 @@ export function stopRetiredSuperSonicOutputs() {
 export function createLocalOscTransport(sonic, encodeBundle, dispose) {
   const groups = new Map([57101, 57102, 57103, 57104].map((port, i) => [port, 9100 + i]));
   const nodes = new Map();
+  const tails = new Map();
+  let tailLimit = 64;
   let closed = false;
   let purging = false;
   let pending = [];
@@ -38,13 +40,27 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     else sonic.send(address, ...args);
   };
   for (const group of groups.values()) sonic.send("/g_new", group, 0, 0);
+  const pruneTails = (port, timestamp) => {
+    const layerTails = [...tails].filter(([, owner]) => owner === port);
+    for (const [id] of layerTails.slice(0, Math.max(0, layerTails.length - tailLimit))) {
+      // Negative gate forces EnvGen to finish in 50 ms, avoiding a hard cut.
+      dispatch("/n_set", [id, "gate", -1.05], timestamp);
+      tails.delete(id);
+    }
+  };
   sonic.on("in", message => {
     if (message[0] === "/n_end") {
       nodes.delete(message[1]);
+      tails.delete(message[1]);
       if (draining && !nodes.size) finish();
     }
   });
   return {
+    setTailPruning(percentage) {
+      // 64 tails per layer at 0%, 16 at 100%; held voices are never counted.
+      tailLimit = Math.round(64 - 48 * Math.max(0, Math.min(1, percentage)));
+      for (const port of groups.keys()) pruneTails(port);
+    },
     getDiagnostics() {
       try {
         const metrics = sonic.getMetrics();
@@ -75,13 +91,23 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
         nodes.set(args[1], port);
       } else if (address === "/g_freeAll") {
         args[0] = group;
+        for (const [id, owner] of nodes) if (owner === port) {
+          nodes.delete(id);
+          tails.delete(id);
+        }
       } else if (address === "/n_set" && args[0] === 1) {
         args[0] = group; // Broadcast controls only to this layer, never root.
       } else if ((address === "/n_set" || address === "/n_free") && nodes.get(args[0]) !== port) {
         return; // Naturally completed one-shots can still have logical key owners.
       }
       dispatch(address, args, timestamp);
-      if (address === "/n_free") nodes.delete(args[0]);
+      if (address === "/n_set" && args[0] !== group) {
+        for (let i = 1; i < args.length; i += 2) if (args[i] === "gate" && args[i + 1] === 0) {
+          tails.set(args[0], port);
+          pruneTails(port, timestamp);
+        }
+      }
+      if (address === "/n_free") { nodes.delete(args[0]); tails.delete(args[0]); }
     },
     cancelScheduled() {
       if (closed) return;

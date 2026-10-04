@@ -316,9 +316,9 @@ const buildSNewArgs = (
     { type: "s", value: "vol" },
     { type: "f", value: vol },
     { type: "s", value: "quick_release" },
-    { type: "f", value: quickRelease },
+    { type: "f", value: synthName === "tone" ? 0 : quickRelease },
     { type: "s", value: "quick_release_time" },
-    { type: "f", value: quickReleaseTime },
+    { type: "f", value: synthName === "tone" ? 0.1 : quickReleaseTime },
     { type: "s", value: "gate" },
     { type: "i", value: 1 },
   ];
@@ -363,6 +363,7 @@ export const create_osc_synth = async (
   const _volumes = [...volumes];
   const _mod = { value: 1.0 };
   const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
+  socket.setTailPruning?.(_quickRelease.value);
   const _quickReleaseTime = { value: Math.max(0.001, Math.min(2.5, quickReleaseTime)) };
   const _quickReleaseRasterOnly = { value: quickReleaseRasterOnly === true };
   const _sustainBuzzFormant = { value: false }; // Legacy control retired.
@@ -391,6 +392,15 @@ export const create_osc_synth = async (
     const next = Math.max(0, Math.min(1, value));
     _volumes[index] = next;
     const layerState = _slotState[index];
+    if (next === 0) {
+      socket.send("/g_freeAll", [{ type: "i", value: targetGroup }], OSC_LAYER_PORTS[index]);
+      for (const slot of layerState) {
+        _knownNodeIds.delete(slot.nodeId);
+        slot.active = false;
+        slot.nodeId = null;
+        slot.token += 1;
+      }
+    }
     for (const slot of layerState) {
       if (!slot?.active || slot.nodeId == null) continue;
       socket.send(
@@ -419,7 +429,9 @@ export const create_osc_synth = async (
   const setQuickRelease = (value) => {
     const next = Math.max(0, Math.min(1, value));
     _quickRelease.value = next;
+    socket.setTailPruning?.(next);
     for (let i = 0; i < _slotState.length; i++) {
+      if (synthNames[i] === "tone") continue; // Saw keeps its natural release.
       for (const slot of _slotState[i]) {
         if (!slot?.active || slot.nodeId == null) continue;
         socket.send(
@@ -439,6 +451,7 @@ export const create_osc_synth = async (
     const next = Math.max(0.001, Math.min(2.5, value));
     _quickReleaseTime.value = next;
     for (let i = 0; i < _slotState.length; i++) {
+      if (synthNames[i] === "tone") continue;
       for (const slot of _slotState[i]) {
         if (!slot?.active || slot.nodeId == null) continue;
         socket.send(
@@ -457,6 +470,7 @@ export const create_osc_synth = async (
   const setQuickReleaseRasterOnly = (value) => {
     _quickReleaseRasterOnly.value = value === true;
     for (let i = 0; i < _slotState.length; i++) {
+      if (synthNames[i] === "tone") continue;
       for (const slot of _slotState[i]) {
         if (!slot?.active || slot.nodeId == null) continue;
         socket.send(
@@ -771,6 +785,10 @@ OscHex.prototype.noteOn = function (timestamp) {
   this._sendJitter?.("noteOn", this._notePlayed ?? this._slot ?? -1);
 
   for (let i = 0; i < this._synthNames.length; i++) {
+    if (this._volumes[i] === 0) {
+      this._nodeIds[i] = null;
+      continue;
+    }
     const slotState = this._slotState[i][slot];
     if (slotState.active && slotState.nodeId != null) {
       releaseNode(this._socket, OSC_LAYER_PORTS[i], slotState.nodeId, slotState.onVel, timestamp);

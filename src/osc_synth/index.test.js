@@ -80,6 +80,26 @@ describe("osc_synth pooled slot allocation", () => {
     vi.unstubAllGlobals();
   });
 
+  it("does not create muted layers and clears voices when a layer reaches zero", async () => {
+    const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn(), setTailPruning: vi.fn() };
+    const synth = await create_osc_synth("ws://muted", ["pluck", "tone"], [0, 0.5],
+      0.25, 0.3, false, 440, 0, [0], 1, { transport });
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+    expect(transport.send.mock.calls.filter(([address]) => address === "/s_new")).toHaveLength(1);
+    expect(transport.setTailPruning).toHaveBeenCalledWith(0.25);
+    synth.setLayerVolume(1, 0);
+    expect(transport.send).toHaveBeenCalledWith("/g_freeAll", [{ type: "i", value: 1 }], 57102);
+    transport.send.mockClear();
+    hex.noteOff(64);
+    expect(transport.send).not.toHaveBeenCalled();
+    synth.setLayerVolume(0, 0.5);
+    transport.send.mockClear();
+    synth.makeHex({ x: 1, y: 0 }, 100, 0, 0, 1, 0, 0, undefined, 72, 1, 1).noteOn();
+    expect(transport.send.mock.calls.filter(([address]) => address === "/s_new")).toHaveLength(1);
+    synth.shutdown({ panic: true });
+  });
+
   it("allocates fresh per-layer node IDs even when the logical slot is pooled from pitch", async () => {
     const synth = await create_osc_synth(
       "ws://test-osc-pool",
@@ -721,13 +741,18 @@ describe("osc_synth pooled slot allocation", () => {
 
     expect(quickReleaseSets.length).toBeGreaterThan(0);
     expect(quickReleaseTimeSets.length).toBeGreaterThan(0);
+    expect([...quickReleaseSets, ...quickReleaseTimeSets].some(msg => msg.port === 57104)).toBe(false);
 
     synth.setQuickReleaseTime(8);
 
     const secondHex = synth.makeHex({ x: 1, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
     secondHex.noteOn();
 
-    const latestSNew = ws.sent.filter((msg) => msg.address === "/s_new").at(-1);
+    const attacks = ws.sent.filter((msg) => msg.address === "/s_new");
+    const saw = attacks.at(-1);
+    expect(saw.args[saw.args.findIndex(arg => arg.value === "quick_release") + 1].value).toBe(0);
+    expect(saw.args[saw.args.findIndex(arg => arg.value === "quick_release_time") + 1].value).toBe(0.1);
+    const latestSNew = attacks.filter(msg => msg.port === 57101).at(-1);
     const quickReleaseArgIndex = latestSNew.args.findIndex((arg) => arg.value === "quick_release");
     const quickReleaseTimeArgIndex = latestSNew.args.findIndex(
       (arg) => arg.value === "quick_release_time",

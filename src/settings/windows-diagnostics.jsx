@@ -19,7 +19,8 @@ export default function WindowsDiagnostics({ settings }) {
       }} />
     </label>
     {enabled && <>
-      <p>Play until silence occurs. Mark silence (Shift+F8) and recovery (Shift+F9), then save the report.
+      <p>Play until silence occurs. Use the floating touch buttons to mark silence and recovery,
+        or Shift+F8 / Shift+F9, then save the report.
         Canvas contact cancellation is also captured. No audio is recorded; capture retains the last five minutes of engine samples.</p>
       <button type="button" onClick={markWindowsSilence}>Mark silence</button>{" "}
       <button type="button" onClick={markWindowsRecovery}>Mark recovery</button>{" "}
