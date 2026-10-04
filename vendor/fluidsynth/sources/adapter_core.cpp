@@ -159,6 +159,13 @@ int ps_cc(void *handle, int channel, int controller, int value)
     return fluid_synth_cc(ps->synth, channel, controller, value);
 }
 
+int ps_pitch_bend(void *handle, int channel, int value)
+{
+    if (!handle) return FLUID_FAILED;
+    auto *ps = static_cast<PlainsoundSynth *>(handle);
+    return fluid_synth_pitch_bend(ps->synth, channel, value);
+}
+
 int ps_activate_tuning(void *handle, int channel, int bank, int program, int apply)
 {
     if (!handle) return FLUID_FAILED;
@@ -209,4 +216,3 @@ void ps_destroy(void *handle)
 }
 
 }
-

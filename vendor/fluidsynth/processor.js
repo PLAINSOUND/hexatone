@@ -6,6 +6,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     this.module = null;
     this.synth = null;
     this.blockSize = 128;
+    this.midiQueue = [];
+    this.midiSequence = 0;
     this.port.onmessage = ({ data }) => this.handleMessage(data);
     this.initialize(options.processorOptions.wasmBytes);
   }
@@ -15,8 +17,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       this.module = await createFluidSynth({ wasmBinary: wasmBytes, locateFile: () => "" });
       this.synth = this.module._ps_create(sampleRate);
       if (!this.synth) throw new Error("FluidSynth instance creation failed");
-      const result = this.module._ps_activate_tuning(this.synth, 0, 0, 0, 0);
-      if (result !== 0) throw new Error(`Activating MTS tuning map 0 failed: ${result}`);
+      this.initializeChannelTunings();
 
       this.leftPointer = this.module._malloc(this.blockSize * Float32Array.BYTES_PER_ELEMENT);
       this.rightPointer = this.module._malloc(this.blockSize * Float32Array.BYTES_PER_ELEMENT);
@@ -28,6 +29,15 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       this.port.postMessage({ type: "ready" });
     } catch (error) {
       this.port.postMessage({ type: "error", message: String(error), stack: error?.stack });
+    }
+  }
+
+  initializeChannelTunings() {
+    // First internal layer: channel N owns tuning bank 0, program N.
+    // Reserve channels 128–255 for a possible second layer.
+    for (let channel = 0; channel < 128; channel++) {
+      const result = this.module._ps_activate_tuning(this.synth, channel, 0, channel, 0);
+      if (result !== 0) throw new Error(`Activating MTS tuning map ${channel} failed: ${result}`);
     }
   }
 
@@ -45,10 +55,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           this.module._ps_destroy(this.synth);
           this.synth = this.module._ps_create(sampleRate);
           if (!this.synth) throw new Error("FluidSynth recreation failed during SoundFont replacement");
-          const tuningResult = this.module._ps_activate_tuning(this.synth, 0, 0, 0, 0);
-          if (tuningResult !== 0) {
-            throw new Error(`Reactivating MTS tuning map 0 failed: ${tuningResult}`);
-          }
+          this.initializeChannelTunings();
           this.soundfontId = null;
         }
         const path = "/hexatone-soundfont.sf2";
@@ -70,8 +77,9 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         if (!presets.length) throw new Error("The selected SoundFont contains no presets");
         this.soundfontId = soundfontId;
         const first = presets[0];
-        const selected = this.module._ps_select_program(
-          this.synth, 0, soundfontId, first.bank, first.program,
+        let selected = 0;
+        for (let channel = 0; channel < 128; channel++) selected |= this.module._ps_select_program(
+          this.synth, channel, soundfontId, first.bank, first.program,
         );
         if (selected !== 0) throw new Error(`Selecting first preset failed: ${selected}`);
         this.port.postMessage({ type: "soundfont-loaded", soundfontId, presets });
@@ -79,14 +87,23 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       }
 
       if (message.type === "select-program") {
-        const result = this.module._ps_select_program(
-          this.synth, 0, this.soundfontId, message.bank, message.program,
+        let result = 0;
+        for (let channel = 0; channel < 128; channel++) result |= this.module._ps_select_program(
+          this.synth, channel, this.soundfontId, message.bank, message.program,
         );
         this.port.postMessage({ type: "program-selected", ...message, result });
         return;
       }
 
-      if (message.type === "midi") this.dispatchMidi(message.data);
+      if (message.type === "midi" || message.type === "midi-batch") {
+        const events = message.type === "midi-batch" ? message.events : [message];
+        for (const event of events) {
+          this.midiQueue.push({ data: event.data, command: event.command,
+            frame: Number.isFinite(event.frame) ? event.frame : currentFrame,
+            sequence: this.midiSequence++ });
+        }
+        this.midiQueue.sort((a, b) => a.frame - b.frame || a.sequence - b.sequence);
+      }
     } catch (error) {
       this.port.postMessage({ type: "error", message: String(error), stack: error?.stack });
     }
@@ -140,6 +157,15 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     else if (status === 0xb0) this.module._ps_cc(this.synth, channel, a, b);
     else if (status === 0xd0) this.module._ps_channel_pressure(this.synth, channel, a);
     else if (status === 0xa0) this.module._ps_key_pressure(this.synth, channel, a, b);
+    else if (status === 0xe0) this.module._ps_pitch_bend(this.synth, channel, (a & 127) | ((b & 127) << 7));
+  }
+
+  dispatchCommand({ channel, op, a = 0, b = 0 }) {
+    if (!Number.isInteger(channel) || channel < 0 || channel >= 128) return;
+    const functions = { on: "_ps_note_on", off: "_ps_note_off", cc: "_ps_cc",
+      bend: "_ps_pitch_bend", pressure: "_ps_channel_pressure" };
+    const fn = functions[op];
+    if (fn) this.module[fn](this.synth, channel, a, b);
   }
 
   process(_inputs, outputs) {
@@ -150,6 +176,17 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       channels.forEach((channel) => channel.fill(0));
       return true;
     }
+    let consumed = 0;
+    while (consumed < this.midiQueue.length && this.midiQueue[consumed].frame <= currentFrame) {
+      try {
+        const event = this.midiQueue[consumed];
+        if (event.command) this.dispatchCommand(event.command);
+        else this.dispatchMidi(event.data);
+      }
+      catch (error) { this.port.postMessage({ type: "error", message: String(error) }); }
+      consumed++;
+    }
+    if (consumed) this.midiQueue.splice(0, consumed);
     const result = this.module._ps_render(this.synth, this.leftPointer, this.rightPointer, frames);
     if (result !== 0) {
       channels.forEach((channel) => channel.fill(0));
@@ -161,6 +198,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     if (channels[1]) channels[1].set(this.module.HEAPF32.subarray(right, right + frames));
     return true;
   }
+
 }
 
 registerProcessor("hexatone-fluidsynth", FluidSynthProcessor);
