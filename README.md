@@ -52,7 +52,7 @@ Features include:
 PLAINSOUND HEXATONE can be used entirely in the browser:
 
 - input with mouse / touch / computer keyboard
-- output using built-in samples
+- output using built-in samples, the FluidSynth SoundFont player, and SuperCollider sounds through SuperSonic
 - SUSTAIN, OCT, MOD controls
 - retuning and scale editing using drag and drop
 - scale rationalisation to user chosen parameters
@@ -69,7 +69,24 @@ Hexatone also supports:
 - LED feedback on supported controllers
 - MTS and MPE output routings
 - OSC -> SuperCollider output through a local bridge in a cloned repo
-- Experimental local SuperSonic + DFM1 alternative in the OSC section, with the same layer controls (requires the assets described in `tools/supersonic/README.md`)
+- Experimental browser-local SuperSonic + DFM1 in **Built-in scsynth**, sharing layer controls with the external OSC backend
+
+The I/O tab presents **Built-in Samples**, **Built-in SoundFont Player**, and
+**Built-in scsynth**, followed by **MIDI Setup**, **MIDI Input**, and **MIDI Output**.
+These outputs can be used independently or layered. The built-in audio backends
+are still being developed; the planned DSF synth is not yet available.
+
+Enable **Use FluidSynth Sounds** to load a Hexatone SoundFont or choose a local
+`.sf2` / `.sf3` file, then select its preset and volume. Downloads can be cancelled.
+**Save SoundFont File…** exports the original file; **Keep for Offline Use** and
+**Remove Offline Copy** manage browser storage. Offline copies depend on browser
+storage availability and may be lost when site data is cleared or a private
+session ends. A stored bank must still be loaded into the player after reload.
+
+Under **Built-in scsynth**, enable **Use SuperCollider Sounds** and select
+**SuperSonic** to run Pluck, Buzz, Formant, and Saw layers directly in the browser.
+Without SuperSonic, these controls use the local OSC bridge. Local-development
+asset preparation is described in [tools/supersonic/README.md](./tools/supersonic/README.md).
 
 Hexatone is a live performance and composition companion to [Scale Workshop](https://scaleworkshop.plainsound.org).
 
@@ -88,6 +105,8 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ### 3.3 RC3 _(current release candidate)_
 
+- built-in audio sections now precede MIDI setup and routing in I/O, with a FluidSynth SoundFont player and experimental browser-local SuperSonic layers
+- SoundFont loading distinguishes downloads from stored-copy loading, remembers bank-specific presets, and offers file saving and browser offline storage
 - independent Monophonic Single-Channel MIDI output with last-note priority, automatic carrier selection, and optional pitch/timbre/pressure portamento
 - Portamento Time spans 0–500 ms; output faders share consistent readout widths and alignment
 - phone preset hex sizing uses display dimensions, preserving normal sizes in split laptop windows

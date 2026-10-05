@@ -8,7 +8,7 @@ HEXATONE is a microtonal workspace based on a hexagonal 2D pitch layout invented
 
 - user-programmable keyboard layouts and tunings
 - playing with touch, mouse, computer keyboard, and MIDI
-- built-in sampled sounds with polyphonic expression
+- built-in samples, a SoundFont player, and SuperSonic synthesis layers with polyphonic expression
 - a scale table for displaying, comparing, and editing tunings: use any degree as a reference note, adjust any pitch to any frequency, use scales of any size across the full frequency range
 - JI tools for rationalisation of cents-based intervals, modulation, automatic HEJI Notation and key colours derived from a ratio’s prime exponents
 - MIDI input from standard keyboards, MPE devices, or multichannel controllers like Haken Continuum, Exquis, LinnStrument, Lumatone; known controller geometries are correlated with on-screen scale layouts
@@ -60,9 +60,11 @@ WebMIDI is optional. To explore scales, compare tunings, build and recall chords
   - Edit & Play / Sequence Event List
 - IO
   - Built-in Samples
+  - Built-in SoundFont Player (based on FluidSynth)
+  - Built-in scsynth (SuperSonic / external OSC)
   - MIDI Setup
   - MIDI Input
-  - MIDI Output (MTS / MPE)
+  - MIDI Output (MTS / MPE / Monophonic Single-Channel MIDI)
 - CALCULATOR
   - Reference
   - HEJI Spelling
@@ -427,6 +429,8 @@ Repeat markers participate directly in cue playback. When cue stepping crosses a
 
 Switching to the I/O tab does not interrupt live or sequenced playback. Snapshots and Modulation options remain available in floating palettes.
 
+The options are grouped under **Built-in Samples**, **Built-in SoundFont Player**, and **Built-in scsynth**, followed by **MIDI Setup**, **MIDI Input**, and **MIDI Output**. Sound outputs may be enabled independently or layered. The built-in audio backends are under active development; the planned DSF synth is not yet available.
+
 **Restore I/O settings on reload**, at the top of the tab, is independent of **Restore on reload**. It is enabled by default. When enabled, reloading while the I/O tab is open also returns you to I/O. Disable it to return to default sound and I/O settings, with external connections disabled, on the next browser reload. Changing the checkbox does not interrupt the current session.
 
 Restoring I/O remembers the requested setup, not browser permission: MIDI/SysEx access must still be granted and the selected ports must be available. 
@@ -440,6 +444,26 @@ Hexatone has a small built-in library of sampled sounds. These include several a
 When changing instruments, the current sound remains available while the new samples load. Held and legato notes keep their original sound until their normal release; new attacks use the newly loaded instrument. Volume and PANIC continue to affect voices from the previous sound.
 
 If audio has not yet been activated, **Activate Audio Context** appears at the bottom of Built-in Samples. This uses the same audio-activation action as the HEXATONE and SEQUENCER tabs.
+
+### Built-in SoundFont Player
+
+Enable **Use FluidSynth Sounds**, choose a bank from **Hexatone SoundFonts**, and click **Load Hexatone SoundFont**. Alternatively, **Choose Local File** opens a `.sf2` or `.sf3` file. Once loaded, choose a **Preset** and adjust **Volume**. The player supports per-note tuning, pitch bend, timbre, and pressure with up to 128-note polyphony; the response depends on the SoundFont's own modulation settings. Performance depends on browser and local hardware setup.
+
+During a network download the load button allows the user to **Cancel Download**. Reading a stored copy and loading it into the audio engine are shown separately, without download progress. The menu remembers the last bank, and a loaded bank restores its remembered preset when available. Selecting a different bank clears the preset choices until that bank is loaded; **Loaded:** still identifies the instrument currently in use.
+
+File and storage controls appear below Volume when applicable:
+
+- **Save SoundFont File…** saves the original file to your device.
+- **Remove Offline Copy** removes the retained browser copy without stopping playback. A temporary copy remains available for Save or **Keep for Offline Use** during the current page session, when storage permits.
+- **Keep for Offline Use** retains that copy in browser storage; **Saving offline…** indicates the operation is in progress.
+
+**Available offline in this browser.** means a stored file is available, not that the instrument is already loaded after reload. Click Load to use it again. Browser storage limits, clearing site data, or ending a private session may remove the copy. If storage fails, the player attempts to keep one temporary file in memory for saving or retrying storage; that fallback does not survive reload. Saving a file to your device is separate from keeping a browser offline copy.
+
+### Built-in scsynth
+
+Enable **Use SuperCollider Sounds**. With **SuperSonic** selected, the Pluck, Buzz, Formant, and Saw layers run directly in the browser, without an OSC bridge. With it unselected, **Bridge URL** selects an external SuperCollider connection. Both modes share the layer and articulation controls described under **OSC** below. Start at a low volume; the browser-local backend is experimental.
+
+A layer volume of **0** turns that layer off to save processing. **Release Time** extends to **2000 ms** and applies to Pluck, Buzz, and Formant, not Saw. In SuperSonic, increasing **Release Envelope** also limits accumulated release tails to keep blended releases manageable. In case of sound performance issues, try adjusting these settings.
 
 ### MIDI Setup
 
@@ -512,16 +536,16 @@ The second treats incoming pitch as musical material to be mapped into the curre
 
 ### MIDI Output
 
-Hexatone can send tuning and performance data through:
+The MIDI Output fieldset provides:
 
-- Built-in sample synth
 - Monophonic Single-Channel MIDI
 - MTS (MIDI Tuning Standard) Real-Time Tuning
   - MTS is used in a special way to allow large scales and many octaves to be used effortlessly: rather than setting up a tuning map in advance, each note is immediately assigned a slot and retuned on the fly, allowing up to 128-note microtonal polyphony in any size scale across the entire MIDI range
   - by sending Hexatone MTS Output to MTS-ESP Mini Master, instruments that do not directly support the SysEx protocol can be retuned as well
 - MTS Bulk Dump Tuning Maps for legacy synths (limited to 128 notes at a time)
 - MPE (MIDI Polyphonic Expression)
-- OSC (Open Sound Control)
+
+Built-in sounds and OSC routing have their own fieldsets above MIDI Setup and can be layered with these MIDI outputs.
 
 MPE output offers two message styles:
 
@@ -559,12 +583,7 @@ The pedal/wheel option is independent of `Sequencer Timbre Control`: it controls
 
 ### OSC
 
-Development builds with the optional SuperSonic assets also offer **Local
-SuperSonic (experimental)** under **OSC**. This runs the four
-layers in the browser without a WebSocket bridge, using the same faders and
-articulation controls. Switching this checkbox stops the old engine and
-retriggers held notes once the new engine is ready. Start at a low volume.
-Local mode currently requires a prepared build; see `tools/supersonic/README.md`.
+OSC routing is configured in **Built-in scsynth**. Switching **SuperSonic** changes between the browser-local engine and the external bridge, stopping the old engine and retriggering held notes once the new one is ready. For local-development asset preparation, see `tools/supersonic/README.md`.
 
 Hexatone also includes an OSC output path for users who want:
 
@@ -592,7 +611,7 @@ This mode requires a local clone of the repo and a locally running bridge:
      ```
 
 3. Load the matching SuperCollider patch/responders locally.
-4. Enable `OSC` in Hexatone.
+4. Enable **Use SuperCollider Sounds** in Hexatone, uncheck **SuperSonic**, and set **Bridge URL** to the running bridge.
 
 This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 
