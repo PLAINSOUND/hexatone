@@ -288,7 +288,7 @@ export async function getFluidSynthEngine() {
 
 export async function loadFluidSynthSoundFont(
   file,
-  { onDownloadProgress, onDownloadComplete, signal } = {},
+  { onDownloadProgress, onDownloadComplete, onBytesReady, preferredPreset, signal } = {},
 ) {
   if (!file) throw new Error("Choose a SoundFont file first");
   const active = await getFluidSynthEngine();
@@ -307,8 +307,13 @@ export async function loadFluidSynthSoundFont(
     const bytes = await source.arrayBuffer(onDownloadProgress);
     signal?.throwIfAborted();
     onDownloadComplete?.();
+    // Persist before transferring/detaching the ArrayBuffer into the worklet.
+    await onBytesReady?.(source, bytes);
+    signal?.throwIfAborted();
     const replacing = active.soundfontId != null;
-    const previousPreset = active.selectedPreset;
+    const requested = typeof preferredPreset === "string" ? preferredPreset.split(":").map(Number) : null;
+    const previousPreset = requested ? { bank: requested[0], program: requested[1] }
+      : active.soundfontSource?.name === source.name ? active.selectedPreset : null;
     active.soundfontId = null;
     active.presets = [];
     active.selectedPreset = null;

@@ -1,7 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/preact";
 
 const fluidsynthMock = vi.hoisted(() => ({ engine: null, load: vi.fn(), listeners: new Set() }));
+const storageMock = vi.hoisted(() => ({ read: vi.fn(), store: vi.fn(), keep: vi.fn(), remove: vi.fn(), save: vi.fn() }));
+vi.mock("../fluidsynth_synth/soundfont-storage.js", () => ({
+  soundfontStorageKey: (source) => source.url || `local:${source.name}`,
+  readOfflineSoundfont: storageMock.read,
+  readWorkingSoundfont: storageMock.read,
+  keepWorkingSoundfont: storageMock.keep,
+  storeOfflineSoundfont: storageMock.store,
+  removeOfflineSoundfont: storageMock.remove,
+  saveSoundfontFile: storageMock.save,
+}));
 vi.mock("../fluidsynth_synth/index.js", () => ({
   loadFluidSynthSoundFont: fluidsynthMock.load,
   peekFluidSynthEngine: () => fluidsynthMock.engine,
@@ -14,6 +24,31 @@ vi.mock("../fluidsynth_synth/index.js", () => ({
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
 
 describe("FluidSynth settings", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("cancels a hosted download from the load button and ignores its late completion", async () => {
+    let signal;
+    let finish;
+    fluidsynthMock.load.mockImplementation((source, options) => {
+      void source.arrayBuffer().catch(() => {});
+      signal = options.signal;
+      return new Promise((resolve) => { finish = resolve; });
+    });
+    const onChange = vi.fn();
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), {
+      target: { value: "PlainsoundOrganGedackt.sf2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
+    const cancel = await screen.findByRole("button", { name: "Cancel Download" });
+    expect(cancel.disabled).toBe(false);
+    fireEvent.click(cancel);
+    expect(signal.aborted).toBe(true);
+    expect(screen.getByText("Download cancelled.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Load Hexatone SoundFont" }).disabled).toBe(false);
+    finish({ presets: [{ bank: 0, program: 0 }] });
+    await Promise.resolve();
+    expect(onChange).not.toHaveBeenCalled();
+  });
   it("remembers the last hosted bank after refresh and loads it without reselection", async () => {
     localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrganGedackt.sf2");
     fluidsynthMock.load.mockResolvedValue({ presets: [{ bank: 0, program: 0 }] });
@@ -27,7 +62,8 @@ describe("FluidSynth settings", () => {
   });
   it("aborts a hosted download when Choose Local File is clicked without disabling playback", async () => {
     let signal;
-    fluidsynthMock.load.mockImplementation((_source, options) => {
+    fluidsynthMock.load.mockImplementation((source, options) => {
+      void source.arrayBuffer().catch(() => {});
       signal = options.signal;
       return new Promise((_resolve, reject) => signal.addEventListener("abort", () =>
         reject(new DOMException("Cancelled", "AbortError"))));
@@ -38,7 +74,7 @@ describe("FluidSynth settings", () => {
       target: { value: "PlainsoundOrganGedackt.sf2" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
-    await vi.waitFor(() => expect(signal).toBeTruthy());
+    await screen.findByRole("button", { name: "Cancel Download" });
     const button = screen.getByRole("button", { name: "Choose Local File" });
     expect(button.disabled).toBe(false);
     fireEvent.click(button);
@@ -48,11 +84,162 @@ describe("FluidSynth settings", () => {
     expect(screen.getByLabelText("FluidSynth SoundFont").disabled).toBe(false);
   });
   beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn((_url, options) => new Promise((_resolve, reject) => {
+      options?.signal?.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")));
+    })));
     localStorage.clear();
     sessionStorage.clear();
     fluidsynthMock.engine = null;
     fluidsynthMock.load.mockReset();
     fluidsynthMock.listeners.clear();
+    storageMock.read.mockReset().mockResolvedValue(null);
+    storageMock.store.mockReset().mockResolvedValue(undefined);
+    storageMock.keep.mockReset().mockResolvedValue(undefined);
+    storageMock.remove.mockReset().mockResolvedValue(undefined);
+    storageMock.save.mockReset();
+  });
+
+  it("shows file controls only for loaded banks and removes offline copies without changing playback", async () => {
+    const source = { name: "PlainsoundOrgan.sf2", url: "https://soundfonts.plainsound.org/PlainsoundOrgan.sf2" };
+    const blob = new Blob(["bank"]);
+    storageMock.read.mockResolvedValue({ blob });
+    fluidsynthMock.engine = { soundfontId: 1, presets: [{ bank: 0, program: 0 }], soundfontSource: source };
+    const onChange = vi.fn();
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Remove Offline Copy" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Save SoundFont File…" }));
+    await vi.waitFor(() => expect(storageMock.save).toHaveBeenCalledWith(source.name, blob));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Offline Copy" }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Keep for Offline Use" })).toBeTruthy());
+    expect(storageMock.remove).toHaveBeenCalledWith(source.url);
+    expect(screen.queryByText("Available offline in this browser.")).toBeNull();
+    expect(screen.queryByText(/Offline copy removed/)).toBeNull();
+    storageMock.save.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Save SoundFont File…" }));
+    await vi.waitFor(() => expect(storageMock.save).toHaveBeenCalledWith(source.name, blob));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Keep for Offline Use" }).disabled).toBe(false));
+    let finishRestore;
+    source.arrayBuffer = vi.fn();
+    storageMock.keep.mockImplementation(() => new Promise((resolve) => {
+      finishRestore = resolve;
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep for Offline Use" }));
+    expect(screen.getByRole("button", { name: "Saving offline…" }).disabled).toBe(true);
+    finishRestore();
+    await vi.waitFor(() => expect(screen.getByText("Available offline in this browser.")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Remove Offline Copy" })).toBeTruthy();
+    expect(source.arrayBuffer).not.toHaveBeenCalled();
+    expect(storageMock.keep).toHaveBeenCalledWith(source);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("reads the hosted offline copy before attempting any network download", async () => {
+    const bytes = new Uint8Array([1, 2, 3]).buffer;
+    storageMock.read.mockResolvedValue({ blob: { size: 3, arrayBuffer: () => Promise.resolve(bytes) } });
+    fluidsynthMock.load.mockImplementation(async (source, options) => {
+      expect(await source.arrayBuffer()).toBe(bytes);
+      await options.onBytesReady(source, bytes);
+      return { presets: [] };
+    });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), {
+      target: { value: "PlainsoundOrgan.sf2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
+    await vi.waitFor(() => expect(storageMock.store).toHaveBeenCalled());
+    expect(storageMock.read).toHaveBeenCalledWith("https://soundfonts.plainsound.org/PlainsoundOrgan.sf2");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("checks offline availability on reload and follows the selected menu bank", async () => {
+    localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrgan.sf2");
+    storageMock.read.mockImplementation((key) => Promise.resolve(key.endsWith("PlainsoundOrgan.sf2") ? { blob: new Blob([1]) } : null));
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true, fluidsynth_preset: "0:99" }} onChange={vi.fn()} />);
+    await screen.findByText("Available offline in this browser.");
+    expect(screen.getByLabelText("FluidSynth preset").value).toBe("");
+    expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), { target: { value: "PlainsoundSrutibox.sf2" } });
+    expect(screen.queryByText("Available offline in this browser.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove Offline Copy" })).toBeNull();
+  });
+
+  it("does not show stale presets or storage actions for a newly selected bank", () => {
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "PlainsoundOrgan.sf2" },
+      presets: [{ bank: 0, program: 3, name: "Old preset" }], selectedPreset: { bank: 0, program: 3 } };
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    expect(screen.getByLabelText("FluidSynth preset").value).toBe("0:3");
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), { target: { value: "PlainsoundSrutibox.sf2" } });
+    expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(true);
+    expect(screen.queryByRole("option", { name: /Old preset/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save SoundFont File…" })).toBeNull();
+    expect(screen.getByText("Loaded: PlainsoundOrgan.sf2")).toBeTruthy();
+  });
+
+  it("labels an offline load correctly and disables cancellation during installation", async () => {
+    let finish;
+    let options;
+    const bytes = new Uint8Array([1]).buffer;
+    storageMock.read.mockResolvedValue({ blob: { size: 1, arrayBuffer: async () => bytes } });
+    fluidsynthMock.load.mockImplementation(async (source, nextOptions) => {
+      options = nextOptions;
+      await source.arrayBuffer();
+      return new Promise((resolve) => { finish = resolve; });
+    });
+    localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrgan.sf2");
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
+    await screen.findByText(/Loading offline copy PlainsoundOrgan/);
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel Download" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Loading…" }).disabled).toBe(true);
+    options.onDownloadComplete();
+    await screen.findByText(/Loading instrument PlainsoundOrgan/);
+    expect(screen.getByRole("button", { name: "Choose Local File" }).disabled).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+    finish({ presets: [] });
+  });
+
+  it.each(["0:2", "0:99"])("restores a bank-specific preset %s or falls back to a valid first preset", async (saved) => {
+    const key = "https://soundfonts.plainsound.org/PlainsoundOrgan.sf2";
+    localStorage.setItem("fluidsynth_bank_presets", JSON.stringify({ [key]: saved }));
+    localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrgan.sf2");
+    const selectPreset = vi.fn();
+    fluidsynthMock.engine = { soundfontId: null, presets: [], selectPreset };
+    const presets = [{ bank: 0, program: 1, name: "First" }, { bank: 0, program: 2, name: "Saved" }];
+    fluidsynthMock.load.mockResolvedValue({ presets });
+    const onChange = vi.fn();
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true, fluidsynth_preset: "0:66" }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
+    const chosen = saved === "0:2" ? presets[1] : presets[0];
+    await vi.waitFor(() => expect(selectPreset).toHaveBeenCalledWith(chosen));
+    expect(fluidsynthMock.load.mock.calls[0][1].preferredPreset).toBe(saved);
+    expect(onChange).toHaveBeenCalledWith("fluidsynth_preset", `0:${chosen.program}`);
+  });
+
+  it("keeps playback enabled when offline storage fails after downloading", async () => {
+    storageMock.store.mockRejectedValue(new Error("Quota exceeded"));
+    fluidsynthMock.load.mockImplementation(async (source, options) => {
+      await options.onBytesReady(source, new Uint8Array([1]).buffer);
+      return { presets: [{ bank: 0, program: 0 }] };
+    });
+    const onChange = vi.fn();
+    localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrgan.sf2");
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
+    await screen.findByText(/couldn’t save an offline copy: Quota exceeded/);
+    expect(onChange).not.toHaveBeenCalledWith("output_fluidsynth", false);
+    expect(screen.queryByText("Available offline in this browser.")).toBeNull();
+  });
+
+  it("reports storage read failures before falling back to a cancellable download", async () => {
+    storageMock.read.mockRejectedValue(new Error("Blocked"));
+    fluidsynthMock.load.mockImplementation((source) => source.arrayBuffer());
+    localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrgan.sf2");
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
+    await screen.findByText("Couldn’t read the stored copy. Downloading instead…");
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel Download" }));
+    await screen.findByText("Download cancelled.");
   });
 
   it("hides all SoundFont controls while disabled and reveals them when enabled", () => {
@@ -76,6 +263,7 @@ describe("FluidSynth settings", () => {
     expect(screen.getByRole("option", { name: "PlainsoundHarpsichordLute.sf2" })).toBeTruthy();
     expect(screen.getByLabelText("FluidSynth SoundFont").disabled).toBe(false);
     expect(screen.getByRole("button", { name: "Load Hexatone SoundFont" }).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Save SoundFont File…" })).toBeNull();
     expect(screen.getByRole("button", { name: "Choose Local File" })).toBeTruthy();
     expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(true);
     expect(
@@ -148,10 +336,13 @@ describe("FluidSynth settings", () => {
     expect(screen.getByText("Loaded: Organ.sf2")).toBeTruthy();
   });
 
-  it("shows the hosted URL and percentage while downloading", () => {
+  it("shows the hosted URL and percentage only while downloading", async () => {
     let finishLoading;
     fluidsynthMock.load.mockImplementation(
-      () => new Promise((resolve) => (finishLoading = resolve)),
+      (source) => {
+        void source.arrayBuffer().catch(() => {});
+        return new Promise((resolve) => (finishLoading = resolve));
+      },
     );
     render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
 
@@ -161,6 +352,7 @@ describe("FluidSynth settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
 
     const url = "https://soundfonts.plainsound.org/PlainsoundOrgan.sf2";
+    await screen.findByRole("button", { name: "Cancel Download" });
     expect(screen.getByRole("link", { name: url }).getAttribute("href")).toBe(url);
     expect(screen.getByText("0%"));
     finishLoading({ presets: [] });

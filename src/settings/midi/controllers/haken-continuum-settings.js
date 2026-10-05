@@ -420,7 +420,7 @@ const HakenContinuumSettings = ({
             });
           }}
         />
-        <em class="settings-form__helper-text">Auto-Generate from Snapshots</em>
+        <span>Auto-Generate from Snapshots</span>
       </label>
       <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
         <input
