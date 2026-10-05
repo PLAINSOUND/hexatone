@@ -988,6 +988,13 @@ td.scale-color-col .color-input {
   text-align: left;
 }
 
+/* Keep the actual controls in layout so both offline states align identically. */
+.fluidsynth-settings__offline-actions--hidden,
+.fluidsynth-settings__offline-row--pending {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 @media (max-width: 480px) and (orientation: portrait) {
   .fluidsynth-settings__download-status,
   .fluidsynth-settings__download-status p,
@@ -1015,6 +1022,7 @@ td.scale-color-col .color-input {
     flex-basis: auto;
     width: 100%;
   }
+
 }
 
 .fluidsynth-settings__mts-hint {

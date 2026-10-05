@@ -156,11 +156,45 @@ describe("FluidSynth settings", () => {
     storageMock.read.mockImplementation((key) => Promise.resolve(key.endsWith("PlainsoundOrgan.sf2") ? { blob: new Blob([1]) } : null));
     render(<FluidSynthSettings settings={{ output_fluidsynth: true, fluidsynth_preset: "0:99" }} onChange={vi.fn()} />);
     await screen.findByText("Available offline in this browser.");
+    const availability = screen.getByText("Available offline in this browser.");
+    expect(availability.tagName).toBe("SPAN");
+    expect(availability.parentElement.classList.contains("fluidsynth-settings__load-row")).toBe(true);
+    expect(screen.getByText("Available offline in this browser.").parentElement.classList.contains("fluidsynth-settings__load-row")).toBe(true);
     expect(screen.getByLabelText("FluidSynth preset").value).toBe("");
     expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(true);
     fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), { target: { value: "PlainsoundSrutibox.sf2" } });
     expect(screen.queryByText("Available offline in this browser.")).toBeNull();
     expect(screen.queryByRole("button", { name: "Remove Offline Copy" })).toBeNull();
+  });
+
+  it("keeps the same offline row mounted while checking a newly selected cached bank", async () => {
+    let finishCheck;
+    const cached = { blob: new Blob([1]) };
+    storageMock.read.mockImplementation((key) => key.endsWith("PlainsoundSrutibox.sf2")
+      ? new Promise((resolve) => { finishCheck = resolve; }) : Promise.resolve(cached));
+    fluidsynthMock.engine = {
+      soundfontId: 1,
+      soundfontSource: { name: "PlainsoundOrgan.sf2", url: "https://soundfonts.plainsound.org/PlainsoundOrgan.sf2" },
+      presets: [{ bank: 0, program: 0, name: "Organ" }],
+    };
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    const row = (await screen.findByText("Available offline in this browser.")).parentElement;
+    const buttons = [...row.querySelectorAll("button")];
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), {
+      target: { value: "PlainsoundSrutibox.sf2" },
+    });
+    expect(row.isConnected).toBe(true);
+    expect(row.getAttribute("aria-hidden")).toBe("true");
+    expect([...row.querySelectorAll("button")]).toEqual(buttons);
+    expect(buttons.every((button) => button.disabled)).toBe(true);
+    expect(screen.queryByRole("button", { name: "Remove Offline Copy" })).toBeNull();
+    await vi.waitFor(() => expect(finishCheck).toBeTypeOf("function"));
+    finishCheck(cached);
+    await vi.waitFor(() => expect(row.getAttribute("aria-hidden")).toBeNull());
+    expect(screen.getByText("Available offline in this browser.").parentElement).toBe(row);
+    expect([...row.querySelectorAll("button")]).toEqual(buttons);
+    expect(buttons.every((button) => button.disabled)).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("does not show stale presets or storage actions for a newly selected bank", () => {
@@ -175,7 +209,7 @@ describe("FluidSynth settings", () => {
     expect(screen.getByText("Loaded: PlainsoundOrgan.sf2")).toBeTruthy();
   });
 
-  it("labels an offline load correctly and disables cancellation during installation", async () => {
+  it("loads offline silently while keeping installation controls disabled", async () => {
     let finish;
     let options;
     const bytes = new Uint8Array([1]).buffer;
@@ -187,16 +221,38 @@ describe("FluidSynth settings", () => {
     });
     localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrgan.sf2");
     render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    const notice = await screen.findByText("Available offline in this browser.");
+    const offlineRow = notice.parentElement;
+    const offlineButtons = [...offlineRow.querySelectorAll("button")];
+    expect(offlineButtons).toHaveLength(2);
+    expect(offlineButtons.every((button) => button.disabled)).toBe(true);
+    expect(offlineButtons[0].parentElement.getAttribute("aria-hidden")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
-    await screen.findByText(/Loading offline copy PlainsoundOrgan/);
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    expect(screen.queryByText(/Loading offline copy PlainsoundOrgan/)).toBeNull();
+    expect(screen.queryByText(/Checking stored copy/)).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.queryByRole("button", { name: "Cancel Download" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Loading…" }).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Loading…" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Load Hexatone SoundFont" }).disabled).toBe(true);
     options.onDownloadComplete();
-    await screen.findByText(/Loading instrument PlainsoundOrgan/);
+    await Promise.resolve();
+    expect(screen.queryByText(/Loading instrument PlainsoundOrgan/)).toBeNull();
     expect(screen.getByRole("button", { name: "Choose Local File" }).disabled).toBe(true);
     expect(fetch).not.toHaveBeenCalled();
-    finish({ presets: [] });
+    const presets = [{ bank: 0, program: 0, name: "Organ" }];
+    fluidsynthMock.engine = {
+      soundfontId: 1, presets,
+      soundfontSource: { name: "PlainsoundOrgan.sf2", url: "https://soundfonts.plainsound.org/PlainsoundOrgan.sf2" },
+    };
+    finish({ presets });
+    await screen.findByRole("button", { name: "Save SoundFont File…" });
+    await screen.findByRole("button", { name: "Remove Offline Copy" });
+    expect(screen.getByText("Available offline in this browser.").parentElement).toBe(offlineRow);
+    expect([...offlineRow.querySelectorAll("button")]).toEqual(offlineButtons);
+    expect(offlineButtons[0].parentElement.getAttribute("aria-hidden")).toBeNull();
+    expect(offlineButtons.every((button) => !button.disabled)).toBe(true);
+    expect(screen.queryByRole("button", { name: "Loading…" })).toBeNull();
   });
 
   it.each(["0:2", "0:99"])("restores a bank-specific preset %s or falls back to a valid first preset", async (saved) => {

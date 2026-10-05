@@ -92,6 +92,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   const [loadingProgress, setLoadingProgress] = useState(null);
   const [offlineKey, setOfflineKey] = useState(null);
   const [menuOfflineKey, setMenuOfflineKey] = useState(null);
+  const [checkedMenuKey, setCheckedMenuKey] = useState(null);
   const [presetValue, setPresetValue] = useState(settings.fluidsynth_preset || "0:0");
   const [storageStatus, setStorageStatus] = useState("");
   const [storageBusy, setStorageBusy] = useState(false);
@@ -108,7 +109,9 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     setMenuOfflineKey(null);
     if (menuKey) readOfflineSoundfont(menuKey).then((bank) => {
       if (current && bank) setMenuOfflineKey(menuKey);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => {
+      if (current) setCheckedMenuKey(menuKey);
+    });
     return () => { current = false; };
   }, [menuKey]);
   useEffect(() => {
@@ -145,6 +148,14 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   const loaded = activeEngine?.soundfontId != null && presets.length > 0;
   const presetControlsReady = loaded && loadedMenuMatches && !busy;
   const selectedPreset = presetControlsReady ? presetValue : "";
+  const quietOfflineLoad = busy && loadingProgress?.quiet;
+  const storageActionsReady = loaded && !!source && loadedMenuMatches;
+  // Compare keys during render so even the first frame after selection retains
+  // the row, before the asynchronous cache-check effect starts.
+  const offlineRowPending = !storageActionsReady && !!menuKey && checkedMenuKey !== menuKey;
+  const showOfflineNotice = storageActionsReady
+    ? !!offlineKey : !!menuKey && menuOfflineKey === menuKey;
+  const showOfflineRow = storageActionsReady || ((!busy || quietOfflineLoad) && (showOfflineNotice || offlineRowPending));
   const canCancelDownload = busy && loadingProgress?.phase === "Downloading" &&
     !!downloadControllerRef.current;
   const cancelDownload = () => {
@@ -172,13 +183,14 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     const preferredPreset = readSavedPreset(soundfontStorageKey(source)) ??
       (source.name === localStorage.getItem(LAST_BANK_KEY) ? settings.fluidsynth_preset : undefined);
     setBusy(true);
-    setStatus(`${loaded ? "Replacing" : "Loading"} ${source.name}…`);
+    setStatus(source.url ? "" : `${loaded ? "Replacing" : "Loading"} ${source.name}…`);
     setStorageStatus("");
     setLoadingProgress({
       name: source.name,
       url: source.url ?? "",
       percent: 0,
       phase: source.url ? "Checking stored copy" : "Reading local file",
+      quiet: !!source.url,
     });
     try {
       const result = await loadFluidSynthSoundFont(source, {
@@ -276,7 +288,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       url,
       async arrayBuffer(onProgress) {
         const updatePhase = (phase) => {
-          if (downloadControllerRef.current === controller) setLoadingProgress((progress) => ({ ...progress, phase }));
+          if (downloadControllerRef.current === controller) setLoadingProgress((progress) => ({ ...progress, phase, quiet: phase !== "Downloading" }));
         };
         controller.signal.throwIfAborted();
         try {
@@ -372,7 +384,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
             disabled={!canCancelDownload && (busy || !hostedSoundfont)}
             onClick={canCancelDownload ? cancelDownload : loadHostedSoundFont}
           >
-            {canCancelDownload ? "Cancel Download" : busy ? "Loading…" : "Load Hexatone SoundFont"}
+            {canCancelDownload ? "Cancel Download" : busy && !quietOfflineLoad ? "Loading…" : "Load Hexatone SoundFont"}
           </button>
           <button
             type="button"
@@ -407,7 +419,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
               disabled={!presetControlsReady}
               onChange={selectPreset}
             >
-              {!presetControlsReady ? <option value="">{busy ? "Loading instrument…" : "Load the selected SoundFont first"}</option> : null}
+              {!presetControlsReady ? <option value="">{busy && !quietOfflineLoad ? "Loading instrument…" : "Load the selected SoundFont first"}</option> : null}
               {(presetControlsReady ? presets : []).map((preset) => (
                 <option
                   key={`${preset.bank}:${preset.program}`}
@@ -435,15 +447,15 @@ const FluidSynthSettings = ({ settings, onChange }) => {
             </span>
           </label>
 
-      {loaded && source && loadedMenuMatches ? (
-        <div class="fluidsynth-settings__load-row">
-          {offlineKey ? (
-            <span class="settings-form__helper-text fluidsynth-settings__loaded-name">
-              Available offline in this browser.
+      {showOfflineRow ? (
+        <div class={`fluidsynth-settings__load-row${offlineRowPending ? " fluidsynth-settings__offline-row--pending" : ""}`} aria-hidden={offlineRowPending ? "true" : undefined}>
+          {showOfflineNotice || offlineRowPending ? (
+            <span class="settings-form__helper-text fluidsynth-settings__loaded-name" title="Stored in this browser. Clearing site data or ending a private session may remove it.">
+              {showOfflineNotice ? "Available offline in this browser." : "\u00a0"}
             </span>
           ) : null}
-          <div class="preset-actions preset-actions--end fluidsynth-settings__load-actions fluidsynth-settings__offline-actions">
-            <button type="button" class="preset-action-btn" disabled={busy || storageBusy}
+          <div class={`preset-actions preset-actions--end fluidsynth-settings__load-actions fluidsynth-settings__offline-actions${storageActionsReady ? "" : " fluidsynth-settings__offline-actions--hidden"}`} aria-hidden={!storageActionsReady ? "true" : undefined}>
+            <button type="button" class="preset-action-btn" disabled={!storageActionsReady || busy || storageBusy}
               onClick={async () => {
                 setStorageBusy(true);
                 try {
@@ -454,8 +466,8 @@ const FluidSynthSettings = ({ settings, onChange }) => {
                 } catch (error) { setStorageStatus(`File save failed: ${error.message}`); }
                 finally { setStorageBusy(false); }
               }}>Save SoundFont File…</button>
-            {offlineKey ? (
-              <button type="button" class="preset-action-btn" disabled={busy || storageBusy}
+            {showOfflineNotice || offlineRowPending ? (
+              <button type="button" class="preset-action-btn" disabled={!storageActionsReady || busy || storageBusy}
                 onClick={async () => {
                   setStorageBusy(true);
                   try {
@@ -467,7 +479,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
                   finally { setStorageBusy(false); }
                 }}>Remove Offline Copy</button>
             ) : (
-              <button type="button" class="preset-action-btn" disabled={busy || storageBusy}
+              <button type="button" class="preset-action-btn" disabled={!storageActionsReady || busy || storageBusy}
                 onClick={async () => {
                   setStorageBusy(true);
                   setRestoringOffline(true);
@@ -485,13 +497,8 @@ const FluidSynthSettings = ({ settings, onChange }) => {
           </div>
         </div>
       ) : null}
-      {!busy && (!loaded || !loadedMenuMatches) && menuOfflineKey === menuKey && menuKey ? (
-        <p class="settings-form__helper-text" title="Stored in this browser. Clearing site data or ending a private session may remove it.">
-          Available offline in this browser.
-        </p>
-      ) : null}
       {storageStatus ? <p class="settings-form__helper-text" role="status">{storageStatus}</p> : null}
-      {busy && loadingProgress ? (
+      {busy && loadingProgress && !quietOfflineLoad ? (
         <div
           class="settings-form__helper-text fluidsynth-settings__download-status"
           role="status"
@@ -521,7 +528,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
             </p>
           )}
         </div>
-      ) : status ? (
+      ) : status && !quietOfflineLoad ? (
         <p class="settings-form__helper-text" role="status">
           {status}
         </p>
