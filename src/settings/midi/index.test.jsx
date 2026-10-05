@@ -66,13 +66,13 @@ it("defaults wheel handoff portamento to on at 60 ms", () => {
     wheel_to_recent: true,
   });
   render(<MIDIio {...props} />);
-  expect(screen.getByLabelText("Pitch Wheel Portamento").checked).toBe(true);
+  expect(screen.getByLabelText("Pitch Wheel Handoff Portamento").checked).toBe(true);
   const slider = screen.getByRole("slider", { name: "Pitch Wheel Portamento Time" });
   expect(slider.getAttribute("aria-valuenow")).toBe("60");
   expect(slider.getAttribute("aria-valuemax")).toBe("500");
   fireEvent.keyDown(slider, { key: "ArrowRight" });
   expect(props.onChange).toHaveBeenCalledWith("wheel_portamento_time", 61);
-  fireEvent.click(screen.getByLabelText("Pitch Wheel Portamento"));
+  fireEvent.click(screen.getByLabelText("Pitch Wheel Handoff Portamento"));
   expect(props.onChange).toHaveBeenCalledWith("wheel_portamento", false);
 });
 
@@ -86,7 +86,7 @@ it.each([
       {...makeProps({ midiin_controller_override: "lumatone", wheel_to_recent: true, ...settings })}
     />,
   );
-  expect(screen.queryByLabelText("Pitch Wheel Portamento")).toBeNull();
+  expect(screen.queryByLabelText("Pitch Wheel Handoff Portamento")).toBeNull();
 });
 
 it("shows Lumatone timbre source defaults and saves foot selection", () => {
