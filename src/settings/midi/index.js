@@ -18,6 +18,7 @@ import {
   isLinnstrumentUserFirmwareEligible,
 } from "../../controllers/linnstrument-user-firmware.js";
 import ScalaInput from "../scale/scala-input.js";
+import CustomRangeSlider from "../shared/range-slider.jsx";
 import GeneralInputSettings from "./general-input-settings.js";
 import ScaleInputSettings from "./scale-input-settings.js";
 import MpeInputSettings from "./mpe-input-settings.js";
@@ -982,6 +983,50 @@ const MIDIio = (props) => {
               </label>
             ))}
 
+          {ctrl &&
+            !mpeInputEnabled &&
+            showWheelToRecent &&
+            props.settings.wheel_to_recent &&
+            (props.settings.midiin_pitchbend_mode || "recency") === "recency" && (
+              <>
+                <label title="Glide when releasing a note returns the pitch wheel to an older held note. Wheel movement updates the glide destination without extending its time. Fresh attacks remain immediate.">
+                  Pitch Wheel Handoff Portamento
+                  <input
+                    type="checkbox"
+                    checked={props.settings.wheel_portamento ?? true}
+                    onChange={(event) => {
+                      props.onChange("wheel_portamento", event.target.checked);
+                      sessionStorage.setItem("wheel_portamento", event.target.checked);
+                    }}
+                  />
+                </label>
+                {(props.settings.wheel_portamento ?? true) && (
+                  <label>
+                    Portamento Time
+                    <span class="sidebar-input settings-form__range-row">
+                      <CustomRangeSlider
+                        ariaLabel="Pitch Wheel Portamento Time"
+                        min={0}
+                        max={500}
+                        step={1}
+                        value={props.settings.wheel_portamento_time ?? 60}
+                        onInputValue={(value) =>
+                          props.onChange("wheel_portamento_time", Number(value))
+                        }
+                        onCommitValue={(value) => {
+                          props.onChange("wheel_portamento_time", Number(value));
+                          sessionStorage.setItem("wheel_portamento_time", String(value));
+                        }}
+                      />
+                      <span class="settings-form__range-value">
+                        {props.settings.wheel_portamento_time ?? 60} ms
+                      </span>
+                    </span>
+                  </label>
+                )}
+              </>
+            )}
+
           {/* Reverse Bend Direction — hidden for LinnStrument User Firmware row-glide mode */}
           {showExquisBendControls &&
             !showHakenContinuumUi &&
@@ -1059,6 +1104,8 @@ MIDIio.propTypes = {
     linnstrument_x_spike_reduction: PropTypes.number,
     linnstrument_x_input_smoothing: PropTypes.number,
     wheel_to_recent: PropTypes.bool,
+    wheel_portamento: PropTypes.bool,
+    wheel_portamento_time: PropTypes.number,
     midi_wheel_semitones: PropTypes.number,
     wheel_scale_aware: PropTypes.bool,
     midiin_mpe_input: PropTypes.bool,

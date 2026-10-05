@@ -245,6 +245,18 @@ describe("sample_synth modwheel", () => {
     expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][2]).toBe(0.005);
   });
 
+  it.each([100, -100])("starts a pre-bent sample at %s cents without a pitch ramp", async (bendCents) => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    await synth.prepare();
+    const hex = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    hex.retune(bendCents, true);
+    expect(hex.cents).toBe(bendCents);
+    hex.noteOn();
+    expect(hex.source.playbackRate.value).toBeCloseTo(2 ** (bendCents / 1200), 8);
+    expect(hex.source.playbackRate.setTargetAtTime).not.toHaveBeenCalled();
+    expect(hex.source.start).toHaveBeenCalledOnce();
+  });
+
   it("retunes the active voice playback rate for standard wheel bend", async () => {
     const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
     await synth.prepare();

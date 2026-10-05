@@ -12,7 +12,7 @@
     "core/wasm/clockwork_midi_bg.wasm": "dd2082da9fc07be8ecb32ffd6bc80d56443165256f4cd36cc332780f7700d201",
     "core/wasm/scsynth-nrt.wasm": "6d49311f30b58e554546f919a9b8f5b06d0a35c37978ee725cf2cd02406882ac",
     "core/workers/clockwork_audio_worklet.js": "1538dfe53f9becbd607cff5e71d846bc9db6be86bb21f727805fa9da21420f03",
-    "sources/LumatoneSynths.scd": "fd644276df1192cd183630d12112957952401a83988e64d06450583f14650dfa",
+    "sources/LumatoneSynths.scd": "04ce2cb7cec8ebd0ae4ece8b10d6a01e8b2cd7832f7d3166c6a990dd6b8fb693",
     "sources/TOOLCHAIN.md": "ebf752e46c9b981b055d0ff81b29e815fb7336ef4e53332a970d04feb7cb4b2f",
     "sources/build-dfm1.sh": "ac598323386706563a3bcbea66333202f183b8cfd91153c983748421ca680bd2",
     "sources/clockwork.tar.gz": "6e399943131d8485816b5daac980d5f48d18951b429b3f5fce256604b8d652f9",
@@ -20,9 +20,9 @@
     "sources/dfm1-registration.patch": "63f42c81543f4079debc2964b25def7e4001a29d10ccc6efbaef2f38b842b75d",
     "sources/sc3-plugins.tar.gz": "cee6043bc8da7cb3e008c90ecf3a6a0a54633401f2cf7f15cfa283afcfd6abf7",
     "sources/supersonic.tar.gz": "859d6392ea7526163df9175360e0ab2f7f4787b6bb7a8c00d6fcb0c41f8b1f88",
-    "synthdefs/hexlab_formant.scsyndef": "276231bfb053c65810f6021e0f690276a727c4c6fc2ce0f70bef593ea3ab997f",
-    "synthdefs/hexlab_pluck.scsyndef": "1796d943c123ed4b25dc1c129061553636c9b1d6a5c60468168af91b495fb3cb",
-    "synthdefs/hexlab_string.scsyndef": "1984bd899db19c223065ba09a57512931497b4e9f8cd3c2fa1ec8e0afc71de6f",
-    "synthdefs/hexlab_tone.scsyndef": "5af76fc0c42a055bf92e420423f58e04691fa75e809138b4bb397cf77dc243f0"
+    "synthdefs/hexlab_formant.scsyndef": "0cd87139b9240226bfdff116cb94a7cd8dd79a0ab898829a23463e6672b29e13",
+    "synthdefs/hexlab_pluck.scsyndef": "cc96d5946c9352dff326a5659c473ac16325b458052e907f4d180bd1e508a4ec",
+    "synthdefs/hexlab_string.scsyndef": "225c1f8c02c404f2283d29b23951b24f16feb0286b3f6ee78aa69bf10d715119",
+    "synthdefs/hexlab_tone.scsyndef": "90a48748a69733a655f200583f1760d959569e2da2ba3e0d48265cdda43f2374"
   }
 }

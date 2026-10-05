@@ -72,6 +72,8 @@ export const SETTINGS_IMPACT_FIELDS = {
     "axis49_center_note",
     "tonalplexus_input_mode",
     "wheel_to_recent",
+    "wheel_portamento",
+    "wheel_portamento_time",
     "wheel_scale_aware",
     "midi_wheel_semitones",
     "midiin_mpe_manager_ch",

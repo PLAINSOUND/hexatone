@@ -26,6 +26,10 @@ import {
 // ── Registry structural integrity ────────────────────────────────────────────
 
 describe("SETTINGS_REGISTRY structure", () => {
+  it("defaults wheel handoff portamento to on at 60 ms", () => {
+    expect(REGISTRY_BY_KEY.wheel_portamento.default).toBe(true);
+    expect(REGISTRY_BY_KEY.wheel_portamento_time.default).toBe(60);
+  });
   const VALID_TIERS = new Set(["url", "session", "local", "runtime"]);
   const VALID_TYPES = new Set(["int", "float", "bool", "string", "joined"]);
 

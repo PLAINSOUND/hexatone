@@ -19,12 +19,28 @@ const RETUNE_GLIDE_TICK_MS = 4;
 const RETUNE_GLIDE_TAU_MS = 40;
 const RETUNE_GLIDE_MAX_CENTS_PER_SEC = 4800;
 const RETUNE_GLIDE_SNAP_CENTS = 0.1;
+const WHEEL_HANDOFF_CURVE_EXPONENT = 2.5;
+
+function wheelHandoffPhase(glide, now) {
+  const fraction = Math.min(1, Math.max(0, (now - glide.startAt) / glide.duration));
+  const start = glide.phaseStart ?? 0;
+  return start + (1 - start) * fraction;
+}
+
+function wheelHandoffPitch(glide, now) {
+  const phase = wheelHandoffPhase(glide, now);
+  const start = glide.phaseStart ?? 0;
+  // Use the remaining portion of the original power curve when retargeting,
+  // rather than restarting its slow attack on every incoming wheel message.
+  const startProgress = start ** WHEEL_HANDOFF_CURVE_EXPONENT;
+  const progress = (phase ** WHEEL_HANDOFF_CURVE_EXPONENT - startProgress) / (1 - startProgress);
+  return glide.from + (glide.to - glide.from) * progress;
+}
 
 export function passthroughCC(cc, value) {
   // Filter at the output boundary, after controller-specific decoding/learning.
   // Explicit RPN and device configuration use their own output paths.
-  if (!allowsForwardedCC(cc, this.controller?.id, this.settings.hakenaudio_glide_flip_cc))
-    return;
+  if (!allowsForwardedCC(cc, this.controller?.id, this.settings.hakenaudio_glide_flip_cc)) return;
   if (this.midiout_data && this.settings.midi_device !== "OFF" && this.settings.midi_channel >= 0) {
     this.midiout_data.sendControlChange(cc, value, { channels: this.settings.midi_channel + 1 });
   }
@@ -418,7 +434,7 @@ export function currentWheelPitchStateForHex(hex) {
     const { bentCents } = this._resolveRecencyWheelTarget(hex, this._wheelValue14);
     return {
       value14: this._wheelValue14,
-      cents: bentCents,
+      cents: this._retuneGlides.get(hex)?.wheelHandoff ? hex.cents : bentCents,
     };
   }
   return null;
@@ -444,8 +460,8 @@ export function syncTransferredWheelBends() {
 export function getControllerState() {
   return {
     ccValues: Object.fromEntries(
-      [...this._controllerCCValues].filter(
-        ([cc]) => allowsForwardedCC(cc, this.controller?.id, this.settings.hakenaudio_glide_flip_cc),
+      [...this._controllerCCValues].filter(([cc]) =>
+        allowsForwardedCC(cc, this.controller?.id, this.settings.hakenaudio_glide_flip_cc),
       ),
     ),
     channelPressure: this._channelPressureValue,
@@ -459,7 +475,9 @@ export function pushControllerStateToSynth() {
   }
   if (this.synth?.applyControllerState) {
     if (this.settings.mpe_eagan_modwheel_brightness) {
-      this.synth.applyControllerState(this._getControllerState(), { eaganModwheelBrightness: true });
+      this.synth.applyControllerState(this._getControllerState(), {
+        eaganModwheelBrightness: true,
+      });
     } else this.synth.applyControllerState(this._getControllerState());
   }
 }
@@ -471,6 +489,19 @@ export function rememberControllerStateInSynth() {
 }
 
 export function handleWheelBend(val14) {
+  for (const [hex, glide] of this._retuneGlides) {
+    if (
+      glide.wheelHandoff &&
+      (hex !== this.recencyStack.front ||
+        hex.release ||
+        !this.inputRuntime.wheelPortamento ||
+        !this.inputRuntime.wheelToRecent ||
+        this.inputRuntime.pitchBendMode !== "recency" ||
+        this.inputRuntime.mpeInput ||
+        this.inputRuntime.perChannelExpression)
+    )
+      this._retuneGlides.delete(hex);
+  }
   this._wheelValue14 = val14;
   if (!this.inputRuntime.wheelToRecent) {
     const norm = (val14 - 8192) / 8192;
@@ -513,6 +544,29 @@ export function handleWheelBend(val14) {
   const { baseCents, bentCents } = this._resolveRecencyWheelTarget(target, val14);
   this._wheelBaseCents = baseCents;
   this._wheelBend = bentCents - baseCents;
+  const glide = this._retuneGlides.get(target);
+  if (glide?.wheelHandoff) {
+    const now = performance.now();
+    const remaining = glide.startAt + glide.duration - now;
+    if (remaining > 0) {
+      // Advance the old trajectory before retargeting, preserving continuity.
+      // Keep the original deadline: wheel traffic must not prolong the handoff.
+      const phaseStart = wheelHandoffPhase(glide, now);
+      const current = wheelHandoffPitch(glide, now);
+      target.retune(current, true);
+      Object.assign(glide, {
+        from: current,
+        to: bentCents,
+        startAt: now,
+        duration: remaining,
+        phaseStart,
+      });
+      this._syncTransferredWheelBend(target);
+      this._kickRetuneGlides();
+      return;
+    }
+    this._retuneGlides.delete(target);
+  }
   target.retune(bentCents, true);
   this._syncTransferredWheelBend(target);
 }
@@ -631,11 +685,32 @@ export function tickRetuneGlides() {
   this._retuneGlideLastTime = now;
 
   let hasPending = false;
+  let hasBaseGlide = false;
   for (const [hex, glide] of this._retuneGlides) {
     if (!hex?.retune || hex.release) {
       this._retuneGlides.delete(hex);
       continue;
     }
+    if (glide.wheelHandoff) {
+      if (
+        hex !== this._wheelTarget ||
+        !this.inputRuntime.wheelPortamento ||
+        this.inputRuntime.mpeInput ||
+        this.inputRuntime.perChannelExpression ||
+        !this.inputRuntime.wheelToRecent ||
+        this.inputRuntime.pitchBendMode !== "recency"
+      ) {
+        this._retuneGlides.delete(hex);
+        continue;
+      }
+      const fraction = Math.min(1, Math.max(0, (now - glide.startAt) / glide.duration));
+      hex.retune(wheelHandoffPitch(glide, now), true);
+      this._syncTransferredWheelBend(hex);
+      if (fraction === 1) this._retuneGlides.delete(hex);
+      else hasPending = true;
+      continue;
+    }
+    hasBaseGlide = true;
     const factor = 1 - Math.exp(-dt / RETUNE_GLIDE_TAU_MS);
     const desiredStep = (glide.targetBase - glide.currentBase) * factor;
     const maxStep = (RETUNE_GLIDE_MAX_CENTS_PER_SEC * dt) / 1000;
@@ -651,8 +726,8 @@ export function tickRetuneGlides() {
     if (nextBase === glide.targetBase) this._retuneGlides.delete(hex);
   }
 
-  this._refreshSoundingHexNeighbors();
-  if (!this.inputRuntime.mpeInput && this._wheelValue14 !== 8192) {
+  if (hasBaseGlide) this._refreshSoundingHexNeighbors();
+  if (hasBaseGlide && !this.inputRuntime.mpeInput && this._wheelValue14 !== 8192) {
     this._reapplyCurrentWheelBend();
   }
 
@@ -707,6 +782,10 @@ export function updateWheelTarget(smoothReturn = false) {
   const newFront = this.recencyStack.front;
   if (newFront === this._wheelTarget) return;
 
+  for (const [hex, glide] of this._retuneGlides) {
+    if (glide.wheelHandoff) this._retuneGlides.delete(hex);
+  }
+
   this._wheelTarget = newFront;
 
   if (newFront) {
@@ -718,10 +797,26 @@ export function updateWheelTarget(smoothReturn = false) {
       );
       this._wheelBaseCents = baseCents;
       this._wheelBend = bentCents - baseCents;
-      if (smoothReturn && this._wheelValue14 !== 8192 && newFront?.retune) {
-        this._queueRetuneGlide(newFront, baseCents, true);
+      const duration = Math.max(
+        0,
+        Math.min(500, Number(this.inputRuntime.wheelPortamentoTime ?? 60)),
+      );
+      if (
+        smoothReturn &&
+        this.inputRuntime.wheelPortamento &&
+        duration > 0 &&
+        newFront?.retune &&
+        newFront.cents !== bentCents
+      ) {
+        this._retuneGlides.set(newFront, {
+          wheelHandoff: true,
+          from: newFront.cents,
+          to: bentCents,
+          startAt: performance.now(),
+          duration,
+        });
         this._kickRetuneGlides();
-      } else {
+      } else if (!newFront._wheelPrimedBeforeNoteOn || newFront.cents !== bentCents) {
         newFront.retune(bentCents, true);
       }
     } else if (

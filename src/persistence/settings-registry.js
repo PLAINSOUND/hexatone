@@ -488,6 +488,8 @@ export const SETTINGS_REGISTRY = [
   // would cause stale values if the user swaps controllers between sessions.
   { key: "axis49_center_note", tier: "runtime", type: "int", default: 53 },
   { key: "wheel_to_recent", tier: "session", type: "bool", default: true },
+  { key: "wheel_portamento", tier: "session", type: "bool", default: true },
+  { key: "wheel_portamento_time", tier: "session", type: "float", default: 60 },
   { key: "wheel_scale_aware", tier: "session", type: "bool", default: false },
   { key: "midi_wheel_semitones", tier: "session", type: "int", default: 2 },
 

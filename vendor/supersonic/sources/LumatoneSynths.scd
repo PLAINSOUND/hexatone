@@ -39,7 +39,7 @@ SynthDef(\pluck, { |freq, transpose=1, bend=1,
 		in: o,
 		trig: Impulse.ar(0),
 		maxdelaytime: 1 / min_note_hz,
-		delaytime: 1 / pitched_freq.lag(0.3),
+		delaytime: 1 / pitched_freq.lag(0.05),
 		decaytime: on_vel.linlin(0, 127, 1, 8),
 		coef: safe_freq.cpsmidi.linlin(45, 127, 1.5, 0.002) * on_vel.linlin(0, 127, 1, 0.4) * mod.explin(1, 2, 0.65, -0.038)
 	);
@@ -102,7 +102,7 @@ SynthDef(\string, { |freq, transpose=1, bend=1,
 		in: o,
 		trig: K2A.ar(articulation_trigger),
 		maxdelaytime: 1 / min_note_hz,
-		delaytime: 1 / pitched_freq.lag(0.3),
+		delaytime: 1 / pitched_freq.lag(0.05),
 		decaytime: 1 + (on_vel.linlin(0,127,20,1) * 19),
 		coef: safe_freq.explin(110, 3300, 0.08 * Lag2.kr(mod.linexp(1, 2, 3, 0.08), 0.03), 0.004)
 	);
@@ -166,7 +166,7 @@ SynthDef(\formant_array, { |freq, transpose=1, bend=1,
 	formant_amp = Array.fill(5, { |i| Select.kr(cycle_vowel, [formant_amp[i], Select.kr(vowel_index, vowel_table.collect { |v| v[1][i] })]) });
 	formant_reso = Array.fill(5, { |i| Select.kr(cycle_vowel, [formant_reso[i], Select.kr(vowel_index, vowel_table.collect { |v| v[2][i] })]) });
 	e = one_shot;
-	o = Saw.ar(pitched_freq.lag(0.3));
+	o = Saw.ar(pitched_freq.lag(0.05));
 
 	o = Mix.new(BBandPass.ar(o, formant_freq, formant_reso, formant_amp));
 	body_lpf_freq = (Lag2.kr(650 * mod.expexp(1, 2, 1, 1.65), 0.5) * safe_freq.explin(27.5, 110, 0.25, 1)).clip(min_filter_hz, max_filter_hz);
@@ -230,7 +230,7 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 	safe_formant_amp = Array.fill(5, { |i| Select.kr(cycle_vowel, [safe_formant_amp[i], Select.kr(vowel_index, vowel_table.collect { |v| v[1][i] })]) });
 	safe_formant_reso = Array.fill(5, { |i| Select.kr(cycle_vowel, [safe_formant_reso[i], Select.kr(vowel_index, vowel_table.collect { |v| v[2][i] })]) });
 	e = one_shot;
-	o = Saw.ar(pitched_freq.lag(0.3));
+	o = Saw.ar(pitched_freq.lag(0.05));
 
 	o = Mix.new(BBandPass.ar(o, safe_formants, safe_formant_reso, safe_formant_amp));
 	body_lpf_freq = (Lag2.kr(650 * mod.expexp(1, 2, 1, 1.65), 0.5) * safe_freq.explin(27.5, 110, 0.25, 1)).clip(min_filter_hz, max_filter_hz);
@@ -273,9 +273,9 @@ SynthDef(\tone, { |freq, transpose=1, bend=1,
 		* (comparable_freq <= max_note_hz);
 	effective_release = release_time.blend(quick_release_time.max(0.001), quick_release.clip(0, 1));
 	e = EnvGen.ar(Env.adsr(attackTime: attack_time, decayTime: rise_time, sustainLevel: sustain_level, releaseTime: effective_release, peakLevel: 0.5, curve: 0), gate + Impulse.kr(0), doneAction: Done.freeSelf);
-	p = SinOsc.ar([1,2,3] * pitched_freq.lag(0.3), mul: [1, 0.25 * mod.expexp(1, 2, 1, 2) * filter.explin(1, 2, 1, 2).lag2(0.04), 0.125 * mod.expexp(1, 2, 1, 4) * filter.explin(1, 2, 1, 4).lag2(0.04)]);
+	p = SinOsc.ar([1,2,3] * pitched_freq.lag(0.05), mul: [1, 0.25 * mod.expexp(1, 2, 1, 2) * filter.explin(1, 2, 1, 2).lag2(0.04), 0.125 * mod.expexp(1, 2, 1, 4) * filter.explin(1, 2, 1, 4).lag2(0.04)]);
 
-	o = Saw.ar(pitched_freq.lag(0.3));
+	o = Saw.ar(pitched_freq.lag(0.05));
 
 	dfm_freq = (safe_freq * 3 * mod.linexp(1, 2, 0.9, 2).lag(0.75) * filter.linexp(1, 2, 0.7, 1.33).lag2(0.4)).clip(min_filter_hz, max_filter_hz);
 	tone_lpf_freq = (2 * (330.0 ** 0.9) * (safe_freq ** 0.1)).clip(min_filter_hz, max_filter_hz);

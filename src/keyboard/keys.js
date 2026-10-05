@@ -216,6 +216,8 @@ class Keys {
       pitchBendMode: "recency",
       pressureMode: "recency",
       wheelToRecent: settings.wheel_to_recent,
+      wheelPortamento: settings.wheel_portamento ?? true,
+      wheelPortamentoTime: settings.wheel_portamento_time ?? 60,
       // wheelRange and bendRange both use midiin_bend_range — unified with Pitch Bend Interval UI.
       wheelRange: settings.midiin_bend_range ?? "28/27",
       wheelScaleAware: settings.wheel_scale_aware,

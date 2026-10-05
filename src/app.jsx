@@ -4332,6 +4332,8 @@ const App = () => {
       // wheelRange and bendRange both read from midiin_bend_range — the UI
       // unified the old separate "Wheel Range (Scala)" field into Pitch Bend Interval.
       wheelToRecent: linnstrumentBypassNonMpe ? false : settings.wheel_to_recent,
+      wheelPortamento: settings.wheel_portamento ?? true,
+      wheelPortamentoTime: settings.wheel_portamento_time ?? 60,
       wheelRange: settings.midiin_bend_range ?? "28/27",
       // In sequential/bypass mode, each Lumatone channel is an independent
       // polyphonic input stream in either Hex Layout or nearest-scale mode.
@@ -4374,6 +4376,8 @@ const App = () => {
       settings.midiin_pitchbend_mode,
       settings.midiin_pressure_mode,
       settings.wheel_to_recent,
+      settings.wheel_portamento,
+      settings.wheel_portamento_time,
       settings.midiin_bend_range,
       linnstrumentBypassChannelPerRow,
       linnstrumentBypassSingleChannel,

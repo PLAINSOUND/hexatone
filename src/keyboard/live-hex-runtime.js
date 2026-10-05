@@ -256,6 +256,19 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   }
 
   let wheelPrimedBeforeNoteOn = false;
+  // A fresh attack becomes the most recent note. Apply the already-held
+  // wheel before starting audio, rather than retuning its unbent onset.
+  if (
+    !keys.inputRuntime.mpeInput && !keys.inputRuntime.perChannelExpression &&
+    keys.inputRuntime.wheelToRecent && keys.inputRuntime.pitchBendMode === "recency" &&
+    keys._wheelValue14 !== 8192 && hex.retune && !hex.standardWheelPassthroughOnly
+  ) {
+    hex.cents_prev = cents_prev;
+    hex.cents_next = cents_next;
+    const { bentCents } = keys._resolveRecencyWheelTarget(hex, keys._wheelValue14);
+    hex.retune(bentCents, true);
+    wheelPrimedBeforeNoteOn = true;
+  }
   if (!keys.inputRuntime.wheelToRecent && keys._wheelValue14 !== 8192) {
     const wheelTargetCents = cents + keys._wheelBend;
     if (hex.standardWheelRetune) {

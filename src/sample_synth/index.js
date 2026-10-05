@@ -712,9 +712,12 @@ ActiveHex.prototype.noteOn = function () {
  * MTS and MPE synths which also removed interpolation for octave-shift retunes.
  */
 ActiveHex.prototype.retune = function (newCents) {
-  if (this.release || !this.source) return;
+  if (this.release || !Number.isFinite(newCents)) return;
   const delta = Math.abs(newCents - this.cents);
   this.cents = newCents;
+  // Before onset, retain the target so noteOn creates the source at its
+  // intended pitch; smoothing is only for an already sounding source.
+  if (!this.source) return;
 
   const freq = this.fundamental * Math.pow(2, (newCents - this.centsToReference) / 1200);
   const targetPlaybackRate = freq / this.sampleFreq;

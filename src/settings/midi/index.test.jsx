@@ -60,6 +60,35 @@ const makeProps = (settings = {}) => ({
   exquisRawPorts: null,
 });
 
+it("defaults wheel handoff portamento to on at 60 ms", () => {
+  const props = makeProps({
+    midiin_controller_override: "lumatone",
+    wheel_to_recent: true,
+  });
+  render(<MIDIio {...props} />);
+  expect(screen.getByLabelText("Pitch Wheel Portamento").checked).toBe(true);
+  const slider = screen.getByRole("slider", { name: "Pitch Wheel Portamento Time" });
+  expect(slider.getAttribute("aria-valuenow")).toBe("60");
+  expect(slider.getAttribute("aria-valuemax")).toBe("500");
+  fireEvent.keyDown(slider, { key: "ArrowRight" });
+  expect(props.onChange).toHaveBeenCalledWith("wheel_portamento_time", 61);
+  fireEvent.click(screen.getByLabelText("Pitch Wheel Portamento"));
+  expect(props.onChange).toHaveBeenCalledWith("wheel_portamento", false);
+});
+
+it.each([
+  { midiin_controller_override: "generic_mpe", midiin_mpe_input: true },
+  { wheel_to_recent: false },
+  { midiin_pitchbend_mode: "all" },
+])("hides wheel portamento outside non-MPE most-recent wheel mode (%j)", (settings) => {
+  render(
+    <MIDIio
+      {...makeProps({ midiin_controller_override: "lumatone", wheel_to_recent: true, ...settings })}
+    />,
+  );
+  expect(screen.queryByLabelText("Pitch Wheel Portamento")).toBeNull();
+});
+
 it("shows Lumatone timbre source defaults and saves foot selection", () => {
   const props = makeProps({ midiin_controller_override: "lumatone" });
   render(<MIDIio {...props} />);

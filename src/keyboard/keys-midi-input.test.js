@@ -6592,6 +6592,31 @@ describe("Keys MIDI input integration", () => {
     expect(createdHex.retune.mock.calls[0][1]).toBe(true);
   });
 
+  it.each([false, true])("primes a held recency wheel before fresh attacks (scale-aware: %s)", (wheelScaleAware) => {
+    const onsets = [];
+    const synth = {
+      makeHex: vi.fn((coords, cents) => ({
+        coords, cents, release: false,
+        retune: vi.fn(function (value) { this.cents = value; }),
+        noteOn() { onsets.push(this.cents); },
+        noteOff: vi.fn(),
+      })),
+    };
+    const keys = createKeys({}, {
+      wheelToRecent: true, pitchBendMode: "recency", wheelScaleAware,
+      wheelRange: "2/1", mpeInput: false,
+    }, synth);
+    keys._handleWheelBend(12288);
+    for (const coords of [new Point(1, 0), new Point(2, 0)]) {
+      keys.hexOn(coords, 60, 96, 0);
+      const hex = synth.makeHex.mock.results.at(-1).value;
+      const { bentCents } = keys._resolveRecencyWheelTarget(hex, 12288);
+      expect(onsets.at(-1)).toBeCloseTo(bentCents, 6);
+      expect(onsets.at(-1)).not.toBe(hex._baseCents);
+      expect(hex.retune).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it("does not directly retune passthrough-only standard-wheel outputs", () => {
     const retune = vi.fn();
     const keys = createKeys(
@@ -8920,12 +8945,14 @@ describe("Keys MIDI input integration", () => {
     expect(aHex.cents).toBeCloseTo(aPitchAfterOnset, 5);
   });
 
-  it("glides the previous held note to the current wheel position when recency returns to it", () => {
+  it.each([[false, 80], [true, 80], [true, 0]])("uses optional wheel handoff portamento (%s, %s ms)", (enabled, duration) => {
     const keys = createKeys(
       {},
       {
         wheelToRecent: true,
         pitchBendMode: "recency",
+        wheelPortamento: enabled,
+        wheelPortamentoTime: duration,
       },
     );
     const aHex = {
@@ -8954,15 +8981,76 @@ describe("Keys MIDI input integration", () => {
     keys._wheelTarget = bHex;
     keys._wheelValue14 = 12000;
 
-    const queueSpy = vi.spyOn(keys, "_queueRetuneGlide");
-    const kickSpy = vi.spyOn(keys, "_kickRetuneGlides");
+    const kickSpy = vi.spyOn(keys, "_kickRetuneGlides").mockImplementation(() => {});
+    const clock = vi.spyOn(performance, "now").mockReturnValue(100);
 
     keys.recencyStack.remove(bHex);
     keys._updateWheelTarget(true);
 
-    expect(queueSpy).toHaveBeenCalledWith(aHex, 1000, true);
-    expect(kickSpy).toHaveBeenCalled();
-    expect(aHex.retune).not.toHaveBeenCalled();
+    if (enabled && duration > 0) {
+      expect(kickSpy).toHaveBeenCalled();
+      expect(aHex.retune).not.toHaveBeenCalled();
+      const target = keys._retuneGlides.get(aHex).to;
+      clock.mockReturnValue(140);
+      keys._tickRetuneGlides();
+      expect(aHex.cents).toBeCloseTo(1000 + (target - 1000) * 0.5 ** 2.5);
+      clock.mockReturnValue(180);
+      keys._tickRetuneGlides();
+      expect(aHex.cents).toBeCloseTo(target);
+      expect(keys._retuneGlides.size).toBe(0);
+    } else {
+      expect(kickSpy).not.toHaveBeenCalled();
+      expect(aHex.retune).toHaveBeenCalled();
+    }
+    expect(aHex._baseCents).toBe(1000);
+    clock.mockRestore();
+  });
+
+  it.each([false, true])("retargets a wheel handoff during continuous movement without extending it (downward: %s)", (downward) => {
+    const keys = createKeys({}, {
+      wheelToRecent: true, pitchBendMode: "recency",
+      wheelPortamento: true, wheelPortamentoTime: 80,
+    });
+    const hex = {
+      coords: new Point(1, 0),
+      cents: 1000, _baseCents: 1000, release: false,
+      retune: vi.fn(function (cents) { this.cents = cents; }),
+    };
+    keys.recencyStack.push(hex);
+    keys._wheelTarget = {};
+    keys._wheelValue14 = downward ? 4000 : 12000;
+    vi.spyOn(keys, "_kickRetuneGlides").mockImplementation(() => {});
+    const clock = vi.spyOn(performance, "now").mockReturnValue(100);
+    keys._updateWheelTarget(true);
+    const initialTarget = keys._retuneGlides.get(hex).to;
+    for (const time of [105, 110, 115]) {
+      clock.mockReturnValue(time);
+      keys._handleWheelBend(downward ? 4000 : 12000);
+      expect(hex.cents).toBeCloseTo(
+        1000 + (initialTarget - 1000) * ((time - 100) / 80) ** 2.5,
+      );
+    }
+    clock.mockReturnValue(120);
+    keys._handleWheelBend(downward ? 3000 : 13000);
+    expect(hex.cents).toBeCloseTo(1000 + (initialTarget - 1000) * 0.25 ** 2.5);
+    for (const time of [130, 140, 150, 160, 170]) {
+      clock.mockReturnValue(time);
+      const value = time === 150 ? 8192 :
+        time > 150 ? (downward ? 12000 : 4000) :
+        (downward ? 2000 + time : 14000 - time);
+      keys._handleWheelBend(value);
+      const glide = keys._retuneGlides.get(hex);
+      expect(glide.startAt + glide.duration).toBe(180);
+    }
+    const finalTarget = keys._resolveRecencyWheelTarget(hex, keys._wheelValue14).bentCents;
+    clock.mockReturnValue(180);
+    keys._tickRetuneGlides();
+    expect(hex.cents).toBeCloseTo(finalTarget);
+    expect(keys._retuneGlides.size).toBe(0);
+    keys._handleWheelBend(8192);
+    expect(hex.cents).toBe(1000);
+    expect(hex._baseCents).toBe(1000);
+    clock.mockRestore();
   });
 
   it("keeps the main MTS output on real-time transport even if sysex_type is stale at 126", () => {
