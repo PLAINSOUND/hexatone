@@ -29,12 +29,12 @@ it.each(["start", "end"])("timed %s navigation stops before a deferred edit comm
 });
 
 it.each([
-  ["next sequence marker", "cue", 1],
-  ["previous sequence marker", "cue", 1],
-  ["next sequence step", "snapshot", 2],
-  ["previous sequence step", "snapshot", 2],
+  ["next sequence marker", "cue", 2],
+  ["previous sequence marker", "cue", 0],
+  ["next sequence step", "snapshot", 3],
+  ["previous sequence step", "snapshot", 1],
   ["play current sequence position", "cue", 1],
-])("%s retriggers the sounding timed position, not the start target", (label, kind, index) => {
+])("%s hands off relative to the sounding timed position, not the start target", (label, kind, index) => {
   const calls = [];
   const snapshots = [0, 1, 2].map((id) => ({ id, notes: [] }));
   render(
@@ -49,7 +49,12 @@ it.each([
       timedTransportUiState={{ running: true }}
       getTimedTransportDisplay={() => ({ activeCueIndex: 1, clock: "00:00:10", barBeat: "3:1" })}
       runTransportAction={(action) => action()}
-      onTimedTransportStop={() => calls.push(["stop"])}
+      onTimedTransportStop={(options) => {
+        expect(options).toEqual(kind === "cue" && label !== "play current sequence position"
+          ? { restoreStartTarget: false, preserveSoundingNotes: true }
+          : { restoreStartTarget: false });
+        calls.push(["stop"]);
+      }}
       onJumpSequenceCue={(value) => calls.push(["cue", value])}
       onJumpSequenceSnapshot={(value) => calls.push(["snapshot", value])}
       onStepSequence={() => calls.push(["unexpected step"])}

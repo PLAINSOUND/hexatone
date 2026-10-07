@@ -1930,6 +1930,9 @@ describe("App workspace tabs", () => {
         "next sequence marker",
         "play current sequence position",
       ]) {
+        // Each arrow now advances rather than replaying, so reset the origin
+        // for each independent handoff assertion (including the second tab).
+        fireEvent.click(screen.getByLabelText("move timed transport to start"));
         await user.click(await screen.findByLabelText("play timed transport"));
         expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
         keys.stopSnapshot.mockClear();
@@ -1938,11 +1941,16 @@ describe("App workspace tabs", () => {
         // userEvent's pointer-event delays before the actual click.
         fireEvent.click(screen.getByLabelText(label));
         expect(screen.queryByLabelText("pause timed transport")).toBeNull();
-        expect(keys.stopSnapshot).toHaveBeenCalled();
         expect(keys.playSnapshot).toHaveBeenCalled();
-        expect(keys.stopSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
-          keys.playSnapshot.mock.invocationCallOrder[0],
-        );
+        if (label === "next sequence marker") {
+          expect(keys.stopSnapshot).not.toHaveBeenCalled();
+          expect(keys.playSnapshot.mock.calls.at(-1)[1]).toMatchObject({ legato: true });
+        } else {
+          expect(keys.stopSnapshot).toHaveBeenCalled();
+          expect(keys.stopSnapshot.mock.invocationCallOrder[0]).toBeLessThan(
+            keys.playSnapshot.mock.invocationCallOrder[0],
+          );
+        }
         await user.click(screen.getByLabelText("stop timed transport"));
       }
     }
