@@ -5,6 +5,7 @@
 import { createRef } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { exportFilename } from "../../persistence/export-filename.js";
 import { deriveSpectrumNoteColors, normalizeColors } from "../normalize-settings.js";
 import { deriveAutoNoteColors, normaliseColorForCompare } from "./auto-colors.js";
 import ColorCell from "./scale-table/color-cell.js";
@@ -69,7 +70,7 @@ const savePrimeFamilyPalettes = (palettes) => {
 const defaultPrimePalette = () =>
   PRIME_COLOR_ORDER.map((prime) => DEFAULT_PRIME_FAMILY_COLORS[prime]);
 
-const safePaletteName = (name) => (name || "palette").replace(/[^a-zA-Z0-9_\-]/g, "_");
+const safePaletteName = (name) => exportFilename(name, "palette");
 
 const downloadPaletteFile = (palette) => {
   const blob = new Blob([JSON.stringify(palette, null, 2)], { type: "application/json" });

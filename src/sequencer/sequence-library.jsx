@@ -6,6 +6,7 @@
 import { createRef } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { exportFilename } from "../persistence/export-filename.js";
 import { cloneJsonValue } from "../persistence/clone-json-value.js";
 import { orderPresetsByName } from "../persistence/preset-name-order.js";
 import {
@@ -122,7 +123,7 @@ function downloadFile(content, filename, mimeType = "application/json") {
 }
 
 function safeName(name) {
-  return (name || "sequence").replace(/[^a-zA-Z0-9_\-]/g, "_");
+  return exportFilename(name, "sequence");
 }
 
 function uniqueSequenceName(baseName, takenNames) {

@@ -11,6 +11,7 @@
 import { createRef } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { exportFilename } from "../persistence/export-filename.js";
 import { orderPresetsByName } from "../persistence/preset-name-order.js";
 import { settingsToTuningRecord, serializeTuningRecord } from "./tuning-record.js";
 import { fileToPreset } from "../settings/scale/parse-scale.js";
@@ -35,7 +36,7 @@ function downloadFile(content, filename, mimeType = "application/json") {
 }
 
 function safeName(name) {
-  return (name || "preset").replace(/[^a-zA-Z0-9_\-]/g, "_");
+  return exportFilename(name, "preset");
 }
 
 const TuningLibrary = ({

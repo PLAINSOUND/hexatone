@@ -983,6 +983,7 @@ const App = () => {
   const initialiseAudioRef = useRef(null);
   const audioRecovery = useAudioRecovery(synthRef, keysRef, settings, initialiseAudioRef);
   const restoreBuiltInAudio = audioRecovery.restore;
+  const [initialAudioPromptDismissed, setInitialAudioPromptDismissed] = useState(false);
   const [modulationArmed, setModulationArmed] = useState(false);
   const [modulationMode, setModulationMode] = useState("idle");
   const [modulationState, setModulationState] = useState(null);
@@ -1070,6 +1071,7 @@ const App = () => {
     await activation;
     return retryAudioOutputs(signal);
   };
+  initialiseAudioRef.current.needed = () => !!pendingRestoredPreset || !userHasInteracted;
 
   const { panic: guardianPanic } = useMidiGuardian(midi, settings);
 
@@ -5231,8 +5233,6 @@ const App = () => {
     <>
     <Suspense fallback={<SidebarLoadingFallback />}>
       <IOSettings
-        showActivateAudioContext={!userHasInteracted}
-        activateAudioContext={refreshKeyboardAndAudio}
         onChange={onChange}
         midiLearnActive={midiLearnActive}
         hakenPedalLearnActive={hakenPedalLearnActive}
@@ -5281,16 +5281,23 @@ const App = () => {
         .filter(Boolean)
         .join(" ")}
     >
-      {audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored") && (
+      {((ready && !initialAudioPromptDismissed &&
+          (!!pendingRestoredPreset || (!userHasInteracted &&
+            (settings.output_sample || settings.output_fluidsynth || (settings.output_osc && settings.osc_local))))) ||
+        (audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored"))) && (
         <div className="audio-recovery-alert" role="status">
-          <span>{audioRecovery.status}</span>{" "}
+          <span>{audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored")
+            ? audioRecovery.status : "Tap Enable Audio to start the built-in sounds."}</span>{" "}
           <button type="button" disabled={audioRecovery.restoring}
             onPointerDown={e => runTouchControlAction(e, restoreBuiltInAudio)}
             onClick={e => { if (!skipSuppressedTouchClick(e)) void restoreBuiltInAudio(); }}>
-            {audioRecovery.restoring ? "Restoring Audio…" : "Restore Audio"}
+            {audioRecovery.restoring ? "Restoring Audio…" : pendingRestoredPreset || !userHasInteracted ? "Enable Audio" : "Restore Audio"}
           </button>{" "}
           <button type="button" onClick={audioRecovery.save}>Save Report</button>
-          {" "}<button type="button" disabled={audioRecovery.restoring} onClick={audioRecovery.dismiss}>Dismiss</button>
+          {" "}<button type="button" disabled={audioRecovery.restoring} onClick={() => {
+            setInitialAudioPromptDismissed(true);
+            audioRecovery.dismiss();
+          }}>Dismiss</button>
         </div>
       )}
       {ready && (isValid || sequenceOnlyPlaybackSurface) && (
@@ -6139,7 +6146,6 @@ const App = () => {
                     onPlayTimedCue={onPlayTimedSequenceCue}
                     onPresentTimedCue={onPresentTimedPaletteCue}
                     onEnsureAudioReady={primeAudioFromUserInteraction}
-                    showActivateAudioContext={!userHasInteracted}
                     onResetSequencePlayhead={onResetSequencePlayhead}
                     onJumpSequenceEnd={onJumpSequenceEnd}
                     getTimedTransportClockSeconds={getTimedTransportClockSeconds}
@@ -6192,10 +6198,6 @@ const App = () => {
                   onCommitCurrentModulation={onCommitCurrentModulation}
                   persistOnReload={persistOnReload}
                   setPersistOnReload={setPersistOnReload}
-                  showActivateAudioContext={
-                    !!pendingRestoredPreset || (restoredOnMount && !userHasInteracted)
-                  }
-                  activateAudioContext={refreshKeyboardAndAudio}
                   activatePendingPreset={activatePendingPreset}
                   onRevertBuiltin={onRevertBuiltin}
                   onRevertUser={onRevertUser}

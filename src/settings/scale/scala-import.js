@@ -5,6 +5,7 @@
 import { createRef } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { exportFilename } from "../../persistence/export-filename.js";
 import {
   settingsToPlainScala,
   settingsToAbletonScala,
@@ -24,7 +25,7 @@ const downloadFile = (content, filename, mimeType = "text/plain") => {
   URL.revokeObjectURL(url);
 };
 
-const safeName = (settings) => (settings.name || "custom").replace(/[^a-zA-Z0-9_\-]/g, "_");
+const safeName = (settings) => exportFilename(settings.name, "custom");
 
 const ScalaImport = (props) => {
   const fileInputRef = createRef();

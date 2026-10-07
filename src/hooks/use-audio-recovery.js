@@ -91,7 +91,8 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     setRestoring(true);
     setStatus("Restoring audio…");
     try {
-      if (!recorder.current.snapshot(synthRef.current).length && initialiseRef?.current) {
+      if (initialiseRef?.current &&
+          (!recorder.current.snapshot(synthRef.current).length || initialiseRef.current.needed?.())) {
         recorder.current.record("audio-initialisation-start");
         let timer;
         const controller = new AbortController();
