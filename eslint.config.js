@@ -50,6 +50,18 @@ export default defineConfig([
     },
   },
 
+  // AudioWorklet scope is supplied by the audio renderer, not window.
+  {
+    files: ['src/dsf_synth/dsf-processor.js'],
+    languageOptions: {
+      globals: {
+        AudioWorkletProcessor: 'readonly',
+        sampleRate: 'readonly',
+        registerProcessor: 'readonly',
+      },
+    },
+  },
+
   // ── Test files: relax console and allow test globals ──────────────────────
   {
     files: ['src/**/*.test.{js,jsx}'],

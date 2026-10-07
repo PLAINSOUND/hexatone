@@ -415,6 +415,9 @@ export async function loadFluidSynthSoundFont(
       active.soundfontId = result.soundfontId;
       active.presets = result.presets || [];
       active.soundfontSource = source;
+      try {
+        localStorage.setItem("fluidsynth_last_soundfont_source", JSON.stringify({ name: source.name, url: source.url || "" }));
+      } catch { /* Persistence restrictions must not interrupt playback. */ }
       const selected = active.presets.find(
         (item) => item.bank === previousPreset?.bank && item.program === previousPreset?.program,
       ) ?? active.presets[0];

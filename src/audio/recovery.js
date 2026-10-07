@@ -6,6 +6,8 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
   let pending = null;
   let hideTimer;
   const mutedOutputs = new Set();
+  const contextIds = new WeakMap();
+  let nextContextId = 0;
   const record = (name, detail = {}) => {
     history.push({ at: new Date().toISOString(), name, ...detail });
     if (history.length > historyLimit) history.shift();
@@ -17,7 +19,10 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
   const snapshot = (synth) =>
     outputs(synth).map((s) => {
       try {
-        return { backend: s.audioBackend ?? "samples", ...s.getDiagnostics?.() };
+        const context = s.getAudioContext?.();
+        if (context && !contextIds.has(context)) contextIds.set(context, ++nextContextId);
+        return { backend: s.audioBackend ?? "samples", ...s.getDiagnostics?.(),
+          contextId: context ? contextIds.get(context) : null };
       } catch (error) {
         return { backend: s.audioBackend ?? "samples", error: String(error.message ?? error) };
       }

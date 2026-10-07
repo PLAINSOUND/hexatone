@@ -981,7 +981,9 @@ const App = () => {
     PRESET_SKIP_KEYS,
   );
   const initialiseAudioRef = useRef(null);
-  const audioRecovery = useAudioRecovery(synthRef, keysRef, settings, initialiseAudioRef);
+  const engineLifecycleRef = useRef({ loading: true });
+  const [restoringLocalSoundfont, setRestoringLocalSoundfont] = useState(false);
+  const audioRecovery = useAudioRecovery(synthRef, keysRef, settings, initialiseAudioRef, engineLifecycleRef);
   const restoreBuiltInAudio = audioRecovery.restore;
   const [initialAudioPromptDismissed, setInitialAudioPromptDismissed] = useState(false);
   const [modulationArmed, setModulationArmed] = useState(false);
@@ -1030,6 +1032,8 @@ const App = () => {
     synth,
     readySampleInstrument,
     retryAudioOutputs,
+    enginesLoading,
+    engineStartupErrors,
     midi,
     midiAccess,
     midiAccessError,
@@ -1064,6 +1068,34 @@ const App = () => {
     synthRef,
     deferSampleActivation: deferRestoredSampleActivation,
   });
+  engineLifecycleRef.current = { loading: !ready || enginesLoading > 0 || restoringLocalSoundfont,
+    errors: engineStartupErrors };
+  const localSoundfontAttemptedRef = useRef(false);
+  useEffect(() => {
+    if (!ready || !userHasInteracted || !settings.output_fluidsynth || localSoundfontAttemptedRef.current) return;
+    localSoundfontAttemptedRef.current = true;
+    const controller = new AbortController();
+    setRestoringLocalSoundfont(true);
+    void import("./fluidsynth_synth/restore-local-soundfont.js")
+      .then(({ restoreLocalSoundfont }) => restoreLocalSoundfont({
+        signal: controller.signal, preferredPreset: settings.fluidsynth_preset,
+      }))
+      .then((result) => {
+        if (controller.signal.aborted || !result) return;
+        setSettings((current) => ({ ...current,
+          fluidsynth_preset: result.selectedPreset
+            ? `${result.selectedPreset.bank}:${result.selectedPreset.program}` : current.fluidsynth_preset,
+          fluidsynth_runtime_revision: (Number(current.fluidsynth_runtime_revision) || 0) + 1,
+        }));
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) audioRecovery.startupFailed("FluidSynth", error);
+      })
+      .finally(() => { if (!controller.signal.aborted) setRestoringLocalSoundfont(false); });
+    return () => { controller.abort(); setRestoringLocalSoundfont(false); };
+    // One local-only attempt on first activation; preset changes must not cancel it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, userHasInteracted, settings.output_fluidsynth]);
   initialiseAudioRef.current = async (signal) => {
     // Begin shared-context activation on the original Restore gesture.
     const activation = primeAudioFromUserInteraction();

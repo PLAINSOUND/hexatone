@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createSuperSonicOutput } from "./index.js";
+import { createSuperSonicOutput, disposeSuperSonicOutputs } from "./index.js";
 
 afterEach(() => {
+  disposeSuperSonicOutputs();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
 
-function setup() {
+function setup({ stallSecond = false, initialisation } = {}) {
   const contexts = [];
   const engines = [];
   class Context {
@@ -41,7 +42,10 @@ function setup() {
       this.node = { connect: vi.fn(), disconnect: vi.fn() };
       this.clock = { now: () => 1 };
       this.init = vi.fn(async () => {});
+      if (initialisation) this.init = vi.fn(() => initialisation);
       this.loadSynthDef = vi.fn(async () => {});
+      if (stallSecond && engines.length === 2)
+        this.loadSynthDef = vi.fn(() => new Promise(() => {}));
       this.sync = vi.fn(async () => {});
       this.send = vi.fn();
       this.sendOSC = vi.fn();
@@ -73,6 +77,40 @@ function setup() {
 }
 
 describe("recoverable SuperSonic engine", () => {
+  it("disposes a pending initialisation and prevents its late publication", async () => {
+    let finish;
+    const initialisation = new Promise((resolve) => { finish = resolve; });
+    const { create, contexts, engines } = setup({ initialisation });
+    const work = create();
+    const rejection = expect(work).rejects.toThrow("superseded");
+    await vi.waitFor(() => expect(engines).toHaveLength(1));
+    disposeSuperSonicOutputs();
+    finish();
+    await rejection;
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+    expect(engines[0].loadSynthDef).not.toHaveBeenCalled();
+  });
+  it("awaits old engine teardown before allocating its replacement", async () => {
+    const { create, engines } = setup();
+    const synth = await create();
+    let finish;
+    engines[0].destroy.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const rebuilding = synth.forceAudioRebuild();
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    expect(engines).toHaveLength(1);
+    finish();
+    await rebuilding;
+    expect(engines).toHaveLength(2);
+  });
+  it("immediately disposes active outputs before a development reload", async () => {
+    const { create, contexts, engines } = setup();
+    const synth = await create();
+    disposeSuperSonicOutputs();
+    await Promise.resolve();
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+    expect(engines[0].destroy).toHaveBeenCalledOnce();
+    await expect(synth.forceAudioRebuild()).rejects.toThrow("shutting down");
+  });
   it("closes the new context if constructor allocation fails and reports the actual error", async () => {
     const { contexts } = setup();
     class FailedSonic {
@@ -101,12 +139,10 @@ describe("recoverable SuperSonic engine", () => {
   });
   it("rejects a stalled replacement and permits a retry", async () => {
     vi.useFakeTimers();
-    const { create, engines, contexts } = setup();
+    const { create, contexts } = setup({ stallSecond: true });
     const synth = await create();
     const restoring = synth.forceAudioRebuild();
     const rejection = expect(restoring).rejects.toThrow("timed out");
-    // Construction is synchronous; init yields before the first upload.
-    engines[1].loadSynthDef = vi.fn(() => new Promise(() => {}));
     await vi.advanceTimersByTimeAsync(30001);
     await rejection;
     expect(contexts[1].close).toHaveBeenCalled();

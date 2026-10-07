@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { applyIOReloadPolicy, IO_RESTORE_KEY, restoreIOOnReload } from "./io-reload-policy.js";
+import { SETTINGS_REGISTRY } from "./settings-registry.js";
 
 describe("independent I/O reload policy", () => {
+  it("enables all available built-in backends by default, using local scsynth", () => {
+    for (const key of ["output_sample", "output_fluidsynth", "output_osc", "osc_local"])
+      expect(SETTINGS_REGISTRY.find((entry) => entry.key === key).default).toBe(true);
+  });
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

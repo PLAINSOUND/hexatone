@@ -7,6 +7,15 @@ import { createLocalOscTransport } from "./transport.js";
 import { warnLog } from "../debug/logging.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
 
+const liveOutputs = new Set();
+export function disposeSuperSonicOutputs() {
+  for (const dispose of [...liveOutputs]) dispose();
+}
+if (import.meta.hot) {
+  import.meta.hot.dispose(disposeSuperSonicOutputs);
+  import.meta.hot.on("vite:beforeFullReload", disposeSuperSonicOutputs);
+}
+
 export async function create_supersonic_synth(...args) {
   const base = new URL(`${import.meta.env.BASE_URL}supersonic/`, location.href).href;
   const { SuperSonic } = await import(/* @vite-ignore */ `${base}client/supersonic.js`);
@@ -27,21 +36,36 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
   let recoveryGate;
   let recoveryMuted = false;
   let closeCurrent = () => {};
+  const pendingCloses = new Set();
   const wake = () => {
     if (context && context.state !== "closed") void context.resume().catch(() => {});
   };
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    stopping = true;
+    generation += 1;
+    liveOutputs.delete(dispose);
+    window.removeEventListener("beforeunload", dispose);
     document.removeEventListener("pointerdown", wake, true);
     document.removeEventListener("keydown", wake, true);
     closeCurrent();
+    for (const close of pendingCloses) close();
   };
+  liveOutputs.add(dispose);
+  window.addEventListener("beforeunload", dispose);
   try {
     const build = async () => {
       const ticket = ++generation;
       const nextContext = new AudioContext({ latencyHint: "interactive" });
       void nextContext.resume().catch(() => {});
+      // A hard recovery must release the previous WASM engine before allocating
+      // another one. Context activation above still begins on the user gesture.
+      await closeCurrent();
+      if (disposed || stopping) {
+        await nextContext.close();
+        throw new Error("SuperSonic output is shutting down");
+      }
       let nextSonic;
       try {
         nextSonic = new SuperSonic({
@@ -53,20 +77,25 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         });
       } catch (error) {
         // Constructor allocation can fail before normal engine cleanup exists.
-        void nextContext.close().catch(() => {});
+        await nextContext.close().catch(() => {});
         throw error;
       }
       let closed = false;
+      let closing;
       let nextGate;
       const closeNext = () => {
-        if (closed) return;
+        if (closed) return closing;
         closed = true;
+        pendingCloses.delete(closeNext);
         nextGate?.disconnect();
-        void Promise.resolve(nextSonic.destroy()).catch((error) =>
+        const destroying = Promise.resolve().then(() => nextSonic.destroy()).catch((error) =>
           warnLog("SuperSonic shutdown:", error),
         );
-        if (nextContext.state !== "closed") void nextContext.close().catch(() => {});
+        const closingContext = nextContext.state !== "closed" ? nextContext.close().catch(() => {}) : Promise.resolve();
+        closing = Promise.all([destroying, closingContext]);
+        return closing;
       };
+      pendingCloses.add(closeNext);
       let deadline;
       const expired = new Promise((_, reject) => {
         deadline = setTimeout(() => {
@@ -74,7 +103,12 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
           reject(new Error("SuperSonic engine initialisation timed out"));
         }, 30000);
       });
-      const step = (work) => Promise.race([work, expired]);
+      const step = async (work) => {
+        const result = await Promise.race([work, expired]);
+        if (disposed || stopping || ticket !== generation)
+          throw new Error("SuperSonic recovery superseded");
+        return result;
+      };
       try {
         let failure = null;
         nextSonic.on("in", (msg) => {
@@ -107,7 +141,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         currentTransport.setTailPruning(pruning);
         closeOld();
       } catch (error) {
-        closeNext();
+        await closeNext();
         throw error;
       } finally {
         clearTimeout(deadline);
@@ -157,7 +191,8 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       stopping = true;
       document.removeEventListener("pointerdown", wake, true);
       document.removeEventListener("keydown", wake, true);
-      return shutdown(options);
+      try { return shutdown(options); }
+      finally { if (options?.panic) dispose(); }
     };
     synth.forceAudioRebuild = () => {
       if (stopping) return Promise.reject(new Error("SuperSonic output is shutting down"));

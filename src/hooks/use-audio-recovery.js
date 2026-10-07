@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { createAudioRecovery, saveAudioReport } from "../audio/recovery.js";
 
-export default function useAudioRecovery(synthRef, keysRef, settings = {}, initialiseRef) {
+export default function useAudioRecovery(synthRef, keysRef, settings = {}, initialiseRef, engineLifecycleRef) {
   const recorder = useRef(null);
   if (!recorder.current) recorder.current = createAudioRecovery();
   const [status, setStatus] = useState("");
@@ -11,10 +11,16 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     setStatus("");
   }, []);
   const busy = useRef(false);
+  const startupFailed = useCallback((backend, error) => {
+    const message = String(error.message ?? error);
+    recorder.current.record("engine-startup-failed", { backend, error: message });
+    setStatus(`${backend} could not start: ${message}. Save a report; you can retry.`);
+  }, []);
   useEffect(() => {
     const log = recorder.current;
     let previous = new Map();
     let wasHidden = false;
+    let reportedStartupErrors = "";
     const lifecycle = (event) => {
       log.record(event.type, {
         visibility: document.visibilityState,
@@ -42,13 +48,23 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
         return;
       }
       const outputs = log.snapshot(synthRef.current);
+      if (engineLifecycleRef?.current?.loading) {
+        previous = new Map();
+        log.record("engines-loading", { outputs });
+        return;
+      }
+      const startupErrors = (engineLifecycleRef?.current?.errors ?? []).join("; ");
+      if (startupErrors && startupErrors !== reportedStartupErrors) {
+        reportedStartupErrors = startupErrors;
+        startupFailed("Built-in audio", new Error(startupErrors));
+      }
       if (log.needsRestore(synthRef.current) && !busy.current)
         setStatus("Audio paused while away. Tap Restore Audio.");
       const next = new Map();
       for (const output of outputs) {
         const context = output.audioContext ?? output.engine?.audioContext;
         if (!context) continue;
-        const last = previous.get(output.backend);
+        const last = previous.get(`${output.backend}:${output.contextId}`);
         const processCount = output.engine?.metrics?.engineProcessCount;
         const stalled =
           context.state === "running" &&
@@ -56,14 +72,15 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           context.currentTime === last.currentTime;
         const rendererStalled =
           context.state === "running" &&
-          Number.isFinite(processCount) &&
+          last?.state === "running" && Number.isFinite(processCount) &&
           last?.processCount === processCount;
-        next.set(output.backend, { ...context, processCount });
+        next.set(`${output.backend}:${output.contextId}`, { ...context, processCount });
         if (
           stalled ||
           rendererStalled ||
           output.processorFailed ||
-          ["suspended", "interrupted", "closed"].includes(context.state)
+          ["interrupted", "closed"].includes(context.state) ||
+          (context.state === "suspended" && last?.state === "running")
         ) {
           // Before the first gesture, suspension is normal browser policy,
           // not an interruption requiring a recovery popup.
@@ -87,7 +104,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       window.removeEventListener("pagehide", lifecycle);
       window.removeEventListener("pageshow", lifecycle);
     };
-  }, [synthRef, initialiseRef]);
+  }, [synthRef, initialiseRef, engineLifecycleRef, startupFailed]);
   const restore = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
@@ -150,5 +167,5 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     );
     saveAudioReport(recorder.current.report(synthRef.current, audioSettings));
   }, [synthRef, settings]);
-  return { status, restoring, restore, save, dismiss };
+  return { status, restoring, restore, save, dismiss, startupFailed };
 }

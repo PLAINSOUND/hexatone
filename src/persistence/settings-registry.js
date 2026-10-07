@@ -375,7 +375,7 @@ export const SETTINGS_REGISTRY = [
   { key: "instrument", tier: "url", type: "string", default: "WMRIByzantineST" },
 
   // ── In-browser FluidSynth ───────────────────────────────────────────────────
-  { key: "output_fluidsynth", tier: "session", type: "bool", default: false },
+  { key: "output_fluidsynth", tier: "session", type: "bool", default: true },
   { key: "fluidsynth_preset", tier: "session", type: "string", default: "0:0" },
   { key: "fluidsynth_runtime_revision", tier: "session", type: "int", default: 0 },
 
@@ -435,7 +435,7 @@ export const SETTINGS_REGISTRY = [
   },
   { key: "fluidsynth_device", tier: "session", type: "string", default: "" },
   { key: "fluidsynth_channel", tier: "session", type: "int", default: -1 },
-  { key: "output_osc", tier: "session", type: "bool", default: false },
+  { key: "output_osc", tier: "session", type: "bool", default: true },
   { key: "osc_local", tier: "session", type: "bool", default: true },
   { key: "osc_bridge_url", tier: "session", type: "string", default: "ws://localhost:8089" },
   // OSC layer volumes — written by onOscLayerVolumeChange in hooks/use-synth-wiring.js

@@ -507,6 +507,8 @@ const useSynthWiring = (
   // Counter so multiple overlapping async operations don't prematurely hide
   // the loading spinner (see wait / signal helpers above).
   const [loading, setLoading] = useState(0);
+  const [enginesLoading, setEnginesLoading] = useState(0);
+  const [engineStartupErrors, setEngineStartupErrors] = useState([]);
   const [audioRetryRevision, setAudioRetryRevision] = useState(0);
   const audioRetryRef = useRef(null);
   const audioRetryGenerationRef = useRef(0);
@@ -874,6 +876,7 @@ const useSynthWiring = (
 
   useEffect(() => {
     if (!ready) return;
+    setEngineStartupErrors([]);
 
     // Guard against stale async resolutions: if this effect re-runs (settings
     // changed again before the previous Promise.all resolved), the old chain
@@ -959,12 +962,14 @@ const useSynthWiring = (
     // remains playable while buffers load. Keep this decision local so stale
     // completions only decrement counters that their own build incremented.
     const showLoading = !(wantSample && sampleSynthRef.current.synth);
+    setEnginesLoading(wait);
     if (showLoading) setLoading(wait);
     let loadingFinished = false;
     const finishLoading = () => {
       if (loadingFinished) return;
       loadingFinished = true;
       if (showLoading && mountedRef.current) setLoading(signal);
+      if (mountedRef.current) setEnginesLoading(signal);
     };
     const promises = [];
     const playbackTuning = {
@@ -1188,6 +1193,7 @@ const useSynthWiring = (
       finish: finishLoading,
       onError: (error, phase) => {
         warnLog(`Synth ${phase} failed:`, error);
+        setEngineStartupErrors((errors) => [...errors, String(error.message ?? error)]);
         audioRetryRef.current?.errors.push({ phase, error: String(error.message ?? error) });
         if (phase === "installation" && audioRetryRef.current) {
           audioRetryRef.current.resolve({ errors: audioRetryRef.current.errors });
@@ -1760,6 +1766,8 @@ const useSynthWiring = (
   return {
     synth,
     retryAudioOutputs,
+    enginesLoading,
+    engineStartupErrors,
     readySampleInstrument,
     midi,
     midiAccess,

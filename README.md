@@ -73,7 +73,7 @@ Hexatone also supports:
 
 The I/O tab presents **Built-in Samples**, **Built-in SoundFont Player**, and
 **Built-in scsynth**, followed by **MIDI Setup**, **MIDI Input**, and **MIDI Output**.
-These outputs can be used independently or layered. The built-in audio backends
+These outputs are enabled by default and can be used independently or layered. Saved I/O choices take precedence when restored. The built-in audio backends
 are still being developed; the planned DSF synth is not yet available.
 
 Enable **Use FluidSynth Sounds** to load a Hexatone SoundFont or choose a local
@@ -81,7 +81,8 @@ Enable **Use FluidSynth Sounds** to load a Hexatone SoundFont or choose a local
 **Save SoundFont File…** exports the original file; **Keep for Offline Use** and
 **Remove Offline Copy** manage browser storage. Offline copies depend on browser
 storage availability and may be lost when site data is cleared or a private
-session ends. A stored bank must still be loaded into the player after reload.
+session ends. On audio activation, the last bank and its preset are restored from
+an available offline copy; no automatic download is made.
 
 Under **Built-in scsynth**, enable **Use SuperCollider Sounds** and select
 **SuperSonic** to run Pluck, Buzz, Formant, and Saw layers directly in the browser.
@@ -123,7 +124,7 @@ Hexatone 3.3 RC2 expands the Sequencer, adds I/O and CALCULATOR workspaces, and 
 - Snapshots and Modulation History palettes remain accessible in the other applicable workspaces
 - selected built-in timbres use pitch-tracking mod-wheel filters for a more consistent response across registers
 - `Restore I/O settings on reload` controls I/O restoration independently of tuning/sequence restoration; MIDI permissions and available ports still determine which connections can be restored
-- `Activate Audio Context` is also available in Built-in Samples when audio needs activation
+- a shared audio popup offers Enable Audio or Restore Audio when needed, with diagnostic report export
 
 **Timbre controllers**
 
