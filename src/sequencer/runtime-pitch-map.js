@@ -5,9 +5,23 @@
 import { findNearestDegree } from "../input/scale-mapper.js";
 import { noteIdentity } from "./value-runtime.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "../tuning/workspace.js";
-import { chooseChordSteps, clampChordDrift } from "./chord-snap.js";
+import { chooseChordSteps, clampChordDrift, chordSearchWithinBudget } from "./chord-snap.js";
 
 const chordCache = new Map();
+const formationMappings = new WeakMap();
+
+function chordPitches(notes, runtime) {
+  return notes.map(note => absoluteCentsForFrequency(
+    Number(note.frequency) > 0 ? Number(note.frequency) : noteFrequency(note.midicents), runtime));
+}
+
+export function prepareSequenceChord(notes, runtime, options) {
+  if (!runtime?.scale?.length || !options.chordAware || !options.chordSolver) return;
+  if (!chordSearchWithinBudget(notes.length, runtime.scale.length, options.chordDrift)) return;
+  const pitches = chordPitches(notes, runtime);
+  if (pitches.every(Number.isFinite))
+    options.chordSolver.prepare(pitches, runtime, options.chordDrift, notes.map(note => !!note.held));
+}
 
 export function withSequenceSnapGroup(notes) {
   const pitches = notes.map(note => ({
@@ -21,17 +35,24 @@ export function remapSequenceChordToRuntime(notes, runtime, options = {}) {
   const drift = options.chordAware ? clampChordDrift(options.chordDrift) : 0;
   if (!drift || notes.length < 2 || !runtime?.scale?.length)
     return notes.map(note => remapSequenceNoteToRuntime(note, runtime, options));
-  const pitches = notes.map(note => absoluteCentsForFrequency(
-    Number(note.frequency) > 0 ? Number(note.frequency) : noteFrequency(note.midicents), runtime));
+  const pitches = chordPitches(notes, runtime);
   if (pitches.some(pitch => !Number.isFinite(pitch)))
     return notes.map(note => remapSequenceNoteToRuntime(note, runtime, options));
   const key = JSON.stringify([runtime.scale, runtime.equivInterval, runtime.fundamental,
     runtime.referenceDegree, pitches, notes.map(note => !!note.held), drift]);
-  let steps = chordCache.get(key);
-  if (!steps) {
-    steps = chooseChordSteps(pitches, runtime, drift, notes.map(note => !!note.held));
-    if (chordCache.size >= 256) chordCache.delete(chordCache.keys().next().value);
-    chordCache.set(key, steps);
+  let steps;
+  if (options.chordSolver) {
+    const held = notes.map(note => !!note.held);
+    steps = options.chordReadOnly
+      ? options.chordSolver.read(pitches, runtime, drift, held) ?? chooseChordSteps(pitches, runtime, 0)
+      : options.chordSolver.choose(pitches, runtime, drift, held);
+  } else {
+    steps = chordCache.get(key);
+    if (!steps) {
+      steps = chooseChordSteps(pitches, runtime, drift, notes.map(note => !!note.held));
+      if (chordCache.size >= 256) chordCache.delete(chordCache.keys().next().value);
+      chordCache.set(key, steps);
+    }
   }
   return notes.map((note, index) => remapSequenceNoteAtSteps(note, runtime, steps[index], options));
 }
@@ -215,8 +236,25 @@ export function resolveLiveSequencePitch(note, runtime = null, pitchOffsetCents 
   };
   const original = { ...note, ...source };
   const group = note.sequenceSnapGroup;
-  const chosen = runtime && options.chordAware && group
-    ? remapSequenceChordToRuntime(group.pitches, runtime, options)[group.index] : null;
+  let chosen = null;
+  if (runtime && options.chordAware && group) {
+    const key = JSON.stringify([runtime.scale, runtime.equivInterval, runtime.fundamental,
+      runtime.referenceDegree, options.chordDrift]);
+    const entries = formationMappings.get(group.pitches) ?? [];
+    let entry = entries.find(item => item.key === key && item.solver === options.chordSolver &&
+      item.token === options.decisionToken);
+    if (!entry) {
+      entry = { key, solver: options.chordSolver, token: options.decisionToken,
+        notes: remapSequenceChordToRuntime(group.pitches, runtime, options) };
+      // Freeze a complete formation's decision (including a cold fallback).
+      // A worker completion may only benefit a NEW formation, never its later
+      // attacks or a background render halfway through an arpeggio.
+      if (entries.length >= 4) entries.shift();
+      entries.push(entry);
+      formationMappings.set(group.pitches, entries);
+    }
+    chosen = entry.notes[group.index];
+  }
   const mapped = runtime ? (chosen ? { ...original, ...chosen } : remapSequenceNoteToRuntime(original, runtime, options)) : original;
   const midicents = Number(mapped.midicents) + (Number(pitchOffsetCents) || 0) / 100;
   return { ...mapped, midicents, frequency: noteFrequency(midicents), sequenceOriginalPitch: source };

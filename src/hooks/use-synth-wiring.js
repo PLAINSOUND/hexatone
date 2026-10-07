@@ -979,7 +979,11 @@ const useSynthWiring = (
     // Replacing a live sample engine is a background handoff: the old sound
     // remains playable while buffers load. Keep this decision local so stale
     // completions only decrement counters that their own build incremented.
-    const showLoading = !(wantSample && sampleSynthRef.current.synth);
+    // Autoplay-blocked local audio may wait indefinitely for the first gesture.
+    // That is not a page load: leave the fresh workspace visible/usable while
+    // retaining enginesLoading for recovery and readiness checks. After a user
+    // action, foreground builds still get normal loading feedback.
+    const showLoading = userHasInteracted && !(wantSample && sampleSynthRef.current.synth);
     setEnginesLoading(wait);
     if (showLoading) setLoading(wait);
     let loadingFinished = false;

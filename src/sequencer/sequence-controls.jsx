@@ -298,9 +298,7 @@ const SequenceControls = ({
   autoScrollEnabled,
   onAutoScrollEnabledChange,
   snapSequenceToCurrentTuning,
-  chordSnapEnabled = false,
-  chordDrift = 20,
-  onChordSnapEnabledChange,
+  chordDrift = 33,
   onChordDriftChange,
   onSnapSequenceToCurrentTuningChange,
   playbackRowRef,
@@ -759,8 +757,8 @@ const SequenceControls = ({
           onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
         />
       </label>
-      {snapSequenceToCurrentTuning && <ChordSnapControls enabled={chordSnapEnabled}
-        drift={chordDrift} onEnabledChange={onChordSnapEnabledChange} onDriftChange={onChordDriftChange} />}
+      {snapSequenceToCurrentTuning && <ChordSnapControls
+        drift={chordDrift} onDriftChange={onChordDriftChange} />}
 
       <label class="sequencer-option-row sequencer-option-row--mobile-inline">
         <span>Auto-Scroll</span>

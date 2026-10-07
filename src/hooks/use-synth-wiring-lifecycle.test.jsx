@@ -29,8 +29,8 @@ let current;
 const keysRef = { current: { updateLiveOutputState: vi.fn(), disconnectMidiInput: vi.fn() } };
 const synthRef = { current: null };
 const setSettings = vi.fn();
-function Harness({ settings = base }) {
-  current = useSynthWiring(settings, setSettings, { ready: true, userHasInteracted: true, keysRef, synthRef });
+function Harness({ settings = base, userHasInteracted = true }) {
+  current = useSynthWiring(settings, setSettings, { ready: true, userHasInteracted, keysRef, synthRef });
   return null;
 }
 beforeEach(() => {
@@ -48,6 +48,24 @@ beforeEach(() => {
   WebMidi.disable = vi.fn(async () => { WebMidi.enabled = false; WebMidi.interface = null; });
 });
 afterEach(cleanup);
+
+it("does not show a page spinner while fresh local audio waits for its first gesture", async () => {
+  const pending = deferred();
+  const local = { ...engine(), local: true };
+  factories.local.mockReturnValue(pending.promise);
+  const settings = { ...base, scale: null, fundamental: null,
+    output_sample: false, output_osc: true, osc_local: true };
+  const view = render(<Harness settings={settings} userHasInteracted={false} />);
+  await waitFor(() => expect(factories.local).toHaveBeenCalledOnce());
+  expect(current.loading).toBe(0);
+  expect(current.enginesLoading).toBeGreaterThan(0);
+  view.rerender(<Harness settings={settings} userHasInteracted={true} />);
+  await waitFor(() => expect(current.loading).toBeGreaterThan(0));
+  await act(async () => pending.resolve(local));
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  expect(current.loading).toBe(0);
+  expect(current.enginesLoading).toBe(0);
+});
 
 it("broadcasts brightness only to scsynth and mirrors controller input without resending it", async () => {
   const sample = { ...engine(), applyZoneModwheel: vi.fn() };

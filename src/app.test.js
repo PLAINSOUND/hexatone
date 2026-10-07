@@ -1535,6 +1535,89 @@ describe("App workspace tabs", () => {
     }
   });
 
+  it("shares chord drift between palette and Sequencer without changing stored pitches", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: "chord", length: 1, notes: [
+        { id: "a", midicents: 69, start: 0, end: 1 },
+        { id: "b", midicents: 76, start: 0, end: 1 },
+      ] }], bars: [], tempi: [], repeats: [],
+    }));
+    const view = render(<App />);
+    try {
+      await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+      expect(screen.queryByLabelText("Palette Chord Drift")).toBeNull();
+      fireEvent.click(screen.getByLabelText("Snap palette snapshots to current tuning"));
+      expect(screen.getByLabelText("Palette Chord Drift").getAttribute("aria-valuenow")).toBe("33");
+      expect(screen.getByLabelText("Palette Chord Drift").classList.contains("settings-range-slider")).toBe(true);
+      expect(screen.getByLabelText("Palette Chord Drift").parentElement.lastElementChild.textContent).toBe("33¢");
+      fireEvent.keyDown(screen.getByLabelText("Palette Chord Drift"), { key: "End" });
+      fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+      expect((await screen.findByLabelText("Chord Drift")).getAttribute("aria-valuenow")).toBe("66");
+      fireEvent.keyDown(screen.getByLabelText("Chord Drift"), { key: "Home" });
+      fireEvent.click(screen.getByRole("tab", { name: "HEXATONE" }));
+      expect(screen.getByLabelText("Palette Chord Drift").getAttribute("aria-valuenow")).toBe("0");
+      const workspace = JSON.parse(sessionStorage.getItem(SEQUENCE_WORKSPACE_STORAGE_KEY));
+      expect(workspace.snapshots[0].notes.map(note => note.midicents)).toEqual([69, 76]);
+      fireEvent.click(screen.getByLabelText("Snap palette snapshots to current tuning"));
+      expect(screen.queryByLabelText("Chord Drift")).toBeNull();
+      expect(screen.queryByLabelText("Palette Chord Drift")).toBeNull();
+    } finally {
+      view.unmount();
+      localStorage.removeItem("hexatone_persist_on_reload");
+      sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+    }
+  });
+
+  it("preserves Snap source pitches with non-contiguous slots when the worker is unavailable", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
+    const previousSettings = settings;
+    settings = { ...settings, scale: ["10.", "696.", "710.", "1200."],
+      fundamental: 440, reference_degree: 0, equivSteps: 4 };
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: "chord", length: 1, notes: [
+        { midicents: 69, start: 0, end: 1, sequenceSlot: 9 },
+        { midicents: 76, start: 0, end: 1, sequenceSlot: 15 },
+      ] }], bars: [], tempi: [], repeats: [], manualArpeggiation: { mode: "off" },
+    }));
+    const keys = {
+      settings: { ...settings, note_names: [], heji_names: [] },
+      _activeFrame: () => ({}),
+      _effectiveScaleRuntimeForFrame: () => ({ scale: [0, 10, 696, 710],
+        fundamental: 440, referenceDegree: 0, equivInterval: 1200 }),
+      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn(), resizeHandler: vi.fn(),
+    };
+    const view = render(<App />);
+    try {
+      await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+      act(() => lastKeyboardProps.onKeysReady(keys));
+      fireEvent.click(screen.getByLabelText("Snap palette snapshots to current tuning"));
+      fireEvent.click(screen.getByLabelText("Play snapshot 1"));
+      const pitches = () => keys.playSnapshot.mock.calls.at(-1)[0].map(note => note.midicents);
+      // jsdom has no Worker: the bounded real-time path uses ordinary Snap.
+      expect(pitches()[0]).toBeCloseTo(69);
+      expect(pitches()[1]).toBeCloseTo(75.96);
+      fireEvent.keyDown(screen.getByLabelText("Palette Chord Drift"), { key: "Home" });
+      fireEvent.click(screen.getByLabelText("Play snapshot 1"));
+      expect(pitches()[0]).toBeCloseTo(69);
+      expect(pitches()[1]).toBeCloseTo(75.96);
+      fireEvent.click(screen.getByLabelText("Snap palette snapshots to current tuning"));
+      fireEvent.click(screen.getByLabelText("Play snapshot 1"));
+      expect(pitches()).toEqual([69, 76]);
+    } finally {
+      view.unmount();
+      settings = previousSettings;
+      localStorage.removeItem("hexatone_persist_on_reload");
+      sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+    }
+  });
+
   it("plays the selected Seeds snapshot 6 from the right-hand PLAY button on fresh load", async () => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),

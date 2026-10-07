@@ -113,9 +113,7 @@ const Sequencer = ({
   sequenceTimbreModWheelEnabled = true,
   sequencePlayRepeats = true,
   snapSequenceToCurrentTuning,
-  chordSnapEnabled = false,
-  chordDrift = 20,
-  onChordSnapEnabledChange,
+  chordDrift = 33,
   onChordDriftChange,
   sequenceAutoCreateBars,
   manualArpeggiation,
@@ -3652,9 +3650,7 @@ const Sequencer = ({
           autoScrollEnabled={autoScrollEnabled}
           onAutoScrollEnabledChange={setAutoScrollEnabled}
           snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
-          chordSnapEnabled={chordSnapEnabled}
           chordDrift={chordDrift}
-          onChordSnapEnabledChange={onChordSnapEnabledChange}
           onChordDriftChange={onChordDriftChange}
           onSnapSequenceToCurrentTuningChange={onSnapSequenceToCurrentTuningChange}
           playbackRowRef={playbackRowRef}

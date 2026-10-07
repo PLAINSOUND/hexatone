@@ -736,6 +736,25 @@ a:hover {
   user-select: none;
 }
 
+.chord-snap-controls {
+  min-width: 0;
+}
+
+.chord-snap-controls .chord-snap-controls__fader,
+#sidebar .chord-snap-controls .chord-snap-controls__fader {
+  /* Reserve the standard right-hand control half once, at the wrapper.
+     The shared slider fills its remaining space beside the cents readout. */
+  width: 50%;
+  flex: 0 0 50%;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: auto;
+}
+
+#snapshot-palette .chord-snap-controls {
+  padding: 0;
+}
+
 .snapshot-palette-snap-toggle input[type="checkbox"] {
   width: 0.9rem;
   height: 0.9rem;

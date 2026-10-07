@@ -139,12 +139,14 @@ import { buildSnapshotDisplayDescription } from "./sequencer/labels.js";
 import { deriveSequenceLegatoFlags, normalizeSequenceLegatoMode } from "./sequencer/legato.js";
 import ChordSnapControls from "./sequencer/chord-snap-controls.jsx";
 import { DEFAULT_CHORD_DRIFT } from "./sequencer/chord-snap.js";
+import { createChordSnapScheduler, chordPrefetchIndices } from "./sequencer/chord-snap-scheduler.js";
 import { noteIdentity as sequenceNoteIdentity } from "./sequencer/value-runtime.js";
 import {
   remapSequenceSnapshotsToRuntime,
   resolveLiveSequencePitch,
   resolveSequenceSnapRuntime,
   withSequenceSnapGroup,
+  prepareSequenceChord,
 } from "./sequencer/runtime-pitch-map.js";
 import { createSequenceRuntimeModelBuilder } from "./sequencer/runtime-model.js";
 import { buildCueExpandedSnapshotIdsAt } from "./sequencer/view-runtime.js";
@@ -1180,12 +1182,10 @@ const App = () => {
   const sequenceTimbreModWheelEnabledRef = useRef(true);
   const sequenceTimbreModWheelValueRef = useRef(NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
-  const [chordSnapEnabled, setChordSnapEnabled] = useState(false);
   const [chordDrift, setChordDrift] = useState(DEFAULT_CHORD_DRIFT);
-  const chordSnapOptions = useMemo(() => ({ chordAware: chordSnapEnabled, chordDrift }),
-    [chordSnapEnabled, chordDrift]);
-  const liveChordSnapOptionsRef = useRef(chordSnapOptions);
-  liveChordSnapOptionsRef.current = chordSnapOptions;
+  const chordSolverRef = useRef(null);
+  if (!chordSolverRef.current) chordSolverRef.current = createChordSnapScheduler();
+  useEffect(() => () => chordSolverRef.current?.dispose(), []);
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [manualArpeggiation, setManualArpeggiation] = useState(() => normalizeManualArpeggiation());
   const [sequenceBars, setSequenceBars] = useState(defaultSequenceBars);
@@ -1561,7 +1561,7 @@ const App = () => {
   }, [persistSequenceWorkspace]);
 
   // Sequencer workspace derivation and playback-ready snapshot views.
-  const currentSequenceSnapRuntime = (() => {
+  const sequenceSnapRuntimeCandidate = (() => {
     // A blank workspace still mounts a hidden one-note Keys runtime so the
     // sequencer can play. That fallback is not a user-selected canvas tuning.
     if (!Array.isArray(settings.scale) || settings.scale.length === 0) return null;
@@ -1570,12 +1570,56 @@ const App = () => {
     const liveRuntime = keys?._effectiveScaleRuntimeForFrame?.(frame);
     return resolveSequenceSnapRuntime(settings, liveRuntime, keys?.settings);
   })();
+  const sequenceSnapRuntimeFingerprint = sequenceSnapRuntimeCandidate ? JSON.stringify([
+    sequenceSnapRuntimeCandidate.scale, sequenceSnapRuntimeCandidate.equivInterval,
+    sequenceSnapRuntimeCandidate.fundamental, sequenceSnapRuntimeCandidate.referenceDegree,
+  ]) : null;
+  // Stabilise equal runtimes: a timed UI tick must not rebuild every projected
+  // snapshot or cancel and restart the preparation debounce.
+  const stableSequenceSnapRuntimeRef = useRef({});
+  if (stableSequenceSnapRuntimeRef.current.key !== sequenceSnapRuntimeFingerprint ||
+      stableSequenceSnapRuntimeRef.current.revision !== keysReadyRevision) {
+    stableSequenceSnapRuntimeRef.current = { key: sequenceSnapRuntimeFingerprint,
+      revision: keysReadyRevision, runtime: sequenceSnapRuntimeCandidate };
+  }
+  const currentSequenceSnapRuntime = stableSequenceSnapRuntimeRef.current.runtime;
   liveSequenceSnapRuntimeRef.current = snapSequenceToCurrentTuning ? currentSequenceSnapRuntime : null;
   const sequenceSnapRuntimeKey = currentSequenceSnapRuntime ? JSON.stringify([
     currentSequenceSnapRuntime.scale, currentSequenceSnapRuntime.equivInterval,
     currentSequenceSnapRuntime.fundamental, currentSequenceSnapRuntime.referenceDegree,
-    chordSnapEnabled, chordDrift,
+    chordDrift,
   ]) : null;
+  const chordSnapOptions = useMemo(() => ({ chordAware: chordDrift > 0, chordDrift,
+    chordSolver: chordSolverRef.current,
+    decisionToken: { runtimeKey: sequenceSnapRuntimeKey, snap: snapSequenceToCurrentTuning } }),
+    [chordDrift, sequenceSnapRuntimeKey, snapSequenceToCurrentTuning]);
+  const liveChordSnapOptionsRef = useRef(chordSnapOptions);
+  liveChordSnapOptionsRef.current = chordSnapOptions;
+  const chordPrefetchPosition = Number.isFinite(timedPlaybackUiRef.current.clockSeconds)
+    ? timedPlaybackUiRef.current.stepIndex : sequencePlayhead.stepIndex;
+  useEffect(() => {
+    // Invalidate obsolete tuning/drift work immediately. Debounce only warmup,
+    // not active retuning; a slider burst must not spawn many worker requests.
+    const solver = chordSolverRef.current;
+    solver.setContext(`${sequenceSnapRuntimeKey}|${sequenceLegato}`, snapshots);
+    if (!currentSequenceSnapRuntime || !chordSnapOptions.chordAware || currentSequenceSnapRuntime.scale.length > 512) return;
+    const timer = window.setTimeout(() => {
+      for (const index of chordPrefetchIndices(snapshots.length, chordPrefetchPosition)) {
+        const snapshot = snapshots[index];
+        if (!snapshot.notes || snapshot.notes.length < 2 || snapshot.notes.length > 32) continue;
+        const notes = (snapshot.notes ?? []).map((note, noteIndex) => ({ ...note,
+          held: deriveSequenceLegatoFlags({ note, noteIndex, previousSnapshot: snapshots[index - 1],
+            attackTime: Number(note.start) || 0, mode: sequenceLegato }).legatoContinuation === true,
+        }));
+        prepareSequenceChord(notes, currentSequenceSnapRuntime, chordSnapOptions);
+        // Also prepare isolated snapshot triggers (no held-pair preference).
+        if (notes.some(note => note.held))
+          prepareSequenceChord(notes.map(note => ({ ...note, held: false })), currentSequenceSnapRuntime, chordSnapOptions);
+      }
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [sequenceSnapRuntimeKey, currentSequenceSnapRuntime, chordSnapOptions,
+    chordPrefetchPosition, snapshots, sequenceLegato]);
   const sequencePlaybackSnapshots = useMemo(() => {
     const keys = keysRef.current;
     if (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime) {
@@ -1583,6 +1627,7 @@ const App = () => {
     }
     return remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
       ...chordSnapOptions,
+      chordReadOnly: true,
       noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
       hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
     });
@@ -2024,7 +2069,9 @@ const App = () => {
           const index = group.findIndex(source => note.noteKey != null
             ? sequenceNoteIdentity(source, snapshot.length) === note.noteKey
             : source.id != null && source.id === note.id);
-          const source = group[index >= 0 ? index : (note.sequenceSlot ?? notes.indexOf(note))];
+          // sequenceSlot is a voice/legato identity, not an array index: legacy
+          // snapshots may use non-contiguous slots.
+          const source = group[index >= 0 ? index : notes.indexOf(note)];
           return { ...note, sequenceSnapGroup: source?.sequenceSnapGroup,
             sequenceOriginalPitch: source?.sequenceSnapGroup.pitches[source.sequenceSnapGroup.index] ??
               note.sequenceOriginalPitch ?? { midicents: Number(note.midicents), frequency: note.frequency } };
@@ -5775,8 +5822,8 @@ const App = () => {
           </div>
           {!snapshotPaletteCollapsed && (
             <>
-            {snapSequenceToCurrentTuning && <ChordSnapControls palette enabled={chordSnapEnabled}
-              drift={chordDrift} onEnabledChange={setChordSnapEnabled} onDriftChange={setChordDrift} />}
+            {snapSequenceToCurrentTuning && <ChordSnapControls palette
+              drift={chordDrift} onDriftChange={setChordDrift} />}
             <div className="snapshot-palette-body" ref={snapshotPaletteBodyRef}>
               {snapshots.map((snap, index) => {
                 const isPlaying =
@@ -6220,9 +6267,7 @@ const App = () => {
                     sequenceTimbreModWheelEnabled={sequenceTimbreModWheelEnabled}
                     sequencePlayRepeats={sequencePlayRepeats}
                     snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
-                    chordSnapEnabled={chordSnapEnabled}
                     chordDrift={chordDrift}
-                    onChordSnapEnabledChange={setChordSnapEnabled}
                     onChordDriftChange={setChordDrift}
                     sequenceAutoCreateBars={sequenceAutoCreateBars}
                     manualArpeggiation={manualArpeggiation}

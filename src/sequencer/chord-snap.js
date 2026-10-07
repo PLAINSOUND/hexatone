@@ -3,10 +3,11 @@
 // docs/app-context.md. No clocks, voice mutation, or source-data mutation here.
 import { findNearestDegree } from "../input/scale-mapper.js";
 
-export const DEFAULT_CHORD_DRIFT = 20;
+export const DEFAULT_CHORD_DRIFT = 33;
+export const MAX_CHORD_DRIFT = 66;
 export function clampChordDrift(value) {
   const number = Number(value);
-  return Number.isFinite(number) ? Math.max(0, Math.min(50, number)) : DEFAULT_CHORD_DRIFT;
+  return Number.isFinite(number) ? Math.max(0, Math.min(MAX_CHORD_DRIFT, number)) : DEFAULT_CHORD_DRIFT;
 }
 
 function intervalWeight(interval, heldPair) {
@@ -14,6 +15,13 @@ function intervalWeight(interval, heldPair) {
   const reduced = Math.abs(interval) % 1200;
   const distance = Math.min(...simple.map(target => Math.abs(reduced - target)));
   return (distance <= 15 ? 3 : 1) * (heldPair ? 2 : 1);
+}
+
+export function chordSearchWithinBudget(noteCount, scaleLength, drift) {
+  const candidates = 2 * Math.ceil(clampChordDrift(drift)) + 1;
+  // Account for both degree scans and pair scoring, not only scale matching.
+  return drift > 0 && noteCount >= 2 && noteCount <= 32 && scaleLength > 0 && scaleLength <= 512 &&
+    candidates * (noteCount * scaleLength + noteCount * noteCount * 2) <= 250000;
 }
 
 export function chooseChordSteps(pitches, runtime, drift = DEFAULT_CHORD_DRIFT, held = []) {
@@ -25,8 +33,7 @@ export function chooseChordSteps(pitches, runtime, drift = DEFAULT_CHORD_DRIFT, 
   const allowance = clampChordDrift(drift);
   // Bound cold-cache work on large chords/scales; ordinary Snap is the fallback.
   // At zero, preserve the exact existing nearest-degree tie behaviour.
-  if (!allowance || pitches.length < 2 || pitches.length > 32 ||
-      pitches.length * scale.length * (2 * Math.ceil(allowance) + 1) > 250000)
+  if (!chordSearchWithinBudget(pitches.length, scale.length, allowance))
     return baseline;
   const baseCents = baseline.map(cents);
   const weights = pitches.map((pitch, i) => pitches.map((other, j) =>
