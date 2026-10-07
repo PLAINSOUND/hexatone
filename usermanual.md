@@ -349,6 +349,12 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 With a blank Hexatone canvas (no scale loaded), this option has no effect: the sequence keeps its stored pitches.
 
+With Snap active, `Chord Drift` offers a shared-shift search to favour the snapshot's original interval pattern. It ranges from 0–66 cents, initially 33; 0 keeps ordinary nearest-note Snap. The palette and Sequencer share this fader. Simple intervals and pairs of legato continuations receive extra weight. This prototype treats each snapshot as one formation, including arpeggiated attacks, and leaves saved pitches unchanged. The fader resets on page reload.
+
+The whole snapshot is considered intentionally: later entries or replacement notes can influence the opening chord's placement, giving the gesture a shared tuning plan. Chord Drift permits movement upward or downward; its value is an allowance, not a requested transposition.
+
+Chord choices are prepared in the background, favouring upcoming snapshots. If a choice is not ready, or a formation exceeds the search limits, ordinary nearest-note Snap keeps playback on time. A late result does not change an arpeggio midway; it can be used on the next trigger. Explicit fader changes retune the sounding formation live within the search limits.
+
 A manually triggered SNAPSHOT keeps sounding when you switch to HEXATONE, I/O, CALCULATOR or MANUAL, with the active snapshot highlighted in the floating palette. You can stop it there. This does not change the tab-switching behaviour of CUE or timed playback.
 
 `Sequencer Timbre Control` is enabled by default and allows the selected timbre controller to shape recorded sequence timbre while playing. For Lumatone this follows the enabled Mod Wheel and/or Foot Controller timbre assignments, including soft pickup when both are selected. Disable it to retain the recorded sequence timbre unchanged.

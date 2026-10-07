@@ -150,8 +150,9 @@ index through partial/arpeggiated attacks. App reattaches it after cue projectio
 which otherwise strips custom metadata. Resolve owned voices and queued attacks
 with the same live options; never remap a previous snapped result.
 App passes [chord-snap-scheduler.js](../src/sequencer/chord-snap-scheduler.js) as
-the solver. Cold optimisation runs in one module Worker, never in an attack or
-retune callback. Preparation is debounced 40 ms and visits the current snapshot,
+the solver. Cold playback optimisation runs in one module Worker, never in an
+attack callback; explicit drift-fader edits are the bounded live-retune exception
+below. Preparation is debounced 40 ms and visits the current snapshot,
 eight forward and two backward; display projection only reads ready results and
 does not enqueue the whole score. Equal tuning runtimes keep stable identities
 so ordinary timed UI ticks do not rebuild every projection or restart warmup.
@@ -173,6 +174,33 @@ note attacks still use background decisions or nearest-note fallback. There
 is no completion-triggered background retune. Pure offline callers retain a
 bounded 256-entry synchronous cache; oversized fallback arrays are not retained.
 This remains snapshot-level optimisation, not overlapping-cue chord analysis.
+
+Whole-snapshot evaluation is an intentional musical choice: a snapshot is one
+formation even when its notes enter at different times or replace one another.
+Later notes can influence the placement of the opening chord, preserving a
+shared tuning plan across the gesture rather than optimising each instant in
+isolation. Keep this context for future retuning work; do not silently replace
+it with simultaneous-notes-only scoring. Any future time-local mode should be
+an explicit alternative, with held-note continuity considered separately.
+
+Future considerations include the notes actually sounding (including held or
+overlapping voices) and melodic differentiation between successive formations.
+Continuity is not always the only musical goal: retuning can make a chord change
+audible as a melodic step rather than merging neighbouring placements. In the
+FALL example below, testing at 47 cents revealed the benefit of an audible
+melodic step on a chord change a few cues later. Preserve this listening
+observation when evaluating future scoring; do not assume that minimising
+movement between cues is always preferable.
+
+Reference example: FALL snapshot 1, 53-tone Extended Pythagorean layout at its
+stored 440 Hz reference, Chord Drift 47 cents. Whole-snapshot search moves four
+notes upward by about 46.92 cents and one by 43.30 cents relative to ordinary
+Snap, improving the combined interval fit. Searching only the opening notes
+does not select that upward shift. The fader permits displacement in either
+direction; it does not request a positive transposition. These figures describe
+the current prototype and reference frame, not a fixed expected musical result
+for all future scoring revisions.
+
 Tests: [chord-snap.test.js](../src/sequencer/chord-snap.test.js),
 [chord-snap-scheduler.test.js](../src/sequencer/chord-snap-scheduler.test.js),
 and App's shared-controls / warm-worker / unavailable-worker tests.
