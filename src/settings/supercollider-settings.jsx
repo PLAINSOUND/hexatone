@@ -106,7 +106,7 @@ const SuperColliderSettings = ({
               checked={!!settings.osc_local}
               onChange={(event) => save(event.target.name, event.target.checked, onChange)}
             />
-            SuperSonic
+            SuperSonic 0.88
           </label>
           <p class="settings-form__intro-copy">
             <em>

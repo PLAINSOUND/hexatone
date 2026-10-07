@@ -15,9 +15,9 @@ describe("SuperCollider scsynth settings", () => {
 
     expect(screen.getByText("Built-in scsynth")).toBeTruthy();
     expect(screen.getByLabelText("Use SuperCollider Sounds")).toBeTruthy();
-    expect(screen.getByLabelText("SuperSonic")).toBeTruthy();
+    expect(screen.getByLabelText("SuperSonic 0.88")).toBeTruthy();
     const description = screen.getByText(/SynthDefs run directly in the browser/);
-    expect(description.closest("p")?.previousElementSibling?.textContent.trim()).toBe("SuperSonic");
+    expect(description.closest("p")?.previousElementSibling?.textContent.trim()).toBe("SuperSonic 0.88");
     expect(description.closest("em")).toBeTruthy();
   });
 
@@ -27,7 +27,7 @@ describe("SuperCollider scsynth settings", () => {
     );
 
     const description = screen.getByText(/local WebSocket→OSC bridge/);
-    expect(description.closest("p")?.previousElementSibling?.textContent.trim()).toBe("SuperSonic");
+    expect(description.closest("p")?.previousElementSibling?.textContent.trim()).toBe("SuperSonic 0.88");
     expect(description.closest("em")).toBeTruthy();
   });
 
