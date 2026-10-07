@@ -1569,7 +1569,9 @@ describe("App workspace tabs", () => {
       localStorage.removeItem("hexatone_persist_on_reload");
       sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
     }
-  });
+  // Mounting the full Seeds editor is costly under parallel CI workers. Keep
+  // assertion waits bounded; allow this integration test more overall time.
+  }, 15000);
 
   it.each([
     { snap: false, transferred: false }, { snap: true, transferred: false },

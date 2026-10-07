@@ -141,7 +141,6 @@ import ChordSnapControls from "./sequencer/chord-snap-controls.jsx";
 import { DEFAULT_CHORD_DRIFT } from "./sequencer/chord-snap.js";
 import { noteIdentity as sequenceNoteIdentity } from "./sequencer/value-runtime.js";
 import {
-  remapSequenceNoteToRuntime,
   remapSequenceSnapshotsToRuntime,
   resolveLiveSequencePitch,
   resolveSequenceSnapRuntime,
@@ -2016,7 +2015,8 @@ const App = () => {
           if (!groups.has(snapshot)) {
             const sourceNotes = (snapshot?.notes ?? []).map(source => ({ ...source,
               legatoContinuation: notes.some(active => active.legatoContinuation &&
-                (active.noteKey === sequenceNoteIdentity(source, snapshot.length) || active.id === source.id)),
+                (active.noteKey === sequenceNoteIdentity(source, snapshot.length) ||
+                  (source.id != null && active.id === source.id))),
             }));
             groups.set(snapshot, withSequenceSnapGroup(sourceNotes));
           }
@@ -6220,6 +6220,10 @@ const App = () => {
                     sequenceTimbreModWheelEnabled={sequenceTimbreModWheelEnabled}
                     sequencePlayRepeats={sequencePlayRepeats}
                     snapSequenceToCurrentTuning={snapSequenceToCurrentTuning}
+                    chordSnapEnabled={chordSnapEnabled}
+                    chordDrift={chordDrift}
+                    onChordSnapEnabledChange={setChordSnapEnabled}
+                    onChordDriftChange={setChordDrift}
                     sequenceAutoCreateBars={sequenceAutoCreateBars}
                     manualArpeggiation={manualArpeggiation}
                     selectedSnapshotId={selectedSnapshotId}

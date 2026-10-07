@@ -6,6 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { createManualTransportActions, stopTimedTransportBefore } from "./transport-actions.js";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
+import ChordSnapControls from "./chord-snap-controls.jsx";
 import { normalizeSequenceLegatoMode, SEQUENCE_LEGATO_MODES } from "./legato.js";
 import {
   manualArpeggiationDecayDisplay,
@@ -297,6 +298,10 @@ const SequenceControls = ({
   autoScrollEnabled,
   onAutoScrollEnabledChange,
   snapSequenceToCurrentTuning,
+  chordSnapEnabled = false,
+  chordDrift = 20,
+  onChordSnapEnabledChange,
+  onChordDriftChange,
   onSnapSequenceToCurrentTuningChange,
   playbackRowRef,
   playhead,
@@ -754,6 +759,8 @@ const SequenceControls = ({
           onChange={(e) => onSnapSequenceToCurrentTuningChange?.(e.currentTarget.checked)}
         />
       </label>
+      {snapSequenceToCurrentTuning && <ChordSnapControls enabled={chordSnapEnabled}
+        drift={chordDrift} onEnabledChange={onChordSnapEnabledChange} onDriftChange={onChordDriftChange} />}
 
       <label class="sequencer-option-row sequencer-option-row--mobile-inline">
         <span>Auto-Scroll</span>
