@@ -5,6 +5,7 @@
 
 import { VoicePool } from "../polyphony/voice-pool-nearest";
 import { createInternalVoiceSynth } from "../fluidsynth_synth/voices.js";
+import { smoothOutputToggle } from "../audio/output-toggle.js";
 import { buildBulkDumpMessage, centsToMTS } from "../tuning/mts-format.js";
 import { buildTuningMapEntries } from "../tuning/tuning-map.js";
 import { traceMidiOutput } from "../debug/midi-jitter.js";
@@ -31,6 +32,9 @@ for (let i = 0; i < 128; i++) {
   tuningmap[i] = [i, 0, 0];
 }
 
+// FluidSynth uses one persistent worklet. A rapid re-enable must wait until
+// the previous owner's fade and channel cleanup finish before joining voices.
+let internalOutputShutdown = Promise.resolve();
 export const create_midi_synth = async ({
   outputMode,
   tuningContext,
@@ -38,6 +42,7 @@ export const create_midi_synth = async ({
   getDynamicBulkConfig = null,
 }) => {
   if (outputMode.output?.sendCommand) {
+    await internalOutputShutdown;
     const synth = createInternalVoiceSynth({ outputMode, tuningContext,
       ensureAwake: ensureFluidSynthEngineAwake, forceAudioRebuild: forceFluidSynthEngineRebuild });
     synth.audioBackend = "fluidsynth";
@@ -47,6 +52,14 @@ export const create_midi_synth = async ({
     synth.fadeAfterRecovery = fadeFluidSynthAfterRecovery;
     synth.clearRecoveryEvents = clearFluidSynthRecoveryEvents;
     synth.getDiagnostics = getFluidSynthAudioDiagnostics;
+    smoothOutputToggle(synth, { mute: muteFluidSynthForRecovery,
+      fadeIn: () => fadeFluidSynthAfterRecovery({ fromCurrent: true, durationMs: 40 }) });
+    const shutdown = synth.shutdown;
+    synth.shutdown = (options) => {
+      const pending = shutdown(options);
+      internalOutputShutdown = Promise.resolve(pending);
+      return pending;
+    };
     return synth;
   }
   const {

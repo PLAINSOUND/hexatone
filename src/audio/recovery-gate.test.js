@@ -31,6 +31,26 @@ it("mutes and ramps a separate output gain without changing musical volume", () 
   expect(silentSink.disconnect).toHaveBeenCalledOnce();
 });
 
+it("reverses a toggle fade from its current level without a gain discontinuity", () => {
+  vi.useFakeTimers();
+  const gain = { value: 1, cancelScheduledValues: vi.fn(), setValueAtTime: vi.fn(),
+    linearRampToValueAtTime: vi.fn() };
+  const node = { gain, connect: vi.fn(), disconnect: vi.fn() };
+  const sink = { gain: { value: 0 }, connect: vi.fn(), disconnect: vi.fn() };
+  const context = { state: "running", currentTime: 5, destination: {},
+    createGain: vi.fn().mockReturnValueOnce(node).mockReturnValueOnce(sink) };
+  const gate = createRecoveryGate(context);
+  gate.mute(30);
+  context.currentTime = 5.015;
+  gate.fadeIn({ fromCurrent: true, durationMs: 30 });
+  expect(gain.setValueAtTime.mock.calls.at(-1)[0]).toBeCloseTo(0.5);
+  expect(gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(1, 5.045);
+  vi.advanceTimersByTime(40);
+  expect(node.disconnect).not.toHaveBeenCalled();
+  gate.disconnect();
+  vi.useRealTimers();
+});
+
 it("mutes before releasing notes and waits for cleanup before fading", async () => {
   const order = [];
   let finishClear;

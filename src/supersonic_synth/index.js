@@ -6,6 +6,7 @@ import { create_osc_synth } from "../osc_synth/index.js";
 import { createLocalOscTransport } from "./transport.js";
 import { warnLog } from "../debug/logging.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
+import { smoothOutputToggle } from "../audio/output-toggle.js";
 import { pendingSuperSonicStartups as pendingStartups } from "./startup-diagnostics.js";
 export { getPendingSuperSonicDiagnostics } from "./startup-diagnostics.js";
 
@@ -98,6 +99,9 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         coreBaseURL: `${base}core/`,
         mode: "postMessage",
         audioContext: nextContext,
+        // Never expose the worklet directly during init, before our silent
+        // output gate has been installed. Clockwork supports manual routing.
+        autoConnect: false,
         scsynthOptions: { maxNodes: 4096, realTimeMemorySize: 64 * 1024 },
         });
       } catch (error) {
@@ -174,7 +178,9 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         });
         phase = "initialising-engine";
         await step(nextSonic.init());
-        nextGate = createRecoveryGate(nextContext, recoveryMuted);
+        // Stay silent until the first note joins; output activation gets its
+        // own fade rather than exposing the new engine at full gain.
+        nextGate = createRecoveryGate(nextContext, true);
         nextSonic.node.disconnect();
         nextSonic.node.connect(nextGate.node);
         nextSonic.send("/notify", 1);
@@ -270,7 +276,19 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       });
       return rebuilding;
     };
-    return synth;
+    let firstOutputFade = true;
+    return smoothOutputToggle(synth, {
+      mute: (durationMs) => recoveryGate?.mute(durationMs),
+      fadeIn: () => {
+        if (recoveryMuted) return;
+        recoveryGate?.fadeIn({ fromCurrent: true,
+          delayMs: firstOutputFade ? 500 : 0, durationMs: 40 });
+        firstOutputFade = false;
+      },
+      cutOnShutdown: true,
+      reuseWindowMs: 5000,
+      keepWarm: true,
+    });
   } catch (error) {
     dispose();
     throw new Error(`SuperSonic could not start: ${error.message}`, { cause: error });

@@ -7,6 +7,7 @@
  *   // then pass synth to Keyboard as normal
  */
 import { stopRetiredSuperSonicOutputs } from "../supersonic_synth/transport.js";
+import { stopFadingOutputToggles } from "../audio/output-toggle.js";
 
 import { outputAttackGroup } from "../midi/output-transaction.js";
 
@@ -395,6 +396,7 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
   },
 
   allSoundOff() {
+    stopFadingOutputToggles();
     stopRetiredSuperSonicOutputs();
     controlledSynths(synths, retiringSynths).forEach((s) => s.allSoundOff && s.allSoundOff());
     retiringSynths.clear();

@@ -50,6 +50,7 @@ import {
   clearSampleOutputs as detachSampleOutputs,
   pruneOutputMap as detachOutputMap,
   runOutputCleanup,
+  reclaimFadingOutput,
 } from "../audio/output-lifecycle.js";
 import { createOutputCandidateRequests } from "../audio/output-candidate.js";
 import { completeOutputBuild } from "../audio/output-build.js";
@@ -546,6 +547,7 @@ const useSynthWiring = (
   const monoSynthRef = useRef({ key: null, synth: null });
   const mtsSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
+  const warmOscSynthRef = useRef({ key: null, synth: null });
   const midiRequestRef = useRef(null);
   const midiDisableRef = useRef(null);
   const midiPermissionGenerationRef = useRef(0);
@@ -567,8 +569,9 @@ const useSynthWiring = (
   const outputPortIdentityRef = useRef(null);
   if (!outputPortIdentityRef.current) outputPortIdentityRef.current = createOutputPortIdentity();
 
-  const clearAllOutputSynthRefs = useCallback(() => {
+  const clearAllOutputSynthRefs = useCallback((preserveWarm = false) => {
     oscRequestsRef.current.cancelAll();
+    if (!preserveWarm) clearOutputRef(warmOscSynthRef, { panic: true });
     clearOutputSynthRefs({
       activeRefs: [sampleSynthRef, oscSynthRef, mpeSynthRef, monoSynthRef],
       mtsRef: mtsSynthsRef,
@@ -959,6 +962,13 @@ const useSynthWiring = (
       !!settings.output_fluidsynth && fluidSynthEngine?.soundfontId != null;
 
     const monoOutput = settings.output_mono && midi?.outputs.get(settings.mono_device);
+    if (!wantOsc && oscSynthRef.current.synth?.pauseOutput) {
+      clearOutputRef(warmOscSynthRef, { panic: true });
+      warmOscSynthRef.current = oscSynthRef.current;
+      oscSynthRef.current = { key: null, synth: null };
+      void warmOscSynthRef.current.synth.pauseOutput().catch(error =>
+        warnLog("SuperSonic muted-output cleanup failed:", error));
+    }
     if (
       !wantSample &&
       !wantMts &&
@@ -969,7 +979,7 @@ const useSynthWiring = (
       !wantOsc &&
       !monoOutput
     ) {
-      clearAllOutputSynthRefs();
+      clearAllOutputSynthRefs(true);
       const silentSynth = create_composite_synth([]);
       keysRef.current?.updateLiveOutputState?.(null, silentSynth);
       setSynth(silentSynth);
@@ -985,7 +995,30 @@ const useSynthWiring = (
     // That is not a page load: leave the fresh workspace visible/usable while
     // retaining enginesLoading for recovery and readiness checks. After a user
     // action, foreground builds still get normal loading feedback.
-    const showLoading = userHasInteracted && !(wantSample && sampleSynthRef.current.synth);
+    const playbackTuning = {
+      referenceDegree: playbackReferenceDegree,
+      scale: playbackScale,
+      centerDegree: playbackCenterDegree,
+      equivSteps: playbackEquivSteps,
+      equivInterval: playbackEquivInterval,
+    };
+    const oscConfig = wantOsc ? oscOutputConfig(playbackSettings, playbackTuning) : null;
+    if (oscConfig && warmOscSynthRef.current.synth) {
+      if (warmOscSynthRef.current.key === oscConfig.key) {
+        oscSynthRef.current = warmOscSynthRef.current;
+        warmOscSynthRef.current = { key: null, synth: null };
+        applyOscRuntimeControls(oscSynthRef.current.synth, oscRuntimeControlsRef.current);
+        oscSynthRef.current.synth.applyZoneModwheel?.(oscBrightnessRef.current);
+      } else clearOutputRef(warmOscSynthRef, { panic: true });
+    }
+    // Reclaim before deciding foreground loading: a warm toggle is only a
+    // graph/gain handoff, not an engine download or initialization.
+    if (oscConfig && !oscSynthRef.current.synth) {
+      const fading = reclaimFadingOutput(oscSynthRef, oscConfig.key);
+      if (fading) oscSynthRef.current = { key: oscConfig.key, synth: fading };
+    }
+    const showLoading = userHasInteracted && !(wantSample && sampleSynthRef.current.synth) &&
+      !oscSynthRef.current.synth;
     setEnginesLoading(wait);
     if (showLoading) setLoading(wait);
     let loadingFinished = false;
@@ -996,13 +1029,6 @@ const useSynthWiring = (
       if (mountedRef.current) setEnginesLoading(signal);
     };
     const promises = [];
-    const playbackTuning = {
-      referenceDegree: playbackReferenceDegree,
-      scale: playbackScale,
-      centerDegree: playbackCenterDegree,
-      equivSteps: playbackEquivSteps,
-      equivInterval: playbackEquivInterval,
-    };
     if (monoOutput) {
       const { key, args } = monoOutputConfig(
         playbackSettings,
@@ -1100,6 +1126,10 @@ const useSynthWiring = (
           outputPortIdentityRef.current,
         );
         desiredMtsKeys.add(fluidKey);
+        if (!mtsSynthsRef.current.has(fluidKey)) {
+          const fading = reclaimFadingOutput(mtsSynthsRef, fluidKey);
+          if (fading) mtsSynthsRef.current.set(fluidKey, fading);
+        }
         const existing = mtsSynthsRef.current.get(fluidKey);
         if (existing) {
           promises.push(Promise.resolve(existing));
@@ -1122,10 +1152,10 @@ const useSynthWiring = (
     }
 
     if (wantOsc) {
-      const oscConfig = oscOutputConfig(playbackSettings, playbackTuning);
       const oscKey = oscConfig.key;
       if (oscSynthRef.current.key === oscKey && oscSynthRef.current.synth) {
-        promises.push(Promise.resolve(oscSynthRef.current.synth));
+        const retained = oscSynthRef.current.synth;
+        promises.push(Promise.resolve(retained.resumeOutput?.()).then(() => retained));
       } else {
         const switchingEngine =
           oscSynthRef.current.synth && !!oscSynthRef.current.synth.local !== !!settings.osc_local;

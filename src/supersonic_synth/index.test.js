@@ -26,6 +26,7 @@ function setup({ stallSecond = false, initialisation, blocked = false } = {}) {
     constructor() {
       contexts.push(this);
       this.state = "suspended";
+      this.currentTime = 0;
       this.resume = vi.fn(async () => {
         if (!blocked) this.state = "running";
       });
@@ -36,8 +37,9 @@ function setup({ stallSecond = false, initialisation, blocked = false } = {}) {
   }
   class Sonic {
     static osc = { encodeBundle: vi.fn(() => new Uint8Array()) };
-    constructor({ audioContext }) {
+    constructor({ audioContext, ...options }) {
       engines.push(this);
+      this.options = options;
       this.audioContext = audioContext;
       this.node = { connect: vi.fn(), disconnect: vi.fn() };
       this.clock = { now: () => 1 };
@@ -77,6 +79,19 @@ function setup({ stallSecond = false, initialisation, blocked = false } = {}) {
 }
 
 describe("recoverable SuperSonic engine", () => {
+  it("keeps cold startup manually routed and delays the first output fade", async () => {
+    const { create, engines } = setup();
+    const synth = await create();
+    expect(engines[0].options.autoConnect).toBe(false);
+    const gate = engines[0].node.connect.mock.calls[0][0];
+    expect(gate.gain.value).toBe(0);
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, 60, 64, 0, 1);
+    hex.noteOn();
+    expect(gate.gain.setValueAtTime).toHaveBeenCalledWith(0, 0.5);
+    expect(gate.gain.linearRampToValueAtTime.mock.calls.at(-1)[0]).toBe(1);
+    expect(gate.gain.linearRampToValueAtTime.mock.calls.at(-1)[1]).toBeCloseTo(0.54);
+    synth.shutdown({ panic: true });
+  });
   it("cancels a blocked initial context and clears its pending diagnostics", async () => {
     vi.useFakeTimers();
     const { Sonic, contexts, engines } = setup({ blocked: true });

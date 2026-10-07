@@ -278,9 +278,9 @@ export function muteFluidSynthForRecovery(durationMs) {
   if (engine?.node) return recoveryGates.get(engine.node)?.mute(durationMs);
 }
 
-export function fadeFluidSynthAfterRecovery() {
+export function fadeFluidSynthAfterRecovery(options) {
   recoveryMuted = false;
-  if (engine?.node) return recoveryGates.get(engine.node)?.fadeIn();
+  if (engine?.node) return recoveryGates.get(engine.node)?.fadeIn(options);
 }
 
 export async function clearFluidSynthRecoveryEvents() {

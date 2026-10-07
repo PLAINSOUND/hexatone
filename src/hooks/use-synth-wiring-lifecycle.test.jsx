@@ -2,6 +2,7 @@
 import { act, cleanup, render, waitFor } from "@testing-library/preact";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import useSynthWiring from "./use-synth-wiring.js";
+import { smoothOutputToggle } from "../audio/output-toggle.js";
 import { WebMidi } from "webmidi";
 
 const factories = vi.hoisted(() => ({ sample: vi.fn(), osc: vi.fn(), local: vi.fn(), mpe: vi.fn(), mts: vi.fn() }));
@@ -84,6 +85,24 @@ it("broadcasts brightness only to scsynth and mirrors controller input without r
   expect(current.oscBrightness).toBeCloseTo(64 / 127);
   expect(local.applyZoneModwheel).not.toHaveBeenCalled();
   expect(localStorage.getItem("osc_brightness")).toBe("1");
+});
+
+it("reuses a muted SuperSonic engine without foreground Loading on re-enable", async () => {
+  const local = smoothOutputToggle({ ...engine(), local: true,
+    makeHex: () => ({ noteOn: vi.fn() }) },
+    { mute: vi.fn(), fadeIn: vi.fn(), cutOnShutdown: true, reuseWindowMs: 5000 });
+  factories.local.mockResolvedValue(local);
+  const settings = { ...base, output_sample: false, output_osc: true, osc_local: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  view.rerender(<Harness settings={{ ...settings, output_osc: false }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([]));
+  view.rerender(<Harness settings={settings} />);
+  expect(current.loading).toBe(0);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  expect(factories.local).toHaveBeenCalledOnce();
+  view.unmount();
+  local.shutdown({ panic: true });
 });
 
 it.each([null, "0", "0.73"])("initializes brightness from the saved preference (%s), or 20 percent", async (saved) => {

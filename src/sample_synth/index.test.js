@@ -29,8 +29,10 @@ class MockAudioContext {
         cancelScheduledValues: vi.fn(),
         setValueAtTime: vi.fn(),
         exponentialRampToValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn(),
       },
       connect: vi.fn(),
+      disconnect: vi.fn(),
     };
     this.createdGains.push(node);
     return node;
@@ -111,6 +113,26 @@ describe("sample_synth modwheel", () => {
     if (originalNavigator) {
       vi.stubGlobal("navigator", originalNavigator);
     }
+  });
+
+  it("fades in for 40 ms at the first attack, not while preparing samples", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    await synth.prepare();
+    const first = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    const gate = first.masterGain.connect.mock.calls[0][0];
+    expect(gate.gain.value).toBe(0);
+    expect(gate.gain.linearRampToValueAtTime).not.toHaveBeenCalled();
+    const context = synth.getAudioContext();
+    const previousTime = context.currentTime;
+    context.currentTime = 2;
+    first.noteOn();
+    expect(gate.gain.setValueAtTime).toHaveBeenCalledWith(0, 2);
+    expect(gate.gain.linearRampToValueAtTime).toHaveBeenCalledWith(1, 2.04);
+    const second = synth.makeHex(null, 100, 1, 0, 12, null, null, 61, 96, 0, 1);
+    second.noteOn();
+    expect(gate.gain.linearRampToValueAtTime).toHaveBeenCalledOnce();
+    synth.allSoundOff();
+    context.currentTime = previousTime;
   });
 
   it("applies CC1 to the active voice filter on filter-capable instruments", async () => {

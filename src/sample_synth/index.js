@@ -310,6 +310,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     let masterGain = null;
     let recoveryGate = null;
     let recoveryMuted = false;
+    let outputFadePending = true;
     let masterVolume = 1.0;
     let preparePromise = null;
     let preparationEpoch = 0;
@@ -387,7 +388,8 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           masterGain = sharedAudioContext.createGain();
           masterGain.gain.value = 0;
           recoveryGate?.disconnect();
-          recoveryGate = createRecoveryGate(sharedAudioContext, recoveryMuted);
+          recoveryGate = createRecoveryGate(sharedAudioContext, true);
+          outputFadePending = true;
           masterGain.connect(recoveryGate.node);
           masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.015);
         }
@@ -546,6 +548,16 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         );
         activeHexes.add(hex);
         knownHexes.add(hex);
+        const originalNoteOn = hex.noteOn.bind(hex);
+        hex.noteOn = (...values) => {
+          // Preparation can finish long before this engine joins a held chord.
+          // Start the output fade at the first attack, not during sample decode.
+          if (outputFadePending && !recoveryMuted) {
+            recoveryGate?.fadeIn({ durationMs: 40 });
+            outputFadePending = false;
+          }
+          return originalNoteOn(...values);
+        };
         hex._onSourceEnded = () => {
           activeHexes.delete(hex);
           knownHexes.delete(hex);

@@ -11,6 +11,10 @@ export function createRecoveryGate(context, muted = false) {
   node.gain.value = muted ? 0 : 1;
   node.connect(muted ? silentSink : context.destination);
   let fadeTimer;
+  let ramp = null;
+  const levelAt = now => ramp
+    ? ramp.from + (ramp.to - ramp.from) * Math.max(0, Math.min(1, (now - ramp.start) / ramp.duration))
+    : node.gain.value;
   return {
     node,
     mute(durationMs = 0) {
@@ -18,8 +22,10 @@ export function createRecoveryGate(context, muted = false) {
       if (durationMs > 0 && context.state === "running" && !disconnected) {
         const now = context.currentTime;
         node.gain.cancelScheduledValues(now);
-        node.gain.setValueAtTime(node.gain.value, now);
+        const level = levelAt(now);
+        node.gain.setValueAtTime(level, now);
         node.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
+        ramp = { from: level, to: 0, start: now, duration: durationMs / 1000 };
         fadeTimer = setTimeout(() => this.mute(), durationMs);
         return { directOutputConnected: true, fadeOutMs: durationMs };
       }
@@ -29,20 +35,27 @@ export function createRecoveryGate(context, muted = false) {
       const now = context.currentTime;
       node.gain.cancelScheduledValues(now);
       node.gain.setValueAtTime(0, now);
+      ramp = null;
       return { directOutputConnected: false, silentDrainConnected: true };
     },
-    fadeIn() {
+    fadeIn({ fromCurrent = false, durationMs = 80, delayMs = 0 } = {}) {
       clearTimeout(fadeTimer);
       const now = context.currentTime;
       node.gain.cancelScheduledValues(now);
-      node.gain.setValueAtTime(0, now);
-      node.gain.value = 0;
+      const level = fromCurrent && !disconnected ? levelAt(now) : 0;
+      node.gain.setValueAtTime(level, now);
+      node.gain.value = level;
       if (disconnected) {
         node.disconnect();
         node.connect(context.destination);
         disconnected = false;
       }
-      node.gain.linearRampToValueAtTime(1, now + 0.08);
+      const start = now + delayMs / 1000;
+      // Hold silence while startup buffers drain, then ramp on the audio clock.
+      // Cancelling/muting the gate also cancels this future automation.
+      if (delayMs > 0) node.gain.setValueAtTime(level, start);
+      node.gain.linearRampToValueAtTime(1, start + durationMs / 1000);
+      ramp = { from: level, to: 1, start, duration: durationMs / 1000 };
       return { directOutputConnected: true, silentDrainConnected: false };
     },
     disconnect() {

@@ -40,6 +40,7 @@ import {
 import { parseExactInterval } from "./tuning/interval.js";
 
 import useSynthWiring from "./hooks/use-synth-wiring.js";
+import { createTransportClock } from "./sequencer/transport-clock.js";
 import useAudioRecovery from "./hooks/use-audio-recovery.js";
 import { useMidiGuardian } from "./hooks/use-midi-guardian.js";
 import useDeferredModulationHistory from "./tuning/use-deferred-modulation-history.js";
@@ -3203,11 +3204,10 @@ const App = () => {
     sortedSequenceBars.length,
   ]);
 
-  const getTimedTransportClockSeconds = useCallback(() => {
-    const synthClock = keysRef.current?.synth?.currentTime?.();
-    if (Number.isFinite(synthClock)) return synthClock;
-    return performance.now() / 1000;
-  }, []);
+  const timedTransportClockRef = useRef(null);
+  if (!timedTransportClockRef.current) timedTransportClockRef.current = createTransportClock();
+  const getTimedTransportClockSeconds = useCallback(() =>
+    timedTransportClockRef.current(keysRef.current?.synth, performance.now() / 1000), []);
 
   const recordManualCueBurstDiagnostic = useCallback((cueIndex, startedAtMs, applyDurationMs) => {
     if (!isTimedTransportDiagnosticsEnabled()) return;

@@ -18,18 +18,38 @@ export function runOutputCleanup(actions) {
 
 export function releaseSynthInstance(synth, options) {
   if (typeof synth?.shutdown === "function") {
-    if (options === undefined) synth.shutdown();
-    else synth.shutdown(options);
+    if (options === undefined) return synth.shutdown();
+    return synth.shutdown(options);
   }
   else if (typeof synth?.releaseAll === "function") synth.releaseAll();
+}
+
+// Retain only the short, reversible fade window, scoped to its owning ref.
+const fadingOutputs = new WeakMap();
+function fadeOutput(ref, key, synth, options) {
+  const pending = releaseSynthInstance(synth, options);
+  if (options?.panic || !pending?.then || !synth?.cancelShutdown) return;
+  let entries = fadingOutputs.get(ref);
+  if (!entries) fadingOutputs.set(ref, entries = new Map());
+  const entry = { synth, pending };
+  entries.set(key, entry);
+  const clear = () => { if (entries.get(key) === entry) entries.delete(key); };
+  void pending.then(clear, clear);
+}
+export function reclaimFadingOutput(ref, key) {
+  const entries = fadingOutputs.get(ref);
+  const synth = entries?.get(key)?.synth;
+  entries?.delete(key);
+  return synth?.cancelShutdown?.() ? synth : null;
 }
 
 // Detach ownership before invoking a backend: a second cleanup must not release
 // the same instance again, including when its teardown throws.
 export function clearOutputRef(ref, options) {
   const synth = ref.current.synth;
+  const key = ref.current.key;
   ref.current = { key: null, synth: null };
-  releaseSynthInstance(synth, options);
+  fadeOutput(ref, key, synth, options);
 }
 
 export function pruneOutputMap(ref, retainedKeys = new Set()) {
@@ -37,7 +57,7 @@ export function pruneOutputMap(ref, retainedKeys = new Set()) {
   for (const [key, synth] of ref.current) {
     if (retainedKeys.has(key)) continue;
     ref.current.delete(key);
-    actions.push(() => releaseSynthInstance(synth));
+    actions.push(() => fadeOutput(ref, key, synth));
   }
   runOutputCleanup(actions);
 }
