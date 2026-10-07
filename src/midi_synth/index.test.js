@@ -26,6 +26,33 @@ afterEach(() => {
 });
 
 describe("midi_synth controller-state replay", () => {
+  it.each(["MTS1", "MTS_BULK"])("retires pending %s attacks after their onset without clearing a shared port", async (mapping) => {
+    const output = { send: vi.fn(), clear: vi.fn() };
+    const make = channel => create_midi_synth({
+      outputMode: { output, channel, midiMapping: mapping,
+        transportMode: mapping === "MTS1" ? "single_note_realtime" : "bulk_static_map",
+        velocity: 72, mapNumber: 0, anchorNote: 60 },
+      tuningContext: { fundamental: 440, degree0toRefAsArray: [0, 1],
+        scale: scale12, equivInterval: 1200, name: "test" },
+      legacyInput: { midiin_anchor_note: 60 },
+    });
+    const old = await make(2);
+    const hex = old.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, -100, 100, 60, 72, 0, 1);
+    const attack = performance.now() + 1000;
+    hex.noteOn(attack);
+    output.send.mockClear();
+    old.shutdown();
+    const carrier = hex.steps ?? hex.carrier;
+    expect(output.send).toHaveBeenCalledWith([0x82, carrier, 0], attack + 1);
+    const next = await make(3);
+    next.makeHex({ x: 1, y: 0 }, 0, 0, 0, 12, -100, 100, 60, 72, 0, 1).noteOn();
+    output.send.mockClear();
+    hex.noteOn(attack + 2000);
+    old.makeHex({ x: 2, y: 0 }, 0, 0, 0, 12, -100, 100, 60, 72, 0, 1).noteOn();
+    expect(output.send.mock.calls.filter(([message]) => (message[0] & 0xf0) === 0x90)).toEqual([]);
+    expect(output.clear).not.toHaveBeenCalled();
+    next.shutdown();
+  });
   it("keeps same-hex MTS triggers on separate carriers and releases independently", async () => {
     const output = { send: vi.fn() };
     const synth = await create_midi_synth({
@@ -63,8 +90,10 @@ describe("midi_synth controller-state replay", () => {
     expect(output.send.mock.calls.map(([message]) => message)).toEqual([
       [0x80, controllerHex.steps, 40],
     ]);
-    pointerHex.noteOff(50);
+    const releaseAt = performance.now() + 200;
+    pointerHex.noteOff(50, releaseAt);
     expect(output.send.mock.calls.at(-1)[0]).toEqual([0x80, pointerHex.steps, 50]);
+    expect(output.send.mock.calls.at(-1)[1]).toBe(releaseAt);
   });
 
   it("sends a full pitch-bend-range RPN on synth creation", async () => {

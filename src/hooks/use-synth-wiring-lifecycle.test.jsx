@@ -90,7 +90,7 @@ it("broadcasts brightness only to scsynth and mirrors controller input without r
 it("reuses a muted SuperSonic engine without foreground Loading on re-enable", async () => {
   const local = smoothOutputToggle({ ...engine(), local: true,
     makeHex: () => ({ noteOn: vi.fn() }) },
-    { mute: vi.fn(), fadeIn: vi.fn(), cutOnShutdown: true, reuseWindowMs: 5000 });
+    { mute: vi.fn(), fadeIn: vi.fn(), cutOnShutdown: true, keepWarm: true });
   factories.local.mockResolvedValue(local);
   const settings = { ...base, output_sample: false, output_osc: true, osc_local: true };
   const view = render(<Harness settings={settings} />);
@@ -103,6 +103,28 @@ it("reuses a muted SuperSonic engine without foreground Loading on re-enable", a
   expect(factories.local).toHaveBeenCalledOnce();
   view.unmount();
   local.shutdown({ panic: true });
+});
+it("reclaims local audio from the bridge within its retirement window", async () => {
+  const dispose = vi.fn();
+  const fadeIn = vi.fn();
+  const local = smoothOutputToggle({ local: true, shutdown: dispose,
+    makeHex: () => ({ noteOn: vi.fn() }), allSoundOff: vi.fn() },
+    { mute: vi.fn(), fadeIn, cutOnShutdown: true, reuseWindowMs: 5000, keepWarm: true });
+  const bridge = engine();
+  factories.local.mockResolvedValue(local);
+  factories.osc.mockResolvedValue(bridge);
+  const settings = { ...base, output_sample: false, output_osc: true, osc_local: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  view.rerender(<Harness settings={{ ...settings, osc_local: false }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([bridge]));
+  expect(dispose).not.toHaveBeenCalled();
+  view.rerender(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  expect(bridge.shutdown).toHaveBeenCalledExactlyOnceWith();
+  expect(factories.local).toHaveBeenCalledOnce();
+  expect(fadeIn).toHaveBeenLastCalledWith({ delayMs: 0 });
+  view.unmount();
 });
 
 it.each([null, "0", "0.73"])("initializes brightness from the saved preference (%s), or 20 percent", async (saved) => {
@@ -222,7 +244,7 @@ it("retains all four live OSC mix levels across articulation toggles and engine 
   mix.forEach((value, index) => expect(local.setLayerVolume).toHaveBeenCalledWith(index, value));
 });
 
-it("panics the old OSC destination and adopts local output only after it is ready", async () => {
+it("gently releases the old OSC destination and adopts local output only after it is ready", async () => {
   const old = engine(), local = { ...engine(), local: true };
   const pending = deferred();
   factories.osc.mockResolvedValue(old);
@@ -232,12 +254,12 @@ it("panics the old OSC destination and adopts local output only after it is read
   await waitFor(() => expect(current.synth?.children).toEqual([old]));
   view.rerender(<Harness settings={{ ...settings, osc_local: true }} />);
   await waitFor(() => expect(factories.local).toHaveBeenCalledOnce());
-  expect(old.shutdown).toHaveBeenCalledExactlyOnceWith({ panic: true });
+  expect(old.shutdown).toHaveBeenCalledExactlyOnceWith();
   await act(async () => pending.resolve(local));
   await waitFor(() => expect(current.synth?.children).toEqual([local]));
   expect(keysRef.current.updateLiveOutputState).toHaveBeenLastCalledWith(null, current.synth);
   view.rerender(<Harness settings={settings} />);
-  await waitFor(() => expect(local.shutdown).toHaveBeenCalledExactlyOnceWith({ panic: true }));
+  await waitFor(() => expect(local.shutdown).toHaveBeenCalledExactlyOnceWith({ engineSwitch: true }));
 });
 
 it("still closes MIDI permissions after queue clearing and engine shutdown fail", async () => {

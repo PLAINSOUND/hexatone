@@ -54,6 +54,18 @@ Saved sequence → derived runtime model → playback decisions
 - **Clocks differ.** Browser timestamps use milliseconds, AudioContext time uses
   seconds, and timed playback has musical positions plus elapsed seconds.
   Backend adapters own conversions. Never substitute one clock for another.
+  [transport-clock.js](../src/sequencer/transport-clock.js) carries a continuous
+  elapsed-time offset when output toggles change the clock-owning child or fall
+  back to the browser clock. A new composite wrapper alone is not a new clock.
+  Without this handoff, disabling samples during timed playback can jump from
+  AudioContext time to the browser epoch and dispatch a burst of overdue cues
+  into retained outputs such as SuperSonic. Keep audio-clock suspension intact;
+  transport continuity must not alter backend voice-scheduling timestamps.
+
+The detailed [built-in audio mixing contract](built-in-audio-mixing.md) records
+output gates, warm versus cold toggles, OSC bridge handoff, shared clocks,
+voice reconciliation, recovery and the future DSF integration checklist.
+Consult it alongside B12–B16 before changing backend lifecycle behaviour.
 
 ## Boundary inventory
 

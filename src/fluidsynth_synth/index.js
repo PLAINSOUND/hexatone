@@ -20,7 +20,6 @@ let rebindGeneration = 0;
 const engineListeners = new Set();
 const failedNodes = new WeakSet();
 const recoveryGates = new WeakMap();
-let recoveryMuted = false;
 
 function notifyEngineListeners() {
   engineListeners.forEach((listener) => listener(engine));
@@ -86,7 +85,9 @@ async function createWorkletNode(context) {
     processorOptions: { wasmBytes },
   });
   const ready = waitForMessage(node, (message) => message?.type === "ready", true);
-  const recoveryGate = createRecoveryGate(context, recoveryMuted);
+  // A new worklet must never join the speakers at full gain. The owning
+  // output fades up on its first note; recovery also explicitly fades up.
+  const recoveryGate = createRecoveryGate(context, true);
   recoveryGates.set(node, recoveryGate);
   node.connect(recoveryGate.node);
   node.onprocessorerror = () => {
@@ -274,12 +275,10 @@ export function getFluidSynthAudioContext() {
 }
 
 export function muteFluidSynthForRecovery(durationMs) {
-  recoveryMuted = true;
   if (engine?.node) return recoveryGates.get(engine.node)?.mute(durationMs);
 }
 
 export function fadeFluidSynthAfterRecovery(options) {
-  recoveryMuted = false;
   if (engine?.node) return recoveryGates.get(engine.node)?.fadeIn(options);
 }
 

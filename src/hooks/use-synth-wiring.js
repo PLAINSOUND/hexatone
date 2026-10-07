@@ -571,7 +571,10 @@ const useSynthWiring = (
 
   const clearAllOutputSynthRefs = useCallback((preserveWarm = false) => {
     oscRequestsRef.current.cancelAll();
-    if (!preserveWarm) clearOutputRef(warmOscSynthRef, { panic: true });
+    if (!preserveWarm) {
+      clearOutputRef(warmOscSynthRef, { panic: true });
+      if (oscSynthRef.current.synth?.pauseOutput) clearOutputRef(oscSynthRef, { panic: true });
+    }
     clearOutputSynthRefs({
       activeRefs: [sampleSynthRef, oscSynthRef, mpeSynthRef, monoSynthRef],
       mtsRef: mtsSynthsRef,
@@ -1009,10 +1012,20 @@ const useSynthWiring = (
         warmOscSynthRef.current = { key: null, synth: null };
         applyOscRuntimeControls(oscSynthRef.current.synth, oscRuntimeControlsRef.current);
         oscSynthRef.current.synth.applyZoneModwheel?.(oscBrightnessRef.current);
+      } else if (!settings.osc_local && warmOscSynthRef.current.synth.local) {
+        // Move the parked local engine into the same reversible retirement
+        // cache used by an active local-to-bridge handoff.
+        oscSynthRef.current = warmOscSynthRef.current;
+        warmOscSynthRef.current = { key: null, synth: null };
+        clearOutputRef(oscSynthRef, { engineSwitch: true });
       } else clearOutputRef(warmOscSynthRef, { panic: true });
     }
     // Reclaim before deciding foreground loading: a warm toggle is only a
     // graph/gain handoff, not an engine download or initialization.
+    if (oscConfig && settings.osc_local && oscSynthRef.current.synth &&
+        !oscSynthRef.current.synth.local) {
+      clearOutputRef(oscSynthRef);
+    }
     if (oscConfig && !oscSynthRef.current.synth) {
       const fading = reclaimFadingOutput(oscSynthRef, oscConfig.key);
       if (fading) oscSynthRef.current = { key: oscConfig.key, synth: fading };
@@ -1157,9 +1170,13 @@ const useSynthWiring = (
         const retained = oscSynthRef.current.synth;
         promises.push(Promise.resolve(retained.resumeOutput?.()).then(() => retained));
       } else {
-        const switchingEngine =
-          oscSynthRef.current.synth && !!oscSynthRef.current.synth.local !== !!settings.osc_local;
-        clearOutputRef(oscSynthRef, switchingEngine ? { panic: true } : undefined);
+        const previous = oscSynthRef.current.synth;
+        const switchingEngine = previous && !!previous.local !== !!settings.osc_local;
+        // Local audio fades now, but its engine retires after five seconds.
+        // Leaving the bridge releases owned notes through their envelopes.
+        clearOutputRef(oscSynthRef, switchingEngine && previous.local
+          ? { engineSwitch: true }
+          : previous?.local ? { panic: true } : undefined);
         promises.push(
           oscRequestsRef.current(
             oscKey,

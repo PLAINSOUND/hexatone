@@ -19,15 +19,28 @@ export function smoothOutputToggle(synth, { mute, fadeIn, cutOnShutdown = false,
   let paused = false;
   let pauseRevision = 0;
   let clearing = Promise.resolve();
+  let voiceTimer;
+  let cancelVoiceClear;
   if (keepWarm) {
     synth.pauseOutput = () => {
+      pauseRevision++;
       if (paused) return clearing;
       paused = true;
-      pauseRevision++;
       stopped = true;
       warm.add(synth);
       mute(30);
-      clearing = new Promise(resolve => setTimeout(resolve, 40)).then(async () => {
+      clearing = new Promise(resolve => {
+        cancelVoiceClear = () => {
+          clearTimeout(voiceTimer);
+          cancelVoiceClear = null;
+          resolve(false);
+        };
+        voiceTimer = setTimeout(() => {
+          cancelVoiceClear = null;
+          resolve(true);
+        }, 5000);
+      }).then(async shouldClear => {
+        if (!shouldClear || !paused) return;
         // Clear the engine only under the silent gate, not at the toggle edge.
         synth.allSoundOff?.();
         await synth.clearRecoveryEvents?.();
@@ -37,6 +50,8 @@ export function smoothOutputToggle(synth, { mute, fadeIn, cutOnShutdown = false,
     synth.resumeOutput = async () => {
       if (!paused) return;
       const revision = pauseRevision;
+      const retainedVoices = !!cancelVoiceClear;
+      cancelVoiceClear?.();
       await clearing;
       if (!paused || revision !== pauseRevision) return;
       await synth.prepare?.();
@@ -44,7 +59,8 @@ export function smoothOutputToggle(synth, { mute, fadeIn, cutOnShutdown = false,
       paused = false;
       warm.delete(synth);
       stopped = false;
-      started = false; // Fade when current held notes actually join again.
+      started = retainedVoices;
+      if (retainedVoices) fadeIn();
     };
   }
   synth.makeHex = (...args) => {
@@ -58,14 +74,25 @@ export function smoothOutputToggle(synth, { mute, fadeIn, cutOnShutdown = false,
     return hex;
   };
   synth.shutdown = (options) => {
-    if (options?.panic) {
+    if (options?.engineSwitch && paused) {
+      cancelVoiceClear?.();
+      warm.delete(synth);
+      paused = false;
+      pauseRevision++;
+      stopped = false;
+    }
+    // Parking is separate from disposal: an actual shutdown must also close a
+    // parked engine, rather than silently returning because attacks are blocked.
+    if (options?.panic || paused) {
+      const shutdownOptions = paused ? { ...options, panic: true } : options;
+      cancelVoiceClear?.();
       warm.delete(synth);
       paused = false;
       pauseRevision++;
       stopped = true;
       mute();
       if (finish) finish();
-      else shutdown(options);
+      else shutdown(shutdownOptions);
       return pending;
     }
     if (stopped) return pending;
@@ -82,7 +109,7 @@ export function smoothOutputToggle(synth, { mute, fadeIn, cutOnShutdown = false,
         started = true;
         // The off graph may never have been published: existing voices can
         // still be held, so reverse now rather than waiting for a new attack.
-        fadeIn();
+        fadeIn(options?.engineSwitch ? { delayMs: 0 } : undefined);
         resolve();
       };
       finish = () => {

@@ -139,6 +139,10 @@ export const create_midi_synth = async ({
   }
 
   const activeHexes = new Set();
+  let closed = false;
+  const releaseOwnedNotes = () => {
+    for (const hex of [...activeHexes]) hex.noteOff(0);
+  };
 
   return {
     family: "mts",
@@ -239,9 +243,28 @@ export const create_midi_synth = async ({
         );
       }
       activeHexes.add(hex);
+      let attackTimestamp = null;
+      let released = false;
+      const originalNoteOn = hex.noteOn.bind(hex);
+      hex.noteOn = (timestamp) => {
+        if (closed || released) return;
+        attackTimestamp = timestamp != null && Number.isFinite(Number(timestamp))
+          ? Number(timestamp) : null;
+        return originalNoteOn(timestamp);
+      };
       const originalNoteOff = hex.noteOff.bind(hex);
-      hex.noteOff = (release_velocity) => {
-        originalNoteOff(release_velocity);
+      hex.noteOff = (release_velocity, timestamp) => {
+        if (released) return;
+        released = true;
+        // Web MIDI has no owner-scoped cancellation. An immediate release
+        // cannot precede an already queued attack: retire it just afterwards,
+        // without clearing another backend's events on the same MIDI port.
+        let at = timestamp != null && Number.isFinite(Number(timestamp))
+          ? Number(timestamp) : undefined;
+        if (attackTimestamp != null && attackTimestamp > performance.now()) {
+          at = Math.max(at ?? performance.now(), attackTimestamp + 1);
+        }
+        originalNoteOff(release_velocity, at);
         activeHexes.delete(hex);
       };
       return hex;
@@ -273,8 +296,11 @@ export const create_midi_synth = async ({
       }
     },
 
-    releaseAll: () => {
-      for (const hex of [...activeHexes]) hex.noteOff(0);
+    releaseAll: releaseOwnedNotes,
+    shutdown: () => {
+      if (closed) return;
+      closed = true;
+      releaseOwnedNotes();
     },
   };
 };

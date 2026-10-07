@@ -8,12 +8,14 @@ afterEach(() => {
 
 it("replaces a worklet in a running context and restores its bank, preset and volume", async () => {
   vi.resetModules();
+  const gains = [];
   const context = {
     state: "running",
     currentTime: 1,
     sampleRate: 48000,
     destination: {},
-    createGain: () => ({
+    createGain: () => {
+      const gainNode = {
       gain: {
         value: 1,
         cancelScheduledValues: vi.fn(),
@@ -22,7 +24,10 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
       },
       connect: vi.fn(),
       disconnect: vi.fn(),
-    }),
+      };
+      gains.push(gainNode);
+      return gainNode;
+    },
     audioWorklet: { addModule: vi.fn(async () => {}) },
   };
   const recover = vi.fn(() => Promise.resolve(context));
@@ -72,8 +77,14 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
     forceFluidSynthEngineRebuild,
     getFluidSynthAudioDiagnostics,
     panicFluidSynth,
+    fadeFluidSynthAfterRecovery,
   } = await import("./index.js");
   const engine = await getFluidSynthEngine();
+  expect(gains[0].gain.value).toBe(0);
+  expect(gains[0].connect).not.toHaveBeenCalledWith(context.destination);
+  fadeFluidSynthAfterRecovery({ fromCurrent: true, durationMs: 40 });
+  expect(gains[0].gain.setValueAtTime).toHaveBeenCalledWith(0, 1);
+  expect(gains[0].gain.linearRampToValueAtTime).toHaveBeenCalledWith(1, 1.04);
   // Panic reaches the retained engine directly, without a currently selected
   // FluidSynth synth in the composite, and drops main-thread pending attacks.
   nodes[0].port.postMessage.mockClear();
@@ -92,6 +103,8 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
   expect(recover).toHaveBeenCalledOnce(); // no await before the context wake
   await restoring;
   expect(nodes).toHaveLength(2);
+  expect(gains[2].gain.value).toBe(0);
+  expect(gains[2].connect).not.toHaveBeenCalledWith(context.destination);
   expect(engine.node).toBe(nodes[1]);
   expect(nodes[0].disconnect).toHaveBeenCalledOnce();
   expect(nodes[0].port.close).toHaveBeenCalledOnce();

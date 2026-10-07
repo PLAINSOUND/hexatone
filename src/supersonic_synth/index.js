@@ -279,10 +279,10 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     let firstOutputFade = true;
     return smoothOutputToggle(synth, {
       mute: (durationMs) => recoveryGate?.mute(durationMs),
-      fadeIn: () => {
+      fadeIn: (options) => {
         if (recoveryMuted) return;
         recoveryGate?.fadeIn({ fromCurrent: true,
-          delayMs: firstOutputFade ? 500 : 0, durationMs: 40 });
+          delayMs: options?.delayMs ?? (firstOutputFade ? 500 : 0), durationMs: 40 });
         firstOutputFade = false;
       },
       cutOnShutdown: true,
