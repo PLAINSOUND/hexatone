@@ -392,13 +392,16 @@ a:hover {
 
 .audio-recovery-alert {
   position: fixed;
+  line-height: 1.8em;
+  align-content: center;
   bottom: 0.5rem;
   left: 0.5rem;
   right: 0.5rem;
   z-index: 100;
   padding: 0.5rem;
   border: 1px solid #9a2f2f;
-  background: #faf9f8;
+  background: #fffadb;
+  box-shadow: 0 0 14px rgba(230, 170, 45, 0.38);
   color: #9a2f2f;
 }
 
