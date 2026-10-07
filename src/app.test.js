@@ -1546,7 +1546,7 @@ describe("App workspace tabs", () => {
     }));
     const view = render(<App />);
     const keys = { settings: { note_names: [], heji_names: [] },
-      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn(), resizeHandler: vi.fn() };
     try {
       await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
       act(() => lastKeyboardProps.onKeysReady(keys));

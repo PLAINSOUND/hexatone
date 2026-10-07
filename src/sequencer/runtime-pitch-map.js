@@ -5,6 +5,36 @@
 import { findNearestDegree } from "../input/scale-mapper.js";
 import { noteIdentity } from "./value-runtime.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "../tuning/workspace.js";
+import { chooseChordSteps, clampChordDrift } from "./chord-snap.js";
+
+const chordCache = new Map();
+
+export function withSequenceSnapGroup(notes) {
+  const pitches = notes.map(note => ({
+    ...(note.sequenceOriginalPitch ?? { midicents: Number(note.midicents), frequency: note.frequency }),
+    held: note.legatoContinuation === true,
+  }));
+  return notes.map((note, index) => ({ ...note, sequenceSnapGroup: { pitches, index } }));
+}
+
+export function remapSequenceChordToRuntime(notes, runtime, options = {}) {
+  const drift = options.chordAware ? clampChordDrift(options.chordDrift) : 0;
+  if (!drift || notes.length < 2 || !runtime?.scale?.length)
+    return notes.map(note => remapSequenceNoteToRuntime(note, runtime, options));
+  const pitches = notes.map(note => absoluteCentsForFrequency(
+    Number(note.frequency) > 0 ? Number(note.frequency) : noteFrequency(note.midicents), runtime));
+  if (pitches.some(pitch => !Number.isFinite(pitch)))
+    return notes.map(note => remapSequenceNoteToRuntime(note, runtime, options));
+  const key = JSON.stringify([runtime.scale, runtime.equivInterval, runtime.fundamental,
+    runtime.referenceDegree, pitches, notes.map(note => !!note.held), drift]);
+  let steps = chordCache.get(key);
+  if (!steps) {
+    steps = chooseChordSteps(pitches, runtime, drift, notes.map(note => !!note.held));
+    if (chordCache.size >= 256) chordCache.delete(chordCache.keys().next().value);
+    chordCache.set(key, steps);
+  }
+  return notes.map((note, index) => remapSequenceNoteAtSteps(note, runtime, steps[index], options));
+}
 
 export function resolveSequenceSnapRuntime(settings, liveRuntime, sourceSettings = {}) {
   if (!Array.isArray(settings.scale) || !settings.scale.length) return null;
@@ -145,12 +175,16 @@ export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
     "accept",
   );
   if (!nearest) return note;
-  const nextAbsoluteCents = snappedAbsoluteCents(nearest.steps, runtime);
+  return remapSequenceNoteAtSteps(note, runtime, nearest.steps, options);
+}
+
+function remapSequenceNoteAtSteps(note, runtime, steps, options) {
+  const nextAbsoluteCents = snappedAbsoluteCents(steps, runtime);
   const nextFrequency = frequencyForAbsoluteCents(nextAbsoluteCents, runtime);
   const nextMidicents = frequencyToMidicents(nextFrequency);
   if (!Number.isFinite(nextFrequency) || !Number.isFinite(nextMidicents)) return note;
-  const reducedDegree = mod(nearest.steps, scaleLength);
-  const exactIdentity = displacedExactIdentity(nearest.steps, reducedDegree, runtime);
+  const reducedDegree = mod(steps, runtime.scale.length);
+  const exactIdentity = displacedExactIdentity(steps, reducedDegree, runtime);
   const destinationLabel = labelForDegree(reducedDegree, options) || note?.displayLabel || "";
   return {
     ...note,
@@ -175,12 +209,15 @@ export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
 }
 
 // Resolve every attack from its stored source, never from a previous snap.
-export function resolveLiveSequencePitch(note, runtime = null, pitchOffsetCents = 0) {
+export function resolveLiveSequencePitch(note, runtime = null, pitchOffsetCents = 0, options = {}) {
   const source = note.sequenceOriginalPitch ?? {
     midicents: Number(note.midicents), frequency: note.frequency,
   };
   const original = { ...note, ...source };
-  const mapped = runtime ? remapSequenceNoteToRuntime(original, runtime) : original;
+  const group = note.sequenceSnapGroup;
+  const chosen = runtime && options.chordAware && group
+    ? remapSequenceChordToRuntime(group.pitches, runtime, options)[group.index] : null;
+  const mapped = runtime ? (chosen ? { ...original, ...chosen } : remapSequenceNoteToRuntime(original, runtime, options)) : original;
   const midicents = Number(mapped.midicents) + (Number(pitchOffsetCents) || 0) / 100;
   return { ...mapped, midicents, frequency: noteFrequency(midicents), sequenceOriginalPitch: source };
 }
@@ -192,8 +229,8 @@ export function remapSequenceSnapshotsToRuntime(snapshots, runtime, options = {}
   return snapshots.map((snapshot) => ({
     ...snapshot,
     notes: Array.isArray(snapshot?.notes)
-      ? snapshot.notes.map((note) =>
-          remapSequenceNoteToRuntime(
+      ? withSequenceSnapGroup(snapshot.notes).map((note) =>
+          resolveLiveSequencePitch(
             // Legacy note identities include pitch. Freeze that source identity
             // in this playback-only projection before SNAP changes the pitch,
             // so active voices and their releases still match across toggles.
@@ -202,7 +239,7 @@ export function remapSequenceSnapshotsToRuntime(snapshots, runtime, options = {}
                 midicents: Number(note.midicents), frequency: note.frequency,
               } },
             runtime,
-            options,
+            0, options,
           ),
         )
       : [],

@@ -137,11 +137,15 @@ import {
 } from "./debug/sequencer-crash-diagnostics.js";
 import { buildSnapshotDisplayDescription } from "./sequencer/labels.js";
 import { deriveSequenceLegatoFlags, normalizeSequenceLegatoMode } from "./sequencer/legato.js";
+import ChordSnapControls from "./sequencer/chord-snap-controls.jsx";
+import { DEFAULT_CHORD_DRIFT } from "./sequencer/chord-snap.js";
+import { noteIdentity as sequenceNoteIdentity } from "./sequencer/value-runtime.js";
 import {
   remapSequenceNoteToRuntime,
   remapSequenceSnapshotsToRuntime,
   resolveLiveSequencePitch,
   resolveSequenceSnapRuntime,
+  withSequenceSnapGroup,
 } from "./sequencer/runtime-pitch-map.js";
 import { createSequenceRuntimeModelBuilder } from "./sequencer/runtime-model.js";
 import { buildCueExpandedSnapshotIdsAt } from "./sequencer/view-runtime.js";
@@ -1177,6 +1181,12 @@ const App = () => {
   const sequenceTimbreModWheelEnabledRef = useRef(true);
   const sequenceTimbreModWheelValueRef = useRef(NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL);
   const [snapSequenceToCurrentTuning, setSnapSequenceToCurrentTuning] = useState(false);
+  const [chordSnapEnabled, setChordSnapEnabled] = useState(false);
+  const [chordDrift, setChordDrift] = useState(DEFAULT_CHORD_DRIFT);
+  const chordSnapOptions = useMemo(() => ({ chordAware: chordSnapEnabled, chordDrift }),
+    [chordSnapEnabled, chordDrift]);
+  const liveChordSnapOptionsRef = useRef(chordSnapOptions);
+  liveChordSnapOptionsRef.current = chordSnapOptions;
   const [sequenceAutoCreateBars, setSequenceAutoCreateBars] = useState(true);
   const [manualArpeggiation, setManualArpeggiation] = useState(() => normalizeManualArpeggiation());
   const [sequenceBars, setSequenceBars] = useState(defaultSequenceBars);
@@ -1565,6 +1575,7 @@ const App = () => {
   const sequenceSnapRuntimeKey = currentSequenceSnapRuntime ? JSON.stringify([
     currentSequenceSnapRuntime.scale, currentSequenceSnapRuntime.equivInterval,
     currentSequenceSnapRuntime.fundamental, currentSequenceSnapRuntime.referenceDegree,
+    chordSnapEnabled, chordDrift,
   ]) : null;
   const sequencePlaybackSnapshots = useMemo(() => {
     const keys = keysRef.current;
@@ -1572,10 +1583,11 @@ const App = () => {
       return snapshots;
     }
     return remapSequenceSnapshotsToRuntime(snapshots, currentSequenceSnapRuntime, {
+      ...chordSnapOptions,
       noteNames: Array.isArray(keys?.settings?.note_names) ? keys.settings.note_names : [],
       hejiNames: Array.isArray(keys?.settings?.heji_names) ? keys.settings.heji_names : [],
     });
-  }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshots]);
+  }, [currentSequenceSnapRuntime, snapSequenceToCurrentTuning, snapshots, chordSnapOptions]);
   const previousSequenceDisplaySnapshotsRef = useRef(null);
   const sequenceDisplaySnapshots = useMemo(() => {
     const displayedSnapshots = sequencePlaybackSnapshots;
@@ -1996,12 +2008,30 @@ const App = () => {
         options?.pitchOffset ?? liveSequencePlaybackPitchOffsetRef.current,
       );
       const transformNotes = (notes) => {
-        let nextNotes = Array.isArray(notes) ? notes.map((note) => ({ ...note,
-          sequenceOriginalPitch: { midicents: Number(note.midicents), frequency: note.frequency },
-        })) : [];
+        // A formation keeps its complete source chord even when only one attack
+        // is due. Snapshot IDs/keys, not projected pitches, find original notes.
+        const groups = new Map();
+        let nextNotes = Array.isArray(notes) ? notes.map(note => {
+          const snapshot = snapshots.find(s => s.id === note.snapshotId) ?? snapshots[stepIndex];
+          if (!groups.has(snapshot)) {
+            const sourceNotes = (snapshot?.notes ?? []).map(source => ({ ...source,
+              legatoContinuation: notes.some(active => active.legatoContinuation &&
+                (active.noteKey === sequenceNoteIdentity(source, snapshot.length) || active.id === source.id)),
+            }));
+            groups.set(snapshot, withSequenceSnapGroup(sourceNotes));
+          }
+          const group = groups.get(snapshot);
+          const index = group.findIndex(source => note.noteKey != null
+            ? sequenceNoteIdentity(source, snapshot.length) === note.noteKey
+            : source.id != null && source.id === note.id);
+          const source = group[index >= 0 ? index : (note.sequenceSlot ?? notes.indexOf(note))];
+          return { ...note, sequenceSnapGroup: source?.sequenceSnapGroup,
+            sequenceOriginalPitch: source?.sequenceSnapGroup.pitches[source.sequenceSnapGroup.index] ??
+              note.sequenceOriginalPitch ?? { midicents: Number(note.midicents), frequency: note.frequency } };
+        }) : [];
         if (snapSequenceToCurrentTuning && currentSequenceSnapRuntime) {
           nextNotes = nextNotes.map((note) =>
-            remapSequenceNoteToRuntime(note, currentSequenceSnapRuntime, noteNameOptions),
+            resolveLiveSequencePitch(note, currentSequenceSnapRuntime, 0, { ...noteNameOptions, ...chordSnapOptions }),
           );
         }
         // PITCH is a global translation. Resolve any tuning snap first, then add
@@ -2038,6 +2068,7 @@ const App = () => {
     },
     [
       currentSequenceSnapRuntime,
+      chordSnapOptions,
       sequenceCueGroups,
       sequenceLegato,
       sequenceRuntimeModel.playbackNotesByCueIndex,
@@ -2185,7 +2216,7 @@ const App = () => {
     // positionally with the current cue's complete note array.
     const remapped = remapActiveSnapshotHexes(keysRef.current,
       (note) => resolveLiveSequencePitch(note, liveSequenceSnapRuntimeRef.current,
-        sequencePlaybackPitchOffset), sequencePlaybackPitchOffset);
+        sequencePlaybackPitchOffset, liveChordSnapOptionsRef.current), sequencePlaybackPitchOffset);
     if (remapped.size) {
       appliedSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
       return;
@@ -2323,7 +2354,7 @@ const App = () => {
         },
         onAttack: (event, gestureId) => {
           const liveNote = resolveLiveSequencePitch(event.note, liveSequenceSnapRuntimeRef.current,
-            liveSequencePlaybackPitchOffsetRef.current);
+            liveSequencePlaybackPitchOffsetRef.current, liveChordSnapOptionsRef.current);
           const result = keysRef.current?.attackSnapshotGestureNote?.(gestureId, liveNote, {
             legato: event.note?.legatoContinuation === true,
             pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
@@ -5743,6 +5774,9 @@ const App = () => {
             )}
           </div>
           {!snapshotPaletteCollapsed && (
+            <>
+            {snapSequenceToCurrentTuning && <ChordSnapControls palette enabled={chordSnapEnabled}
+              drift={chordDrift} onEnabledChange={setChordSnapEnabled} onDriftChange={setChordDrift} />}
             <div className="snapshot-palette-body" ref={snapshotPaletteBodyRef}>
               {snapshots.map((snap, index) => {
                 const isPlaying =
@@ -5841,6 +5875,7 @@ const App = () => {
                 );
               })}
             </div>
+            </>
           )}
         </div>
       )}
