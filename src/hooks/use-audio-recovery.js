@@ -65,7 +65,10 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           output.processorFailed ||
           ["suspended", "interrupted", "closed"].includes(context.state)
         ) {
-          if (!busy.current) setStatus("Built-in audio needs attention. Tap Restore Audio.");
+          // Before the first gesture, suspension is normal browser policy,
+          // not an interruption requiring a recovery popup.
+          if (!busy.current && !initialiseRef?.current?.needed?.())
+            setStatus("Built-in audio needs attention. Tap Restore Audio.");
           log.record("audio-needs-attention", {
             backend: output.backend,
             context,
@@ -84,7 +87,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       window.removeEventListener("pagehide", lifecycle);
       window.removeEventListener("pageshow", lifecycle);
     };
-  }, [synthRef]);
+  }, [synthRef, initialiseRef]);
   const restore = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;

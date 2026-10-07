@@ -5286,7 +5286,7 @@ const App = () => {
         .join(" ")}
     >
       {((ready && !initialAudioPromptDismissed &&
-          (!!pendingRestoredPreset || (!userHasInteracted &&
+          (!!pendingRestoredPreset || (restoredOnMount && !userHasInteracted &&
             (settings.output_sample || settings.output_fluidsynth || (settings.output_osc && settings.osc_local))))) ||
         (audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored"))) && (
         <div className="audio-recovery-alert" role="status">
