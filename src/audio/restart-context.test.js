@@ -75,7 +75,14 @@ it("cycles a shared context once, preserving healthy engines instead of rebuildi
     forceAudioRebuild: vi.fn(),
   };
   const work = createAudioRecovery().restore({ childSynths: () => [samples, fluid] });
-  await vi.advanceTimersByTimeAsync(300);
+  // FluidSynth follows sample recovery; both now include a silent drain and
+  // another clock check. Advance until recovery settles, within a bounded window.
+  let settled = false;
+  void work.then(() => { settled = true; });
+  for (let elapsed = 0; elapsed < 2000 && !settled; elapsed += 50) {
+    await vi.advanceTimersByTimeAsync(50);
+  }
+  expect(settled).toBe(true);
   expect((await work).every((result) => result.ok)).toBe(true);
   expect(audio.suspend).toHaveBeenCalledOnce();
   expect(audio.resume).toHaveBeenCalledOnce();
