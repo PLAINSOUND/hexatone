@@ -13,6 +13,12 @@ import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 import {
   ensureFluidSynthEngineAwake,
   forceFluidSynthEngineRebuild,
+  getFluidSynthAudioDiagnostics,
+  getFluidSynthAudioContext,
+  resumeFluidSynthAfterAudioRestart,
+  muteFluidSynthForRecovery,
+  fadeFluidSynthAfterRecovery,
+  clearFluidSynthRecoveryEvents,
 } from "../fluidsynth_synth/index.js";
 
 function safeSend(midi_output, bytes) {
@@ -32,8 +38,16 @@ export const create_midi_synth = async ({
   getDynamicBulkConfig = null,
 }) => {
   if (outputMode.output?.sendCommand) {
-    return createInternalVoiceSynth({ outputMode, tuningContext,
+    const synth = createInternalVoiceSynth({ outputMode, tuningContext,
       ensureAwake: ensureFluidSynthEngineAwake, forceAudioRebuild: forceFluidSynthEngineRebuild });
+    synth.audioBackend = "fluidsynth";
+    synth.getAudioContext = getFluidSynthAudioContext;
+    synth.resumeAfterAudioRestart = resumeFluidSynthAfterAudioRestart;
+    synth.muteForRecovery = muteFluidSynthForRecovery;
+    synth.fadeAfterRecovery = fadeFluidSynthAfterRecovery;
+    synth.clearRecoveryEvents = clearFluidSynthRecoveryEvents;
+    synth.getDiagnostics = getFluidSynthAudioDiagnostics;
+    return synth;
   }
   const {
     output: midi_output,
@@ -115,6 +129,13 @@ export const create_midi_synth = async ({
 
   return {
     family: "mts",
+    audioBackend: midi_output?.id === "hexatone-internal-fluidsynth" ? "fluidsynth" : undefined,
+    muteForRecovery: midi_output?.id === "hexatone-internal-fluidsynth" ? muteFluidSynthForRecovery : undefined,
+    fadeAfterRecovery: midi_output?.id === "hexatone-internal-fluidsynth" ? fadeFluidSynthAfterRecovery : undefined,
+    clearRecoveryEvents: midi_output?.id === "hexatone-internal-fluidsynth" ? clearFluidSynthRecoveryEvents : undefined,
+    getAudioContext: midi_output?.id === "hexatone-internal-fluidsynth" ? getFluidSynthAudioContext : undefined,
+    resumeAfterAudioRestart: midi_output?.id === "hexatone-internal-fluidsynth" ? resumeFluidSynthAfterAudioRestart : undefined,
+    getDiagnostics: midi_output?.id === "hexatone-internal-fluidsynth" ? getFluidSynthAudioDiagnostics : undefined,
     // The internal FluidSynth output is an AudioWorklet attached to the shared
     // sample AudioContext. iOS recovery can replace that context, so expose its
     // rebind/reload hook through the normal composite-synth lifecycle.

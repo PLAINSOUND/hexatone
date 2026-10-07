@@ -40,6 +40,7 @@ import {
 import { parseExactInterval } from "./tuning/interval.js";
 
 import useSynthWiring from "./hooks/use-synth-wiring.js";
+import useAudioRecovery from "./hooks/use-audio-recovery.js";
 import { useMidiGuardian } from "./hooks/use-midi-guardian.js";
 import useDeferredModulationHistory from "./tuning/use-deferred-modulation-history.js";
 import {
@@ -979,8 +980,9 @@ const App = () => {
     [],
     PRESET_SKIP_KEYS,
   );
-
-
+  const initialiseAudioRef = useRef(null);
+  const audioRecovery = useAudioRecovery(synthRef, keysRef, settings, initialiseAudioRef);
+  const restoreBuiltInAudio = audioRecovery.restore;
   const [modulationArmed, setModulationArmed] = useState(false);
   const [modulationMode, setModulationMode] = useState("idle");
   const [modulationState, setModulationState] = useState(null);
@@ -1026,6 +1028,7 @@ const App = () => {
   const {
     synth,
     readySampleInstrument,
+    retryAudioOutputs,
     midi,
     midiAccess,
     midiAccessError,
@@ -1060,6 +1063,13 @@ const App = () => {
     synthRef,
     deferSampleActivation: deferRestoredSampleActivation,
   });
+  initialiseAudioRef.current = async (signal) => {
+    // Begin shared-context activation on the original Restore gesture.
+    const activation = primeAudioFromUserInteraction();
+    if (pendingRestoredPreset) await activatePendingPreset();
+    await activation;
+    return retryAudioOutputs(signal);
+  };
 
   const { panic: guardianPanic } = useMidiGuardian(midi, settings);
 
@@ -3855,18 +3865,15 @@ const App = () => {
     // Explicit iOS refresh is the escape hatch for a context which reports
     // running but produces no audio. Do not await normal resume first: that
     // promise itself can stall after a lock-screen interruption.
-    if (isIOS && synthRef.current?.forceAudioRebuild) {
-      await synthRef.current.forceAudioRebuild();
-    } else {
-      if (synthRef.current?.ensureAwake) await synthRef.current.ensureAwake();
-      if (synthRef.current?.prepare) await synthRef.current.prepare();
-    }
+    await restoreBuiltInAudio();
+    audioNeedsHardRefreshRef.current = false;
     if (keysRef.current) keysRef.current.scheduleImmediateGridRedraw();
   }, [
     activatePendingPreset,
     pendingRestoredPreset,
     primeAudioFromUserInteraction,
     userHasInteracted,
+    restoreBuiltInAudio,
   ]);
 
   const clampModulationPalettePos = useCallback((position) => {
@@ -5221,6 +5228,7 @@ const App = () => {
   // A first visit lazy-loads I/O. Keep that suspension local: suspending the
   // shared sidebar also cleans up the hidden Sequencer's scheduled callbacks.
   const ioSettingsSidebar = (
+    <>
     <Suspense fallback={<SidebarLoadingFallback />}>
       <IOSettings
         showActivateAudioContext={!userHasInteracted}
@@ -5254,6 +5262,7 @@ const App = () => {
         lumatoneDriverReady={lumatoneDriverReady}
       />
     </Suspense>
+    </>
   );
   const calculatorSidebar = (
     <CalculatorTab
@@ -5272,6 +5281,18 @@ const App = () => {
         .filter(Boolean)
         .join(" ")}
     >
+      {audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored") && (
+        <div className="audio-recovery-alert" role="status">
+          <span>{audioRecovery.status}</span>{" "}
+          <button type="button" disabled={audioRecovery.restoring}
+            onPointerDown={e => runTouchControlAction(e, restoreBuiltInAudio)}
+            onClick={e => { if (!skipSuppressedTouchClick(e)) void restoreBuiltInAudio(); }}>
+            {audioRecovery.restoring ? "Restoring Audio…" : "Restore Audio"}
+          </button>{" "}
+          <button type="button" onClick={audioRecovery.save}>Save Report</button>
+          {" "}<button type="button" disabled={audioRecovery.restoring} onClick={audioRecovery.dismiss}>Dismiss</button>
+        </div>
+      )}
       {ready && (isValid || sequenceOnlyPlaybackSurface) && (
         <Keyboard
           synth={synth || nullSynth}

@@ -7,9 +7,13 @@
  */
 
 let sampleSynthModulePromise = null;
+let sampleSynthModule = null;
 
 async function loadSampleSynthModule() {
-  sampleSynthModulePromise ??= import("./index.js");
+  sampleSynthModulePromise ??= import("./index.js").then(module => {
+    sampleSynthModule = module;
+    return module;
+  });
   return sampleSynthModulePromise;
 }
 
@@ -18,9 +22,15 @@ export async function primeSharedSampleAudio() {
   return prime();
 }
 
-export async function recoverSharedAudioContext(options) {
-  const { recoverSharedAudioContext: recover } = await loadSampleSynthModule();
-  return recover(options);
+export function recoverSharedAudioContext(options) {
+  // Once audio has been used, context replacement/resume must start in the
+  // gesture itself, before an await or dynamic import can lose activation.
+  if (sampleSynthModule) return sampleSynthModule.recoverSharedAudioContext(options);
+  return loadSampleSynthModule().then(module => module.recoverSharedAudioContext(options));
+}
+
+export function peekSharedAudioContextNow() {
+  return sampleSynthModule?.peekSharedAudioContext() ?? null;
 }
 
 export async function peekSharedAudioContext() {

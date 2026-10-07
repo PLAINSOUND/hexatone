@@ -390,6 +390,23 @@ a:hover {
 /* ── 5. Bottom controls bar ───────────────────────────────── */
 /* → app.jsx */
 
+.audio-recovery-alert {
+  position: fixed;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  z-index: 100;
+  padding: 0.5rem;
+  border: 1px solid #9a2f2f;
+  background: #faf9f8;
+  color: #9a2f2f;
+}
+
+.audio-recovery-alert span {
+  font-style: italic;
+  color: #9a2f2f;
+}
+
 #bottom-bar {
   display: contents; /* children position themselves independently */
 }
@@ -980,6 +997,18 @@ a:hover {
 #snapshot-palette[data-palette-front="true"],
 #modulation-palette[data-palette-front="true"] {
   z-index: 13;
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  #snapshot-palette,
+  #modulation-palette {
+    z-index: 8;
+  }
+
+  #snapshot-palette[data-palette-front="true"],
+  #modulation-palette[data-palette-front="true"] {
+    z-index: 9;
+  }
 }
 
 .modulation-palette-header {

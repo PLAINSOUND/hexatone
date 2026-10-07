@@ -272,6 +272,13 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     const input = event.currentTarget;
     const file = input.files?.[0];
     if (!file) return;
+    // iOS may classify SoundFonts as generic documents and disable them when
+    // an accept filter is present. Validate here, not in the native picker.
+    if (!/\.(sf2|sf3)$/i.test(file.name)) {
+      setStatus("Choose a SoundFont file in .sf2 or .sf3 format.");
+      input.value = "";
+      return;
+    }
     void loadSoundFont(file).finally(() => {
       input.value = "";
     });
@@ -401,7 +408,6 @@ const FluidSynthSettings = ({ settings, onChange }) => {
           <input
             ref={localFileInputRef}
             type="file"
-            accept=".sf2,.sf3,audio/x-soundfont,audio/sf2"
             aria-label="FluidSynth SoundFont"
             class="settings-form__hidden-file-input"
             disabled={busy}

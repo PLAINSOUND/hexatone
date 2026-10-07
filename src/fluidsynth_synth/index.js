@@ -5,17 +5,22 @@
  */
 
 import {
-  peekSharedAudioContext,
+  peekSharedAudioContextNow,
   primeSharedSampleAudio,
   recoverSharedAudioContext,
 } from "../sample_synth/prime-shared-audio.js";
 import { warnLog } from "../debug/logging.js";
+import { createRecoveryGate } from "../audio/recovery-gate.js";
 
 let enginePromise = null;
 let engine = null;
 let pendingLoad = null;
 let wasmBytesPromise = null;
+let rebindGeneration = 0;
 const engineListeners = new Set();
+const failedNodes = new WeakSet();
+const recoveryGates = new WeakMap();
+let recoveryMuted = false;
 
 function notifyEngineListeners() {
   engineListeners.forEach((listener) => listener(engine));
@@ -81,11 +86,15 @@ async function createWorkletNode(context) {
     processorOptions: { wasmBytes },
   });
   const ready = waitForMessage(node, (message) => message?.type === "ready", true);
-  node.connect(context.destination);
+  const recoveryGate = createRecoveryGate(context, recoveryMuted);
+  recoveryGates.set(node, recoveryGate);
+  node.connect(recoveryGate.node);
   node.onprocessorerror = () => {
+    failedNodes.add(node);
     warnLog("FluidSynth AudioWorklet processor error");
   };
   try { await ready; } catch (error) {
+    recoveryGate.disconnect();
     node.disconnect();
     node.port.close();
     throw error;
@@ -117,8 +126,22 @@ async function installSoundFont(active, source, preset = null, { notify = true }
   return result;
 }
 
-async function rebindEngineToContext(context) {
+async function rebindEngineToContext(context, signal) {
+  const generation = ++rebindGeneration;
   const nextNode = await createWorkletNode(context);
+  const discard = () => {
+    recoveryGates.get(nextNode)?.disconnect();
+    nextNode.disconnect?.();
+    try { nextNode.port.close?.(); } catch { /* Already closed by the browser. */ }
+  };
+  const checkCurrent = () => {
+    if (signal?.aborted || generation !== rebindGeneration) {
+      discard();
+      throw new Error("FluidSynth recovery superseded or timed out");
+    }
+  };
+  checkCurrent();
+  signal?.addEventListener("abort", discard, { once: true });
   const oldNode = engine.node;
   const source = engine.soundfontSource;
   const previousPreset = engine.selectedPreset;
@@ -153,6 +176,7 @@ async function rebindEngineToContext(context) {
     };
     try {
       await installSoundFont(candidate, source, previousPreset, { notify: false });
+      checkCurrent();
     } catch (error) {
       nextNode.disconnect?.();
       try {
@@ -160,6 +184,7 @@ async function rebindEngineToContext(context) {
       } catch {
         // The candidate worklet may already have failed or closed its port.
       }
+      signal?.removeEventListener("abort", discard);
       throw error;
     }
     engine.context = context;
@@ -173,7 +198,10 @@ async function rebindEngineToContext(context) {
     engine.node = nextNode;
   }
 
+  signal?.removeEventListener("abort", discard);
+
   oldNode?.disconnect?.();
+  if (oldNode) recoveryGates.get(oldNode)?.disconnect();
   try {
     oldNode?.port?.close?.();
   } catch {
@@ -186,7 +214,7 @@ export async function ensureFluidSynthEngineAwake() {
   if (!engine) return false;
   const context = await recoverSharedAudioContext();
   if (context.state !== "running") await context.resume();
-  if (engine.context === context && engine.node && context.state === "running") {
+  if (engine.context === context && engine.node && !failedNodes.has(engine.node) && context.state === "running") {
     if (engine.soundfontSource && engine.soundfontId == null) {
       await installSoundFont(engine, engine.soundfontSource, engine.selectedPreset);
     }
@@ -198,16 +226,72 @@ export async function ensureFluidSynthEngineAwake() {
 
 export async function forceFluidSynthEngineRebuild() {
   if (!engine) return false;
-  const currentContext = await peekSharedAudioContext();
+  const controller = new AbortController();
+  let timer;
+  const currentContext = peekSharedAudioContextNow();
   // If another backend has already replaced the shared context, only rebind
   // FluidSynth. Otherwise this is a FluidSynth-only graph, so request the same
   // explicit iOS context recreation the sample backend performs.
   const contextWasAlreadyRebuilt = engine.context !== currentContext;
-  const context = await recoverSharedAudioContext({ forceRecreate: !contextWasAlreadyRebuilt });
-  if (context !== engine.context || !engine.node || context.state !== "running") {
+  // Start replacement/resume synchronously, while this call still owns the tap.
+  const contextWork = recoverSharedAudioContext({ forceRecreate: !contextWasAlreadyRebuilt });
+  const work = (async () => {
+    const context = await contextWork;
+    controller.signal.throwIfAborted();
+    // Running contexts can contain a failed/stalled worklet. Explicit recovery
+    // always replaces it, restoring the retained SoundFont and selected preset.
+    await rebindEngineToContext(context, controller.signal);
+    return context.state === "running";
+  })();
+  try {
+    return await Promise.race([work, new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new Error("FluidSynth audio recovery timed out"));
+      }, 35000);
+    })]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function getFluidSynthAudioDiagnostics() {
+  return { backend: "fluidsynth", audioContext: engine ? {
+    state: engine.context.state, currentTime: engine.context.currentTime,
+    sampleRate: engine.context.sampleRate, baseLatency: engine.context.baseLatency,
+  } : null, soundfontLoaded: engine?.soundfontId != null,
+  selectedPreset: engine?.selectedPreset ?? null, volume: engine?.volume ?? null,
+  processorFailed: engine?.node ? failedNodes.has(engine.node) : false };
+}
+
+export function getFluidSynthAudioContext() {
+  return engine?.context ?? null;
+}
+
+export function muteFluidSynthForRecovery(durationMs) {
+  recoveryMuted = true;
+  if (engine?.node) return recoveryGates.get(engine.node)?.mute(durationMs);
+}
+
+export function fadeFluidSynthAfterRecovery() {
+  recoveryMuted = false;
+  if (engine?.node) return recoveryGates.get(engine.node)?.fadeIn();
+}
+
+export async function clearFluidSynthRecoveryEvents() {
+  if (!engine?.node) return;
+  const node = engine.node;
+  const cleared = waitForMessage(node, message => message?.type === "recovery-cleared", true);
+  node.port.postMessage({ type: "clear-recovery-events" });
+  return cleared;
+}
+
+export async function resumeFluidSynthAfterAudioRestart() {
+  if (!engine) throw new Error("FluidSynth engine is unavailable");
+  const context = peekSharedAudioContextNow() ?? engine.context;
+  if (engine.context !== context || !engine.node || failedNodes.has(engine.node)) {
     await rebindEngineToContext(context);
   }
-  return context.state === "running";
 }
 
 export async function getFluidSynthEngine() {

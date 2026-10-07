@@ -18,6 +18,7 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
   let tailLimit = 64;
   let closed = false;
   let purging = false;
+  let purgePromise = null;
   let pending = [];
   let draining = false;
   let drainTimer;
@@ -110,11 +111,11 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     cancelScheduled() {
       if (closed) return;
       pending = [];
-      if (purging) return;
+      if (purging) return purgePromise;
       purging = true;
       // /clearSched alone does not clear SuperSonic's upstream WASM scheduler.
       // Keep subsequent frees/new attacks behind the confirmed purge barrier.
-      void sonic.purge().then(() => {
+      purgePromise = sonic.purge().then(() => {
         purging = false;
         if (closed) { dispose(); return; }
         const messages = pending;
@@ -126,6 +127,7 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
         dispose();
         warnLog("SuperSonic purge failed; closed output for safety", error);
       });
+      return purgePromise;
     },
     _flushBundles() {}, // Messages already handed to the audio-thread scheduler.
     release({ graceful = false } = {}) {

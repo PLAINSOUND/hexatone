@@ -507,6 +507,31 @@ const useSynthWiring = (
   // Counter so multiple overlapping async operations don't prematurely hide
   // the loading spinner (see wait / signal helpers above).
   const [loading, setLoading] = useState(0);
+  const [audioRetryRevision, setAudioRetryRevision] = useState(0);
+  const audioRetryRef = useRef(null);
+  const audioRetryGenerationRef = useRef(0);
+  const retryAudioOutputs = (signal) => {
+    if (signal?.aborted) return Promise.reject(new Error("Audio initialisation cancelled"));
+    if (audioRetryRef.current) return audioRetryRef.current.promise;
+    let resolve;
+    const promise = new Promise((finish) => { resolve = finish; });
+    audioRetryRef.current = { promise, resolve, errors: [] };
+    const request = audioRetryRef.current;
+    const cancel = () => {
+      if (audioRetryRef.current !== request) return;
+      audioRetryRef.current = null;
+      audioRetryGenerationRef.current += 1;
+      // Abandon pending candidate requests; stale builds cannot publish them.
+      sampleRequestsRef.current = createOutputCandidateRequests();
+      midiRequestsRef.current = createOutputCandidateRequests();
+      oscRequestsRef.current = createOutputCandidateRequests();
+      resolve({ errors: [{ phase: "initialisation", error: "Audio initialisation cancelled" }] });
+    };
+    signal?.addEventListener("abort", cancel, { once: true });
+    void promise.then(() => signal?.removeEventListener("abort", cancel));
+    setAudioRetryRevision((revision) => revision + 1);
+    return promise;
+  };
   const [octaveTranspose, setOctaveTranspose] = useState(0);
   const [octaveDeferred, setOctaveDeferred] = useState(
     () => sessionStorage.getItem("octave_deferred") !== "false",
@@ -857,8 +882,10 @@ const useSynthWiring = (
     // up with a composite(sample+mpe) synth if the first Promise.all resolved last.
     let cancelled = false;
     const permissionGeneration = midiPermissionGenerationRef.current;
+    const retryGeneration = audioRetryGenerationRef.current;
     const isCurrentBuild = () =>
-      !cancelled && permissionGeneration === midiPermissionGenerationRef.current;
+      !cancelled && permissionGeneration === midiPermissionGenerationRef.current &&
+      retryGeneration === audioRetryGenerationRef.current;
 
     const wantSample =
       !deferSampleActivation &&
@@ -1159,7 +1186,14 @@ const useSynthWiring = (
       pending: promises,
       isCurrent: isCurrentBuild,
       finish: finishLoading,
-      onError: (error, phase) => warnLog(`Synth ${phase} failed:`, error),
+      onError: (error, phase) => {
+        warnLog(`Synth ${phase} failed:`, error);
+        audioRetryRef.current?.errors.push({ phase, error: String(error.message ?? error) });
+        if (phase === "installation" && audioRetryRef.current) {
+          audioRetryRef.current.resolve({ errors: audioRetryRef.current.errors });
+          audioRetryRef.current = null;
+        }
+      },
       install: (validSynths) => {
         // Even an entirely failed build publishes an empty composite: logical
         // held notes detach obsolete children instead of retaining a dead graph.
@@ -1172,6 +1206,11 @@ const useSynthWiring = (
         // steps: another build must not interleave with this handoff.
         keysRef.current?.updateLiveOutputState?.(null, s);
         setSynth(s);
+        synthRef.current = s;
+        if (audioRetryRef.current) {
+          audioRetryRef.current.resolve({ errors: audioRetryRef.current.errors });
+          audioRetryRef.current = null;
+        }
         if (wantSample && validSynths.includes(sampleSynthRef.current.synth)) {
           setReadySampleInstrument(settings.instrument);
         }
@@ -1248,6 +1287,7 @@ const useSynthWiring = (
     midi,
     midiTick,
     ready,
+    audioRetryRevision,
     deferSampleActivation,
     userHasInteracted,
     // keysRef and settings (whole object) intentionally omitted — keysRef is a stable ref,
@@ -1719,6 +1759,7 @@ const useSynthWiring = (
 
   return {
     synth,
+    retryAudioOutputs,
     readySampleInstrument,
     midi,
     midiAccess,

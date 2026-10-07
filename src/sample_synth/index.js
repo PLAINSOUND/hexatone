@@ -5,6 +5,7 @@
 
 import { outputAudioTime } from "../midi/output-transaction.js";
 import { installAudioGestureRecovery } from "./gesture-recovery.js";
+import { createRecoveryGate } from "../audio/recovery-gate.js";
 
 import { instruments } from "./instruments";
 import { scalaToCents } from "../settings/scale/parse-scale";
@@ -307,8 +308,11 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
     let decodedBuffers = null;
     let masterGain = null;
+    let recoveryGate = null;
+    let recoveryMuted = false;
     let masterVolume = 1.0;
     let preparePromise = null;
+    let preparationEpoch = 0;
     // Last known mod wheel position (0–127). New notes initialize their filter
     // to this value so the first CC1 message never causes a discontinuous jump.
     let lastModWheel = 0;
@@ -332,6 +336,10 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     const prepareSynth = async () => {
       if (preparePromise) return preparePromise;
       preparePromise = (async () => {
+        const epoch = preparationEpoch;
+        const checkEpoch = () => {
+          if (epoch !== preparationEpoch) throw new Error("Sample preparation superseded by audio recovery");
+        };
         if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
           const staleContext = sharedAudioContext;
           // Explicit recovery must not await a wedged iOS close() promise or
@@ -370,6 +378,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           }
         }
 
+        checkEpoch();
         if (isIOS && sharedAudioContext.state !== "running") {
           iosForceRecreateOnPrepare = true;
         }
@@ -377,7 +386,9 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         if (!masterGain) {
           masterGain = sharedAudioContext.createGain();
           masterGain.gain.value = 0;
-          masterGain.connect(sharedAudioContext.destination);
+          recoveryGate?.disconnect();
+          recoveryGate = createRecoveryGate(sharedAudioContext, recoveryMuted);
+          masterGain.connect(recoveryGate.node);
           masterGain.gain.setTargetAtTime(masterVolume, sharedAudioContext.currentTime, 0.015);
         }
         ensureKeepAliveNode();
@@ -389,21 +400,28 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           decodedBuffers = decodedBufferCache[fileName];
         } else {
           const rawBuffers = await fetchRawSampleBuffers(fileName);
-          decodedBuffers = await Promise.all(
+          checkEpoch();
+          const decoded = await Promise.all(
             rawBuffers.map((buf) => sharedAudioContext.decodeAudioData(buf.slice(0))),
           );
+          checkEpoch();
+          decodedBuffers = decoded;
           decodedBufferCache[fileName] = decodedBuffers;
         }
       })();
+      const currentPrepare = preparePromise;
       try {
-        await preparePromise;
+        await currentPrepare;
       } finally {
-        preparePromise = null;
+        if (preparePromise === currentPrepare) preparePromise = null;
       }
     };
 
     return {
       family: "sample",
+      getAudioContext: () => sharedAudioContext,
+      muteForRecovery: (durationMs) => { recoveryMuted = true; return recoveryGate?.mute(durationMs); },
+      fadeAfterRecovery: () => { recoveryMuted = false; return recoveryGate?.fadeIn(); },
       getDiagnostics: () => ({ family: "sample", retainedHexes: knownHexes.size,
         audioContext: { state: sharedAudioContext?.state, sampleRate: sharedAudioContext?.sampleRate,
           currentTime: sharedAudioContext?.currentTime, baseLatency: sharedAudioContext?.baseLatency } }),
@@ -443,6 +461,12 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         // gesture recovery preserves the graph and continues to use ensureAwake.
         if (isIOS) for (const hex of [...knownHexes]) hex.allSoundOff();
         if (isIOS) iosForceRecreateOnPrepare = true;
+        // A background resume may never settle. Explicit recovery must not
+        // queue behind it; the replacement context is started by this gesture.
+        if (isIOS) {
+          preparationEpoch += 1;
+          preparePromise = null;
+        }
         await prepareSynth();
       },
 

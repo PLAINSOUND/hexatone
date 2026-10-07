@@ -46,6 +46,50 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("abandons a cancelled initialisation and allows a fresh retry", async () => {
+  factories.osc.mockRejectedValueOnce(new Error("startup failed"));
+  render(<Harness settings={{ ...base, output_sample: false, output_osc: true }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([]));
+  const stuck = deferred();
+  factories.osc.mockReturnValueOnce(stuck.promise);
+  const controller = new AbortController();
+  let first;
+  act(() => { first = current.retryAudioOutputs(controller.signal); });
+  await waitFor(() => expect(factories.osc).toHaveBeenCalledTimes(2));
+  controller.abort();
+  expect((await first).errors).toHaveLength(1);
+  const selected = engine();
+  factories.osc.mockResolvedValueOnce(selected);
+  let second;
+  act(() => { second = current.retryAudioOutputs(); });
+  await expect(second).resolves.toEqual({ errors: [] });
+  expect(synthRef.current.children).toEqual([selected]);
+  stuck.resolve(engine());
+  await act(async () => { await stuck.promise; });
+  expect(synthRef.current.children).toEqual([selected]);
+});
+
+it("explicitly retries an empty failed graph without changing settings", async () => {
+  const selected = engine();
+  factories.osc.mockRejectedValueOnce(new Error("startup failed")).mockResolvedValueOnce(selected);
+  render(<Harness settings={{ ...base, output_sample: false, output_osc: true }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([]));
+  let retry;
+  act(() => { retry = current.retryAudioOutputs(); });
+  await expect(retry).resolves.toEqual({ errors: [] });
+  expect(synthRef.current.children).toEqual([selected]);
+  expect(factories.osc).toHaveBeenCalledTimes(2);
+});
+
+it("returns startup errors when the explicit retry also fails", async () => {
+  factories.osc.mockRejectedValue(new Error("startup failed"));
+  render(<Harness settings={{ ...base, output_sample: false, output_osc: true }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([]));
+  let retry;
+  act(() => { retry = current.retryAudioOutputs(); });
+  expect((await retry).errors).toContainEqual(expect.objectContaining({ error: "startup failed" }));
+});
+
 it("retains all four live OSC mix levels across articulation toggles and engine switches", async () => {
   const old = { ...engine(), setLayerVolume: vi.fn(), setSustainBuzzFormant: vi.fn(), setRetriggerBuzzFormant: vi.fn() };
   const local = { ...engine(), local: true, setLayerVolume: vi.fn() };

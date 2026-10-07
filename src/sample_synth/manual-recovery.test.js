@@ -34,11 +34,21 @@ it("creates and resumes a replacement synchronously despite a stalled close", as
   await synth.prepare();
   await synth.ensureAwake();
   expect(contexts).toHaveLength(1);
+  contexts[0].state = "interrupted";
+  let resumeOld;
+  contexts[0].resume.mockImplementation(() => new Promise(resolve => { resumeOld = resolve; }));
+  const stalledPrepare = synth.prepare();
+  const superseded = expect(stalledPrepare).rejects.toThrow("superseded");
   const rebuilding = synth.forceAudioRebuild();
   expect(contexts).toHaveLength(2);
   expect(contexts[0].close).toHaveBeenCalledOnce();
   expect(contexts[1].resume).toHaveBeenCalledOnce();
   await rebuilding;
+  await synth.prepare();
+  expect(contexts).toHaveLength(2);
+  // A late reply from the old resume cannot publish old preparation state.
+  resumeOld();
+  await superseded;
   await synth.prepare();
   expect(contexts).toHaveLength(2);
 });

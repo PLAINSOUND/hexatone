@@ -429,4 +429,23 @@ describe("FluidSynth settings", () => {
     await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith("fluidsynth_preset", "0:0"));
     expect(onChange).not.toHaveBeenCalledWith("output_fluidsynth", true);
   });
+
+  it("leaves the native picker unrestricted and accepts generic-MIME SoundFonts", async () => {
+    fluidsynthMock.load.mockResolvedValue({ presets: [] });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    const input = screen.getByLabelText("FluidSynth SoundFont");
+    expect(input.hasAttribute("accept")).toBe(false);
+    const file = new File([new Uint8Array([1])], "Organ.SF3", { type: "application/octet-stream" });
+    fireEvent.change(input, { target: { files: [file] } });
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalledWith(file, expect.any(Object)));
+  });
+
+  it("rejects other file types without changing the loaded engine", () => {
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("FluidSynth SoundFont"), {
+      target: { files: [new File(["text"], "notes.txt")] },
+    });
+    expect(screen.getByText("Choose a SoundFont file in .sf2 or .sf3 format.")).toBeTruthy();
+    expect(fluidsynthMock.load).not.toHaveBeenCalled();
+  });
 });

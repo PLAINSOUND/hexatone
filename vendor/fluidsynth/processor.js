@@ -44,6 +44,13 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   handleMessage(message) {
     if (!this.module || !this.synth || !message) return;
     try {
+      if (message.type === "clear-recovery-events") {
+        const droppedEvents = this.midiQueue.length;
+        this.midiQueue = [];
+        for (let channel = 0; channel < 128; channel++) this.module._ps_cc(this.synth, channel, 120, 0);
+        this.port.postMessage({ type: "recovery-cleared", droppedEvents });
+        return;
+      }
       if (message.type === "load-soundfont" || message.type === "replace-soundfont") {
         const replacing = message.type === "replace-soundfont";
         if (this.soundfontId != null && !replacing) {
