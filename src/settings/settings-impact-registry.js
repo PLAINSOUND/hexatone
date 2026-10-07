@@ -155,6 +155,8 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
     "osc_volume_buzz",
     "osc_volume_formant",
     "osc_volume_saw",
+    // Saved fader preference; live Brightness uses the imperative OSC path.
+    "osc_brightness",
     "osc_quick_release",
     "osc_quick_release_time",
     "osc_quick_release_raster_only",
