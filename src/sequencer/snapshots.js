@@ -321,6 +321,10 @@ function releaseSnapshotHex(runtime, hex, releaseVelocity = 0, timestamp) {
 function retuneSnapshotHex(runtime, hex, synthCents, bendOnly = false) {
   if (!Number.isFinite(synthCents)) return;
   hex._baseCents = synthCents;
+  if (typeof hex.retuneSnapshot === "function") {
+    hex.retuneSnapshot(synthCents, bendOnly, hex._snapshotMidicents);
+    return;
+  }
   if (bendOnly && typeof hex?.standardWheelRetune === "function") {
     hex.standardWheelRetune(synthCents);
     return;
@@ -380,7 +384,7 @@ function prepareSnapshotHex(runtime, note, options = {}) {
     attackVelocity,
     0,
     degree0toRefRatio,
-    { playbackSourceCents, deferNoteOn: true },
+    { playbackSourceCents, deferNoteOn: true, absoluteMidicents: Number(note.midicents) },
   );
   hex._snapshotReleaseVelocity = releaseVelocity;
   hex._snapshotPitchKey = snapshotPitchKey(note.midicents);

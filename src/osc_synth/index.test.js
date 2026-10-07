@@ -80,6 +80,23 @@ describe("osc_synth pooled slot allocation", () => {
     vi.unstubAllGlobals();
   });
 
+  it("updates the reference for new notes without retuning or releasing queued voices", async () => {
+    const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn() };
+    const synth = await create_osc_synth("ws://reference", ["pluck"], [0.5],
+      0, 0.1, false, 440, 0, [0], 1, { transport });
+    const old = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    synth.setTuningReference(432);
+    expect(transport.send).not.toHaveBeenCalled();
+    old.noteOn();
+    const next = synth.makeHex({ x: 1, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    next.noteOn();
+    const frequencies = transport.send.mock.calls.filter(([address]) => address === "/s_new")
+      .map(([, args]) => args[args.findIndex((arg) => arg.value === "freq") + 1].value);
+    expect(frequencies).toEqual([440, 432]);
+    expect(transport.release).not.toHaveBeenCalled();
+    synth.shutdown({ panic: true });
+  });
+
   it("sends normalized expression controls at onset and for 14-bit updates", async () => {
     const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn() };
     const synth = await create_osc_synth("ws://expression", ["pluck"], [0.5],

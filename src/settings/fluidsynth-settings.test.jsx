@@ -25,6 +25,10 @@ import FluidSynthSettings from "./fluidsynth-settings.jsx";
 
 describe("FluidSynth settings", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it("uses the shared output fader styling", () => {
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    expect(screen.getByText("Built-in SoundFont Player").closest("fieldset").classList.contains("output-routing-fieldset")).toBe(true);
+  });
   it("cancels a hosted download from the load button and ignores its late completion", async () => {
     let signal;
     let finish;

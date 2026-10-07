@@ -12,17 +12,17 @@ import { releaseSynthInstance } from "./output-lifecycle.js";
  */
 export function createOutputCandidateRequests() {
   const pending = new Map();
-  return function request(key, create, options) {
+  function request(key, create, options) {
     const existing = pending.get(key);
     if (existing) {
       existing.options = options;
       return existing.promise;
     }
-    const entry = { options };
+    const entry = { options, controller: new AbortController() };
     pending.set(key, entry);
-    entry.promise = Promise.resolve().then(() => entry.options.isCurrent() ? create() : null).then(candidate =>
+    entry.promise = Promise.resolve().then(() => entry.options.isCurrent() && !entry.controller.signal.aborted ? create(entry.controller.signal) : null).then(candidate =>
       adoptOutputCandidate(candidate, {
-        isCurrent: () => entry.options.isCurrent(),
+        isCurrent: () => !entry.controller.signal.aborted && entry.options.isCurrent(),
         prepare: candidate => entry.options.prepare?.(candidate),
         adopt: candidate => entry.options.adopt(candidate),
       }),
@@ -30,7 +30,12 @@ export function createOutputCandidateRequests() {
       if (pending.get(key) === entry) pending.delete(key);
     });
     return entry.promise;
+  }
+  request.cancelAll = () => {
+    for (const entry of pending.values()) entry.controller.abort();
+    pending.clear();
   };
+  return request;
 }
 
 export async function adoptOutputCandidate(candidate, { isCurrent, prepare, adopt }) {

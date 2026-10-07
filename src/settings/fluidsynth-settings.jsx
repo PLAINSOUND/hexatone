@@ -334,7 +334,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   };
 
   return (
-    <fieldset>
+    <fieldset class="output-routing-fieldset">
       <legend>
         <b>Built-in SoundFont Player</b>
       </legend>

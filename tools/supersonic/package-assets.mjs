@@ -27,6 +27,7 @@ await cp(new URL("Synths/SuperCollider-OSC/LumatoneSynths.scd", root), new URL("
 const files = {};
 async function hashDirectory(directory, prefix = "") {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.name === ".DS_Store") continue;
     const path = `${prefix}${entry.name}`;
     if (entry.isDirectory()) await hashDirectory(new URL(`${entry.name}/`, directory), `${path}/`);
     else if (path !== "manifest.json") files[path] = createHash("sha256").update(await readFile(new URL(entry.name, directory))).digest("hex");

@@ -45,7 +45,7 @@ export function oscOutputConfig(settings, tuning) {
   ];
   const pitch = [settings.fundamental, tuning.referenceDegree, tuning.scale];
   return {
-    key: JSON.stringify([...connection, ...pitch, !!settings.osc_local]),
+    key: JSON.stringify([...connection, !!settings.osc_local]),
     // Live controls are supplied at construction time, not captured in the key.
     args: (controls) => [
       ...connection,
@@ -55,7 +55,8 @@ export function oscOutputConfig(settings, tuning) {
       controls.rasterOnly,
       ...pitch,
       1,
-      { sustainBuzzFormant: controls.sustain, retriggerBuzzFormant: controls.retrigger },
+      { sustainBuzzFormant: controls.sustain, retriggerBuzzFormant: controls.retrigger,
+        ...(controls.signal ? { signal: controls.signal } : {}) },
     ],
   };
 }

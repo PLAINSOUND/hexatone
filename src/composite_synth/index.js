@@ -11,6 +11,25 @@ import { stopRetiredSuperSonicOutputs } from "../supersonic_synth/transport.js";
 import { outputAttackGroup } from "../midi/output-transaction.js";
 
 const expressionStateBySynths = new WeakMap();
+const pitchReferenceBySynth = new WeakMap();
+
+function snapshotCents(synth, midicents, fallback, reference = pitchReferenceBySynth.get(synth)) {
+  if (!reference || !Number.isFinite(midicents)) return fallback;
+  return reference.cents + (midicents - 69) * 100 +
+    1200 * Math.log2(440 / reference.fundamental);
+}
+
+function snapshotArgs(synth, args, midicents) {
+  const reference = pitchReferenceBySynth.get(synth);
+  if (!reference || !Number.isFinite(midicents)) return args;
+  const next = [...args];
+  const cents = snapshotCents(synth, midicents, args[1]);
+  const offset = Number(args[1]) - Number(args[11]?.playbackSourceCents ?? args[1]);
+  next[1] = next[5] = next[6] = cents;
+  next[10] = reference.ratio;
+  next[11] = { ...args[11], playbackSourceCents: cents - offset };
+  return next;
+}
 
 function expressionState(synths) {
   let state = expressionStateBySynths.get(synths);
@@ -28,7 +47,15 @@ function controlledSynths(synths, retiringSynths) {
   return [...new Set([...synths, ...retiringSynths])];
 }
 
-export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
+export const create_composite_synth = (synths, retiringSynths = new Set(), pitchReference = null) => {
+  // References belong to engine instances, not the current canvas. Retained
+  // voices and engines may still use the reference from before a preset change.
+  if (pitchReference) {
+    for (const synth of synths) {
+      pitchReferenceBySynth.set(synth, pitchReference);
+    }
+  }
+  return ({
   family: "composite",
   families: synths.map((s) => s?.family).filter(Boolean),
   childSynths() {
@@ -47,7 +74,8 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
 
   makeHex: (...args) => {
     let hexSynths = [...synths];
-    const hexes = hexSynths.map((s) => s.makeHex(...args));
+    const hexPitchReferences = hexSynths.map((s) => pitchReferenceBySynth.get(s));
+    const hexes = hexSynths.map((s) => s.makeHex(...snapshotArgs(s, args, args[11]?.absoluteMidicents)));
     const firstHex = hexes[0] ?? {
       coords: args[0] ?? null,
       cents: Number(args[1]) || 0,
@@ -61,7 +89,7 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
       // Keys.js reads coords, cents, release from the hex object.
       // All synths receive the same coords/cents so any one is authoritative.
       coords: firstHex.coords,
-      cents: firstHex.cents,
+      cents: Number.isFinite(args[11]?.absoluteMidicents) ? args[1] : firstHex.cents,
       release: false,
       note_played: firstHex.note_played,
       velocity_played: hexes.find((h) => h.velocity_played != null)?.velocity_played,
@@ -95,6 +123,7 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
           if (keepSample && hexSynths[index].family === "sample") continue;
           if (this._compositeSounding) hexes[index]?.noteOff?.(0, timestamp);
           hexSynths.splice(index, 1);
+          hexPitchReferences.splice(index, 1);
           hexes.splice(index, 1);
         }
 
@@ -104,9 +133,11 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
           const nextArgs = [...args];
           nextArgs[1] = this.cents;
           nextArgs[11] = { ...(nextArgs[11] ?? {}), deferNoteOn: true };
-          const child = nextSynth.makeHex(...nextArgs);
-          if (Number.isFinite(Number(this.cents))) child.retune?.(Number(this.cents), true);
+          const childArgs = snapshotArgs(nextSynth, nextArgs, this._snapshotMidicents);
+          const child = nextSynth.makeHex(...childArgs);
+          if (Number.isFinite(Number(childArgs[1]))) child.retune?.(Number(childArgs[1]), true);
           hexSynths.push(nextSynth);
+          hexPitchReferences.push(pitchReferenceBySynth.get(nextSynth));
           hexes.push(child);
           if (!this._compositeSounding) continue;
           child._attackGroup = this._attackGroup;
@@ -178,11 +209,21 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
 
       sequenceRetune(newCents) {
         // Sequencer PITCH is an absolute playback transform, not controller
-        // wheel expression. Every child must receive the same target cents.
+        // wheel expression. Preserve the absolute pitch across child references.
         this.cents = newCents;
-        hexes.forEach((h) => {
-          if (h.sequenceRetune) h.sequenceRetune(newCents);
-          else if (h.retune) h.retune(newCents, true);
+        hexes.forEach((h, index) => {
+          const target = snapshotCents(hexSynths[index], this._snapshotMidicents, newCents, hexPitchReferences[index]);
+          if (h.sequenceRetune) h.sequenceRetune(target);
+          else if (h.retune) h.retune(target, true);
+        });
+      },
+
+      retuneSnapshot(newCents, bendOnly, midicents) {
+        this.cents = newCents;
+        hexes.forEach((h, index) => {
+          const target = snapshotCents(hexSynths[index], midicents, newCents, hexPitchReferences[index]);
+          if (bendOnly && h.standardWheelRetune) h.standardWheelRetune(target);
+          else h.retune?.(target, bendOnly);
         });
       },
 
@@ -359,3 +400,4 @@ export const create_composite_synth = (synths, retiringSynths = new Set()) => ({
     retiringSynths.clear();
   },
 });
+};

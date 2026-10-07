@@ -1,6 +1,23 @@
 import { expect, it, vi } from "vitest";
 import { createOutputCandidateRequests } from "./output-candidate.js";
 
+it("cancels in-flight construction and permits a new request for the same key", async () => {
+  const request = createOutputCandidateRequests();
+  const options = { isCurrent: () => true, adopt: vi.fn() };
+  let signal;
+  const work = request("A", (candidateSignal) => {
+    signal = candidateSignal;
+    return new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("cancelled"))));
+  }, options);
+  const rejection = expect(work).rejects.toThrow("cancelled");
+  await Promise.resolve();
+  request.cancelAll();
+  expect(signal.aborted).toBe(true);
+  await rejection;
+  const candidate = { shutdown: vi.fn() };
+  await expect(request("A", () => candidate, options)).resolves.toBe(candidate);
+});
+
 it("evicts failed requests so the same key can retry", async () => {
   const request = createOutputCandidateRequests();
   const options = { isCurrent: () => true, adopt: vi.fn() };

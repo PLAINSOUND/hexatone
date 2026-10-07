@@ -162,6 +162,31 @@ describe("Keyboard settings-impact boundary", () => {
     expect(keysState.instances).toHaveLength(2);
   });
 
+  it("hands sounding arpeggio voices to a new tuning surface and releases them on unmount", () => {
+    const { rerender, unmount } = render(<Keyboard {...baseProps} />);
+    const first = keysState.instances[0];
+    const voice = { noteOff: vi.fn(), _snapshotReleaseVelocity: 64 };
+    const owners = new Map([[voice, "gesture"]]);
+    first._snapshotHexes = [voice];
+    first._soundingSnapshotHexes = new Set([voice]);
+    first._snapshotGestureVoices = new Map([["gesture", new Set([voice])]]);
+    first._snapshotVoiceOwners = owners;
+    first._snapshotCoordSeed = 7;
+    first.deconstruct.mockImplementation(() => {
+      expect(first._snapshotHexes).toEqual([]);
+      expect(first._soundingSnapshotHexes.size).toBe(0);
+    });
+    rerender(<Keyboard {...baseProps} reconstructionKey="new-tuning" />);
+    const next = keysState.instances[1];
+    expect(next._snapshotHexes).toEqual([voice]);
+    expect(next._snapshotVoiceOwners).toBe(owners);
+    expect(next._snapshotGestureVoices.get("gesture").has(voice)).toBe(true);
+    expect(next._snapshotCoordSeed).toBe(7);
+    expect(voice.noteOff).not.toHaveBeenCalled();
+    unmount();
+    expect(voice.noteOff).toHaveBeenCalledOnce();
+  });
+
   it("constructs Keys with normalized color settings on first mount", () => {
     render(
       <Keyboard

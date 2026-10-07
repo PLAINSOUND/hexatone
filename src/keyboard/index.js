@@ -6,6 +6,10 @@ import { Fragment } from "preact";
 import { useRef, useEffect } from "preact/hooks";
 import Keys from "./keys";
 import PropTypes from "prop-types";
+import { stopSnapshot } from "../sequencer/snapshots.js";
+
+const snapshotPlaybackFields = ["_snapshotHexes", "_snapshotNotes", "_soundingSnapshotHexes",
+  "_snapshotGestureVoices", "_snapshotVoiceOwners", "_snapshotCoordSeed"];
 
 const sameArray = (a = [], b = []) => {
   if (a === b) return true;
@@ -33,6 +37,7 @@ const Keyboard = (props) => {
   const canvas = useRef(null);
   const keysRef = useRef(null);
   const appliedLabelSettingsRef = useRef(null);
+  const pendingSnapshotPlayback = useRef(null);
 
   // ── Keys reconstruction ────────────────────────────────────────────────────
   // Runs only when App's settings-impact registry says the keyboard must be
@@ -56,6 +61,10 @@ const Keyboard = (props) => {
       props.initialModulationLibrary,
       props.onModWheelChange,
     );
+    if (pendingSnapshotPlayback.current) {
+      Object.assign(keys, pendingSnapshotPlayback.current);
+      pendingSnapshotPlayback.current = null;
+    }
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
     keys.linnstrumentLEDs = props.linnstrumentLedsRef?.current ?? null;
@@ -71,6 +80,15 @@ const Keyboard = (props) => {
     }
     if (props.onKeysReady) props.onKeysReady(keys);
     return () => {
+      // Sequencer voices belong to playback, not the canvas tuning. Detach them
+      // before deconstructing the old surface, then adopt them on the new one.
+      pendingSnapshotPlayback.current = Object.fromEntries(snapshotPlaybackFields
+        .filter((field) => keys[field] != null).map((field) => [field, keys[field]]));
+      keys._snapshotHexes = [];
+      keys._snapshotNotes = [];
+      keys._soundingSnapshotHexes = new Set();
+      keys._snapshotGestureVoices = new Map();
+      keys._snapshotVoiceOwners = new Map();
       keys.lumatoneLEDs = null;
       keys.exquisLEDs = null;
       keys.linnstrumentLEDs = null;
@@ -78,6 +96,16 @@ const Keyboard = (props) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- other props are stable callbacks or covered by reconstructionKey
   }, [canvas, props.reconstructionKey]);
+
+  useEffect(() => () => {
+    // A real component unmount has no replacement surface to adopt playback.
+    const playback = pendingSnapshotPlayback.current;
+    if (playback) {
+      stopSnapshot([...new Set([...(playback._snapshotHexes ?? []),
+        ...(playback._soundingSnapshotHexes ?? [])])]);
+      pendingSnapshotPlayback.current = null;
+    } else keysRef.current?.stopSnapshot?.();
+  }, []);
 
   useEffect(() => {
     if (keysRef.current?.updateInputRuntime) {

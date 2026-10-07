@@ -75,6 +75,21 @@ it("includes samples and SuperSonic without a canvas tuning or fundamental", asy
   expect(factories.local.mock.calls[0][8]).toEqual([0]);
 });
 
+it("retains SuperSonic through the first tuning preset and later tuning changes", async () => {
+  const local = { ...engine(), local: true, setTuningReference: vi.fn() };
+  factories.local.mockResolvedValue(local);
+  const initial = { ...base, output_sample: false, scale: null, fundamental: null,
+    output_osc: true, osc_local: true };
+  const view = render(<Harness settings={initial} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  view.rerender(<Harness settings={{ ...initial, scale: ["3/2", "2/1"],
+    reference_degree: 1, fundamental: 432 }} />);
+  await waitFor(() => expect(local.setTuningReference).toHaveBeenLastCalledWith(432));
+  expect(factories.local).toHaveBeenCalledOnce();
+  expect(local.shutdown).not.toHaveBeenCalled();
+  expect(local.allSoundOff).not.toHaveBeenCalled();
+});
+
 it("abandons a cancelled initialisation and allows a fresh retry", async () => {
   factories.osc.mockRejectedValueOnce(new Error("startup failed"));
   render(<Harness settings={{ ...base, output_sample: false, output_osc: true }} />);
@@ -460,7 +475,8 @@ it.each(["mpe", "osc"])("releases the previous %s engine before constructing a c
   });
   view.rerender(<Harness settings={on} />);
   await waitFor(() => expect(current.synth?.children).toEqual([old]));
-  view.rerender(<Harness settings={{ ...on, fundamental: 442 }} />);
+  view.rerender(<Harness settings={{ ...on,
+    ...(family === "osc" ? { osc_bridge_url: "ws://changed" } : { fundamental: 442 }) }} />);
   await waitFor(() => expect(current.synth?.children).toEqual([next]));
   expect(old.shutdown).toHaveBeenCalledOnce();
   expect(old.allSoundOff).not.toHaveBeenCalled();

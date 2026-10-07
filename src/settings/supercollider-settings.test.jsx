@@ -14,6 +14,7 @@ describe("SuperCollider scsynth settings", () => {
     );
 
     expect(screen.getByText("Built-in scsynth")).toBeTruthy();
+    expect(screen.getByText("Built-in scsynth").closest("fieldset").classList.contains("output-routing-fieldset")).toBe(true);
     expect(screen.getByLabelText("Use SuperCollider Sounds")).toBeTruthy();
     expect(screen.getByLabelText("SuperSonic 0.88")).toBeTruthy();
     const description = screen.getByText(/SynthDefs run directly in the browser/);

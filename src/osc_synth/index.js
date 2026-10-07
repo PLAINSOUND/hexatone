@@ -544,6 +544,10 @@ export const create_osc_synth = async (
 
   return {
     family: "osc",
+    // Existing voices keep their own reference; only new notes use this value.
+    setTuningReference(value) {
+      if (Number.isFinite(value) && value > 0) fundamental = value;
+    },
     local: !!performanceOptions.transport,
     makeHex: (
       coords,

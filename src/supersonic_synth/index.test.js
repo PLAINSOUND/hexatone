@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createSuperSonicOutput, disposeSuperSonicOutputs } from "./index.js";
+import { createSuperSonicOutput, disposeSuperSonicOutputs, getPendingSuperSonicDiagnostics } from "./index.js";
 
 afterEach(() => {
   disposeSuperSonicOutputs();
@@ -77,6 +77,52 @@ function setup({ stallSecond = false, initialisation, blocked = false } = {}) {
 }
 
 describe("recoverable SuperSonic engine", () => {
+  it("cancels a blocked initial context and clears its pending diagnostics", async () => {
+    vi.useFakeTimers();
+    const { Sonic, contexts, engines } = setup({ blocked: true });
+    const controller = new AbortController();
+    const work = createSuperSonicOutput(Sonic, "https://test/", [
+      undefined, undefined, undefined, 0, 0.1, false, 440, 0, [0], 1,
+      { signal: controller.signal },
+    ]);
+    const rejection = expect(work).rejects.toThrow("superseded");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(getPendingSuperSonicDiagnostics()[0]).toMatchObject({
+      phase: "waiting-for-context", version: "0.88",
+      contexts: [{ state: "suspended" }],
+    });
+    controller.abort();
+    await vi.advanceTimersByTimeAsync(100);
+    await rejection;
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+    expect(engines[0].init).not.toHaveBeenCalled();
+    expect(getPendingSuperSonicDiagnostics()).toEqual([]);
+  });
+  it("bounds activation after a gesture without timing out passive startup", async () => {
+    vi.useFakeTimers();
+    const { create, contexts } = setup({ blocked: true });
+    const work = create();
+    const rejection = expect(work).rejects.toThrow("did not resume (suspended)");
+    await vi.advanceTimersByTimeAsync(40000);
+    expect(contexts[0].close).not.toHaveBeenCalled();
+    document.dispatchEvent(new Event("pointerdown"));
+    await vi.advanceTimersByTimeAsync(30100);
+    await rejection;
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
+  it("cancels a stalled engine init without waiting for its timeout", async () => {
+    const { Sonic, contexts } = setup({ initialisation: new Promise(() => {}) });
+    const controller = new AbortController();
+    const work = createSuperSonicOutput(Sonic, "https://test/", [
+      undefined, undefined, undefined, 0, 0.1, false, 440, 0, [0], 1,
+      { signal: controller.signal },
+    ]);
+    const rejection = expect(work).rejects.toThrow("startup cancelled");
+    await vi.waitFor(() => expect(getPendingSuperSonicDiagnostics()[0]?.phase).toBe("initialising-engine"));
+    controller.abort();
+    await rejection;
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
   it("closes audio immediately but keeps the engine port alive until a pending purge settles", async () => {
     const { create, contexts, engines } = setup();
     const synth = await create();

@@ -85,7 +85,8 @@ describe("output construction plans", () => {
       plan.key,
     );
     expect(oscOutputConfig({ ...settings, osc_local: true }, tuning).key).not.toBe(plan.key);
-    expect(oscOutputConfig(settings, { ...tuning, scale: ["2/1"] }).key).not.toBe(plan.key);
+    expect(oscOutputConfig(settings, { ...tuning, scale: ["2/1"] }).key).toBe(plan.key);
+    expect(oscOutputConfig({ ...settings, fundamental: 432 }, tuning).key).toBe(plan.key);
   });
 
   it("preserves MPE argument order, Haken overrides and live expression flags", () => {

@@ -83,7 +83,7 @@ const SuperColliderSettings = ({
   }, [settings.osc_quick_release_time]);
 
   return (
-    <fieldset>
+    <fieldset class="output-routing-fieldset">
       <legend>
         <b>Built-in scsynth</b>
       </legend>

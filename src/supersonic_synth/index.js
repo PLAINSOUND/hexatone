@@ -6,6 +6,8 @@ import { create_osc_synth } from "../osc_synth/index.js";
 import { createLocalOscTransport } from "./transport.js";
 import { warnLog } from "../debug/logging.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
+import { pendingSuperSonicStartups as pendingStartups } from "./startup-diagnostics.js";
+export { getPendingSuperSonicDiagnostics } from "./startup-diagnostics.js";
 
 const liveOutputs = new Set();
 export function disposeSuperSonicOutputs() {
@@ -17,14 +19,19 @@ if (import.meta.hot) {
 }
 
 export async function create_supersonic_synth(...args) {
+  const signal = args[10]?.signal;
+  signal?.throwIfAborted();
   const base = new URL(`${import.meta.env.BASE_URL}supersonic/`, location.href).href;
   const { SuperSonic } = await import(/* @vite-ignore */ `${base}client/supersonic.js`);
+  signal?.throwIfAborted();
   return createSuperSonicOutput(SuperSonic, base, args);
 }
 
 // Separate construction from asset loading so recovery can be exercised with
 // a deterministic audio engine, without a real device or WASM in unit tests.
 export async function createSuperSonicOutput(SuperSonic, base, args) {
+  const signal = args[10]?.signal;
+  signal?.throwIfAborted();
   let sonic;
   let context;
   let disposed = false;
@@ -38,7 +45,17 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
   let closeCurrent = () => {};
   const pendingCloses = new Set();
   const pendingContexts = new Set();
+  let phase = "creating-context";
+  let gestureAt = null;
+  const startupSince = performance.now();
+  const startupDiagnostic = () => ({ backend: "supersonic", version: "0.88", phase,
+    elapsedMs: performance.now() - startupSince,
+    gestureReceived: gestureAt != null,
+    contexts: [...pendingContexts].map((candidate) => ({ state: candidate.state, currentTime: candidate.currentTime })),
+  });
+  pendingStartups.add(startupDiagnostic);
   const wake = () => {
+    if (gestureAt == null) gestureAt = performance.now();
     for (const candidate of new Set([context, ...pendingContexts])) {
       if (candidate && candidate.state !== "closed") void candidate.resume().catch(() => {});
     }
@@ -49,6 +66,8 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     stopping = true;
     generation += 1;
     liveOutputs.delete(dispose);
+    pendingStartups.delete(startupDiagnostic);
+    signal?.removeEventListener("abort", dispose);
     window.removeEventListener("beforeunload", dispose);
     document.removeEventListener("pointerdown", wake, true);
     document.removeEventListener("keydown", wake, true);
@@ -56,6 +75,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     for (const close of pendingCloses) close();
   };
   liveOutputs.add(dispose);
+  signal?.addEventListener("abort", dispose, { once: true });
   window.addEventListener("beforeunload", dispose);
   try {
     const build = async () => {
@@ -111,12 +131,14 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       // gesture. NTPTiming requires a running clock; do not start its timeout
       // while waiting for browser permission. Hard recovery remains bounded.
       try {
+        phase = "waiting-for-context";
         const waitingSince = performance.now();
         while (nextContext.state !== "running") {
           if (disposed || stopping || ticket !== generation || nextContext.state === "closed")
             throw new Error("SuperSonic recovery superseded");
-          if (context && performance.now() - waitingSince > 30000)
-            throw new Error("SuperSonic audio context did not resume");
+          const activeWaitSince = context ? waitingSince : gestureAt;
+          if (activeWaitSince != null && performance.now() - activeWaitSince > 30000)
+            throw new Error(`SuperSonic audio context did not resume (${nextContext.state})`);
           await new Promise((resolve) => setTimeout(resolve, 50));
         }
       } catch (error) {
@@ -130,22 +152,34 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         }, 30000);
       });
       const step = async (work) => {
-        const result = await Promise.race([work, expired]);
-        if (disposed || stopping || ticket !== generation)
-          throw new Error("SuperSonic recovery superseded");
-        return result;
+        let abort;
+        const cancellation = new Promise((_, reject) => {
+          abort = () => reject(new Error("SuperSonic startup cancelled"));
+          signal?.addEventListener("abort", abort, { once: true });
+          if (signal?.aborted) abort();
+        });
+        try {
+          const result = await Promise.race([work, expired, cancellation]);
+          if (disposed || stopping || ticket !== generation)
+            throw new Error("SuperSonic recovery superseded");
+          return result;
+        } finally {
+          signal?.removeEventListener("abort", abort);
+        }
       };
       try {
         let failure = null;
         nextSonic.on("in", (msg) => {
           if (msg[0] === "/fail" && msg[1] === "/d_recv") failure = msg[2];
         });
+        phase = "initialising-engine";
         await step(nextSonic.init());
         nextGate = createRecoveryGate(nextContext, recoveryMuted);
         nextSonic.node.disconnect();
         nextSonic.node.connect(nextGate.node);
         nextSonic.send("/notify", 1);
         for (const name of args[1] ?? ["pluck", "string", "formant", "tone"]) {
+          phase = `loading-synthdef:${name}`;
           if (!["pluck", "string", "formant", "tone"].includes(name))
             throw new Error(`Local SuperSonic does not include SynthDef ${name}`);
           failure = null;
@@ -179,8 +213,12 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     // from real input, alongside the composite prepare/ensureAwake hooks.
     document.addEventListener("pointerdown", wake, true);
     document.addEventListener("keydown", wake, true);
-    wake();
+    // Passive page startup is allowed to wait for browser permission. Only
+    // an actual pointer/key gesture starts the context-activation deadline.
     await build();
+    phase = "ready";
+    pendingStartups.delete(startupDiagnostic);
+    signal?.removeEventListener("abort", dispose);
     // Stable transport keeps the OSC voice implementation and live fader values.
     const transport = {
       send: (...values) => currentTransport.send(...values),

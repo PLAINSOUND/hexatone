@@ -525,6 +525,7 @@ const useSynthWiring = (
       audioRetryRef.current = null;
       audioRetryGenerationRef.current += 1;
       // Abandon pending candidate requests; stale builds cannot publish them.
+      oscRequestsRef.current.cancelAll();
       sampleRequestsRef.current = createOutputCandidateRequests();
       midiRequestsRef.current = createOutputCandidateRequests();
       oscRequestsRef.current = createOutputCandidateRequests();
@@ -563,6 +564,7 @@ const useSynthWiring = (
   if (!outputPortIdentityRef.current) outputPortIdentityRef.current = createOutputPortIdentity();
 
   const clearAllOutputSynthRefs = useCallback(() => {
+    oscRequestsRef.current.cancelAll();
     clearOutputSynthRefs({
       activeRefs: [sampleSynthRef, oscSynthRef, mpeSynthRef, monoSynthRef],
       mtsRef: mtsSynthsRef,
@@ -1123,11 +1125,11 @@ const useSynthWiring = (
         promises.push(
           oscRequestsRef.current(
             oscKey,
-            () =>
+            (signal) =>
               settings.osc_local
                 ? import("../supersonic_synth/index.js").then(({ create_supersonic_synth }) =>
                     create_supersonic_synth(
-                      ...oscConfig.args(readOscRuntimeControls(settingsRef.current)),
+                      ...oscConfig.args({ ...readOscRuntimeControls(settingsRef.current), signal }),
                     ),
                   )
                 : create_osc_synth(...oscConfig.args(readOscRuntimeControls(settingsRef.current))),
@@ -1215,9 +1217,15 @@ const useSynthWiring = (
         }
       },
       install: (validSynths) => {
+        if (validSynths.includes(oscSynthRef.current.synth))
+          oscSynthRef.current.synth.setTuningReference?.(playbackSettings.fundamental);
         // Even an entirely failed build publishes an empty composite: logical
         // held notes detach obsolete children instead of retaining a dead graph.
-        const s = create_composite_synth(validSynths, retiringSampleSynthsRef.current);
+        const s = create_composite_synth(validSynths, retiringSampleSynthsRef.current, {
+          fundamental: playbackSettings.fundamental,
+          cents: internalPlaybackTuning.degree0toRefAsArray[0],
+          ratio: internalPlaybackTuning.degree0toRefAsArray[1],
+        });
         if (s.setVolume) {
           const volume = readSampleVolume();
           s.setVolume(volume);

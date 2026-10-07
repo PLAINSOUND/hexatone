@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { createAudioRecovery, saveAudioReport } from "../audio/recovery.js";
+import { getPendingSuperSonicDiagnostics } from "../supersonic_synth/startup-diagnostics.js";
 
 export default function useAudioRecovery(synthRef, keysRef, settings = {}, initialiseRef, engineLifecycleRef) {
   const recorder = useRef(null);
@@ -50,7 +51,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       const outputs = log.snapshot(synthRef.current);
       if (engineLifecycleRef?.current?.loading) {
         previous = new Map();
-        log.record("engines-loading", { outputs });
+        log.record("engines-loading", { outputs, pending: getPendingSuperSonicDiagnostics() });
         return;
       }
       const startupErrors = (engineLifecycleRef?.current?.errors ?? []).join("; ");
@@ -165,7 +166,8 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           ["volume", "instrument"].includes(key),
       ),
     );
-    saveAudioReport(recorder.current.report(synthRef.current, audioSettings));
+    saveAudioReport({ ...recorder.current.report(synthRef.current, audioSettings),
+      pending: getPendingSuperSonicDiagnostics() });
   }, [synthRef, settings]);
   return { status, restoring, restore, save, dismiss, startupFailed };
 }
