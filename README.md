@@ -8,6 +8,8 @@
 
 [Developer Quickstart](./DEVELOPER_QUICKSTART.md)
 
+[App Context and Transition Map](./docs/app-context.md)
+
 <!-- BEGIN GENERATED CREDITS: edit src/credits-content.js -->
 
 Design by [Siemen Terpstra](http://siementerpstra.com/) based on [Erv Wilson's microtonal keyboard designs](https://www.anaphoria.com/wilsonkeyboard.html) (1967-), inspired by [R.H.M. Bosanquet](https://en.wikipedia.org/wiki/Robert_Holford_Macdowall_Bosanquet)'s [Generalised Keyboard](https://en.wikipedia.org/wiki/Generalized_keyboard) (1873) and Ivo Salzinger's *Tastatura Nova Perfecta* (1721).

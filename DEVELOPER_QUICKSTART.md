@@ -2,6 +2,11 @@
 
 Updated: 2026-08-04
 
+For state ownership and musical/runtime transitions, start with the
+[App Context and Transition Map](./docs/app-context.md). When changing a
+transition, update its boundary contract there and add an action-sequence
+regression test. Setup commands below are separate from that architectural map.
+
 ## Requirements
 
 - Node.js 24
