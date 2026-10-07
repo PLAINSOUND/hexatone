@@ -5196,9 +5196,8 @@ const App = () => {
   // Stable callbacks for Keyboard props — must be declared unconditionally
   // outside JSX so they don't violate the rules of hooks when the Keyboard
   // is conditionally rendered.
-  const onKeysModWheelChange = useCallback((value) => {
+  const applySequenceModWheelChange = useCallback((value) => {
     const nextValue = clampSequenceTimbreModWheel(value);
-    onOscBrightnessChange(nextValue / 127, false);
     sequenceTimbreModWheelValueRef.current = nextValue;
     // The synth-level CC1 route runs first so live/non-sequence voices still
     // follow the physical wheel. Sequence voices then assert their intended
@@ -5207,7 +5206,17 @@ const App = () => {
       keysRef.current,
       sequenceTimbreModWheelEnabledRef.current ? nextValue : NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
     );
-  }, [onOscBrightnessChange]);
+  }, []);
+  const onKeysModWheelChange = useCallback((value) => {
+    onOscBrightnessChange(clampSequenceTimbreModWheel(value) / 127, false);
+    applySequenceModWheelChange(value);
+  }, [onOscBrightnessChange, applySequenceModWheelChange]);
+  const onBrightnessFaderChange = useCallback((value) => {
+    onOscBrightnessChange(value);
+    // Like physical CC1, shape stored sequence timbre only when its preference
+    // is enabled. Keep the value for future attacks and subsequent re-enabling.
+    applySequenceModWheelChange(Math.round(Math.max(0, Math.min(1, Number(value) || 0)) * 127));
+  }, [onOscBrightnessChange, applySequenceModWheelChange]);
 
   const onKeysReady = useCallback(
     (keys) => {
@@ -5412,7 +5421,7 @@ const App = () => {
         onVolumeChange={onVolumeChange}
         onOscLayerVolumeChange={onOscLayerVolumeChange}
         oscBrightness={oscBrightness}
-        onOscBrightnessChange={onOscBrightnessChange}
+        onOscBrightnessChange={onBrightnessFaderChange}
         onOscQuickReleaseChange={onOscQuickReleaseChange}
         onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
         onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}

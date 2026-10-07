@@ -41,9 +41,11 @@ vi.mock("./settings", () => ({
   default: () => <div data-testid="settings">Settings Stub</div>,
 }));
 vi.mock("./settings/io-settings.jsx", () => ({
-  default: () => {
+  default: ({ onOscBrightnessChange }) => {
     if (pendingIOSettingsLoad) throw pendingIOSettingsLoad;
-    return <div data-testid="io-settings">I/O Settings Stub</div>;
+    return <div data-testid="io-settings">I/O Settings Stub
+      <button onClick={() => onOscBrightnessChange(1)}>Test Brightness</button>
+    </div>;
   },
 }));
 vi.mock("./credits", () => ({
@@ -1056,6 +1058,32 @@ describe("App workspace tabs", () => {
 
     expect(polyTimbre).toHaveBeenCalledWith(80);
     expect(synthWiringState.onOscBrightnessChange).toHaveBeenCalledWith(1, false);
+  });
+
+  it.each([true, false])("routes Brightness fader to sequence timbre when shaping is %s", async (enabled) => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
+    render(<App />);
+    fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+    const preference = await screen.findByLabelText("Sequencer Timbre Control");
+    if (!enabled) fireEvent.click(preference);
+    const polyTimbre = vi.fn();
+    const hex = { release: false, _snapshotSourceTimbre: 80,
+      _snapshotSourceTimbre14: null, polyTimbre };
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady({ _snapshotHexes: [hex],
+      _soundingSnapshotHexes: new Set([hex]) }));
+    fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+    polyTimbre.mockClear();
+    fireEvent.click(await screen.findByText("Test Brightness"));
+    expect(polyTimbre).toHaveBeenCalledWith(enabled ? 127 : 80);
+    expect(synthWiringState.onOscBrightnessChange).toHaveBeenCalledWith(1);
+    if (!enabled) {
+      fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+      fireEvent.click(await screen.findByLabelText("Sequencer Timbre Control"));
+      expect(polyTimbre).toHaveBeenLastCalledWith(127);
+    }
   });
 
   it("shapes stored sequence timbre after Mod Wheel input when sequence shaping is checked", async () => {
