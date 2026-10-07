@@ -1,12 +1,42 @@
 import { expect, it, vi } from "vitest";
 import seeds from "./preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json";
+import tree from "../hexatone/preset-tunings/odd-partial-pitch-class-sets/81-47-limit-256-sabat-the-tree.json";
+import { scalaToCents } from "../settings/scale/parse-scale.js";
 import { create_composite_synth } from "../composite_synth/index.js";
 import { playSnapshot, retuneActiveSnapshotHexes, retuneSnapshotHexes,
   beginSnapshotGesture, attackSnapshotGestureNote, remapActiveSnapshotHexes,
   stopSnapshotGesture } from "./snapshots.js";
-import { remapSequenceNoteToRuntime, resolveLiveSequencePitch } from "./runtime-pitch-map.js";
+import { remapSequenceNoteToRuntime, resolveLiveSequencePitch, resolveSequenceSnapRuntime } from "./runtime-pitch-map.js";
 
 const frequency = (note) => 440 * 2 ** ((note.midicents - 69) / 12);
+
+it("uses 441 Hz before the live keyboard has caught up with the fundamental change", () => {
+  const scale = [0, ...tree.scale.slice(0, -1).map(scalaToCents)];
+  const old = { scale, fundamental: 440, referenceDegree: tree.reference_degree, equivInterval: 1200 };
+  const tuning = resolveSequenceSnapRuntime({ ...tree, fundamental: 441 }, old, tree);
+  expect(tuning.fundamental).toBe(441);
+  const notes = seeds.snapshots.find(snapshot => snapshot.id === 6).notes;
+  notes.forEach(note => expect(resolveLiveSequencePitch(note, tuning).frequency)
+    .toBeCloseTo(frequency(note) * 441 / 440, 8));
+});
+
+it("snaps Seeds snapshot 6 to the same JI chord at 441 Hz in Sabat the Tree", () => {
+  const notes = seeds.snapshots.find(snapshot => snapshot.id === 6).notes;
+  const scale = [0, ...tree.scale.slice(0, -1).map(scalaToCents)];
+  const tuning = { scale, fundamental: 441, referenceDegree: tree.reference_degree, equivInterval: 1200 };
+  const reference = { fundamental: 441, cents: scale[tree.reference_degree],
+    ratio: 2 ** (scale[tree.reference_degree] / 1200) };
+  const engine = output(reference);
+  const runtime = {
+    settings: { fundamental: 441, midi_velocity: 72 },
+    tuning: { degree0toRef_asArray: [reference.cents, reference.ratio], equivSteps: scale.length },
+    state: { sustainedNotes: [] }, stopSnapshot: vi.fn(),
+    synth: create_composite_synth([engine], new Set(), reference),
+  };
+  const snapped = notes.map(note => resolveLiveSequencePitch(note, tuning));
+  runtime._snapshotHexes = playSnapshot(runtime, snapped);
+  engine.voices.forEach((voice, i) => expect(voice.frequency()).toBeCloseTo(frequency(notes[i]) * 441 / 440, 8));
+});
 
 it("retunes held and queued Seeds arpeggio notes from their original pitches with Snap active", () => {
   const notes = seeds.snapshots.find(snapshot => snapshot.notes.length >= 4).notes;

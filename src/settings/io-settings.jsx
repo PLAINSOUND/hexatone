@@ -28,6 +28,8 @@ const IOSettings = ({
   keysRef,
   onVolumeChange,
   onOscLayerVolumeChange,
+  oscBrightness,
+  onOscBrightnessChange,
   onOscQuickReleaseChange,
   onOscQuickReleaseTimeChange,
   onOscQuickReleaseRasterOnlyChange,
@@ -74,6 +76,8 @@ const IOSettings = ({
         settings={settings}
         onChange={onChange}
         onOscLayerVolumeChange={onOscLayerVolumeChange}
+        oscBrightness={oscBrightness}
+        onOscBrightnessChange={onOscBrightnessChange}
         onOscQuickReleaseChange={onOscQuickReleaseChange}
         onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
         onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}

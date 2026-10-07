@@ -25,6 +25,8 @@ const SuperColliderSettings = ({
   settings,
   onChange,
   onOscLayerVolumeChange,
+  oscBrightness = 0,
+  onOscBrightnessChange,
   onOscQuickReleaseChange,
   onOscQuickReleaseTimeChange,
   onOscQuickReleaseRasterOnlyChange,
@@ -180,6 +182,21 @@ const SuperColliderSettings = ({
           </label>
 
           <label>
+            Brightness
+            <span class="sidebar-input settings-form__range-row">
+              <CustomRangeSlider
+                ariaLabel="Brightness"
+                min={0}
+                max={1}
+                step={1 / 127}
+                value={oscBrightness}
+                onInputValue={(value) => onOscBrightnessChange?.(Number(value))}
+              />
+              <span class="settings-form__range-value">{Math.round(oscBrightness * 100)}%</span>
+            </span>
+          </label>
+
+          <label>
             Release Envelope
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider
@@ -258,6 +275,8 @@ SuperColliderSettings.propTypes = {
   settings: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
   onOscLayerVolumeChange: PropTypes.func,
+  oscBrightness: PropTypes.number,
+  onOscBrightnessChange: PropTypes.func,
   onOscQuickReleaseChange: PropTypes.func,
   onOscQuickReleaseTimeChange: PropTypes.func,
   onOscQuickReleaseRasterOnlyChange: PropTypes.func,

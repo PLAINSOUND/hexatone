@@ -87,6 +87,8 @@ const synthWiringState = {
   resetOctave: vi.fn(),
   toggleOctaveDeferred: vi.fn(),
   onVolumeChange: vi.fn(),
+  oscBrightness: 0,
+  onOscBrightnessChange: vi.fn(),
   onAnchorLearn: vi.fn(),
   lumatoneRawPorts: null,
   exquisRawPorts: null,
@@ -1052,6 +1054,7 @@ describe("App workspace tabs", () => {
     act(() => lastKeyboardProps.onModWheelChange(127));
 
     expect(polyTimbre).toHaveBeenCalledWith(80);
+    expect(synthWiringState.onOscBrightnessChange).toHaveBeenCalledWith(1, false);
   });
 
   it("shapes stored sequence timbre after Mod Wheel input when sequence shaping is checked", async () => {
@@ -1395,7 +1398,7 @@ describe("App workspace tabs", () => {
       bars: [], tempi: [], repeats: [],
     }));
     const keys = { settings: { note_names: [], heji_names: [] },
-      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn(), resizeHandler: vi.fn() };
     const view = render(<App />);
     try {
       await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
@@ -1532,7 +1535,42 @@ describe("App workspace tabs", () => {
     }
   });
 
-  it.each([false, true])("replays a held palette snapshot after tuning replacement (SNAP %s)", async (snap) => {
+  it("plays the selected Seeds snapshot 6 from the right-hand PLAY button on fresh load", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
+    const { default: seeds } = await import("./sequencer/preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json");
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      ...seeds, manualArpeggiation: { ...seeds.manualArpeggiation, mode: "off" },
+    }));
+    const view = render(<App />);
+    const keys = { settings: { note_names: [], heji_names: [] },
+      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+    try {
+      await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+      act(() => lastKeyboardProps.onKeysReady(keys));
+      fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+      await userEvent.selectOptions(await screen.findByLabelText("next snapshot target"), "5");
+      await waitFor(() => expect(screen.getByLabelText("next snapshot target").value).toBe("5"));
+      fireEvent.click(screen.getByLabelText("play current sequence position"));
+      expect(keys.playSnapshot).toHaveBeenCalledOnce();
+      // Seeds uses an arpeggiated trigger: its first attack must belong to 6,
+      // not the snapshot inferred from the initial bar position.
+      expect(keys.playSnapshot.mock.calls[0][0][0].midicents)
+        .toBe(seeds.snapshots[5].notes[0].midicents);
+      expect(screen.getByLabelText("next snapshot target").value).toBe("5");
+    } finally {
+      view.unmount();
+      localStorage.removeItem("hexatone_persist_on_reload");
+      sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+    }
+  });
+
+  it.each([
+    { snap: false, transferred: false }, { snap: true, transferred: false },
+    { snap: false, transferred: true }, { snap: true, transferred: true },
+  ])("replays only untransferred palette voices after tuning replacement ($snap, $transferred)", async ({ snap, transferred }) => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
     });
@@ -1552,6 +1590,7 @@ describe("App workspace tabs", () => {
     });
     const first = makeKeys([0, 200]);
     const replacement = makeKeys([0, 100]);
+    if (transferred) replacement._snapshotHexes = [{ release: false }];
     const view = render(<App />);
     try {
       await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
@@ -1567,11 +1606,12 @@ describe("App workspace tabs", () => {
       // A changed setting is not sufficient: wait for the new Keys instance.
       expect(first.playSnapshot).toHaveBeenCalledTimes(1);
       act(() => lastKeyboardProps.onKeysReady(replacement));
-      await waitFor(() => expect(replacement.playSnapshot).toHaveBeenCalledTimes(1));
-      expect(replacement.playSnapshot.mock.calls[0][0][0].midicents).toBeCloseTo(snap ? 70 : 70.5, 6);
+      await waitFor(() => expect(replacement.playSnapshot).toHaveBeenCalledTimes(transferred ? 0 : 1));
+      if (!transferred)
+        expect(replacement.playSnapshot.mock.calls[0][0][0].midicents).toBeCloseTo(snap ? 70 : 70.5, 6);
       expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(false);
       view.rerender(<App />);
-      expect(replacement.playSnapshot).toHaveBeenCalledTimes(1);
+      expect(replacement.playSnapshot).toHaveBeenCalledTimes(transferred ? 0 : 1);
 
       // A MIDI-only rebuild must not cause an unsolicited retrigger.
       const rebound = makeKeys([0, 100]);

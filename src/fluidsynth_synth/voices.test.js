@@ -1,6 +1,58 @@
 import { expect, it, vi } from "vitest";
 import { createInternalVoiceSynth } from "./voices.js";
 import { create_midi_synth } from "../midi_synth/index.js";
+import { mtsToMidiFloat } from "../tuning/mts-format.js";
+
+it("retunes sequence voices with exact MTS rather than coarse ±48-semitone bend", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn() };
+  const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 } });
+  const hex = synth.makeHex("test", 0, 0, 0, 12, -100, 100, null, null, null, 1);
+  hex.noteOn();
+  output.send.mockClear();
+  const shift = 1200 * Math.log2(441 / 440);
+  hex.sequenceRetune(shift);
+  const data = output.send.mock.calls[0][0];
+  expect((mtsToMidiFloat(data.slice(8, 11)) - 60) * 100).toBeCloseTo(shift, 2);
+  expect(output.sendCommand.mock.calls.at(-1)[0]).toMatchObject({ op: "bend", a: 8192 });
+});
+
+it("closes a disabled output, cancels its queued attacks, and silences sustained tails", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn(), cancelEvents: vi.fn() };
+  const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 } });
+  const hex = synth.makeHex("test", 0, 0, 0, 12, -100, 100, null, null, null, 1);
+  hex.noteOn(performance.now() + 500);
+  hex.noteOff(); // The channel is free, but sustain/release tails may still sound.
+  output.sendCommand.mockClear();
+  synth.shutdown();
+  expect(output.cancelEvents).toHaveBeenCalledOnce();
+  expect(output.sendCommand.mock.calls.map(([command]) => command)).toEqual([
+    { channel: 0, op: "cc", a: 64, b: 0 },
+    { channel: 0, op: "cc", a: 66, b: 0 },
+    { channel: 0, op: "cc", a: 120, b: 0 },
+  ]);
+  output.sendCommand.mockClear();
+  synth.makeHex("late", 0).noteOn();
+  expect(output.sendCommand).not.toHaveBeenCalled();
+});
+
+it("does not silence channels already handed to a replacement output", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn(), cancelEvents: vi.fn() };
+  const options = { outputMode: { output, velocity: 72 }, tuningContext: { fundamental: 261.6255653 } };
+  const old = createInternalVoiceSynth(options);
+  const voice = old.makeHex("old", 0, 0, 0, 12, -100, 100, null, null, null, 1);
+  voice.noteOn(); voice.noteOff();
+  const replacement = createInternalVoiceSynth(options);
+  for (let i = 0; i < 128; i++) {
+    replacement.makeHex(String(i), 0, 0, 0, 12, -100, 100, null, null, null, 1).noteOn();
+  }
+  output.sendCommand.mockClear();
+  old.shutdown();
+  expect(output.sendCommand).not.toHaveBeenCalled();
+  expect(output.cancelEvents).toHaveBeenCalledOnce();
+  replacement.shutdown();
+});
 
 it.each([48, 96, 12.5])("matches the channel RPN and bend conversion for ±%s semitones", (range) => {
   const output = { send: vi.fn(), sendCommand: vi.fn() };

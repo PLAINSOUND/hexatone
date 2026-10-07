@@ -49,6 +49,23 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("broadcasts brightness only to scsynth and mirrors controller input without resending it", async () => {
+  const sample = { ...engine(), applyZoneModwheel: vi.fn() };
+  const local = { ...engine(), local: true, applyZoneModwheel: vi.fn() };
+  factories.sample.mockResolvedValue(sample);
+  factories.local.mockResolvedValue(local);
+  render(<Harness settings={{ ...base, output_osc: true, osc_local: true }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([sample, local]));
+  act(() => current.onOscBrightnessChange(1));
+  expect(local.applyZoneModwheel).toHaveBeenCalledWith(127);
+  expect(sample.applyZoneModwheel).not.toHaveBeenCalled();
+  expect(current.oscBrightness).toBe(1);
+  local.applyZoneModwheel.mockClear();
+  act(() => current.onOscBrightnessChange(64 / 127, false));
+  expect(current.oscBrightness).toBeCloseTo(64 / 127);
+  expect(local.applyZoneModwheel).not.toHaveBeenCalled();
+});
+
 it("includes a loaded internal SoundFont without a canvas tuning", async () => {
   const selected = engine();
   fluid.engine = { soundfontId: 1, output: { id: "internal-fluid" } };

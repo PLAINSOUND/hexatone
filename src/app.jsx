@@ -141,6 +141,7 @@ import {
   remapSequenceNoteToRuntime,
   remapSequenceSnapshotsToRuntime,
   resolveLiveSequencePitch,
+  resolveSequenceSnapRuntime,
 } from "./sequencer/runtime-pitch-map.js";
 import { createSequenceRuntimeModelBuilder } from "./sequencer/runtime-model.js";
 import { buildCueExpandedSnapshotIdsAt } from "./sequencer/view-runtime.js";
@@ -1054,6 +1055,8 @@ const App = () => {
     toggleOctaveDeferred,
     onVolumeChange,
     onOscLayerVolumeChange,
+    oscBrightness,
+    onOscBrightnessChange,
     onOscQuickReleaseChange,
     onOscQuickReleaseTimeChange,
     onOscQuickReleaseRasterOnlyChange,
@@ -1556,7 +1559,7 @@ const App = () => {
     const keys = keysRef.current;
     const frame = keys?._activeFrame?.();
     const liveRuntime = keys?._effectiveScaleRuntimeForFrame?.(frame);
-    return Array.isArray(liveRuntime?.scale) && liveRuntime.scale.length > 0 ? liveRuntime : null;
+    return resolveSequenceSnapRuntime(settings, liveRuntime, keys?.settings);
   })();
   liveSequenceSnapRuntimeRef.current = snapSequenceToCurrentTuning ? currentSequenceSnapRuntime : null;
   const sequenceSnapRuntimeKey = currentSequenceSnapRuntime ? JSON.stringify([
@@ -1800,7 +1803,10 @@ const App = () => {
   );
 
   const applyStoppedSequenceTransportState = useCallback((nextState = {}) => {
-    const resolvedState = buildStoppedSequenceTransportState(nextState);
+    // Transport reducers return { playhead, selection }; direct actions pass
+    // flat playhead fields. Preserve the reducer's cursor instead of replacing
+    // it with the builder defaults (-1 / first bar).
+    const resolvedState = buildStoppedSequenceTransportState({ ...nextState, ...nextState.playhead });
     sequencePlayheadRef.current = resolvedState.playhead;
     setPlayingSnapshotId(resolvedState.playingSnapshotId);
     setSelectedSnapshotId(resolvedState.selectedSnapshotId);
@@ -2494,6 +2500,7 @@ const App = () => {
 
   const onCueSequenceSnapshot = useCallback(
     (targetIndex) => {
+      console.log("CUE DEBUG", targetIndex);
       const nextState = resolvePendingSnapshotTransportState({
         targetIndex,
         snapshots,
@@ -3043,7 +3050,15 @@ const App = () => {
 
   const onPlaySequence = useCallback(() => {
     if (!snapshots.length) return;
+    const pendingSnapshotIndex = pendingTransportSelectionRef.current.snapshotIndex;
     pendingTransportSelectionRef.current = clearPendingTransportSelection();
+    if (sequencePlayheadRef.current.stopped === true &&
+        Number.isInteger(pendingSnapshotIndex) && pendingSnapshotIndex >= 0 &&
+        pendingSnapshotIndex < snapshots.length) {
+      sequenceRepeatPlaybackStateRef.current = {};
+      playManualSnapshotAtIndex(pendingSnapshotIndex);
+      return;
+    }
     if ((sequencePlayhead.stepIndex ?? -1) < 0) {
       const target = snapshotIndexNearBar(sequencePlayhead.barIndex, 1);
       sequenceRepeatPlaybackStateRef.current = {};
@@ -4597,6 +4612,15 @@ const App = () => {
       surface: musicalSurfaceResetImpactKey,
     };
     if (!previous || previous.surface === musicalSurfaceResetImpactKey) return;
+    // Keyboard now transfers sequencer voices across a tuning reconstruction.
+    // Replaying an adopted gesture would release it and schedule fresh attacks
+    // while its output graph/reference is still handing over.
+    const hasTransferredVoices = [
+      ...(snapshotReplayKeys._snapshotHexes ?? []),
+      ...(snapshotReplayKeys._soundingSnapshotHexes ?? []),
+      ...(snapshotReplayKeys._snapshotVoiceOwners?.keys?.() ?? []),
+    ].some(hex => hex && hex.release !== true);
+    if (hasTransferredVoices) return;
     const position = sequencePlayheadRef.current;
     if (workspaceTab !== "hexatone" || position.stopped || position.markerIndex != null) return;
     if (!snapshots[position.stepIndex]) return;
@@ -5092,6 +5116,7 @@ const App = () => {
   // is conditionally rendered.
   const onKeysModWheelChange = useCallback((value) => {
     const nextValue = clampSequenceTimbreModWheel(value);
+    onOscBrightnessChange(nextValue / 127, false);
     sequenceTimbreModWheelValueRef.current = nextValue;
     // The synth-level CC1 route runs first so live/non-sequence voices still
     // follow the physical wheel. Sequence voices then assert their intended
@@ -5100,7 +5125,7 @@ const App = () => {
       keysRef.current,
       sequenceTimbreModWheelEnabledRef.current ? nextValue : NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
     );
-  }, []);
+  }, [onOscBrightnessChange]);
 
   const onKeysReady = useCallback(
     (keys) => {
@@ -5304,6 +5329,8 @@ const App = () => {
         hakenPedalLearnActive={hakenPedalLearnActive}
         onVolumeChange={onVolumeChange}
         onOscLayerVolumeChange={onOscLayerVolumeChange}
+        oscBrightness={oscBrightness}
+        onOscBrightnessChange={onOscBrightnessChange}
         onOscQuickReleaseChange={onOscQuickReleaseChange}
         onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
         onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}

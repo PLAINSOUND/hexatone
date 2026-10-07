@@ -558,6 +558,8 @@ const useSynthWiring = (
   const oscRequestsRef = useRef(null);
   if (!oscRequestsRef.current) oscRequestsRef.current = createOutputCandidateRequests();
   const oscRuntimeControlsRef = useRef(null);
+  const [oscBrightness, setOscBrightness] = useState(0);
+  const oscBrightnessRef = useRef(null);
   if (!oscRuntimeControlsRef.current)
     oscRuntimeControlsRef.current = readOscRuntimeControls(settings);
   const outputPortIdentityRef = useRef(null);
@@ -1137,6 +1139,7 @@ const useSynthWiring = (
               isCurrent: isCurrentBuild,
               adopt: (s) => {
                 applyOscRuntimeControls(s, oscRuntimeControlsRef.current);
+                if (oscBrightnessRef.current != null) s.applyZoneModwheel?.(oscBrightnessRef.current);
                 oscSynthRef.current = { key: oscKey, synth: s };
               },
             },
@@ -1600,6 +1603,14 @@ const useSynthWiring = (
     if (oscSynth?.setLayerVolume) oscSynth.setLayerVolume(index, value);
   }, []);
 
+  const onOscBrightnessChange = useCallback((value, send = true) => {
+    const midiValue = Math.round(Math.max(0, Math.min(1, Number(value) || 0)) * 127);
+    oscBrightnessRef.current = midiValue;
+    setOscBrightness(midiValue / 127);
+    // Controller input already broadcasts CC1; the fader targets scsynth only.
+    if (send) oscSynthRef.current.synth?.applyZoneModwheel?.(midiValue);
+  }, []);
+
   const onOscQuickReleaseChange = useCallback((value) => {
     oscRuntimeControlsRef.current.quickRelease = value;
     const oscSynth = oscSynthRef.current.synth;
@@ -1811,6 +1822,8 @@ const useSynthWiring = (
     toggleOctaveDeferred,
     onVolumeChange,
     onOscLayerVolumeChange,
+    oscBrightness,
+    onOscBrightnessChange,
     onOscQuickReleaseChange,
     onOscQuickReleaseTimeChange,
     onOscQuickReleaseRasterOnlyChange,

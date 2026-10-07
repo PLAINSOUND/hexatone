@@ -3,6 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import SuperColliderSettings from "./supercollider-settings.jsx";
 
 describe("SuperCollider scsynth settings", () => {
+  it("places live controller brightness above release and sends fader input without changing settings", () => {
+    const onChange = vi.fn();
+    const onOscBrightnessChange = vi.fn();
+    const props = { settings: { output_osc: true, osc_local: true }, onChange, onOscBrightnessChange };
+    const view = render(<SuperColliderSettings {...props} oscBrightness={64 / 127} />);
+    const sliders = screen.getAllByRole("slider");
+    const brightness = screen.getByRole("slider", { name: "Brightness" });
+    expect(sliders.indexOf(brightness)).toBeLessThan(sliders.indexOf(screen.getByLabelText("Release Override Amount")));
+    expect(Number(brightness.getAttribute("aria-valuenow"))).toBeCloseTo(64 / 127);
+    fireEvent.keyDown(brightness, { key: "End" });
+    expect(onOscBrightnessChange).toHaveBeenCalledWith(1);
+    expect(onChange).not.toHaveBeenCalled();
+    view.rerender(<SuperColliderSettings {...props} oscBrightness={0} />);
+    expect(brightness.getAttribute("aria-valuenow")).toBe("0");
+  });
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

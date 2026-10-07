@@ -6847,6 +6847,10 @@ describe("Keys MIDI input integration", () => {
     expect(applyZoneModwheel).toHaveBeenCalledWith(96);
     expect(keys.onModWheelChange).toHaveBeenCalledWith(96);
     expect(noteModwheel).not.toHaveBeenCalled();
+    keys.onModWheelChange.mockClear();
+    listeners.controlchange({ message: { channel: 2, dataBytes: [74, 30] } });
+    listeners.controlchange({ message: { channel: 3, dataBytes: [74, 110] } });
+    expect(keys.onModWheelChange).not.toHaveBeenCalled();
   });
 
   it("ignores Continuum note input on reserved non-member channels outside the selected MPE zone", () => {

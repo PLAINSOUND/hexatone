@@ -18,13 +18,14 @@
     }
   },
   "files": {
+    ".DS_Store": "285a6c6dd9eeaef63d806baee6a128383e3941488be81ec1de21bdb445848efe",
     "README.md": "5f16e958d8ba37c72777af07f63c77348f894fbf5c747fac5033e55b51be4e50",
     "fluidsynth.js": "8a4f8a64e3a79e29af8b7ab8665e2e4e7545c746b56095af43fe460f4eed2653",
     "fluidsynth.wasm": "f3f7e54c1311ff51843fc172fac8177364f2fca94c35cc4ce4e02f54380eca03",
     "licenses/FLUIDSYNTH-LGPL-2.1.txt": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95",
     "licenses/GCEM-APACHE-2.0.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
     "licenses/SIGNALSMITH-MIT.txt": "b81eab3abab58e20eb74c74e70b8f3cbf7160ae3b3f1951b8f5e6692b52d10b5",
-    "processor.js": "bd01d726bb36c028644322b0dd7ce579aa8180134f495a5a8c0bc5a981d286fb",
+    "processor.js": "07d304c14de6c422aced8981a69198a23643cc75415123bca5dc793e4b62aede",
     "sources/adapter_core.cpp": "25dbbcf1aafcc46e3966e0ee9c2bf28d5b5077434ce0f5043c93ae40d1521527",
     "sources/emscripten-cxx17.patch": "71b1b33e85e1fb8c54cf9436fc98dacd0e7116f7eed6f6d03b46612f020b134a",
     "sources/fluidsynth-2.6.1-71e85b2.tar.gz": "188840c6bb017405e596f0e9dc09f55684559e3fe00ce255652bae2951a619cc",

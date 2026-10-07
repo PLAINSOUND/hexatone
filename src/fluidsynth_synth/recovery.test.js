@@ -71,8 +71,18 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
     loadFluidSynthSoundFont,
     forceFluidSynthEngineRebuild,
     getFluidSynthAudioDiagnostics,
+    panicFluidSynth,
   } = await import("./index.js");
   const engine = await getFluidSynthEngine();
+  // Panic reaches the retained engine directly, without a currently selected
+  // FluidSynth synth in the composite, and drops main-thread pending attacks.
+  nodes[0].port.postMessage.mockClear();
+  engine.output.sendCommand({ channel: 7, op: "on", a: 60, b: 72 }, performance.now() + 1000, 42);
+  panicFluidSynth();
+  await Promise.resolve();
+  expect(nodes[0].port.postMessage).toHaveBeenCalledWith({ type: "clear-recovery-events" });
+  expect(nodes[0].port.postMessage.mock.calls.filter(([message]) => message.type === "midi-batch")
+    .flatMap(([message]) => message.events)).toEqual([]);
   const source = { name: "retained.sf2", arrayBuffer: vi.fn(async () => new ArrayBuffer(8)) };
   await loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
   engine.setVolume(81);

@@ -4,6 +4,27 @@
 
 import { findNearestDegree } from "../input/scale-mapper.js";
 import { noteIdentity } from "./value-runtime.js";
+import { createScaleWorkspace, normalizeWorkspaceForKeys } from "../tuning/workspace.js";
+
+export function resolveSequenceSnapRuntime(settings, liveRuntime, sourceSettings = {}) {
+  if (!Array.isArray(settings.scale) || !settings.scale.length) return null;
+  const sameScale = !Array.isArray(sourceSettings.scale) ||
+    JSON.stringify(sourceSettings.scale) === JSON.stringify(settings.scale);
+  const sameReference = sourceSettings.reference_degree == null ||
+    sourceSettings.reference_degree === (settings.reference_degree ?? 0);
+  if (sameScale && sameReference && liveRuntime?.scale?.length) {
+    const oldFundamental = Number(sourceSettings.fundamental);
+    const nextFundamental = Number(settings.fundamental);
+    // App renders before the imperative Keys fundamental update. Account for
+    // that handoff now, retaining any live modulation/preview transposition.
+    return oldFundamental > 0 && nextFundamental > 0 && oldFundamental !== nextFundamental
+      ? { ...liveRuntime, fundamental: liveRuntime.fundamental * nextFundamental / oldFundamental }
+      : liveRuntime;
+  }
+  const tuning = normalizeWorkspaceForKeys(createScaleWorkspace(settings));
+  return { ...tuning, fundamental: settings.fundamental,
+    referenceDegree: settings.reference_degree ?? 0, equaveIdentity: tuning.equaveInterval };
+}
 
 function mod(value, modulus) {
   if (!modulus) return value;
@@ -176,7 +197,10 @@ export function remapSequenceSnapshotsToRuntime(snapshots, runtime, options = {}
             // Legacy note identities include pitch. Freeze that source identity
             // in this playback-only projection before SNAP changes the pitch,
             // so active voices and their releases still match across toggles.
-            { ...note, id: noteIdentity(note, snapshot.length ?? 1) },
+            { ...note, id: noteIdentity(note, snapshot.length ?? 1),
+              sequenceOriginalPitch: note.sequenceOriginalPitch ?? {
+                midicents: Number(note.midicents), frequency: note.frequency,
+              } },
             runtime,
             options,
           ),

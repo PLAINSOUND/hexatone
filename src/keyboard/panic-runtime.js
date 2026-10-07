@@ -6,6 +6,7 @@
 import Point from "./point.js";
 import { notes } from "../midi_synth";
 import { cancelModulation } from "../tuning/modulation-runtime.js";
+import { panicFluidSynth } from "../fluidsynth_synth/index.js";
 
 export function panic(keys) {
   keys._retuneGlides.clear();
@@ -50,6 +51,7 @@ export function panic(keys) {
   // explicit note-offs plus controller resets on external outputs.
   keys.stopSnapshot();
   if (keys.synth?.allSoundOff) keys.synth.allSoundOff();
+  panicFluidSynth();
 
   keys.state.sustainedNotes = [];
   keys.state.sustainedCoords.clear();

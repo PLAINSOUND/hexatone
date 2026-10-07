@@ -264,6 +264,11 @@ export function getFluidSynthAudioDiagnostics() {
   processorFailed: engine?.node ? failedNodes.has(engine.node) : false };
 }
 
+// PANIC must reach this persistent engine even after its output was disabled.
+export function panicFluidSynth() {
+  engine?.output?.panic?.();
+}
+
 export function getFluidSynthAudioContext() {
   return engine?.context ?? null;
 }
@@ -337,10 +342,18 @@ export async function getFluidSynthEngine() {
       engine.output = {
         id: "hexatone-internal-fluidsynth",
         name: "Hexatone FluidSynth",
-        sendCommand(command, timestamp) { enqueue({ command }, timestamp); },
-        send(data, timestamp) {
+        sendCommand(command, timestamp, owner) { enqueue({ command, owner }, timestamp); },
+        send(data, timestamp, owner) {
           if (!engine?.node || !data?.length) return;
-          enqueue({ data: Array.from(data) }, timestamp);
+          enqueue({ data: Array.from(data), owner }, timestamp);
+        },
+        cancelEvents(owner) {
+          pendingMidi = pendingMidi.filter(event => event.owner !== owner);
+          engine?.node?.port.postMessage({ type: "cancel-owner-events", owner });
+        },
+        panic() {
+          pendingMidi = [];
+          engine?.node?.port.postMessage({ type: "clear-recovery-events" });
         },
         ensureAwake: ensureFluidSynthEngineAwake,
       };
