@@ -142,6 +142,17 @@ full composite backend. Before publishing it as one:
   backends enabled, assert no retrigger/burst, stable pitch/expression, continuous
   transport time and no old cleanup killing newly joined voices.
 
+### Lesson bookmark
+
+The current processor is a single sine oscillator with continuous phase,
+validated frequency commands, and sample-by-sample linear gain ramps: 12 ms
+attack, 80 ms release, gain 0.05. Its adapter exposes start/frequency/stop.
+Resume teaching from here, keeping small audible experiments separate from
+full backend integration. A suitable next step is a finite sideband sum before
+the closed-form DSF expression, then parameter control and spectral limiting.
+The routing/ownership checklist above applies when the experiment becomes a
+selectable backend; it need not all be implemented in the next lesson.
+
 ## Regression anchors
 
 - [output-toggle.test.js](../src/audio/output-toggle.test.js): fades, five-second
@@ -151,6 +162,9 @@ full composite backend. Before publishing it as one:
 - [SuperSonic tests](../src/supersonic_synth/index.test.js): gated cold startup.
 - [FluidSynth recovery tests](../src/fluidsynth_synth/recovery.test.js): silent
   first/rebuilt gate and recovery state retention.
+- [MTS adapter tests](../src/midi_synth/index.test.js): preserve release
+  timestamps, release pending attacks after onset on the old channel, and reject
+  attacks from retired wrappers without clearing a shared MIDI port.
 - [sample tests](../src/sample_synth/index.test.js): first-attack gating.
 - [transport clock tests](../src/sequencer/transport-clock.test.js): continuous
   time across output-owner changes.
