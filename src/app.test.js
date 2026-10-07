@@ -18,6 +18,7 @@ import { act } from "preact/test-utils";
 import { parseExactInterval } from "./tuning/interval.js";
 import { SEQUENCE_WORKSPACE_STORAGE_KEY } from "./sequencer/session-persistence.js";
 import { CALCULATOR_WORKSPACE_STORAGE_KEY } from "./calculator/session-persistence.js";
+import { chooseChordSteps } from "./sequencer/chord-snap.js";
 
 let lastKeyboardProps = null;
 let lastUsePresetsOptions = null;
@@ -1572,11 +1573,24 @@ describe("App workspace tabs", () => {
     }
   });
 
-  it("preserves Snap source pitches with non-contiguous slots when the worker is unavailable", async () => {
+  it.each([false, true])("preserves Snap source pitches with non-contiguous slots (worker ready: %s)", async (workerReady) => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
     });
     const previousSettings = settings;
+    const previousWorker = globalThis.Worker;
+    let prepared = 0;
+    if (workerReady) globalThis.Worker = class {
+      postMessage(job) {
+        queueMicrotask(() => {
+          if (this.closed) return;
+          this.onmessage?.({ data: { id: job.id,
+            steps: chooseChordSteps(job.pitches, job.runtime, job.drift, job.held) } });
+          prepared++;
+        });
+      }
+      terminate() { this.closed = true; }
+    };
     settings = { ...settings, scale: ["10.", "696.", "710.", "1200."],
       fundamental: 440, reference_degree: 0, equivSteps: 4 };
     localStorage.setItem("hexatone_persist_on_reload", "true");
@@ -1597,12 +1611,14 @@ describe("App workspace tabs", () => {
     try {
       await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
       act(() => lastKeyboardProps.onKeysReady(keys));
+      if (workerReady) await waitFor(() => expect(prepared).toBeGreaterThan(0));
       fireEvent.click(screen.getByLabelText("Snap palette snapshots to current tuning"));
       fireEvent.click(screen.getByLabelText("Play snapshot 1"));
       const pitches = () => keys.playSnapshot.mock.calls.at(-1)[0].map(note => note.midicents);
-      // jsdom has no Worker: the bounded real-time path uses ordinary Snap.
-      expect(pitches()[0]).toBeCloseTo(69);
-      expect(pitches()[1]).toBeCloseTo(75.96);
+      // Cold/unavailable workers use ordinary Snap; ready decisions preserve
+      // the chord's interval pattern. Both retain immutable source pitches.
+      expect(pitches()[0]).toBeCloseTo(workerReady ? 69.1 : 69);
+      expect(pitches()[1]).toBeCloseTo(workerReady ? 76.1 : 75.96);
       fireEvent.keyDown(screen.getByLabelText("Palette Chord Drift"), { key: "Home" });
       fireEvent.click(screen.getByLabelText("Play snapshot 1"));
       expect(pitches()[0]).toBeCloseTo(69);
@@ -1613,6 +1629,8 @@ describe("App workspace tabs", () => {
     } finally {
       view.unmount();
       settings = previousSettings;
+      if (previousWorker === undefined) delete globalThis.Worker;
+      else globalThis.Worker = previousWorker;
       localStorage.removeItem("hexatone_persist_on_reload");
       sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
     }

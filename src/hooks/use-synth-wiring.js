@@ -558,8 +558,10 @@ const useSynthWiring = (
   const oscRequestsRef = useRef(null);
   if (!oscRequestsRef.current) oscRequestsRef.current = createOutputCandidateRequests();
   const oscRuntimeControlsRef = useRef(null);
-  const [oscBrightness, setOscBrightness] = useState(0);
-  const oscBrightnessRef = useRef(null);
+  const [oscBrightness, setOscBrightness] = useState(() =>
+    Math.max(0, Math.min(1, localFloat("osc_brightness", 0.2))),
+  );
+  const oscBrightnessRef = useRef(Math.round(oscBrightness * 127));
   if (!oscRuntimeControlsRef.current)
     oscRuntimeControlsRef.current = readOscRuntimeControls(settings);
   const outputPortIdentityRef = useRef(null);
@@ -1608,9 +1610,15 @@ const useSynthWiring = (
   }, []);
 
   const onOscBrightnessChange = useCallback((value, send = true) => {
-    const midiValue = Math.round(Math.max(0, Math.min(1, Number(value) || 0)) * 127);
+    const brightness = Math.max(0, Math.min(1, Number(value) || 0));
+    const midiValue = Math.round(brightness * 127);
     oscBrightnessRef.current = midiValue;
-    setOscBrightness(midiValue / 127);
+    setOscBrightness(brightness);
+    // Save the user's fader preference, not a connected controller's live value.
+    // The live override remains in the ref so rebuilt engines inherit it.
+    if (send) {
+      try { localStorage.setItem("osc_brightness", String(brightness)); } catch { /* Storage may be unavailable in private mode. */ }
+    }
     // Controller input already broadcasts CC1; the fader targets scsynth only.
     if (send) oscSynthRef.current.synth?.applyZoneModwheel?.(midiValue);
   }, []);

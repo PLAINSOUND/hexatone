@@ -2242,7 +2242,10 @@ const App = () => {
     ],
   );
 
+  const previousLiveChordDriftRef = useRef(chordDrift);
   useEffect(() => {
+    const driftChanged = previousLiveChordDriftRef.current !== chordDrift;
+    previousLiveChordDriftRef.current = chordDrift;
     const previousSnap = previousSnapSequenceToCurrentTuningRef.current;
     const previousRuntimeKey = previousSequenceSnapRuntimeKeyRef.current;
     previousSequenceSnapRuntimeKeyRef.current = sequenceSnapRuntimeKey;
@@ -2263,7 +2266,8 @@ const App = () => {
     // positionally with the current cue's complete note array.
     const remapped = remapActiveSnapshotHexes(keysRef.current,
       (note) => resolveLiveSequencePitch(note, liveSequenceSnapRuntimeRef.current,
-        sequencePlaybackPitchOffset, liveChordSnapOptionsRef.current), sequencePlaybackPitchOffset);
+        sequencePlaybackPitchOffset, { ...liveChordSnapOptionsRef.current,
+          chordLiveEdit: driftChanged }), sequencePlaybackPitchOffset);
     if (remapped.size) {
       appliedSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
       return;
@@ -2304,6 +2308,7 @@ const App = () => {
     }
     appliedSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
   }, [
+    chordDrift,
     currentSequenceSnapRuntime,
     sequenceSnapRuntimeKey,
     keysReadyRevision,

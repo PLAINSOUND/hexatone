@@ -109,6 +109,16 @@ describe("bounded chord preparation", () => {
     expect(solver.stats()).toMatchObject({ cached: 0, queued: 0, disposed: true });
   });
 
+  it("applies explicit live drift edits immediately and keeps later attacks on that decision", () => {
+    const solver = scheduler();
+    const group = withSequenceSnapGroup([{ midicents: 69 }, { midicents: 76 }]);
+    const initial = { chordAware: true, chordDrift: 20, chordSolver: solver, decisionToken: {} };
+    expect(resolveLiveSequencePitch(group[0], runtime, 0, initial).midicents).toBeCloseTo(69);
+    const edit = { ...initial, chordDrift: 33, decisionToken: {}, chordLiveEdit: true };
+    expect(resolveLiveSequencePitch(group[0], runtime, 0, edit).midicents).toBeCloseTo(69.1);
+    expect(resolveLiveSequencePitch(group[1], runtime, 0, { ...edit, chordLiveEdit: false }).midicents).toBeCloseTo(76.1);
+  });
+
   it("locks fallback for an entire arpeggio; a late result helps only a new decision", () => {
     const solver = scheduler();
     const choose = vi.spyOn(solver, "choose");

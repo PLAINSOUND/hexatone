@@ -25,7 +25,7 @@ const SuperColliderSettings = ({
   settings,
   onChange,
   onOscLayerVolumeChange,
-  oscBrightness = 0,
+  oscBrightness = 0.2,
   onOscBrightnessChange,
   onOscQuickReleaseChange,
   onOscQuickReleaseTimeChange,

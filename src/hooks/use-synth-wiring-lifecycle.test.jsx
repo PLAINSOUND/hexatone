@@ -78,10 +78,23 @@ it("broadcasts brightness only to scsynth and mirrors controller input without r
   expect(local.applyZoneModwheel).toHaveBeenCalledWith(127);
   expect(sample.applyZoneModwheel).not.toHaveBeenCalled();
   expect(current.oscBrightness).toBe(1);
+  expect(localStorage.getItem("osc_brightness")).toBe("1");
   local.applyZoneModwheel.mockClear();
   act(() => current.onOscBrightnessChange(64 / 127, false));
   expect(current.oscBrightness).toBeCloseTo(64 / 127);
   expect(local.applyZoneModwheel).not.toHaveBeenCalled();
+  expect(localStorage.getItem("osc_brightness")).toBe("1");
+});
+
+it.each([null, "0", "0.73"])("initializes brightness from the saved preference (%s), or 20 percent", async (saved) => {
+  if (saved !== null) localStorage.setItem("osc_brightness", saved);
+  const local = { ...engine(), local: true, applyZoneModwheel: vi.fn() };
+  factories.local.mockResolvedValue(local);
+  render(<Harness settings={{ ...base, output_sample: false, output_osc: true, osc_local: true }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  const expected = saved === null ? 0.2 : Number(saved);
+  expect(current.oscBrightness).toBe(expected);
+  expect(local.applyZoneModwheel).toHaveBeenCalledWith(Math.round(expected * 127));
 });
 
 it("includes a loaded internal SoundFont without a canvas tuning", async () => {

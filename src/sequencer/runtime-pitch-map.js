@@ -38,15 +38,24 @@ export function remapSequenceChordToRuntime(notes, runtime, options = {}) {
   const pitches = chordPitches(notes, runtime);
   if (pitches.some(pitch => !Number.isFinite(pitch)))
     return notes.map(note => remapSequenceNoteToRuntime(note, runtime, options));
-  const key = JSON.stringify([runtime.scale, runtime.equivInterval, runtime.fundamental,
-    runtime.referenceDegree, pitches, notes.map(note => !!note.held), drift]);
   let steps;
-  if (options.chordSolver) {
+  if (options.chordLiveEdit) {
+    // Explicit user edits may resolve the sounding formation immediately.
+    // chooseChordSteps enforces the same search budget as the worker; normal
+    // attacks must continue using ready background decisions only.
+    steps = chooseChordSteps(pitches, runtime, drift, notes.map(note => !!note.held));
+  } else if (options.chordSolver) {
     const held = notes.map(note => !!note.held);
     steps = options.chordReadOnly
       ? options.chordSolver.read(pitches, runtime, drift, held) ?? chooseChordSteps(pitches, runtime, 0)
       : options.chordSolver.choose(pitches, runtime, drift, held);
   } else {
+    // Pure callers retain synchronous optimisation for offline/tests, but do
+    // not retain arbitrarily large fallback arrays or cache keys.
+    if (!chordSearchWithinBudget(notes.length, runtime.scale.length, drift))
+      return notes.map(note => remapSequenceNoteToRuntime(note, runtime, options));
+    const key = JSON.stringify([runtime.scale, runtime.equivInterval, runtime.fundamental,
+      runtime.referenceDegree, pitches, notes.map(note => !!note.held), drift]);
     steps = chordCache.get(key);
     if (!steps) {
       steps = chooseChordSteps(pitches, runtime, drift, notes.map(note => !!note.held));

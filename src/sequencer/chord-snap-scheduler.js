@@ -50,7 +50,7 @@ export function createChordSnapScheduler({
         worker.onerror = () => { if (worker === owner) fail(); };
         worker.onmessageerror = () => { if (worker === owner) fail(); };
         worker.onmessage = ({ data }) => {
-          if (worker !== owner || !active || data.id !== active.id) return;
+          if (worker !== owner || !active || data?.id !== active.id) return;
           const job = active;
           clearTimer(job.timer);
           active = null;

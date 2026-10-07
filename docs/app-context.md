@@ -136,6 +136,47 @@ Snap, resolve from `sequenceOriginalPitch`, choose a current-tuning pitch, then
 apply the sequence PITCH offset. Disabling Snap must resolve from the original
 again, not from the previous snapped result. Source storage stays unchanged.
 
+The chord prototype is App-owned (`chordDrift`) and
+shared by palette and Sequencer; these experimental controls are not persisted.
+[chord-snap.js](../src/sequencer/chord-snap.js) searches shared source shifts on a
+one-cent grid, bounded to 0–66 cents (default 33), scoring original interval
+errors with extra weight for simple intervals and held continuation pairs.
+The fader appears whenever Snap is active; positive drift enables chord search,
+while zero uses the existing nearest-degree mapper. The mean destination displacement
+from ordinary Snap is also bounded by the fader; this is not an independent
+per-note tolerance or a guarantee of exact uniform displacement in a discrete scale.
+`sequenceSnapGroup` carries the complete immutable snapshot pitch set and note
+index through partial/arpeggiated attacks. App reattaches it after cue projection,
+which otherwise strips custom metadata. Resolve owned voices and queued attacks
+with the same live options; never remap a previous snapped result.
+App passes [chord-snap-scheduler.js](../src/sequencer/chord-snap-scheduler.js) as
+the solver. Cold optimisation runs in one module Worker, never in an attack or
+retune callback. Preparation is debounced 40 ms and visits the current snapshot,
+eight forward and two backward; display projection only reads ready results and
+does not enqueue the whole score. Equal tuning runtimes keep stable identities
+so ordinary timed UI ticks do not rebuild every projection or restart warmup.
+The queue holds at most 32 jobs, with demand-triggered jobs ahead of background
+work, and an LRU cache holds at most 128 decisions. Eligibility is capped at
+32 notes, 512 degrees and 250,000 estimated degree-scan/pair-scoring operations.
+A 250 ms worker deadline, construction/runtime errors or unavailable workers
+fall back to ordinary Snap without delaying playback. Tuning/drift, legato or
+source changes discard obsolete queued work; replies from terminated workers
+are ignored. Unmount terminates the worker and clears its timer/queue/cache.
+
+Each formation memoises one complete mapping, including a cold fallback. A late
+reply may benefit a new formation but cannot change later attacks of the current
+arpeggio. Explicit Snap/tuning/drift transactions create a new decision token and
+can adopt a ready result atomically through the owned-voice retune path. Explicit
+drift-fader edits resolve the sounding formation synchronously within the same
+search budget, retaining live feedback even with a cold worker cache. Ordinary
+note attacks still use background decisions or nearest-note fallback. There
+is no completion-triggered background retune. Pure offline callers retain a
+bounded 256-entry synchronous cache; oversized fallback arrays are not retained.
+This remains snapshot-level optimisation, not overlapping-cue chord analysis.
+Tests: [chord-snap.test.js](../src/sequencer/chord-snap.test.js),
+[chord-snap-scheduler.test.js](../src/sequencer/chord-snap-scheduler.test.js),
+and App's shared-controls / warm-worker / unavailable-worker tests.
+
 App can render new settings before Keys has applied them. `resolveSequenceSnapRuntime`
 handles that reference handoff; the effective live frame also includes modulation.
 Do not equate a preset's nominal fundamental with every sounding voice's reference.
