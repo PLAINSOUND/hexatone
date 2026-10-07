@@ -254,7 +254,8 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       }
       setPresets([]);
       setSoundfontName("");
-      onChange("output_fluidsynth", false);
+      // Keep the controls and failure message visible so the user can retry.
+      // A failed instrument load must not change their output preference.
       onChange(
         "fluidsynth_runtime_revision",
         (Number(settings.fluidsynth_runtime_revision) || 0) + 1,

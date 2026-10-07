@@ -435,6 +435,8 @@ The options are grouped under **Built-in Samples**, **Built-in SoundFont Player*
 
 Restoring I/O remembers the requested setup, not browser permission: MIDI/SysEx access must still be granted and the selected ports must be available. 
 
+All three built-in backends are enabled by default; saved I/O choices override these defaults. FluidSynth remains silent until a SoundFont is loaded. On audio activation, Hexatone tries to restore the last SoundFont and its preset from an available offline browser copy, without downloading it again.
+
 When working with a loaded sequence, the **Sequencer Transport** fieldset below MIDI Output provides the sequencer's **PLAY FROM**, **TIMED PLAYBACK**, **SPEED**, and **PITCH** controls. These operate the same transport as the SEQUENCER tab, so you can stop, resume, or adjust playback while designing sounds.
 
 ### Built-in Samples
@@ -443,7 +445,7 @@ Hexatone has a small built-in library of sampled sounds. These include several a
 
 When changing instruments, the current sound remains available while the new samples load. Held and legato notes keep their original sound until their normal release; new attacks use the newly loaded instrument. Volume and PANIC continue to affect voices from the previous sound.
 
-If audio has not yet been activated, **Activate Audio Context** appears at the bottom of Built-in Samples. This uses the same audio-activation action as the HEXATONE and SEQUENCER tabs.
+When activation or recovery is needed, a shared audio popup offers **Enable Audio** or **Restore Audio**, along with **Save Report** for troubleshooting. Normal engine loading is not treated as an interruption.
 
 ### Built-in SoundFont Player
 

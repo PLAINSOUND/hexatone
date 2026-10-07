@@ -414,6 +414,18 @@ describe("FluidSynth settings", () => {
     finishLoading({ presets: [] });
   });
 
+  it("keeps the backend enabled and shows the error when a local SoundFont fails", async () => {
+    fluidsynthMock.load.mockRejectedValue(new Error("Out of memory"));
+    const onChange = vi.fn();
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("FluidSynth SoundFont"), {
+      target: { files: [new File([new Uint8Array([1])], "Organ.sf2")] },
+    });
+    await screen.findByText("SoundFont load failed: Out of memory");
+    expect(onChange).not.toHaveBeenCalledWith("output_fluidsynth", false);
+    expect(screen.getByRole("button", { name: "Choose Local File" }).disabled).toBe(false);
+  });
+
   it("does not automatically enable output when loading a SoundFont", async () => {
     const setVolume = vi.fn();
     fluidsynthMock.engine = { soundfontId: null, presets: [], setVolume };
