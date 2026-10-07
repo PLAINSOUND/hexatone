@@ -1507,7 +1507,7 @@ describe("App workspace tabs", () => {
     const previousSettings = settings;
     synthWiringState.readySampleInstrument = "reed";
     const keys = { settings: { note_names: [], heji_names: [] },
-      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+      playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn(), resizeHandler: vi.fn() };
     const view = render(<App />);
     try {
       await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
@@ -1551,7 +1551,11 @@ describe("App workspace tabs", () => {
       await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
       act(() => lastKeyboardProps.onKeysReady(keys));
       fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
-      await userEvent.selectOptions(await screen.findByLabelText("next snapshot target"), "5");
+      const target = await screen.findByLabelText("next snapshot target");
+      act(() => {
+        target.value = "5";
+        target.dispatchEvent(new Event("change", { bubbles: true }));
+      });
       await waitFor(() => expect(screen.getByLabelText("next snapshot target").value).toBe("5"));
       fireEvent.click(screen.getByLabelText("play current sequence position"));
       expect(keys.playSnapshot).toHaveBeenCalledOnce();

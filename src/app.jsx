@@ -2500,7 +2500,6 @@ const App = () => {
 
   const onCueSequenceSnapshot = useCallback(
     (targetIndex) => {
-      console.log("CUE DEBUG", targetIndex);
       const nextState = resolvePendingSnapshotTransportState({
         targetIndex,
         snapshots,
