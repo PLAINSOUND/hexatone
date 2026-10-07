@@ -77,6 +77,18 @@ function setup({ stallSecond = false, initialisation, blocked = false } = {}) {
 }
 
 describe("recoverable SuperSonic engine", () => {
+  it("closes audio immediately but keeps the engine port alive until a pending purge settles", async () => {
+    const { create, contexts, engines } = setup();
+    const synth = await create();
+    let finish;
+    engines[0].purge.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    synth.allSoundOff();
+    synth.shutdown({ panic: true });
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+    expect(engines[0].destroy).not.toHaveBeenCalled();
+    finish();
+    await vi.waitFor(() => expect(engines[0].destroy).toHaveBeenCalledOnce());
+  });
   it("waits for initial browser activation and wakes the pending context on a tap", async () => {
     const { create, contexts, engines } = setup({ blocked: true });
     const work = create();
@@ -144,10 +156,9 @@ describe("recoverable SuperSonic engine", () => {
     expect(contexts[0].close).toHaveBeenCalledOnce();
     expect(engines[1].loadSynthDef).toHaveBeenCalledTimes(4);
     synth.applyZoneModwheel(127);
-    expect(engines[1].send).toHaveBeenCalledWith("/n_set", 9100, "mod", 2);
+    expect(engines[1].send).toHaveBeenCalledWith("/n_set", 9100, "expressionY", 1);
     synth.shutdown({ panic: true });
-    await Promise.resolve();
-    expect(engines[1].destroy).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(engines[1].destroy).toHaveBeenCalledOnce());
   });
   it("rejects a stalled replacement and permits a retry", async () => {
     vi.useFakeTimers();

@@ -14,8 +14,8 @@ for (const name of ["pluck", "string", "formant", "tone"]) {
   await cp(new URL(`tools/supersonic/generated/hexlab_${name}.scsyndef`, root), new URL(`synthdefs/hexlab_${name}.scsyndef`, dest));
 }
 for (const [directory, revision, name] of [
-  ["upstream", "de3a28cc3d6aaf41431c48e3bd0175cbd9bd39b8", "supersonic"],
-  ["upstream/clockwork", "11798b61e1957246760c34c27b0cd79fa6b78560", "clockwork"],
+  ["upstream-088", "8a82576df1e6367484ed9ea711e2cc19267f986a", "supersonic"],
+  ["upstream-088/clockwork", "132197a41507496f28281b4f9e68b8348ef4f162", "clockwork"],
   ["sc3-plugins", "fa926d6b554acef35b2fd9deb2f996085fa86bd7", "sc3-plugins"],
 ]) {
   execFileSync("git", ["-C", fileURLToPath(new URL(`tools/supersonic/${directory}`, root)), "archive", "--format=tar.gz", `--output=${fileURLToPath(new URL(`sources/${name}.tar.gz`, dest))}`, revision]);
@@ -33,4 +33,4 @@ async function hashDirectory(directory, prefix = "") {
   }
 }
 await hashDirectory(dest);
-await writeFile(new URL("manifest.json", dest), JSON.stringify({ version: "0.86.0-dfm1", files }, null, 2) + "\n");
+await writeFile(new URL("manifest.json", dest), JSON.stringify({ version: "0.88.0-dfm1", files }, null, 2) + "\n");

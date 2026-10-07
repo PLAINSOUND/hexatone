@@ -15,7 +15,8 @@ export function comparisonControls(values) {
     "freq", bounded("frequency", 220, 20, 16000),
     "on_vel", bounded("velocity", 80, 1, 127),
     "off_vel", 64, "vol", bounded("level", 0.06, 0, 0.3),
-    "mod", bounded("mod", 1, 1, 2), "filter", bounded("filter", 1, 1, 2),
+    "expressionY", bounded("mod", 1, 1, 2) - 1,
+    "pressure", bounded("filter", 1, 1, 2) - 1,
     "sustain_mode", 0,
     "retrigger_mode", values.retrigger ? 1 : 0,
   ];

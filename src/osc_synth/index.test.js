@@ -80,6 +80,26 @@ describe("osc_synth pooled slot allocation", () => {
     vi.unstubAllGlobals();
   });
 
+  it("sends normalized expression controls at onset and for 14-bit updates", async () => {
+    const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn() };
+    const synth = await create_osc_synth("ws://expression", ["pluck"], [0.5],
+      0, 0.1, false, 440, 0, [0], 1, { transport });
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.prepareSnapshotPressure(64);
+    hex.noteOn();
+    const args = transport.send.mock.calls.find(([address]) => address === "/s_new")[1];
+    const value = (name) => args[args.findIndex(arg => arg.value === name) + 1]?.value;
+    expect(value("pressure")).toBeCloseTo(64 / 127);
+    expect(value("expressionY")).toBe(0);
+    expect(args.some(arg => ["mod", "filter"].includes(arg.value))).toBe(false);
+    transport.send.mockClear();
+    hex.pressure(127, 16256);
+    hex.cc74(127, 16256);
+    expect(transport.send.mock.calls.map(([, args]) => args.slice(1).map(arg => arg.value)))
+      .toEqual([["pressure", 1], ["expressionY", 1]]);
+    synth.shutdown({ panic: true });
+  });
+
   it("does not create muted layers and clears voices when a layer reaches zero", async () => {
     const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn(), setTailPruning: vi.fn() };
     const synth = await create_osc_synth("ws://muted", ["pluck", "tone"], [0, 0.5],
@@ -392,7 +412,7 @@ describe("osc_synth pooled slot allocation", () => {
     );
   });
 
-  it("routes per-note CC74 to mod rather than filter", async () => {
+  it("routes per-note CC74 to expressionY rather than pressure", async () => {
     const synth = await create_osc_synth(
       "ws://test-osc-cc74",
       ["pluck", "string", "formant", "tone"],
@@ -414,11 +434,11 @@ describe("osc_synth pooled slot allocation", () => {
 
     const ws = MockWebSocket.instances[0];
     const modSets = ws.sent.filter((msg) => {
-      return msg.address === "/n_set" && msg.args[1]?.value === "mod";
+      return msg.address === "/n_set" && msg.args[1]?.value === "expressionY";
     });
     const filterSets = ws.sent.filter((msg) => {
       return (
-        msg.address === "/n_set" && msg.args[1]?.value === "filter" && msg.args[0]?.value !== 1
+        msg.address === "/n_set" && msg.args[1]?.value === "pressure" && msg.args[0]?.value !== 1
       );
     });
 
@@ -453,9 +473,9 @@ describe("osc_synth pooled slot allocation", () => {
     const sNews = ws.sent.filter((msg) => msg.address === "/s_new");
     expect(sNews.length).toBeGreaterThanOrEqual(8);
     const lastLayerStart = sNews.at(-1);
-    const modIndex = lastLayerStart.args.findIndex((arg) => arg?.value === "mod");
+    const modIndex = lastLayerStart.args.findIndex((arg) => arg?.value === "expressionY");
     expect(modIndex).toBeGreaterThan(-1);
-    expect(lastLayerStart.args[modIndex + 1]?.value).toBeCloseTo(1 + 100 / 127, 6);
+    expect(lastLayerStart.args[modIndex + 1]?.value).toBeCloseTo(100 / 127, 6);
   });
 
   it("broadcasts one group update per layer for each synth-level Mod Wheel event", async () => {
@@ -486,7 +506,7 @@ describe("osc_synth pooled slot allocation", () => {
     const groupModSets = () =>
       ws.sent.filter(
         (msg) =>
-          msg.address === "/n_set" && msg.args[0]?.value === 1 && msg.args[1]?.value === "mod",
+          msg.address === "/n_set" && msg.args[0]?.value === 1 && msg.args[1]?.value === "expressionY",
       );
 
     expect(groupModSets()).toHaveLength(4);
@@ -525,10 +545,10 @@ describe("osc_synth pooled slot allocation", () => {
 
     const ws = MockWebSocket.instances.at(-1);
     const modSets = ws.sent.filter(
-      (msg) => msg.address === "/n_set" && msg.args[1]?.value === "mod",
+      (msg) => msg.address === "/n_set" && msg.args[1]?.value === "expressionY",
     );
     expect(modSets.length).toBeGreaterThan(0);
-    expect(modSets.at(-1)?.args[2]?.value).toBeCloseTo(1 + 100 / 127, 6);
+    expect(modSets.at(-1)?.args[2]?.value).toBeCloseTo(100 / 127, 6);
   });
 
   it("uses a pre-note-on retune for the /s_new onset frequency", async () => {

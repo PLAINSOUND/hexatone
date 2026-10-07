@@ -89,13 +89,16 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       let closed = false;
       let closing;
       let nextGate;
+      let nextTransport;
       const closeNext = () => {
         if (closed) return closing;
         closed = true;
         pendingCloses.delete(closeNext);
         pendingContexts.delete(nextContext);
         nextGate?.disconnect();
-        const destroying = Promise.resolve().then(() => nextSonic.destroy()).catch((error) =>
+        const purge = nextTransport?.pendingPurge();
+        const destroying = (purge ? Promise.resolve(purge) : Promise.resolve())
+          .then(() => nextSonic.destroy()).catch((error) =>
           warnLog("SuperSonic shutdown:", error),
         );
         const closingContext = nextContext.state !== "closed" ? nextContext.close().catch(() => {}) : Promise.resolve();
@@ -162,6 +165,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
           closeNext();
           if (sonic === nextSonic) dispose();
         });
+        nextTransport = currentTransport;
         currentTransport.setTailPruning(pruning);
         closeOld();
       } catch (error) {

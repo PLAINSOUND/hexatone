@@ -18,6 +18,7 @@ osc-bridge/dist/
 coverage/
 tools/supersonic/generated/
 tools/supersonic/upstream/
+tools/supersonic/upstream-088/
 tools/supersonic/sc3-plugins/
 public/supersonic/
 public/fluidsynth/

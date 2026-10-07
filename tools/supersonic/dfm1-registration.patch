@@ -17,3 +17,18 @@ diff --git a/dsp/scsynth/synth/server/SC_Lib_Cintf.cpp b/dsp/scsynth/synth/serve
 +    TJUgens_Load(&gInterfaceTable);
  #endif // STATIC_PLUGINS
  }
+diff --git a/dsp/scsynth/CMakeLists.txt b/dsp/scsynth/CMakeLists.txt
+--- a/dsp/scsynth/CMakeLists.txt
++++ b/dsp/scsynth/CMakeLists.txt
+@@ -92,6 +92,10 @@ set(SCSYNTH_SOURCES
+     synth/plugins/UnaryOpUGens.cpp
+     synth/plugins/UnpackFFTUGens.cpp
+     synth/plugins/sc3-plugins/DistortionUGens.cpp
+-    synth/plugins/sc3-plugins/MdaUGens.cpp)
++    synth/plugins/sc3-plugins/MdaUGens.cpp
++    synth/plugins/HexatoneDFM1/TJUGens.cpp
++    synth/plugins/HexatoneDFM1/Dfm1.cpp
++    synth/plugins/HexatoneDFM1/Dfm1Lut.cpp
++    synth/plugins/HexatoneDFM1/NoiseGen.cpp)
+ 
+ add_library(scsynth STATIC

@@ -22,7 +22,7 @@ describe("SuperSonic comparison", () => {
     const pairs = comparisonControls({ frequency: 441.12345, level: 9, mod: -1 });
     expect(pairs[pairs.indexOf("freq") + 1]).toBe(441.12345);
     expect(pairs[pairs.indexOf("vol") + 1]).toBe(0.3);
-    expect(pairs[pairs.indexOf("mod") + 1]).toBe(1);
+    expect(pairs[pairs.indexOf("expressionY") + 1]).toBe(0);
   });
   it("releases before replacement and panics only its own group", () => {
     const send = vi.fn(); let id = 100;

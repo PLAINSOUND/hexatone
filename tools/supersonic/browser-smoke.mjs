@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { chromium } from "./upstream/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-088/node_modules/playwright/index.mjs";
 
 const core = process.argv[2] ?? "dfm1";
 const mode = process.argv[3] ?? "postMessage";
@@ -78,7 +78,7 @@ try {
           analyser.getFloatTimeDomainData(data);
           for (const sample of data) { finite &&= Number.isFinite(sample); peak = Math.max(peak, Math.abs(sample)); }
         }
-        sonic.send("/n_set", node, "freq", 330, "mod", 1.7, "filter", 1.5);
+        sonic.send("/n_set", node, "freq", 330, "expressionY", 0.7, "pressure", 0.5);
         await new Promise(resolve => setTimeout(resolve, 100));
         if (name === "formant") {
           const deadline = performance.now() + 8000;

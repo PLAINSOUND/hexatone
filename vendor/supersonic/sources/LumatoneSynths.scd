@@ -3,9 +3,11 @@
 // protects direct OSC/MIDI callers as well as Hexatone's browser-side guard.
 
 SynthDef(\pluck, { |freq, transpose=1, bend=1,
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	on_vel=64, off_vel=64, expressionY=0, pressure=0, gate=0, vol=0,
 	quick_release=0, quick_release_time=0.1|
 
+	// Preserve original DSP ranges behind normalized expression controls.
+	var mod = expressionY + 1, filter = pressure + 1;
 	var e, f, o, normal_release, effective_release;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
 	var shelf_freq, dfm_freq;
@@ -58,9 +60,11 @@ SynthDef(\pluck, { |freq, transpose=1, bend=1,
 
 
 SynthDef(\string, { |freq, transpose=1, bend=1,
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	on_vel=64, off_vel=64, expressionY=0, pressure=0, gate=0, vol=0,
 	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
+	// Preserve original DSP ranges behind normalized expression controls.
+	var mod = expressionY + 1, filter = pressure + 1;
 	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot, held_mode;
 	var attack_time, cycle_done;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
@@ -122,9 +126,11 @@ SynthDef(\formant_array, { |freq, transpose=1, bend=1,
 	formant_freq = #[1, 1, 1, 1, 1],
 	formant_reso = #[1, 1, 1, 1, 1],
 	formant_amp = #[1, 1, 1, 1, 1],
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	on_vel=64, off_vel=64, expressionY=0, pressure=0, gate=0, vol=0,
 	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
+	// Preserve original DSP ranges behind normalized expression controls.
+	var mod = expressionY + 1, filter = pressure + 1;
 	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot, held_mode;
 	var attack_time, cycle_done, vowel_table, vowel_index, cycle_vowel;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
@@ -185,9 +191,11 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 	ff0=800, ff1=1150, ff2=2900, ff3=3900, ff4=4950,
 	fr0=0.1, fr1=0.078, fr2=0.041, fr3=0.033, fr4=0.028,
 	fa0=1.0, fa1=0.5,   fa2=0.025, fa3=0.1,  fa4=0.003,
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	on_vel=64, off_vel=64, expressionY=0, pressure=0, gate=0, vol=0,
 	quick_release=0, quick_release_time=0.1, sustain_mode=0, retrigger_mode=0|
 
+	// Preserve original DSP ranges behind normalized expression controls.
+	var mod = expressionY + 1, filter = pressure + 1;
 	var e, f, o, amp, normal_release, effective_release, articulation_trigger, one_shot, held_mode;
 	var attack_time, cycle_done, vowel_table, vowel_index, cycle_vowel;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
@@ -247,9 +255,11 @@ SynthDef(\formant, { |freq, transpose=1, bend=1,
 
 
 SynthDef(\tone, { |freq, transpose=1, bend=1,
-	on_vel=64, off_vel=64, mod=1, filter=1, gate=0, vol=0,
+	on_vel=64, off_vel=64, expressionY=0, pressure=0, gate=0, vol=0,
 	quick_release=0, quick_release_time=0.1|
 
+	// Preserve original DSP ranges behind normalized expression controls.
+	var mod = expressionY + 1, filter = pressure + 1;
 	var e, o, p, output, effective_release;
 	var requested_freq, comparable_freq, safe_freq, safe_bend, pitched_freq, valid_freq, freq_status;
 	var dfm_freq, tone_lpf_freq;

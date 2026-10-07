@@ -1,6 +1,6 @@
 # SuperSonic / native SuperCollider comparison
 
-Comparison laboratory using pinned SuperSonic 0.86.0 packages. The separate lab
+Comparison laboratory using pinned SuperSonic 0.88.0 packages. The separate lab
 does not modify Hexatone's audio context or routing. An experimental integrated
 output is now available separately in I/O (see below).
 Use one laboratory tab at a time; its dedicated group/node range is shared by
@@ -84,14 +84,14 @@ from node_modules or the ignored generated directory, not bundled into the appli
 Toolchain versions are recorded in `TOOLCHAIN.md`. Fetch the pinned sources once:
 
 ```sh
-git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream
-git -C tools/supersonic/upstream checkout de3a28cc3d6aaf41431c48e3bd0175cbd9bd39b8
-git -C tools/supersonic/upstream submodule update --init --recursive
+git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-088
+git -C tools/supersonic/upstream-088 checkout 8a82576df1e6367484ed9ea711e2cc19267f986a
+git -C tools/supersonic/upstream-088 submodule update --init --recursive
 git clone https://github.com/supercollider/sc3-plugins.git tools/supersonic/sc3-plugins
 git -C tools/supersonic/sc3-plugins checkout fa926d6b554acef35b2fd9deb2f996085fa86bd7
 ```
 
-Run `npm ci` inside `tools/supersonic/upstream`. Activate the installed Emscripten
+Run `npm ci` inside `tools/supersonic/upstream-088`. Activate the installed Emscripten
 SDK in the build shell (`source /Users/marcsabat/Dev/emsdk/emsdk_env.sh` on this
 machine), with Rust/Cargo on PATH. Before applying the extension, the optional
 unmodified comparison core can be built and saved from the upstream directory:

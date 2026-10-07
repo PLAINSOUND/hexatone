@@ -5728,8 +5728,8 @@ __metadata:
     prop-types: "npm:^15.8.1"
     stylelint: "npm:^17.14.0"
     stylelint-config-standard: "npm:^40.0.0"
-    supersonic-scsynth: "npm:0.86.0"
-    supersonic-scsynth-core: "npm:0.86.0"
+    supersonic-scsynth: "npm:0.88.0"
+    supersonic-scsynth-core: "npm:0.88.0"
     vite: "npm:^8.2.0"
     vite-plugin-svgr: "npm:^5.2.0"
     vitest: "npm:^4.1.10"
@@ -6740,19 +6740,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"supersonic-scsynth-core@npm:0.86.0":
-  version: 0.86.0
-  resolution: "supersonic-scsynth-core@npm:0.86.0"
-  checksum: 10c0/07c596e3fea64b2b3f43a9b292f136943713c62f975a6c481c0c58824bec4236b2c89abf912aac4c1221a86b9970a2bf45118c50fcaf6b978823eef3ed6eb96a
+"supersonic-scsynth-core@npm:0.88.0":
+  version: 0.88.0
+  resolution: "supersonic-scsynth-core@npm:0.88.0"
+  checksum: 10c0/096d794c3337240f5a3122ec133c65e36f74c50be726f7b9fe57303af554aba898006e93216f6396acef2a218c8a79f99af951827b493a8b37e9a4b4984819e2
   languageName: node
   linkType: hard
 
-"supersonic-scsynth@npm:0.86.0":
-  version: 0.86.0
-  resolution: "supersonic-scsynth@npm:0.86.0"
+"supersonic-scsynth@npm:0.88.0":
+  version: 0.88.0
+  resolution: "supersonic-scsynth@npm:0.88.0"
   dependencies:
     "@thi.ng/malloc": "npm:^6.1.128"
-  checksum: 10c0/591b85fe0fcf0cc994b9566a21ea91050036f1f6efef79fd0bcadc239d842a5e9a74ca29cd63822583d6e5fc279cb52300cb83dc8d1d21479f1a0a1983bd54ab
+  checksum: 10c0/54d4e45a8ea563eea8c092bd28959f67e2d693038e51260f635511b786f63fc7a1755b502146440285ee7f377bdc96d2a3eb4b9b51b8e0c85170176e09197e46
   languageName: node
   linkType: hard
 

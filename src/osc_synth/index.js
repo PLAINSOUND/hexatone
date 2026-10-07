@@ -6,8 +6,8 @@
  *   makeHex(coords, cents, ...) → { noteOn(), noteOff(), retune(), aftertouch() }
  *
  * Routing:
- *   /s_new, note /n_set (bend, filter, gate)  → directly to layer server (57101–57104)
- *   /n_set mod                                → broadcast to all four servers, node 1
+ *   /s_new, note /n_set (bend, pressure, expressionY, gate) → layer server (57101–57104)
+ *   /n_set expressionY (mod wheel)            → broadcast to all four servers, node 1
  *   /n_set vol (fader)                        → node 1 on specific layer server (57101–57104)
  *
  * A shared 128-slot nearest-note pool bounds active voice bookkeeping.
@@ -309,10 +309,10 @@ const buildSNewArgs = (
     { type: "f", value: onVel },
     { type: "s", value: "bend" },
     { type: "f", value: bend },
-    { type: "s", value: "filter" },
-    { type: "f", value: filter },
-    { type: "s", value: "mod" },
-    { type: "f", value: mod },
+    { type: "s", value: "pressure" },
+    { type: "f", value: filter - 1 },
+    { type: "s", value: "expressionY" },
+    { type: "f", value: mod - 1 },
     { type: "s", value: "vol" },
     { type: "f", value: vol },
     { type: "s", value: "quick_release" },
@@ -597,8 +597,8 @@ export const create_osc_synth = async (
           "/n_set",
           [
             { type: "i", value: 1 },
-            { type: "s", value: "mod" },
-            { type: "f", value: mod },
+            { type: "s", value: "expressionY" },
+            { type: "f", value: mod - 1 },
           ],
           port,
         );
@@ -944,8 +944,8 @@ OscHex.prototype.aftertouch = function (value, value14 = null) {
       "/n_set",
       [
         { type: "i", value: this._nodeIds[i] },
-        { type: "s", value: "filter" },
-        { type: "f", value: filter },
+        { type: "s", value: "pressure" },
+        { type: "f", value: filter - 1 },
       ],
       OSC_LAYER_PORTS[i],
     );
@@ -1005,7 +1005,7 @@ OscHex.prototype.pitchbend = function (value) {
   }
 };
 
-// CC74 / timbre → mod on individual nodes
+// CC74 / Y expression → expressionY on individual nodes
 OscHex.prototype.cc74 = function (value, value14 = null) {
   if (this.release) return;
   const mod =
@@ -1020,15 +1020,15 @@ OscHex.prototype.cc74 = function (value, value14 = null) {
       "/n_set",
       [
         { type: "i", value: this._nodeIds[i] },
-        { type: "s", value: "mod" },
-        { type: "f", value: mod },
+        { type: "s", value: "expressionY" },
+        { type: "f", value: mod - 1 },
       ],
       OSC_LAYER_PORTS[i],
     );
   }
 };
 
-// Modwheel → broadcast /n_set \mod to node 1 on all four servers
+// Modwheel → broadcast /n_set expressionY to node 1 on all four servers
 OscHex.prototype.modwheel = function (value) {
   const mod = midiCcToScParam(value);
   this._modRef.value = mod;
@@ -1038,8 +1038,8 @@ OscHex.prototype.modwheel = function (value) {
       "/n_set",
       [
         { type: "i", value: 1 },
-        { type: "s", value: "mod" },
-        { type: "f", value: mod },
+        { type: "s", value: "expressionY" },
+        { type: "f", value: mod - 1 },
       ],
       port,
     );

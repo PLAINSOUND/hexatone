@@ -441,7 +441,7 @@ When working with a loaded sequence, the **Sequencer Transport** fieldset below 
 
 ### Built-in Samples
 
-Hexatone has a small built-in library of sampled sounds. These include several additive synthesis timbres with 1–16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching, and may be changed dynamically while playing live or sequenced material. For more sophisticated sound design, layer the MIDI and/or OSC outputs.
+Hexatone has a small built-in library of sampled sounds. These include several additive synthesis timbres with 1–16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching, and may be changed dynamically while playing live or sequenced material. Sample volume defaults to 0.5; saved volume settings take precedence. For more sophisticated sound design, layer the MIDI and/or OSC outputs.
 
 When changing instruments, the current sound remains available while the new samples load. Held and legato notes keep their original sound until their normal release; new attacks use the newly loaded instrument. Volume and PANIC continue to affect voices from the previous sound.
 
@@ -618,6 +618,26 @@ This mode requires a local clone of the repo and a locally running bridge:
 4. Enable **Use SuperCollider Sounds** in Hexatone, uncheck **SuperSonic**, and set **Bridge URL** to the running bridge.
 
 This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
+
+#### Writing compatible SynthDefs
+
+Hexatone sends standard SuperCollider `/s_new` and `/n_set` messages. The following are SynthDef control names, not separate OSC addresses:
+
+| Control | Value / default | Purpose |
+| --- | --- | --- |
+| `freq` | Hz | Unbent note frequency; multiply by `bend` for sounding pitch. |
+| `bend` | Ratio, default `1` | Pitch expression; `2` raises pitch one octave. |
+| `pressure` | `0–1`, default `0` | Per-note pressure (Z), including recorded or generated expression. |
+| `expressionY` | `0–1`, default `0` | Y expression from CC74; its musical mapping is up to the SynthDef. |
+| `on_vel`, `off_vel` | `0–127`, default `64` | Attack and release velocity. |
+| `gate` | `1` held, `0` released | Start/release the envelope. |
+| `vol` | `0–1`, default `0` | Layer level. |
+
+For example, `/n_set 1001 "bend" 1.02 "pressure" 0.7 "expressionY" 0.4` updates one voice. Smooth expression inside the SynthDef as appropriate; Y need not control a filter or timbre. The existing modulation-wheel mapping is retained: CC1 also updates `expressionY`, globally across each layer. It is not a separate pressure control.
+
+The supplied definitions are `pluck`, `string` (Buzz), `formant`, and `tone` (Saw), routed to layer ports 57101–57104. External replacements should use these names and compatible controls; the current interface does not offer arbitrary SynthDef name selection. Optional Hexatone articulation controls are `quick_release` (`0–1`), `quick_release_time` (seconds), `sustain_mode`, and `retrigger_mode`. Formant also receives its vowel-filter controls. Define any additional controls you need with safe defaults and free voices after release. Use the supplied `Synths/SuperCollider-OSC/LumatoneSynths.scd` as a reference.
+
+Earlier definitions used `mod` and `filter` with values `1–2`. These are now `expressionY` and `pressure` with values `0–1`; the supplied definitions convert internally to preserve their sound. Reload the updated definitions on your external server when updating Hexatone.
 
 There are four faders for the four independently layered SynthDefs used in the custom SuperCollider patch made for PLAINSOUND HEXATONE. The resonance layers may be used in single-trigger mode (default) or retrigger mode. The release envelope may be shortened and blended with a velocity-driven release. The drier sound may be applied only to rastered glissandi generated from Haken Continuum or applied to all notes.
 

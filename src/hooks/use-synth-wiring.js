@@ -18,6 +18,7 @@ import { createMonoSynth } from "../mono_synth/index.js";
 import { create_composite_synth } from "../composite_synth";
 import { create_osc_synth } from "../osc_synth";
 import { peekFluidSynthEngine } from "../fluidsynth_synth/index.js";
+import { readSampleVolume } from "../audio/sample-volume.js";
 import { detectController, getControllerById } from "../controllers/registry.js";
 import {
   applyControllerPresetAnchor,
@@ -1218,7 +1219,7 @@ const useSynthWiring = (
         // held notes detach obsolete children instead of retaining a dead graph.
         const s = create_composite_synth(validSynths, retiringSampleSynthsRef.current);
         if (s.setVolume) {
-          const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
+          const volume = readSampleVolume();
           s.setVolume(volume);
         }
         // Reconcile before publishing React state. No await may separate these
@@ -1385,7 +1386,7 @@ const useSynthWiring = (
   useEffect(() => {
     synthRef.current = synth;
     if (synth?.setVolume) {
-      const volume = parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0;
+      const volume = readSampleVolume();
       synth.setVolume(volume);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

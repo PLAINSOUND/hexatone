@@ -28,6 +28,6 @@ export async function restoreLocalSoundfont({ signal, preferredPreset } = {}) {
     name: source.name, url: source.url || "", arrayBuffer: () => bank.blob.arrayBuffer(),
   }, { signal, preferredPreset: savedPreset ?? preferredPreset });
   const engine = peekFluidSynthEngine();
-  engine?.setVolume(Number(localStorage.getItem("fluidsynth_internal_volume") ?? 75));
+  engine?.setVolume(Number(localStorage.getItem("fluidsynth_internal_volume") ?? 100));
   return { ...result, selectedPreset: engine?.selectedPreset };
 }

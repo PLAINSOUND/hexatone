@@ -55,6 +55,9 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     }
   });
   return {
+    // Teardown must let an in-flight upstream purge release its port listener.
+    // SuperSonic bounds this acknowledgement even when its worklet is gone.
+    pendingPurge: () => purgePromise,
     setTailPruning(percentage) {
       // 64 tails per layer at 0%, 16 at 100%; held voices are never counted.
       tailLimit = Math.round(64 - 48 * Math.max(0, Math.min(1, percentage)));

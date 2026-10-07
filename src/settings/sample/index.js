@@ -8,7 +8,7 @@ import PropTypes from "prop-types";
 import Sample from "./sample";
 
 const SampleSynth = (props) => (
-  <fieldset>
+  <fieldset class="output-routing-fieldset">
     <legend>
       <b>Built-in Samples</b>
     </legend>

@@ -103,7 +103,7 @@ describe("local OSC transport", () => {
       440, 0, [0], 1, { transport });
     expect(synth.local).toBe(true);
     synth.applyZoneModwheel(127);
-    expect(sonic.send).toHaveBeenCalledWith("/n_set", 9100, "mod", 2);
+    expect(sonic.send).toHaveBeenCalledWith("/n_set", 9100, "expressionY", 1);
     await synth.ensureAwake();
     expect(sonic.audioContext.resume).toHaveBeenCalledOnce();
     synth.shutdown({ panic: true });

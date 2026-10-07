@@ -1,5 +1,5 @@
 /** Exercises Hexatone's real local OSC adapter against a running Vite server. */
-import { chromium } from "./upstream/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-088/node_modules/playwright/index.mjs";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 const production = process.argv.includes("--production");
@@ -13,19 +13,19 @@ const browser = await chromium.launch({
 try {
   const page = await browser.newPage();
   const errors = [];
-  page.on("pageerror", error => errors.push(error.message));
+  page.on("pageerror", error => { errors.push(error.message); console.error(error.stack); });
   const base = process.env.HEXATONE_TEST_URL ?? "http://127.0.0.1:5176";
   await page.goto(production ? `${base}/` : `${base}/supersonic-lab.html`);
   await page.waitForLoadState("networkidle");
   const result = await page.evaluate(async (moduleUrl) => {
-    const NativeContext = window.AudioContext;
-    let context;
-    window.AudioContext = class extends NativeContext { constructor(options) { super(options); context = this; } };
+    // The app can also initialise its own outputs. Observe the test engine's
+    // context explicitly instead of whichever context was constructed last.
+    const analysers = new Map();
     const originalConnect = AudioNode.prototype.connect;
-    let analyser;
     AudioNode.prototype.connect = function (...args) {
       if (this instanceof AudioWorkletNode) {
-        analyser = this.context.createAnalyser();
+        const analyser = this.context.createAnalyser();
+        analysers.set(this.context, analyser);
         originalConnect.call(this, analyser);
       }
       return originalConnect.apply(this, args);
@@ -34,6 +34,8 @@ try {
     const create_supersonic_synth = module.create_supersonic_synth ?? Object.values(module).find(value => typeof value === "function");
     const synth = await create_supersonic_synth(undefined, undefined, [0.03, 0.03, 0.03, 0.03]);
     await synth.prepare();
+    let context = synth.getAudioContext();
+    let analyser = analysers.get(context);
     const note = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
     note.noteOn();
     synth.applyZoneModwheel(60);
@@ -50,8 +52,12 @@ try {
     synth.shutdown({ panic: true });
     await new Promise(resolve => setTimeout(resolve, 100));
     const contextState = context.state;
-    const smooth = await create_supersonic_synth(undefined, undefined, [0, 0, 0, 0.1]);
+    // Use a sustained string: the saw's short release can finish before this
+    // wall-clock observation when headless audio renders ahead.
+    const smooth = await create_supersonic_synth(undefined, undefined, [0, 0.1, 0, 0]);
     await smooth.prepare();
+    context = smooth.getAudioContext();
+    analyser = analysers.get(context);
     smooth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1).noteOn();
     await new Promise(resolve => setTimeout(resolve, 800));
     smooth.shutdown();

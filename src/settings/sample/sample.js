@@ -7,11 +7,10 @@
 import { useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import CustomRangeSlider from "../shared/range-slider.jsx";
+import { readSampleVolume } from "../../audio/sample-volume.js";
 
 const Sample = (props) => {
-  const [volume, setVolume] = useState(
-    () => parseFloat(localStorage.getItem("synth_volume") ?? "1") || 1.0,
-  );
+  const [volume, setVolume] = useState(readSampleVolume);
 
   const handleVolume = (e) => {
     const val = parseFloat(e.target.value);
@@ -19,8 +18,6 @@ const Sample = (props) => {
     localStorage.setItem("synth_volume", val);
     if (props.onVolumeChange) props.onVolumeChange(val, false);
   };
-
-
   return (
     <>
       <label>
@@ -47,7 +44,7 @@ const Sample = (props) => {
               handleVolume({ target: { value: String(nextValue) } });
             }}
           />
-          <span class="settings-form__range-value settings-form__range-value--short">
+          <span class="settings-form__range-value">
             {Number.isInteger(volume) ? volume.toFixed(0) : volume.toFixed(2)}
           </span>
         </span>

@@ -6,6 +6,11 @@ import { createHash } from "node:crypto";
 const root = new URL("../../", import.meta.url);
 const bundle = new URL("vendor/supersonic/", root);
 const manifest = JSON.parse(await readFile(new URL("manifest.json", bundle), "utf8"));
+const version = manifest.version.replace(/-dfm1$/, "");
+for (const name of ["node_modules/supersonic-scsynth/package.json", "vendor/supersonic/core/package.json"]) {
+  const pkg = JSON.parse(await readFile(new URL(name, root), "utf8"));
+  if (pkg.version !== version) throw new Error(`SuperSonic client/core version mismatch: ${name} is ${pkg.version}, expected ${version}`);
+}
 for (const [path, expected] of Object.entries(manifest.files)) {
   const actual = createHash("sha256").update(await readFile(new URL(path, bundle))).digest("hex");
   if (actual !== expected) throw new Error(`SuperSonic asset checksum mismatch: ${path}`);

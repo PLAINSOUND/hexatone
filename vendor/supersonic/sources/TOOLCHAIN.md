@@ -1,10 +1,10 @@
 # Local build toolchain
 
-Installed and checked on Marc's Apple Silicon Mac, 2026-09-26.
-This prepares a custom SuperSonic/DFM1 build; no custom engine has been built yet.
+Installed on Marc's Apple Silicon Mac, 2026-09-26; reused for the
+SuperSonic 0.88.0/DFM1 rebuild on 2026-10-07.
 
-Versions follow SuperSonic 0.86.0 source revision
-`de3a28cc3d6aaf41431c48e3bd0175cbd9bd39b8`, whose BUILDING.md and Dockerfile
+Versions follow SuperSonic 0.88.0 source revision
+`8a82576df1e6367484ed9ea711e2cc19267f986a`, whose BUILDING.md and Dockerfile
 specify the nightly, Emscripten and wasm-bindgen versions below.
 
 | Tool | Version | Location / ownership |
