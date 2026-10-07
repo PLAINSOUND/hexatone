@@ -890,12 +890,19 @@ const useSynthWiring = (
       !cancelled && permissionGeneration === midiPermissionGenerationRef.current &&
       retryGeneration === audioRetryGenerationRef.current;
 
+    // Match the sequence-only keyboard's neutral pitch reference. Absolute
+    // sequence notes do not require a canvas preset or its fundamental.
+    const playbackFundamental = Number(settings.fundamental);
+    const playbackSettings = {
+      ...settings,
+      fundamental: Number.isFinite(playbackFundamental) && playbackFundamental > 0
+        ? playbackFundamental : 440,
+    };
     const wantSample =
       !deferSampleActivation &&
       settings.output_sample &&
       settings.instrument &&
-      settings.instrument !== "OFF" &&
-      settings.fundamental;
+      settings.instrument !== "OFF";
 
     // Stored sequence notes are absolute pitches and remain playable before a
     // Hexatone scale is loaded. Synth constructors nevertheless expect a
@@ -912,6 +919,12 @@ const useSynthWiring = (
     const playbackEquivInterval = hasPlaybackScale ? (settings.equivInterval ?? 1200) : 1200;
 
     const tuningRuntime = deriveTuningRuntime(settings);
+    const internalPlaybackTuning = tuningRuntime ?? {
+      scale: [0],
+      equivInterval: 1200,
+      degree0toRefAsArray: [0, 1],
+      fundamental: playbackSettings.fundamental,
+    };
     const outputRuntime = deriveOutputRuntime(settings, midi, tuningRuntime);
     const mtsOutputs = outputRuntime.outputs.filter((o) => o.family === "mts");
     const wantMts = mtsOutputs.some((o) => o.transportMode === "single_note_realtime");
@@ -927,7 +940,7 @@ const useSynthWiring = (
       settings.mpe_hi_ch >= settings.mpe_lo_ch;
 
     // OSC → SuperCollider via local WebSocket bridge (node osc-bridge/index.js)
-    const wantOsc = settings.output_osc && settings.fundamental;
+    const wantOsc = settings.output_osc;
 
     // FluidSynth mirror — must be computed before the early-return guard below,
     // otherwise the TDZ reference to wantFluidsynth in that condition would throw
@@ -981,7 +994,7 @@ const useSynthWiring = (
     };
     if (monoOutput) {
       const { key, args } = monoOutputConfig(
-        settings,
+        playbackSettings,
         playbackTuning,
         monoOutput,
         outputPortIdentityRef.current,
@@ -999,7 +1012,7 @@ const useSynthWiring = (
       clearOutputRef(monoSynthRef);
     }
 
-    const sampleConfig = sampleOutputConfig(settings, playbackTuning);
+    const sampleConfig = sampleOutputConfig(playbackSettings, playbackTuning);
     const sampleKey = sampleConfig.key;
     if (!wantSample) {
       clearSampleOutputs(sampleSynthRef, retiringSampleSynthsRef);
@@ -1068,10 +1081,10 @@ const useSynthWiring = (
           ),
         );
       }
-      if (wantInternalFluidSynth && fluidSynthEngine?.output && tuningRuntime) {
+      if (wantInternalFluidSynth && fluidSynthEngine?.output) {
         const { key: fluidKey, args } = fluidSynthOutputConfig(
-          settings,
-          tuningRuntime,
+          playbackSettings,
+          internalPlaybackTuning,
           fluidSynthEngine.output,
           outputPortIdentityRef.current,
         );
@@ -1098,7 +1111,7 @@ const useSynthWiring = (
     }
 
     if (wantOsc) {
-      const oscConfig = oscOutputConfig(settings, playbackTuning);
+      const oscConfig = oscOutputConfig(playbackSettings, playbackTuning);
       const oscKey = oscConfig.key;
       if (oscSynthRef.current.key === oscKey && oscSynthRef.current.synth) {
         promises.push(Promise.resolve(oscSynthRef.current.synth));

@@ -7,7 +7,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function setup({ stallSecond = false, initialisation } = {}) {
+function setup({ stallSecond = false, initialisation, blocked = false } = {}) {
   const contexts = [];
   const engines = [];
   class Context {
@@ -27,7 +27,7 @@ function setup({ stallSecond = false, initialisation } = {}) {
       contexts.push(this);
       this.state = "suspended";
       this.resume = vi.fn(async () => {
-        this.state = "running";
+        if (!blocked) this.state = "running";
       });
       this.close = vi.fn(async () => {
         this.state = "closed";
@@ -77,6 +77,18 @@ function setup({ stallSecond = false, initialisation } = {}) {
 }
 
 describe("recoverable SuperSonic engine", () => {
+  it("waits for initial browser activation and wakes the pending context on a tap", async () => {
+    const { create, contexts, engines } = setup({ blocked: true });
+    const work = create();
+    await vi.waitFor(() => expect(engines).toHaveLength(1));
+    contexts[0].state = "interrupted";
+    expect(engines[0].init).not.toHaveBeenCalled();
+    contexts[0].resume.mockImplementation(async () => { contexts[0].state = "running"; });
+    document.dispatchEvent(new Event("pointerdown"));
+    await work;
+    expect(contexts[0].resume).toHaveBeenCalledTimes(2);
+    expect(engines[0].init).toHaveBeenCalledOnce();
+  });
   it("disposes a pending initialisation and prevents its late publication", async () => {
     let finish;
     const initialisation = new Promise((resolve) => { finish = resolve; });

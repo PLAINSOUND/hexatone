@@ -37,8 +37,11 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
   let recoveryMuted = false;
   let closeCurrent = () => {};
   const pendingCloses = new Set();
+  const pendingContexts = new Set();
   const wake = () => {
-    if (context && context.state !== "closed") void context.resume().catch(() => {});
+    for (const candidate of new Set([context, ...pendingContexts])) {
+      if (candidate && candidate.state !== "closed") void candidate.resume().catch(() => {});
+    }
   };
   const dispose = () => {
     if (disposed) return;
@@ -58,11 +61,13 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     const build = async () => {
       const ticket = ++generation;
       const nextContext = new AudioContext({ latencyHint: "interactive" });
+      pendingContexts.add(nextContext);
       void nextContext.resume().catch(() => {});
       // A hard recovery must release the previous WASM engine before allocating
       // another one. Context activation above still begins on the user gesture.
       await closeCurrent();
       if (disposed || stopping) {
+        pendingContexts.delete(nextContext);
         await nextContext.close();
         throw new Error("SuperSonic output is shutting down");
       }
@@ -77,6 +82,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         });
       } catch (error) {
         // Constructor allocation can fail before normal engine cleanup exists.
+        pendingContexts.delete(nextContext);
         await nextContext.close().catch(() => {});
         throw error;
       }
@@ -87,6 +93,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         if (closed) return closing;
         closed = true;
         pendingCloses.delete(closeNext);
+        pendingContexts.delete(nextContext);
         nextGate?.disconnect();
         const destroying = Promise.resolve().then(() => nextSonic.destroy()).catch((error) =>
           warnLog("SuperSonic shutdown:", error),
@@ -97,6 +104,22 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       };
       pendingCloses.add(closeNext);
       let deadline;
+      // Initial iOS/private-browser activation may be blocked until another
+      // gesture. NTPTiming requires a running clock; do not start its timeout
+      // while waiting for browser permission. Hard recovery remains bounded.
+      try {
+        const waitingSince = performance.now();
+        while (nextContext.state !== "running") {
+          if (disposed || stopping || ticket !== generation || nextContext.state === "closed")
+            throw new Error("SuperSonic recovery superseded");
+          if (context && performance.now() - waitingSince > 30000)
+            throw new Error("SuperSonic audio context did not resume");
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+      } catch (error) {
+        await closeNext();
+        throw error;
+      }
       const expired = new Promise((_, reject) => {
         deadline = setTimeout(() => {
           if (ticket === generation) generation += 1;
@@ -132,6 +155,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         const closeOld = closeCurrent;
         sonic = nextSonic;
         context = nextContext;
+        pendingContexts.delete(nextContext);
         closeCurrent = closeNext;
         recoveryGate = nextGate;
         currentTransport = createLocalOscTransport(sonic, SuperSonic.osc.encodeBundle, () => {

@@ -5,6 +5,8 @@ import useSynthWiring from "./use-synth-wiring.js";
 import { WebMidi } from "webmidi";
 
 const factories = vi.hoisted(() => ({ sample: vi.fn(), osc: vi.fn(), local: vi.fn(), mpe: vi.fn(), mts: vi.fn() }));
+const fluid = vi.hoisted(() => ({ engine: null }));
+vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => fluid.engine }));
 vi.mock("../supersonic_synth/index.js", () => ({ create_supersonic_synth: factories.local }));
 vi.mock("../sample_synth", () => ({ create_sample_synth: factories.sample }));
 vi.mock("../osc_synth", () => ({ create_osc_synth: factories.osc }));
@@ -40,11 +42,38 @@ beforeEach(() => {
   factories.local.mockReset();
   factories.mpe.mockReset();
   factories.mts.mockReset();
+  fluid.engine = null;
   WebMidi.enabled = false;
   WebMidi.interface = null;
   WebMidi.disable = vi.fn(async () => { WebMidi.enabled = false; WebMidi.interface = null; });
 });
 afterEach(cleanup);
+
+it("includes a loaded internal SoundFont without a canvas tuning", async () => {
+  const selected = engine();
+  fluid.engine = { soundfontId: 1, output: { id: "internal-fluid" } };
+  factories.mts.mockResolvedValue(selected);
+  render(<Harness settings={{ ...base, output_sample: false,
+    output_fluidsynth: true, scale: null, fundamental: null }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([selected]));
+  expect(factories.mts.mock.calls[0][0].tuningContext).toMatchObject({
+    fundamental: 440, scale: [0], degree0toRefAsArray: [0, 1],
+  });
+});
+
+it("includes samples and SuperSonic without a canvas tuning or fundamental", async () => {
+  const sample = engine();
+  const local = { ...engine(), local: true };
+  factories.sample.mockResolvedValue(sample);
+  factories.local.mockResolvedValue(local);
+  render(<Harness settings={{ ...base, scale: null, fundamental: null,
+    output_osc: true, osc_local: true }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([sample, local]));
+  expect(factories.sample.mock.calls[0][0]).toEqual("A");
+  expect(factories.sample.mock.calls[0][1]).toBe(440);
+  expect(factories.local.mock.calls[0][6]).toBe(440);
+  expect(factories.local.mock.calls[0][8]).toEqual([0]);
+});
 
 it("abandons a cancelled initialisation and allows a fresh retry", async () => {
   factories.osc.mockRejectedValueOnce(new Error("startup failed"));
