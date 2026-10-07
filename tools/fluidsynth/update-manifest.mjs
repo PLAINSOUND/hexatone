@@ -11,7 +11,8 @@ async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
-    if (entry.name === "manifest.json") continue;
+    // Finder metadata is ignored by Git and therefore absent on CI runners.
+    if (entry.name === "manifest.json" || entry.name === ".DS_Store" || entry.name.startsWith("._")) continue;
     const absolute = new URL(`${entry.name}${entry.isDirectory() ? "/" : ""}`, directory);
     if (entry.isDirectory()) files.push(...(await listFiles(absolute)));
     else files.push(relative(bundlePath.pathname, absolute.pathname).split(sep).join("/"));

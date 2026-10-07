@@ -18,7 +18,6 @@
     }
   },
   "files": {
-    ".DS_Store": "285a6c6dd9eeaef63d806baee6a128383e3941488be81ec1de21bdb445848efe",
     "README.md": "5f16e958d8ba37c72777af07f63c77348f894fbf5c747fac5033e55b51be4e50",
     "fluidsynth.js": "8a4f8a64e3a79e29af8b7ab8665e2e4e7545c746b56095af43fe460f4eed2653",
     "fluidsynth.wasm": "f3f7e54c1311ff51843fc172fac8177364f2fca94c35cc4ce4e02f54380eca03",
