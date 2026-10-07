@@ -789,7 +789,7 @@ export default function useTimedTransportController({
     (options = {}) => {
       const nowSeconds = getTimedTransportClockSecondsRef.current?.() ?? performance.now() / 1000;
       clearScheduledTimedCueCallbacks();
-      onStopSnapshot?.();
+      if (!options.preserveSoundingNotes) onStopSnapshot?.();
       recordTimedTransportDiagnostic({
         type: "stop",
         clockSeconds: nowSeconds,

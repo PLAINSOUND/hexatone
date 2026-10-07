@@ -17,11 +17,13 @@ export function createManualTransportActions({
   onJumpSequenceSnapshot,
   onJumpSequenceCue,
 }) {
-  const runTransportAction = (action) => {
+  const runTransportAction = (action, preserveSoundingNotes = false) => {
     stopTimedTransportBefore(
       () => runEditAwareTransportAction(action),
       timedTransportUiState,
-      onTimedTransportStop,
+      preserveSoundingNotes
+        ? (options) => onTimedTransportStop?.({ ...options, preserveSoundingNotes: true })
+        : onTimedTransportStop,
     );
   };
   const triggerManualTarget = (target, fallback, direction = 0) => {
@@ -34,7 +36,7 @@ export function createManualTransportActions({
     runTransportAction(() => {
       if (target === "snapshot") onJumpSequenceSnapshot?.(cue.snapshotIndex + direction);
       else onJumpSequenceCue?.(cueIndex + direction);
-    });
+    }, target === "cue" && direction !== 0);
   };
   return { runTransportAction, triggerManualTarget };
 }

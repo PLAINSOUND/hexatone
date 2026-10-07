@@ -6,11 +6,12 @@ it.each([[-1, "cue", 1], [1, "cue", 3], [-1, "snapshot", 6], [1, "snapshot", 8]]
     const cue = vi.fn();
     const snapshot = vi.fn();
     const fallback = vi.fn();
+    const stop = vi.fn();
     const actions = createManualTransportActions({
       timedTransportUiState: { running: true },
       getTimedTransportDisplay: () => ({ activeCueIndex: 2 }),
       sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 3 }, { snapshotIndex: 7 }],
-      onTimedTransportStop: vi.fn(),
+      onTimedTransportStop: stop,
       runEditAwareTransportAction: (action) => action(),
       onJumpSequenceCue: cue,
       onJumpSequenceSnapshot: snapshot,
@@ -18,6 +19,9 @@ it.each([[-1, "cue", 1], [1, "cue", 3], [-1, "snapshot", 6], [1, "snapshot", 8]]
     actions.triggerManualTarget(target, fallback, direction);
     expect(target === "cue" ? cue : snapshot).toHaveBeenCalledExactlyOnceWith(expected);
     expect(fallback).not.toHaveBeenCalled();
+    expect(stop).toHaveBeenCalledWith(target === "cue"
+      ? { restoreStartTarget: false, preserveSoundingNotes: true }
+      : { restoreStartTarget: false });
   },
 );
 
