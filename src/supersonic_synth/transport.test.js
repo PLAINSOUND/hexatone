@@ -14,6 +14,21 @@ function setup() {
   return { sonic, encode, dispose, transport, ended: id => incoming(["/n_end", id]) };
 }
 describe("local OSC transport", () => {
+  it("clears untracked synths after purge without deleting the layer groups", async () => {
+    const { sonic, transport } = setup();
+    let resolve;
+    sonic.purge.mockImplementation(() => new Promise(done => { resolve = done; }));
+    sonic.send.mockClear();
+    transport.panic();
+    transport.send("/s_new", typed("pluck", 101, 1, 1), 57101);
+    expect(sonic.send).not.toHaveBeenCalled();
+    resolve();
+    await Promise.resolve();
+    expect(sonic.send.mock.calls).toEqual([
+      ["/g_deepFree", 0], ["/s_new", "hexlab_pluck", 101, 1, 9100],
+    ]);
+    transport.release();
+  });
   it("prunes oldest released tails more strongly at higher percentages, never held nodes", () => {
     const { sonic, transport, ended } = setup();
     transport.send("/s_new", typed("tone", 99, 1, 1), 57104);

@@ -2099,10 +2099,9 @@ class Keys {
   }
 
   stopSnapshot() {
-    const soundingHexes =
-      this._soundingSnapshotHexes instanceof Set
-        ? [...this._soundingSnapshotHexes]
-        : this._snapshotHexes;
+    const soundingHexes = [...new Set([...(this._snapshotHexes ?? []),
+      ...(this._soundingSnapshotHexes ?? []), ...(this._snapshotVoiceOwners?.keys() ?? []),
+      ...[...(this._snapshotGestureVoices?.values() ?? [])].flatMap((voices) => [...voices])])];
     SequencerSnapshots.stopSnapshot(soundingHexes, this);
     this._snapshotHexes = [];
     this._snapshotNotes = [];

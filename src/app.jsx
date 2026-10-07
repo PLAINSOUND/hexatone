@@ -140,6 +140,7 @@ import { deriveSequenceLegatoFlags, normalizeSequenceLegatoMode } from "./sequen
 import {
   remapSequenceNoteToRuntime,
   remapSequenceSnapshotsToRuntime,
+  resolveLiveSequencePitch,
 } from "./sequencer/runtime-pitch-map.js";
 import { createSequenceRuntimeModelBuilder } from "./sequencer/runtime-model.js";
 import { buildCueExpandedSnapshotIdsAt } from "./sequencer/view-runtime.js";
@@ -167,6 +168,7 @@ import { reuseEquivalentDisplaySnapshots } from "./sequencer/display-snapshot-st
 import {
   applySequenceTimbreModWheelToActiveSnapshotHexes,
   retuneActiveSnapshotHexes,
+  remapActiveSnapshotHexes,
   retuneSnapshotHexes,
 } from "./sequencer/snapshots.js";
 
@@ -1213,6 +1215,8 @@ const App = () => {
   });
   const sequenceRepeatPlaybackStateRef = useRef({});
   const previousSnapSequenceToCurrentTuningRef = useRef(false);
+  const previousSequenceSnapRuntimeKeyRef = useRef(null);
+  const liveSequenceSnapRuntimeRef = useRef(null);
   const previousSequencePlaybackPitchOffsetRef = useRef(0);
   const liveSequencePlaybackPitchOffsetRef = useRef(0);
   const appliedSequencePlaybackPitchOffsetRef = useRef(0);
@@ -1554,6 +1558,11 @@ const App = () => {
     const liveRuntime = keys?._effectiveScaleRuntimeForFrame?.(frame);
     return Array.isArray(liveRuntime?.scale) && liveRuntime.scale.length > 0 ? liveRuntime : null;
   })();
+  liveSequenceSnapRuntimeRef.current = snapSequenceToCurrentTuning ? currentSequenceSnapRuntime : null;
+  const sequenceSnapRuntimeKey = currentSequenceSnapRuntime ? JSON.stringify([
+    currentSequenceSnapRuntime.scale, currentSequenceSnapRuntime.equivInterval,
+    currentSequenceSnapRuntime.fundamental, currentSequenceSnapRuntime.referenceDegree,
+  ]) : null;
   const sequencePlaybackSnapshots = useMemo(() => {
     const keys = keysRef.current;
     if (!snapSequenceToCurrentTuning || !currentSequenceSnapRuntime) {
@@ -1981,7 +1990,9 @@ const App = () => {
         options?.pitchOffset ?? liveSequencePlaybackPitchOffsetRef.current,
       );
       const transformNotes = (notes) => {
-        let nextNotes = Array.isArray(notes) ? notes : [];
+        let nextNotes = Array.isArray(notes) ? notes.map((note) => ({ ...note,
+          sequenceOriginalPitch: { midicents: Number(note.midicents), frequency: note.frequency },
+        })) : [];
         if (snapSequenceToCurrentTuning && currentSequenceSnapRuntime) {
           nextNotes = nextNotes.map((note) =>
             remapSequenceNoteToRuntime(note, currentSequenceSnapRuntime, noteNameOptions),
@@ -2149,6 +2160,8 @@ const App = () => {
 
   useEffect(() => {
     const previousSnap = previousSnapSequenceToCurrentTuningRef.current;
+    const previousRuntimeKey = previousSequenceSnapRuntimeKeyRef.current;
+    previousSequenceSnapRuntimeKeyRef.current = sequenceSnapRuntimeKey;
     const previousPitch = previousSequencePlaybackPitchOffsetRef.current;
     const pitchAlreadyApplied =
       Math.abs(appliedSequencePlaybackPitchOffsetRef.current - sequencePlaybackPitchOffset) < 1e-9;
@@ -2157,9 +2170,20 @@ const App = () => {
     liveSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
     if (
       (previousSnap === snapSequenceToCurrentTuning || !currentSequenceSnapRuntime) &&
+      (!snapSequenceToCurrentTuning || previousRuntimeKey === sequenceSnapRuntimeKey) &&
       (previousPitch === sequencePlaybackPitchOffset || pitchAlreadyApplied)
     )
       return;
+    // Arpeggios can contain only a subset of a cue, or overlapping gestures.
+    // Resolve each owned voice from its immutable source instead of pairing it
+    // positionally with the current cue's complete note array.
+    const remapped = remapActiveSnapshotHexes(keysRef.current,
+      (note) => resolveLiveSequencePitch(note, liveSequenceSnapRuntimeRef.current,
+        sequencePlaybackPitchOffset), sequencePlaybackPitchOffset);
+    if (remapped.size) {
+      appliedSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
+      return;
+    }
     // Timed transport deliberately leaves the navigation playhead stopped and
     // tracks its sounding position separately. SNAP must still bend the active
     // timed voices immediately, just like the live playback-pitch control.
@@ -2197,6 +2221,8 @@ const App = () => {
     appliedSequencePlaybackPitchOffsetRef.current = sequencePlaybackPitchOffset;
   }, [
     currentSequenceSnapRuntime,
+    sequenceSnapRuntimeKey,
+    keysReadyRevision,
     sequenceLegato,
     sequencePlaybackNotesAtPosition,
     sequencePlayhead,
@@ -2290,7 +2316,9 @@ const App = () => {
           });
         },
         onAttack: (event, gestureId) => {
-          const result = keysRef.current?.attackSnapshotGestureNote?.(gestureId, event.note, {
+          const liveNote = resolveLiveSequencePitch(event.note, liveSequenceSnapRuntimeRef.current,
+            liveSequencePlaybackPitchOffsetRef.current);
+          const result = keysRef.current?.attackSnapshotGestureNote?.(gestureId, liveNote, {
             legato: event.note?.legatoContinuation === true,
             pitchOffsetCents: liveSequencePlaybackPitchOffsetRef.current,
             legatoTransitionMs,
@@ -3858,6 +3886,8 @@ const App = () => {
   const panicPlayback = useCallback(() => {
     // Cancel schedulers and deferred UI commits before silencing engines so
     // neither a queued cue nor its presentation can revive after PANIC.
+    cancelPendingManualCueUiCommit();
+    cancelManualSnapshotGestures();
     if (timedTransportStopRef.current) {
       timedTransportStopRef.current({ restoreStartTarget: false });
     } else {
@@ -3867,7 +3897,7 @@ const App = () => {
     guardianPanic();
     keysRef.current?.panic();
     resetOctave();
-  }, [guardianPanic, onStopSnapshot, resetOctave]);
+  }, [guardianPanic, onStopSnapshot, resetOctave, cancelManualSnapshotGestures, cancelPendingManualCueUiCommit]);
 
   const suppressTouchClickUntilRef = useRef(0);
   const runTouchControlAction = useCallback((e, action) => {

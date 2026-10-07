@@ -387,6 +387,7 @@ function prepareSnapshotHex(runtime, note, options = {}) {
     { playbackSourceCents, deferNoteOn: true, absoluteMidicents: Number(note.midicents) },
   );
   hex._snapshotReleaseVelocity = releaseVelocity;
+  hex._snapshotOriginalNote = { ...note };
   hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
   hex._snapshotMidicents = Number(note.midicents);
   hex._snapshotInstanceKey = snapshotInstanceKey(note);
@@ -636,6 +637,7 @@ function playSnapshotInTransaction(runtime, notes, options = {}) {
       const releaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
       const synthCents = synthCentsForSnapshotNote(runtime, note);
       reusedHex._snapshotReleaseVelocity = releaseVelocity;
+      reusedHex._snapshotOriginalNote = { ...note };
       reusedHex._snapshotPitchKey = key;
       reusedHex._snapshotMidicents = Number(note.midicents);
       reusedHex._snapshotInstanceKey = instanceKey;
@@ -763,6 +765,28 @@ function retuneSnapshotHexesInTransaction(runtime, notes, options = {}) {
  * follow a live global pitch gesture. Each target is reconstructed from the
  * voice's immutable unshifted base, so skipped frames cannot accumulate error.
  */
+export function remapActiveSnapshotHexes(runtime, resolveNote, pitchOffsetCents = 0) {
+  const retuned = new Set();
+  if (!runtime) return retuned;
+  const voices = new Set([...(runtime._snapshotHexes ?? []), ...soundingSnapshotHexes(runtime),
+    ...(runtime._snapshotVoiceOwners?.keys() ?? []),
+    ...[...(runtime._snapshotGestureVoices?.values() ?? [])].flatMap((owned) => [...owned])]);
+  withOutputTransaction(() => {
+    for (const hex of voices) {
+      if (!hex || hex.release === true || !hex._snapshotOriginalNote) continue;
+      const note = resolveNote(hex._snapshotOriginalNote);
+      const cents = synthCentsForSnapshotNote(runtime, note);
+      if (!Number.isFinite(cents)) continue;
+      hex._snapshotMidicents = Number(note.midicents);
+      hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
+      setSnapshotPitchReference(hex, cents, note.midicents, pitchOffsetCents);
+      sequenceRetuneSnapshotHex(hex, cents);
+      retuned.add(hex);
+    }
+  });
+  return retuned;
+}
+
 export function retuneActiveSnapshotHexes(...args) {
   return withOutputTransaction(() => retuneActiveSnapshotHexesInTransaction(...args));
 }

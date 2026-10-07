@@ -1,10 +1,42 @@
 import { expect, it, vi } from "vitest";
 import seeds from "./preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json";
 import { create_composite_synth } from "../composite_synth/index.js";
-import { playSnapshot, retuneActiveSnapshotHexes, retuneSnapshotHexes } from "./snapshots.js";
-import { remapSequenceNoteToRuntime } from "./runtime-pitch-map.js";
+import { playSnapshot, retuneActiveSnapshotHexes, retuneSnapshotHexes,
+  beginSnapshotGesture, attackSnapshotGestureNote, remapActiveSnapshotHexes,
+  stopSnapshotGesture } from "./snapshots.js";
+import { remapSequenceNoteToRuntime, resolveLiveSequencePitch } from "./runtime-pitch-map.js";
 
 const frequency = (note) => 440 * 2 ** ((note.midicents - 69) / 12);
+
+it("retunes held and queued Seeds arpeggio notes from their original pitches with Snap active", () => {
+  const notes = seeds.snapshots.find(snapshot => snapshot.notes.length >= 4).notes;
+  const planned = notes.map(note => resolveLiveSequencePitch(note));
+  const reference = { fundamental: 440, cents: 0, ratio: 1 };
+  const engine = output(reference);
+  const runtime = {
+    settings: { fundamental: 440, midi_velocity: 72 },
+    tuning: { degree0toRef_asArray: [0, 1], equivSteps: 1 },
+    state: { sustainedNotes: [] },
+    synth: create_composite_synth([engine], new Set(), reference),
+  };
+  beginSnapshotGesture(runtime, "seeds");
+  attackSnapshotGestureNote(runtime, "seeds", planned[0]);
+  for (const [index, divisions] of [7, 19, 12].entries()) {
+    const tuning = {
+      fundamental: 440, referenceDegree: 0, equivInterval: 1200,
+      scale: Array.from({ length: divisions }, (_, degree) => degree * 1200 / divisions),
+    };
+    remapActiveSnapshotHexes(runtime, note => resolveLiveSequencePitch(note, tuning));
+    attackSnapshotGestureNote(runtime, "seeds", resolveLiveSequencePitch(planned[index + 1], tuning));
+    engine.voices.forEach((voice, i) => {
+      expect(voice.frequency()).toBeCloseTo(frequency(remapSequenceNoteToRuntime(notes[i], tuning)), 8);
+    });
+  }
+  stopSnapshotGesture(runtime, "seeds");
+  engine.voices.forEach(voice => expect(voice.noteOff).toHaveBeenCalledOnce());
+  expect(runtime._snapshotVoiceOwners.size).toBe(0);
+  expect(runtime._soundingSnapshotHexes.size).toBe(0);
+});
 function output(reference) {
   const voices = [];
   return {

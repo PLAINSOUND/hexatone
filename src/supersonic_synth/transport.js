@@ -133,6 +133,15 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
       return purgePromise;
     },
     _flushBundles() {}, // Messages already handed to the audio-thread scheduler.
+    panic() {
+      if (closed) return;
+      this.cancelScheduled();
+      nodes.clear();
+      tails.clear();
+      // This transport owns the entire local engine. Keep its groups, but
+      // remove all synths, including any no longer represented by a JS voice.
+      dispatch("/g_deepFree", [0]);
+    },
     release({ graceful = false } = {}) {
       if (closed) return;
       if (graceful && nodes.size) {

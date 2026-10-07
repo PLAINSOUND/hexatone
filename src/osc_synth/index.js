@@ -659,6 +659,7 @@ export const create_osc_synth = async (
       debugLog("osc", "osc_synth.allSoundOff", { knownNodeCount: _knownNodeIds.size });
       socket.cancelScheduled?.();
       freeAllKnownNodes();
+      socket.panic?.();
     },
 
     releaseAll() {

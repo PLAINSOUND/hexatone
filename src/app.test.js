@@ -1078,7 +1078,7 @@ describe("App workspace tabs", () => {
     expect(polyTimbre).toHaveBeenCalledWith(127);
   });
 
-  it("uses manual arpeggiation when PLAY FROM starts a snapshot", async () => {
+  it.each(["next", "panic"])("uses manual arpeggiation and cancels queued attacks on %s", async (action) => {
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(
       SEQUENCE_WORKSPACE_STORAGE_KEY,
@@ -1140,6 +1140,17 @@ describe("App workspace tabs", () => {
     expect(keys.attackSnapshotGestureNote).toHaveBeenCalledTimes(1);
     expect(keys.attackSnapshotGestureNote.mock.calls[0][1].id).toBe("first");
 
+    if (action === "panic") {
+      fireEvent.click(screen.getByRole("button", { name: "PANIC" }));
+      expect(keys.stopSnapshotGesture).toHaveBeenCalledTimes(1);
+      expect(keys.panic).toHaveBeenCalledTimes(1);
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      expect(keys.attackSnapshotGestureNote).toHaveBeenCalledTimes(1);
+      unmount();
+      localStorage.removeItem("hexatone_persist_on_reload");
+      sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+      return;
+    }
     fireEvent.click(screen.getByLabelText("next sequence step"));
 
     expect(keys.releaseSnapshotGestureNote).toHaveBeenCalledTimes(1);

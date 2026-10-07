@@ -153,6 +153,17 @@ export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
   };
 }
 
+// Resolve every attack from its stored source, never from a previous snap.
+export function resolveLiveSequencePitch(note, runtime = null, pitchOffsetCents = 0) {
+  const source = note.sequenceOriginalPitch ?? {
+    midicents: Number(note.midicents), frequency: note.frequency,
+  };
+  const original = { ...note, ...source };
+  const mapped = runtime ? remapSequenceNoteToRuntime(original, runtime) : original;
+  const midicents = Number(mapped.midicents) + (Number(pitchOffsetCents) || 0) / 100;
+  return { ...mapped, midicents, frequency: noteFrequency(midicents), sequenceOriginalPitch: source };
+}
+
 export function remapSequenceSnapshotsToRuntime(snapshots, runtime, options = {}) {
   if (!Array.isArray(snapshots) || !Array.isArray(runtime?.scale) || runtime.scale.length === 0) {
     return snapshots ?? [];

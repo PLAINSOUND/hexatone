@@ -48,6 +48,7 @@ export function panic(keys) {
   // Hard output clearing must be last. Voice noteOff handlers may schedule
   // release expression; allSoundOff cancels that work and replaces it with
   // explicit note-offs plus controller resets on external outputs.
+  keys.stopSnapshot();
   if (keys.synth?.allSoundOff) keys.synth.allSoundOff();
 
   keys.state.sustainedNotes = [];
@@ -72,7 +73,6 @@ export function panic(keys) {
   keys._modulationState = cancelModulation(keys._modulationState, "panic");
   keys._emitModulationState();
   keys._emitLiveNoteDisplayState();
-  keys.stopSnapshot();
 }
 
 export function releaseAllKeyboardNotes(keys) {

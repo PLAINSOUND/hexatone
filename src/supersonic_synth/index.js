@@ -225,6 +225,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       cancelScheduled: (...values) => currentTransport.cancelScheduled(...values),
       release: (...values) => currentTransport.release(...values),
       _flushBundles: () => currentTransport._flushBundles(),
+      panic: () => currentTransport.panic(),
       prepare: () => context.resume(),
       getDiagnostics: () => currentTransport.getDiagnostics(),
       setTailPruning: (value) => {
