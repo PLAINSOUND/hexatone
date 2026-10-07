@@ -17,6 +17,19 @@ import {
 } from "./timed-transport-runtime.js";
 
 describe("timed transport runtime", () => {
+  it("continues an already sounding cue without replaying it or skipping its duration", () => {
+    const bursts = [
+      { playbackIndex: 0, elapsedSeconds: 0, sourceCueIndex: 1 },
+      { playbackIndex: 1, elapsedSeconds: 2, sourceCueIndex: 2 },
+      { playbackIndex: 2, elapsedSeconds: 5, sourceCueIndex: 3 },
+    ];
+    const state = startTimedTransport(null, bursts, {
+      playbackIndex: 1, clockSeconds: 10, alreadySounding: true,
+    });
+    expect(advanceTimedTransport(state, bursts, 10).dueBursts).toEqual([]);
+    expect(advanceTimedTransport(state, bursts, 12.9).dueBursts).toEqual([]);
+    expect(advanceTimedTransport(state, bursts, 13).dueBursts).toEqual([bursts[2]]);
+  });
   it("advances through structural bursts once and resumes at the next undispatched index", () => {
     const bursts = [
       { playbackIndex: 0, elapsedSeconds: 0, sourceCueIndex: 1 },

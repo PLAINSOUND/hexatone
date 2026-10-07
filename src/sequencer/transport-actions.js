@@ -24,7 +24,7 @@ export function createManualTransportActions({
       onTimedTransportStop,
     );
   };
-  const triggerManualTarget = (target, fallback) => {
+  const triggerManualTarget = (target, fallback, direction = 0) => {
     // Capture before stopping: PLAY FROM can still show the original origin.
     const cueIndex = timedTransportUiState?.running
       ? getTimedTransportDisplay?.()?.activeCueIndex
@@ -32,8 +32,8 @@ export function createManualTransportActions({
     const cue = Number.isInteger(cueIndex) ? sequenceCueGroups[cueIndex] : null;
     if (!cue) return runTransportAction(fallback);
     runTransportAction(() => {
-      if (target === "snapshot") onJumpSequenceSnapshot?.(cue.snapshotIndex);
-      else onJumpSequenceCue?.(cueIndex);
+      if (target === "snapshot") onJumpSequenceSnapshot?.(cue.snapshotIndex + direction);
+      else onJumpSequenceCue?.(cueIndex + direction);
     });
   };
   return { runTransportAction, triggerManualTarget };

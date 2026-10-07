@@ -73,6 +73,15 @@ function setup() {
 }
 
 describe("recoverable SuperSonic engine", () => {
+  it("closes the new context if constructor allocation fails and reports the actual error", async () => {
+    const { contexts } = setup();
+    class FailedSonic {
+      constructor() { throw new Error("Out of memory"); }
+    }
+    await expect(createSuperSonicOutput(FailedSonic, "https://test/", []))
+      .rejects.toThrow("SuperSonic could not start: Out of memory");
+    expect(contexts[0].close).toHaveBeenCalledOnce();
+  });
   it("creates and resumes a replacement in the gesture, keeping the synth and transport usable", async () => {
     const { create, contexts, engines } = setup();
     const synth = await create();

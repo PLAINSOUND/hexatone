@@ -42,13 +42,20 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       const ticket = ++generation;
       const nextContext = new AudioContext({ latencyHint: "interactive" });
       void nextContext.resume().catch(() => {});
-      const nextSonic = new SuperSonic({
+      let nextSonic;
+      try {
+        nextSonic = new SuperSonic({
         baseURL: `${base}client/`,
         coreBaseURL: `${base}core/`,
         mode: "postMessage",
         audioContext: nextContext,
         scsynthOptions: { maxNodes: 4096, realTimeMemorySize: 64 * 1024 },
-      });
+        });
+      } catch (error) {
+        // Constructor allocation can fail before normal engine cleanup exists.
+        void nextContext.close().catch(() => {});
+        throw error;
+      }
       let closed = false;
       let nextGate;
       const closeNext = () => {
@@ -164,6 +171,6 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     return synth;
   } catch (error) {
     dispose();
-    throw new Error(`Local SuperSonic unavailable (run yarn supersonic:assets): ${error.message}`);
+    throw new Error(`SuperSonic could not start: ${error.message}`, { cause: error });
   }
 }

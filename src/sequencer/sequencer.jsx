@@ -967,6 +967,7 @@ const Sequencer = ({
     timedPlaybackBursts,
     timedCueTriggers,
     timedCueTriggerBySourceIndex,
+    sequencePlaybackActive,
     playbackRuntimeToken,
     timedTriggerToken,
     sequencePlaybackSpeed,

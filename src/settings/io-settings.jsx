@@ -46,7 +46,7 @@ const IOSettings = ({
 }) => {
   const [restoreIO, setRestoreIO] = useState(() => restoreIOOnReload());
   return (
-    <div class="io-settings" autoComplete="off" role="group" aria-label="Input and output settings">
+    <div class={`io-settings${snapshots?.length ? " io-settings--with-transport" : ""}`} autoComplete="off" role="group" aria-label="Input and output settings">
       <div class="settings-form__reload-row settings-form__checkbox-row--sm io-settings__reload-row">
         <label class="settings-form__checkbox-row settings-form__reload-checkbox">
           <input

@@ -1,5 +1,26 @@
 import { createManualTransportActions, stopTimedTransportBefore } from "./transport-actions.js";
 
+it.each([[-1, "cue", 1], [1, "cue", 3], [-1, "snapshot", 6], [1, "snapshot", 8]])(
+  "hands off directly in direction %s to %s %s without replaying the current item",
+  (direction, target, expected) => {
+    const cue = vi.fn();
+    const snapshot = vi.fn();
+    const fallback = vi.fn();
+    const actions = createManualTransportActions({
+      timedTransportUiState: { running: true },
+      getTimedTransportDisplay: () => ({ activeCueIndex: 2 }),
+      sequenceCueGroups: [{ snapshotIndex: 0 }, { snapshotIndex: 3 }, { snapshotIndex: 7 }],
+      onTimedTransportStop: vi.fn(),
+      runEditAwareTransportAction: (action) => action(),
+      onJumpSequenceCue: cue,
+      onJumpSequenceSnapshot: snapshot,
+    });
+    actions.triggerManualTarget(target, fallback, direction);
+    expect(target === "cue" ? cue : snapshot).toHaveBeenCalledExactlyOnceWith(expected);
+    expect(fallback).not.toHaveBeenCalled();
+  },
+);
+
 it.each([{ running: true }, { paused: true }, {}])(
   "stops only an owned timed transport before an action: %j",
   (state) => {

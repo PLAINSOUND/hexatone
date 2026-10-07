@@ -808,7 +808,7 @@ const SequenceControls = ({
                 disabled={!transportBackAvailable}
                 onClick={() => {
                   setPlayFromTarget("snapshot");
-                  triggerManualTarget("snapshot", () => onStepSequence?.(-1));
+                  triggerManualTarget("snapshot", () => onStepSequence?.(-1), -1);
                 }}
               >
                 <span
@@ -872,7 +872,7 @@ const SequenceControls = ({
                     runTransportAction(() => onJumpSequenceSnapshot?.(0));
                     return;
                   }
-                  triggerManualTarget("snapshot", () => onStepSequence?.(1));
+                  triggerManualTarget("snapshot", () => onStepSequence?.(1), 1);
                 }}
               >
                 <span
@@ -892,7 +892,7 @@ const SequenceControls = ({
                 disabled={!transportBackAvailable}
                 onClick={() => {
                   setPlayFromTarget("cue");
-                  triggerManualTarget("cue", () => onStepSequenceMarker?.(-1));
+                  triggerManualTarget("cue", () => onStepSequenceMarker?.(-1), -1);
                 }}
               >
                 <span
@@ -956,7 +956,7 @@ const SequenceControls = ({
                     runTransportAction(() => onJumpSequenceCue?.(0));
                     return;
                   }
-                  triggerManualTarget("cue", () => onStepSequenceMarker?.(1));
+                  triggerManualTarget("cue", () => onStepSequenceMarker?.(1), 1);
                 }}
               >
                 <span

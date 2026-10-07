@@ -70,7 +70,7 @@ export function currentTimedTransportElapsedSeconds(state, clockSeconds = 0) {
 export function startTimedTransport(
   state,
   playbackBursts = [],
-  { playbackIndex = 0, clockSeconds = 0, speedMultiplier = null } = {},
+  { playbackIndex = 0, clockSeconds = 0, speedMultiplier = null, alreadySounding = false } = {},
 ) {
   if (!Array.isArray(playbackBursts) || playbackBursts.length === 0) {
     return createTimedTransportState([], { speedMultiplier });
@@ -82,8 +82,8 @@ export function startTimedTransport(
     anchorClockSeconds: Number(clockSeconds),
     pausedElapsedSeconds: Number(nextBurst?.elapsedSeconds ?? 0),
     speedMultiplier: clampSequencePlaybackSpeed(speedMultiplier ?? state?.speedMultiplier ?? 1),
-    nextPlaybackIndex,
-    lastDispatchedPlaybackIndex: nextPlaybackIndex - 1,
+    nextPlaybackIndex: nextPlaybackIndex + (alreadySounding ? 1 : 0),
+    lastDispatchedPlaybackIndex: nextPlaybackIndex - (alreadySounding ? 0 : 1),
   };
 }
 

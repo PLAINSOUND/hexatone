@@ -2969,12 +2969,16 @@ const App = () => {
       pendingTransportSelectionRef.current = clearPendingTransportSelection();
       const nextCueIndex = Number(targetCueIndex);
       if (!Number.isFinite(nextCueIndex) || sequenceCueGroups.length === 0) return;
+      if (nextCueIndex < 0 || nextCueIndex >= sequenceCueGroups.length) {
+        playSequencePosition(nextCueIndex < 0 ? -1 : snapshots.length, null);
+        return;
+      }
       const safeCueIndex = Math.max(0, Math.min(sequenceCueGroups.length - 1, nextCueIndex));
       const cueGroup = sequenceCueGroups[safeCueIndex];
       if (!cueGroup) return;
       playSequencePosition(cueGroup.snapshotIndex, safeCueIndex);
     },
-    [playSequencePosition, sequenceCueGroups],
+    [playSequencePosition, sequenceCueGroups, snapshots.length],
   );
 
   const onPlaySequence = useCallback(() => {
@@ -6226,7 +6230,7 @@ const App = () => {
         {/* Keep the portal host outside Suspense and mounted across tab changes.
             Ref detach/attach updates inside a suspending subtree can otherwise
             repeatedly set App state and rebuild that same subtree. */}
-        <fieldset hidden={workspaceTab !== "io" || snapshots.length === 0 || Boolean(activeManualView)}>
+        <fieldset className="io-sequencer-transport" hidden={workspaceTab !== "io" || snapshots.length === 0 || Boolean(activeManualView)}>
           <legend><b>Sequencer Transport</b></legend>
           <div id="io-sequencer-transport-host" ref={ioTransportTargetRef} />
         </fieldset>

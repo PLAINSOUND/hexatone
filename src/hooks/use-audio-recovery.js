@@ -91,6 +91,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     setRestoring(true);
     setStatus("Restoring audio…");
     try {
+      let startupErrors = [];
       if (initialiseRef?.current &&
           (!recorder.current.snapshot(synthRef.current).length || initialiseRef.current.needed?.())) {
         recorder.current.record("audio-initialisation-start");
@@ -110,6 +111,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
             ...result,
             outputs: recorder.current.snapshot(synthRef.current),
           });
+          startupErrors = result?.errors?.map((entry) => entry.error) ?? [];
         } finally {
           clearTimeout(timer);
         }
@@ -119,13 +121,15 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       });
       const failed = results.filter((result) => !result.ok);
       setStatus(
-        failed.length
-          ? `Could not restore ${failed.map((result) => result.backend).join(", ")}. Save a diagnostic report; you can retry.`
+        startupErrors.length
+          ? `Audio startup failed: ${[...new Set(startupErrors)].join("; ")}. Save a report; you can retry.`
+          : failed.length
+          ? `Could not restore ${failed.map((result) => result.backend).join(", ")}. Retry?`
           : "Audio engines restored. Try a note; if silent, save a diagnostic report.",
       );
     } catch (error) {
       recorder.current.record("recovery-error", { error: String(error.message ?? error) });
-      setStatus("Audio recovery failed. Save a diagnostic report; you can retry.");
+      setStatus(`Audio recovery failed: ${error.message ?? error}. Retry?`);
     } finally {
       busy.current = false;
       setRestoring(false);

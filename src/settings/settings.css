@@ -275,8 +275,12 @@
 
 @media (max-width: 480px) {
   .calculator-tab,
-  .io-settings {
+  .io-settings:not(.io-settings--with-transport) {
     padding-bottom: calc(2.25em + env(safe-area-inset-bottom, 0px));
+  }
+
+  #sidebar .io-sequencer-transport {
+    margin-bottom: calc(2.25em + env(safe-area-inset-bottom, 0px));
   }
 
   #sidebar .calculator-results > label:not(.settings-form__checkbox-row) {

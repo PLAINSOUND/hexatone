@@ -48,6 +48,7 @@ export default function useTimedTransportController({
   playheadMarkerIndex,
   playheadStepIndex,
   playheadIsEnd,
+  sequencePlaybackActive = false,
   selectedBarIndex,
   sortedBars,
   formatTransportClock,
@@ -721,6 +722,9 @@ export default function useTimedTransportController({
       playbackIndex: startIndex < 0 ? 0 : startIndex,
       clockSeconds: nowSeconds,
       speedMultiplier: sequencePlaybackSpeed,
+      alreadySounding: sequencePlaybackActive &&
+        !Number.isFinite(pendingTransportSelection?.cueIndex) &&
+        !Number.isFinite(pendingTransportSelection?.snapshotIndex),
     });
     recordTimedTransportDiagnostic({
       type: "start",
@@ -774,6 +778,8 @@ export default function useTimedTransportController({
     recordSequenceRuntimeDiagnostic,
     replayPausedTimedTransportCue,
     resolveTimedTransportStartIndex,
+    sequencePlaybackActive,
+    pendingTransportSelection,
     sequencePlaybackSpeed,
     timedTriggerToken,
     timedPlaybackBursts,
