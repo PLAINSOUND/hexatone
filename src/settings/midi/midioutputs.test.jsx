@@ -143,7 +143,7 @@ describe("MidiOutputs FluidSynth independence", () => {
   });
 
   it("offers named expressionY CC destinations excluding special messages", () => {
-    const props = makeProps({ output_mono: true });
+    const props = makeProps({ output_mono: true, mono_device: "main-1" });
     props.onChange = vi.fn();
     render(<MidiOutputs {...props} />);
     const select = screen.getByRole("combobox", { name: "Map MPE ExpressionY (CC74) to" });
@@ -183,9 +183,23 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(send).toHaveBeenCalledTimes(12);
   });
 
-  it("disables monophonic RPN sending without a connected port", () => {
-    render(<MidiOutputs {...makeProps({ output_mono: true, mono_device: "OFF" })} />);
-    expect(screen.getByRole("button", { name: "Send Pitch Bend Range" }).disabled).toBe(true);
+  it.each([undefined, "", "OFF"])("hides monophonic configuration when Port is off (%s)", (device) => {
+    const props = makeProps({ output_mono: true, mono_device: device, mono_channel: 3 });
+    props.onChange = vi.fn();
+    const view = render(<MidiOutputs {...props} />);
+    expect(screen.getByRole("combobox", { name: "Monophonic MIDI Port" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Monophonic MIDI Channel" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send Pitch Bend Range" })).toBeNull();
+    expect(screen.queryByLabelText("Map MPE ExpressionY (CC74) to")).toBeNull();
+    expect(screen.queryByRole("slider", { name: "Monophonic MIDI Portamento Time" })).toBeNull();
+    fireEvent.change(screen.getByRole("combobox", { name: "Monophonic MIDI Port" }),
+      { target: { value: "main-1" } });
+    expect(props.onChange).toHaveBeenCalledWith("mono_device", "main-1");
+    view.rerender(<MidiOutputs {...props} settings={{ ...props.settings, mono_device: "main-1" }} />);
+    expect(screen.getByRole("combobox", { name: "Monophonic MIDI Channel" }).value).toBe("3");
+    expect(screen.getByRole("button", { name: "Send Pitch Bend Range" })).toBeTruthy();
+    view.rerender(<MidiOutputs {...props} settings={{ ...props.settings, mono_device: "OFF" }} />);
+    expect(screen.queryByRole("combobox", { name: "Monophonic MIDI Channel" })).toBeNull();
   });
 
   it.each([false, true])(

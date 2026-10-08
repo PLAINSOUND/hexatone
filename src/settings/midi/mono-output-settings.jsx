@@ -46,6 +46,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
               ))}
             </select>
           </label>
+          {settings.mono_device && settings.mono_device !== "OFF" && <>
           <label>
             Channel
             <select
@@ -145,10 +146,11 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
           <p class="settings-form__intro-copy">
             <em>
               Match the instrument's pitch-bend range; not all synths honour RPN setup. Use a
-              separate port/channel from other outputs. Slide uses the selected CC (default 74) and
+              separate port/channel from other outputs. ExpressionY uses the selected CC (default 74) and
               pressure becomes channel pressure; the instrument must support these controls.
             </em>
           </p>
+          </>}
         </>
       )}
       <br />
