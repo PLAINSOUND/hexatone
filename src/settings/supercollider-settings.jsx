@@ -142,7 +142,7 @@ const SuperColliderSettings = ({
             ["osc_volume_saw", "Saw"],
           ].map(([key, label], index) => (
             <label key={key}>
-              {label}
+              <span class={layerVolumes[key] === 0 ? "scsynth-layer-label scsynth-layer-label--muted" : "scsynth-layer-label"}>{label}</span>
               <span class="sidebar-input settings-form__range-row">
                 <CustomRangeSlider
                   ariaLabel={`${label} volume`}

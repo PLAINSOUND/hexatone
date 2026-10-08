@@ -117,6 +117,58 @@ describe("osc_synth pooled slot allocation", () => {
     synth.shutdown({ panic: true });
   });
 
+  it("restores only an unmuted layer with current held-note pitch and expression", async () => {
+    const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn() };
+    const synth = await create_osc_synth("ws://layer-restore", ["pluck", "tone"], [0, 0.5],
+      0.25, 0.3, false, 440, 0, [0], 1, { transport });
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn();
+    hex.retune(1200);
+    hex.pitchbend(1.1);
+    hex.pressure(127);
+    hex.cc74(64);
+    transport.send.mockClear();
+    synth.setLayerVolume(0, 0.4);
+    const attacks = transport.send.mock.calls.filter(([address]) => address === "/s_new");
+    expect(attacks).toHaveLength(1);
+    expect(attacks[0][2]).toBe(57101);
+    const args = attacks[0][1].map(arg => arg.value);
+    const parameter = name => args[args.indexOf(name) + 1];
+    expect(parameter("freq")).toBe(880);
+    expect(parameter("bend")).toBe(1.1);
+    expect(parameter("pressure")).toBe(1);
+    expect(parameter("expressionY")).toBeCloseTo(64 / 127);
+    expect(parameter("vol")).toBe(0.4);
+    const nodeId = attacks[0][1][1].value;
+    synth.setLayerVolume(0, 0.6);
+    expect(transport.send.mock.calls.filter(([address]) => address === "/s_new")).toHaveLength(1);
+    transport.send.mockClear();
+    hex.noteOff(64);
+    expect(transport.send.mock.calls.some(([address, args]) => address === "/n_set" && args[0].value === nodeId)).toBe(true);
+    synth.setLayerVolume(0, 0);
+    transport.send.mockClear();
+    synth.setLayerVolume(0, 0.5);
+    expect(transport.send.mock.calls.some(([address]) => address === "/s_new")).toBe(false);
+    synth.shutdown({ panic: true });
+  });
+
+  it("restores muted held layers but does not resurrect notes cleared by panic", async () => {
+    const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn() };
+    const synth = await create_osc_synth("ws://layer-panic", ["pluck"], [0.5],
+      0.25, 0.3, false, 440, 0, [0], 1, { transport });
+    synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1).noteOn();
+    synth.setLayerVolume(0, 0);
+    transport.send.mockClear();
+    synth.setLayerVolume(0, 0.5);
+    expect(transport.send.mock.calls.filter(([address]) => address === "/s_new")).toHaveLength(1);
+    synth.setLayerVolume(0, 0);
+    synth.allSoundOff();
+    transport.send.mockClear();
+    synth.setLayerVolume(0, 0.5);
+    expect(transport.send.mock.calls.some(([address]) => address === "/s_new")).toBe(false);
+    synth.shutdown({ panic: true });
+  });
+
   it("does not create muted layers and clears voices when a layer reaches zero", async () => {
     const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn(), setTailPruning: vi.fn() };
     const synth = await create_osc_synth("ws://muted", ["pluck", "tone"], [0, 0.5],
@@ -125,8 +177,17 @@ describe("osc_synth pooled slot allocation", () => {
     hex.noteOn();
     expect(transport.send.mock.calls.filter(([address]) => address === "/s_new")).toHaveLength(1);
     expect(transport.setTailPruning).toHaveBeenCalledWith(0.25);
+    const releasedNode = hex._nodeIds[1];
+    transport.send.mockClear();
     synth.setLayerVolume(1, 0);
-    expect(transport.send).toHaveBeenCalledWith("/g_freeAll", [{ type: "i", value: 1 }], 57102);
+    expect(transport.send.mock.calls).toHaveLength(1);
+    expect(transport.send.mock.calls[0]).toEqual([
+      "/n_set", [
+        { type: "i", value: releasedNode },
+        { type: "s", value: "off_vel" }, { type: "f", value: 64 },
+        { type: "s", value: "gate" }, { type: "i", value: 0 },
+      ], 57102, expect.any(Number),
+    ]);
     transport.send.mockClear();
     hex.noteOff(64);
     expect(transport.send).not.toHaveBeenCalled();

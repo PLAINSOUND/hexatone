@@ -6171,10 +6171,8 @@ const App = () => {
         {workspaceTab === "sequencer" ? (
           <p class="sidebar-intro">
             <em>
-              Capture SNAPSHOTS of chords and momentary expression data (velocity, pressure, timbre)
-              while playing or sustaining. Trigger the sequence event by event. Edit start and stop
-              times within a chord to make CUES that sound a melody or arpeggiation. Create bars,
-              repeats, and tempo markers to generate automated timed playback.{" "}
+              To play, choose a built-in sequence; step through CUES or start TIMED PLAYBACK. Capture SNAPSHOTS of chords and momentary expression data (velocity, pressure, timbre)
+              while playing or sustaining. Trigger snapshots with arpeggiation. Use the event list to edit start and stop times and generate cues that sound a melody. Create bars, repeats, and tempo markers to make a score with automated timed playback.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -6206,7 +6204,7 @@ const App = () => {
               ), then input a HEJI spelling, ratio or cents value to determine its staff notation,
               cents deviation, frequency, and nearby rational intonation options. Choosing a tuning
               in HEXATONE tab changes the Reference Frequency and Spelling Anchor in CALCULATOR but
-              changing the settings does not retune the Keyboard canvas.{" "}
+              changing the settings here does not retune the Keyboard canvas.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -6219,13 +6217,7 @@ const App = () => {
         ) : workspaceTab === "hexatone" ? (
           <p class="sidebar-intro">
             <em>
-              To play, choose a built-in tuning or build your own scale in "Scale Settings" by
-              changing "Scale Size" or clicking on "Add Scale Degree". Click or touch notes. Edit
-              the scale in the table below; drag to retune notes; rationalise; modulate. SHIFT+ESC
-              or F8 toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in
-              SEQUENCER. Visit the I/O tab to choose internal sounds, connect a MIDI keyboard or an
-              isomorphic controller like Lumatone or Exquis, and retune external synths using MTS,
-              MPE, OSC.{" "}
+              To play, choose a built-in tuning, click or touch notes. Build your own scale by opening the "Scale Settings" toggle and editing the table; try changing "Scale Size" or clicking on "Add Scale Degree"; drag to retune notes; rationalise; modulate. SHIFT+ESC or F8 toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in SEQUENCER. Visit the I/O tab to choose built-in sounds, connect a MIDI keyboard or an isomorphic controller like Lumatone or Exquis, or retune external synths.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"

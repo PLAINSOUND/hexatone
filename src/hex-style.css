@@ -390,6 +390,10 @@ a:hover {
 /* ── 5. Bottom controls bar ───────────────────────────────── */
 /* → app.jsx */
 
+.scsynth-layer-label--muted {
+  color: #888;
+}
+
 .audio-recovery-alert {
   position: fixed;
   line-height: 1.8em;

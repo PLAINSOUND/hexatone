@@ -8,10 +8,10 @@ import { sendRpn } from "../../midi/rpn.js";
 import { SLIDE_CC_OPTIONS, normaliseSlideCc } from "../../midi/slide-cc-options.js";
 import CustomRangeSlider from "../shared/range-slider.jsx";
 
-export default function MonoOutputSettings({ settings, midi, outputs, onSettingChange }) {
+export default function MonoOutputSettings({ settings, midi, outputs, onSettingChange, collapsed = false }) {
   return (
     <>
-      <label>
+      <label class="midi-output-toggle-row">
         <b>Monophonic Single-Channel MIDI</b>
         <input
           type="checkbox"
@@ -21,6 +21,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
           onChange={(e) => onSettingChange(e.target.name, e.target.checked)}
         />
       </label>
+      {!collapsed && <>
       <p class="settings-form__intro-copy">
         <em>
           Uses standard MIDI messages on a single channel to retune monophonically. For polyphonic
@@ -151,6 +152,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
         </>
       )}
       <br />
+      </>}
     </>
   );
 }

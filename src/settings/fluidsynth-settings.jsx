@@ -354,7 +354,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       <p class="settings-form__intro-copy">
         <em>
           Hexatone SoundFont banks are fetched from soundfonts.plainsound.org. Alternately, choose a
-          local file in .sf2 or .sf3 format. The built-in WebAssembly player supports independent per-note tuning and expression.</em>
+          local file in .sf2 or .sf3 format. The built-in WebAssembly player supports per-note tuning and expression.</em>
       </p>
 
       <label>

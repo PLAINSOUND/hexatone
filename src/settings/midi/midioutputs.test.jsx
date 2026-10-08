@@ -34,6 +34,46 @@ const makeProps = (overrides = {}) => ({
 describe("MidiOutputs FluidSynth independence", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    sessionStorage.setItem("hexatone_midi_output_collapsed", "false");
+  });
+
+  it("defaults to collapsed in a fresh session", () => {
+    sessionStorage.removeItem("hexatone_midi_output_collapsed");
+    render(<MidiOutputs {...makeProps()} />);
+    expect(screen.getByRole("button", { name: "Show MIDI Output settings" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("checkbox", { name: "MTS Real-Time Tuning" })).toBeTruthy();
+  });
+
+  it("keeps all four output switches actionable while configuration is collapsed", () => {
+    sessionStorage.removeItem("hexatone_midi_output_collapsed");
+    const props = makeProps();
+    props.onChange = vi.fn();
+    render(<MidiOutputs {...props} />);
+    for (const [name, key] of [
+      ["Monophonic Single-Channel MIDI", "output_mono"],
+      ["MTS Real-Time Tuning", "output_mts"],
+      ["MTS Bulk Dump Tuning Maps", "output_mts_bulk"],
+      ["MPE", "output_mpe"],
+    ]) {
+      const toggle = screen.getByRole("checkbox", { name, exact: true });
+      expect(toggle.closest("label").classList.contains("midi-output-toggle-row")).toBe(true);
+      expect(toggle.closest(".midi-output-controls--collapsed")).toBeTruthy();
+      fireEvent.click(toggle);
+      expect(props.onChange).toHaveBeenCalledWith(key, !props.settings[key]);
+    }
+  });
+
+  it("does not reveal enabled output configuration until the fieldset is expanded", () => {
+    sessionStorage.removeItem("hexatone_midi_output_collapsed");
+    const props = makeProps({ output_mono: true, output_mts: true, output_mts_bulk: true, output_mpe: true });
+    render(<MidiOutputs {...props} />);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Show MIDI Output settings" }));
+    expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Hide MIDI Output settings" }));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
   });
 
   it("labels the section as MIDI Output", () => {
@@ -47,7 +87,7 @@ describe("MidiOutputs FluidSynth independence", () => {
     const view = render(<MidiOutputs {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "Hide MIDI Output settings" }));
     expect(screen.getByRole("button", { name: "Show MIDI Output settings" }).getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByRole("checkbox", { name: "MTS Real-Time Tuning" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "MTS Real-Time Tuning" })).toBeTruthy();
     expect(props.onChange).not.toHaveBeenCalled();
     view.unmount();
     render(<MidiOutputs {...props} />);
@@ -59,6 +99,14 @@ describe("MidiOutputs FluidSynth independence", () => {
   it("disables the monophonic output toggle without Web MIDI access", () => {
     render(<MidiOutputs {...makeProps()} midi={null} />);
     expect(screen.getByRole("checkbox", { name: "Monophonic Single-Channel MIDI" }).disabled).toBe(true);
+  });
+
+  it("disables MPE without MIDI access and enables it when access becomes available", () => {
+    const props = makeProps();
+    const { rerender } = render(<MidiOutputs {...props} midi={null} />);
+    expect(screen.getByRole("checkbox", { name: "MPE", exact: true }).disabled).toBe(true);
+    rerender(<MidiOutputs {...props} />);
+    expect(screen.getByRole("checkbox", { name: "MPE", exact: true }).disabled).toBe(false);
   });
 
   it("offers named slide CC destinations excluding special messages", () => {

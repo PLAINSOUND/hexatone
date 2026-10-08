@@ -370,6 +370,8 @@ export const create_osc_synth = async (
   const _retriggerBuzzFormant = { value: performanceOptions.retriggerBuzzFormant === true };
   const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
   const _knownNodeIds = new Set();
+  // Logical held notes survive layer muting; tails and stolen voices do not.
+  const _heldVoices = new Map();
   const _slotState = synthNames.map(() =>
     Array.from({ length: MAX_NOTE_SLOTS }, () => ({
       token: 0,
@@ -390,16 +392,31 @@ export const create_osc_synth = async (
   const setLayerVolume = (index, value) => {
     if (index < 0 || index >= _volumes.length) return;
     const next = Math.max(0, Math.min(1, value));
+    const previous = _volumes[index];
     _volumes[index] = next;
     const layerState = _slotState[index];
     if (next === 0) {
-      socket.send("/g_freeAll", [{ type: "i", value: targetGroup }], OSC_LAYER_PORTS[index]);
+      const now = performance.now();
       for (const slot of layerState) {
+        if (slot.active && slot.nodeId != null) {
+          const timestamp = slot.attackTimestamp != null && slot.attackTimestamp >= now
+            ? slot.attackTimestamp + 1 : now;
+          // Keep the current gain during release. SynthDefs free themselves
+          // when their release envelope ends (Done.freeSelf).
+          releaseNode(socket, OSC_LAYER_PORTS[index], slot.nodeId, 64, timestamp);
+        }
         _knownNodeIds.delete(slot.nodeId);
         slot.active = false;
         slot.nodeId = null;
         slot.token += 1;
       }
+      for (const voice of _heldVoices.values()) voice._nodeIds[index] = null;
+      // Node 1 may be a group: setting its volume to zero would also silence
+      // the tails we just released. Future attacks carry their own volume.
+      return;
+    }
+    if (previous === 0 && next > 0 && !shutdown) {
+      for (const voice of _heldVoices.values()) voice._startLayer(index);
     }
     for (const slot of layerState) {
       if (!slot?.active || slot.nodeId == null) continue;
@@ -521,6 +538,7 @@ export const create_osc_synth = async (
     }
     _knownNodeIds.clear();
     _pool.clear();
+    _heldVoices.clear();
   };
 
   const freeAllKnownNodes = () => {
@@ -540,6 +558,7 @@ export const create_osc_synth = async (
       }
     }
     _pool.clear();
+    _heldVoices.clear();
   };
 
   return {
@@ -585,6 +604,7 @@ export const create_osc_synth = async (
         _knownNodeIds,
         bend,
         velocity_played,
+        _heldVoices,
       );
     },
 
@@ -727,6 +747,7 @@ function OscHex(
   knownNodeIds,
   bend,
   velocity_played,
+  heldVoices,
 ) {
   this.coords = coords;
   this.cents = cents;
@@ -746,6 +767,7 @@ function OscHex(
   this._sustainBuzzFormantRef = sustainBuzzFormantRef;
   this._retriggerBuzzFormantRef = retriggerBuzzFormantRef;
   this._pool = pool;
+  this._heldVoices = heldVoices;
   this._slotState = slotState;
   this._knownNodeIds = knownNodeIds;
   this._slot = null;
@@ -777,6 +799,7 @@ OscHex.prototype.noteOn = function (timestamp) {
   const { slot } = this._pool.noteOn(this.coords, this._targetMidiFloat(), this);
   this._attackTimestamp = Number.isFinite(timestamp) ? timestamp : null;
   this._slot = slot;
+  this._heldVoices.set(slot, this);
   this._nodeIds = this._synthNames.map((_, i) => nextNodeId(i));
   debugLog("osc", "OscHex.noteOn", {
     coords: this.coords,
@@ -794,7 +817,17 @@ OscHex.prototype.noteOn = function (timestamp) {
       this._nodeIds[i] = null;
       continue;
     }
-    const slotState = this._slotState[i][slot];
+    this._startLayer(i, timestamp);
+  }
+};
+
+// Re-enable only this layer using the held voice's current pitch/expression.
+// Never allocate a new logical slot or replay the other sounding layers.
+OscHex.prototype._startLayer = function (i, timestamp) {
+    if (this.release || this._slot == null || this._volumes[i] === 0 ||
+        this._heldVoices.get(this._slot) !== this || !isPlayableScPitch(this._freq, this._bend)) return;
+    this._nodeIds[i] = nextNodeId(i);
+    const slotState = this._slotState[i][this._slot];
     if (slotState.active && slotState.nodeId != null) {
       releaseNode(this._socket, OSC_LAYER_PORTS[i], slotState.nodeId, slotState.onVel, timestamp);
     }
@@ -802,7 +835,7 @@ OscHex.prototype.noteOn = function (timestamp) {
     slotState.active = true;
     slotState.onVel = this._onVel;
     slotState.nodeId = this._nodeIds[i];
-    slotState.attackTimestamp = this._attackTimestamp;
+    slotState.attackTimestamp = Number.isFinite(timestamp) ? timestamp : null;
     slotState.quickReleaseEnabled = this._quickReleaseRasterOnlyRef.value
       ? this._rasterGenerated === true
       : true;
@@ -829,7 +862,6 @@ OscHex.prototype.noteOn = function (timestamp) {
       OSC_LAYER_PORTS[i],
       timestamp,
     );
-  }
 };
 
 OscHex.prototype.noteOff = function (release_velocity, timestamp) {
@@ -843,6 +875,7 @@ OscHex.prototype.noteOff = function (release_velocity, timestamp) {
   }
   const resolvedSlot = this._pool.noteOff(this.coords, this);
   const slot = resolvedSlot ?? this._slot;
+  if (this._heldVoices.get(slot) === this) this._heldVoices.delete(slot);
   debugLog("osc", "OscHex.noteOff", {
     coords: this.coords,
     notePlayed: this._notePlayed,
@@ -876,6 +909,7 @@ OscHex.prototype.forceFree = function () {
   this.release = true;
   const resolvedSlot = this._pool.noteOff(this.coords, this);
   const slot = resolvedSlot ?? this._slot;
+  if (this._heldVoices.get(slot) === this) this._heldVoices.delete(slot);
   debugLog("osc", "OscHex.forceFree", {
     coords: this.coords,
     requestedSlot: this._slot,

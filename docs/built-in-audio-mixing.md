@@ -1,6 +1,6 @@
 # Built-in audio mixing and lifecycle contract
 
-Last reviewed: 2026-10-07. Companion to the [app transition map](app-context.md),
+Last reviewed: 2026-10-08. Companion to the [app transition map](app-context.md),
 especially B12–B16. The first sections describe current behaviour; the DSF
 checklist is an integration target, not a claim that DSF already implements it.
 Update this contract with lifecycle changes. Mock tests verify ordering, not
@@ -15,6 +15,15 @@ the absence of audible glitches on a particular browser or phone.
 The output gate must not overwrite a user's volume fader, a layer mix, pressure,
 or a musical attack/release envelope. Multiple enabled backends sound together;
 enabling one is not permission to mute, panic or rearticulate another.
+
+SuperCollider layer faders at zero release that layer's voices at their existing
+gain; the SynthDefs free their nodes when the envelopes finish. No group-volume
+zero or immediate group deletion may cut off these tails. Logical held notes
+remain available. Moving from zero to a positive
+volume recreates only that layer for currently held voices, with their current
+pitch, bend and expression. This applies equally to sequencer and live input
+voices. Ordinary positive-volume changes do not retrigger; released, stolen or
+Panic-cleared voices must never be resurrected.
 
 Local routing is engine output → output gate → speakers. When muted, the gate
 disconnects from the speakers and feeds a permanently silent sink instead.

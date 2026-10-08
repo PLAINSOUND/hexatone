@@ -63,7 +63,7 @@ const sendMpePitchBendRange = (
 
 const MidiOutputs = (props) => {
   const [collapsed, setCollapsed] = useState(
-    () => sessionStorage.getItem("hexatone_midi_output_collapsed") === "true",
+    () => sessionStorage.getItem("hexatone_midi_output_collapsed") !== "false",
   );
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
@@ -201,8 +201,9 @@ const MidiOutputs = (props) => {
           />
         </button>
       </legend>
-      <div hidden={collapsed}>
+      <div class={collapsed ? "midi-output-controls midi-output-controls--collapsed" : "midi-output-controls"}>
       <MonoOutputSettings
+        collapsed={collapsed}
         settings={settings}
         midi={midi}
         outputs={outputs}
@@ -211,7 +212,7 @@ const MidiOutputs = (props) => {
 
       {/* ── MTS ────────────────────────────────────────────────────────── */}
 
-      <label>
+      <label class="midi-output-toggle-row">
         <b>MTS Real-Time Tuning</b>
         <input
           name="output_mts"
@@ -222,6 +223,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
+      {!collapsed && <>
       <p class="settings-form__intro-copy">
         <em>
           The <a href="/midituning.html">MIDI Tuning Standard</a> uses sysex messages to modify the
@@ -462,8 +464,9 @@ const MidiOutputs = (props) => {
       <br />
 
       {/* ── MTS BULK DUMP ──────────────────────────────────────────────── */}
+      </>}
 
-      <label>
+      <label class="midi-output-toggle-row">
         <b>MTS Bulk Dump Tuning Maps</b>
         <input
           name="output_mts_bulk"
@@ -474,6 +477,7 @@ const MidiOutputs = (props) => {
         />
       </label>
 
+      {!collapsed && <>
       <p class="settings-form__intro-copy">
         <em>
           Old-school non-real-time 128 note mapping. Dynamic mode emulates real-time MTS by sending a new map before each note on. Static mode sends a map and plays on one channel.
@@ -632,17 +636,20 @@ const MidiOutputs = (props) => {
       <br />
 
       {/* ── MPE ────────────────────────────────────────────────────────── */}
+      </>}
 
-      <label>
+      <label class="midi-output-toggle-row">
         <b>MPE</b>
         <input
           name="output_mpe"
           type="checkbox"
           checked={!!settings.output_mpe}
+          disabled={!midi}
           onChange={(e) => save(e.target.name, e.target.checked, onChange)}
         />
       </label>
 
+      {!collapsed && <>
       <p class="settings-form__intro-copy">
         <em>
           <a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a>{" "}
@@ -859,6 +866,7 @@ const MidiOutputs = (props) => {
           )}
         </>
       )}
+      </>}
       </div>
     </fieldset>
   );

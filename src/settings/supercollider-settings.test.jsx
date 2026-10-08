@@ -3,6 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import SuperColliderSettings from "./supercollider-settings.jsx";
 
 describe("SuperCollider scsynth settings", () => {
+  it("greys layer labels at zero and restores them immediately above zero", () => {
+    render(<SuperColliderSettings
+      settings={{ output_osc: true, osc_local: true }} onChange={vi.fn()}
+      onOscLayerVolumeChange={vi.fn()}
+    />);
+    for (const name of ["Pluck", "Buzz", "Formant", "Saw"]) {
+      const label = screen.getByText(name);
+      const slider = screen.getByRole("slider", { name: `${name} volume` });
+      expect(label.classList.contains("scsynth-layer-label--muted")).toBe(false);
+      fireEvent.keyDown(slider, { key: "Home" });
+      expect(label.classList.contains("scsynth-layer-label--muted")).toBe(true);
+      fireEvent.keyDown(slider, { key: "ArrowRight" });
+      expect(label.classList.contains("scsynth-layer-label--muted")).toBe(false);
+    }
+  });
   it("places live controller brightness above release and sends fader input without changing settings", () => {
     const onChange = vi.fn();
     const onOscBrightnessChange = vi.fn();
