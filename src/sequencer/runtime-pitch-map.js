@@ -201,8 +201,6 @@ export function remapSequenceNoteToRuntime(note, runtime, options = {}) {
     pitchCents,
     scale,
     Number(runtime?.equivInterval ?? 1200),
-    Number.POSITIVE_INFINITY,
-    "accept",
   );
   if (!nearest) return note;
   return remapSequenceNoteAtSteps(note, runtime, nearest.steps, options);

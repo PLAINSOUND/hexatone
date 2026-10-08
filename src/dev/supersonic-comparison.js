@@ -17,7 +17,6 @@ export function comparisonControls(values) {
     "off_vel", 64, "vol", bounded("level", 0.06, 0, 0.3),
     "expressionY", bounded("mod", 1, 1, 2) - 1,
     "pressure", bounded("filter", 1, 1, 2) - 1,
-    "sustain_mode", 0,
     "retrigger_mode", values.retrigger ? 1 : 0,
   ];
 }

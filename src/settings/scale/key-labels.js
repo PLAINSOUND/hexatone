@@ -10,6 +10,8 @@ import {
   temperedAnchorLabelFromHeji,
 } from "../../notation/heji-normalization.js";
 import { parseExactInterval } from "../../tuning/interval.js";
+import { createReferenceFrame, spellPitchClassFromReferenceFrame } from "../../notation/reference-frame.js";
+import { spelledHejiLabel } from "../../notation/key-label.js";
 import { BASE_BY_ID, BASE_SYMBOLS, HEJI_FAMILIES } from "../../notation/heji.js";
 import {
   clearPitchStructure,
@@ -497,7 +499,7 @@ const KeyLabels = (props) => {
         // and its HEJI pitch-class spelling.  This pitch need not be a scale degree.
         // Default: ratio "1/1" labelled "nA" — A natural is the just root.
         <fieldset class="heji-anchor-fieldset" hidden={props.hideHejiSpelling}>
-          <legend>HEJI Spelling with 0¢ Deviation</legend>
+          <legend>HEJI Anchor (Spelling with 0¢ Deviation)</legend>
           {hejiDisabled && (
             <p class="settings-form__warning-copy">
               {props.heji_warning || "Non-octave equave cannot generate consistent note names."}
@@ -531,21 +533,42 @@ const KeyLabels = (props) => {
                 const normalized = normaliseHejiAnchorRatio(e.target.value);
                 if (normalized) {
                   setAnchorRatioDraft(normalized);
+                  if (normalized === normaliseHejiAnchorRatio(effectiveAnchorRatio) && !props.settings.heji_anchor_frequency) {
+                    props.onChange("heji_anchor_ratio", normalized);
+                    return;
+                  }
                   const currentAnchorLabel =
                     props.settings.heji_anchor_label || effectiveAnchorLabel;
-                  const normalizedAnchorLabel = normalizeAnchorLabelForInterval(
-                    currentAnchorLabel,
-                    normalized,
-                  );
+                  // Ratio edits move the spelling reference, not the spelling of
+                  // 1/1. Retain that original root through cents/ratio round trips
+                  // (and reloads); an explicit spelling edit starts a new frame.
+                  let rootLabel = props.settings.heji_anchor_root_label || "";
+                  if (!rootLabel) {
+                    const previousFrame = createReferenceFrame({
+                      anchorLabel: currentAnchorLabel,
+                      anchorRatio: effectiveAnchorRatio,
+                    });
+                    rootLabel = spellPitchClassFromReferenceFrame(previousFrame, "1/1")
+                      .pitchClassGlyphs || currentAnchorLabel;
+                  }
+                  const rootFrame = createReferenceFrame({ anchorLabel: rootLabel, anchorRatio: "1/1" });
+                  const normalizedAnchorLabel = normalizeAnchorLabelInput(spelledHejiLabel(
+                    rootFrame,
+                    parseExactInterval(normalized)?.exact ? normalized : null,
+                    scalaToCents(normalized),
+                    { suppressDeviation: true },
+                  ));
                   const shouldUpdateAnchorLabel =
                     normalizedAnchorLabel && normalizedAnchorLabel !== currentAnchorLabel;
                   const shouldClearAnchorFrequency = String(
                     props.settings.heji_anchor_frequency || "",
                   ).trim();
-                  if (shouldUpdateAnchorLabel || shouldClearAnchorFrequency) {
+                  if (shouldUpdateAnchorLabel || shouldClearAnchorFrequency ||
+                    rootLabel !== props.settings.heji_anchor_root_label) {
                     if (typeof props.onAtomicChange === "function") {
                       props.onAtomicChange({
                         heji_anchor_ratio: normalized,
+                        heji_anchor_root_label: rootLabel,
                         ...(shouldUpdateAnchorLabel
                           ? { heji_anchor_label: normalizedAnchorLabel }
                           : {}),
@@ -553,6 +576,7 @@ const KeyLabels = (props) => {
                       });
                     } else {
                       props.onChange("heji_anchor_ratio", normalized);
+                      props.onChange("heji_anchor_root_label", rootLabel);
                       if (shouldUpdateAnchorLabel) {
                         props.onChange("heji_anchor_label", normalizedAnchorLabel);
                       }
@@ -589,7 +613,14 @@ const KeyLabels = (props) => {
                 );
                 if (normalized) {
                   setAnchorLabelDraft(normalized);
-                  props.onChange("heji_anchor_label", normalized);
+                  if (normalized !== props.settings.heji_anchor_label) {
+                    if (props.settings.heji_anchor_root_label && typeof props.onAtomicChange === "function") {
+                      props.onAtomicChange({ heji_anchor_label: normalized, heji_anchor_root_label: "" });
+                    } else {
+                      props.onChange("heji_anchor_label", normalized);
+                      if (props.settings.heji_anchor_root_label) props.onChange("heji_anchor_root_label", "");
+                    }
+                  }
                   return;
                 }
                 setAnchorLabelDraft(props.settings.heji_anchor_label || "");
@@ -1106,6 +1137,7 @@ KeyLabels.propTypes = {
     show_equaves: PropTypes.bool,
     heji_anchor_ratio: PropTypes.string,
     heji_anchor_label: PropTypes.string,
+    heji_anchor_root_label: PropTypes.string,
     heji_anchor_frequency: PropTypes.string,
     heji_tempered_only: PropTypes.bool,
     heji_show_cents: PropTypes.bool,

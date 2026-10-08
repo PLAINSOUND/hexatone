@@ -28,11 +28,32 @@ const INT_KEYS = [
 ];
 
 describe("session-defaults integer zero round-trip", () => {
+  it.each([
+    [null, "1", 1],
+    ["71", "1", 71],
+    ["0", "71", 0],
+  ])("restores ExpressionY CC with legacy compatibility (new: %s, old: %s)", async (current, legacy, expected) => {
+    sessionStorage.setItem("mono_slide_cc", legacy);
+    if (current == null) sessionStorage.removeItem("mono_expression_y_cc");
+    else sessionStorage.setItem("mono_expression_y_cc", current);
+    try {
+      vi.resetModules();
+      const { default: defaults } = await import("./session-defaults.js");
+      expect(defaults.mono_expression_y_cc).toBe(expected);
+      expect(defaults).not.toHaveProperty("mono_slide_cc");
+    } finally {
+      sessionStorage.removeItem("mono_slide_cc");
+      sessionStorage.removeItem("mono_expression_y_cc");
+    }
+  });
+
   it("applies opt-out before reading stored MIDI defaults on reload", async () => {
     localStorage.setItem("hexatone_restore_io_on_reload", "false");
     sessionStorage.setItem("output_mpe", "true");
     sessionStorage.setItem("mpe_device", "missing-port");
     sessionStorage.setItem("webmidi_enabled", "true");
+    sessionStorage.setItem("mono_slide_cc", "1");
+    sessionStorage.setItem("mono_expression_y_cc", "71");
     const navigation = vi
       .spyOn(performance, "getEntriesByType")
       .mockReturnValue([{ type: "reload" }]);
@@ -42,6 +63,7 @@ describe("session-defaults integer zero round-trip", () => {
       expect(defaults.output_mpe).toBe(false);
       expect(defaults.mpe_device).toBe("OFF");
       expect(defaults.webmidi_enabled).toBe(false);
+      expect(defaults.mono_expression_y_cc).toBe(74);
     } finally {
       navigation.mockRestore();
       localStorage.removeItem("hexatone_restore_io_on_reload");

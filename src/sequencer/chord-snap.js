@@ -26,7 +26,7 @@ export function chordSearchWithinBudget(noteCount, scaleLength, drift) {
 
 export function chooseChordSteps(pitches, runtime, drift = DEFAULT_CHORD_DRIFT, held = []) {
   const { scale, equivInterval: equave = 1200 } = runtime;
-  const nearest = pitch => findNearestDegree(pitch, scale, equave, Infinity, "accept").steps;
+  const nearest = pitch => findNearestDegree(pitch, scale, equave).steps;
   const cents = steps => Math.floor(steps / scale.length) * equave +
     scale[((steps % scale.length) + scale.length) % scale.length];
   const baseline = pitches.map(nearest);

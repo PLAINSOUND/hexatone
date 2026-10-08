@@ -65,6 +65,14 @@ const MidiOutputs = (props) => {
   const [collapsed, setCollapsed] = useState(
     () => sessionStorage.getItem("hexatone_midi_output_collapsed") !== "false",
   );
+  const setOutputEnabled = (name, enabled) => {
+    save(name, enabled, props.onChange);
+    // Enabling reveals configuration; disabling preserves disclosure state.
+    if (enabled) {
+      sessionStorage.setItem("hexatone_midi_output_collapsed", "false");
+      setCollapsed(false);
+    }
+  };
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
   const { settings, onChange, midi, midiTick: _midiTick } = props;
@@ -207,7 +215,9 @@ const MidiOutputs = (props) => {
         settings={settings}
         midi={midi}
         outputs={outputs}
-        onSettingChange={(name, value) => save(name, value, onChange)}
+        onSettingChange={(name, value) => name === "output_mono"
+          ? setOutputEnabled(name, value)
+          : save(name, value, onChange)}
       />
 
       {/* ── MTS ────────────────────────────────────────────────────────── */}
@@ -219,7 +229,7 @@ const MidiOutputs = (props) => {
           type="checkbox"
           checked={!!settings.output_mts}
           disabled={!hasSysexMidi}
-          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+          onChange={(e) => setOutputEnabled(e.target.name, e.target.checked)}
         />
       </label>
 
@@ -473,7 +483,7 @@ const MidiOutputs = (props) => {
           type="checkbox"
           checked={!!settings.output_mts_bulk}
           disabled={!hasSysexMidi}
-          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+          onChange={(e) => setOutputEnabled(e.target.name, e.target.checked)}
         />
       </label>
 
@@ -645,7 +655,7 @@ const MidiOutputs = (props) => {
           type="checkbox"
           checked={!!settings.output_mpe}
           disabled={!midi}
-          onChange={(e) => save(e.target.name, e.target.checked, onChange)}
+          onChange={(e) => setOutputEnabled(e.target.name, e.target.checked)}
         />
       </label>
 

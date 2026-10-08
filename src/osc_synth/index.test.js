@@ -887,13 +887,12 @@ describe("osc_synth pooled slot allocation", () => {
     };
 
     expect(valueAfter(noteOns[0], "sustain_mode")).toBeUndefined();
-    expect(valueAfter(noteOns[1], "sustain_mode")).toBe(0);
-    expect(valueAfter(noteOns[2], "sustain_mode")).toBe(0);
+    expect(valueAfter(noteOns[1], "sustain_mode")).toBeUndefined();
+    expect(valueAfter(noteOns[2], "sustain_mode")).toBeUndefined();
     expect(valueAfter(noteOns[3], "sustain_mode")).toBeUndefined();
     expect(valueAfter(noteOns[1], "retrigger_mode")).toBe(0);
     expect(valueAfter(noteOns[2], "retrigger_mode")).toBe(0);
 
-    synth.setSustainBuzzFormant(false);
     synth.setRetriggerBuzzFormant(true);
 
     const modeUpdates = ws.sent.filter(
@@ -901,8 +900,8 @@ describe("osc_synth pooled slot allocation", () => {
         message.address === "/n_set" &&
         (message.args[1]?.value === "sustain_mode" || message.args[1]?.value === "retrigger_mode"),
     );
-    expect(modeUpdates.map((message) => message.port)).toEqual([57102, 57103, 57102, 57103]);
-    expect(modeUpdates.map((message) => message.args[2].value)).toEqual([0, 0, 1, 1]);
+    expect(modeUpdates.map((message) => message.port)).toEqual([57102, 57103]);
+    expect(modeUpdates.map((message) => message.args[2].value)).toEqual([1, 1]);
   });
 
   it("orders an immediate release after a future activation attack", async () => {

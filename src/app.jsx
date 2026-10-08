@@ -15,10 +15,10 @@ import Keyboard from "./keyboard";
 import { sendLumatoneBlankLayout } from "./keyboard/keys-controller-leds.js";
 import { primeSharedSampleAudio } from "./sample_synth/prime-shared-audio.js";
 import { bringPaletteToFront } from "./ui/palette-stacking.js";
+import { retainPalettePosition, watchPaletteLayout } from "./ui/palette-layout.js";
 import { normalizeColors, normalizeStructural } from "./settings/normalize-settings.js";
 import { instruments } from "./sample_synth/instruments";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "./tuning/workspace.js";
-import { restoreIOOnReload } from "./persistence/io-reload-policy.js";
 import {
   createHarmonicFrame,
   deriveActiveHejiFrame,
@@ -207,6 +207,15 @@ export function applyReloadPersistencePolicy({
   navigationType = performance.getEntriesByType("navigation")[0]?.type,
   shouldPersist = localStorage.getItem("hexatone_persist_on_reload") === "true",
 } = {}) {
+  // Reading position is session-only, just like other sidebar scroll positions.
+  // Remove stale Manual link targets before rendering so neither the browser nor
+  // ManualSidebar replays an old anchor on reload. Fresh bookmarked navigation
+  // and in-app cross-references still honour their hashes.
+  if (navigationType === "reload" && window.location.hash.startsWith("#manual-")) {
+    const url = new URL(window.location.toString());
+    url.hash = "";
+    history.replaceState(history.state, "", url);
+  }
   if (navigationType !== "reload" || shouldPersist) return;
 
   // SCALE_KEYS_TO_CLEAR covers all scale/preset keys.
@@ -228,12 +237,13 @@ export function applyReloadPersistencePolicy({
 }
 
 export const RELOAD_WORKSPACE_TAB_KEY = "hexatone_reload_workspace_tab";
-const RELOADABLE_WORKSPACE_TABS = new Set(["sequencer", "calculator", "io"]);
+const RELOADABLE_WORKSPACE_TABS = new Set(["sequencer", "calculator", "io", "manual"]);
 
 export function loadReloadWorkspaceTab(storage = globalThis.sessionStorage) {
   try {
     const storedTab = storage?.getItem(RELOAD_WORKSPACE_TAB_KEY);
-    if (storedTab === "io" && !restoreIOOnReload()) return "hexatone";
+    // Tab navigation is independent of settings restoration. I/O may reset its
+    // settings on reload without sending the user to a different workspace.
     return RELOADABLE_WORKSPACE_TABS.has(storedTab) ? storedTab : "hexatone";
   } catch {
     return "hexatone";
@@ -4143,82 +4153,28 @@ const App = () => {
   useEffect(() => {
     if (!performancePalettesVisible) return undefined;
     const applyDefaultPosition = () => {
-      if (!modulationPaletteUserMovedRef.current) {
-        setModulationPalettePos(clampModulationPalettePos(getDefaultModulationPalettePos()));
-        return;
-      }
-      setModulationPalettePos((current) => clampModulationPalettePos(current));
+      setModulationPalettePos(current => retainPalettePosition(current,
+        clampModulationPalettePos(modulationPaletteUserMovedRef.current
+          ? current : getDefaultModulationPalettePos())));
     };
-    let frameId = null;
-    const applyAfterLayout = () => {
-      if (frameId != null) window.cancelAnimationFrame(frameId);
-      frameId = window.requestAnimationFrame(() => {
-        frameId = null;
-        applyDefaultPosition();
-      });
-    };
-    window.addEventListener("resize", applyAfterLayout);
-    window.addEventListener("orientationchange", applyAfterLayout);
-    window.visualViewport?.addEventListener("resize", applyAfterLayout);
-    applyAfterLayout();
-    return () => {
-      if (frameId != null) window.cancelAnimationFrame(frameId);
-      window.removeEventListener("resize", applyAfterLayout);
-      window.removeEventListener("orientationchange", applyAfterLayout);
-      window.visualViewport?.removeEventListener("resize", applyAfterLayout);
-    };
-  }, [clampModulationPalettePos, performancePalettesVisible]);
+    return watchPaletteLayout([sidebarRef.current, modulationPaletteRef.current], applyDefaultPosition);
+  }, [clampModulationPalettePos, performancePalettesVisible, workspaceTab,
+    activeManualView, active, modulationState?.history?.length]);
 
   useEffect(() => {
     if (!snapshotPaletteVisible || snapshots.length === 0) return undefined;
     const applyDefaultPosition = () => {
-      if (!snapshotPaletteUserMovedRef.current) {
-        setSnapshotPalettePos(clampSnapshotPalettePos(getDefaultSnapshotPalettePos()));
-        return;
-      }
-      setSnapshotPalettePos((current) => clampSnapshotPalettePos(current));
+      setSnapshotPalettePos(current => retainPalettePosition(current,
+        clampSnapshotPalettePos(snapshotPaletteUserMovedRef.current
+          ? current : getDefaultSnapshotPalettePos())));
     };
-    let firstFrameId = null;
-    let settledFrameId = null;
-    const applyAfterLayout = () => {
-      if (firstFrameId != null) window.cancelAnimationFrame(firstFrameId);
-      if (settledFrameId != null) window.cancelAnimationFrame(settledFrameId);
-      firstFrameId = window.requestAnimationFrame(() => {
-        firstFrameId = null;
-        settledFrameId = window.requestAnimationFrame(() => {
-          settledFrameId = null;
-          applyDefaultPosition();
-        });
-      });
-    };
-    window.addEventListener("resize", applyAfterLayout);
-    window.addEventListener("orientationchange", applyAfterLayout);
-    window.visualViewport?.addEventListener("resize", applyAfterLayout);
-    // The snapshot palette's default position is stacked below Modulation
-    // History. When both palettes remount after visiting SEQUENCER, wait for
-    // the modulation palette's real content height (including loaded fonts)
-    // instead of retaining geometry measured while that DOM was absent.
-    const modulationResizeObserver =
-      typeof ResizeObserver === "function" ? new ResizeObserver(applyAfterLayout) : null;
-    if (modulationPaletteRef.current) {
-      modulationResizeObserver?.observe(modulationPaletteRef.current);
-    }
-    applyAfterLayout();
-    return () => {
-      if (firstFrameId != null) window.cancelAnimationFrame(firstFrameId);
-      if (settledFrameId != null) window.cancelAnimationFrame(settledFrameId);
-      modulationResizeObserver?.disconnect();
-      window.removeEventListener("resize", applyAfterLayout);
-      window.removeEventListener("orientationchange", applyAfterLayout);
-      window.visualViewport?.removeEventListener("resize", applyAfterLayout);
-    };
-  }, [
-    clampSnapshotPalettePos,
-    modulationPaletteCollapsed,
-    modulationState?.history?.length,
-    snapshotPaletteVisible,
-    snapshots.length,
-  ]);
+    // Stack only after Modulation History's corrected position reaches the DOM.
+    // Its late appearance, size changes and font loading must also restack us.
+    return watchPaletteLayout([sidebarRef.current, modulationPaletteRef.current,
+      snapshotPaletteRef.current], applyDefaultPosition, 2);
+  }, [clampSnapshotPalettePos, modulationPaletteCollapsed,
+    modulationState?.history?.length, modulationPalettePos.x, modulationPalettePos.y,
+    snapshotPaletteVisible, snapshots.length, workspaceTab, activeManualView, active]);
 
   // Long-press sidebar button to toggle latch (sustain while playing)
   const longPressTimer = useRef(null);
@@ -4497,8 +4453,6 @@ const App = () => {
       stepsPerChannelDefault: settings.equivSteps,
       channelGroupSize: settings.midiin_channel_group_size ?? 1,
       legacyChannelMode: settings.midiin_channel_legacy,
-      scaleTolerance: settings.midiin_scale_tolerance ?? 25,
-      scaleFallback: settings.midiin_scale_fallback || "accept",
       pitchBendMode: settings.midiin_pitchbend_mode || "recency",
       pressureMode: settings.midiin_pressure_mode || "recency",
       // Wheel settings kept here for Keys to use alongside routing mode.
@@ -4547,8 +4501,6 @@ const App = () => {
       settings.equivSteps,
       settings.midiin_channel_group_size,
       settings.midiin_channel_legacy,
-      settings.midiin_scale_tolerance,
-      settings.midiin_scale_fallback,
       settings.midiin_pitchbend_mode,
       settings.midiin_pressure_mode,
       settings.wheel_to_recent,
@@ -6232,9 +6184,13 @@ const App = () => {
           </p>
         ) : null}
 
+        {/* Hidden auxiliary workspaces must not suspend the visible Manual. */}
+        <Suspense fallback={workspaceTab === "calculator" && !activeManualView
+          ? <SidebarLoadingFallback /> : null}>
+          {calculatorSidebar}
+        </Suspense>
         <Suspense fallback={<SidebarLoadingFallback />}>
           <>
-            {calculatorSidebar}
             {activeManualView ? (
               <ManualSidebar
                 key={activeManualView}

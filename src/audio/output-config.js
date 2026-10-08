@@ -23,7 +23,7 @@ export function monoOutputConfig(settings, tuning, output, portIdentity) {
     // These three controls have live setters and do not invalidate the engine.
     portamento: !!settings.mono_portamento,
     time: settings.mono_portamento_time ?? 80,
-    slideCc: settings.mono_slide_cc ?? 74,
+    expressionYCc: settings.mono_expression_y_cc ?? 74,
   };
   return {
     key: JSON.stringify([
@@ -55,7 +55,7 @@ export function oscOutputConfig(settings, tuning) {
       controls.rasterOnly,
       ...pitch,
       1,
-      { sustainBuzzFormant: controls.sustain, retriggerBuzzFormant: controls.retrigger,
+      { retriggerBuzzFormant: controls.retrigger,
         ...(controls.signal ? { signal: controls.signal } : {}) },
     ],
   };

@@ -11,12 +11,12 @@ describe("SuperSonic comparison", () => {
     const attack = send.mock.calls[0];
     expect(attack).toContain("ff0");
     expect(attack).toContain("fa4");
-    expect(attack[attack.indexOf("sustain_mode") + 1]).toBe(0);
+    expect(attack).not.toContain("sustain_mode");
     expect(attack[attack.indexOf("retrigger_mode") + 1]).toBe(1);
     voice.update({ sustain: true, retrigger: true });
     expect(random).toHaveBeenCalledTimes(1);
     expect(send.mock.calls.at(-1)).not.toContain("ff0");
-    expect(send.mock.calls.at(-1)[send.mock.calls.at(-1).indexOf("sustain_mode") + 1]).toBe(0);
+    expect(send.mock.calls.at(-1)).not.toContain("sustain_mode");
   });
   it("bounds controls without quantising frequency", () => {
     const pairs = comparisonControls({ frequency: 441.12345, level: 9, mod: -1 });

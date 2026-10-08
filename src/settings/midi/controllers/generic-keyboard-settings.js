@@ -13,6 +13,7 @@ const GenericKeyboardSettings = ({
   anchorChannel = 1,
   midiLearnActive,
   showAnchorChannel = true,
+  showGeometryInfo = true,
   onChange,
 }) => (
   <>
@@ -74,12 +75,12 @@ const GenericKeyboardSettings = ({
       </span>
     </label>
 
-    <label>
+    {showGeometryInfo && <label>
       2D Geometry
       <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
         2D geometry is bypassed
       </span>
-    </label>
+    </label>}
   </>
 );
 
@@ -90,6 +91,7 @@ GenericKeyboardSettings.propTypes = {
   anchorChannel: PropTypes.number,
   midiLearnActive: PropTypes.bool.isRequired,
   showAnchorChannel: PropTypes.bool,
+  showGeometryInfo: PropTypes.bool,
   onChange: PropTypes.func.isRequired,
 };
 

@@ -152,9 +152,6 @@ export const deriveOscQuickReleaseRasterOnly = (settings) =>
     settings.osc_quick_release_raster_only ?? REGISTRY_BY_KEY.osc_quick_release_raster_only.default,
   );
 
-// Retired preference: old sessions must not restore a constant held body.
-export const deriveOscSustainBuzzFormant = () => false;
-
 export const deriveOscRetriggerBuzzFormant = (settings) =>
   localBool(
     REGISTRY_BY_KEY.osc_retrigger_buzz_formant.key,
@@ -167,7 +164,6 @@ function readOscRuntimeControls(settings) {
     quickRelease: deriveOscQuickRelease(settings),
     quickReleaseTime: deriveOscQuickReleaseTime(settings),
     rasterOnly: deriveOscQuickReleaseRasterOnly(settings),
-    sustain: deriveOscSustainBuzzFormant(settings),
     retrigger: deriveOscRetriggerBuzzFormant(settings),
   };
 }
@@ -177,7 +173,6 @@ function applyOscRuntimeControls(synth, controls) {
   synth?.setQuickRelease?.(controls.quickRelease);
   synth?.setQuickReleaseTime?.(controls.quickReleaseTime);
   synth?.setQuickReleaseRasterOnly?.(controls.rasterOnly);
-  synth?.setSustainBuzzFormant?.(controls.sustain);
   synth?.setRetriggerBuzzFormant?.(controls.retrigger);
 }
 
@@ -1387,8 +1382,8 @@ const useSynthWiring = (
   }, [settings.mono_portamento, settings.mono_portamento_time]);
 
   useEffect(() => {
-    monoSynthRef.current.synth?.setSlideCc(settings.mono_slide_cc ?? 74);
-  }, [settings.mono_slide_cc]);
+    monoSynthRef.current.synth?.setExpressionYCc(settings.mono_expression_y_cc ?? 74);
+  }, [settings.mono_expression_y_cc]);
 
   useEffect(() => {
     mpeSynthRef.current.synth?.setMpePlusPitchBendEnabled?.(!!settings.mpe_plus_output);
@@ -1430,12 +1425,6 @@ const useSynthWiring = (
     oscSynthRef.current.synth?.setQuickReleaseRasterOnly?.(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
   }, [settings.osc_quick_release_raster_only]);
-  useEffect(() => {
-    const value = deriveOscSustainBuzzFormant(settings);
-    oscRuntimeControlsRef.current.sustain = value;
-    oscSynthRef.current.synth?.setSustainBuzzFormant?.(value);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
-  }, [settings.osc_sustain_buzz_formant]);
   useEffect(() => {
     const value = deriveOscRetriggerBuzzFormant(settings);
     oscRuntimeControlsRef.current.retrigger = value;

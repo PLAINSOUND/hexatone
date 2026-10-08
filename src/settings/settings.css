@@ -1219,7 +1219,7 @@ td.scale-color-col .color-input {
 .settings-form__description-label {
   font-style: italic;
   color: #996666;
-  margin-bottom: 0.5em;
+  /* Use the standard label-row spacing, including before Input Mode. */
 }
 
 .settings-form__description-value {

@@ -5,7 +5,7 @@
  */
 import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 import { sendRpn } from "../../midi/rpn.js";
-import { SLIDE_CC_OPTIONS, normaliseSlideCc } from "../../midi/slide-cc-options.js";
+import { EXPRESSION_Y_CC_OPTIONS, normaliseExpressionYCc } from "../../midi/expression-y-cc-options.js";
 import CustomRangeSlider from "../shared/range-slider.jsx";
 
 export default function MonoOutputSettings({ settings, midi, outputs, onSettingChange, collapsed = false }) {
@@ -109,14 +109,14 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
             />
           </label>
           <label>
-            Map MPE Slide (CC74) to
+            Map MPE ExpressionY (CC74) to
             <select
               class="sidebar-input"
-              aria-label="Map MPE Slide (CC74) to"
-              value={normaliseSlideCc(settings.mono_slide_cc)}
-              onChange={(e) => onSettingChange("mono_slide_cc", Number(e.target.value))}
+              aria-label="Map MPE ExpressionY (CC74) to"
+              value={normaliseExpressionYCc(settings.mono_expression_y_cc)}
+              onChange={(e) => onSettingChange("mono_expression_y_cc", Number(e.target.value))}
             >
-              {SLIDE_CC_OPTIONS.map(({ cc, label }) => (
+              {EXPRESSION_Y_CC_OPTIONS.map(({ cc, label }) => (
                 <option key={cc} value={cc}>
                   {label}
                 </option>

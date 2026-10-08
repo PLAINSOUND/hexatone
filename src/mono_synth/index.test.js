@@ -169,29 +169,29 @@ describe("monophonic MIDI output", () => {
     synth.shutdown();
   });
   it.each([0, 6, 32, 38, 84, 88, 96, 97, 98, 99, 100, 101, 120, 127])(
-    "safely restores excluded slide CC %s as CC74",
-    (slideCc) => {
-      const { synth, output, note } = setup({ slideCc });
+    "safely restores excluded ExpressionY CC %s as CC74",
+    (expressionYCc) => {
+      const { synth, output, note } = setup({ expressionYCc });
       note(60).noteOn();
       expect(output.send.mock.calls).toContainEqual([[0xb0, 74, 64], expect.any(Number)]);
       output.send.mockClear();
-      synth.setSlideCc(slideCc);
+      synth.setExpressionYCc(expressionYCc);
       expect(output.send.mock.calls).toContainEqual([[0xb0, 74, 64], expect.any(Number)]);
       synth.shutdown();
     },
   );
-  it.each([1, 71, 119])("maps slide to CC %s, including smoothed transitions", (slideCc) => {
-    const { synth, output, note, ons } = setup({ slideCc, portamento: true, time: 80 });
+  it.each([1, 71, 119])("maps ExpressionY to CC %s, including smoothed transitions", (expressionYCc) => {
+    const { synth, output, note, ons } = setup({ expressionYCc, portamento: true, time: 80 });
     note(60).noteOn();
     const next = note(61);
     next.noteOn();
     next.cc74(100);
     vi.advanceTimersByTime(100);
-    expect(output.send.mock.calls).toContainEqual([[0xb0, slideCc, 100], expect.any(Number)]);
+    expect(output.send.mock.calls).toContainEqual([[0xb0, expressionYCc, 100], expect.any(Number)]);
     expect(output.send.mock.calls.some(([bytes]) => bytes[0] === 0xb0 && bytes[1] === 74)).toBe(
       false,
     );
-    synth.setSlideCc(71);
+    synth.setExpressionYCc(71);
     expect(output.send.mock.calls).toContainEqual([[0xb0, 71, 100], expect.any(Number)]);
     expect(ons()).toHaveLength(1);
     synth.shutdown();

@@ -295,7 +295,6 @@ const buildSNewArgs = (
   vol,
   quickRelease,
   quickReleaseTime,
-  sustainBuzzFormant,
   retriggerBuzzFormant,
 ) => {
   const args = [
@@ -329,8 +328,6 @@ const buildSNewArgs = (
 
   if (synthName === "string" || synthName === "formant") {
     args.push(
-      { type: "s", value: "sustain_mode" },
-      { type: "i", value: sustainBuzzFormant ? 1 : 0 },
       { type: "s", value: "retrigger_mode" },
       { type: "i", value: retriggerBuzzFormant ? 1 : 0 },
     );
@@ -366,7 +363,6 @@ export const create_osc_synth = async (
   socket.setTailPruning?.(_quickRelease.value);
   const _quickReleaseTime = { value: Math.max(0.001, Math.min(2.5, quickReleaseTime)) };
   const _quickReleaseRasterOnly = { value: quickReleaseRasterOnly === true };
-  const _sustainBuzzFormant = { value: false }; // Legacy control retired.
   const _retriggerBuzzFormant = { value: performanceOptions.retriggerBuzzFormant === true };
   const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
   const _knownNodeIds = new Set();
@@ -597,7 +593,6 @@ export const create_osc_synth = async (
         _quickRelease,
         _quickReleaseTime,
         _quickReleaseRasterOnly,
-        _sustainBuzzFormant,
         _retriggerBuzzFormant,
         _pool,
         _slotState,
@@ -665,10 +660,6 @@ export const create_osc_synth = async (
 
     setQuickReleaseRasterOnly(value) {
       setQuickReleaseRasterOnly(value);
-    },
-
-    setSustainBuzzFormant() {
-      setBuzzFormantMode("sustain_mode", _sustainBuzzFormant, false);
     },
 
     setRetriggerBuzzFormant(value) {
@@ -740,7 +731,6 @@ function OscHex(
   quickReleaseRef,
   quickReleaseTimeRef,
   quickReleaseRasterOnlyRef,
-  sustainBuzzFormantRef,
   retriggerBuzzFormantRef,
   pool,
   slotState,
@@ -764,7 +754,6 @@ function OscHex(
   this._quickReleaseRef = quickReleaseRef;
   this._quickReleaseTimeRef = quickReleaseTimeRef;
   this._quickReleaseRasterOnlyRef = quickReleaseRasterOnlyRef;
-  this._sustainBuzzFormantRef = sustainBuzzFormantRef;
   this._retriggerBuzzFormantRef = retriggerBuzzFormantRef;
   this._pool = pool;
   this._heldVoices = heldVoices;
@@ -856,7 +845,6 @@ OscHex.prototype._startLayer = function (i, timestamp) {
         this._volumes[i],
         slotState.quickReleaseEnabled ? this._quickReleaseRef.value : 0,
         this._quickReleaseTimeRef.value,
-        this._sustainBuzzFormantRef.value,
         this._retriggerBuzzFormantRef.value,
       ),
       OSC_LAYER_PORTS[i],

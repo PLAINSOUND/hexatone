@@ -46,6 +46,7 @@ export function applyIOReloadPolicy({
   // Legacy aliases and sound controls stored outside the settings registry.
   for (const key of [
     "output_direct",
+    "mono_slide_cc",
     "direct_device",
     "direct_mode",
     "direct_channel",

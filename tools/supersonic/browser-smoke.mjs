@@ -70,7 +70,7 @@ try {
         if (loadErrors.length) { result.instruments.push({ name, loaded: false, errors: loadErrors }); continue; }
         const node = sonic.nextNodeId();
         sonic.send("/s_new", `hexlab_${name}`, node, 0, 991,
-          "freq", 220, "on_vel", 80, "vol", 0.06, "gate", 1, "sustain_mode", name === "formant" ? 0 : 1);
+          "freq", 220, "on_vel", 80, "vol", 0.06, "gate", 1);
         let peak = 0, finite = true;
         // Observe render output, not just successful definition loading.
         for (let n = 0; n < 20; n++) {

@@ -26,6 +26,7 @@ let lastUsePresetsOptions = null;
 let mockDetectedController = null;
 let mockControllerById = null;
 let pendingIOSettingsLoad = null;
+let pendingCalculatorLoad = null;
 const { guardianPanicMock } = vi.hoisted(() => ({ guardianPanicMock: vi.fn() }));
 
 vi.mock("normalize.css", () => ({}));
@@ -49,6 +50,14 @@ vi.mock("./settings/io-settings.jsx", () => ({
     </div>;
   },
 }));
+vi.mock("./calculator/tab.jsx", async (importOriginal) => {
+  const actual = await importOriginal();
+  const Calculator = actual.default;
+  return { ...actual, default: (props) => {
+    if (pendingCalculatorLoad) throw pendingCalculatorLoad;
+    return <Calculator {...props} />;
+  } };
+});
 vi.mock("./credits", () => ({
   default: () => <div>Credits Stub</div>,
 }));
@@ -128,8 +137,6 @@ let settings = {
   midiin_anchor_note: 60,
   midiin_channel_group_size: 1,
   midiin_channel_legacy: false,
-  midiin_scale_tolerance: 25,
-  midiin_scale_fallback: "accept",
   midiin_pitchbend_mode: "recency",
   midiin_pressure_mode: "recency",
   wheel_to_recent: false,
@@ -295,6 +302,29 @@ describe("Loading", () => {
 });
 
 describe("applyReloadPersistencePolicy", () => {
+  it.each([true, false])("clears stale Manual anchors on reload (restore: %s)", (shouldPersist) => {
+    const originalUrl = window.location.href;
+    onTestFinished(() => history.replaceState(null, "", originalUrl));
+    history.replaceState(null, "", "#manual-performance-controls");
+    applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist });
+    expect(window.location.hash).toBe("");
+  });
+
+  it("preserves an intentional Manual bookmark on fresh navigation", () => {
+    const originalUrl = window.location.href;
+    onTestFinished(() => history.replaceState(null, "", originalUrl));
+    history.replaceState(null, "", "#manual-performance-controls");
+    applyReloadPersistencePolicy({ navigationType: "navigate", shouldPersist: true });
+    expect(window.location.hash).toBe("#manual-performance-controls");
+  });
+
+  it("leaves unrelated URL anchors unchanged on reload", () => {
+    const originalUrl = window.location.href;
+    onTestFinished(() => history.replaceState(null, "", originalUrl));
+    history.replaceState(null, "", "#other-target");
+    applyReloadPersistencePolicy({ navigationType: "reload", shouldPersist: true });
+    expect(window.location.hash).toBe("#other-target");
+  });
   it("does not clear I/O access or auto-send intent when clearing the preset", () => {
     for (const key of ["webmidi_access", "mts_bulk_sysex_auto"])
       sessionStorage.setItem(key, "retained");
@@ -342,13 +372,13 @@ describe("reload workspace tab", () => {
     localStorage.removeItem("hexatone_restore_io_on_reload");
   });
 
-  it.each(["sequencer", "calculator"])("restores the %s workspace", (workspaceTab) => {
+  it.each(["sequencer", "calculator", "manual"])("restores the %s workspace", (workspaceTab) => {
     saveReloadWorkspaceTab(workspaceTab);
 
     expect(loadReloadWorkspaceTab()).toBe(workspaceTab);
   });
 
-  it.each(["hexatone", "manual"])(
+  it.each(["hexatone"])(
     "returns to Hexatone after leaving the %s workspace active",
     (workspaceTab) => {
       sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, "sequencer");
@@ -360,12 +390,11 @@ describe("reload workspace tab", () => {
     },
   );
 
-  it("restores I/O only while its restore preference is enabled", () => {
+  it("retains the I/O tab independently of its settings restore preference", () => {
     saveReloadWorkspaceTab("io");
     expect(loadReloadWorkspaceTab()).toBe("io");
     localStorage.setItem("hexatone_restore_io_on_reload", "false");
-    expect(loadReloadWorkspaceTab()).toBe("hexatone");
-    // Changing the checkbox while remaining in I/O must take effect too.
+    expect(loadReloadWorkspaceTab()).toBe("io");
     localStorage.setItem("hexatone_restore_io_on_reload", "true");
     expect(loadReloadWorkspaceTab()).toBe("io");
     localStorage.removeItem("hexatone_restore_io_on_reload");
@@ -1031,6 +1060,7 @@ describe("App workspace tabs", () => {
     ["sequencer", "SEQUENCER"],
     ["calculator", "CALCULATOR"],
     ["io", "I/O"],
+    ["manual", "MANUAL"],
   ])("opens the restored %s workspace on startup", async (storedTab, tabName) => {
     sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, storedTab);
     if (storedTab === "io") {
@@ -1050,6 +1080,22 @@ describe("App workspace tabs", () => {
       const play = await screen.findByLabelText("play timed transport");
       expect(document.getElementById("io-sequencer-transport-host").contains(play)).toBe(true);
     }
+  });
+
+  it("keeps the restored Manual visible while the hidden Calculator loads", async () => {
+    sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, "manual");
+    let finish;
+    pendingCalculatorLoad = new Promise(resolve => { finish = resolve; });
+    onTestFinished(() => { pendingCalculatorLoad = null; finish(); });
+    const view = render(<App />);
+    expect(await screen.findByTestId("manual-sidebar")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "MANUAL" }).getAttribute("aria-selected")).toBe("true");
+    await act(async () => {
+      pendingCalculatorLoad = null;
+      finish();
+    });
+    expect(screen.getByTestId("manual-sidebar")).toBeTruthy();
+    view.unmount();
   });
 
   it("restores stored sequence timbre after Mod Wheel input when sequence shaping is unchecked", async () => {

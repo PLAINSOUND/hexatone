@@ -9,9 +9,9 @@ describe("KeyLabels HEJI anchor handling", () => {
     const props = { onChange: vi.fn(), onAtomicChange: vi.fn(),
       settings: { key_labels: "heji", fundamental: 440 } };
     const view = render(<KeyLabels {...props} hideHejiSpelling />);
-    const spelling = screen.getByText("HEJI Spelling with 0¢ Deviation").closest("fieldset");
+    const spelling = screen.getByText("HEJI Anchor (Spelling with 0¢ Deviation)").closest("fieldset");
     expect(spelling.hidden).toBe(true);
-    expect(screen.queryByRole("group", { name: "HEJI Spelling with 0¢ Deviation" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "HEJI Anchor (Spelling with 0¢ Deviation)" })).toBeNull();
     view.rerender(<KeyLabels {...props} hideHejiSpelling={false} />);
     expect(spelling.hidden).toBe(false);
   });
@@ -277,10 +277,12 @@ describe("KeyLabels HEJI anchor handling", () => {
     expect(onAtomicChange).toHaveBeenCalledWith({
       heji_anchor_ratio: "1/1",
       heji_anchor_frequency: "",
+      heji_anchor_label: "D",
+      heji_anchor_root_label: "D",
     });
   });
 
-  it("reduces the anchor spelling to its tempered 3-limit accidental for a cents anchor", () => {
+  it("derives a cents anchor from the original root spelling", () => {
     const onAtomicChange = vi.fn();
 
     render(
@@ -310,8 +312,47 @@ describe("KeyLabels HEJI anchor handling", () => {
 
     expect(onAtomicChange).toHaveBeenCalledWith({
       heji_anchor_ratio: "400.0",
-      heji_anchor_label: "B",
+      heji_anchor_label: "G",
+      heji_anchor_root_label: "E",
     });
+  });
+
+  it("restores JI after a cents excursion, including after remount, and rebases explicit spelling edits", () => {
+    let saved;
+    function Harness() {
+      const [settings, setSettings] = useState(saved || {
+        key_labels: "heji", scale: ["3/2", "2/1"], reference_degree: 0,
+        fundamental: 440, heji_anchor_ratio: "27/16", heji_anchor_label: "F",
+      });
+      saved = settings;
+      return <KeyLabels settings={settings} heji_names={[]}
+        onChange={(key, value) => setSettings((old) => ({ ...old, [key]: value }))}
+        onAtomicChange={(patch) => setSettings((old) => ({ ...old, ...patch }))} />;
+    }
+    const editRatio = (value) => {
+      const input = screen.getByLabelText("Ratio/Cents from 1/1 (scale degree 0)");
+      fireEvent.input(input, { target: { value } });
+      fireEvent.blur(input);
+    };
+    const view = render(<Harness />);
+    editRatio("900.");
+    expect(saved.heji_anchor_label).toMatch(/[]/u);
+    const root = saved.heji_anchor_root_label;
+    expect(root).toBeTruthy();
+    view.unmount();
+    render(<Harness />);
+    editRatio("27/16");
+    expect(saved.heji_anchor_label).toBe("F");
+    expect(saved.heji_anchor_root_label).toBe(root);
+    editRatio("1/1");
+    expect(saved.heji_anchor_label).toBe(root);
+    const spelling = screen.getByLabelText("Notation (Spelling)");
+    fireEvent.input(spelling, { target: { value: "nA" } });
+    fireEvent.blur(spelling);
+    expect(saved.heji_anchor_root_label).toBe("");
+    editRatio("3/2");
+    expect(saved.heji_anchor_label).toBe("E");
+    expect(saved.heji_anchor_root_label).toBe("A");
   });
 
   it("does not recompute or commit the HEJI anchor ratio while typing", () => {

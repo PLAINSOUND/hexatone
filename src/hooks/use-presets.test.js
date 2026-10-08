@@ -133,6 +133,7 @@ describe("mergePresetIntoSettings", () => {
       {
         heji_anchor_ratio: "1088.268712",
         heji_anchor_label: "A",
+        heji_anchor_root_label: "D",
         key_labels: "heji",
         fundamental: 294,
       },
@@ -144,6 +145,7 @@ describe("mergePresetIntoSettings", () => {
 
     expect(merged.heji_anchor_ratio).toBe("");
     expect(merged.heji_anchor_label).toBe("");
+    expect(merged.heji_anchor_root_label).toBe("");
   });
 
   it("preserves an explicit HEJI anchor when the incoming preset defines one", () => {

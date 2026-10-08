@@ -523,7 +523,7 @@ const CalculatorTab = ({
       </fieldset>
 
       <fieldset class="heji-anchor-fieldset">
-        <legend>HEJI Spelling with 0¢ Deviation</legend>
+        <legend>HEJI Anchor (Spelling with 0¢ Deviation)</legend>
         <label>
           Ratio/Cents from 1/1
           <CommitTextInput

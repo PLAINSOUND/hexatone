@@ -39,14 +39,14 @@ describe("output construction plans", () => {
         midi_velocity: 72,
         mono_portamento: true,
         mono_portamento_time: 25,
-        mono_slide_cc: 1,
+        mono_expression_y_cc: 1,
       },
       tuning,
       port,
       id,
     );
     expect(live.key).toBe(plan.key);
-    expect(live.args).toMatchObject({ portamento: true, time: 25, slideCc: 1 });
+    expect(live.args).toMatchObject({ portamento: true, time: 25, expressionYCc: 1 });
     expect(plan.args.referenceCents).toBeCloseTo(701.955, 3);
     expect(monoOutputConfig({ ...settings, mono_bend_range: 12 }, tuning, port, id).key).not.toBe(
       plan.key,
@@ -64,7 +64,6 @@ describe("output construction plans", () => {
       quickRelease: 0.5,
       quickReleaseTime: 0.1,
       rasterOnly: true,
-      sustain: true,
       retrigger: false,
     };
     expect(plan.args(controls)).toEqual([
@@ -78,7 +77,7 @@ describe("output construction plans", () => {
       1,
       tuning.scale,
       1,
-      { sustainBuzzFormant: true, retriggerBuzzFormant: false },
+      { retriggerBuzzFormant: false },
     ]);
     expect(oscOutputConfig({ ...settings, osc_quick_release: 1 }, tuning).key).toBe(plan.key);
     expect(oscOutputConfig({ ...settings, osc_bridge_url: "ws://other" }, tuning).key).not.toBe(

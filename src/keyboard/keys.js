@@ -200,7 +200,6 @@ class Keys {
       stepsPerChannelDefault: settings.equivSteps,
       channelGroupSize: settings.midiin_channel_group_size ?? 1,
       legacyChannelMode: settings.midiin_channel_legacy,
-      scaleTolerance: 50,
       scaleBendRange: settings.midiin_scale_bend_range ?? 48,
       hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 100,
       hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending",

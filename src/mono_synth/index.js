@@ -1,6 +1,6 @@
 /**
  * Single-channel last-note-priority MIDI backend composed by use-synth-wiring.
- * Owns held voice identities, carrier selection and pitch/slide/pressure output;
+ * Owns held voice identities, carrier selection and pitch/expressionY/pressure output;
  * ramp.js supplies worker-ticked timestamped transitions and output transactions
  * coalesce synchronous chord changes. Raw MIDI channels here are zero-based.
  */
@@ -8,7 +8,7 @@
 import { sendRpn } from "../midi/rpn.js";
 import { getOutputTransaction, outputAttackGroup } from "../midi/output-transaction.js";
 import { createMonoRamp } from "./ramp.js";
-import { normaliseSlideCc } from "../midi/slide-cc-options.js";
+import { normaliseExpressionYCc } from "../midi/expression-y-cc-options.js";
 
 const clamp7 = (v) => Math.max(0, Math.min(127, Math.round(Number(v) || 0)));
 
@@ -47,7 +47,7 @@ export function createMonoSynth({
   velocity = 72,
   portamento = false,
   time = 80,
-  slideCc = 74,
+  expressionYCc = 74,
   schedulerOptions,
 } = {}) {
   const parsedRange = Number(bendRange);
@@ -72,7 +72,7 @@ export function createMonoSynth({
   };
   const ramp = createMonoRamp(
     ([bend, y, z], at) => {
-      const cc = normaliseSlideCc(slideCc);
+      const cc = normaliseExpressionYCc(expressionYCc);
       if (range > 0) sendExpression("bend", bend, [0xe0 + channel, bend & 127, bend >> 7], at);
       sendExpression(`cc:${cc}`, y, [0xb0 + channel, cc, y], at);
       sendExpression("pressure", z, [0xd0 + channel, z], at);
@@ -156,9 +156,9 @@ export function createMonoSynth({
   if (range > 0) sendRpn(output, channel, 0, 0, range);
   const synth = {
     family: "mono",
-    setSlideCc(value) {
-      slideCc = normaliseSlideCc(value);
-      lastExpression.delete(`cc:${slideCc}`);
+    setExpressionYCc(value) {
+      expressionYCc = normaliseExpressionYCc(value);
+      lastExpression.delete(`cc:${expressionYCc}`);
       if (active) request();
     },
     hasVoices: () => stack.length > 0,

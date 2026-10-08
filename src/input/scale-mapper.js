@@ -36,16 +36,12 @@
  *                                 Does NOT include the equave — that is passed separately.
  *                                 scale.length is the number of degrees per equave.
  * @param {number}   equave        Equave in cents (e.g. 1200).
- * @param {number}   toleranceCents Maximum allowed distance in cents. Ignored when
- *                                 fallback === 'accept'; used to gate when 'discard'.
- * @param {string}   fallback      'discard' | 'accept'. When 'discard', returns null
- *                                 if the nearest degree is farther than toleranceCents.
  *
- * @returns {{ steps: number, distanceCents: number } | null}
+ * @returns {{ steps: number, distanceCents: number }}
  *   steps: integer scale-degree offset from origin (suitable for bestVisibleCoord).
- *   Returns null only when fallback === 'discard' and distance > tolerance.
+ *   Always accepts the nearest degree, regardless of distance.
  */
-export function findNearestDegree(pitchCents, scale, equave, toleranceCents, fallback) {
+export function findNearestDegree(pitchCents, scale, equave) {
   // settings.scale is [0, …, last_degree_before_equave] — no equave entry.
   // equave is passed separately as equivInterval.
   const numDegrees = scale.length; // e.g. 12 for 12-EDO
@@ -76,10 +72,6 @@ export function findNearestDegree(pitchCents, scale, equave, toleranceCents, fal
       bestDist = dist;
       bestDegree = d;
     }
-  }
-
-  if (fallback === "discard" && bestDist > toleranceCents) {
-    return null;
   }
 
   // Adjust octave if the best match was across the equave boundary (wrap-around).

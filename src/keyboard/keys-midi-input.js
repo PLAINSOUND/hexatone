@@ -174,8 +174,6 @@ function continuumRasterTargetFloat(keys, hex, channel, bend14, scaleMode) {
       bentCents,
       keys.tuning.scale,
       keys.tuning.equivInterval,
-      keys.inputRuntime.scaleTolerance ?? 50,
-      "accept",
     );
     return result?.steps ?? null;
   }
@@ -528,8 +526,6 @@ export function midinoteOn(event) {
       pitchCents,
       this.tuning.scale,
       this.tuning.equivInterval,
-      this.inputRuntime.scaleTolerance ?? 50,
-      this.inputRuntime.scaleFallback || "discard",
     );
     if (result === null) return;
     if (!this.coordResolver.stepsTable) this.coordResolver.buildStepsTable();
@@ -725,8 +721,6 @@ export function midinoteOff(event) {
       pitchCents,
       this.tuning.scale,
       this.tuning.equivInterval,
-      this.inputRuntime.scaleTolerance ?? 50,
-      "accept",
     );
     coordsList = result === null ? [] : this.coordResolver.stepsToVisibleCoords(result.steps);
   } else {

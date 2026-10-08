@@ -57,13 +57,46 @@ describe("MidiOutputs FluidSynth independence", () => {
     ]) {
       const toggle = screen.getByRole("checkbox", { name, exact: true });
       expect(toggle.closest("label").classList.contains("midi-output-toggle-row")).toBe(true);
-      expect(toggle.closest(".midi-output-controls--collapsed")).toBeTruthy();
       fireEvent.click(toggle);
       expect(props.onChange).toHaveBeenCalledWith(key, !props.settings[key]);
     }
   });
 
-  it("does not reveal enabled output configuration until the fieldset is expanded", () => {
+  it.each([
+    ["Monophonic Single-Channel MIDI", "output_mono"],
+    ["MTS Real-Time Tuning", "output_mts"],
+    ["MTS Bulk Dump Tuning Maps", "output_mts_bulk"],
+    ["MPE", "output_mpe"],
+  ])("opens settings when enabling %s", (name, key) => {
+    sessionStorage.removeItem("hexatone_midi_output_collapsed");
+    const props = makeProps({ [key]: false });
+    props.onChange = vi.fn();
+    const view = render(<MidiOutputs {...props} />);
+    fireEvent.click(screen.getByRole("checkbox", { name, exact: true }));
+    expect(props.onChange).toHaveBeenCalledWith(key, true);
+    view.rerender(<MidiOutputs {...props} settings={{ ...props.settings, [key]: true }} />);
+    expect(screen.getByRole("button", { name: "Hide MIDI Output settings" })).toBeTruthy();
+    expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0);
+    expect(sessionStorage.getItem("hexatone_midi_output_collapsed")).toBe("false");
+    fireEvent.click(screen.getByRole("checkbox", { name, exact: true }));
+    expect(props.onChange).toHaveBeenCalledWith(key, false);
+    expect(screen.getByRole("button", { name: "Hide MIDI Output settings" })).toBeTruthy();
+    view.unmount();
+    render(<MidiOutputs {...props} />);
+    expect(screen.getByRole("button", { name: "Hide MIDI Output settings" })).toBeTruthy();
+  });
+
+  it("keeps settings collapsed when disabling an output", () => {
+    sessionStorage.removeItem("hexatone_midi_output_collapsed");
+    const props = makeProps({ output_mts: true });
+    props.onChange = vi.fn();
+    render(<MidiOutputs {...props} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "MTS Real-Time Tuning" }));
+    expect(props.onChange).toHaveBeenCalledWith("output_mts", false);
+    expect(screen.getByRole("button", { name: "Show MIDI Output settings" })).toBeTruthy();
+  });
+
+  it("does not reveal initially enabled output configuration until the fieldset is expanded", () => {
     sessionStorage.removeItem("hexatone_midi_output_collapsed");
     const props = makeProps({ output_mono: true, output_mts: true, output_mts_bulk: true, output_mpe: true });
     render(<MidiOutputs {...props} />);
@@ -109,11 +142,11 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByRole("checkbox", { name: "MPE", exact: true }).disabled).toBe(false);
   });
 
-  it("offers named slide CC destinations excluding special messages", () => {
+  it("offers named expressionY CC destinations excluding special messages", () => {
     const props = makeProps({ output_mono: true });
     props.onChange = vi.fn();
     render(<MidiOutputs {...props} />);
-    const select = screen.getByRole("combobox", { name: "Map MPE Slide (CC74) to" });
+    const select = screen.getByRole("combobox", { name: "Map MPE ExpressionY (CC74) to" });
     expect(select.value).toBe("74");
     expect(Array.from(select.options, (option) => Number(option.value))).toEqual(
       Array.from({ length: 120 }, (_, i) => i).filter(
@@ -122,8 +155,8 @@ describe("MidiOutputs FluidSynth independence", () => {
     );
     expect(select.selectedOptions[0].textContent).toBe("74 — Brightness");
     fireEvent.change(select, { target: { value: "1" } });
-    expect(props.onChange).toHaveBeenCalledWith("mono_slide_cc", 1);
-    expect(sessionStorage.getItem("mono_slide_cc")).toBe("1");
+    expect(props.onChange).toHaveBeenCalledWith("mono_expression_y_cc", 1);
+    expect(sessionStorage.getItem("mono_expression_y_cc")).toBe("1");
   });
 
   it("resends monophonic pitch-bend RPN on the selected channel", () => {

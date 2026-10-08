@@ -12,7 +12,7 @@
     "core/wasm/clockwork_midi_bg.wasm": "a15489a9ee42d42ecfade9e13f9e03503ecb64ae6ebd4ac605d0bf4d2f7ed841",
     "core/wasm/scsynth-nrt.wasm": "de0033ccfb158a898f1dae5534c6def847105e04ce7a683715cd83ae86a2c33a",
     "core/workers/clockwork_audio_worklet.js": "286c7b1e0fa0ff8619d63051bae820c64779ff3aca55b874865ff6a4e514d1f6",
-    "sources/LumatoneSynths.scd": "c3c4d5a11e20833ca8e255ded09dd3409a80541dd2d135fb84d4523d1e7c9ac7",
+    "sources/LumatoneSynths.scd": "8b97f9c9a8d3af0dffe3f909c3b59c9f4728dcbc09e115921afaacf318b267b1",
     "sources/TOOLCHAIN.md": "a9984d5a3e99896db5c95dae74080b761164c1ca3513c00d0ec29a65c529cd68",
     "sources/build-dfm1.sh": "d9f5b5848df639de5ebdc35a214b1f1090d52ef10bdc2affccd0f3c99fd991cb",
     "sources/clockwork.tar.gz": "682a1916e00df952baf73110f6b443bd8da34775322edc1c85e6dbbb931d6134",
@@ -20,9 +20,9 @@
     "sources/dfm1-registration.patch": "7d7cd60b9117307c523a1654a798b4be8a6c774a56a5b5ae7b3b31127c67a09c",
     "sources/sc3-plugins.tar.gz": "cee6043bc8da7cb3e008c90ecf3a6a0a54633401f2cf7f15cfa283afcfd6abf7",
     "sources/supersonic.tar.gz": "120a8b809ebb0731c640d80d6d7f3b5e363f2b8388fa4a8faa681cd3c85b31d6",
-    "synthdefs/hexlab_formant.scsyndef": "694689bc707250b906798d684e0984fff6f5e75aa9466ded7cc19badd4153dcc",
+    "synthdefs/hexlab_formant.scsyndef": "f8c6eb4018c8e5f27f02098083e88396e7a18be6cbaad10fa33f26c33b36a454",
     "synthdefs/hexlab_pluck.scsyndef": "194bd746132f757701b5cc487167c34d01b530e6c0aa31dac5585a08c094db19",
-    "synthdefs/hexlab_string.scsyndef": "0b4fefab3dfb615f3e6cd565abe58748efb4d2059eba5481b56a5b1a8e8db2cd",
+    "synthdefs/hexlab_string.scsyndef": "56fcf154f08fc3eb2d8b23577a1f9e6e900da9a58fcd8fd68932f8ad8efce1bd",
     "synthdefs/hexlab_tone.scsyndef": "4d1cf0140eef13b82eeabb3b6f3161e6117c8fb51f9fe8a293e5b1c2b89a5155"
   }
 }

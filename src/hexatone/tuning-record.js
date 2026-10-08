@@ -39,6 +39,7 @@ const PASSTHROUGH_STRING_FIELDS = [
   "fundamental_color",
   "heji_anchor_ratio",
   "heji_anchor_label",
+  "heji_anchor_root_label",
   "source_type",
   "source_file",
 ];
@@ -84,6 +85,7 @@ const SETTINGS_RECORD_FIELDS = [
   "center_degree",
   "heji_anchor_ratio",
   "heji_anchor_label",
+  "heji_anchor_root_label",
   "heji_anchor_frequency",
   "rSteps",
   "drSteps",

@@ -224,7 +224,7 @@ it("returns startup errors when the explicit retry also fails", async () => {
 });
 
 it("retains all four live OSC mix levels across articulation toggles and engine switches", async () => {
-  const old = { ...engine(), setLayerVolume: vi.fn(), setSustainBuzzFormant: vi.fn(), setRetriggerBuzzFormant: vi.fn() };
+  const old = { ...engine(), setLayerVolume: vi.fn(), setRetriggerBuzzFormant: vi.fn() };
   const local = { ...engine(), local: true, setLayerVolume: vi.fn() };
   factories.osc.mockResolvedValue(old);
   factories.local.mockResolvedValue(local);
@@ -237,7 +237,6 @@ it("retains all four live OSC mix levels across articulation toggles and engine 
   const toggled = { ...settings, osc_sustain_buzz_formant: true, osc_retrigger_buzz_formant: true };
   view.rerender(<Harness settings={toggled} />);
   await waitFor(() => expect(old.setRetriggerBuzzFormant).toHaveBeenLastCalledWith(true));
-  expect(old.setSustainBuzzFormant).toHaveBeenLastCalledWith(false);
   expect(old.setLayerVolume).not.toHaveBeenCalled();
   view.rerender(<Harness settings={{ ...toggled, osc_local: true }} />);
   await waitFor(() => expect(current.synth?.children).toEqual([local]));
@@ -382,10 +381,9 @@ it("applies OSC mode changes made while creation is pending without rebuilding",
   view.rerender(<Harness settings={{ ...settings, osc_sustain_buzz_formant: true,
     osc_retrigger_buzz_formant: true }} />);
   await act(async () => {});
-  const selected = { ...engine(), setSustainBuzzFormant: vi.fn(), setRetriggerBuzzFormant: vi.fn() };
+  const selected = { ...engine(), setRetriggerBuzzFormant: vi.fn() };
   await act(async () => pending.resolve(selected));
   await waitFor(() => expect(current.synth?.children).toEqual([selected]));
-  expect(selected.setSustainBuzzFormant).toHaveBeenLastCalledWith(false);
   expect(selected.setRetriggerBuzzFormant).toHaveBeenLastCalledWith(true);
   expect(factories.osc).toHaveBeenCalledOnce();
 });

@@ -433,6 +433,6 @@ describe("KeyLabels HEJI panel", () => {
       />,
     );
 
-    expect(screen.getByText("HEJI Spelling with 0¢ Deviation")).not.toBeNull();
+    expect(screen.getByText("HEJI Anchor (Spelling with 0¢ Deviation)")).not.toBeNull();
   });
 });

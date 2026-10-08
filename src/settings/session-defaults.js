@@ -32,6 +32,7 @@ import {
 } from "../persistence/storage-utils.js";
 
 const LEGACY_SESSION_KEY_ALIASES = {
+  mono_expression_y_cc: "mono_slide_cc",
   output_mts_bulk: "output_direct",
   mts_bulk_device: "direct_device",
   mts_bulk_mode: "direct_mode",

@@ -86,6 +86,9 @@ export const SETTINGS_REGISTRY = [
   //   this anchor pair + the committed ratio of each degree.
   { key: "heji_anchor_ratio", tier: "url", type: "string", default: "", presetSkip: true },
   { key: "heji_anchor_label", tier: "url", type: "string", default: "", presetSkip: true },
+  // Original 1/1 spelling retained while Ratio/Cents moves the automatic anchor.
+  // Cleared by an explicit Notation (Spelling) edit.
+  { key: "heji_anchor_root_label", tier: "url", type: "string", default: "", presetSkip: true },
   { key: "heji_anchor_frequency", tier: "url", type: "string", default: "", presetSkip: true },
   { key: "heji_tempered_only", tier: "url", type: "bool", default: false, presetSkip: true },
   // When false, cents deviation is omitted from key labels (still shown in scale table).
@@ -344,8 +347,6 @@ export const SETTINGS_REGISTRY = [
   // (manager/global channel per MPE spec), so the default voice range is 2–15.
   { key: "midiin_mpe_lo_ch", tier: "session", type: "int", default: 2 },
   { key: "midiin_mpe_hi_ch", tier: "session", type: "int", default: 15 },
-  { key: "midiin_scale_tolerance", tier: "session", type: "int", default: 25 },
-  { key: "midiin_scale_fallback", tier: "session", type: "string", default: "accept" },
   { key: "midiin_pitchbend_mode", tier: "session", type: "string", default: "recency" },
   { key: "midiin_pressure_mode", tier: "session", type: "string", default: "all" },
   {
@@ -406,7 +407,7 @@ export const SETTINGS_REGISTRY = [
   { key: "mono_device", tier: "session", type: "string", default: "OFF" },
   { key: "mono_channel", tier: "session", type: "int", default: 0 },
   { key: "mono_bend_range", tier: "session", type: "int", default: 2 },
-  { key: "mono_slide_cc", tier: "session", type: "int", default: 74 },
+  { key: "mono_expression_y_cc", tier: "session", type: "int", default: 74 },
   { key: "mono_portamento", tier: "session", type: "bool", default: false },
   { key: "mono_portamento_time", tier: "session", type: "int", default: 80 },
   { key: "mpe_device", tier: "session", type: "string", default: "OFF" },
@@ -458,13 +459,6 @@ export const SETTINGS_REGISTRY = [
   },
   {
     key: "osc_quick_release_raster_only",
-    tier: "local",
-    type: "bool",
-    default: false,
-    perController: false,
-  },
-  {
-    key: "osc_sustain_buzz_formant",
     tier: "local",
     type: "bool",
     default: false,

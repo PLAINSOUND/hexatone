@@ -696,6 +696,8 @@ a:hover {
 }
 
 #snapshot-palette {
+  --snapshot-row-height: 1.271rem;
+
   position: fixed;
   z-index: 12;
   display: flex;
@@ -765,6 +767,16 @@ a:hover {
   padding: 0;
 }
 
+#snapshot-palette .chord-snap-controls .snapshot-palette-snap-toggle {
+  /* Adding Drift occupies exactly one snapshot row plus the palette's gap. */
+  min-height: var(--snapshot-row-height);
+  padding-bottom: 0;
+}
+
+#snapshot-palette .snapshot-palette-header .snapshot-palette-snap-toggle {
+  padding-bottom: 0;
+}
+
 .snapshot-palette-snap-toggle input[type="checkbox"] {
   width: 0.9rem;
   height: 0.9rem;
@@ -818,6 +830,7 @@ a:hover {
 
 .snapshot-row {
   display: flex;
+  min-height: var(--snapshot-row-height);
   align-items: center;
   gap: 5px;
   border-radius: 6px;
@@ -854,8 +867,8 @@ a:hover {
 .snapshot-play-btn {
   width: 1.271rem;
   min-width: 1.271rem;
-  height: 1.271rem;
-  min-height: 1.271rem;
+  height: var(--snapshot-row-height, 1.271rem);
+  min-height: var(--snapshot-row-height, 1.271rem);
   box-sizing: border-box;
   padding: 0;
   border-radius: var(--btn-radius-pill);

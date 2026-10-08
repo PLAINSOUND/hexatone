@@ -129,8 +129,6 @@ export function deriveSnapshotDegreeList(notes, runtime) {
         pitchCents,
         scale,
         Number(normalizedRuntime?.equivInterval ?? 1200),
-        Number.POSITIVE_INFINITY,
-        "accept",
       );
       if (nearest) {
         degrees.push(mod(nearest.steps, scaleLength));

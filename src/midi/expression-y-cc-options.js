@@ -42,16 +42,16 @@ const names = {
 };
 
 // Bank select, parameter editing, note-number portamento control, velocity
-// prefix and channel-mode messages are not ordinary slide destinations.
+// prefix and channel-mode messages are not ordinary ExpressionY destinations.
 const excluded = new Set([0, 6, 32, 38, 84, 88, 96, 97, 98, 99, 100, 101]);
-export const SLIDE_CC_OPTIONS = Array.from({ length: 120 }, (_, cc) => cc)
+export const EXPRESSION_Y_CC_OPTIONS = Array.from({ length: 120 }, (_, cc) => cc)
   .filter((cc) => !excluded.has(cc))
   .map((cc) => ({
     cc,
     label: `${cc} — ${cc >= 32 && cc <= 63 ? `${names[cc - 32] || `CC${cc - 32}`} (LSB)` : names[cc] || "Undefined"}`,
   }));
 
-export function normaliseSlideCc(value) {
+export function normaliseExpressionYCc(value) {
   const cc = Number(value);
   return value != null && Number.isInteger(cc) && cc >= 0 && cc < 120 && !excluded.has(cc)
     ? cc

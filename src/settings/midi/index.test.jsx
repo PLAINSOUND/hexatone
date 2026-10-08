@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
+import { onTestFinished } from "vitest";
 import MIDIio from "./index.js";
 import { deactivateLinnstrumentUserFirmware } from "../../controllers/linnstrument-user-firmware.js";
 
@@ -29,8 +30,6 @@ const makeProps = (settings = {}) => ({
     midi_passthrough: false,
     midiin_mpe_input: false,
     midiin_steps_per_channel: 0,
-    midiin_scale_tolerance: 25,
-    midiin_scale_fallback: "accept",
     midiin_pitchbend_mode: "recency",
     midiin_pressure_mode: "all",
     midiin_bend_range: "28/27",
@@ -58,6 +57,74 @@ const makeProps = (settings = {}) => ({
   onTakeSnapshot: vi.fn(),
   lumatoneRawPorts: null,
   exquisRawPorts: null,
+});
+
+// Detailed-control tests explicitly opt into the expanded fieldset.
+beforeEach(() => sessionStorage.setItem("hexatone_midi_input_collapsed", "false"));
+afterEach(() => sessionStorage.removeItem("hexatone_midi_input_collapsed"));
+
+it("defaults MIDI Input to collapsed on a fresh load", () => {
+  sessionStorage.removeItem("hexatone_midi_input_collapsed");
+  render(<MIDIio {...makeProps()} />);
+  expect(screen.getByRole("button", { name: "Show MIDI Input settings" }).getAttribute("aria-expanded")).toBe("false");
+  expect(screen.getByLabelText("Input Port")).toBeTruthy();
+  expect(screen.queryByLabelText("Reverse Bend Direction")).toBeNull();
+});
+
+it("collapses MIDI Input to its port, geometry feedback and input mode, retaining the choice on remount", () => {
+  const storageKey = "hexatone_midi_input_collapsed";
+  const previous = sessionStorage.getItem(storageKey);
+  sessionStorage.setItem(storageKey, "false");
+  onTestFinished(() => {
+    if (previous == null) sessionStorage.removeItem(storageKey);
+    else sessionStorage.setItem(storageKey, previous);
+  });
+  const props = makeProps({ midiin_controller_override: "lumatone", wheel_to_recent: true });
+  const view = render(<MIDIio {...props} />);
+  expect(screen.getByLabelText("Pitch Wheel Handoff Portamento")).toBeTruthy();
+  const feedback = view.container.querySelector(".settings-form__description-label");
+  expect(feedback).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Hide MIDI Input settings" }));
+  expect(screen.getByRole("button", { name: "Show MIDI Input settings" }).getAttribute("aria-expanded")).toBe("false");
+  for (const label of ["Input Port", "Controller Geometry", "Input Mode"]) {
+    expect(screen.getByRole("combobox", { name: label })).toBeTruthy();
+  }
+  expect(view.container.contains(feedback)).toBe(true);
+  expect(view.container.querySelector('input[name="midiin_anchor_note"]')).not.toBeNull();
+  expect(screen.getByLabelText("Sequential mode (bypass 2D geometry)")).toBeTruthy();
+  fireEvent.click(screen.getByText("Learn").closest("button"));
+  expect(props.onChange).toHaveBeenCalledWith("midiLearnAnchor", true);
+  expect(screen.queryByLabelText("Pitch Wheel Handoff Portamento")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Input Mode"), { target: { value: "scale" } });
+  expect(props.onChange).toHaveBeenCalledWith("midiin_mapping_target", "scale");
+  view.unmount();
+  render(<MIDIio {...props} />);
+  expect(screen.queryByLabelText("Pitch Wheel Handoff Portamento")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Show MIDI Input settings" }));
+  expect(screen.getByLabelText("Pitch Wheel Handoff Portamento")).toBeTruthy();
+  expect(sessionStorage.getItem(storageKey)).toBe("false");
+});
+
+it.each([
+  ["lumatone", "hex_layout", true, true],
+  ["generic", "hex_layout", true, false],
+  ["generic", "scale", true, false],
+  ["hakenaudio", "scale", false, false],
+  ["lumatone", "scale", false, false],
+])("preserves collapsed controller visibility for %s in %s", (controller, mode, anchor, sequential) => {
+  const storageKey = "hexatone_midi_input_collapsed";
+  const previous = sessionStorage.getItem(storageKey);
+  sessionStorage.setItem(storageKey, "true");
+  onTestFinished(() => {
+    if (previous == null) sessionStorage.removeItem(storageKey);
+    else sessionStorage.setItem(storageKey, previous);
+  });
+  const props = makeProps({ midiin_controller_override: controller, midiin_mapping_target: mode });
+  const view = render(<MIDIio {...props} />);
+  expect(!!view.container.querySelector('input[name="midiin_anchor_note"]')).toBe(anchor);
+  expect(!!screen.queryByLabelText("Sequential mode (bypass 2D geometry)")).toBe(sequential);
+  expect(screen.queryByText("2D geometry is bypassed")).toBeNull();
+  expect(screen.queryByLabelText("Reverse Bend Direction")).toBeNull();
 });
 
 it("defaults wheel handoff portamento to on at 60 ms", () => {
@@ -499,7 +566,8 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.queryByRole("checkbox", { name: "Enable MPE Input" })).toBeNull();
     expect(screen.queryByTitle(/MIDI channel of anchor key/i)).toBeNull();
     expect(screen.queryByTitle("Single-channel controller (ch 1)")).toBeNull();
-    expect(screen.getByLabelText("Tolerance (cents)")).toBeTruthy();
+    expect(screen.queryByLabelText("Tolerance (cents)")).toBeNull();
+    expect(screen.queryByLabelText("Out of tolerance")).toBeNull();
     expect(screen.getByLabelText("MPE Pitch Bend Range")).toBeTruthy();
   });
 

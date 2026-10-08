@@ -5,6 +5,7 @@
  */
 
 import PropTypes from "prop-types";
+import { useState } from "preact/hooks";
 import {
   controllerRequiresMpeInput,
   detectController,
@@ -20,7 +21,6 @@ import {
 import ScalaInput from "../scale/scala-input.js";
 import CustomRangeSlider from "../shared/range-slider.jsx";
 import GeneralInputSettings from "./general-input-settings.js";
-import ScaleInputSettings from "./scale-input-settings.js";
 import MpeInputSettings from "./mpe-input-settings.js";
 import GenericKeyboardSettings from "./controllers/generic-keyboard-settings.js";
 import TonalPlexusSettings from "./controllers/tonal-plexus-settings.js";
@@ -56,6 +56,9 @@ function resolveControllerDisplay(overrideId, detectedController, connectedDevic
 }
 
 const MIDIio = (props) => {
+  const [collapsed, setCollapsed] = useState(
+    () => sessionStorage.getItem("hexatone_midi_input_collapsed") !== "false",
+  );
   // props.midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the inputs list.
   const connectedDevice =
@@ -321,6 +324,22 @@ const MIDIio = (props) => {
     <fieldset>
       <legend>
         <b>MIDI Input</b>
+        <button
+          type="button"
+          class="section-collapse-toggle"
+          aria-label={collapsed ? "Show MIDI Input settings" : "Hide MIDI Input settings"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Toggle to show MIDI Input settings" : "Toggle to hide MIDI Input settings"}
+          onClick={() => {
+            sessionStorage.setItem("hexatone_midi_input_collapsed", !collapsed);
+            setCollapsed(!collapsed);
+          }}
+        >
+          <span
+            class={`disclosure-toggle-glyph disclosure-toggle-glyph--${collapsed ? "collapsed" : "expanded"}`}
+            aria-hidden="true"
+          />
+        </button>
       </legend>
       <GeneralInputSettings
         hasBasicMidi={hasBasicMidi}
@@ -340,7 +359,7 @@ const MIDIio = (props) => {
         onChange={props.onChange}
       />
 
-      {ctrl?.id === "tonalplexus" && (
+      {!collapsed && ctrl?.id === "tonalplexus" && (
         <TonalPlexusSettings
           value={getTonalPlexusInputMode(props.settings)}
           controller={ctrl}
@@ -350,15 +369,13 @@ const MIDIio = (props) => {
         />
       )}
 
-      {scaleMode && <ScaleInputSettings settings={props.settings} onChange={props.onChange} />}
-
       {props.settings.midiin_device && props.settings.midiin_device !== "OFF" && (
         <>
           {/* ── MPE / Poly-AT Input ─────────────────────────────────────────────
               Shown first — MPE mode changes the meaning of all controls below it.
               Shown for MPE-capable controllers and unknown controllers.
               See claude-context/midi-input-ux.md for the full visibility spec. */}
-          {showMpeInputSection && (
+          {!collapsed && showMpeInputSection && (
             <>
               {showMpeInputControls && !isHakenContinuum && !isGenericMpeController && (
                 <label>
@@ -453,6 +470,7 @@ const MIDIio = (props) => {
                   anchorChannel={props.settings.midiin_anchor_channel ?? 1}
                   midiLearnActive={props.midiLearnActive}
                   showAnchorChannel={!mpeInputEnabled}
+                  showGeometryInfo={!collapsed}
                   onChange={props.onChange}
                 />
               ) : (
@@ -665,7 +683,7 @@ const MIDIio = (props) => {
                       </label>
                     ))}
 
-                  {isLinnstrument && (
+                  {!collapsed && isLinnstrument && (
                     <LinnstrumentSettings
                       ctrl={ctrl}
                       settings={props.settings}
@@ -687,7 +705,7 @@ const MIDIio = (props) => {
                     />
                   )}
 
-                  {ctrl?.id === "lumatone" && (
+                  {!collapsed && ctrl?.id === "lumatone" && (
                     <LumatoneSettings
                       settings={props.settings}
                       snapshots={props.snapshots}
@@ -704,7 +722,7 @@ const MIDIio = (props) => {
                     />
                   )}
 
-                  {ctrl?.id === "exquis" && (
+                  {!collapsed && ctrl?.id === "exquis" && (
                     <ExquisSettings
                       settings={props.settings}
                       rawPorts={props.exquisRawPorts}
@@ -778,7 +796,7 @@ const MIDIio = (props) => {
                     />
                   </span>
                 </label>
-                {!mpeInputEnabled && showWheelToRecent && (
+                {!collapsed && !mpeInputEnabled && showWheelToRecent && (
                   <label>
                     Pitch Wheel → Most Recent Note
                     <input
@@ -795,6 +813,9 @@ const MIDIio = (props) => {
               </>
             ))}
 
+          {/* Anchor and geometry bypass remain accessible when collapsed;
+              detailed controller/expression settings are expansion-only. */}
+          {!collapsed && <>
           {isLinnstrument && (
             <LinnstrumentSettings
               ctrl={ctrl}
@@ -1079,6 +1100,7 @@ const MIDIio = (props) => {
               hakenPedalLearnActive={props.hakenPedalLearnActive}
             />
           )}
+          </>}
         </>
       )}
     </fieldset>

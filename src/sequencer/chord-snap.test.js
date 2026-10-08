@@ -18,7 +18,7 @@ describe("chord drift prototype", () => {
   it("keeps ordinary Snap at zero, including ties and equave wrapping", () => {
     const pitches = [-5, 0, 5, 700, 1199, 1205];
     expect(chooseChordSteps(pitches, runtime, 0)).toEqual(pitches.map(pitch =>
-      findNearestDegree(pitch, runtime.scale, 1200, Infinity, "accept").steps));
+      findNearestDegree(pitch, runtime.scale, 1200).steps));
   });
 
   it("finds a better interval pattern through a shared upward or downward search", () => {
