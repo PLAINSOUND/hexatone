@@ -4510,8 +4510,11 @@ const App = () => {
       wheelRange: settings.midiin_bend_range ?? "28/27",
       // In sequential/bypass mode, each Lumatone channel is an independent
       // polyphonic input stream in either Hex Layout or nearest-scale mode.
-      // Keep bend/pressure/timbre attached to notes from that channel.
+      // Keep pressure/timbre attached to notes from that channel. Pitch-wheel
+      // routing is independent: Lumatone uses the normal non-MPE wheel path.
       perChannelExpression: linnstrumentBypassChannelPerRow || lumatoneSequentialInput,
+      // Lumatone's global wheel is independent of layout-encoded channels.
+      perChannelPitchBend: linnstrumentBypassChannelPerRow,
       wheelUsesInterval: linnstrumentBypassSingleChannel,
       wheelScaleAware: settings.wheel_scale_aware,
       wheelSemitones: settings.midi_wheel_semitones ?? 2,

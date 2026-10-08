@@ -6,6 +6,8 @@ import { WebMidi } from "webmidi";
 import { createMonoSynth } from "../mono_synth/index.js";
 import { ensureMidiInputBinding, rebuildControllerMap } from "../input/keys-midi-listeners.js";
 import { parseExactInterval } from "../tuning/interval.js";
+import { settingsImpactSnapshot } from "../settings/settings-impact-registry.js";
+import { buildLumatoneBypassLayoutEntries } from "./keys-controller-leds.js";
 import {
   applyContinuumPitchShape,
   applyContinuumRasterPitchShape,
@@ -151,6 +153,62 @@ function createKeys(
 }
 
 describe("Keys MIDI input integration", () => {
+  it("uses a live preset geometry anchor for bypass export without Learn or saved anchors", () => {
+    localStorage.clear();
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Lumatone", addListener: vi.fn(), removeListener: vi.fn(),
+    });
+    const keys = createKeys({ midiin_device: "input-1", midiin_controller_override: "lumatone",
+      rSteps: 9, drSteps: 5, midiin_anchor_note: 41, midiin_anchor_channel: 2 });
+    // The live anchor was already correct; only the preset-specific fields
+    // arrive now. They must be forwarded even without a surface rebuild.
+    const geometry = { ...keys.settings, lumatone_anchor_note: 41, lumatone_anchor_channel: 2 };
+    keys.updateInputRuntime({ ...keys.inputRuntime }, settingsImpactSnapshot(geometry, "inputRuntime"));
+    keys.updateInputRuntime({ ...keys.inputRuntime, layoutMode: "sequential", seqAnchorNote: 60,
+      seqAnchorChannel: 4, perChannelExpression: true, perChannelPitchBend: false },
+    settingsImpactSnapshot({ ...geometry, midi_passthrough: true,
+      midiin_anchor_note: 60, midiin_anchor_channel: 4 }, "inputRuntime"));
+    keys._getLumatoneHexColor = () => "#abcdef";
+    const payload = buildLumatoneBypassLayoutEntries.call(keys);
+    expect(payload.entries.find(entry => entry.board === 2 && entry.key === 41))
+      .toMatchObject({ note: 60, channel: 3, keyType: 1 });
+    expect(localStorage.getItem("lumatone_anchor")).toBeNull();
+    keys.deconstruct();
+  });
+
+  it("uses Lumatone bypass wheel across layout channels and primes the next onset", () => {
+    const listeners = {};
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({ name: "Lumatone",
+      addListener: (name, handler) => { listeners[name] = handler; }, removeListener: vi.fn() });
+    const voices = [];
+    const synth = { makeHex: (coords, cents) => {
+      const voice = { coords, cents, release: false,
+        retune: vi.fn(function (next) { this.cents = next; }),
+        noteOn: vi.fn(function () { this.onsetCents = this.cents; }), noteOff: vi.fn(),
+        aftertouch: vi.fn(), cc74: vi.fn() };
+      voices.push(voice);
+      return voice;
+    }, rememberControllerState: vi.fn() };
+    const keys = createKeys({ midiin_device: "input-1", midiin_controller_override: "lumatone",
+      midi_passthrough: true, midiin_anchor_note: 60, midiin_anchor_channel: 4 }, {
+      layoutMode: "sequential", seqAnchorNote: 60, seqAnchorChannel: 4,
+      perChannelExpression: true, perChannelPitchBend: false,
+      wheelToRecent: true, wheelPortamento: false, pitchBendMode: "recency",
+    }, synth);
+    listeners.noteon(makeMidiEvent(60, 4));
+    const first = voices.at(-1);
+    listeners.pitchbend(makePitchBendEvent(12000, 1));
+    expect(first.retune).toHaveBeenCalled();
+    expect(first.cents).not.toBe(first._baseCents);
+    listeners.noteon(makeMidiEvent(61, 5));
+    const second = voices.at(-1);
+    expect(second.onsetCents).not.toBe(second._baseCents);
+    expect(second._inputChannel).toBe(5);
+    expect(keys.state.activeMidiByChannel.has(4)).toBe(true);
+    expect(keys.state.activeMidiByChannel.has(5)).toBe(true);
+    keys.deconstruct();
+  });
+
   it("clears MIDI-held and MIDI-sustained notes on disconnect without releasing other sources", () => {
     const keys = createKeys();
     const held = { coords: new Point(0, 0), _notePlayed: 60, noteOff: vi.fn() };

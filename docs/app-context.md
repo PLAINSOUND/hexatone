@@ -259,6 +259,18 @@ must not overwrite captured per-note expression during an unrelated graph change
 The scsynth Brightness control mirrors the designated global wheel/pedal route,
 not every MPE timbre message.
 
+Lumatone bypass uses MIDI channels to encode layout position, not MPE voices.
+Keep channel-specific note identity, pressure and timbre, but route its global
+pitch wheel through the non-MPE wheel handler. `perChannelPitchBend` is separate
+from `perChannelExpression`; use `usesPerChannelPitchBend` at pitch-routing,
+onset priming, retuning and wheel-handoff boundaries. LinnStrument row bend and
+MPE member bend remain channel-specific.
+
+Preset-specific controller anchors must be included in live input settings,
+not only the resolved `midiin_anchor_*` pair. Bypass layout export rebuilds a
+temporary geometry map from the preset anchor before encoding sequential MIDI
+addresses. MIDI Learn storage is a fallback, never a prerequisite for export.
+
 Smoothing belongs to a particular layer (input shaping, target glide, SynthDef,
 or renderer). Do not silently add synthetic MIDI traffic or assume smoothing is
 implemented identically in all backends. The planned FluidSynth XYZ smoothing

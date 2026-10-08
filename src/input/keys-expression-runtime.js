@@ -4,6 +4,7 @@
 // modulation history; callers provide the current Keys runtime state.
 
 import { WebMidi } from "webmidi";
+import { usesPerChannelPitchBend } from "./expression-routing.js";
 import { allowsForwardedCC } from "../controllers/forwarded-cc-policy.js";
 import { scalaToCents } from "../settings/scale/parse-scale";
 import { publishEaganBrightness, publishEaganTiltEq } from "../mpe_synth/eagan-matrix.js";
@@ -497,8 +498,7 @@ export function handleWheelBend(val14) {
         !this.inputRuntime.wheelPortamento ||
         !this.inputRuntime.wheelToRecent ||
         this.inputRuntime.pitchBendMode !== "recency" ||
-        this.inputRuntime.mpeInput ||
-        this.inputRuntime.perChannelExpression)
+        usesPerChannelPitchBend(this.inputRuntime))
     )
       this._retuneGlides.delete(hex);
   }
@@ -645,7 +645,7 @@ export function retuneHexFromBase(hex, baseCents, bendOnly = false) {
   if (!hex?.retune || hex.release) return;
   hex._baseCents = baseCents;
   if (
-    (this.inputRuntime.mpeInput || this.inputRuntime.perChannelExpression) &&
+    usesPerChannelPitchBend(this.inputRuntime) &&
     hex._inputChannel != null
   ) {
     const channel = hex._inputChannel;
@@ -695,8 +695,7 @@ export function tickRetuneGlides() {
       if (
         hex !== this._wheelTarget ||
         !this.inputRuntime.wheelPortamento ||
-        this.inputRuntime.mpeInput ||
-        this.inputRuntime.perChannelExpression ||
+        usesPerChannelPitchBend(this.inputRuntime) ||
         !this.inputRuntime.wheelToRecent ||
         this.inputRuntime.pitchBendMode !== "recency"
       ) {
@@ -746,7 +745,7 @@ export function reapplyCurrentInputBends() {
     }
     return;
   }
-  if (this.inputRuntime.perChannelExpression) {
+  if (usesPerChannelPitchBend(this.inputRuntime)) {
     for (const [channel] of this.state.activeMidiByChannel) {
       const bend14 = this._mpeInputBendByChannel.get(channel) ?? 8192;
       for (const hex of this._activeHexesForInputChannel(channel)) {
@@ -773,7 +772,7 @@ export function refreshSoundingHexNeighbors() {
 }
 
 export function updateWheelTarget(smoothReturn = false) {
-  if (this.inputRuntime.mpeInput || this.inputRuntime.perChannelExpression) {
+  if (usesPerChannelPitchBend(this.inputRuntime)) {
     this._wheelTarget = null;
     this._wheelBaseCents = null;
     return;

@@ -137,6 +137,8 @@ Hexatone includes built-in tunings and supports user presets. Users may import a
 
 ### Scale Settings
 
+Scale Settings starts closed in a fresh session. Its toggle reveals the editing buttons and HEJI Spelling controls. Hexatone Layout also starts closed, with Central Degree and Hex Size still available. These open/closed choices are remembered on reload in the same tab, independently of Restore on reload.
+
 - assign a reference frequency (Hz) to any scale degree, directly to 1/1 (scale degree 0), or to the HEJI Spelling Note with 0¢ deviation; all three frequency assignment options interact and update each other accordingly
 - change scale size
 - set the equave (interval of transposition at which the scale pattern repeats)
@@ -269,10 +271,10 @@ The Sequencer supports three connected workflows: snapshots play captured note c
 
 - open the `Sequencer` tab
 - load a built-in sequence, for example "FALL"
-- Activate Audio Context if needed: a built-in sequence does not require a tuning preset or visible hexagonal layout
+- if the audio popup appears, click `Retry` to prepare audio: a built-in sequence does not require a tuning preset or visible hexagonal layout
 - scroll down to `Edit & Play`
-- click on the toggle to switch between the complete event view and compact snapshot view
-- in collapsed mode, notice the different types of events at the sequence start
+- open the toggle to show editing controls; the complete sequence event list remains visible either way
+- notice the different types of events at the sequence start
   - repeat start
   - tempo
   - bar
@@ -317,6 +319,8 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 ### Copy & Insert
 
+This section starts closed; opening its toggle reveals the range controls and Selected Range.
+
 - select a range of snapshots by `Start` and `End` (both positions are included in the selected range)
 - optionally include bars, repeats, tempo markers
 - `Edit Selected Range` in place
@@ -328,6 +332,8 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 - after insertion, copied range is automatically selected for further edits if needed
 
 ### Edit & Play
+
+Editing controls start closed. The toggle shows or hides those controls, not the sequence's snapshots or note rows, which remain open for playback following.
 
 `Choose Tempo Position` inserts a tempo marker; `Add Target Tempo` makes a gradual transition from the previous tempo marker.
 
@@ -341,7 +347,7 @@ If the workspace is dirty and a different saved sequence is chosen, Hexatone ask
 
 `Legato` prevents rearticulation of previously held notes while stepping or retriggering. It also applies when snapshots are arpeggiated and notes overlap. It may be set to `Off`, applied `Per Note`, or applied to `All Common Tones`. Individual continuations may be forced to reattack in the event editor.
 
-`Auto-Scroll` finds the bar, snapshot, or cue that is queued for next playback, follows manual navigation and timed playback, and reanchors when changing the event-list view with the toggle beside `Edit & Play`.
+`Auto-Scroll` finds the bar, snapshot, or cue that is queued for next playback and follows manual navigation and timed playback. Manual-trigger highlights and scrolling update on the next display frame.
 
 `Play Repeats` allows repeat markers to be toggled on and off.
 
@@ -451,7 +457,7 @@ Hexatone has a small built-in library of sampled sounds. These include several a
 
 When changing instruments, the current sound remains available while the new samples load. Held and legato notes keep their original sound until their normal release; new attacks use the newly loaded instrument. Volume and PANIC continue to affect voices from the previous sound.
 
-When activation or recovery is needed, a shared audio popup offers **Enable Audio** or **Restore Audio**, along with **Save Report** for troubleshooting. Normal engine loading is not treated as an interruption.
+When activation or recovery is needed, a shared audio popup shows status separately from three actions: **Retry** prepares or restores audio, **Report** saves diagnostics, and **Dismiss** hides the popup. During an attempt, Retry requests one fresh attempt after the current one finishes; repeated taps do not start overlapping rebuilds. Startup and recovery errors appear as text, never as button labels. Normal engine loading is not treated as an interruption; the initial prompt waits until a sequence or restored tuning needs audio.
 
 ### Built-in SoundFont Player
 
@@ -471,7 +477,9 @@ File and storage controls appear below Volume when applicable:
 
 Enable **Use SuperCollider Sounds**. With **SuperSonic** selected, the Pluck, Buzz, Formant, and Saw layers run directly in the browser, without an OSC bridge. With it unselected, **Bridge URL** selects an external SuperCollider connection. Both modes share the layer and articulation controls described under **OSC** below. Start at a low volume; the browser-local backend is experimental.
 
-A layer volume of **0** turns that layer off to save processing. **Release Time** extends to **2000 ms** and applies to Pluck, Buzz, and Formant, not Saw. In SuperSonic, increasing **Release Envelope** also limits accumulated release tails to keep blended releases manageable. In case of sound performance issues, try adjusting these settings.
+A layer volume of **0** greys its label and turns that layer off. Sounding voices release naturally, then free their synth nodes to save processing. Raising the fader above zero restores that layer for held or sequencer notes, using their current pitch and expression, without retriggering the other layers. Released notes do not return.
+
+**Brightness** defaults to 20%, retaining saved preferences; the assigned modulation wheel or pedal can update it. It also shapes sequence timbre when **Sequencer Timbre Control** is enabled. **Release Time** extends to **2000 ms** and applies to Pluck, Buzz, and Formant, not Saw. In SuperSonic, increasing **Release Envelope** also limits accumulated release tails to keep blended releases manageable. In case of sound performance issues, try adjusting these settings.
 
 ### MIDI Setup
 
@@ -545,6 +553,8 @@ The first treats the controller as a performance surface with position meaning.
 The second treats incoming pitch as musical material to be mapped into the current scale.
 
 ### MIDI Output
+
+This fieldset starts closed, keeping its four output on/off rows visible. Enabling an output does not open its configuration: use the fieldset toggle to reveal ports and other settings. The open/closed choice is remembered on reload in the same tab. Monophonic and MPE switches are disabled until MIDI is enabled; MTS also requires SysEx access. Disabled checkboxes show a normal arrow cursor rather than a clickable pointer.
 
 The MIDI Output fieldset provides:
 

@@ -4,6 +4,7 @@
 // not own harmonic frame derivation or canvas rendering directly.
 
 import Point from "../keyboard/point.js";
+import { usesPerChannelPitchBend } from "./expression-routing.js";
 import { calibrateLumatoneFoot, routeLumatoneTimbre } from "./lumatone-timbre.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 import { WebMidi } from "webmidi";
@@ -1122,7 +1123,7 @@ export function setupMidiInput() {
               return;
             }
 
-            if (this.inputRuntime.perChannelExpression) {
+            if (usesPerChannelPitchBend(this.inputRuntime)) {
               this._mpeInputBendByChannel.set(e.message.channel, val14);
               for (const hex of this._activeHexesForInputChannel(e.message.channel)) {
                 this._applyMpePitchBend(

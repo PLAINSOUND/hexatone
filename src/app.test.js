@@ -772,6 +772,7 @@ describe("App input runtime", () => {
       expect(lastKeyboardProps.inputRuntime.layoutMode).toBe("sequential");
       expect(lastKeyboardProps.inputRuntime.target).toBe(target);
       expect(lastKeyboardProps.inputRuntime.perChannelExpression).toBe(true);
+      expect(lastKeyboardProps.inputRuntime.perChannelPitchBend).toBe(false);
     },
   );
 

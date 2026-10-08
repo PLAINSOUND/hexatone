@@ -5,6 +5,7 @@
 // lifecycles. It does not resolve raw input addresses or mutate modulation
 // history directly; callers provide a Keys-like runtime object.
 
+import { usesPerChannelPitchBend } from "../input/expression-routing.js";
 import {
   addSustainedHex,
   clearSustainedHexes,
@@ -226,7 +227,7 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   const inputChannel = options?.liveInputAddress?.channel;
   if (
     inputChannel != null &&
-    (keys.inputRuntime.mpeInput || keys.inputRuntime.perChannelExpression)
+    usesPerChannelPitchBend(keys.inputRuntime)
   ) {
     const bend14 = keys._mpeInputBendByChannel.get(inputChannel);
     const bend21 = keys._hakenMpeBend21ByChannel.get(inputChannel);
@@ -259,7 +260,7 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   // A fresh attack becomes the most recent note. Apply the already-held
   // wheel before starting audio, rather than retuning its unbent onset.
   if (
-    !keys.inputRuntime.mpeInput && !keys.inputRuntime.perChannelExpression &&
+    !usesPerChannelPitchBend(keys.inputRuntime) &&
     keys.inputRuntime.wheelToRecent && keys.inputRuntime.pitchBendMode === "recency" &&
     keys._wheelValue14 !== 8192 && hex.retune && !hex.standardWheelPassthroughOnly
   ) {

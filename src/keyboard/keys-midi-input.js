@@ -4,6 +4,7 @@
 // lifecycle updates. It does not derive tuning or modulation history state.
 
 import { notes } from "../midi_synth";
+import { usesPerChannelPitchBend } from "../input/expression-routing.js";
 import { findNearestDegree } from "../input/scale-mapper.js";
 import { debugLog } from "../debug/logging.js";
 import {
@@ -680,7 +681,7 @@ export function midinoteOn(event) {
     entry.baseCents = hex._baseCents ?? hex.cents;
     entry.hexes.add(hex);
     const bend14 = this._mpeInputBendByChannel.get(event.message.channel);
-    if (bend14 != null && bend14 !== 8192) {
+    if (usesPerChannelPitchBend(this.inputRuntime) && bend14 != null && bend14 !== 8192) {
       const primed = hex._mpePrimedBeforeNoteOn;
       if (primed?.channel === event.message.channel && primed?.bend14 === bend14) {
         hex._lastPitchBend14 = bend14;

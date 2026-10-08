@@ -26,6 +26,16 @@ function escapeRegex(value) {
 }
 
 describe("settings impact registry", () => {
+  it("forwards preset geometry anchors through live input updates without rebuilding audio", () => {
+    const previous = { midiin_anchor_note: 41, midiin_anchor_channel: 2 };
+    const next = { ...previous, lumatone_anchor_note: 41, lumatone_anchor_channel: 2 };
+    expect(settingsImpactSnapshot(next, "inputRuntime")).toMatchObject({
+      lumatone_anchor_note: 41, lumatone_anchor_channel: 2,
+    });
+    expect(settingsImpactKey(next, "inputRuntime")).not.toBe(settingsImpactKey(previous, "inputRuntime"));
+    expect(settingsImpactKey(next, "keysReconstruction")).toBe(settingsImpactKey(previous, "keysReconstruction"));
+    expect(settingsImpactKey(next, "outputRuntime")).toBe(settingsImpactKey(previous, "outputRuntime"));
+  });
   it("covers every persisted setting with an impact or an explicit ignore decision", () => {
     const classified = new Set([
       ...flattenValues(SETTINGS_IMPACT_FIELDS),

@@ -33,6 +33,13 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midiin_channel_group_size",
     "midiin_anchor_channel",
     "midiin_anchor_note",
+    // Preset geometry anchors must survive live geometry/bypass transitions.
+    "lumatone_anchor_note",
+    "lumatone_anchor_channel",
+    "exquis_anchor_note",
+    "linnstrument_anchor_note",
+    "linnstrument_anchor_channel",
+    "haken_anchor_note",
     "midiin_channel_legacy",
     "midiin_controller_override",
     "midiin_mapping_target",
