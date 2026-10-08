@@ -71,6 +71,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     signal?.removeEventListener("abort", dispose);
     window.removeEventListener("beforeunload", dispose);
     document.removeEventListener("pointerdown", wake, true);
+    document.removeEventListener("touchend", wake, true);
     document.removeEventListener("keydown", wake, true);
     closeCurrent();
     for (const close of pendingCloses) close();
@@ -218,6 +219,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     // Restored settings may initialise before a gesture. Resume synchronously
     // from real input, alongside the composite prepare/ensureAwake hooks.
     document.addEventListener("pointerdown", wake, true);
+    document.addEventListener("touchend", wake, true);
     document.addEventListener("keydown", wake, true);
     // Passive page startup is allowed to wait for browser permission. Only
     // an actual pointer/key gesture starts the context-activation deadline.
@@ -268,6 +270,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     synth.shutdown = (options) => {
       stopping = true;
       document.removeEventListener("pointerdown", wake, true);
+      document.removeEventListener("touchend", wake, true);
       document.removeEventListener("keydown", wake, true);
       try { return shutdown(options); }
       finally { if (options?.panic) dispose(); }

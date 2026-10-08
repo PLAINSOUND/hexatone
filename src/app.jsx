@@ -1114,7 +1114,8 @@ const App = () => {
     await activation;
     return retryAudioOutputs(signal);
   };
-  initialiseAudioRef.current.needed = () => !!pendingRestoredPreset || !userHasInteracted;
+  initialiseAudioRef.current.needed = () => !!pendingRestoredPreset || !userHasInteracted ||
+    (audioRecovery.needsStart() && (enginesLoading || engineStartupErrors.length > 0));
 
   const { panic: guardianPanic } = useMidiGuardian(midi, settings);
 
@@ -5465,16 +5466,14 @@ const App = () => {
         .join(" ")}
     >
       {((ready && !initialAudioPromptDismissed &&
-          (!!pendingRestoredPreset || (!userHasInteracted &&
-            (settings.output_sample || settings.output_fluidsynth || (settings.output_osc && settings.osc_local))))) ||
+          (snapshots.length > 0 || !!pendingRestoredPreset) && audioRecovery.needsStart()) ||
         (audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored"))) && (
         <div className="audio-recovery-alert" role="status">
           <span>{audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored")
             ? audioRecovery.status : "Tap Start Audio to prepare the built-in sounds before playing."}</span>{" "}
           <button type="button" disabled={audioRecovery.restoring}
-            onPointerDown={e => runTouchControlAction(e, restoreBuiltInAudio)}
-            onClick={e => { if (!skipSuppressedTouchClick(e)) void restoreBuiltInAudio(); }}>
-            {audioRecovery.restoring ? (audioRecovery.status === "Starting audio…" ? "Starting Audio…" : "Restoring Audio…") : pendingRestoredPreset || !userHasInteracted ? "Start Audio" : "Restore Audio"}
+            onClick={() => { void restoreBuiltInAudio(); }}>
+            {audioRecovery.restoring ? (audioRecovery.status === "Starting audio…" ? "Starting Audio…" : "Restoring Audio…") : audioRecovery.needsStart() ? "Start Audio" : "Restore Audio"}
           </button>{" "}
           <button type="button" onClick={audioRecovery.save}>Save Report</button>
           {" "}<button type="button" disabled={audioRecovery.restoring} onClick={() => {

@@ -1,6 +1,17 @@
 import { act, cleanup, render, screen } from "@testing-library/preact";
 import { afterEach, expect, it, vi } from "vitest";
-import useAudioRecovery from "./use-audio-recovery.js";
+import useAudioRecovery, { needsInitialAudioStart } from "./use-audio-recovery.js";
+
+it("checks enabled engine readiness rather than whether a gesture occurred", () => {
+  const settings = { output_sample: true, output_osc: true, osc_local: true, output_fluidsynth: true };
+  const sample = { family: "sample", getAudioContext: () => ({ state: "running" }) };
+  const sonic = { audioBackend: "supersonic", getAudioContext: () => ({ state: "suspended" }) };
+  const synth = { childSynths: () => [sample, sonic] };
+  expect(needsInitialAudioStart(synth, settings)).toBe(true);
+  sonic.getAudioContext = () => ({ state: "running" });
+  expect(needsInitialAudioStart(synth, settings)).toBe(false);
+  expect(needsInitialAudioStart(null, { output_fluidsynth: true })).toBe(false);
+});
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 

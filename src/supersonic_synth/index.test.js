@@ -109,6 +109,9 @@ describe("recoverable SuperSonic engine", () => {
       phase: "waiting-for-context", version: "0.88",
       contexts: [{ state: "suspended" }],
     });
+    document.dispatchEvent(new Event("touchend"));
+    expect(contexts[0].resume).toHaveBeenCalledTimes(2);
+    expect(getPendingSuperSonicDiagnostics()[0].gestureReceived).toBe(true);
     controller.abort();
     await vi.advanceTimersByTimeAsync(100);
     await rejection;

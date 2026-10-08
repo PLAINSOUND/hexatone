@@ -410,6 +410,12 @@ a:hover {
   color: #9a2f2f;
 }
 
+.audio-recovery-alert button {
+  color: var(--color-text);
+  border: 1px solid var(--color-border-ui);
+  border-radius: var(--btn-radius-square);
+}
+
 #bottom-bar {
   display: contents; /* children position themselves independently */
 }

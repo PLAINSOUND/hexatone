@@ -1012,14 +1012,20 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
-  it("offers Start Audio on fresh load without presenting it as a recovery failure", async () => {
-    settings = { ...settings, output_sample: true };
+  it("waits for a sequence before offering Start Audio on fresh load", async () => {
+    settings = { ...settings, output_osc: true, osc_local: true };
+    const view = render(<App />);
+    await waitFor(() => expect(lastUsePresetsOptions).not.toBeNull());
+    expect(screen.queryByRole("button", { name: "Start Audio" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Restore Audio" })).toBeNull();
+    view.unmount();
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: 1, length: 1, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
+      bars: [], tempi: [], repeats: [],
+    }));
     render(<App />);
     expect(await screen.findByRole("button", { name: "Start Audio" })).toBeTruthy();
-    expect(screen.getByText("Tap Start Audio to prepare the built-in sounds before playing.")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Restore Audio" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
-    expect(screen.queryByRole("button", { name: "Start Audio" })).toBeNull();
   });
   it.each([
     ["sequencer", "SEQUENCER"],

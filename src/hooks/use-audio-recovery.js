@@ -2,6 +2,22 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { createAudioRecovery, saveAudioReport } from "../audio/recovery.js";
 import { getPendingSuperSonicDiagnostics } from "../supersonic_synth/startup-diagnostics.js";
 
+export function needsInitialAudioStart(synth, settings = {}) {
+  const outputs = (synth?.childSynths?.() ?? [synth]).filter(Boolean);
+  const ready = backend => outputs.some(output => {
+    if ((output.audioBackend ?? (output.family === "sample" ? "samples" : null)) !== backend) return false;
+    try {
+      const state = output.getAudioContext?.()?.state ?? output.getDiagnostics?.()?.audioContext?.state;
+      return state === "running";
+    } catch { return false; }
+  });
+  if (settings.output_sample && settings.instrument !== "OFF" && !ready("samples")) return true;
+  if (settings.output_osc && settings.osc_local && !ready("supersonic")) return true;
+  // A missing SoundFont needs a file selection, not an audio activation prompt.
+  return !!settings.output_fluidsynth && outputs.some(output =>
+    output.audioBackend === "fluidsynth" && !ready("fluidsynth"));
+}
+
 export default function useAudioRecovery(synthRef, keysRef, settings = {}, initialiseRef, engineLifecycleRef) {
   const recorder = useRef(null);
   if (!recorder.current) recorder.current = createAudioRecovery();
@@ -172,5 +188,6 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     saveAudioReport({ ...recorder.current.report(synthRef.current, audioSettings),
       pending: getPendingSuperSonicDiagnostics() });
   }, [synthRef, settings]);
-  return { status, restoring, restore, save, dismiss, startupFailed };
+  return { status, restoring, restore, save, dismiss, startupFailed,
+    needsStart: () => needsInitialAudioStart(synthRef.current, settings) };
 }

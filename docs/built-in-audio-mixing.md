@@ -38,8 +38,10 @@ Normal local fade-in is 40 ms. Cold SuperSonic startup alone holds output silent
 for 500 ms before a 40 ms fade; warm reclaim has no 500 ms delay. Cold startup
 completes this silent drain and fade before publishing the engine as ready,
 so the first musical attack does not pay the startup delay.
-The initial banner offers **Start Audio**, including on a fresh session, to
-activate and prepare the enabled engines before playing. **Restore Audio** is
+The initial banner offers **Start Audio** after a sequence is selected (or a
+restored tuning awaits activation), only when enabled engines are not already
+running. Activation runs on a completed tap; pending SuperSonic startup also
+listens for touch-end gestures. **Restore Audio** is
 the same entry point after startup when interruption recovery is needed.
 Configuration replacement, unmount and hard recovery are distinct from toggles
 and can dispose an engine. Warm retention saves startup work but retains memory
