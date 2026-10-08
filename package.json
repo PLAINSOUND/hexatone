@@ -2,7 +2,7 @@
   "type": "module",
   "private": true,
   "name": "plainsound-hexatone",
-  "version": "3.3.0-rc.3",
+  "version": "3.3.0-rc.4",
   "engines": {
     "node": ">=24 <25"
   },
