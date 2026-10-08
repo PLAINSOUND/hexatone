@@ -1012,12 +1012,11 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
-  it("waits for a sequence before offering Start Audio on fresh load", async () => {
+  it("waits for a sequence before offering audio Retry on fresh load", async () => {
     settings = { ...settings, output_osc: true, osc_local: true };
     const view = render(<App />);
     await waitFor(() => expect(lastUsePresetsOptions).not.toBeNull());
-    expect(screen.queryByRole("button", { name: "Start Audio" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Restore Audio" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
     view.unmount();
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
@@ -1025,7 +1024,7 @@ describe("App workspace tabs", () => {
       bars: [], tempi: [], repeats: [],
     }));
     render(<App />);
-    expect(await screen.findByRole("button", { name: "Start Audio" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Retry" })).toBeTruthy();
   });
   it.each([
     ["sequencer", "SEQUENCER"],

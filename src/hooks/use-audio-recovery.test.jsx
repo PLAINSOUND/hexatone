@@ -15,6 +15,30 @@ it("checks enabled engine readiness rather than whether a gesture occurred", () 
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
+it("coalesces Retry taps during startup into one serialized fresh attempt", async () => {
+  let finish;
+  const initialise = Object.assign(vi.fn()
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }))
+    .mockResolvedValue({ errors: [] }), { needed: () => true });
+  const synthRef = { current: null };
+  const initialiseRef = { current: initialise };
+  const keysRef = { current: null };
+  let recovery;
+  function Harness() {
+    recovery = useAudioRecovery(synthRef, keysRef, {}, initialiseRef);
+    return <span data-testid="status">{recovery.status}</span>;
+  }
+  render(<Harness />);
+  let first;
+  await act(async () => { first = recovery.restore(); });
+  await act(async () => { await recovery.restore(); await recovery.restore(); });
+  expect(initialise).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId("status").textContent).toContain("Retry requested");
+  await act(async () => { finish({ errors: [] }); await first; });
+  expect(initialise).toHaveBeenCalledTimes(2);
+  expect(screen.getByTestId("status").textContent).toContain("Audio engines restored");
+});
+
 function harness() {
   vi.useFakeTimers();
   let audio = { state: "suspended", currentTime: 0 };
@@ -64,7 +88,7 @@ it("does not compare a new engine clock with the previous engine", async () => {
   await test.tick();
   expect(screen.getByTestId("status").textContent).toBe("");
   await test.tick();
-  expect(screen.getByTestId("status").textContent).toContain("Restore Audio");
+  expect(screen.getByTestId("status").textContent).toContain("Retry");
 });
 it("suppresses checks while engines load, then reports an actual interruption", async () => {
   const test = harness();
@@ -74,5 +98,5 @@ it("suppresses checks while engines load, then reports an actual interruption", 
   expect(screen.getByTestId("status").textContent).toBe("");
   test.lifecycle.current.loading = false;
   await test.tick();
-  expect(screen.getByTestId("status").textContent).toContain("Restore Audio");
+  expect(screen.getByTestId("status").textContent).toContain("Retry");
 });

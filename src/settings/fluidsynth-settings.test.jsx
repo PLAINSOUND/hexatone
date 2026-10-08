@@ -128,7 +128,8 @@ describe("FluidSynth settings", () => {
       finishRestore = resolve;
     }));
     fireEvent.click(screen.getByRole("button", { name: "Keep for Offline Use" }));
-    expect(screen.getByRole("button", { name: "Saving offline…" }).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "Keep for Offline Use" }).disabled).toBe(true);
+    expect(screen.getByText("Saving offline…").getAttribute("role")).toBe("status");
     finishRestore();
     await vi.waitFor(() => expect(screen.getByText("Available offline in this browser.")).toBeTruthy());
     expect(screen.getByRole("button", { name: "Remove Offline Copy" })).toBeTruthy();

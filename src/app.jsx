@@ -42,6 +42,7 @@ import { parseExactInterval } from "./tuning/interval.js";
 import useSynthWiring from "./hooks/use-synth-wiring.js";
 import { createTransportClock } from "./sequencer/transport-clock.js";
 import useAudioRecovery from "./hooks/use-audio-recovery.js";
+import AudioRecoveryAlert from "./audio/recovery-alert.jsx";
 import { useMidiGuardian } from "./hooks/use-midi-guardian.js";
 import useDeferredModulationHistory from "./tuning/use-deferred-modulation-history.js";
 import {
@@ -5468,19 +5469,16 @@ const App = () => {
       {((ready && !initialAudioPromptDismissed &&
           (snapshots.length > 0 || !!pendingRestoredPreset) && audioRecovery.needsStart()) ||
         (audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored"))) && (
-        <div className="audio-recovery-alert" role="status">
-          <span>{audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored")
-            ? audioRecovery.status : "Tap Start Audio to prepare the built-in sounds before playing."}</span>{" "}
-          <button type="button" disabled={audioRecovery.restoring}
-            onClick={() => { void restoreBuiltInAudio(); }}>
-            {audioRecovery.restoring ? (audioRecovery.status === "Starting audio…" ? "Starting Audio…" : "Restoring Audio…") : audioRecovery.needsStart() ? "Start Audio" : "Restore Audio"}
-          </button>{" "}
-          <button type="button" onClick={audioRecovery.save}>Save Report</button>
-          {" "}<button type="button" disabled={audioRecovery.restoring} onClick={() => {
+        <AudioRecoveryAlert
+          message={audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored")
+            ? audioRecovery.status : "Audio is not ready. Tap Retry to prepare the built-in sounds before playing."}
+          onActivate={() => { void restoreBuiltInAudio(); }}
+          onSave={audioRecovery.save}
+          onDismiss={() => {
             setInitialAudioPromptDismissed(true);
             audioRecovery.dismiss();
-          }}>Dismiss</button>
-        </div>
+          }}
+        />
       )}
       {ready && (isValid || sequenceOnlyPlaybackSurface) && (
         <Keyboard
@@ -5530,8 +5528,8 @@ const App = () => {
             another app, use the onscreen refresh button to resume audio if playback is silent.
           </div>
           <div className="ios-banner__actions">
-            <button onClick={() => hideBannerForSession("ios")}>Remind Me Later</button>
-            <button onClick={() => dismissBanner("ios")}>Dismiss</button>
+            <button type="button" onClick={() => hideBannerForSession("ios")}>Remind Me Later</button>
+            <button type="button" onClick={() => dismissBanner("ios")}>Dismiss</button>
           </div>
         </div>
       )}
@@ -5542,8 +5540,8 @@ const App = () => {
             as Chrome or Edge.
           </div>
           <div className="ios-banner__actions">
-            <button onClick={() => hideBannerForSession("safari")}>Remind Me Later</button>
-            <button onClick={() => dismissBanner("safari")}>Dismiss</button>
+            <button type="button" onClick={() => hideBannerForSession("safari")}>Remind Me Later</button>
+            <button type="button" onClick={() => dismissBanner("safari")}>Dismiss</button>
           </div>
         </div>
       )}

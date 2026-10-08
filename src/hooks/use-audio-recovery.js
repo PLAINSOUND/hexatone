@@ -28,10 +28,11 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     setStatus("");
   }, []);
   const busy = useRef(false);
+  const retryRequested = useRef(false);
   const startupFailed = useCallback((backend, error) => {
     const message = String(error.message ?? error);
     recorder.current.record("engine-startup-failed", { backend, error: message });
-    setStatus(`${backend} could not start: ${message}. Save a report; you can retry.`);
+    setStatus(`${backend} could not start: ${message}. Tap Retry, or Report to save diagnostics.`);
   }, []);
   useEffect(() => {
     const log = recorder.current;
@@ -51,10 +52,10 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       else if (wasHidden || event.persisted) {
         wasHidden = false;
         if (log.snapshot(synthRef.current).length)
-          setStatus("Audio interrupted? Tap Restore Audio if sound is missing.");
+          setStatus("Audio may have been interrupted. Tap Retry if sound is missing.");
       }
       if (!document.hidden && log.needsRestore(synthRef.current) && !busy.current)
-        setStatus("Audio paused while away. Tap Restore Audio.");
+        setStatus("Audio paused while away. Tap Retry to resume.");
     };
     document.addEventListener("visibilitychange", lifecycle);
     window.addEventListener("pagehide", lifecycle);
@@ -76,7 +77,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
         startupFailed("Built-in audio", new Error(startupErrors));
       }
       if (log.needsRestore(synthRef.current) && !busy.current)
-        setStatus("Audio paused while away. Tap Restore Audio.");
+        setStatus("Audio paused while away. Tap Retry to resume.");
       const next = new Map();
       for (const output of outputs) {
         const context = output.audioContext ?? output.engine?.audioContext;
@@ -102,7 +103,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           // Before the first gesture, suspension is normal browser policy,
           // not an interruption requiring a recovery popup.
           if (!busy.current && !initialiseRef?.current?.needed?.())
-            setStatus("Built-in audio needs attention. Tap Restore Audio.");
+            setStatus("Built-in audio needs attention. Tap Retry.");
           log.record("audio-needs-attention", {
             backend: output.backend,
             context,
@@ -123,7 +124,13 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     };
   }, [synthRef, initialiseRef, engineLifecycleRef, startupFailed]);
   const restore = useCallback(async () => {
-    if (busy.current) return;
+    if (busy.current) {
+      // Serialize retries: concurrent context/worklet replacements can orphan
+      // voices. Repeated taps coalesce into one fresh attempt, not a no-op.
+      retryRequested.current = true;
+      setStatus("Retry requested… Waiting for the current audio attempt to finish.");
+      return;
+    }
     busy.current = true;
     const starting = !!initialiseRef?.current?.needed?.();
     setRestoring(true);
@@ -162,7 +169,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       const failed = results.filter((result) => !result.ok);
       setStatus(
         startupErrors.length
-          ? `Audio startup failed: ${[...new Set(startupErrors)].join("; ")}. Save a report; you can retry.`
+          ? `Audio startup failed: ${[...new Set(startupErrors)].join("; ")}. Tap Retry, or Report to save diagnostics.`
           : failed.length
           ? `Could not restore ${failed.map((result) => result.backend).join(", ")}. Retry?`
           : "Audio engines restored. Try a note; if silent, save a diagnostic report.",
@@ -173,6 +180,10 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     } finally {
       busy.current = false;
       setRestoring(false);
+      if (retryRequested.current) {
+        retryRequested.current = false;
+        void restore();
+      }
     }
   }, [synthRef, keysRef, initialiseRef]);
   const save = useCallback(() => {

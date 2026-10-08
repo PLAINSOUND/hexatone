@@ -392,7 +392,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
             disabled={!canCancelDownload && (busy || !hostedSoundfont)}
             onClick={canCancelDownload ? cancelDownload : loadHostedSoundFont}
           >
-            {canCancelDownload ? "Cancel Download" : busy && !quietOfflineLoad ? "Loading…" : "Load Hexatone SoundFont"}
+            {canCancelDownload ? "Cancel Download" : "Load Hexatone SoundFont"}
           </button>
           <button
             type="button"
@@ -499,12 +499,12 @@ const FluidSynthSettings = ({ settings, onChange }) => {
                     void navigator.storage?.persist?.().catch(() => {});
                   } catch (error) { setStorageStatus(`Offline copy not saved: ${error.message}`); }
                   finally { setStorageBusy(false); setRestoringOffline(false); }
-                }}>{restoringOffline ? "Saving offline…" : "Keep for Offline Use"}</button>
+                }}>Keep for Offline Use</button>
             )}
           </div>
         </div>
       ) : null}
-      {storageStatus ? <p class="settings-form__helper-text" role="status">{storageStatus}</p> : null}
+      {restoringOffline || storageStatus ? <p class="settings-form__helper-text" role="status">{restoringOffline ? "Saving offline…" : storageStatus}</p> : null}
       {busy && loadingProgress && !quietOfflineLoad ? (
         <div
           class="settings-form__helper-text fluidsynth-settings__download-status"
