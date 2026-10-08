@@ -92,6 +92,19 @@ Consult it alongside B12–B16 before changing backend lifecycle behaviour.
 
 ## Transport transitions (B05–B08)
 
+Sequence note rows stay open regardless of the Edit & Play or Copy & Insert
+disclosure preferences. These toggles hide controls only and do not reanchor
+the viewport. Virtualization still bounds mounted rows; newly mounted rows
+receive highlights in a layout effect before paint, not on another animation
+frame. Audio dispatch must not synchronously render the editor.
+The pre-cleanup implementation is preserved in the
+[sequencer archive](../_archive/sequencer-before-open-layout-cleanup-2026-10-07.md).
+Manual cue triggering revalidates the scroll position captured when a selected
+cue's viewport was prepared. An unchanged viewport remains fixed; scrolling
+away invalidates that shortcut. Missing event rows use bounded presenter retries
+after virtualization mounts them, rather than relying on the deferred App
+playhead commit. Autoscroll-off continues to suppress viewport movement.
+
 The shared state builders return `{ playhead, selection fields, ... }`.
 `playhead` contains `barIndex`, `stepIndex`, `markerIndex`, `stopped` and optional
 `preStart`. `pendingTransportSelection` contains snapshot/cue indexes. App's
@@ -121,7 +134,9 @@ snapshot row. A delayed callback must not revive a cancelled gesture.
 
 Editing and presentation have separate queues: event edits must commit before
 the action reads their data; manual audio can advance immediately while App's
-editor presentation is deferred (currently 300 ms). Never read a stale rendered
+editor presentation is coalesced on the next animation frame. Immediate row
+highlights/readouts and bounded viewport preparation do not wait for that
+commit; audio scheduling remains separate. Never read a stale rendered
 playhead to decide the next rapid attack.
 
 Tests: [transport-intent-runtime.test.js](../src/sequencer/transport-intent-runtime.test.js),

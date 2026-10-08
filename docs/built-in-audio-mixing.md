@@ -29,14 +29,18 @@ See [recovery-gate.js](../src/audio/recovery-gate.js) and
 | Backend / control | Enable | Disable / retained resources |
 | --- | --- | --- |
 | Built-in sample sounds | Decode under a silent gate; first attack fades up over 40 ms. | Sample voice lifecycle handles release/tails; retired instrument voices can remain until release. This is not the SuperSonic warm-parking policy. |
-| FluidSynth | New worklets start gated silent. First note of the output wrapper fades up over 40 ms. | Fade down over 30 ms, then wrapper/channel cleanup after the 40 ms window. Worklet and loaded SoundFont remain available. |
+| FluidSynth | New worklets start gated silent. Prepare the 40 ms output fade before publishing the voice wrapper, preserving its first attack. | Fade down over 30 ms, then wrapper/channel cleanup after the 40 ms window. Worklet and loaded SoundFont remain available. |
 | Use SuperCollider Sounds, with local SuperSonic selected | Reuse the parked engine; reverse the fade for retained voices, or fade on the first joined attack after voices were cleared. | Fade down over 30 ms and disconnect speakers. Retain voices for five seconds for quick A–B comparisons, then clear voices/queued events. Engine and SynthDefs stay warm indefinitely. No bridge fallback. |
 | SuperSonic 0.88 engine selector | Leave the OSC bridge by releasing its notes. Reclaim a local engine within its five-second retirement window, otherwise construct a new engine. | Fade local output down over 30 ms and route new/current logical voices to the bridge. Stop the local engine after five seconds unless reclaimed. |
 | External OSC bridge | Uses the external SynthDefs' envelopes, not a browser audio gate. | Ordinary handoff/shutdown releases owned notes gently. Only Panic frees nodes/groups immediately. |
 
 Normal local fade-in is 40 ms. Cold SuperSonic startup alone holds output silent
-for 500 ms before fading up; warm reclaim has no 500 ms delay. The cold delay is
-scheduled at the first attack, not merely at completion of initialization.
+for 500 ms before a 40 ms fade; warm reclaim has no 500 ms delay. Cold startup
+completes this silent drain and fade before publishing the engine as ready,
+so the first musical attack does not pay the startup delay.
+The initial banner offers **Start Audio**, including on a fresh session, to
+activate and prepare the enabled engines before playing. **Restore Audio** is
+the same entry point after startup when interruption recovery is needed.
 Configuration replacement, unmount and hard recovery are distinct from toggles
 and can dispose an engine. Warm retention saves startup work but retains memory
 and idle rendering cost.
