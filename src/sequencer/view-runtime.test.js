@@ -8,13 +8,11 @@ import {
   deriveCueScrollAnchorTarget,
   deriveCueViewportModel,
   deriveCueViewportPlan,
-  deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
   firstSnapshotIdForCueIndex,
   firstSnapshotIdInSet,
   mostRecentAttackSnapshotId,
   resolveCueAnchorSnapshotId,
-  sameSnapshotSet,
   sequenceSoundingAttackEventIdsAtCueIndex,
 } from "./view-runtime.js";
 
@@ -175,36 +173,7 @@ describe("sequencer view runtime", () => {
     });
   });
 
-  it("derives compact-view expanded snapshots from the active cue and playhead state", () => {
-    const cueExpandedSnapshotIdsAt = (index) => (index === 1 ? new Set(["s2", "s3"]) : new Set());
-    expect(
-      deriveExpandedSnapshotIds({
-        showAllEvents: false,
-        cueExpandedSnapshotIdsAt,
-        playheadIsOff: false,
-        playheadIsEnd: false,
-        selectedSnapshotId: "s1",
-        activeCueIndex: 2,
-        cueExpandedSnapshotIds: new Set(["s1", "s2"]),
-      }),
-    ).toEqual(new Set(["s1", "s2"]));
-  });
 
-  it("keeps a pending cue's sounding snapshots expanded while the playhead is off", () => {
-    expect(
-      deriveExpandedSnapshotIds({
-        showAllEvents: false,
-        cueExpandedSnapshotIdsAt: (index) =>
-          index === 8 ? new Set(["s2", "s3", "s7", "s8", "s9"]) : new Set(),
-        playheadIsOff: true,
-        playheadIsEnd: false,
-        selectedSnapshotId: "s9",
-        activeCueIndex: null,
-        pendingCueIndex: 8,
-        cueExpandedSnapshotIds: new Set(),
-      }),
-    ).toEqual(new Set(["s2", "s3", "s7", "s8", "s9"]));
-  });
 
   it("derives active cue-expanded snapshots from preview rows before falling back to sounding attacks", () => {
     const cueExpandedSnapshotIdsAt = (index) => (index === 1 ? new Set(["s2", "s3"]) : new Set());
@@ -494,8 +463,4 @@ describe("sequencer view runtime", () => {
     }
   });
 
-  it("compares snapshot sets by membership", () => {
-    expect(sameSnapshotSet(new Set(["a", "b"]), new Set(["b", "a"]))).toBe(true);
-    expect(sameSnapshotSet(new Set(["a"]), new Set(["a", "b"]))).toBe(false);
-  });
 });

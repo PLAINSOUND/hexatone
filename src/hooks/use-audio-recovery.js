@@ -109,8 +109,9 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
   const restore = useCallback(async () => {
     if (busy.current) return;
     busy.current = true;
+    const starting = !!initialiseRef?.current?.needed?.();
     setRestoring(true);
-    setStatus("Restoring audio…");
+    setStatus(starting ? "Starting audio…" : "Restoring audio…");
     try {
       let startupErrors = [];
       if (initialiseRef?.current &&
@@ -137,7 +138,9 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           clearTimeout(timer);
         }
       }
-      const results = await recorder.current.restore(synthRef.current, {
+      // Initial preparation already wakes/builds the enabled outputs. Do not
+      // immediately cycle those fresh contexts as though they had interrupted.
+      const results = starting ? [] : await recorder.current.restore(synthRef.current, {
         releaseNotes: () => keysRef.current?.releaseActiveBrowserNotes?.(),
       });
       const failed = results.filter((result) => !result.ok);

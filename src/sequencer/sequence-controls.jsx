@@ -253,7 +253,7 @@ function TransportLocation({ target, children }) {
 const SequenceControls = ({
   onRefreshTransportReadout,
   transportTarget = null,
-  showAllEvents,
+  editControlsExpanded,
   newTempoPosition,
   setNewTempoPosition,
   newTempoBpm,
@@ -368,7 +368,7 @@ const SequenceControls = ({
 
   return (
     <>
-      {showAllEvents ? (
+      {editControlsExpanded ? (
         <>
           <div class="sequencer-option-row sequencer-option-row--tempo-position-inline">
             <span>Choose Tempo Position</span>

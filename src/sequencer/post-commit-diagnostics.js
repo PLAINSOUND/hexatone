@@ -27,9 +27,7 @@ export default function useSequencerPostCommitDiagnostics({
   activeCueIndex,
   playheadStepIndex,
   selectedBarIndex,
-  expandedIds,
   sequenceCueGroups,
-  showAllEvents,
 } = {}) {
   const lastPostCommitFrameLoggedRef = useRef(0);
   const lastUiCommitLoggedRef = useRef(0);
@@ -50,13 +48,12 @@ export default function useSequencerPostCommitDiagnostics({
       snapshotCount: snapshotIndexById.size,
       eventCount: sequenceEvents.length,
       cueCount: sequenceCueGroups.length,
-      expandedCount: expandedIds.size,
+      expandedCount: snapshotIndexById.size,
       detail: "post-commit state",
     });
   }, [
     editCommitTick,
     editCommitContext?.committedAtMs,
-    expandedIds.size,
     sequenceCueGroups.length,
     sequenceEvents.length,
     snapshotIndexById.size,
@@ -164,10 +161,10 @@ export default function useSequencerPostCommitDiagnostics({
         activeCueIndex,
         playheadStepIndex,
         playheadBarIndex: selectedBarIndex,
-        expandedCount: expandedIds.size,
+        expandedCount: snapshotIndexById.size,
         sequenceEventCount: sequenceEvents.length,
         cueGroupCount: sequenceCueGroups.length,
-        showAllEvents,
+        sequenceLayout: "open",
       },
     });
     const frame = window.requestAnimationFrame(() => {
@@ -179,7 +176,7 @@ export default function useSequencerPostCommitDiagnostics({
           snapshotCount: snapshotIndexById.size,
           eventCount: sequenceEvents.length,
           cueCount: sequenceCueGroups.length,
-          expandedCount: expandedIds.size,
+          expandedCount: snapshotIndexById.size,
           detail: "first frame after commit",
         });
       }
@@ -200,10 +197,10 @@ export default function useSequencerPostCommitDiagnostics({
           activeCueIndex,
           playheadStepIndex,
           playheadBarIndex: selectedBarIndex,
-          expandedCount: expandedIds.size,
+          expandedCount: snapshotIndexById.size,
           sequenceEventCount: sequenceEvents.length,
           cueGroupCount: sequenceCueGroups.length,
-          showAllEvents,
+          sequenceLayout: "open",
         },
       });
     });
@@ -214,13 +211,11 @@ export default function useSequencerPostCommitDiagnostics({
     editCommitContext?.commitKind,
     editCommitContext?.committedAtMs,
     editCommitContext?.transactionId,
-    expandedIds,
     playheadStepIndex,
     selectedBarIndex,
     selectedSnapshotId,
     snapshotIndexById.size,
     sequenceCueGroups.length,
     sequenceEvents.length,
-    showAllEvents,
   ]);
 }

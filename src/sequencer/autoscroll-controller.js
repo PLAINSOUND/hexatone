@@ -85,11 +85,8 @@ export default function useSequencerAutoscroll({
   sequenceRepeatSections,
   cueExpandedSnapshotIds,
   cueExpandedSnapshotIdsAt,
-  firstEventIdByCueIndex,
   firstStructuralScrollKey,
   repeatStartKeyAtPosition,
-  showAllEvents,
-  setExpandedIds,
   onCueSequenceSnapshot,
   onCueSequenceCue,
   onResetSequencePlayhead,
@@ -375,9 +372,6 @@ export default function useSequencerAutoscroll({
       });
       onCueSequenceCue?.(nextCueIndex);
       if (viewportPrepared) {
-        if (!showAllEvents && previewExpandedIds.size > 0) {
-          setExpandedIds(previewExpandedIds);
-        }
         suppressNextCueAutoScrollRef.current = true;
         if (anchorSnapshotId != null) {
           lastAutoScrolledCueTargetRef.current = `snapshot:${anchorSnapshotId}`;
@@ -390,51 +384,23 @@ export default function useSequencerAutoscroll({
         scrollNodeIntoPanel(repeatRow);
         return;
       }
-      if (showAllEvents) {
-        if (anchorSnapshotId != null) {
-          const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
-          scrollNodeIntoPanel(snapshotRow);
-        }
-      } else {
-        if (previewExpandedIds.size > 0) {
-          setExpandedIds(previewExpandedIds);
-          if (anchorSnapshotId != null) {
-            const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
-            scrollNodeIntoPanel(snapshotRow);
-          }
-        } else {
-          const eventId = firstEventIdByCueIndex.get(nextCueIndex + 1) ?? null;
-          if (eventId != null) {
-            const eventRow = eventRowRefs.current.get(eventId) ?? null;
-            scrollNodeIntoPanel(eventRow);
-          }
-        }
+      if (anchorSnapshotId != null) {
+        const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
+        scrollNodeIntoPanel(snapshotRow);
       }
     },
     [
       cancelPendingSnapshotAlignment,
       cueExpandedSnapshotIdsAt,
-      firstEventIdByCueIndex,
       onCueSequenceCue,
       repeatStartKeyAtPosition,
       scrollNodeIntoPanel,
       sequenceCueGroups,
       sequenceEvents,
-      setExpandedIds,
-      showAllEvents,
       snapshots,
     ],
   );
 
-  const ensureExpanded = useCallback(
-    (id) => {
-      setExpandedIds((prev) => {
-        if (prev.size === 1 && prev.has(id)) return prev;
-        return new Set([id]);
-      });
-    },
-    [setExpandedIds],
-  );
 
   useEffect(() => {
     if (!isSequenceRuntimeDiagnosticsEnabled()) return undefined;
@@ -488,7 +454,6 @@ export default function useSequencerAutoscroll({
         return;
       }
       const anchorTarget = deriveCueScrollAnchorTarget({
-        showAllEvents,
         activeCueIndex,
         sequenceCueGroups,
         sequenceEvents,
@@ -520,7 +485,6 @@ export default function useSequencerAutoscroll({
     sequenceCueGroups,
     sequenceEvents,
     sequenceRepeatSections,
-    showAllEvents,
     snapshots,
   ]);
 
@@ -612,7 +576,6 @@ export default function useSequencerAutoscroll({
     transportScrollTargetRef,
     armPendingSnapshot,
     armPendingCue,
-    ensureExpanded,
     resetSequencePlayheadAndScrollTop,
     scrollNodeIntoPanel,
     scrollNodesIntoPanel,

@@ -282,6 +282,14 @@ export function fadeFluidSynthAfterRecovery(options) {
   if (engine?.node) return recoveryGates.get(engine.node)?.fadeIn(options);
 }
 
+// Finish the output envelope before publishing a new voice owner. Otherwise a
+// short first note can finish while the persistent worklet is still fading up.
+export async function prepareFluidSynthOutput() {
+  if (!engine?.node) return;
+  fadeFluidSynthAfterRecovery({ fromCurrent: true, durationMs: 40 });
+  await new Promise(resolve => setTimeout(resolve, 40));
+}
+
 export async function clearFluidSynthRecoveryEvents() {
   if (!engine?.node) return;
   const node = engine.node;

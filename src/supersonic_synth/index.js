@@ -222,6 +222,11 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     // Passive page startup is allowed to wait for browser permission. Only
     // an actual pointer/key gesture starts the context-activation deadline.
     await build();
+    // Prime cold output before publishing the engine to Keys. Delaying the
+    // gate at the first note would swallow its attack (and 500 ms of music).
+    recoveryGate.fadeIn({ delayMs: 500, durationMs: 40 });
+    await new Promise(resolve => setTimeout(resolve, 540));
+    if (disposed || stopping) throw new Error("SuperSonic startup superseded");
     phase = "ready";
     pendingStartups.delete(startupDiagnostic);
     signal?.removeEventListener("abort", dispose);
@@ -276,14 +281,12 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       });
       return rebuilding;
     };
-    let firstOutputFade = true;
     return smoothOutputToggle(synth, {
       mute: (durationMs) => recoveryGate?.mute(durationMs),
       fadeIn: (options) => {
         if (recoveryMuted) return;
         recoveryGate?.fadeIn({ fromCurrent: true,
-          delayMs: options?.delayMs ?? (firstOutputFade ? 500 : 0), durationMs: 40 });
-        firstOutputFade = false;
+          delayMs: options?.delayMs ?? 0, durationMs: 40 });
       },
       cutOnShutdown: true,
       reuseWindowMs: 5000,

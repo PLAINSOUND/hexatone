@@ -1,7 +1,7 @@
 /**
  * Tests for src/settings/scale/index.js (the Scale settings panel)
  *
- * The component always shows the ScaleTable. When "Edit Scala File"
+ * The expanded component shows the ScaleTable. When "Edit Scala File"
  * is clicked, ScalaImport is shown alongside (not instead of) the table.
  * The ScalaImport cancel button is labelled "Hide".
  * The ScalaImport confirm button is labelled "Build Layout".
@@ -9,6 +9,8 @@
 
 import { render, screen, fireEvent } from "@testing-library/preact";
 import Scale from "./index";
+
+beforeEach(() => sessionStorage.setItem("hexatone_scale_collapsed", "false"));
 
 const minimalSettings = {
   fundamental: 440,
@@ -36,7 +38,7 @@ const minimalSettings = {
 };
 
 describe("Scale panel — default state", () => {
-  it("renders the scale table by default", () => {
+  it("renders the scale table with a remembered expanded state", () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     expect(document.querySelector("table")).not.toBeNull();
   });

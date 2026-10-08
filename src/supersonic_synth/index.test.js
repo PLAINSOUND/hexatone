@@ -79,17 +79,20 @@ function setup({ stallSecond = false, initialisation, blocked = false } = {}) {
 }
 
 describe("recoverable SuperSonic engine", () => {
-  it("keeps cold startup manually routed and delays the first output fade", async () => {
-    const { create, engines } = setup();
+  it("primes cold output before publishing so the first attack has no startup delay", async () => {
+    const { create, engines, contexts } = setup();
     const synth = await create();
     expect(engines[0].options.autoConnect).toBe(false);
     const gate = engines[0].node.connect.mock.calls[0][0];
     expect(gate.gain.value).toBe(0);
-    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, 60, 64, 0, 1);
-    hex.noteOn();
     expect(gate.gain.setValueAtTime).toHaveBeenCalledWith(0, 0.5);
     expect(gate.gain.linearRampToValueAtTime.mock.calls.at(-1)[0]).toBe(1);
     expect(gate.gain.linearRampToValueAtTime.mock.calls.at(-1)[1]).toBeCloseTo(0.54);
+    contexts[0].currentTime = 0.54;
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, 60, 64, 0, 1);
+    hex.noteOn();
+    expect(gate.gain.setValueAtTime).toHaveBeenLastCalledWith(1, 0.54);
+    expect(gate.gain.linearRampToValueAtTime.mock.calls.at(-1)[1]).toBeCloseTo(0.58);
     synth.shutdown({ panic: true });
   });
   it("cancels a blocked initial context and clears its pending diagnostics", async () => {
@@ -224,7 +227,9 @@ describe("recoverable SuperSonic engine", () => {
   it("rejects a stalled replacement and permits a retry", async () => {
     vi.useFakeTimers();
     const { create, contexts } = setup({ stallSecond: true });
-    const synth = await create();
+    const starting = create();
+    await vi.advanceTimersByTimeAsync(540);
+    const synth = await starting;
     const restoring = synth.forceAudioRebuild();
     const rejection = expect(restoring).rejects.toThrow("timed out");
     await vi.advanceTimersByTimeAsync(30001);

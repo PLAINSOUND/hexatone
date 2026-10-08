@@ -26,8 +26,6 @@ const SnapshotSequenceItem = ({
   playingSnapshotId,
   playingSnapshotIds = [],
   manualArpeggiationMode,
-  showAllEvents,
-  expandedIds,
   dragState,
   structure,
   rows,
@@ -37,7 +35,6 @@ const SnapshotSequenceItem = ({
 }) => {
   const isPlaying = snapshot.id === playingSnapshotId || playingSnapshotIds.includes(snapshot.id);
   const isSelected = snapshot.id === selectedSnapshotId;
-  const isExpanded = showAllEvents || expandedIds.has(snapshot.id);
   const isDragOver = dragState.dragOverId === snapshot.id;
   const manualTrigger = normalizeManualSnapshotTrigger(snapshot.manualTrigger);
   const manualArticulation = effectiveManualSnapshotArticulation(
@@ -279,7 +276,6 @@ const SnapshotSequenceItem = ({
             onClick={(e) => {
               e.stopPropagation();
               actions.onSelectSnapshot(snapshot.id);
-              actions.ensureExpanded(snapshot.id);
             }}
             onInput={(e) =>
               actions.onUpdateSnapshot(snapshot.id, { description: e.currentTarget.value })
@@ -328,7 +324,6 @@ const SnapshotSequenceItem = ({
           </span>
         </div>
 
-        {isExpanded && (
           <div class="sequencer-item__groups">
             <div
               class={`sequencer-events-grid sequencer-events-grid--pane-${rows.eventPane}`}
@@ -400,11 +395,10 @@ const SnapshotSequenceItem = ({
               </div>
             </div>
           </div>
-        )}
       </div>
       {(structure.structuralMarkersByDisplayBucket.get(index) ?? [])
         .filter(
-          (marker) => !isExpanded || !snapshotStructuralKeys.has(structuralEventRenderKey(marker)),
+          (marker) => !snapshotStructuralKeys.has(structuralEventRenderKey(marker)),
         )
         .map((marker) => (
           <div

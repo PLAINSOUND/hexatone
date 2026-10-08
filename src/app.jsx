@@ -1195,7 +1195,7 @@ const App = () => {
   const [sequencePlayRepeats, setSequencePlayRepeats] = useState(true);
   const sequencerScrollPositionRef = useRef(0);
   const timedTransportStopRef = useRef(null);
-  const pendingManualCueUiCommitRef = useRef({ timerId: null, payload: null });
+  const pendingManualCueUiCommitRef = useRef({ frameId: null, payload: null });
   const manualCueDiagnosticsRef = useRef({
     frameId: null,
     firstTriggerMs: null,
@@ -1947,8 +1947,8 @@ const App = () => {
 
   const cancelPendingManualCueUiCommit = useCallback(() => {
     const pending = pendingManualCueUiCommitRef.current;
-    if (pending.timerId != null) window.clearTimeout(pending.timerId);
-    pending.timerId = null;
+    if (pending.frameId != null) window.cancelAnimationFrame(pending.frameId);
+    pending.frameId = null;
     pending.payload = null;
   }, []);
 
@@ -1964,15 +1964,14 @@ const App = () => {
       pendingTransportSelectionRef.current = nextState.pendingTransportSelection;
       sequencePlayheadRef.current = nextState.playhead;
       pending.payload = payload;
-      if (pending.timerId != null) window.clearTimeout(pending.timerId);
-      // The audible path has already run. Wait until a manual trigger burst is
-      // quiet before asking Preact to reconcile the large editable sequence.
-      pending.timerId = window.setTimeout(() => {
-        pending.timerId = null;
+      // Audio has dispatched; commit the latest manual feedback next frame.
+      if (pending.frameId != null) return;
+      pending.frameId = window.requestAnimationFrame(() => {
+        pending.frameId = null;
         const latest = pending.payload;
         pending.payload = null;
         if (latest) commitSequencePlaybackUi(latest);
-      }, 300);
+      });
     },
     [commitSequencePlaybackUi, snapshots],
   );
@@ -5466,16 +5465,16 @@ const App = () => {
         .join(" ")}
     >
       {((ready && !initialAudioPromptDismissed &&
-          (!!pendingRestoredPreset || (restoredOnMount && !userHasInteracted &&
+          (!!pendingRestoredPreset || (!userHasInteracted &&
             (settings.output_sample || settings.output_fluidsynth || (settings.output_osc && settings.osc_local))))) ||
         (audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored"))) && (
         <div className="audio-recovery-alert" role="status">
           <span>{audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored")
-            ? audioRecovery.status : "Tap Enable Audio to start the built-in sounds."}</span>{" "}
+            ? audioRecovery.status : "Tap Start Audio to prepare the built-in sounds before playing."}</span>{" "}
           <button type="button" disabled={audioRecovery.restoring}
             onPointerDown={e => runTouchControlAction(e, restoreBuiltInAudio)}
             onClick={e => { if (!skipSuppressedTouchClick(e)) void restoreBuiltInAudio(); }}>
-            {audioRecovery.restoring ? "Restoring Audio…" : pendingRestoredPreset || !userHasInteracted ? "Enable Audio" : "Restore Audio"}
+            {audioRecovery.restoring ? (audioRecovery.status === "Starting audio…" ? "Starting Audio…" : "Restoring Audio…") : pendingRestoredPreset || !userHasInteracted ? "Start Audio" : "Restore Audio"}
           </button>{" "}
           <button type="button" onClick={audioRecovery.save}>Save Report</button>
           {" "}<button type="button" disabled={audioRecovery.restoring} onClick={() => {

@@ -23,7 +23,6 @@ import {
   normalizeTempoBeatFraction,
 } from "./transport-runtime.js";
 import {
-  buildFirstEventIdByCueIndex,
   buildFirstSnapshotCueEventIds,
   buildSnapshotEventsById,
 } from "./timeline-runtime.js";
@@ -58,11 +57,9 @@ import {
 import {
   buildCueExpandedSnapshotIdsAt,
   deriveCueExpandedSnapshotIds,
-  deriveExpandedSnapshotIds,
   deriveSoundingAttackEventIds,
   deriveCueViewportPlan,
   resolveCueAnchorSnapshotId,
-  sameSnapshotSet,
 } from "./view-runtime.js";
 import {
   commitTextInput,
@@ -90,7 +87,6 @@ import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 // burst, keep audio/navigation current but only mount the final grid once the
 // burst settles; otherwise Firefox can spend longer rebuilding rows than the
 // interval between cues.
-const MANUAL_CUE_EXPANSION_SETTLE_MS = 120;
 
 const Sequencer = ({
   transportTarget = null,
@@ -202,11 +198,13 @@ const Sequencer = ({
 
   // Local state is presentation or draft state only. Committed snapshots and
   // structural markers flow back through the App-owned mutation callbacks.
-  const [expandedIds, setExpandedIds] = useState(() => new Set());
-  const pendingCueExpansionRef = useRef(null);
-  const pendingCueExpansionTimerRef = useRef(null);
-  const lastExpansionCueIndexRef = useRef(null);
-  const [showAllEvents, setShowAllEvents] = useState(true);
+  // Editing disclosure does not alter the always-open sequence rows.
+  const [editControlsExpanded, setEditControlsExpanded] = useState(
+    () => sessionStorage.getItem("hexatone_sequencer_edit_play_expanded") === "true",
+  );
+  const [copyInsertCollapsed, setCopyInsertCollapsed] = useState(
+    () => sessionStorage.getItem("hexatone_sequencer_copy_insert_collapsed") !== "false",
+  );
   const [sequenceSaveActionState, setSequenceSaveActionState] = useState({
     visible: false,
     label: "",
@@ -240,8 +238,6 @@ const Sequencer = ({
   const [eventPane, setEventPane] = useState("timing");
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(loadSequencerAutoScrollPreference);
   const [cueViewportTransaction, setCueViewportTransaction] = useState(null);
-  const [compactSelectionPreviewSuppressedId, setCompactSelectionPreviewSuppressedId] =
-    useState(null);
   const [copyRangeStart, setCopyRangeStart] = useState("1");
   const [copyRangeEnd, setCopyRangeEnd] = useState("1");
   const [copyInsertPosition, setCopyInsertPosition] = useState("1");
@@ -283,9 +279,7 @@ const Sequencer = ({
   const copyRangeSelectionKeyRef = useRef(null);
   const cueStepViewportRequestedRef = useRef(false);
   const cueViewportGenerationRef = useRef(0);
-  const editPlayLayoutReanchorRef = useRef(null);
-  const editPlayLayoutReanchorGenerationRef = useRef(0);
-  const editPlayLayoutReanchorCallbacksRef = useRef(null);
+  const preparedCueViewportRef = useRef(null);
   const autoScrollEnabledRef = useRef(autoScrollEnabled);
   autoScrollEnabledRef.current = autoScrollEnabled;
   const timedTransportFieldValuesRef = useRef({
@@ -301,29 +295,6 @@ const Sequencer = ({
   const manualReadoutRef = useRef(null);
   const duplicateNoteIdRef = useRef(0);
 
-  const cancelPendingCueExpansion = useCallback(() => {
-    pendingCueExpansionRef.current = null;
-    if (pendingCueExpansionTimerRef.current != null) {
-      window.clearTimeout(pendingCueExpansionTimerRef.current);
-      pendingCueExpansionTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleCueExpansion = useCallback((nextExpandedIds) => {
-    pendingCueExpansionRef.current = nextExpandedIds;
-    if (pendingCueExpansionTimerRef.current != null) {
-      window.clearTimeout(pendingCueExpansionTimerRef.current);
-    }
-    pendingCueExpansionTimerRef.current = window.setTimeout(() => {
-      pendingCueExpansionTimerRef.current = null;
-      const pending = pendingCueExpansionRef.current;
-      pendingCueExpansionRef.current = null;
-      if (pending == null) return;
-      setExpandedIds((previous) => (sameSnapshotSet(previous, pending) ? previous : pending));
-    }, MANUAL_CUE_EXPANSION_SETTLE_MS);
-  }, []);
-
-  useEffect(() => cancelPendingCueExpansion, [cancelPendingCueExpansion]);
 
   useEffect(() => {
     saveSequencerAutoScrollPreference(autoScrollEnabled);
@@ -575,10 +546,6 @@ const Sequencer = ({
     [structuralMarkersByDisplayBucket],
   );
 
-  const firstEventIdByCueIndex = useMemo(
-    () => buildFirstEventIdByCueIndex(sequenceEvents),
-    [sequenceEvents],
-  );
   useEffect(() => {
     if (snapshots.length === 0) {
       setCopyRangeStart("1");
@@ -1016,7 +983,6 @@ const Sequencer = ({
     transportScrollTargetRef,
     armPendingSnapshot,
     armPendingCue,
-    ensureExpanded,
     resetSequencePlayheadAndScrollTop,
     scrollNodeIntoPanel,
     scrollNodesIntoPanel,
@@ -1035,11 +1001,8 @@ const Sequencer = ({
     sequenceRepeatSections,
     cueExpandedSnapshotIds,
     cueExpandedSnapshotIdsAt,
-    firstEventIdByCueIndex,
     firstStructuralScrollKey,
     repeatStartKeyAtPosition,
-    showAllEvents,
-    setExpandedIds,
     onCueSequenceSnapshot,
     onCueSequenceCue,
     onSelectSequenceBar,
@@ -1305,13 +1268,20 @@ const Sequencer = ({
       timedHighlightPresenterRef.current?.present({
         snapshotId,
         // Snapshot triggers attack its notes together. Update mounted ON rows
-        // through the small presenter, not the 300 ms editor-state commit.
+        // through the small presenter, ahead of the next-frame App commit.
         soundingEventIds: (snapshotEventsById.get(snapshotId) ?? [])
           .filter(event => event.kind === "attack")
           .map(event => event.eventId),
         mode: "manual",
       });
       timedReadoutPresenterRef.current?.present({ snapshotIndex: numericSnapshotIndex });
+      timedAutoscrollPresenterRef.current?.enqueue({
+        scrollSnapshotId: snapshotId,
+        scrollSnapshotIndex: numericSnapshotIndex,
+        scrollEventIds: (snapshotEventsById.get(snapshotId) ?? [])
+          .filter(event => event.kind === "attack")
+          .map(event => event.eventId),
+      });
     },
     [snapshots, snapshotEventsById],
   );
@@ -1320,33 +1290,29 @@ const Sequencer = ({
     () =>
       renderedSnapshots.map((snapshot, index) => {
         const snapshotEvents = snapshotEventsById.get(snapshot.id) ?? [];
-        const expanded = showAllEvents || expandedIds.has(snapshot.id);
-        const embeddedStructuralKeys = expanded
-          ? new Set(
-              snapshotEvents
-                .filter(
-                  (event) =>
-                    event.type === "bar" ||
-                    event.type === "tempo" ||
-                    event.type === "repeat-start" ||
-                    event.type === "repeat-end",
-                )
-                .map((event) => structuralEventRenderKey(event)),
+        const embeddedStructuralKeys = new Set(
+          snapshotEvents
+            .filter(
+              (event) =>
+                event.type === "bar" ||
+                event.type === "tempo" ||
+                event.type === "repeat-start" ||
+                event.type === "repeat-end",
             )
-          : new Set();
+            .map((event) => structuralEventRenderKey(event)),
+        );
         const outsideStructuralMarkers = (structuralMarkersByDisplayBucket.get(index) ?? []).filter(
           (marker) => !embeddedStructuralKeys.has(structuralEventRenderKey(marker)),
         );
         const structuralCount = outsideStructuralMarkers.length;
         const visibleTempoMarkers = [
-          ...(expanded ? snapshotEvents.filter((event) => event.type === "tempo") : []),
+          ...snapshotEvents.filter((event) => event.type === "tempo"),
           ...outsideStructuralMarkers.filter((marker) => marker.structuralType === "tempo"),
         ];
         const transitionCueCount = visibleTempoMarkers.filter((tempo) =>
           tempoTransitionCueMap.has(tempo.tempoId ?? tempo.id),
         ).length;
         const measurementToken = [
-          expanded ? 1 : 0,
           snapshotEvents.length,
           structuralCount,
           transitionCueCount,
@@ -1356,13 +1322,6 @@ const Sequencer = ({
           snapshot,
           measurementToken,
           estimatedSize: estimateSequenceGroupHeight({
-            expanded,
-            eventCount: snapshotEvents.length,
-            structuralCount,
-            transitionCueCount,
-          }),
-          expandedEstimatedSize: estimateSequenceGroupHeight({
-            expanded: true,
             eventCount: snapshotEvents.length,
             structuralCount,
             transitionCueCount,
@@ -1370,9 +1329,7 @@ const Sequencer = ({
         };
       }),
     [
-      expandedIds,
       renderedSnapshots,
-      showAllEvents,
       snapshotEventsById,
       structuralMarkersByDisplayBucket,
       tempoTransitionCueMap,
@@ -1822,7 +1779,7 @@ const Sequencer = ({
       setCueViewportTransaction({
         generation: cueViewportGenerationRef.current,
         cueIndex: numericCueIndex,
-        phase: "expand",
+        phase: "materialize",
       });
     },
     [releaseVirtualSequenceAnchor],
@@ -1884,7 +1841,7 @@ const Sequencer = ({
       const mountedEventRows = cueViewport.eventIds
         .map((eventId) => eventRowRefs.current.get(eventId) ?? null)
         .filter((node) => node instanceof HTMLElement);
-      if (mountedEventRows.length > 0) {
+      if (mountedEventRows.length > 0 && mountedEventRows.length === cueViewport.eventIds.length) {
         scrollNodesIntoPanel(mountedEventRows);
         return;
       }
@@ -1896,6 +1853,10 @@ const Sequencer = ({
         cueExpandedSnapshotIds: cueViewport.snapshotIds,
       });
       const snapshotRow = snapshotRowRefs.current.get(anchorSnapshotId) ?? null;
+      timedAutoscrollPresenterRef.current?.enqueue({
+        scrollSnapshotId: anchorSnapshotId,
+        scrollEventIds: cueViewport.eventIds,
+      });
       if (snapshotRow instanceof HTMLElement) {
         scrollNodeIntoPanel(snapshotRow);
         return;
@@ -1951,10 +1912,8 @@ const Sequencer = ({
       transportScrollTargetRef,
     ],
   );
-  // CUE selection has already prepared its viewport. Triggering that queued
-  // cue leaves activeCueIndex unchanged, so the intent below deliberately
-  // produces no scroll. Later arrow presses change the cue index and prepare
-  // the newly reached cue through the layout effect.
+  // Selection may have prepared a cue, but the user can scroll away before
+  // triggering it. Revalidate visibility even if the cue index is unchanged.
   const stepSequenceMarkerWithAutoscroll = useCallback(
     (direction) => {
       transportScrollTargetRef.current = "cue";
@@ -1963,6 +1922,9 @@ const Sequencer = ({
         playhead?.stopped === true &&
         Number.isFinite(pendingTransportSelection?.cueIndex);
       if (triggersPreparedCue) {
+        const prepared = preparedCueViewportRef.current;
+        const stillAtPreparedViewport = prepared?.cueIndex === pendingTransportSelection.cueIndex &&
+          Math.abs((scrollPanelRef.current?.scrollTop ?? 0) - prepared.scrollTop) < 1;
         cueStepViewportRequestedRef.current = false;
         cueViewportGenerationRef.current += 1;
         setCueViewportTransaction(null);
@@ -1971,6 +1933,7 @@ const Sequencer = ({
         const nextCueIndex = onStepSequenceMarker?.(direction);
         if (Number.isInteger(nextCueIndex)) {
           presentManualCue(nextCueIndex, { autoScroll: false });
+          if (!stillAtPreparedViewport) revealManualCueIfNeeded(nextCueIndex);
         }
         return;
       }
@@ -1991,6 +1954,7 @@ const Sequencer = ({
       cancelVirtualSequenceAnchor,
       onStepSequenceMarker,
       pendingTransportSelection?.cueIndex,
+      scrollPanelRef,
       playhead?.stopped,
       presentManualCue,
       revealManualCueIfNeeded,
@@ -2017,22 +1981,13 @@ const Sequencer = ({
   useLayoutEffect(() => {
     if (cueViewportTransaction == null) return;
     const { cueIndex, generation, phase } = cueViewportTransaction;
-    if (phase === "expand") {
-      const requiredExpandedIds = cueExpandedSnapshotIdsAt(cueIndex);
-      if (!showAllEvents && !sameSnapshotSet(expandedIds, requiredExpandedIds)) {
-        setExpandedIds(requiredExpandedIds);
-      }
-      setCueViewportTransaction((current) =>
-        current?.generation === generation ? { ...current, phase: "materialize" } : current,
-      );
-      return;
-    }
     if (phase !== "materialize") return;
     if (timedPlaybackOwnsViewport || !autoScrollEnabledRef.current) {
       setCueViewportTransaction((current) => (current?.generation === generation ? null : current));
       return;
     }
     const onApplied = () => {
+      preparedCueViewportRef.current = { cueIndex, scrollTop: scrollPanelRef.current?.scrollTop ?? 0 };
       setCueViewportTransaction((current) =>
         current?.generation === generation ? { ...current, phase: "prepared" } : current,
       );
@@ -2044,42 +1999,10 @@ const Sequencer = ({
   }, [
     cueExpandedSnapshotIdsAt,
     cueViewportTransaction,
-    expandedIds,
     prepareCueViewport,
-    showAllEvents,
+    scrollPanelRef,
     timedPlaybackOwnsViewport,
   ]);
-
-  editPlayLayoutReanchorCallbacksRef.current = {
-    prepareBarViewport,
-    prepareSnapshotViewport,
-    startCueViewportTransaction,
-  };
-
-  useLayoutEffect(() => {
-    const request = editPlayLayoutReanchorRef.current;
-    if (request == null) return undefined;
-    let settleFrame = null;
-    const layoutFrame = window.requestAnimationFrame(() => {
-      settleFrame = window.requestAnimationFrame(() => {
-        if (editPlayLayoutReanchorRef.current?.generation !== request.generation) return;
-        editPlayLayoutReanchorRef.current = null;
-        if (timedPlaybackOwnsViewport || !autoScrollEnabledRef.current) return;
-        const callbacks = editPlayLayoutReanchorCallbacksRef.current;
-        if (request.target === "cue") {
-          callbacks?.startCueViewportTransaction(request.index);
-        } else if (request.target === "bar") {
-          callbacks?.prepareBarViewport(request.index);
-        } else {
-          callbacks?.prepareSnapshotViewport(request.index);
-        }
-      });
-    });
-    return () => {
-      window.cancelAnimationFrame(layoutFrame);
-      if (settleFrame != null) window.cancelAnimationFrame(settleFrame);
-    };
-  }, [showAllEvents, timedPlaybackOwnsViewport, virtualSequenceLayout]);
 
   useLayoutEffect(() => {
     if (timedPlaybackOwnsViewport) return;
@@ -2211,11 +2134,9 @@ const Sequencer = ({
     if (!timedTransportUiState.paused) timedReadoutPresenterRef.current?.clear();
   }, [timedTransportUiState.running, timedTransportUiState.paused, clearPlaybackHighlights]);
 
-  useEffect(() => {
-    const refreshFrame = window.requestAnimationFrame(() => {
-      timedHighlightPresenterRef.current?.refresh();
-    });
-    return () => window.cancelAnimationFrame(refreshFrame);
+  useLayoutEffect(() => {
+    // Rows just mounted: highlight before paint, without a second frame wait.
+    timedHighlightPresenterRef.current?.refresh();
   }, [virtualSequenceLayout]);
 
   useEffect(() => {
@@ -2254,76 +2175,6 @@ const Sequencer = ({
     }
   }, [playbackRowRef]);
 
-  useEffect(() => {
-    if (timedPlaybackOwnsViewport) return;
-    const cueChanged = lastExpansionCueIndexRef.current !== activeCueIndex;
-    lastExpansionCueIndexRef.current = activeCueIndex;
-    const pendingCueIndex =
-      transportScrollTargetRef.current === "cue" &&
-      Number.isFinite(pendingTransportSelection?.cueIndex)
-        ? pendingTransportSelection.cueIndex
-        : null;
-    const nextExpandedIds = deriveExpandedSnapshotIds({
-      showAllEvents,
-      cueExpandedSnapshotIdsAt,
-      playheadIsOff,
-      playheadIsEnd,
-      selectedSnapshotId,
-      activeCueIndex,
-      pendingCueIndex,
-      cueExpandedSnapshotIds,
-      suppressSelectedSnapshotPreview:
-        !showAllEvents &&
-        activeCueIndex == null &&
-        selectedSnapshotId != null &&
-        compactSelectionPreviewSuppressedId === selectedSnapshotId,
-    });
-    if (nextExpandedIds == null) return;
-    if (Number.isFinite(activeCueIndex) && cueChanged) {
-      scheduleCueExpansion(nextExpandedIds);
-      return;
-    }
-    cancelPendingCueExpansion();
-    setExpandedIds((prev) => (sameSnapshotSet(prev, nextExpandedIds) ? prev : nextExpandedIds));
-  }, [
-    activeCueIndex,
-    cancelPendingCueExpansion,
-    compactSelectionPreviewSuppressedId,
-    cueExpandedSnapshotIds,
-    cueExpandedSnapshotIdsAt,
-    playheadIsEnd,
-    playheadIsOff,
-    pendingTransportSelection?.cueIndex,
-    selectedSnapshotId,
-    showAllEvents,
-    scheduleCueExpansion,
-    timedPlaybackOwnsViewport,
-    transportScrollTargetRef,
-  ]);
-
-  useEffect(() => {
-    if (showAllEvents || activeCueIndex != null || playheadIsOff || playheadIsEnd) {
-      if (compactSelectionPreviewSuppressedId != null) setCompactSelectionPreviewSuppressedId(null);
-      return;
-    }
-    if (selectedSnapshotId == null) {
-      if (compactSelectionPreviewSuppressedId != null) setCompactSelectionPreviewSuppressedId(null);
-      return;
-    }
-    if (
-      compactSelectionPreviewSuppressedId != null &&
-      compactSelectionPreviewSuppressedId !== selectedSnapshotId
-    ) {
-      setCompactSelectionPreviewSuppressedId(null);
-    }
-  }, [
-    activeCueIndex,
-    compactSelectionPreviewSuppressedId,
-    playheadIsEnd,
-    playheadIsOff,
-    selectedSnapshotId,
-    showAllEvents,
-  ]);
 
   useSequencerPostCommitDiagnostics({
     editCommitTick,
@@ -2337,9 +2188,7 @@ const Sequencer = ({
     activeCueIndex,
     playheadStepIndex,
     selectedBarIndex,
-    expandedIds,
     sequenceCueGroups,
-    showAllEvents,
   });
 
   useTimedUiDiagnostics({
@@ -2356,9 +2205,6 @@ const Sequencer = ({
     recordDiagnostic: recordTimedTransportDiagnostic,
   });
 
-  const toggleExpanded = (id) => {
-    setExpandedIds((prev) => (prev.has(id) ? new Set() : new Set([id])));
-  };
 
   const selectSnapshotForEditing = useCallback(
     (snapshotId) => {
@@ -2374,63 +2220,13 @@ const Sequencer = ({
   );
 
   const toggleEditPlayLayout = useCallback(() => {
-    const target = transportScrollTargetRef.current;
-    let index = null;
-    if (target === "cue") {
-      index = Number.isFinite(pendingTransportSelection?.cueIndex)
-        ? Number(pendingTransportSelection.cueIndex)
-        : Number.isFinite(activeCueIndex)
-          ? Number(activeCueIndex) - 1
-          : Number(cueSelectValue);
-    } else if (target === "bar") {
-      index = Number(selectedBarIndex);
-    } else {
-      const activeRenderedIndex = renderedSnapshotIndexById.get(activeSnapshotId);
-      index = Number.isFinite(pendingTransportSelection?.snapshotIndex)
-        ? Number(pendingTransportSelection.snapshotIndex)
-        : Number.isInteger(activeRenderedIndex)
-          ? activeRenderedIndex
-          : Number(snapshotSelectValue);
-    }
-    if (Number.isInteger(index) && index >= 0) {
-      editPlayLayoutReanchorGenerationRef.current += 1;
-      editPlayLayoutReanchorRef.current = {
-        generation: editPlayLayoutReanchorGenerationRef.current,
-        target,
-        index,
-      };
-    } else {
-      editPlayLayoutReanchorRef.current = null;
-    }
-    setShowAllEvents((value) => !value);
-  }, [
-    activeCueIndex,
-    activeSnapshotId,
-    cueSelectValue,
-    pendingTransportSelection?.cueIndex,
-    pendingTransportSelection?.snapshotIndex,
-    renderedSnapshotIndexById,
-    selectedBarIndex,
-    snapshotSelectValue,
-    transportScrollTargetRef,
-  ]);
+    setEditControlsExpanded((value) => {
+      sessionStorage.setItem("hexatone_sequencer_edit_play_expanded", !value);
+      return !value;
+    });
+  }, []);
 
-  const handleSnapshotRowClick = useCallback(
-    (snapshotId, isSelected) => {
-      selectSnapshotForEditing(snapshotId);
-      if (showAllEvents) {
-        setCompactSelectionPreviewSuppressedId(null);
-        return;
-      }
-      if (isSelected) {
-        setCompactSelectionPreviewSuppressedId(null);
-        toggleExpanded(snapshotId);
-        return;
-      }
-      setCompactSelectionPreviewSuppressedId(snapshotId);
-    },
-    [selectSnapshotForEditing, showAllEvents],
-  );
+  const handleSnapshotRowClick = selectSnapshotForEditing;
 
   const resolveDropSide = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -2475,7 +2271,6 @@ const Sequencer = ({
 
   useEffect(() => {
     if (snapshots.length > 0 || sortedBars.length > 0 || sortedTempi.length > 0) return;
-    setExpandedIds((prev) => (prev.size === 0 ? prev : new Set()));
     resetDraftEditingState();
   }, [resetDraftEditingState, snapshots.length, sortedBars.length, sortedTempi.length]);
 
@@ -3246,9 +3041,7 @@ const Sequencer = ({
       onMoveSnapshot,
       onSnapshotRowClick: handleSnapshotRowClick,
       onSelectSnapshot: selectSnapshotForEditing,
-      toggleExpanded,
       onDeleteSnapshot: handleDeleteSnapshot,
-      ensureExpanded,
       onUpdateSnapshot,
       onResetSnapshotDescription,
       onPlaySnapshot,
@@ -3256,7 +3049,6 @@ const Sequencer = ({
     }),
     [
       duplicateEventNoteToSnapshot,
-      ensureExpanded,
       handleSnapshotRowClick,
       moveEventNoteToSnapshot,
       handleDeleteSnapshot,
@@ -3377,6 +3169,21 @@ const Sequencer = ({
       <fieldset>
         <legend>
           <b>Copy & Insert</b>
+          <button
+            type="button"
+            class="section-collapse-toggle"
+            title={copyInsertCollapsed ? "Show Selected Range controls" : "Hide Selected Range controls"}
+            aria-expanded={!copyInsertCollapsed}
+            onClick={() => {
+              sessionStorage.setItem("hexatone_sequencer_copy_insert_collapsed", !copyInsertCollapsed);
+              setCopyInsertCollapsed(!copyInsertCollapsed);
+            }}
+          >
+            <span
+              class={`disclosure-toggle-glyph disclosure-toggle-glyph--${copyInsertCollapsed ? "collapsed" : "expanded"}`}
+              aria-hidden="true"
+            />
+          </button>
         </legend>
         <div class="settings-form__action-row settings-form__action-row--top sequencer-copy-block__range-row">
           <span class="sequencer-copy-block__range-label">Select Snapshot Range</span>
@@ -3459,7 +3266,7 @@ const Sequencer = ({
             </span>
           </p>
         )}
-        <fieldset class="sequencer-copy-block__range-operations">
+        <fieldset class="sequencer-copy-block__range-operations" hidden={copyInsertCollapsed}>
           <legend>Edit Selected Range</legend>
           <div class="sequencer-copy-block__range-actions">
             <span class="sequencer-copy-block__range-label">Positions</span>
@@ -3589,14 +3396,14 @@ const Sequencer = ({
           <button
             type="button"
             class="section-collapse-toggle"
-            title={showAllEvents ? "Collapse to snapshot view" : "Expand to sequence view"}
+            title={editControlsExpanded ? "Hide Edit & Play controls" : "Show Edit & Play controls"}
             onClick={(e) => {
               e.stopPropagation();
               toggleEditPlayLayout();
             }}
           >
             <span
-              class={`disclosure-toggle-glyph disclosure-toggle-glyph--${showAllEvents ? "expanded" : "collapsed"}`}
+              class={`disclosure-toggle-glyph disclosure-toggle-glyph--${editControlsExpanded ? "expanded" : "collapsed"}`}
               aria-hidden="true"
             />
           </button>
@@ -3605,7 +3412,7 @@ const Sequencer = ({
         <SequenceControls
           onRefreshTransportReadout={refreshManualReadout}
           transportTarget={transportTarget}
-          showAllEvents={showAllEvents}
+          editControlsExpanded={editControlsExpanded}
           newTempoPosition={newTempoPosition}
           setNewTempoPosition={updateNewTempoPosition}
           newTempoBpm={newTempoBpm}
@@ -3760,8 +3567,6 @@ const Sequencer = ({
                       playingSnapshotId={playingSnapshotId}
                       playingSnapshotIds={playingSnapshotIds}
                       manualArpeggiationMode={normalizedManualArpeggiation.mode}
-                      showAllEvents={showAllEvents}
-                      expandedIds={expandedIds}
                       dragState={sharedDragState}
                       structure={sharedStructure}
                       rows={sharedRows}

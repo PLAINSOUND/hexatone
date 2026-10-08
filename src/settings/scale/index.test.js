@@ -66,12 +66,24 @@ const fireDragEventWithClientY = (element, type, { dataTransfer, clientY }) => {
   fireEvent(element, event);
 };
 
+beforeEach(() => sessionStorage.setItem("hexatone_scale_collapsed", "false"));
+
 describe("Scale panel — default state", () => {
+  it("hides scale editing actions with the collapsed scale table", () => {
+    sessionStorage.removeItem("hexatone_scale_collapsed");
+    render(<Scale settings={minimalSettings} onChange={vi.fn()} onImport={vi.fn()} />);
+    const actions = [/Add Scale Degree/, /Edit Scala File/, /Divide Equave/, /Divide Octave/];
+    for (const name of actions) expect(screen.queryByRole("button", { name })).toBeNull();
+    expect(document.querySelector("table")).toBeNull();
+    fireEvent.click(screen.getByTitle("Toggle to show scale table"));
+    for (const name of actions) expect(screen.getByRole("button", { name })).not.toBeNull();
+  });
   beforeEach(() => {
     sessionStorage.clear();
+    sessionStorage.setItem("hexatone_scale_collapsed", "false");
   });
 
-  it("renders the scale table by default", () => {
+  it("renders the scale table with a remembered expanded state", () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     expect(document.querySelector("table")).not.toBeNull();
   });
@@ -552,6 +564,7 @@ describe("Scale panel — completing import", () => {
 describe("Scale panel — sort degrees", () => {
   beforeEach(() => {
     sessionStorage.clear();
+    sessionStorage.setItem("hexatone_scale_collapsed", "false");
   });
 
   it("sorts interior degrees and remaps names, colors, reference degree, and center degree", () => {

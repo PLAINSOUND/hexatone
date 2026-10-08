@@ -210,33 +210,6 @@ export function deriveSoundingAttackEventIds({
   );
 }
 
-export function deriveExpandedSnapshotIds({
-  showAllEvents,
-  cueExpandedSnapshotIdsAt,
-  playheadIsOff,
-  playheadIsEnd,
-  selectedSnapshotId,
-  activeCueIndex,
-  pendingCueIndex = null,
-  cueExpandedSnapshotIds,
-  suppressSelectedSnapshotPreview = false,
-}) {
-  if (showAllEvents) return null;
-  if (activeCueIndex != null) {
-    if (cueExpandedSnapshotIds.size > 0) return new Set(cueExpandedSnapshotIds);
-    const previewIds = cueExpandedSnapshotIdsAt(activeCueIndex - 1);
-    return previewIds.size > 0 ? previewIds : new Set([selectedSnapshotId]);
-  }
-  if (Number.isFinite(pendingCueIndex)) {
-    const previewIds = cueExpandedSnapshotIdsAt(pendingCueIndex);
-    if (previewIds.size > 0) return previewIds;
-  }
-  if (playheadIsOff || playheadIsEnd || selectedSnapshotId == null) {
-    return new Set();
-  }
-  if (suppressSelectedSnapshotPreview) return new Set();
-  return new Set([selectedSnapshotId]);
-}
 
 export function resolveCueAnchorSnapshotId({
   activeCueIndex,
@@ -262,7 +235,6 @@ export function resolveCueAnchorSnapshotId({
 }
 
 export function deriveCueScrollAnchorTarget({
-  showAllEvents,
   activeCueIndex,
   sequenceCueGroups,
   sequenceEvents = [],
@@ -296,15 +268,5 @@ export function deriveCueScrollAnchorTarget({
     cueExpandedSnapshotIds,
   });
   if (snapshotId != null) return { kind: "snapshot", targetKey: snapshotId };
-  if (!showAllEvents) return null;
   return null;
-}
-
-export function sameSnapshotSet(left, right) {
-  if (!(left instanceof Set) || !(right instanceof Set)) return false;
-  if (left.size !== right.size) return false;
-  for (const id of right) {
-    if (!left.has(id)) return false;
-  }
-  return true;
 }

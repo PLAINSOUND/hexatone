@@ -30,7 +30,7 @@ import { createScaleWorkspace } from "../../tuning/workspace.js";
 const Scale = (props) => {
   const [importing, setImporting] = useState(false);
   const [collapsed, setCollapsed] = useState(
-    () => sessionStorage.getItem("hexatone_scale_collapsed") === "true",
+    () => sessionStorage.getItem("hexatone_scale_collapsed") !== "false",
   );
   const {
     scale: settingsScale,
@@ -255,7 +255,7 @@ const Scale = (props) => {
           disabled={!hasMusicalSurface}
         />
       </label>
-      {effectiveEquivSteps > 1 && (
+      {!collapsed && effectiveEquivSteps > 1 && (
         <div class="divide-btns">
           <button
             type="button"
@@ -309,7 +309,7 @@ const Scale = (props) => {
         </select>
       </label>
       <Colors {...props} rawSettings={props.rawSettings ?? props.settings} />
-      <KeyLabels {...props} />
+      <KeyLabels {...props} hideHejiSpelling={collapsed} />
       {!collapsed && (
         <>
           <br />
@@ -326,7 +326,7 @@ const Scale = (props) => {
           <br />
         </>
       )}
-      {importing ? (
+      {!collapsed && (importing ? (
         <div>
           <ScalaImport {...props} onImport={doImport} onCancel={cancelImport} />
         </div>
@@ -345,7 +345,7 @@ const Scale = (props) => {
             </button>
           </div>
         </>
-      )}
+      ))}
       {!props.primaryTuningSaveVisible &&
         props.tuningSaveActionState?.visible &&
         typeof props.tuningSaveActionState.action === "function" && (

@@ -15,6 +15,7 @@
 import { fireEvent, render, waitFor, screen } from "@testing-library/preact";
 import userEvent from "@testing-library/user-event";
 import { act } from "preact/test-utils";
+import { onTestFinished } from "vitest";
 import { parseExactInterval } from "./tuning/interval.js";
 import { SEQUENCE_WORKSPACE_STORAGE_KEY } from "./sequencer/session-persistence.js";
 import { CALCULATOR_WORKSPACE_STORAGE_KEY } from "./calculator/session-persistence.js";
@@ -1011,6 +1012,15 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
+  it("offers Start Audio on fresh load without presenting it as a recovery failure", async () => {
+    settings = { ...settings, output_sample: true };
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Start Audio" })).toBeTruthy();
+    expect(screen.getByText("Tap Start Audio to prepare the built-in sounds before playing.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Restore Audio" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("button", { name: "Start Audio" })).toBeNull();
+  });
   it.each([
     ["sequencer", "SEQUENCER"],
     ["calculator", "CALCULATOR"],
@@ -1196,6 +1206,9 @@ describe("App workspace tabs", () => {
   });
 
   it("advances rapid cue and snapshot arrows from the live audio playhead", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
+    });
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(
       SEQUENCE_WORKSPACE_STORAGE_KEY,
@@ -1231,6 +1244,12 @@ describe("App workspace tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
 
     const nextCue = await screen.findByLabelText("next sequence marker");
+    const frames = [];
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => {
+      frames.push(callback);
+      return frames.length;
+    });
+    onTestFinished(() => raf.mockRestore());
     fireEvent.click(nextCue);
     fireEvent.click(nextCue);
     fireEvent.click(nextCue);
@@ -1238,6 +1257,11 @@ describe("App workspace tabs", () => {
     expect(keys.playSnapshot.mock.calls.map(([notes]) => notes[0]?.midicents)).toEqual([
       60, 62, 64,
     ]);
+    // The latest manual trigger colours/enables its playback controls on the
+    // first visual frame, without waiting for the former 300 ms debounce.
+    act(() => frames.splice(0).forEach(callback => callback(performance.now())));
+    expect(screen.getByLabelText("stop snapshot 3").disabled).toBe(false);
+    expect(keys.playSnapshot).toHaveBeenCalledTimes(3);
 
     const previousSnapshot = screen.getByLabelText("previous sequence step");
     fireEvent.click(previousSnapshot);
@@ -1415,6 +1439,7 @@ describe("App workspace tabs", () => {
   });
 
   it.each(["next sequence step", "next sequence marker"])("replays an edited sounding note after %s with the resolved HEJI pitch", async (trigger) => {
+    sessionStorage.setItem("hexatone_sequencer_edit_play_expanded", "true");
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
     });
@@ -1485,7 +1510,7 @@ describe("App workspace tabs", () => {
         const highlights = ".snapshot-playing, .sequencer-item--manual-playing, .sequencer-item--timed-playing, .sequencer-event-row--manual-sounding, .sequencer-event-row--timed-sounding";
         await waitFor(() => expect(document.querySelector(highlights)).toBeNull());
         const attackCount = keys.playSnapshot.mock.calls.length;
-        // Wait past the 300 ms manual UI commit and queued visual frames.
+        // Wait past queued visual frames and any obsolete deferred callback.
         await act(async () => { await new Promise(resolve => setTimeout(resolve, 350)); });
         expect(document.querySelector(highlights)).toBeNull();
         expect(keys.playSnapshot).toHaveBeenCalledTimes(attackCount);
@@ -1499,6 +1524,7 @@ describe("App workspace tabs", () => {
   );
 
   it("keeps a restored invalid HEJI edit clean after Enter followed by blur", async () => {
+    sessionStorage.setItem("hexatone_sequencer_edit_play_expanded", "true");
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
     });

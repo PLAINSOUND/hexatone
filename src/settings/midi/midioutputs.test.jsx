@@ -41,6 +41,20 @@ describe("MidiOutputs FluidSynth independence", () => {
 
     expect(screen.getByText("MIDI Output")).not.toBeNull();
   });
+  it("collapses routing controls without changing output settings and remembers the disclosure", () => {
+    const props = makeProps();
+    props.onChange = vi.fn();
+    const view = render(<MidiOutputs {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Hide MIDI Output settings" }));
+    expect(screen.getByRole("button", { name: "Show MIDI Output settings" }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("checkbox", { name: "MTS Real-Time Tuning" })).toBeNull();
+    expect(props.onChange).not.toHaveBeenCalled();
+    view.unmount();
+    render(<MidiOutputs {...props} />);
+    expect(screen.getByRole("button", { name: "Show MIDI Output settings" })).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show MIDI Output settings" }));
+    expect(screen.getByRole("checkbox", { name: "MTS Real-Time Tuning" }).checked).toBe(true);
+  });
 
   it("disables the monophonic output toggle without Web MIDI access", () => {
     render(<MidiOutputs {...makeProps()} midi={null} />);

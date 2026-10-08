@@ -62,7 +62,7 @@ describe("sequence virtualization", () => {
     });
 
     expect(layout.offsets).toEqual([0, 175, 275]);
-    expect(estimateSequenceGroupHeight({ expanded: true, eventCount: 4, structuralCount: 2 })).toBe(
+    expect(estimateSequenceGroupHeight({ eventCount: 4, structuralCount: 2 })).toBe(
       217,
     );
   });

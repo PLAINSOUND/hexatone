@@ -496,7 +496,7 @@ const KeyLabels = (props) => {
         // deviation reads 0¢ on a tuning meter — by its ratio from degree 0 (1/1)
         // and its HEJI pitch-class spelling.  This pitch need not be a scale degree.
         // Default: ratio "1/1" labelled "nA" — A natural is the just root.
-        <fieldset class="heji-anchor-fieldset">
+        <fieldset class="heji-anchor-fieldset" hidden={props.hideHejiSpelling}>
           <legend>HEJI Spelling with 0¢ Deviation</legend>
           {hejiDisabled && (
             <p class="settings-form__warning-copy">
@@ -1093,6 +1093,7 @@ const KeyLabels = (props) => {
 };
 
 KeyLabels.propTypes = {
+  hideHejiSpelling: PropTypes.bool,
   onChange: PropTypes.func.isRequired,
   onAtomicChange: PropTypes.func.isRequired,
   heji_names: PropTypes.arrayOf(PropTypes.string),

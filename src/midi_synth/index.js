@@ -19,6 +19,7 @@ import {
   resumeFluidSynthAfterAudioRestart,
   muteFluidSynthForRecovery,
   fadeFluidSynthAfterRecovery,
+  prepareFluidSynthOutput,
   clearFluidSynthRecoveryEvents,
 } from "../fluidsynth_synth/index.js";
 
@@ -43,6 +44,7 @@ export const create_midi_synth = async ({
 }) => {
   if (outputMode.output?.sendCommand) {
     await internalOutputShutdown;
+    await prepareFluidSynthOutput();
     const synth = createInternalVoiceSynth({ outputMode, tuningContext,
       ensureAwake: ensureFluidSynthEngineAwake, forceAudioRebuild: forceFluidSynthEngineRebuild });
     synth.audioBackend = "fluidsynth";

@@ -1,5 +1,6 @@
 import { createPlaybackPresentation } from "./playback-presentation.js";
 
+
 it("tears down queued scrolling before replacing a mounted presentation", () => {
   const frames = [];
   const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation(callback => {

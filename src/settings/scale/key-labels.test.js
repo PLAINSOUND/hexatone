@@ -5,6 +5,16 @@ import { buildPitchFrame } from "../../notation/pitch-frame.js";
 import { createScaleWorkspace } from "../../tuning/workspace.js";
 
 describe("KeyLabels HEJI anchor handling", () => {
+  it("hides only the spelling fieldset when the parent scale section is collapsed", () => {
+    const props = { onChange: vi.fn(), onAtomicChange: vi.fn(),
+      settings: { key_labels: "heji", fundamental: 440 } };
+    const view = render(<KeyLabels {...props} hideHejiSpelling />);
+    const spelling = screen.getByText("HEJI Spelling with 0¢ Deviation").closest("fieldset");
+    expect(spelling.hidden).toBe(true);
+    expect(screen.queryByRole("group", { name: "HEJI Spelling with 0¢ Deviation" })).toBeNull();
+    view.rerender(<KeyLabels {...props} hideHejiSpelling={false} />);
+    expect(spelling.hidden).toBe(false);
+  });
   const pitchFrameFor = ({
     scale = ["3/2", "2/1"],
     reference_degree = 1,

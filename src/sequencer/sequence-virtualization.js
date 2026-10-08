@@ -38,11 +38,10 @@ export function estimateSequenceGroupHeight({
   eventCount = 0,
   structuralCount = 0,
   transitionCueCount = 0,
-  expanded = false,
 } = {}) {
   const snapshotRowHeight = 30;
-  const eventHeaderHeight = expanded ? 27 : 0;
-  const eventRowsHeight = expanded ? Math.max(0, Number(eventCount) || 0) * 25 : 0;
+  const eventHeaderHeight = 27;
+  const eventRowsHeight = Math.max(0, Number(eventCount) || 0) * 25;
   const structuralRowsHeight = Math.max(0, Number(structuralCount) || 0) * 30;
   const transitionCueHeight = Math.max(0, Number(transitionCueCount) || 0) * 12;
   return (

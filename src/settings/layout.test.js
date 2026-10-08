@@ -17,10 +17,15 @@ describe("Layout panel", () => {
     expect(label?.classList.contains("center-degree-row")).toBe(true);
   });
 
-  it("starts expanded on a fresh session", () => {
+  it("starts collapsed on a fresh session while keeping degree and size editable", () => {
     sessionStorage.removeItem("hexatone_layout_collapsed");
     render(<Layout settings={minimalSettings} onChange={() => {}} />);
+    expect(screen.queryByText("Right-Facing Steps")).toBeNull();
+    expect(screen.getByLabelText("Central Scale Degree").disabled).toBe(false);
+    expect(screen.getByLabelText("Hex Size").disabled).toBe(false);
+    fireEvent.click(screen.getByTitle("Toggle to show Hexatone Layout settings"));
     expect(screen.getByText("Right-Facing Steps")).not.toBeNull();
+    expect(screen.getAllByLabelText("Hex Size")).toHaveLength(1);
   });
 
   it("selects a complete numeric value on first pointer focus", () => {
@@ -35,6 +40,7 @@ describe("Layout panel", () => {
   });
 
   it("renders layout defaults as inactive hints without a musical surface", () => {
+    sessionStorage.setItem("hexatone_layout_collapsed", "false");
     render(
       <Layout settings={minimalSettings} hasMusicalSurface={false} onChange={() => {}} />,
     );

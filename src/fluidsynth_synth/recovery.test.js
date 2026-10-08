@@ -96,6 +96,21 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
     .flatMap(([message]) => message.events)).toEqual([]);
   const source = { name: "retained.sf2", arrayBuffer: vi.fn(async () => new ArrayBuffer(8)) };
   await loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
+  const { create_midi_synth } = await import("../midi_synth/index.js");
+  const synth = await create_midi_synth({
+    outputMode: { output: engine.output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 },
+  });
+  // The wrapper is only available after its startup fade was scheduled.
+  expect(gains[0].gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(1, 1.04);
+  context.currentTime = 1.04;
+  nodes[0].port.postMessage.mockClear();
+  synth.makeHex("first", 0, 0, 0, 12, -100, 100, 60, 72, 0, 1).noteOn();
+  await Promise.resolve();
+  expect(gains[0].gain.setValueAtTime).toHaveBeenLastCalledWith(1, 1.04);
+  expect(nodes[0].port.postMessage.mock.calls.filter(([message]) => message.type === "midi-batch")
+    .flatMap(([message]) => message.events).some(event => event.command?.op === "on")).toBe(true);
+  synth.shutdown({ panic: true });
   engine.setVolume(81);
   nodes[0].onprocessorerror();
   expect(getFluidSynthAudioDiagnostics().processorFailed).toBe(true);

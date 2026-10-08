@@ -62,6 +62,9 @@ const sendMpePitchBendRange = (
 };
 
 const MidiOutputs = (props) => {
+  const [collapsed, setCollapsed] = useState(
+    () => sessionStorage.getItem("hexatone_midi_output_collapsed") === "true",
+  );
   // midiTick is unused directly — its presence as a changing prop forces
   // re-render when MIDI devices connect/disconnect, refreshing the outputs list.
   const { settings, onChange, midi, midiTick: _midiTick } = props;
@@ -181,7 +184,24 @@ const MidiOutputs = (props) => {
     <fieldset class="output-routing-fieldset">
       <legend>
         <b>MIDI Output</b>
+        <button
+          type="button"
+          class="section-collapse-toggle"
+          aria-label={collapsed ? "Show MIDI Output settings" : "Hide MIDI Output settings"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Toggle to show MIDI Output settings" : "Toggle to hide MIDI Output settings"}
+          onClick={() => {
+            sessionStorage.setItem("hexatone_midi_output_collapsed", !collapsed);
+            setCollapsed(!collapsed);
+          }}
+        >
+          <span
+            class={`disclosure-toggle-glyph disclosure-toggle-glyph--${collapsed ? "collapsed" : "expanded"}`}
+            aria-hidden="true"
+          />
+        </button>
       </legend>
+      <div hidden={collapsed}>
       <MonoOutputSettings
         settings={settings}
         midi={midi}
@@ -456,7 +476,7 @@ const MidiOutputs = (props) => {
 
       <p class="settings-form__intro-copy">
         <em>
-          Old-school non-real-time 128 note mapping. Dynamic mode emulates real-time MTS by sending a new map before each note on, performance depends on synth. Static mode sends a map and plays on one channel.
+          Old-school non-real-time 128 note mapping. Dynamic mode emulates real-time MTS by sending a new map before each note on. Static mode sends a map and plays on one channel.
         </em>
       </p>
 
@@ -839,6 +859,7 @@ const MidiOutputs = (props) => {
           )}
         </>
       )}
+      </div>
     </fieldset>
   );
 };

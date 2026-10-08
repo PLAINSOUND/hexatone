@@ -21,6 +21,35 @@ import {
 } from "./snapshot-workspace-runtime.js";
 
 describe("Sequencer", () => {
+  it("keeps notes open and highlights timed playback with editing controls closed", async () => {
+    sessionStorage.removeItem("hexatone_sequencer_edit_play_expanded");
+    render(<Sequencer
+      snapshots={[{ id: 10, length: 2, notes: [{ id: "a", midicents: 69, start: 0, end: 2 }] }]}
+      bars={[]} tempi={[]} repeats={[]}
+      onPlayTimedCue={vi.fn()} onStopSnapshot={vi.fn()}
+      getTimedTransportClockSeconds={() => 0}
+    />);
+    expect(screen.getByLabelText("snapshot 1 events")).not.toBeNull();
+    fireEvent.click(screen.getByLabelText("play timed transport"));
+    await waitFor(() => {
+      expect(screen.getByLabelText("snapshot 1 events")).not.toBeNull();
+      expect(document.querySelector(".sequencer-event-row--timed-sounding")).not.toBeNull();
+    });
+    fireEvent.click(screen.getByLabelText("pause timed transport"));
+  });
+  it("defaults to closed editing controls and hides Selected Range until Copy & Insert is expanded", () => {
+    sessionStorage.removeItem("hexatone_sequencer_edit_play_expanded");
+    sessionStorage.removeItem("hexatone_sequencer_copy_insert_collapsed");
+    render(<Sequencer snapshots={[]} bars={[]} tempi={[]} repeats={[]} />);
+    expect(screen.getByTitle("Show Edit & Play controls")).not.toBeNull();
+    const selectedRange = screen.getByText("Edit Selected Range").closest("fieldset");
+    expect(selectedRange.hidden).toBe(true);
+    expect(screen.getByLabelText("copy snapshot range start")).not.toBeNull();
+    fireEvent.click(screen.getByTitle("Show Selected Range controls"));
+    expect(selectedRange.hidden).toBe(false);
+    fireEvent.click(screen.getByTitle("Hide Selected Range controls"));
+    expect(selectedRange.hidden).toBe(true);
+  });
   it("asks before disabling Snap when a locked pitch field is clicked", () => {
     const original = HTMLDialogElement.prototype.showModal;
     HTMLDialogElement.prototype.showModal = function () { this.open = true; };
@@ -49,6 +78,8 @@ describe("Sequencer", () => {
 
   beforeEach(() => {
     sessionStorage.clear();
+    sessionStorage.setItem("hexatone_sequencer_edit_play_expanded", "true");
+    sessionStorage.setItem("hexatone_sequencer_copy_insert_collapsed", "false");
     localStorage.clear();
   });
 
@@ -2487,7 +2518,7 @@ describe("Sequencer", () => {
     });
   });
 
-  it("keeps the transport-selected cue viewport fixed when the arrow triggers it", () => {
+  it.each([false, true])("revalidates the prepared cue viewport on trigger (scrolled away: %s)", (scrolledAway) => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -2687,15 +2718,22 @@ describe("Sequencer", () => {
     const linedUpScrollTop = scrollTopValue;
     const linedUpScrollWriteCount = scrollWriteCount;
 
+    if (scrolledAway) scrollTopValue = 0;
     fireEvent.click(screen.getByLabelText("next sequence marker"));
 
-    expect(scrollTopValue).toBe(linedUpScrollTop);
-    expect(scrollWriteCount).toBe(linedUpScrollWriteCount);
+    if (scrolledAway) {
+      expect(scrollTopValue).toBeGreaterThan(0);
+      expect(scrollWriteCount).toBe(linedUpScrollWriteCount + 1);
+    } else {
+      expect(scrollTopValue).toBe(linedUpScrollTop);
+      expect(scrollWriteCount).toBe(linedUpScrollWriteCount);
+    }
     expect(container.querySelectorAll(".sequencer-event__kind--active")).toHaveLength(2);
 
     fireEvent.click(screen.getByLabelText("next sequence marker"));
 
     expect(scrollTopValue).not.toBe(linedUpScrollTop);
+    // A revealed cue can already leave the following cue visible.
     expect(scrollWriteCount).toBe(linedUpScrollWriteCount + 1);
     expect(container.querySelectorAll(".sequencer-event__kind--active")).toHaveLength(1);
 
@@ -2889,7 +2927,7 @@ describe("Sequencer", () => {
     await expectCueAnchorVisible(58);
   }, 30000);
 
-  it("top-aligns snapshot selection, stepping, and Edit & Play layout changes identically", () => {
+  it("top-aligns snapshot selection and stepping without reanchoring on control disclosure", () => {
     const originalRaf = window.requestAnimationFrame;
     const originalCancelRaf = window.cancelAnimationFrame;
     const raf = vi.fn((callback) => {
@@ -3046,9 +3084,9 @@ describe("Sequencer", () => {
     expect(scrollTopValue).toBe(414);
 
     scrollTopValue = 300;
-    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+    fireEvent.click(screen.getByTitle("Hide Edit & Play controls"));
 
-    expect(scrollTopValue).toBe(414);
+    expect(scrollTopValue).toBe(300);
 
     window.requestAnimationFrame = originalRaf;
     window.cancelAnimationFrame = originalCancelRaf;
@@ -3442,11 +3480,11 @@ describe("Sequencer", () => {
       />,
     );
 
-    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+    fireEvent.click(screen.getByTitle("Hide Edit & Play controls"));
 
     expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
     expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();
-    expect(screen.queryByLabelText("snapshot 3 events")).toBeNull();
+    expect(screen.getByLabelText("snapshot 3 events")).toBeTruthy();
   });
 
   it("previews all relevant snapshots in closed view when a cue is lined up", () => {
@@ -3512,12 +3550,12 @@ describe("Sequencer", () => {
       />,
     );
 
-    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+    fireEvent.click(screen.getByTitle("Hide Edit & Play controls"));
     fireEvent.change(screen.getByLabelText("next cue target"), { target: { value: "1" } });
 
     expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
     expect(screen.getByLabelText("snapshot 2 events")).toBeTruthy();
-    expect(screen.queryByLabelText("snapshot 3 events")).toBeNull();
+    expect(screen.getByLabelText("snapshot 3 events")).toBeTruthy();
   });
 
   it("hides sequence setup and edit controls in collapsed playback view", () => {
@@ -3571,7 +3609,7 @@ describe("Sequencer", () => {
       />,
     );
 
-    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+    fireEvent.click(screen.getByTitle("Hide Edit & Play controls"));
 
     expect(screen.queryByText("Names")).not.toBeNull();
     expect(screen.queryByText("Choose Tempo Position")).toBeNull();
@@ -3582,7 +3620,7 @@ describe("Sequencer", () => {
     expect(screen.queryByText("Snap Sequence to Current Hexatone Tuning")).not.toBeNull();
   });
 
-  it("selects a snapshot on first click in collapsed view and only expands it on second click", () => {
+  it("keeps snapshot notes open when controls are hidden and rows are selected repeatedly", () => {
     const Harness = () => {
       const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
 
@@ -3639,11 +3677,11 @@ describe("Sequencer", () => {
 
     render(<Harness />);
 
-    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
-    expect(screen.queryByLabelText("snapshot 1 events")).toBeNull();
+    fireEvent.click(screen.getByTitle("Hide Edit & Play controls"));
+    expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
 
     fireEvent.click(screen.getByText("1 note"));
-    expect(screen.queryByLabelText("snapshot 1 events")).toBeNull();
+    expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
 
     fireEvent.click(screen.getByText("1 note"));
     expect(screen.getByLabelText("snapshot 1 events")).toBeTruthy();
@@ -3726,7 +3764,7 @@ describe("Sequencer", () => {
 
     fireEvent.input(rangeStart, { target: { value: "1" } });
     fireEvent.input(rangeEnd, { target: { value: "1" } });
-    fireEvent.click(screen.getByTitle("Collapse to snapshot view"));
+    fireEvent.click(screen.getByTitle("Hide Edit & Play controls"));
     fireEvent.click(screen.getByLabelText("snapshot 2 description"));
 
     expect(rangeStart.value).toBe("2");

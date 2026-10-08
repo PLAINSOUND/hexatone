@@ -10,7 +10,7 @@ import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 
 const Layout = (props) => {
   const [collapsed, setCollapsed] = useState(
-    () => sessionStorage.getItem("hexatone_layout_collapsed") === "true",
+    () => sessionStorage.getItem("hexatone_layout_collapsed") !== "false",
   );
   const maxDegree = (props.settings.equivSteps || 1) - 1;
   const hasMusicalSurface = props.hasMusicalSurface ?? true;
@@ -71,6 +71,32 @@ const Layout = (props) => {
           }}
         />
       </label>
+      <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
+        Hex Size
+        <input
+          name="hexSize"
+          type="text"
+          inputMode="numeric"
+          class="sidebar-input"
+          key={props.settings.hexSize}
+          defaultValue={props.settings.hexSize}
+          min="20"
+          max="1000"
+          disabled={!hasMusicalSurface}
+          {...buildAutoSelectInputProps()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.target.blur();
+          }}
+          onBlur={(e) => {
+            const val = parseInt(e.target.value);
+            if (!isNaN(val) && val >= 20 && val <= 1000) {
+              props.onChange("hexSize", val);
+            } else {
+              e.target.value = props.settings.hexSize;
+            }
+          }}
+        />
+      </label>
       {collapsed ? null : (
         <>
           <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
@@ -121,32 +147,6 @@ const Layout = (props) => {
                   props.onChange("drSteps", val);
                 } else {
                   e.target.value = props.settings.drSteps;
-                }
-              }}
-            />
-          </label>
-          <label class={hasMusicalSurface ? undefined : "settings-form__inactive-until-surface"}>
-            Hex Size
-            <input
-              name="hexSize"
-              type="text"
-              inputMode="numeric"
-              class="sidebar-input"
-              key={props.settings.hexSize}
-              defaultValue={props.settings.hexSize}
-              min="20"
-              max="1000"
-              disabled={!hasMusicalSurface}
-              {...buildAutoSelectInputProps()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.target.blur();
-              }}
-              onBlur={(e) => {
-                const val = parseInt(e.target.value);
-                if (!isNaN(val) && val >= 20 && val <= 1000) {
-                  props.onChange("hexSize", val);
-                } else {
-                  e.target.value = props.settings.hexSize;
                 }
               }}
             />

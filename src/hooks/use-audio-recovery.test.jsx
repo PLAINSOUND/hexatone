@@ -22,6 +22,22 @@ function harness() {
     tick: () => act(async () => { await vi.advanceTimersByTimeAsync(2000); }) };
 }
 
+it("prepares first startup without rebuilding the freshly initialised engines", async () => {
+  const rebuild = vi.fn();
+  const initialise = Object.assign(vi.fn(async () => ({ errors: [] })), { needed: () => true });
+  const synthRef = { current: { audioBackend: "supersonic", forceAudioRebuild: rebuild } };
+  let recovery;
+  function Harness() {
+    recovery = useAudioRecovery(synthRef, { current: null }, {}, { current: initialise });
+    return <span data-testid="status">{recovery.status}</span>;
+  }
+  render(<Harness />);
+  await act(async () => { await recovery.restore(); });
+  expect(initialise).toHaveBeenCalledOnce();
+  expect(rebuild).not.toHaveBeenCalled();
+  expect(screen.getByTestId("status").textContent).toContain("Audio engines restored");
+});
+
 it("does not report a normally suspended initial engine as interrupted", async () => {
   const test = harness();
   await test.tick();
