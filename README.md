@@ -18,6 +18,8 @@ Initial development by James Fenn with additions and modifications from [Brandon
 
 Current version 3.3.0-rc.3 (September 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
 
+Thanks to the open-source communities behind [SuperCollider](https://supercollider.github.io/), [SuperSonic](https://github.com/samaaron/supersonic), and [FluidSynth](https://www.fluidsynth.org/) for the audio engines used in Hexatone.
+
 *The text font with embedded HEJI accidentals (Plainsound Sans) is designed by Thomas Nicholson. Unicode data for copying/pasting may be found at [w3c-cg.github.io/smufl/latest/tables](https://w3c-cg.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html).*
 
 **Support our open access content with a [donation](https://ko-fi.com/plainsound).**<br>
