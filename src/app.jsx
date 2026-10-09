@@ -700,7 +700,8 @@ const App = () => {
       sidebarRef.current.scrollTop = workspaceScrollPositionsRef.current[workspaceTab] ?? 0;
     }
   }, [workspaceTab, activeManualView]);
-  const snapshotPaletteVisible = !inlineManualView && workspaceTab !== "sequencer";
+  // Performance shortcuts remain available alongside the full sequence list.
+  const snapshotPaletteVisible = !inlineManualView;
   const performancePalettesVisible = snapshotPaletteVisible;
   const [userHasInteracted, setUserHasInteracted] = useState(false);
   const [showRotationDebug, setShowRotationDebug] = useState(getRotationDebugDefault);
@@ -1280,16 +1281,16 @@ const App = () => {
   useEffect(() => {
     const wasCollapsed = previousSnapshotPaletteCollapsedRef.current;
     previousSnapshotPaletteCollapsedRef.current = snapshotPaletteCollapsed;
-    const previousWorkspace = previousSnapshotPaletteWorkspaceRef.current;
+    const workspaceChanged = previousSnapshotPaletteWorkspaceRef.current === "sequencer" &&
+      workspaceTab !== "sequencer";
     previousSnapshotPaletteWorkspaceRef.current = workspaceTab;
-    const revealedByTab = previousWorkspace === "sequencer" && workspaceTab !== "sequencer";
-    if ((!wasCollapsed && !revealedByTab) || snapshotPaletteCollapsed) return;
+    if ((!wasCollapsed && !workspaceChanged) || snapshotPaletteCollapsed) return;
 
     // The manual audio cursor leads the deferred presentation during fast
     // stepping. Reveal that snapshot even before the tab handoff commits UI.
     const livePosition = sequencePlayheadRef.current;
     const liveSnapshotId =
-      revealedByTab && !livePosition.stopped && livePosition.markerIndex == null
+      workspaceChanged && !livePosition.stopped && livePosition.markerIndex == null
         ? snapshots[livePosition.stepIndex]?.id
         : null;
     const soundingSnapshotId = liveSnapshotId ?? manualPlayingSnapshotIds.at(-1) ?? playingSnapshotId;
@@ -1302,7 +1303,7 @@ const App = () => {
 
     const bodyRect = body.getBoundingClientRect();
     const rowRect = row.getBoundingClientRect();
-    if (revealedByTab) {
+    if (workspaceChanged) {
       const visibleTop = bodyRect.top + body.clientTop;
       const visibleBottom = visibleTop + body.clientHeight;
       if (rowRect.top < visibleTop) {

@@ -871,9 +871,9 @@
       "notes": [
         {
           "midicents": 58.49885491721271,
-          "attackVelocity": 60,
+          "attackVelocity": 74,
           "releaseVelocity": 60,
-          "velocity": 60,
+          "velocity": 74,
           "displayLabel": "B",
           "ratioText": "235/256",
           "monzo": [
@@ -933,9 +933,9 @@
         },
         {
           "midicents": 61.655267787218236,
-          "attackVelocity": 32,
+          "attackVelocity": 46,
           "releaseVelocity": 32,
-          "velocity": 32,
+          "velocity": 46,
           "displayLabel": "D",
           "ratioText": "141/128",
           "monzo": [
@@ -995,9 +995,9 @@
         },
         {
           "midicents": 66.63571777856436,
-          "attackVelocity": 35,
+          "attackVelocity": 49,
           "releaseVelocity": 35,
-          "velocity": 35,
+          "velocity": 49,
           "displayLabel": "G",
           "ratioText": "47/32",
           "monzo": [
@@ -1378,9 +1378,9 @@
         },
         {
           "midicents": 65.39518490042065,
-          "attackVelocity": 109,
+          "attackVelocity": 98,
           "releaseVelocity": 53,
-          "velocity": 109,
+          "velocity": 98,
           "displayLabel": "F",
           "ratioText": "175/128",
           "monzo": [
@@ -1513,9 +1513,9 @@
       "notes": [
         {
           "midicents": 69.03930158439434,
-          "attackVelocity": 63,
+          "attackVelocity": 49,
           "releaseVelocity": 56,
-          "velocity": 63,
+          "velocity": 49,
           "displayLabel": "A",
           "ratioText": "27/16",
           "monzo": [
@@ -1574,9 +1574,9 @@
         },
         {
           "midicents": 61.28294503977075,
-          "attackVelocity": 63,
+          "attackVelocity": 49,
           "releaseVelocity": 32,
-          "velocity": 63,
+          "velocity": 49,
           "displayLabel": "C",
           "ratioText": "69/64",
           "monzo": [
@@ -1635,9 +1635,9 @@
         },
         {
           "midicents": 62.01975157574046,
-          "attackVelocity": 89,
+          "attackVelocity": 75,
           "releaseVelocity": 53,
-          "velocity": 89,
+          "velocity": 75,
           "displayLabel": "D",
           "ratioText": "9/8",
           "monzo": [
@@ -1697,9 +1697,9 @@
         },
         {
           "midicents": 64.0588515930482,
-          "attackVelocity": 77,
+          "attackVelocity": 63,
           "releaseVelocity": 50,
-          "velocity": 77,
+          "velocity": 63,
           "displayLabel": "E",
           "ratioText": "81/64",
           "monzo": [
@@ -1760,9 +1760,9 @@
         },
         {
           "midicents": 67.00020156708659,
-          "attackVelocity": 89,
+          "attackVelocity": 75,
           "releaseVelocity": 53,
-          "velocity": 89,
+          "velocity": 75,
           "displayLabel": "G",
           "ratioText": "3/2",
           "monzo": [
@@ -1823,9 +1823,9 @@
         },
         {
           "midicents": 64.0588515930482,
-          "attackVelocity": 94,
+          "attackVelocity": 80,
           "releaseVelocity": 51,
-          "velocity": 94,
+          "velocity": 80,
           "displayLabel": "E",
           "ratioText": "81/64",
           "monzo": [
@@ -1886,9 +1886,9 @@
         },
         {
           "midicents": 67.00020156708659,
-          "attackVelocity": 105,
+          "attackVelocity": 91,
           "releaseVelocity": 54,
-          "velocity": 105,
+          "velocity": 91,
           "displayLabel": "G",
           "ratioText": "3/2",
           "monzo": [
@@ -3385,9 +3385,9 @@
         },
         {
           "midicents": 67.53293099938803,
-          "attackVelocity": 116,
+          "attackVelocity": 105,
           "releaseVelocity": 47,
-          "velocity": 116,
+          "velocity": 105,
           "displayLabel": "G",
           "ratioText": "99/64",
           "monzo": [
@@ -4474,9 +4474,9 @@
       "notes": [
         {
           "midicents": 59.912892800739016,
-          "attackVelocity": 90,
+          "attackVelocity": 86,
           "releaseVelocity": 60,
-          "velocity": 94,
+          "velocity": 90,
           "displayLabel": "B",
           "ratioText": "255/256",
           "monzo": [
@@ -4535,9 +4535,9 @@
         },
         {
           "midicents": 61.030205653436795,
-          "attackVelocity": 104,
+          "attackVelocity": 100,
           "releaseVelocity": 47,
-          "velocity": 112,
+          "velocity": 108,
           "displayLabel": "C",
           "ratioText": "17/16",
           "monzo": [
@@ -4596,9 +4596,9 @@
         },
         {
           "midicents": 64.89334279208514,
-          "attackVelocity": 96,
+          "attackVelocity": 92,
           "releaseVelocity": 58,
-          "velocity": 112,
+          "velocity": 108,
           "displayLabel": "E",
           "ratioText": "85/64",
           "monzo": [
@@ -4657,9 +4657,9 @@
         },
         {
           "midicents": 63.06930567074454,
-          "attackVelocity": 96,
+          "attackVelocity": 92,
           "releaseVelocity": 50,
-          "velocity": 109,
+          "velocity": 105,
           "displayLabel": "D",
           "ratioText": "153/128",
           "monzo": [
@@ -6401,9 +6401,9 @@
       "notes": [
         {
           "midicents": 68.38592817612582,
-          "attackVelocity": 60,
+          "attackVelocity": 38,
           "releaseVelocity": 38,
-          "velocity": 60,
+          "velocity": 38,
           "displayLabel": "A",
           "ratioText": "13/8",
           "monzo": [
@@ -6462,9 +6462,9 @@
         },
         {
           "midicents": 59.36105833744884,
-          "attackVelocity": 56,
+          "attackVelocity": 34,
           "releaseVelocity": 35,
-          "velocity": 56,
+          "velocity": 34,
           "displayLabel": "C",
           "ratioText": "247/256",
           "monzo": [
@@ -6523,9 +6523,9 @@
         },
         {
           "midicents": 67.26861532342804,
-          "attackVelocity": 109,
+          "attackVelocity": 87,
           "releaseVelocity": 71,
-          "velocity": 109,
+          "velocity": 87,
           "displayLabel": "G",
           "ratioText": "195/128",
           "monzo": [
@@ -6585,9 +6585,9 @@
         },
         {
           "midicents": 63.40547818477969,
-          "attackVelocity": 82,
+          "attackVelocity": 60,
           "releaseVelocity": 40,
-          "velocity": 82,
+          "velocity": 60,
           "displayLabel": "E",
           "ratioText": "39/32",
           "monzo": [
@@ -6646,9 +6646,9 @@
         },
         {
           "midicents": 60.249065314774164,
-          "attackVelocity": 63,
+          "attackVelocity": 41,
           "releaseVelocity": 35,
-          "velocity": 63,
+          "velocity": 41,
           "displayLabel": "C",
           "ratioText": "65/64",
           "monzo": [
@@ -6707,9 +6707,9 @@
         },
         {
           "midicents": 60.249065314774164,
-          "attackVelocity": 63,
+          "attackVelocity": 41,
           "releaseVelocity": 35,
-          "velocity": 63,
+          "velocity": 41,
           "displayLabel": "C",
           "ratioText": "65/64",
           "monzo": [
@@ -6770,9 +6770,9 @@
         },
         {
           "midicents": 64.79120479381892,
-          "attackVelocity": 58,
+          "attackVelocity": 36,
           "releaseVelocity": 45,
-          "velocity": 58,
+          "velocity": 36,
           "displayLabel": "F",
           "ratioText": "169/128",
           "monzo": [
@@ -6833,9 +6833,9 @@
         },
         {
           "midicents": 59.36105833744884,
-          "attackVelocity": 56,
+          "attackVelocity": 34,
           "releaseVelocity": 35,
-          "velocity": 56,
+          "velocity": 34,
           "displayLabel": "C",
           "ratioText": "247/256",
           "monzo": [
@@ -6896,9 +6896,9 @@
         },
         {
           "midicents": 63.40547818477969,
-          "attackVelocity": 82,
+          "attackVelocity": 60,
           "releaseVelocity": 40,
-          "velocity": 82,
+          "velocity": 60,
           "displayLabel": "E",
           "ratioText": "39/32",
           "monzo": [
@@ -7876,9 +7876,9 @@
       "notes": [
         {
           "midicents": 64.0588515930482,
-          "attackVelocity": 63,
+          "attackVelocity": 67,
           "releaseVelocity": 39,
-          "velocity": 63,
+          "velocity": 67,
           "displayLabel": "E",
           "ratioText": "81/64",
           "monzo": [
@@ -7937,9 +7937,9 @@
         },
         {
           "midicents": 64.0588515930482,
-          "attackVelocity": 63,
+          "attackVelocity": 67,
           "releaseVelocity": 39,
-          "velocity": 63,
+          "velocity": 67,
           "displayLabel": "E",
           "ratioText": "81/64",
           "monzo": [
@@ -8001,9 +8001,9 @@
         },
         {
           "midicents": 60.90243872304268,
-          "attackVelocity": 71,
+          "attackVelocity": 75,
           "releaseVelocity": 23,
-          "velocity": 71,
+          "velocity": 75,
           "displayLabel": "C",
           "ratioText": "135/128",
           "monzo": [
@@ -8064,9 +8064,9 @@
         },
         {
           "midicents": 60.90243872304268,
-          "attackVelocity": 71,
+          "attackVelocity": 75,
           "releaseVelocity": 23,
-          "velocity": 71,
+          "velocity": 75,
           "displayLabel": "C",
           "ratioText": "135/128",
           "monzo": [
@@ -8128,9 +8128,9 @@
         },
         {
           "midicents": 59.078401601702076,
-          "attackVelocity": 54,
+          "attackVelocity": 58,
           "releaseVelocity": 43,
-          "velocity": 54,
+          "velocity": 58,
           "displayLabel": "B",
           "ratioText": "243/256",
           "monzo": [
@@ -8196,9 +8196,9 @@
       "notes": [
         {
           "midicents": 65.49383098208028,
-          "attackVelocity": 89,
+          "attackVelocity": 75,
           "releaseVelocity": 58,
-          "velocity": 89,
+          "velocity": 75,
           "displayLabel": "F",
           "ratioText": "11/8",
           "monzo": [
@@ -8257,9 +8257,9 @@
         },
         {
           "midicents": 60.513380990734156,
-          "attackVelocity": 60,
+          "attackVelocity": 46,
           "releaseVelocity": 53,
-          "velocity": 60,
+          "velocity": 46,
           "displayLabel": "C",
           "ratioText": "33/32",
           "monzo": [
@@ -8318,9 +8318,9 @@
         },
         {
           "midicents": 59.00701040572785,
-          "attackVelocity": 94,
+          "attackVelocity": 80,
           "releaseVelocity": 39,
-          "velocity": 94,
+          "velocity": 80,
           "displayLabel": "B",
           "ratioText": "121/128",
           "monzo": [
@@ -8379,9 +8379,9 @@
         },
         {
           "midicents": 63.18209004677153,
-          "attackVelocity": 89,
+          "attackVelocity": 75,
           "releaseVelocity": 30,
-          "velocity": 89,
+          "velocity": 75,
           "displayLabel": "E",
           "ratioText": "77/64",
           "monzo": [
@@ -8442,9 +8442,9 @@
         },
         {
           "midicents": 63.18209004677153,
-          "attackVelocity": 89,
+          "attackVelocity": 75,
           "releaseVelocity": 30,
-          "velocity": 89,
+          "velocity": 75,
           "displayLabel": "E",
           "ratioText": "77/64",
           "monzo": [
@@ -8506,9 +8506,9 @@
         },
         {
           "midicents": 65.49383098208028,
-          "attackVelocity": 89,
+          "attackVelocity": 75,
           "releaseVelocity": 58,
-          "velocity": 89,
+          "velocity": 75,
           "displayLabel": "F",
           "ratioText": "11/8",
           "monzo": [
@@ -8570,9 +8570,9 @@
         },
         {
           "midicents": 60.513380990734156,
-          "attackVelocity": 60,
+          "attackVelocity": 46,
           "releaseVelocity": 53,
-          "velocity": 60,
+          "velocity": 46,
           "displayLabel": "C",
           "ratioText": "33/32",
           "monzo": [
@@ -8634,9 +8634,9 @@
         },
         {
           "midicents": 59.00701040572785,
-          "attackVelocity": 94,
+          "attackVelocity": 80,
           "releaseVelocity": 39,
-          "velocity": 94,
+          "velocity": 80,
           "displayLabel": "B",
           "ratioText": "121/128",
           "monzo": [
@@ -8698,9 +8698,9 @@
         },
         {
           "midicents": 67.53293099938803,
-          "attackVelocity": 54,
+          "attackVelocity": 40,
           "releaseVelocity": 60,
-          "velocity": 54,
+          "velocity": 40,
           "displayLabel": "G",
           "ratioText": "99/64",
           "monzo": [
@@ -8761,9 +8761,9 @@
         },
         {
           "midicents": 60.513380990734156,
-          "attackVelocity": 60,
+          "attackVelocity": 46,
           "releaseVelocity": 53,
-          "velocity": 60,
+          "velocity": 46,
           "displayLabel": "C",
           "ratioText": "33/32",
           "monzo": [
@@ -8834,9 +8834,9 @@
       "notes": [
         {
           "midicents": 67.70692583572941,
-          "attackVelocity": 99,
+          "attackVelocity": 89,
           "releaseVelocity": 35,
-          "velocity": 99,
+          "velocity": 89,
           "displayLabel": "G",
           "ratioText": "25/16",
           "monzo": [
@@ -8895,9 +8895,9 @@
         },
         {
           "midicents": 65.88288871438881,
-          "attackVelocity": 89,
+          "attackVelocity": 79,
           "releaseVelocity": 47,
-          "velocity": 89,
+          "velocity": 79,
           "displayLabel": "F",
           "ratioText": "45/32",
           "monzo": [
@@ -8958,9 +8958,9 @@
         },
         {
           "midicents": 63.84378869708105,
-          "attackVelocity": 99,
+          "attackVelocity": 89,
           "releaseVelocity": 56,
-          "velocity": 99,
+          "velocity": 89,
           "displayLabel": "E",
           "ratioText": "5/4",
           "monzo": [
@@ -9021,9 +9021,9 @@
         },
         {
           "midicents": 63.84378869708105,
-          "attackVelocity": 99,
+          "attackVelocity": 89,
           "releaseVelocity": 56,
-          "velocity": 99,
+          "velocity": 89,
           "displayLabel": "E",
           "ratioText": "5/4",
           "monzo": [
@@ -9085,9 +9085,9 @@
         },
         {
           "midicents": 62.72647584438328,
-          "attackVelocity": 71,
+          "attackVelocity": 61,
           "releaseVelocity": 32,
-          "velocity": 71,
+          "velocity": 61,
           "displayLabel": "D",
           "ratioText": "75/64",
           "monzo": [
@@ -9148,9 +9148,9 @@
         },
         {
           "midicents": 60.90243872304268,
-          "attackVelocity": 82,
+          "attackVelocity": 72,
           "releaseVelocity": 44,
-          "velocity": 82,
+          "velocity": 72,
           "displayLabel": "C",
           "ratioText": "135/128",
           "monzo": [
@@ -9211,9 +9211,9 @@
         },
         {
           "midicents": 60.90243872304268,
-          "attackVelocity": 82,
+          "attackVelocity": 72,
           "releaseVelocity": 44,
-          "velocity": 82,
+          "velocity": 72,
           "displayLabel": "C",
           "ratioText": "135/128",
           "monzo": [
@@ -9275,9 +9275,9 @@
         },
         {
           "midicents": 58.86333870573493,
-          "attackVelocity": 105,
+          "attackVelocity": 95,
           "releaseVelocity": 49,
-          "velocity": 105,
+          "velocity": 95,
           "displayLabel": "B",
           "ratioText": "15/16",
           "monzo": [
@@ -9345,9 +9345,9 @@
       "notes": [
         {
           "midicents": 58.71846471812803,
-          "attackVelocity": 99,
+          "attackVelocity": 84,
           "releaseVelocity": 71,
-          "velocity": 99,
+          "velocity": 84,
           "displayLabel": "B",
           "ratioText": "119/128",
           "monzo": [
@@ -9602,9 +9602,9 @@
       "notes": [
         {
           "midicents": 58.49885491721271,
-          "attackVelocity": 38,
+          "attackVelocity": 48,
           "releaseVelocity": 34,
-          "velocity": 38,
+          "velocity": 48,
           "displayLabel": "B",
           "ratioText": "235/256",
           "monzo": [
@@ -9661,9 +9661,9 @@
         },
         {
           "midicents": 61.655267787218236,
-          "attackVelocity": 43,
+          "attackVelocity": 53,
           "releaseVelocity": 23,
-          "velocity": 43,
+          "velocity": 53,
           "displayLabel": "D",
           "ratioText": "141/128",
           "monzo": [
@@ -9720,9 +9720,9 @@
         },
         {
           "midicents": 66.63571777856436,
-          "attackVelocity": 29,
+          "attackVelocity": 39,
           "releaseVelocity": 31,
-          "velocity": 29,
+          "velocity": 39,
           "displayLabel": "G",
           "ratioText": "47/32",
           "monzo": [
@@ -12483,9 +12483,9 @@
       "notes": [
         {
           "midicents": 59.98065155843271,
-          "attackVelocity": 82,
+          "attackVelocity": 70,
           "releaseVelocity": 56,
-          "velocity": 82,
+          "velocity": 70,
           "displayLabel": "C",
           "ratioText": "1/1",
           "monzo": [
@@ -12544,9 +12544,9 @@
         },
         {
           "midicents": 57.668910623123956,
-          "attackVelocity": 116,
+          "attackVelocity": 104,
           "releaseVelocity": 112,
-          "velocity": 116,
+          "velocity": 104,
           "displayLabel": "B",
           "ratioText": "7/8",
           "monzo": [
@@ -12605,9 +12605,9 @@
         },
         {
           "midicents": 62.01975157574046,
-          "attackVelocity": 109,
+          "attackVelocity": 97,
           "releaseVelocity": 94,
-          "velocity": 109,
+          "velocity": 97,
           "displayLabel": "D",
           "ratioText": "9/8",
           "monzo": [
@@ -12664,9 +12664,9 @@
         },
         {
           "midicents": 67.00020156708658,
-          "attackVelocity": 77,
+          "attackVelocity": 65,
           "releaseVelocity": 54,
-          "velocity": 77,
+          "velocity": 65,
           "displayLabel": "G",
           "ratioText": "3/2",
           "monzo": [
@@ -12727,9 +12727,9 @@
         },
         {
           "midicents": 59.98065155843271,
-          "attackVelocity": 82,
+          "attackVelocity": 70,
           "releaseVelocity": 56,
-          "velocity": 82,
+          "velocity": 70,
           "displayLabel": "C",
           "ratioText": "1/1",
           "monzo": [
@@ -12791,9 +12791,9 @@
         },
         {
           "midicents": 57.668910623123956,
-          "attackVelocity": 116,
+          "attackVelocity": 104,
           "releaseVelocity": 112,
-          "velocity": 116,
+          "velocity": 104,
           "displayLabel": "B",
           "ratioText": "7/8",
           "monzo": [
@@ -12855,9 +12855,9 @@
         },
         {
           "midicents": 57.03930158439433,
-          "attackVelocity": 82,
+          "attackVelocity": 70,
           "releaseVelocity": 71,
-          "velocity": 82,
+          "velocity": 70,
           "displayLabel": "A",
           "ratioText": "27/32",
           "monzo": [
@@ -12918,9 +12918,9 @@
         },
         {
           "midicents": 57.03930158439433,
-          "attackVelocity": 82,
+          "attackVelocity": 70,
           "releaseVelocity": 71,
-          "velocity": 82,
+          "velocity": 70,
           "displayLabel": "A",
           "ratioText": "27/32",
           "monzo": [
@@ -12982,9 +12982,9 @@
         },
         {
           "midicents": 55.000201567086584,
-          "attackVelocity": 82,
+          "attackVelocity": 70,
           "releaseVelocity": 51,
-          "velocity": 82,
+          "velocity": 70,
           "displayLabel": "G",
           "ratioText": "3/4",
           "monzo": [
@@ -13054,9 +13054,9 @@
       "notes": [
         {
           "midicents": 65.09582861485788,
-          "attackVelocity": 94,
+          "attackVelocity": 78,
           "releaseVelocity": 31,
-          "velocity": 94,
+          "velocity": 78,
           "displayLabel": "F",
           "ratioText": "43/32",
           "monzo": [
@@ -13117,9 +13117,9 @@
         },
         {
           "midicents": 65.09582861485788,
-          "attackVelocity": 94,
+          "attackVelocity": 78,
           "releaseVelocity": 31,
-          "velocity": 94,
+          "velocity": 78,
           "displayLabel": "F",
           "ratioText": "43/32",
           "monzo": [
@@ -13180,9 +13180,9 @@
         },
         {
           "midicents": 62.01975157574046,
-          "attackVelocity": 105,
+          "attackVelocity": 89,
           "releaseVelocity": 71,
-          "velocity": 105,
+          "velocity": 89,
           "displayLabel": "D",
           "ratioText": "9/8",
           "monzo": [
@@ -13241,9 +13241,9 @@
         },
         {
           "midicents": 62.01975157574046,
-          "attackVelocity": 105,
+          "attackVelocity": 89,
           "releaseVelocity": 71,
-          "velocity": 105,
+          "velocity": 89,
           "displayLabel": "D",
           "ratioText": "9/8",
           "monzo": [
@@ -13305,9 +13305,9 @@
         },
         {
           "midicents": 62.01975157574046,
-          "attackVelocity": 105,
+          "attackVelocity": 89,
           "releaseVelocity": 71,
-          "velocity": 105,
+          "velocity": 89,
           "displayLabel": "D",
           "ratioText": "9/8",
           "monzo": [
@@ -13368,9 +13368,9 @@
         },
         {
           "midicents": 59.98065155843271,
-          "attackVelocity": 94,
+          "attackVelocity": 78,
           "releaseVelocity": 56,
-          "velocity": 94,
+          "velocity": 78,
           "displayLabel": "C",
           "ratioText": "1/1",
           "monzo": [
@@ -13431,9 +13431,9 @@
         },
         {
           "midicents": 59.98065155843271,
-          "attackVelocity": 94,
+          "attackVelocity": 78,
           "releaseVelocity": 56,
-          "velocity": 94,
+          "velocity": 78,
           "displayLabel": "C",
           "ratioText": "1/1",
           "monzo": [
@@ -13495,9 +13495,9 @@
         },
         {
           "midicents": 57.03930158439433,
-          "attackVelocity": 105,
+          "attackVelocity": 89,
           "releaseVelocity": 89,
-          "velocity": 105,
+          "velocity": 89,
           "displayLabel": "A",
           "ratioText": "27/32",
           "monzo": [
@@ -20229,9 +20229,9 @@
       "notes": [
         {
           "midicents": 74.37671969646908,
-          "attackVelocity": 82,
+          "attackVelocity": 68,
           "releaseVelocity": 51,
-          "velocity": 82,
+          "velocity": 68,
           "displayLabel": "E",
           "ratioText": "147/64",
           "monzo": [
@@ -20288,9 +20288,9 @@
         },
         {
           "midicents": 74.37671969646908,
-          "attackVelocity": 82,
+          "attackVelocity": 68,
           "releaseVelocity": 51,
-          "velocity": 82,
+          "velocity": 68,
           "displayLabel": "E",
           "ratioText": "147/64",
           "monzo": [
@@ -20352,9 +20352,9 @@
         },
         {
           "midicents": 71.70801064043171,
-          "attackVelocity": 63,
+          "attackVelocity": 49,
           "releaseVelocity": 44,
-          "velocity": 63,
+          "velocity": 49,
           "displayLabel": "C",
           "ratioText": "63/32",
           "monzo": [
@@ -20415,9 +20415,9 @@
         },
         {
           "midicents": 64.68846063177783,
-          "attackVelocity": 99,
+          "attackVelocity": 85,
           "releaseVelocity": 54,
-          "velocity": 99,
+          "velocity": 85,
           "displayLabel": "F",
           "ratioText": "21/16",
           "monzo": [
@@ -20474,9 +20474,9 @@
         },
         {
           "midicents": 59.70801064043171,
-          "attackVelocity": 45,
+          "attackVelocity": 31,
           "releaseVelocity": 45,
-          "velocity": 45,
+          "velocity": 31,
           "displayLabel": "C",
           "ratioText": "63/64",
           "monzo": [
@@ -20537,9 +20537,9 @@
         },
         {
           "midicents": 55.357169687815215,
-          "attackVelocity": 53,
+          "attackVelocity": 39,
           "releaseVelocity": 43,
-          "velocity": 53,
+          "velocity": 39,
           "displayLabel": "A",
           "ratioText": "49/64",
           "monzo": [
@@ -20600,9 +20600,9 @@
         },
         {
           "midicents": 76.68846063177783,
-          "attackVelocity": 58,
+          "attackVelocity": 44,
           "releaseVelocity": 42,
-          "velocity": 58,
+          "velocity": 44,
           "displayLabel": "F",
           "ratioText": "21/8",
           "monzo": [
@@ -20663,9 +20663,9 @@
         },
         {
           "midicents": 78.72756064908558,
-          "attackVelocity": 58,
+          "attackVelocity": 44,
           "releaseVelocity": 44,
-          "velocity": 58,
+          "velocity": 44,
           "displayLabel": "G",
           "ratioText": "189/64",
           "monzo": [
@@ -25011,9 +25011,9 @@
       "notes": [
         {
           "midicents": 76.79120479381892,
-          "attackVelocity": 116,
+          "attackVelocity": 102,
           "releaseVelocity": 82,
-          "velocity": 116,
+          "velocity": 102,
           "displayLabel": "F",
           "ratioText": "169/64",
           "monzo": [
@@ -30207,9 +30207,9 @@
       "notes": [
         {
           "midicents": 64.27127561384972,
-          "attackVelocity": 116,
+          "attackVelocity": 108,
           "releaseVelocity": 56,
-          "velocity": 116,
+          "velocity": 108,
           "displayLabel": "E",
           "ratioText": "41/32",
           "monzo": [
@@ -33307,9 +33307,9 @@
       "notes": [
         {
           "midicents": 69.74602585303715,
-          "attackVelocity": 89,
+          "attackVelocity": 77,
           "releaseVelocity": 51,
-          "velocity": 89,
+          "velocity": 77,
           "displayLabel": "A",
           "ratioText": "225/128",
           "monzo": [
@@ -33369,9 +33369,9 @@
         },
         {
           "midicents": 65.88288871438881,
-          "attackVelocity": 58,
+          "attackVelocity": 46,
           "releaseVelocity": 51,
-          "velocity": 58,
+          "velocity": 46,
           "displayLabel": "F",
           "ratioText": "45/32",
           "monzo": [
@@ -33431,9 +33431,9 @@
         },
         {
           "midicents": 62.72647584438328,
-          "attackVelocity": 56,
+          "attackVelocity": 44,
           "releaseVelocity": 54,
-          "velocity": 56,
+          "velocity": 44,
           "displayLabel": "D",
           "ratioText": "75/64",
           "monzo": [
@@ -33493,9 +33493,9 @@
         },
         {
           "midicents": 62.72647584438328,
-          "attackVelocity": 56,
+          "attackVelocity": 44,
           "releaseVelocity": 54,
-          "velocity": 56,
+          "velocity": 44,
           "displayLabel": "D",
           "ratioText": "75/64",
           "monzo": [
@@ -33556,9 +33556,9 @@
         },
         {
           "midicents": 70.86333870573493,
-          "attackVelocity": 82,
+          "attackVelocity": 70,
           "releaseVelocity": 60,
-          "velocity": 82,
+          "velocity": 70,
           "displayLabel": "B",
           "ratioText": "15/8",
           "monzo": [
@@ -33620,9 +33620,9 @@
         },
         {
           "midicents": 72.90243872304268,
-          "attackVelocity": 89,
+          "attackVelocity": 77,
           "releaseVelocity": 63,
-          "velocity": 89,
+          "velocity": 77,
           "displayLabel": "C",
           "ratioText": "135/64",
           "monzo": [
@@ -33684,9 +33684,9 @@
         },
         {
           "midicents": 74.72647584438329,
-          "attackVelocity": 94,
+          "attackVelocity": 82,
           "releaseVelocity": 43,
-          "velocity": 94,
+          "velocity": 82,
           "displayLabel": "D",
           "ratioText": "75/32",
           "monzo": [
@@ -33748,9 +33748,9 @@
         },
         {
           "midicents": 76.3765181293825,
-          "attackVelocity": 51,
+          "attackVelocity": 39,
           "releaseVelocity": 53,
-          "velocity": 51,
+          "velocity": 39,
           "displayLabel": "E",
           "ratioText": "165/64",
           "monzo": [
@@ -33811,9 +33811,9 @@
         },
         {
           "midicents": 72.90243872304268,
-          "attackVelocity": 89,
+          "attackVelocity": 77,
           "releaseVelocity": 63,
-          "velocity": 89,
+          "velocity": 77,
           "displayLabel": "C",
           "ratioText": "135/64",
           "monzo": [
@@ -33874,9 +33874,9 @@
         },
         {
           "midicents": 60.90243872304268,
-          "attackVelocity": 71,
+          "attackVelocity": 59,
           "releaseVelocity": 21,
-          "velocity": 71,
+          "velocity": 59,
           "displayLabel": "C",
           "ratioText": "135/128",
           "monzo": [
@@ -33938,9 +33938,9 @@
         },
         {
           "midicents": 58.86333870573493,
-          "attackVelocity": 66,
+          "attackVelocity": 54,
           "releaseVelocity": 25,
-          "velocity": 66,
+          "velocity": 54,
           "displayLabel": "B",
           "ratioText": "15/16",
           "monzo": [
@@ -34002,9 +34002,9 @@
         },
         {
           "midicents": 69.74602585303715,
-          "attackVelocity": 89,
+          "attackVelocity": 77,
           "releaseVelocity": 51,
-          "velocity": 89,
+          "velocity": 77,
           "displayLabel": "A",
           "ratioText": "225/128",
           "monzo": [
@@ -34066,9 +34066,9 @@
         },
         {
           "midicents": 67.70692583572941,
-          "attackVelocity": 51,
+          "attackVelocity": 39,
           "releaseVelocity": 44,
-          "velocity": 51,
+          "velocity": 39,
           "displayLabel": "G",
           "ratioText": "25/16",
           "monzo": [
@@ -34130,9 +34130,9 @@
         },
         {
           "midicents": 65.88288871438881,
-          "attackVelocity": 58,
+          "attackVelocity": 46,
           "releaseVelocity": 51,
-          "velocity": 58,
+          "velocity": 46,
           "displayLabel": "F",
           "ratioText": "45/32",
           "monzo": [
@@ -34194,9 +34194,9 @@
         },
         {
           "midicents": 64.3765181293825,
-          "attackVelocity": 54,
+          "attackVelocity": 42,
           "releaseVelocity": 40,
-          "velocity": 54,
+          "velocity": 42,
           "displayLabel": "E",
           "ratioText": "165/128",
           "monzo": [

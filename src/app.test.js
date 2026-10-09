@@ -2239,7 +2239,9 @@ describe("App workspace tabs", () => {
     expect(pitch.closest(".calculator-tab").hidden).toBe(false);
   });
 
-  it("keeps both functional performance palettes outside Sequencer", async () => {
+  it("keeps both functional performance palettes in every workspace including Sequencer", async () => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false,
+      addEventListener: vi.fn(), removeEventListener: vi.fn() });
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(
       SEQUENCE_WORKSPACE_STORAGE_KEY,
@@ -2285,8 +2287,10 @@ describe("App workspace tabs", () => {
     expect(document.querySelector("#modulation-palette")).not.toBeNull();
 
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
-    expect(document.querySelector("#snapshot-palette")).toBeNull();
-    expect(document.querySelector("#modulation-palette")).toBeNull();
+    expect(document.querySelector("#snapshot-palette")).not.toBeNull();
+    expect(document.querySelector("#modulation-palette")).not.toBeNull();
+    fireEvent.pointerDown(screen.getByLabelText("Step modulation forward"));
+    expect(keys.stepModulationRoute).toHaveBeenCalledWith(0, 1);
 
     await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
     expect(document.querySelector("#snapshot-palette")).not.toBeNull();
@@ -2419,7 +2423,7 @@ describe("App workspace tabs", () => {
         fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
         rowTop = 150;
         fireEvent.click(screen.getByRole("tab", { name: destination }));
-        expect(document.querySelector(".snapshot-palette-body").scrollTop).toBe(0);
+        expect(document.querySelector(".snapshot-palette-body").scrollTop).toBe(70);
         expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
         fireEvent.click(screen.getByLabelText("Stop snapshot 2"));
         expect(keys.stopSnapshot).toHaveBeenCalledTimes(stops + 1);
