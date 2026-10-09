@@ -55,6 +55,8 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     }
   });
   return {
+    // Includes scheduled attacks immediately; /n_end removes only its own id.
+    hasNode(id) { return !closed && nodes.has(id); },
     // Teardown must let an in-flight upstream purge release its port listener.
     // SuperSonic bounds this acknowledgement even when its worklet is gone.
     pendingPurge: () => purgePromise,

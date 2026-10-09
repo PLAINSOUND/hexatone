@@ -314,11 +314,24 @@ that release. Per-voice cancellation removes a future attack released before it
 starts. Tests: `midi-scheduler.test.js`, `voices.test.js` and
 `processor-recovery.test.js` in `src/fluidsynth_synth/`.
 
-Legacy sequence pressure with positive `pressure` but placeholder `pressure14: 0`
-is repaired to `pressure * 128` on import, session persistence, capture and manual
-snapshot playback. Genuine zero pressure and existing nonzero 14-bit detail are
-preserved; live controller messages are not rewritten. See
-[pressure-expression.js](../src/sequencer/pressure-expression.js).
+Sequence v6 stores normalized `expression.pressure` and `expression.timbre`
+floats (0–1). Legacy MIDI-resolution fields are normalized at import; conflicting
+zero fine-resolution placeholders do not erase positive coarse values. Backend
+adapters quantize only when sending MIDI. See
+[snapshot-expression.js](../src/sequencer/snapshot-expression.js).
+
+Retained cue voices represent musical ownership, not guaranteed local sound.
+At cue boundaries the composite asks local children whether recovery is needed:
+sample completion/cleanup, FluidSynth channel displacement/cleanup, and local
+SuperSonic node completion. Only missing children restart; healthy external
+MIDI/OSC children do not rearticulate. SuperSonic repairs individual enabled
+layers and counts pending nodes as present. Zero-volume layers are excluded.
+Completion callbacks are source/node-specific so stale notifications cannot
+invalidate replacement voices. Naturally finished samples are not restarted by
+polling during the same held event. Sample attacks resolve current decoded
+buffers/context/output gain at attack time, not allocation. An attempted attack
+without a source is recoverable after preparation, as is a stale context.
+Tests: composite, sample and local transport tests.
 
 SoundFont UX distinguishes selected file, loaded bank/preset, temporary working
 copy, saved offline copy and in-flight operation. Removing the offline copy does

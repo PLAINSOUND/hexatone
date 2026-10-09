@@ -525,6 +525,9 @@ export function attackSnapshotGestureNote(runtime, gestureId, note, options = {}
     const attackVelocity = normalizeVelocity(note.attackVelocity ?? note.velocity);
     hex._snapshotReleaseVelocity = normalizeVelocity(note.releaseVelocity, attackVelocity);
     applyLegatoSnapshotExpression(runtime, hex, note, options?.legatoTransitionMs);
+    if (hex.needsRetainedVoiceRecovery?.() === true) {
+      hex.recoverRetainedVoice?.(note, options?.timestamp);
+    }
   } else {
     hex = createSnapshotHex(runtime, note, options);
     runtime._snapshotHexes = [...(runtime._snapshotHexes ?? []), hex];
@@ -703,7 +706,8 @@ function playSnapshotInTransaction(runtime, notes, options = {}) {
   const incomingCount = plans.reduce((count, plan) => count + (plan.retained ? 0 : 1), 0);
   const bufferedRecoveryCount = plans.reduce(
     (count, plan) =>
-      count + (plan.retained && plan.reusedHex?.hasDisplacedVoice?.() === true ? 1 : 0),
+      count + (plan.retained && (plan.reusedHex?.hasDisplacedVoice?.() === true ||
+        plan.reusedHex?.needsRetainedVoiceRecovery?.() === true) ? 1 : 0),
     0,
   );
   const commitTimestamp = snapshotChordCommitTimestamp(incomingCount + bufferedRecoveryCount);
@@ -725,6 +729,13 @@ function playSnapshotInTransaction(runtime, notes, options = {}) {
     prepared.push({ hex: plan.hex, note: plan.note });
   }
   commitPreparedSnapshotHexes(runtime, prepared, commitTimestamp);
+
+  // Repair local sounds only at a musical cue boundary, never by polling or
+  // repeatedly restarting an exhausted one-shot during a held event.
+  for (const plan of plans) {
+    if (!plan.retained || plan.reusedHex?.needsRetainedVoiceRecovery?.() !== true) continue;
+    plan.reusedHex.recoverRetainedVoice?.(plan.note, commitTimestamp);
+  }
 
   // New attacks always receive first claim on the finite MPE member-channel
   // zone. Afterwards, restore displaced logical continuations into whatever

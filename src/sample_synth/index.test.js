@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { create_sample_synth } from "./index.js";
+import { create_composite_synth } from "../composite_synth/index.js";
 
 class MockAudioContext {
   constructor() {
@@ -133,6 +134,33 @@ describe("sample_synth modwheel", () => {
     expect(gate.gain.linearRampToValueAtTime).toHaveBeenCalledOnce();
     synth.allSoundOff();
     context.currentTime = previousTime;
+  });
+
+  it("recovers a cue allocated before sample preparation without replaying healthy outputs", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    const makeHex = vi.spyOn(synth, "makeHex");
+    const healthy = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const voice = create_composite_synth([synth, { makeHex: () => healthy }])
+      .makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    voice.noteOn();
+    expect(makeHex.mock.results[0].value.source).toBeUndefined();
+    expect(voice.needsRetainedVoiceRecovery()).toBe(true);
+    await synth.prepare();
+    voice.recoverRetainedVoice({ expression: { pressure: 0, timbre: 0.5 } });
+    const repaired = makeHex.mock.results[1].value;
+    expect(repaired.source.start).toHaveBeenCalledOnce();
+    expect(voice.needsRetainedVoiceRecovery()).toBe(false);
+    expect(healthy.noteOn).toHaveBeenCalledOnce();
+    expect(healthy.noteOff).not.toHaveBeenCalled();
+  });
+
+  it("uses decoded buffers when an already allocated voice finally attacks", async () => {
+    const synth = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+    const hex = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    await synth.prepare();
+    hex.noteOn();
+    expect(hex.source.start).toHaveBeenCalledOnce();
+    expect(hex.needsRetainedVoiceRecovery()).toBe(false);
   });
 
   it("applies CC1 to the active voice filter on filter-capable instruments", async () => {

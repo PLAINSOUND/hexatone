@@ -166,6 +166,43 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
         return hexes.some((h) => h.hasDisplacedVoice?.() === true);
       },
 
+      needsRetainedVoiceRecovery() {
+        return this._compositeSounding && hexes.some(h => h.needsRetainedVoiceRecovery?.() === true);
+      },
+
+      recoverRetainedVoice(note, timestamp) {
+        if (!this._compositeSounding || this.release) return false;
+        let recovered = false;
+        for (let i = 0; i < hexes.length; i++) {
+          const old = hexes[i];
+          if (old.needsRetainedVoiceRecovery?.() !== true) continue;
+          if (old.recoverRetainedVoice?.(note, timestamp) === true) {
+            recovered = true;
+            continue;
+          }
+          // Replace only the missing local child. Healthy MIDI/OSC children
+          // retain ownership and receive no new attack or release.
+          old.cancelPendingEvents?.();
+          old.noteOff?.(0, timestamp);
+          const nextArgs = [...args];
+          nextArgs[1] = this.cents;
+          nextArgs[8] = note.attackVelocity ?? note.velocity ?? args[8];
+          nextArgs[11] = { ...args[11], deferNoteOn: true };
+          const child = hexSynths[i].makeHex(...snapshotArgs(hexSynths[i], nextArgs, this._snapshotMidicents));
+          hexes[i] = child;
+          child.prepareSnapshotExpression?.(note);
+          const expression = readSnapshotExpression(note);
+          if (child.prepareNormalizedSnapshotPressure) child.prepareNormalizedSnapshotPressure(expression.pressure);
+          else child.prepareSnapshotPressure?.(expressionToMidi(expression.pressure), expressionToMidi(expression.pressure, MIDI_EXPRESSION_14_MAX));
+          child._attackGroup = this._attackGroup;
+          child.noteOn?.(timestamp);
+          child.applyNormalizedSnapshotPressure?.(expression.pressure);
+          child.applyNormalizedSnapshotTimbre?.(expression.timbre);
+          recovered = true;
+        }
+        return recovered;
+      },
+
       displacedVoiceAt() {
         const values = hexes
           .filter((h) => h.hasDisplacedVoice?.() === true)

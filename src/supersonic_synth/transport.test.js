@@ -14,6 +14,25 @@ function setup() {
   return { sonic, encode, dispose, transport, ended: id => incoming(["/n_end", id]) };
 }
 describe("local OSC transport", () => {
+  it("recovers only an ended enabled layer, not pending or healthy layers", async () => {
+    const { sonic, transport, ended } = setup();
+    const synth = await create_osc_synth(undefined, undefined, undefined, 0, 0.1, false,
+      440, 0, [0], 1, { transport });
+    const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    hex.noteOn(performance.now() + 100);
+    expect(hex.needsRetainedVoiceRecovery()).toBe(false);
+    const oldId = hex._nodeIds[0];
+    ended(oldId);
+    expect(hex.needsRetainedVoiceRecovery()).toBe(true);
+    sonic.sendOSC.mockClear();
+    hex.recoverRetainedVoice({}, performance.now() + 200);
+    expect(hex._nodeIds[0]).not.toBe(oldId);
+    expect(hex.needsRetainedVoiceRecovery()).toBe(false);
+    expect(sonic.sendOSC).toHaveBeenCalledOnce();
+    ended(oldId);
+    expect(hex.needsRetainedVoiceRecovery()).toBe(false);
+    synth.shutdown();
+  });
   it("clears untracked synths after purge without deleting the layer groups", async () => {
     const { sonic, transport } = setup();
     let resolve;

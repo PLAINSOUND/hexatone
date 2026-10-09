@@ -8691,7 +8691,8 @@ describe("Keys MIDI input integration", () => {
     expect(snapshot.some((note) => note.attackVelocity === 88)).toBe(true);
     expect(
       snapshot.some(
-        (note) => note.attackVelocity === 111 && note.pressure === 66 && note.timbre === 91,
+        (note) => note.attackVelocity === 111 && note.expression.pressure === 66 / 127 &&
+          note.expression.timbre === 91 / 127,
       ),
     ).toBe(true);
 
@@ -8699,8 +8700,8 @@ describe("Keys MIDI input integration", () => {
     polyTimbre.mockClear();
     keys.playSnapshot(snapshot);
 
-    expect(aftertouch).toHaveBeenCalledWith(66);
-    expect(polyTimbre).toHaveBeenCalledWith(91);
+    expect(aftertouch).toHaveBeenCalledWith(66, 66 * 128);
+    expect(polyTimbre).toHaveBeenCalledWith(91, 91 * 128);
   });
 
   it("keeps sounding static-bulk notes as the heard reference during immediate OCT", () => {

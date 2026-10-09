@@ -11,11 +11,11 @@ const BUILT_IN_SEQUENCE_PATHS = [
 
 describe("snapshot rational identity", () => {
   it.each(BUILT_IN_SEQUENCE_PATHS)(
-    "resolves every v5 HEJI name in %s through its declared pitch frame",
+    "resolves every v6 HEJI name in %s through its declared pitch frame",
     (path) => {
       const sequence = JSON.parse(fs.readFileSync(path, "utf8"));
       const frames = new Map(sequence.pitchFrames.map((frame) => [frame.id, frame]));
-      expect(sequence.version).toBe(5);
+      expect(sequence.version).toBe(6);
       expect(sequence.pitchFrames).toHaveLength(1);
       // Preset scores repeat the same written pitches across many snapshots.
       // Resolve each spelling once, then continue checking every occurrence

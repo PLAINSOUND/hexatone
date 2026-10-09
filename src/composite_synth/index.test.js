@@ -2,6 +2,33 @@ import { describe, it, expect, vi } from "vitest";
 import { create_composite_synth } from "./index.js";
 
 describe("composite_synth controller-state replay", () => {
+  it("restarts only an ended local child and primes expression before the attack", () => {
+    let ended = false;
+    const calls = [];
+    const original = { noteOn: vi.fn(), noteOff: vi.fn(),
+      needsRetainedVoiceRecovery: () => ended };
+    const replacement = {
+      noteOn: vi.fn(time => calls.push(["attack", time])),
+      prepareNormalizedSnapshotPressure: vi.fn(value => calls.push(["pressure", value])),
+      needsRetainedVoiceRecovery: () => false,
+    };
+    const samples = { family: "sample", makeHex: vi.fn()
+      .mockReturnValueOnce(original).mockReturnValue(replacement) };
+    const healthy = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const voice = create_composite_synth([samples, { makeHex: () => healthy }]).makeHex(null, 0);
+    voice.noteOn(100);
+    expect(voice.needsRetainedVoiceRecovery()).toBe(false);
+    ended = true;
+    expect(voice.needsRetainedVoiceRecovery()).toBe(true);
+    expect(voice.recoverRetainedVoice({ expression: { pressure: 0.25, timbre: 0.5 } }, 200)).toBe(true);
+    expect(calls).toEqual([["pressure", 0.25], ["attack", 200]]);
+    expect(healthy.noteOn).toHaveBeenCalledTimes(1);
+    expect(healthy.noteOff).not.toHaveBeenCalled();
+    expect(voice.needsRetainedVoiceRecovery()).toBe(false);
+    voice.recoverRetainedVoice({}, 201);
+    expect(replacement.noteOn).toHaveBeenCalledOnce();
+  });
+
   it("keeps held sample voices through repeated sound changes and uses the latest sound on reattack", () => {
     const makeEngine = (family) => {
       const hex = { noteOn: vi.fn(), noteOff: vi.fn(), retune: vi.fn(), aftertouch: vi.fn() };

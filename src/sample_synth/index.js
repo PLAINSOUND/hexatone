@@ -550,6 +550,13 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         knownHexes.add(hex);
         const originalNoteOn = hex.noteOn.bind(hex);
         hex.noteOn = (...values) => {
+          // Voices may be allocated before decode completes or survive a
+          // context rebuild. Resolve resources at attack, not allocation.
+          hex.sampleBuffer = decodedBuffers;
+          hex.audioContext = sharedAudioContext;
+          hex.masterGain = masterGain;
+          hex._attackAttempted = true;
+          if (!decodedBuffers || !sharedAudioContext || sharedAudioContext.state === "closed") return;
           // Preparation can finish long before this engine joins a held chord.
           // Start the output fade at the first attack, not during sample decode.
           if (outputFadePending && !recoveryMuted) {
@@ -558,7 +565,12 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           }
           return originalNoteOn(...values);
         };
+        hex._sourceEnded = false;
+        hex.needsRetainedVoiceRecovery = () => hex._sourceEnded === true || hex.release === true ||
+          (hex._attackAttempted === true && (!hex.source ||
+            hex.audioContext !== sharedAudioContext || hex.audioContext?.state === "closed"));
         hex._onSourceEnded = () => {
+          hex._sourceEnded = true;
           activeHexes.delete(hex);
           knownHexes.delete(hex);
         };
@@ -726,7 +738,11 @@ ActiveHex.prototype.noteOn = function () {
 
   gainNode.gain.value = 0;
   source.start(0);
-  source.onended = () => this._onSourceEnded?.();
+  this._sourceEnded = false;
+  // A late completion from an older source must not invalidate a new attack.
+  source.onended = () => {
+    if (this.source === source) this._onSourceEnded?.();
+  };
   gainNode.gain.setTargetAtTime(
     this.sampleGain * vol,
     this.audioContext.currentTime,

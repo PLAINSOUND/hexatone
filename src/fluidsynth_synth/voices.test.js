@@ -3,6 +3,18 @@ import { createInternalVoiceSynth } from "./voices.js";
 import { create_midi_synth } from "../midi_synth/index.js";
 import { mtsToMidiFloat } from "../tuning/mts-format.js";
 
+it("distinguishes pending attacks from voices invalidated by cleanup", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn(), panic: vi.fn() };
+  const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 } });
+  const hex = synth.makeHex("cue", 0, 0, 0, 12, -100, 100, null, 77, null, 1);
+  expect(hex.needsRetainedVoiceRecovery()).toBe(false);
+  hex.noteOn(performance.now() + 1000);
+  expect(hex.needsRetainedVoiceRecovery()).toBe(false);
+  synth.allSoundOff();
+  expect(hex.needsRetainedVoiceRecovery()).toBe(true);
+});
+
 it("primes cue expression before attack and timestamps later expression with the pending attack", () => {
   const output = { send: vi.fn(), sendCommand: vi.fn(), cancelEvents: vi.fn() };
   const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },

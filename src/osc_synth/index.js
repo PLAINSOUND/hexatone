@@ -852,6 +852,30 @@ OscHex.prototype._startLayer = function (i, timestamp) {
     );
 };
 
+OscHex.prototype.needsRetainedVoiceRecovery = function () {
+  // External bridges cannot confirm node lifetime. Never infer silence there.
+  if (!this._socket.hasNode) return false;
+  return this._volumes.some((volume, i) => volume > 0 &&
+    !this._socket.hasNode(this._nodeIds[i]));
+};
+
+OscHex.prototype.recoverRetainedVoice = function (_note, timestamp) {
+  if (this.release || !this.needsRetainedVoiceRecovery()) return false;
+  if (this._heldVoices.get(this._slot) !== this) {
+    this.noteOn(timestamp);
+  } else {
+    for (let i = 0; i < this._volumes.length; i++) {
+      if (this._volumes[i] === 0 || this._socket.hasNode(this._nodeIds[i])) continue;
+      // The server already ended this node: do not send a gate to a stale id.
+      const state = this._slotState[i][this._slot];
+      state.active = false;
+      state.nodeId = null;
+      this._startLayer(i, timestamp);
+    }
+  }
+  return true;
+};
+
 OscHex.prototype.noteOff = function (release_velocity, timestamp) {
   if (this.release) return;
   this.release = true;

@@ -49,6 +49,10 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
         bend_down: cents - previous, bend_up: next - cents,
         velocity: velocityPlayed > 0 ? velocityPlayed : outputMode.velocity,
         channel: null, sounding: false,
+        needsRetainedVoiceRecovery() {
+          return !closed && this._hasAttacked === true &&
+            (!this.sounding || pool.owners[this.channel] !== this);
+        },
         noteOn(timestamp) {
           if (closed || this.release || this.sounding) return;
           let channel = pool.cursor;
@@ -100,6 +104,7 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
           if (this.initialTimbre != null) voiceSend(channel, "cc", 74, this.initialTimbre, timestamp);
           voiceSend(channel, "on", this.steps, this.velocity, timestamp);
           this.sounding = true;
+          this._hasAttacked = true;
           active.add(this);
         },
         retune(value) {
