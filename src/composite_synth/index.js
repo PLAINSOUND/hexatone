@@ -10,6 +10,7 @@ import { stopRetiredSuperSonicOutputs } from "../supersonic_synth/transport.js";
 import { stopFadingOutputToggles } from "../audio/output-toggle.js";
 
 import { outputAttackGroup } from "../midi/output-transaction.js";
+import { expressionToMidi, MIDI_EXPRESSION_14_MAX, readSnapshotExpression, snapshotMidiExpression } from "../sequencer/snapshot-expression.js";
 
 const expressionStateBySynths = new WeakMap();
 const pitchReferenceBySynth = new WeakMap();
@@ -145,13 +146,17 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
           child.noteOn?.(timestamp);
           if (this._compositeLastPressure != null || this._compositeLastPressure14 != null) {
             const pressure = this._compositeLastPressure ?? this._compositeLastPressure14 >> 7;
-            if (child.applySnapshotPressure)
+            if (this._compositeNormalizedPressure != null && child.applyNormalizedSnapshotPressure)
+              child.applyNormalizedSnapshotPressure(this._compositeNormalizedPressure);
+            else if (child.applySnapshotPressure)
               child.applySnapshotPressure(pressure, this._compositeLastPressure14);
             else child.aftertouch?.(pressure, this._compositeLastPressure14);
           }
           if (this._compositeLastTimbre != null || this._compositeLastTimbre14 != null) {
             const timbre = this._compositeLastTimbre ?? this._compositeLastTimbre14 >> 7;
-            if (child.polyTimbre) child.polyTimbre(timbre, this._compositeLastTimbre14);
+            if (this._compositeNormalizedTimbre != null && child.applyNormalizedSnapshotTimbre)
+              child.applyNormalizedSnapshotTimbre(this._compositeNormalizedTimbre);
+            else if (child.polyTimbre) child.polyTimbre(timbre, this._compositeLastTimbre14);
             else child.cc74?.(timbre, this._compositeLastTimbre14);
           }
         }
@@ -241,12 +246,14 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
       },
 
       aftertouch(value, value14 = null) {
+        this._compositeNormalizedPressure = null;
         this._compositeLastPressure = value;
         this._compositeLastPressure14 = value14;
         hexes.forEach((h) => h.aftertouch && h.aftertouch(value, value14));
       },
 
       applySnapshotPressure(value, value14 = null) {
+        this._compositeNormalizedPressure = null;
         this._compositeLastPressure = value;
         this._compositeLastPressure14 = value14;
         hexes.forEach((h) => {
@@ -259,26 +266,71 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
         hexes.forEach((h) => h.prepareSnapshotPressure?.(value, value14));
       },
 
-      transitionSnapshotExpression(note, durationMs) {
+      prepareSnapshotExpression(note) {
+        hexes.forEach((h) => h.prepareSnapshotExpression?.(note));
+      },
+
+      prepareNormalizedSnapshotPressure(value) {
         hexes.forEach((h) => {
-          if (h.transitionSnapshotExpression?.(note, durationMs) === true) {
+          if (h.prepareNormalizedSnapshotPressure) h.prepareNormalizedSnapshotPressure(value);
+          else h.prepareSnapshotPressure?.(expressionToMidi(value), expressionToMidi(value, MIDI_EXPRESSION_14_MAX));
+        });
+      },
+
+      applyNormalizedSnapshotPressure(value) {
+        this._compositeNormalizedPressure = value;
+        this._compositeLastPressure = expressionToMidi(value);
+        this._compositeLastPressure14 = expressionToMidi(value, MIDI_EXPRESSION_14_MAX);
+        hexes.forEach((h) => {
+          if (h.applyNormalizedSnapshotPressure) h.applyNormalizedSnapshotPressure(value);
+          else if (h.applySnapshotPressure) h.applySnapshotPressure(this._compositeLastPressure, this._compositeLastPressure14);
+          else h.aftertouch?.(this._compositeLastPressure, this._compositeLastPressure14);
+        });
+      },
+
+      applyNormalizedSnapshotTimbre(value) {
+        this._compositeNormalizedTimbre = value;
+        this._compositeLastTimbre = expressionToMidi(value);
+        this._compositeLastTimbre14 = expressionToMidi(value, MIDI_EXPRESSION_14_MAX);
+        hexes.forEach((h) => {
+          if (h.applyNormalizedSnapshotTimbre) h.applyNormalizedSnapshotTimbre(value);
+          else if (h.polyTimbre) h.polyTimbre(this._compositeLastTimbre, this._compositeLastTimbre14);
+          else h.cc74?.(this._compositeLastTimbre, this._compositeLastTimbre14);
+        });
+      },
+
+      transitionSnapshotExpression(note, durationMs) {
+        const canonical = note.expression ? readSnapshotExpression(note) : null;
+        if (canonical) {
+          this._compositeNormalizedPressure = canonical.pressure;
+          this._compositeNormalizedTimbre = canonical.timbre;
+          this._compositeLastPressure = expressionToMidi(canonical.pressure);
+          this._compositeLastPressure14 = expressionToMidi(canonical.pressure, MIDI_EXPRESSION_14_MAX);
+          this._compositeLastTimbre = expressionToMidi(canonical.timbre);
+          this._compositeLastTimbre14 = expressionToMidi(canonical.timbre, MIDI_EXPRESSION_14_MAX);
+        }
+        const midiNote = snapshotMidiExpression(note);
+        hexes.forEach((h) => {
+          if (h.transitionSnapshotExpression?.(midiNote, durationMs) === true) {
             return;
           }
-          const pressure = Number.isFinite(note?.pressure14)
-            ? Number(note.pressure14) >> 7
-            : note?.pressure;
+          const pressure = Number.isFinite(midiNote?.pressure14)
+            ? Number(midiNote.pressure14) >> 7
+            : midiNote?.pressure;
           if (pressure != null) {
-            if (h.applySnapshotPressure)
-              h.applySnapshotPressure(pressure, note?.pressure14 ?? null);
-            else h.aftertouch?.(pressure, note?.pressure14 ?? null);
+            if (canonical && h.applyNormalizedSnapshotPressure) h.applyNormalizedSnapshotPressure(canonical.pressure);
+            else if (h.applySnapshotPressure)
+              h.applySnapshotPressure(pressure, midiNote?.pressure14 ?? null);
+            else h.aftertouch?.(pressure, midiNote?.pressure14 ?? null);
           }
           if (h.isMtsOutput) return;
-          const timbre = Number.isFinite(note?.timbre14)
-            ? Number(note.timbre14) >> 7
-            : note?.timbre;
+          const timbre = Number.isFinite(midiNote?.timbre14)
+            ? Number(midiNote.timbre14) >> 7
+            : midiNote?.timbre;
           if (timbre == null) return;
-          if (h.polyTimbre) h.polyTimbre(timbre, note?.timbre14 ?? null);
-          else h.cc74?.(timbre, note?.timbre14 ?? null);
+          if (canonical && h.applyNormalizedSnapshotTimbre) h.applyNormalizedSnapshotTimbre(canonical.timbre);
+          else if (h.polyTimbre) h.polyTimbre(timbre, midiNote?.timbre14 ?? null);
+          else h.cc74?.(timbre, midiNote?.timbre14 ?? null);
         });
         return true;
       },
@@ -290,12 +342,14 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
       },
 
       cc74(value, value14 = null) {
+        this._compositeNormalizedTimbre = null;
         this._compositeLastTimbre = value;
         this._compositeLastTimbre14 = value14;
         hexes.forEach((h) => h.cc74 && h.cc74(value, value14));
       },
 
       polyTimbre(value, value14 = null) {
+        this._compositeNormalizedTimbre = null;
         this._compositeLastTimbre = value;
         this._compositeLastTimbre14 = value14;
         hexes.forEach((h) => {
@@ -393,6 +447,10 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
       if (options === undefined) s.applyControllerState(state);
       else s.applyControllerState(state, options);
     });
+  },
+
+  cancelSequenceEvents() {
+    synths.forEach((s) => s.cancelSequenceEvents?.());
   },
 
   allSoundOff() {

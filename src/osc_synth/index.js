@@ -998,6 +998,18 @@ OscHex.prototype.applySnapshotPressure = function (value, value14 = null) {
   this.aftertouch(value, value14);
 };
 
+// Floating-point snapshot expression goes directly to OSC. These scaled
+// arguments deliberately stay fractional: no MIDI quantization is involved.
+OscHex.prototype.prepareNormalizedSnapshotPressure = function (value) {
+  this._filter = 1 + Math.max(0, Math.min(1, value));
+};
+OscHex.prototype.applyNormalizedSnapshotPressure = function (value) {
+  this.aftertouch(value * 127, value * 16256);
+};
+OscHex.prototype.applyNormalizedSnapshotTimbre = function (value) {
+  this.cc74(value * 127, value * 16256);
+};
+
 OscHex.prototype.pressure = function (value, value14 = null) {
   this.aftertouch(value, value14);
 };

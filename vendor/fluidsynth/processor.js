@@ -45,7 +45,10 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     if (!this.module || !this.synth || !message) return;
     try {
       if (message.type === "cancel-owner-events") {
-        this.midiQueue = this.midiQueue.filter(event => event.owner !== message.owner);
+        this.midiQueue = this.midiQueue.filter(event => !(event.owner === message.owner &&
+          (message.scope == null || (event.scope === message.scope && event.generation === message.generation)) &&
+          (message.voice == null || event.voice === message.voice) &&
+          !(message.scope != null && event.command?.op === "off")));
         return;
       }
       if (message.type === "clear-recovery-events") {
@@ -110,6 +113,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         const events = message.type === "midi-batch" ? message.events : [message];
         for (const event of events) {
           this.midiQueue.push({ data: event.data, command: event.command, owner: event.owner,
+            scope: event.scope, generation: event.generation, voice: event.voice,
             frame: Number.isFinite(event.frame) ? event.frame : currentFrame,
             sequence: this.midiSequence++ });
         }

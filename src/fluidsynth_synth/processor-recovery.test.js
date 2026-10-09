@@ -2,6 +2,27 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { expect, it, vi } from "vitest";
 
+it("preserves equal-frame setup order and cancels only the requested sequence generation", () => {
+  let Processor;
+  const source = readFileSync("vendor/fluidsynth/processor.js", "utf8");
+  runInNewContext(source.replace(/^import[^\n]*\n/, ""), {
+    currentFrame: 0, AudioWorkletProcessor: class {},
+    registerProcessor: (_, processor) => { Processor = processor; },
+  });
+  const processor = Object.create(Processor.prototype);
+  processor.module = {}; processor.synth = 1; processor.midiQueue = []; processor.midiSequence = 0;
+  processor.handleMessage({ type: "midi-batch", events: ["off", "reset", "tune", "pressure", "on"]
+    .map(op => ({ frame: 128, command: { op }, owner: 1, scope: "sequence", generation: 0 })) });
+  expect(processor.midiQueue.map(e => e.command.op)).toEqual(["off", "reset", "tune", "pressure", "on"]);
+  processor.handleMessage({ type: "midi-batch", events: [
+    { frame: 128, owner: 1, scope: "live", generation: 0 },
+    { frame: 256, owner: 1, scope: "sequence", generation: 1 },
+  ] });
+  processor.handleMessage({ type: "cancel-owner-events", owner: 1, scope: "sequence", generation: 0 });
+  expect(processor.midiQueue.map(e => [e.scope, e.generation])).toEqual([["sequence", 0], ["live", 0], ["sequence", 1]]);
+  expect(processor.midiQueue[0].command.op).toBe("off");
+});
+
 it("cancels only the obsolete output graph's queued MIDI", () => {
   let Processor;
   const source = readFileSync("vendor/fluidsynth/processor.js", "utf8");

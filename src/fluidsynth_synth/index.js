@@ -11,6 +11,7 @@ import {
 } from "../sample_synth/prime-shared-audio.js";
 import { warnLog } from "../debug/logging.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
+import { createFluidMidiScheduler } from "./midi-scheduler.js";
 
 let enginePromise = null;
 let engine = null;
@@ -292,6 +293,7 @@ export async function prepareFluidSynthOutput() {
 
 export async function clearFluidSynthRecoveryEvents() {
   if (!engine?.node) return;
+  engine.output?.resetClock();
   const node = engine.node;
   const cleared = waitForMessage(node, message => message?.type === "recovery-cleared", true);
   node.port.postMessage({ type: "clear-recovery-events" });
@@ -300,6 +302,7 @@ export async function clearFluidSynthRecoveryEvents() {
 
 export async function resumeFluidSynthAfterAudioRestart() {
   if (!engine) throw new Error("FluidSynth engine is unavailable");
+  engine.output?.resetClock();
   const context = peekSharedAudioContextNow() ?? engine.context;
   if (engine.context !== context || !engine.node || failedNodes.has(engine.node)) {
     await rebindEngineToContext(context);
@@ -329,41 +332,7 @@ export async function getFluidSynthEngine() {
       };
       notifyEngineListeners();
 
-      let pendingMidi = [];
-      let midiFlushScheduled = false;
-      const enqueue = (event, timestamp) => {
-        if (!engine?.node) return;
-        const active = engine;
-        const frame = Math.ceil((active.context.currentTime +
-          (Number.isFinite(timestamp) ? Math.max(0, timestamp - performance.now()) / 1000 : 0)) * active.context.sampleRate);
-        pendingMidi.push({ ...event, frame });
-        if (midiFlushScheduled) return;
-        midiFlushScheduled = true;
-        queueMicrotask(() => {
-          midiFlushScheduled = false;
-          const events = pendingMidi;
-          pendingMidi = [];
-          if (engine === active) active.node.port.postMessage({ type: "midi-batch", events });
-        });
-      };
-      engine.output = {
-        id: "hexatone-internal-fluidsynth",
-        name: "Hexatone FluidSynth",
-        sendCommand(command, timestamp, owner) { enqueue({ command, owner }, timestamp); },
-        send(data, timestamp, owner) {
-          if (!engine?.node || !data?.length) return;
-          enqueue({ data: Array.from(data), owner }, timestamp);
-        },
-        cancelEvents(owner) {
-          pendingMidi = pendingMidi.filter(event => event.owner !== owner);
-          engine?.node?.port.postMessage({ type: "cancel-owner-events", owner });
-        },
-        panic() {
-          pendingMidi = [];
-          engine?.node?.port.postMessage({ type: "clear-recovery-events" });
-        },
-        ensureAwake: ensureFluidSynthEngineAwake,
-      };
+      engine.output = createFluidMidiScheduler(() => engine, ensureFluidSynthEngineAwake);
       engine.setVolume = (value) => {
         engine.volume = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
         for (let channel = 0; channel < 128; channel++) {

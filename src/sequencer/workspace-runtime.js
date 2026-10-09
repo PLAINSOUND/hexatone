@@ -10,6 +10,7 @@ import {
 import { cloneJsonValue } from "../persistence/clone-json-value.js";
 import { normalizeSequenceLegatoMode } from "./legato.js";
 import { hydrateSequencePitchFrames } from "./pitch-frame.js";
+import { normalizeSnapshotExpression } from "./snapshot-expression.js";
 
 function cloneSequenceRecords(records) {
   return Array.isArray(records) ? cloneJsonValue(records) : [];
@@ -43,7 +44,7 @@ export function buildLoadedSequenceWorkspace(sequence, options = {}) {
   const snapshots = hydrateSequencePitchFrames(
     cloneSequenceRecords(sequence?.snapshots),
     cloneSequenceRecords(sequence?.pitchFrames),
-  ).map(normalizeSnapshotManualTrigger);
+  ).map(normalizeSnapshotExpression).map(normalizeSnapshotManualTrigger);
   const bars = normalizeBarMarkers(cloneSequenceRecords(sequence?.bars));
   const tempi = normalizeTempoMarkers(cloneSequenceRecords(sequence?.tempi));
   const repeats = cloneSequenceRecords(sequence?.repeats);
@@ -71,7 +72,7 @@ export function buildLoadedSequenceWorkspace(sequence, options = {}) {
 
 export function buildRestoredSequenceWorkspace(restoredSequence) {
   const snapshots = Array.isArray(restoredSequence?.snapshots)
-    ? hydrateSequencePitchFrames(restoredSequence.snapshots, restoredSequence.pitchFrames).map(
+    ? hydrateSequencePitchFrames(restoredSequence.snapshots, restoredSequence.pitchFrames).map(normalizeSnapshotExpression).map(
         normalizeSnapshotManualTrigger,
       )
     : [];

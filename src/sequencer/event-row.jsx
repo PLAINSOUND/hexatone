@@ -5,6 +5,7 @@
 
 import { useMemo } from "preact/hooks";
 import { absolutePositionToBarBeat } from "./transport.js";
+import { readSnapshotExpression } from "./snapshot-expression.js";
 import {
   buildBlurCommit,
   buildDraftEnterCommit,
@@ -708,15 +709,20 @@ const EventRow = ({
             <input
               type="text"
               class="sequencer-event__input"
-              defaultValue={displayValue(event.pressure)}
+              defaultValue={readSnapshotExpression(event).pressure.toFixed(3)}
+              title="Pressure: 0–1"
               aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} pressure`}
               {...stopProps}
-              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true,
+                setValue: () => String(readSnapshotExpression(event).pressure),
+              })}
               onKeyDown={buildEnterCommit(editing, (value) =>
                 editing.updateEventField(snapshot, noteRef, "pressure", value),
               )}
               onBlur={buildBlurCommit(editing, (value) =>
                 editing.updateEventField(snapshot, noteRef, "pressure", value),
+                (e) => { e.currentTarget.value = Math.max(0, Math.min(1,
+                  Number(e.currentTarget.value) || 0)).toFixed(3); },
               )}
             />
           </div>
@@ -727,15 +733,20 @@ const EventRow = ({
             <input
               type="text"
               class="sequencer-event__input"
-              defaultValue={displayValue(event.timbre)}
-              aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} timbre`}
+              defaultValue={readSnapshotExpression(event).timbre.toFixed(3)}
+              title="exprY: 0–1"
+              aria-label={`snapshot ${snapshotIndex + 1} ${event.kind} exprY`}
               {...stopProps}
-              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true })}
+              onFocus={buildSelectOnFocus({ stop: true, clearCommitted: true,
+                setValue: () => String(readSnapshotExpression(event).timbre),
+              })}
               onKeyDown={buildEnterCommit(editing, (value) =>
                 editing.updateEventField(snapshot, noteRef, "timbre", value),
               )}
               onBlur={buildBlurCommit(editing, (value) =>
                 editing.updateEventField(snapshot, noteRef, "timbre", value),
+                (e) => { e.currentTarget.value = Math.max(0, Math.min(1,
+                  Number(e.currentTarget.value) || 0)).toFixed(3); },
               )}
             />
           </div>

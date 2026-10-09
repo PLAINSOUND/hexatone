@@ -10,6 +10,7 @@ import {
   noteMatchesReference,
   sortSnapshotNotes,
 } from "./value-runtime.js";
+import { normalizeNoteExpression, readSnapshotExpression, clampExpression } from "./snapshot-expression.js";
 import {
   buildSnapshotRationalContext,
   rebuildSnapshotRationalIdentity,
@@ -305,10 +306,12 @@ export function updateEventFieldInSnapshot(snapshot, noteKey, field, rawValue) {
         return { ...note, releaseVelocity: clamp(Math.round(numeric), 0, 127) };
       }
       if (field === "pressure") {
-        return { ...note, pressure: clamp(Math.round(numeric), 0, 127) };
+        return { ...normalizeNoteExpression(note), expression: {
+          ...readSnapshotExpression(note), pressure: clampExpression(numeric) } };
       }
       if (field === "timbre") {
-        return { ...note, timbre: clamp(Math.round(numeric), 0, 127) };
+        return { ...normalizeNoteExpression(note), expression: {
+          ...readSnapshotExpression(note), timbre: clampExpression(numeric) } };
       }
       return note;
     }),

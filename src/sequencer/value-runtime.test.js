@@ -25,9 +25,9 @@ describe("sequencer value runtime", () => {
     expect(formatSequenceOffset(0.375)).toBe("0.375000");
     expect(formatDisplaySequenceOffset(0.375)).toBe("0.375");
     expect(formatMidicents(69.12345)).toBe("69.123");
-    expect(formatEditableMidicents(69.12345)).toBe("69.123450");
+    expect(formatEditableMidicents(69.12345)).toBe("69.12345");
     expect(formatFrequency(441.234)).toBe("441.2");
-    expect(formatEditableFrequency(441.234)).toBe("441.234000");
+    expect(formatEditableFrequency(441.234)).toBe("441.234");
   });
 
   it("handles generic value helpers and snapshot bounds", () => {

@@ -300,6 +300,26 @@ groups. Backend conversion and worklet queues remain responsible for delivery.
 Scheduling an event is not proof it sounded, nor is AudioContext `running` proof
 its audio clock or renderer is advancing.
 
+FluidSynth's [MIDI scheduler](../src/fluidsynth_synth/midi-scheduler.js) captures
+one browser/audio clock pair per transaction or microtask batch and assigns one
+frame per musical timestamp. The worklet sorts by frame, then submission order:
+release/reset, RPN, tuning, initial expression, attack. Snapshot expression is
+primed before note-on; subsequent expression on a pending voice uses its attack
+timestamp. Worklet/context replacement and recovery invalidate clock mappings.
+Sequence events carry owner, scope, generation and voice identity. Snapshot stop
+cancels obsolete sequence work without cancelling live input; already queued
+releases survive generation cancellation. Channels remain reserved until their
+scheduled release, preventing an earlier replacement attack from being killed by
+that release. Per-voice cancellation removes a future attack released before it
+starts. Tests: `midi-scheduler.test.js`, `voices.test.js` and
+`processor-recovery.test.js` in `src/fluidsynth_synth/`.
+
+Legacy sequence pressure with positive `pressure` but placeholder `pressure14: 0`
+is repaired to `pressure * 128` on import, session persistence, capture and manual
+snapshot playback. Genuine zero pressure and existing nonzero 14-bit detail are
+preserved; live controller messages are not rewritten. See
+[pressure-expression.js](../src/sequencer/pressure-expression.js).
+
 SoundFont UX distinguishes selected file, loaded bank/preset, temporary working
 copy, saved offline copy and in-flight operation. Removing the offline copy does
 not unload the bank. Save/Keep use available working bytes; loaded engine memory

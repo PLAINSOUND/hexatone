@@ -26,6 +26,7 @@ import {
 } from "./manual-snapshot-arpeggiation.js";
 import { normalizeSequenceLegatoMode } from "./legato.js";
 import { buildSequencePitchFrameRegistry } from "./pitch-frame.js";
+import { normalizeSnapshotExpression } from "./snapshot-expression.js";
 
 const STORAGE_KEY = "hexatone_user_sequences";
 
@@ -41,7 +42,7 @@ export function normalizeSequenceRecord(record) {
   if (!record || typeof record !== "object") return null;
   const name = String(record.name ?? "").trim();
   if (!name) return null;
-  const rawSnapshots = cloneSnapshots(record.snapshots).map(normalizeSnapshotManualTrigger);
+  const rawSnapshots = cloneSnapshots(record.snapshots).map(normalizeSnapshotExpression).map(normalizeSnapshotManualTrigger);
   const { pitchFrames, snapshots } = buildSequencePitchFrameRegistry(
     rawSnapshots,
     record.pitchFrames,
@@ -53,7 +54,7 @@ export function normalizeSequenceRecord(record) {
   if (!Array.isArray(snapshots)) return null;
   return {
     type: "hexatone-sequence",
-    version: 5,
+    version: 6,
     name,
     description: String(record.description ?? ""),
     snapshotLabelMode: String(record.snapshotLabelMode ?? "proportion"),

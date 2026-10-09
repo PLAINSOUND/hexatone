@@ -802,6 +802,13 @@ ActiveHex.prototype.pressure = function (value, value14 = null) {
   this.aftertouch(value, value14);
 };
 
+ActiveHex.prototype.applyNormalizedSnapshotPressure = function (value) {
+  this.aftertouch(value * 127, value * 16256);
+};
+ActiveHex.prototype.applyNormalizedSnapshotTimbre = function (value) {
+  this.cc74(value * 127, value * 16256);
+};
+
 // cc74 (slide / timbre): sweeps the lowpass filter cutoff.
 // norm 0–1 maps logarithmically from filter_freq to filter_freq * 2^filter_amount.
 // When filter_amount is 0 the filter is fully open and this is a no-op.

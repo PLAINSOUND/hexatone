@@ -67,4 +67,24 @@ describe("sequencer field props", () => {
     expect(preventDefault).not.toHaveBeenCalled();
     input.remove();
   });
+
+  it.each([
+    [441.23456789123, 1],
+    [6912.3456789123, 3],
+    [0.123456789123, 3],
+  ])("restores rounded display without saving unchanged precision: %s", (value, places) => {
+    const input = document.createElement("input");
+    input.value = value.toFixed(places);
+    buildSelectOnFocus({ clearCommitted: true, setValue: () => String(value) })({
+      currentTarget: input, stopPropagation: vi.fn(),
+    });
+    expect(input.value).toBe(String(value));
+    const commit = vi.fn();
+    const result = commitTextInput(input, commit, () => {
+      input.value = Number(input.value).toFixed(places);
+    });
+    expect(result.committed).toBe(false);
+    expect(commit).not.toHaveBeenCalled();
+    expect(input.value).toBe(value.toFixed(places));
+  });
 });

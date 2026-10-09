@@ -955,6 +955,15 @@ MpeHex.prototype.applySnapshotPressure = function (value, value14 = null) {
   this.aftertouch(value, value14, { initialSnapshotExpression: true });
 };
 
+MpeHex.prototype.applyNormalizedSnapshotPressure = function (value) {
+  this.applySnapshotPressure(expressionToMidi(value), this.mpePlusPitchBendEnabled
+    ? expressionToMidi(value, MIDI_EXPRESSION_14_MAX) : null);
+};
+MpeHex.prototype.applyNormalizedSnapshotTimbre = function (value) {
+  this.polyTimbre(expressionToMidi(value), this.mpePlusPitchBendEnabled
+    ? expressionToMidi(value, MIDI_EXPRESSION_14_MAX) : null);
+};
+
 // pressure: channel pressure on the voice's own channel (same as aftertouch for MPE).
 MpeHex.prototype.pressure = function (value, value14 = null) {
   this.aftertouch(value, value14);
@@ -1022,3 +1031,4 @@ MpeHex.prototype.expression = function (value) {
 };
 
 export default create_mpe_synth;
+import { expressionToMidi, MIDI_EXPRESSION_14_MAX } from "../sequencer/snapshot-expression.js";

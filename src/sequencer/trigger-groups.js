@@ -10,6 +10,7 @@ import {
   normalizeTempoMode,
 } from "./transport.js";
 import { deriveSequenceLegatoFlags, normalizeSequenceLegatoMode } from "./legato.js";
+import { snapshotExpressionFields } from "./snapshot-expression.js";
 
 // Distinguish releases that belong to already-sounding notes from note-offs
 // that are paired with a same-time note-on inside the current cue burst.
@@ -106,10 +107,7 @@ export function deriveSnapshotTriggerGroups(snapshot, options = {}) {
       canRestoreDisplayLabel: canRestoreEditedDisplayLabel(note),
       attackVelocity: note.attackVelocity ?? note.velocity ?? null,
       releaseVelocity: note.releaseVelocity ?? null,
-      pressure: note.pressure ?? 0,
-      pressure14: note.pressure14 ?? null,
-      timbre: note.timbre ?? 0,
-      timbre14: note.timbre14 ?? null,
+      ...snapshotExpressionFields(note),
     });
 
     events.push({
@@ -132,10 +130,7 @@ export function deriveSnapshotTriggerGroups(snapshot, options = {}) {
       canRestoreDisplayLabel: canRestoreEditedDisplayLabel(note),
       attackVelocity: note.attackVelocity ?? note.velocity ?? null,
       releaseVelocity: note.releaseVelocity ?? null,
-      pressure: note.pressure ?? 0,
-      pressure14: note.pressure14 ?? null,
-      timbre: note.timbre ?? 0,
-      timbre14: note.timbre14 ?? null,
+      ...snapshotExpressionFields(note),
     });
   }
 
@@ -439,10 +434,7 @@ export function deriveSequenceNotesByCueGroups(groups = []) {
           frequency: event.frequency,
           attackVelocity: event.attackVelocity,
           releaseVelocity: event.releaseVelocity,
-          pressure: event.pressure,
-          pressure14: event.pressure14,
-          timbre: event.timbre,
-          timbre14: event.timbre14,
+          ...snapshotExpressionFields(event),
           sequenceSlot: event.sequenceSlot,
           forceReattack: event.forceReattack,
           perNoteLegatoCandidate: event.perNoteLegatoCandidate,

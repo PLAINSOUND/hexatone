@@ -265,10 +265,7 @@ function cloneActiveNote(event) {
     displayLabelEdited: event.displayLabelEdited === true,
     attackVelocity: event.attackVelocity ?? null,
     releaseVelocity: event.releaseVelocity ?? null,
-    pressure: event.pressure ?? 0,
-    pressure14: event.pressure14 ?? null,
-    timbre: event.timbre ?? 0,
-    timbre14: event.timbre14 ?? null,
+    ...snapshotExpressionFields(event),
     sequenceSlot: event.sequenceSlot ?? null,
     forceReattack: event.forceReattack === true,
     perNoteLegatoCandidate: event.perNoteLegatoCandidate === true,
@@ -337,10 +334,7 @@ function buildSyntheticRepeatCleanupEvents(activeNotes, burst) {
       displayLabelEdited: note.displayLabelEdited === true,
       attackVelocity: note.attackVelocity ?? null,
       releaseVelocity: note.releaseVelocity ?? note.attackVelocity ?? null,
-      pressure: note.pressure ?? 0,
-      pressure14: note.pressure14 ?? null,
-      timbre: note.timbre ?? 0,
-      timbre14: note.timbre14 ?? null,
+      ...snapshotExpressionFields(note),
     }));
 }
 
@@ -567,3 +561,4 @@ export function buildPlaybackTimeline({
     totalElapsedSeconds,
   };
 }
+import { snapshotExpressionFields } from "./snapshot-expression.js";

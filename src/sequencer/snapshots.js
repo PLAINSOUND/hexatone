@@ -8,6 +8,7 @@ import { withOutputTransaction } from "../midi/output-transaction.js";
 import Point from "../keyboard/point.js";
 import { buildSnapshotRationalContext } from "./snapshot-rational-identity.js";
 import { applySequenceTimbreModWheelToNote } from "./playback-modifiers-runtime.js";
+import { normalizeNoteExpression, readSnapshotExpression, snapshotMidiExpression } from "./snapshot-expression.js";
 
 const normalizeVelocity = (value, fallback = 72) =>
   Math.max(1, Math.min(127, Math.round(value ?? fallback)));
@@ -159,10 +160,11 @@ export function captureSnapshot(runtime) {
     if (timbre != null) entry.timbre = timbre;
     if (timbre14 != null) entry.timbre14 = timbre14;
 
-    seen.set(key, entry);
+    seen.set(key, normalizeNoteExpression(entry));
   };
 
   const addSnapshotNote = (note) => {
+    note = snapshotMidiExpression(note);
     const midicents = Number(note?.midicents);
     if (!Number.isFinite(midicents)) return;
     const key = midicents.toFixed(3);
@@ -206,7 +208,8 @@ export function captureSnapshot(runtime) {
     if (timbre != null) entry.timbre = timbre;
     if (timbre14 != null) entry.timbre14 = timbre14;
 
-    seen.set(key, entry);
+    // Preserve the canonical float rather than recapturing its MIDI projection.
+    seen.set(key, normalizeNoteExpression({ ...entry, ...(note.expression ? { expression: note.expression } : {}) }));
   };
 
   for (const hex of runtime._allActiveHexes()) {
@@ -226,6 +229,15 @@ export function captureSnapshot(runtime) {
 }
 
 function applySnapshotTimbre(runtime, hex, note) {
+  if (!note.expression) hex._snapshotSourceExpressionTimbre = null;
+  if (note.expression) {
+    hex._snapshotSourceExpressionTimbre = note.sequenceSourceExpressionTimbre ?? readSnapshotExpression(note).timbre;
+    if (hex.applyNormalizedSnapshotTimbre) {
+      hex.applyNormalizedSnapshotTimbre(readSnapshotExpression(note).timbre);
+      return;
+    }
+    note = snapshotMidiExpression(note);
+  }
   const sourceTimbre = normalize7Bit(note.sequenceSourceTimbre ?? note.timbre);
   const sourceTimbre14 = normalize14Bit(note.sequenceSourceTimbre14 ?? note.timbre14);
   hex._snapshotSourceTimbre = sourceTimbre;
@@ -244,6 +256,8 @@ function applySnapshotTimbre(runtime, hex, note) {
 }
 
 function applyLegatoSnapshotExpression(runtime, hex, note, transitionMs) {
+  if (!note.expression) hex._snapshotSourceExpressionTimbre = null;
+  if (note.expression) hex._snapshotSourceExpressionTimbre = note.sequenceSourceExpressionTimbre ?? readSnapshotExpression(note).timbre;
   hex._snapshotSourceTimbre = normalize7Bit(note.sequenceSourceTimbre ?? note.timbre);
   hex._snapshotSourceTimbre14 = normalize14Bit(note.sequenceSourceTimbre14 ?? note.timbre14);
   if (hex.transitionSnapshotExpression?.(note, transitionMs) === true) return;
@@ -251,6 +265,12 @@ function applyLegatoSnapshotExpression(runtime, hex, note, transitionMs) {
 }
 
 function applySnapshotExpression(runtime, hex, note) {
+  if (note.expression && hex.applyNormalizedSnapshotPressure) {
+    hex.applyNormalizedSnapshotPressure(readSnapshotExpression(note).pressure);
+    applySnapshotTimbre(runtime, hex, note);
+    return;
+  }
+  note = snapshotMidiExpression(note);
   const pressure = normalize7Bit(note.pressure);
   const pressure14 = normalize14Bit(note.pressure14);
   if (pressure != null || pressure14 != null) {
@@ -272,6 +292,14 @@ export function applySequenceTimbreModWheelToActiveSnapshotHexes(runtime, modWhe
   let updated = 0;
   for (const hex of soundingSnapshotHexes(runtime)) {
     if (!hex || hex.release === true) continue;
+    if (hex._snapshotSourceExpressionTimbre != null) {
+      const note = applySequenceTimbreModWheelToNote({ expression: {
+        pressure: 0, timbre: hex._snapshotSourceExpressionTimbre },
+        sequenceSourceExpressionTimbre: hex._snapshotSourceExpressionTimbre }, modWheel);
+      applySnapshotTimbre(runtime, hex, note);
+      updated += 1;
+      continue;
+    }
     if (hex._snapshotSourceTimbre == null && hex._snapshotSourceTimbre14 == null) continue;
     const note = applySequenceTimbreModWheelToNote(
       {
@@ -413,6 +441,10 @@ function commitPreparedSnapshotHexesInTransaction(runtime, prepared, commitTimes
   // Prime global onset state before scheduling the chord. Composite synths
   // deduplicate identical values, so a uniform chord emits this only once.
   for (const { note } of prepared) {
+    if (note.expression && typeof runtime?.synth?.setMod === "function") {
+      runtime.synth.setMod(1 + readSnapshotExpression(note).timbre);
+      continue;
+    }
     const timbre = normalize7Bit(note.timbre);
     const timbre14 = normalize14Bit(note.timbre14);
     if ((timbre != null || timbre14 != null) && typeof runtime?.synth?.setMod === "function") {
@@ -422,8 +454,14 @@ function commitPreparedSnapshotHexesInTransaction(runtime, prepared, commitTimes
   // OSC can embed the initial filter value directly in its timestamped
   // /s_new bundle. Other synth families simply omit this optional hook.
   for (const { hex, note } of prepared) {
-    const pressure = normalize7Bit(note.pressure);
-    const pressure14 = normalize14Bit(note.pressure14);
+    hex.prepareSnapshotExpression?.(note);
+    if (note.expression && hex.prepareNormalizedSnapshotPressure) {
+      hex.prepareNormalizedSnapshotPressure(readSnapshotExpression(note).pressure);
+      continue;
+    }
+    const midiNote = snapshotMidiExpression(note);
+    const pressure = normalize7Bit(midiNote.pressure);
+    const pressure14 = normalize14Bit(midiNote.pressure14);
     if (pressure != null || pressure14 != null) {
       hex.prepareSnapshotPressure?.(pressure ?? pressure14 >> 7, pressure14);
     }
@@ -835,6 +873,9 @@ export function stopSnapshot(...args) {
 }
 
 function stopSnapshotInTransaction(snapshotHexes, runtime = null) {
+  // Cancel only this sequence generation before releasing voices. Live MIDI
+  // shares the local FluidSynth engine and must survive a sequence restart.
+  runtime?.synth?.cancelSequenceEvents?.();
   for (const hex of snapshotHexes ?? []) {
     releaseSnapshotHex(runtime, hex, hex._snapshotReleaseVelocity ?? 0);
   }

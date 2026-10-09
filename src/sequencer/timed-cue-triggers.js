@@ -16,10 +16,7 @@ function cloneTimedNote(note, { reattack = false } = {}) {
     displayLabelEdited: note.displayLabelEdited === true,
     attackVelocity: note.attackVelocity ?? null,
     releaseVelocity: note.releaseVelocity ?? null,
-    pressure: note.pressure ?? 0,
-    pressure14: note.pressure14 ?? null,
-    timbre: note.timbre ?? 0,
-    timbre14: note.timbre14 ?? null,
+    ...snapshotExpressionFields(note),
     sequenceSlot: note.sequenceSlot ?? null,
     forceReattack: note.forceReattack === true,
     perNoteLegatoCandidate: note.perNoteLegatoCandidate === true,
@@ -69,3 +66,4 @@ export function deriveTimedCueTriggers(playbackTimeline) {
       repeatJump: burst.repeatJump ? { ...burst.repeatJump } : null,
     }));
 }
+import { snapshotExpressionFields } from "./snapshot-expression.js";

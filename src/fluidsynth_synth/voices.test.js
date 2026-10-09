@@ -3,6 +3,42 @@ import { createInternalVoiceSynth } from "./voices.js";
 import { create_midi_synth } from "../midi_synth/index.js";
 import { mtsToMidiFloat } from "../tuning/mts-format.js";
 
+it("primes cue expression before attack and timestamps later expression with the pending attack", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn(), cancelEvents: vi.fn() };
+  const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 } });
+  const hex = synth.makeHex("cue", 0, 0, 0, 12, -100, 100, null, 77, null, 1, { absoluteMidicents: 60 });
+  const timestamp = performance.now() + 1000;
+  hex.prepareSnapshotExpression({ pressure: 100, timbre: 80 });
+  hex.noteOn(timestamp);
+  const commands = output.sendCommand.mock.calls;
+  expect(commands.at(-3)[0]).toMatchObject({ op: "pressure", a: 100 });
+  expect(commands.at(-2)[0]).toMatchObject({ op: "cc", a: 74, b: 80 });
+  expect(commands.at(-1)[0]).toMatchObject({ op: "on", b: 77 });
+  hex.pressure(90);
+  hex.cc74(70);
+  expect(commands.every(call => call[1] === timestamp)).toBe(true);
+  expect(commands.every(call => call[3].scope === "sequence")).toBe(true);
+  hex.noteOff();
+  expect(output.cancelEvents).toHaveBeenCalledWith(expect.any(Number), null, null, expect.any(Number));
+});
+
+it("reserves a channel until its scheduled release instead of reusing it for an earlier live attack", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn() };
+  const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 } });
+  const voice = () => synth.makeHex("voice", 0, 0, 0, 12, -100, 100, null, 72, null, 1);
+  const first = voice();
+  first.noteOn();
+  first.noteOff(0, performance.now() + 1000);
+  const held = Array.from({ length: 127 }, voice);
+  held.forEach(h => h.noteOn());
+  const replacement = voice();
+  replacement.noteOn();
+  expect(replacement.channel).not.toBe(first.channel);
+  expect(held[0].release).toBe(true);
+});
+
 it("retunes sequence voices with exact MTS rather than coarse ±48-semitone bend", () => {
   const output = { send: vi.fn(), sendCommand: vi.fn() };
   const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
@@ -24,6 +60,7 @@ it("closes a disabled output, cancels its queued attacks, and silences sustained
   const hex = synth.makeHex("test", 0, 0, 0, 12, -100, 100, null, null, null, 1);
   hex.noteOn(performance.now() + 500);
   hex.noteOff(); // The channel is free, but sustain/release tails may still sound.
+  output.cancelEvents.mockClear();
   output.sendCommand.mockClear();
   synth.shutdown();
   expect(output.cancelEvents).toHaveBeenCalledOnce();

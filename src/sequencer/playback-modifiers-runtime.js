@@ -5,6 +5,7 @@
 
 import { classifyIntervalText } from "../tuning/interval.js";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
+import { readSnapshotExpression } from "./snapshot-expression.js";
 
 export const MIN_SEQUENCE_PLAYBACK_SPEED = 0.5;
 export const MAX_SEQUENCE_PLAYBACK_SPEED = 2;
@@ -139,6 +140,13 @@ export function skewSequenceTimbreValue(value, modWheel, maximum = 127) {
 
 export function applySequenceTimbreModWheelToNote(note, modWheel) {
   if (!note || typeof note !== "object") return note;
+  if (note.expression) {
+    const expression = readSnapshotExpression(note);
+    const source = note.sequenceSourceExpressionTimbre ?? expression.timbre;
+    const wheel = clampSequenceTimbreModWheel(modWheel);
+    const timbre = wheel <= 64 ? source * wheel / 64 : source + (1 - source) * (wheel - 64) / 63;
+    return { ...note, expression: { ...expression, timbre }, sequenceSourceExpressionTimbre: source };
+  }
   const rawSourceTimbre = note.sequenceSourceTimbre ?? note.timbre;
   const rawSourceTimbre14 = note.sequenceSourceTimbre14 ?? note.timbre14;
   const sourceTimbre = Number(rawSourceTimbre);

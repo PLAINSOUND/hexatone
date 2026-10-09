@@ -102,7 +102,7 @@ const EventsGridHeader = ({ eventPane, onTogglePane }) => {
           </div>
           <div class="sequencer-event__cell sequencer-events-grid__heading sequencer-events-grid__heading-cell sequencer-events-grid__heading-cell--offset">
             <span class="sequencer-event__content sequencer-events-grid__heading-content">
-              {renderResponsiveHeading("timbre", "tim")}
+              {renderResponsiveHeading("exprY", "Y")}
             </span>
           </div>
         </>

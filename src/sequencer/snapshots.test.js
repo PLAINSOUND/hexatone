@@ -52,8 +52,7 @@ describe("sequencer snapshots", () => {
         attackVelocity: 113,
         releaseVelocity: 113,
         velocity: 113,
-        pressure: 0,
-        timbre: 0,
+        expression: { pressure: 0, timbre: 0 },
       },
     ]);
   });
@@ -69,8 +68,7 @@ describe("sequencer snapshots", () => {
       attackVelocity: 101,
       releaseVelocity: 35,
       velocity: 101,
-      pressure: 0,
-      timbre: 0,
+      expression: { pressure: 0, timbre: 0 },
     });
   });
 
@@ -89,10 +87,7 @@ describe("sequencer snapshots", () => {
     });
 
     expect(captureSnapshot(runtime)[0]).toMatchObject({
-      pressure: 64,
-      pressure14: 8200,
-      timbre: 91,
-      timbre14: 12000,
+      expression: { pressure: 8200 / 16256, timbre: 12000 / 16256 },
     });
   });
 
@@ -108,7 +103,7 @@ describe("sequencer snapshots", () => {
     runtime._controllerCCValues = new Map([[1, 87]]);
 
     expect(captureSnapshot(runtime)[0]).toMatchObject({
-      timbre: 87,
+      expression: { timbre: 87 / 127 },
     });
   });
 
@@ -213,7 +208,7 @@ describe("sequencer snapshots", () => {
     expect(snapshot[1]).toMatchObject({
       attackVelocity: 90,
       releaseVelocity: 44,
-      pressure: 55,
+      expression: { pressure: 55 / 127 },
     });
   });
 
@@ -238,8 +233,7 @@ describe("sequencer snapshots", () => {
     expect(snapshot[1]).toMatchObject({
       attackVelocity: 90,
       releaseVelocity: 44,
-      pressure: 55,
-      timbre: 80,
+      expression: { pressure: 55 / 127, timbre: 80 / 127 },
     });
   });
 
@@ -256,8 +250,7 @@ describe("sequencer snapshots", () => {
         attackVelocity: 120,
         releaseVelocity: 120,
         velocity: 120,
-        pressure: 0,
-        timbre: 0,
+        expression: { pressure: 0, timbre: 0 },
       },
     ]);
   });

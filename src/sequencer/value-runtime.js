@@ -28,7 +28,7 @@ export function formatFrequency(value) {
 
 export function formatEditableFrequency(value) {
   if (!Number.isFinite(value)) return "--";
-  return value.toFixed(6);
+  return String(value);
 }
 
 export function formatMidicents(value) {
@@ -38,7 +38,7 @@ export function formatMidicents(value) {
 
 export function formatEditableMidicents(value) {
   if (!Number.isFinite(value)) return "--";
-  return value.toFixed(6);
+  return String(value);
 }
 
 export function displayValue(value) {
@@ -184,7 +184,13 @@ export function structuralEventInstanceKey(item) {
 export function commitTextInput(target, commit, normalize = null) {
   if (!(target instanceof HTMLInputElement)) return { committed: false, metadata: null };
   const value = target.value;
-  if (target.dataset.lastCommittedValue === value) return { committed: false, metadata: null };
+  if (target.dataset.lastCommittedValue === value) {
+    // Display normalization also belongs to an unchanged blur: focusing a
+    // rounded field exposes precision but must neither save nor leave it open.
+    if (typeof normalize === "function") normalize();
+    target.dataset.lastCommittedValue = target.value;
+    return { committed: false, metadata: null };
+  }
   // Mark the DOM value before invoking the state mutation. A synchronous
   // rerender or blur must not submit the same edit against an older snapshot.
   target.dataset.lastCommittedValue = value;

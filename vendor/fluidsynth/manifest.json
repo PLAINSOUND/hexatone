@@ -24,7 +24,7 @@
     "licenses/FLUIDSYNTH-LGPL-2.1.txt": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95",
     "licenses/GCEM-APACHE-2.0.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
     "licenses/SIGNALSMITH-MIT.txt": "b81eab3abab58e20eb74c74e70b8f3cbf7160ae3b3f1951b8f5e6692b52d10b5",
-    "processor.js": "07d304c14de6c422aced8981a69198a23643cc75415123bca5dc793e4b62aede",
+    "processor.js": "c461f1b1b79f1522605bb954d19152c39dfa533f05693d8e42b13834a2084b54",
     "sources/adapter_core.cpp": "25dbbcf1aafcc46e3966e0ee9c2bf28d5b5077434ce0f5043c93ae40d1521527",
     "sources/emscripten-cxx17.patch": "71b1b33e85e1fb8c54cf9436fc98dacd0e7116f7eed6f6d03b46612f020b134a",
     "sources/fluidsynth-2.6.1-71e85b2.tar.gz": "188840c6bb017405e596f0e9dc09f55684559e3fe00ce255652bae2951a619cc",

@@ -9,6 +9,7 @@ import {
 } from "./manual-snapshot-arpeggiation.js";
 import { cloneJsonValue } from "../persistence/clone-json-value.js";
 import { normalizeSequenceLegatoMode } from "./legato.js";
+import { normalizeSnapshotExpression } from "./snapshot-expression.js";
 
 export const SEQUENCE_WORKSPACE_STORAGE_KEY = "hexatone_sequence_workspace";
 
@@ -22,7 +23,7 @@ export function serializeSequenceWorkspace(workspace = {}, { copy = true } = {})
     version: 2,
     snapshots: clone(
       Array.isArray(workspace.snapshots)
-        ? workspace.snapshots.map(normalizeSnapshotManualTrigger)
+        ? workspace.snapshots.map(normalizeSnapshotExpression).map(normalizeSnapshotManualTrigger)
         : [],
     ),
     bars: clone(Array.isArray(workspace.bars) ? workspace.bars : []),
@@ -45,7 +46,7 @@ export function normalizeSequenceWorkspaceRecord(record) {
   return {
     version: 2,
     snapshots: clone(
-      Array.isArray(record.snapshots) ? record.snapshots.map(normalizeSnapshotManualTrigger) : [],
+      Array.isArray(record.snapshots) ? record.snapshots.map(normalizeSnapshotExpression).map(normalizeSnapshotManualTrigger) : [],
     ),
     bars: normalizeBarMarkers(clone(Array.isArray(record.bars) ? record.bars : [])),
     tempi: normalizeTempoMarkers(clone(Array.isArray(record.tempi) ? record.tempi : [])),
