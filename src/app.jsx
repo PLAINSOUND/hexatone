@@ -1180,6 +1180,7 @@ const App = () => {
     [rememberManualScrollPosition, snapshots.length],
   );
   const [playingSnapshotId, setPlayingSnapshotId] = useState(null);
+  const [paletteSnapshotScrollRequest, setPaletteSnapshotScrollRequest] = useState(null);
   const [manualPlayingSnapshotIds, setManualPlayingSnapshotIds] = useState([]);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState(null);
   const [selectedSnapshotMarker, setSelectedSnapshotMarker] = useState(null);
@@ -2547,8 +2548,9 @@ const App = () => {
         onStopSnapshot();
       }
       onPlaySnapshot(id);
+      if (workspaceTab === "sequencer") setPaletteSnapshotScrollRequest({ snapshotId: id });
     },
-    [onPlaySnapshot, onStopSnapshot],
+    [onPlaySnapshot, onStopSnapshot, workspaceTab],
   );
 
   const previousPerformanceWorkspaceTabRef = useRef(performanceWorkspaceTab);
@@ -6237,6 +6239,7 @@ const App = () => {
                     pendingTransportSelection={pendingTransportSelectionRef.current}
                     playingSnapshotId={playingSnapshotId}
                     playingSnapshotIds={manualPlayingSnapshotIds}
+                    paletteSnapshotScrollRequest={paletteSnapshotScrollRequest}
                     scrollPositionRef={sequencerScrollPositionRef}
                     playhead={sequencePlayhead}
                     onTakeSnapshot={onTakeSnapshot}

@@ -335,6 +335,7 @@ describe("FluidSynth settings", () => {
   it("enables preset, output, and volume controls once a bank is loaded", () => {
     const selectPreset = vi.fn();
     const setVolume = vi.fn();
+    const setReverb = vi.fn();
     fluidsynthMock.engine = {
       soundfontId: 1,
       presets: [
@@ -343,6 +344,7 @@ describe("FluidSynth settings", () => {
       ],
       selectPreset,
       setVolume,
+      setReverb,
     };
     const onChange = vi.fn();
     render(
@@ -363,6 +365,9 @@ describe("FluidSynth settings", () => {
     });
     expect(setVolume).toHaveBeenCalledWith(101);
     expect(localStorage.getItem("fluidsynth_internal_volume")).toBe("101");
+    fireEvent.keyDown(screen.getByRole("slider", { name: "FluidSynth reverb" }), { key: "ArrowRight" });
+    expect(setReverb).toHaveBeenCalledWith(21);
+    expect(localStorage.getItem("fluidsynth_internal_reverb")).toBe("21");
     expect(screen.getByLabelText("FluidSynth SoundFont").disabled).toBe(false);
     expect(screen.getByRole("button", { name: "Load Hexatone SoundFont" })).toBeTruthy();
   });

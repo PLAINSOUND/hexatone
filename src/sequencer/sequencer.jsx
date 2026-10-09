@@ -118,6 +118,7 @@ const Sequencer = ({
   pendingTransportSelection = null,
   playingSnapshotId,
   playingSnapshotIds = [],
+  paletteSnapshotScrollRequest = null,
   scrollPositionRef = null,
   workspaceVisible = true,
   playhead,
@@ -1829,6 +1830,20 @@ const Sequencer = ({
       snapshots,
     ],
   );
+  const handledPaletteScrollRequestRef = useRef(null);
+  useLayoutEffect(() => {
+    if (!workspaceVisible || timedPlaybackOwnsViewport || !paletteSnapshotScrollRequest ||
+        handledPaletteScrollRequestRef.current === paletteSnapshotScrollRequest) return;
+    handledPaletteScrollRequestRef.current = paletteSnapshotScrollRequest;
+    const index = snapshots.findIndex(snapshot => snapshot.id === paletteSnapshotScrollRequest.snapshotId);
+    if (index < 0) return;
+    // A palette trigger is an explicit navigation intent, even when replaying
+    // the same snapshot after scrolling away. Reuse viewport presentation only;
+    // App has already dispatched audio and owns the timed-to-manual handoff.
+    revealManualSnapshotIfNeeded(index);
+  }, [paletteSnapshotScrollRequest, workspaceVisible, timedPlaybackOwnsViewport,
+    snapshots, revealManualSnapshotIfNeeded]);
+
   const revealManualCueIfNeeded = useCallback(
     (cueIndex) => {
       if (!autoScrollEnabledRef.current) return;

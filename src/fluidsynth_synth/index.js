@@ -13,6 +13,7 @@ import { warnLog } from "../debug/logging.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
 import { createFluidMidiScheduler } from "./midi-scheduler.js";
 import { reattackFluidSynthSnapshots } from "./voices.js";
+import { readFluidSynthReverb } from "./reverb.js";
 
 let enginePromise = null;
 let engine = null;
@@ -125,6 +126,7 @@ async function installSoundFont(active, source, preset = null, { notify = true }
   ) ?? active.presets[0];
   if (selected) active.selectPreset(selected);
   active.setVolume(active.volume);
+  active.setReverb?.(active.reverb);
   if (notify) notifyEngineListeners();
   return result;
 }
@@ -158,6 +160,15 @@ async function rebindEngineToContext(context, signal) {
       presets: [],
       selectedPreset: null,
       volume: engine.volume,
+      reverb: engine.reverb,
+      setReverb(value) {
+        candidate.reverb = value;
+        candidate.node.port.postMessage({ type: "midi-batch", events:
+          Array.from({ length: 128 }, (_, channel) => ({
+            command: { channel, op: "cc", a: 91, b: value },
+          })),
+        });
+      },
       selectPreset(preset) {
         if (!preset || candidate.soundfontId == null) return;
         candidate.selectedPreset = { bank: preset.bank, program: preset.program };
@@ -330,10 +341,19 @@ export async function getFluidSynthEngine() {
         selectedPreset: null,
         soundfontSource: null,
         volume: 100,
+        reverb: readFluidSynthReverb(),
       };
       notifyEngineListeners();
 
       engine.output = createFluidMidiScheduler(() => engine, ensureFluidSynthEngineAwake);
+      engine.setReverb = (value) => {
+        engine.reverb = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
+        engine.output.reverbSend = engine.reverb;
+        for (let channel = 0; channel < 128; channel++) {
+          engine.output.sendCommand({ channel, op: "cc", a: 91, b: engine.reverb });
+        }
+      };
+      engine.output.reverbSend = engine.reverb;
       engine.setVolume = (value) => {
         engine.volume = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
         for (let channel = 0; channel < 128; channel++) {
@@ -416,6 +436,7 @@ export async function loadFluidSynthSoundFont(
       ) ?? active.presets[0];
       if (selected) active.selectPreset(selected);
       active.setVolume(active.volume);
+      active.setReverb(active.reverb);
       notifyEngineListeners();
       return result;
     } catch (error) {

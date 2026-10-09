@@ -11,6 +11,8 @@ import {
   subscribeFluidSynthEngine,
 } from "../fluidsynth_synth/index.js";
 
+import { REVERB_KEY, readFluidSynthReverb } from "../fluidsynth_synth/reverb.js";
+
 const VOLUME_KEY = "fluidsynth_internal_volume";
 const LAST_BANK_KEY = "fluidsynth_last_hosted_soundfont";
 const PRESET_KEY = "fluidsynth_bank_presets";
@@ -87,6 +89,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       : HOSTED_SOUNDFONTS.includes(remembered) ? remembered : "";
   });
   const [volume, setVolume] = useState(readVolume);
+  const [reverb, setReverb] = useState(readFluidSynthReverb);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(null);
@@ -174,6 +177,13 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     localStorage.setItem(VOLUME_KEY, String(next));
     sessionStorage.setItem(VOLUME_KEY, String(next));
     peekFluidSynthEngine()?.setVolume(next);
+  };
+
+  const changeReverb = (value) => {
+    const next = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
+    setReverb(next);
+    try { localStorage.setItem(REVERB_KEY, String(next)); } catch { /* Private storage unavailable. */ }
+    peekFluidSynthEngine()?.setReverb?.(next);
   };
 
   const loadSoundFont = async (source, signal) => {
@@ -451,6 +461,16 @@ const FluidSynthSettings = ({ settings, onChange }) => {
                 onCommitValue={changeVolume}
               />
               <span class="settings-form__range-value">{volume}</span>
+            </span>
+          </label>
+
+          <label>
+            Reverb
+            <span class="sidebar-input settings-form__range-row">
+              <CustomRangeSlider ariaLabel="FluidSynth reverb" min={0} max={127} step={1}
+                value={reverb} disabled={!loaded}
+                onInputValue={changeReverb} onCommitValue={changeReverb} />
+              <span class="settings-form__range-value">{reverb}</span>
             </span>
           </label>
 

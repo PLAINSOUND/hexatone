@@ -105,6 +105,9 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
           // Silence old release tails before changing this channel's tuning or expression.
           voiceSend(channel, "cc", 120, 0, timestamp);
           voiceSend(channel, "cc", 121, 0, timestamp);
+          // Reset All Controllers also resets CC91. Restore the fader's send
+          // before every attack, including reused channels and sequence cues.
+          if (output.reverbSend != null) voiceSend(channel, "cc", 91, output.reverbSend, timestamp);
           for (const [cc, value] of [[101, 0], [100, 0], [6, Math.floor(rangeCents / 100)],
             [38, rangeCents % 100], [101, 127], [100, 127]]) {
             voiceSend(channel, "cc", cc, value, timestamp);

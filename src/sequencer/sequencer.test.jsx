@@ -21,6 +21,28 @@ import {
 } from "./snapshot-workspace-runtime.js";
 
 describe("Sequencer", () => {
+  it("reveals palette-triggered snapshots, including replay after scrolling away, without dispatching audio again", async () => {
+    localStorage.setItem("hexatone_sequencer_auto_scroll_enabled", "true");
+    const props = {
+      snapshots: [{ id: 10, length: 1, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
+      bars: [], tempi: [], repeats: [], onPlaySnapshot: vi.fn(),
+    };
+    const view = render(<Sequencer {...props} />);
+    const panel = view.container.querySelector(".sequencer-scroll-panel");
+    Object.defineProperty(panel, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(panel, "scrollHeight", { configurable: true, value: 2000 });
+    panel.getBoundingClientRect = () => ({ top: 0, bottom: 200, height: 200 });
+    const row = screen.getByLabelText("snapshot 1 description").closest(".sequencer-item");
+    row.getBoundingClientRect = () => ({ top: 500 - panel.scrollTop, bottom: 600 - panel.scrollTop });
+    view.rerender(<Sequencer {...props} paletteSnapshotScrollRequest={{ snapshotId: 10 }} />);
+    await waitFor(() => expect(panel.scrollTop).toBeGreaterThan(0));
+    panel.scrollTop = 0;
+    view.rerender(<Sequencer {...props} paletteSnapshotScrollRequest={{ snapshotId: 10 }} />);
+    await waitFor(() => expect(panel.scrollTop).toBeGreaterThan(0));
+    expect(props.onPlaySnapshot).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
   it("keeps notes open and highlights timed playback with editing controls closed", async () => {
     sessionStorage.removeItem("hexatone_sequencer_edit_play_expanded");
     render(<Sequencer

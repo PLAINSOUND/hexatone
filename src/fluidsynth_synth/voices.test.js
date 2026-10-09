@@ -3,6 +3,21 @@ import { createInternalVoiceSynth, reattackFluidSynthSnapshots } from "./voices.
 import { create_midi_synth } from "../midi_synth/index.js";
 import { mtsToMidiFloat } from "../tuning/mts-format.js";
 
+it("restores the reverb send after controller reset and before each new attack", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn(), reverbSend: 63 };
+  const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 } });
+  const hex = synth.makeHex(null, 0, 0, 0, 12, -100, 100, null, 77, null, 1);
+  hex.noteOn();
+  const commands = output.sendCommand.mock.calls.map(([command]) => command);
+  const reset = commands.findIndex(c => c.op === "cc" && c.a === 121);
+  const reverb = commands.findIndex(c => c.op === "cc" && c.a === 91);
+  const attack = commands.findIndex(c => c.op === "on");
+  expect(reverb).toBeGreaterThan(reset);
+  expect(reverb).toBeLessThan(attack);
+  expect(commands[reverb].b).toBe(63);
+});
+
 it("reattacks only held snapshots after program selection, preserving channels and queued releases", () => {
   const output = { send: vi.fn(), sendCommand: vi.fn(), cancelEvents: vi.fn() };
   const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
