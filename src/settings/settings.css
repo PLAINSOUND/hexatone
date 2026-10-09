@@ -1159,6 +1159,15 @@ td.scale-color-col .color-input {
   margin-top: 0;
 }
 
+.settings-form__reload-row--compact {
+  height: auto;
+  margin-bottom: 0;
+}
+
+.settings-form__reload-row--compact + .settings-form__reload-row--compact {
+  margin-top: 0;
+}
+
 .io-settings__reload-row {
   /* Match a fieldset's 2px margin, 1px border and .75em inline padding. */
   margin-inline: 2px;
@@ -6397,6 +6406,14 @@ input.equiv-cell:disabled,
 
   .auto-prime-colors-actions__side {
     align-items: stretch;
+  }
+}
+
+@media (max-width: 480px) and (orientation: portrait) {
+  .auto-prime-colors-actions__group {
+    flex-wrap: nowrap;
+    flex: none;
+    width: auto;
   }
 }
 

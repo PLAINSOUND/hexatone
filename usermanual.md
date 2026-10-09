@@ -76,6 +76,11 @@ To explore scales, compare tunings, build and recall chords:
 
 ### Sidebar Settings
 
+In the `HEXATONE` tab, `Keep screen awake`, below `Restore on reload`, prevents
+automatic screen locking during playback or held notes when the browser permits
+it. The preference is saved independently of tuning restoration. Manual locking
+and system power-saving restrictions can still interrupt audio.
+
 `HEXATONE`
   - Built-in Tunings
   - User Tunings

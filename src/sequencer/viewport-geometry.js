@@ -1,6 +1,12 @@
 // A sequencer scroll panel can extend below the browser viewport when controls
 // above it wrap. Scroll decisions must use only the portion a user can see.
 
+export function sequencerScrollClearance() {
+  // Portrait transport wraps into taller rows. Leave clearance below its
+  // painted edge in both virtualized navigation and measured page following.
+  return window.matchMedia?.("(max-width: 480px) and (orientation: portrait)")?.matches ? 16 : 6;
+}
+
 export function intersectRectWithViewport(
   rect,
   { viewportTop = 0, viewportBottom = Infinity } = {},

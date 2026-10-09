@@ -48,6 +48,8 @@ const TuningLibrary = ({
   isPresetDirty,
   persistOnReload,
   setPersistOnReload,
+  keepScreenAwake,
+  setKeepScreenAwake,
   showActivateAudioContext,
   activateAudioContext,
   activatePendingPreset,
@@ -442,7 +444,7 @@ const TuningLibrary = ({
             </button>
           )}
         </label>
-        <div class="settings-form__reload-row settings-form__checkbox-row--sm">
+        <div class="settings-form__reload-row settings-form__checkbox-row--sm settings-form__reload-row--compact">
           {showActivateAudioContext && (activateAudioContext || activatePendingPreset) ? (
             <button
               type="button"
@@ -461,6 +463,13 @@ const TuningLibrary = ({
               <em class="settings-form__helper-text">Restore on reload</em>
             </label>
           )}
+        </div>
+        <div class="settings-form__reload-row settings-form__checkbox-row--sm settings-form__reload-row--compact">
+          <label class="settings-form__checkbox-row settings-form__reload-checkbox">
+            <input type="checkbox" checked={keepScreenAwake}
+              onChange={(e) => setKeepScreenAwake?.(e.target.checked)} />
+            <em class="settings-form__helper-text">Keep screen awake</em>
+          </label>
         </div>
       </fieldset>
 
@@ -626,6 +635,8 @@ TuningLibrary.propTypes = {
   isPresetDirty: PropTypes.bool,
   persistOnReload: PropTypes.bool,
   setPersistOnReload: PropTypes.func.isRequired,
+  keepScreenAwake: PropTypes.bool,
+  setKeepScreenAwake: PropTypes.func,
   showActivateAudioContext: PropTypes.bool,
   activateAudioContext: PropTypes.func,
   activatePendingPreset: PropTypes.func,

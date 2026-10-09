@@ -622,6 +622,8 @@ export const SETTINGS_REGISTRY = [
   // ── App preferences (localStorage, not session) ───────────────────────────────
   // hexatone_persist_on_reload is handled separately in app.jsx / hooks/use-presets.js
   // and is intentionally not part of the settings object.
+  // hexatone_keep_screen_awake is likewise an independent localStorage app
+  // preference, managed by hooks/use-screen-wake-lock.js even on clean reloads.
 
   // ── Rationalisation search prefs ──────────────────────────────────────────────
   // These are stored outside the settings object, managed directly by

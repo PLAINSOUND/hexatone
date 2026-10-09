@@ -6,15 +6,15 @@
       "sequences": [
         {
           "slug": "FALL",
-          "name": "FALL (Sabat: The Tree + Modulations)"
+          "name": "FALL from “The Tree”"
         },
         {
           "slug": "Flight",
-          "name": "Fleeting Flight Sleeping Woke (47-limit JI / 36edo)"
+          "name": "Fleeting flight sleeping woke"
         },
         {
-          "slug": "Seeds-of-Skies-Alibis",
-          "name": "Seeds of Skies, Alibis"
+          "slug": "Seeds-of-skies-alibis",
+          "name": "Seeds of skies, alibis"
         }
       ]
     }

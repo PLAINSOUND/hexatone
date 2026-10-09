@@ -29,6 +29,8 @@ const Settings = ({
   onCommitCurrentModulation,
   persistOnReload,
   setPersistOnReload,
+  keepScreenAwake,
+  setKeepScreenAwake,
   showActivateAudioContext,
   activateAudioContext,
   activatePendingPreset,
@@ -83,6 +85,8 @@ const Settings = ({
         onClearWorkspace={onClearUserPresets}
         persistOnReload={persistOnReload}
         setPersistOnReload={setPersistOnReload}
+        keepScreenAwake={keepScreenAwake}
+        setKeepScreenAwake={setKeepScreenAwake}
         showActivateAudioContext={showActivateAudioContext}
         activateAudioContext={activateAudioContext}
         activatePendingPreset={activatePendingPreset}

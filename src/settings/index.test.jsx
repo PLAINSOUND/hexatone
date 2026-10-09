@@ -28,6 +28,12 @@ vi.mock("../hexatone/tuning-library.jsx", () => ({
           Restore on reload
         </label>
       )}
+      <label>
+        <input type="checkbox" aria-label="Keep screen awake"
+          checked={props.keepScreenAwake}
+          onChange={(e) => props.setKeepScreenAwake(e.target.checked)} />
+        Keep screen awake
+      </label>
       Tuning Library Stub
     </div>
   ),
@@ -144,6 +150,15 @@ describe("Settings MIDI Setup fieldset", () => {
   it("hides the activate-audio-context button by default", () => {
     render(<Settings {...baseProps} />);
     expect(screen.queryByRole("button", { name: "Activate Audio Context" })).toBeNull();
+  });
+
+  it("forwards the restored screen-wake preference and its change handler to the tuning library", () => {
+    const setKeepScreenAwake = vi.fn();
+    render(<Settings {...baseProps} keepScreenAwake={true} setKeepScreenAwake={setKeepScreenAwake} />);
+    const checkbox = screen.getByLabelText("Keep screen awake");
+    expect(checkbox.checked).toBe(true);
+    fireEvent.click(checkbox);
+    expect(setKeepScreenAwake).toHaveBeenCalledWith(false);
   });
 
   it("shows an activate-audio-context button when restored audio needs activation", () => {

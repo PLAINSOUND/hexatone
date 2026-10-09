@@ -9,7 +9,7 @@ import {
 } from "../debug/sequence-runtime-diagnostics.js";
 import { appendPersistedSequencerCrashDiagnostic } from "../debug/sequencer-crash-diagnostics.js";
 import { deriveCueScrollAnchorTarget, resolveCueAnchorSnapshotId } from "./view-runtime.js";
-import { bottomOcclusionHeight, visibleElementBounds } from "./viewport-geometry.js";
+import { bottomOcclusionHeight, visibleElementBounds, sequencerScrollClearance } from "./viewport-geometry.js";
 
 export function derivePagedPanelScrollTop({
   scrollTop,
@@ -141,7 +141,7 @@ export default function useSequencerAutoscroll({
             ? playbackRowRef.current.getBoundingClientRect()
             : null;
         const targetRects = liveNodes.map((node) => node.getBoundingClientRect());
-        const gap = 6;
+        const gap = sequencerScrollClearance();
         const stickyTransportOverlap =
           playbackRect == null
             ? 0
@@ -230,6 +230,7 @@ export default function useSequencerAutoscroll({
       panelTop: visiblePanel.top,
       targetTop: targetRect.top,
       stickyTop: stickyTransportOverlap,
+      gap: sequencerScrollClearance(),
     });
     const delta = Math.abs(nextTop - scrollPanel.scrollTop);
     if (delta >= 2) scrollPanel.scrollTop = nextTop;

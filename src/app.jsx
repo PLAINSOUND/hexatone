@@ -42,6 +42,7 @@ import { parseExactInterval } from "./tuning/interval.js";
 import useSynthWiring from "./hooks/use-synth-wiring.js";
 import { createTransportClock } from "./sequencer/transport-clock.js";
 import useAudioRecovery from "./hooks/use-audio-recovery.js";
+import useScreenWakeLock from "./hooks/use-screen-wake-lock.js";
 import AudioRecoveryAlert from "./audio/recovery-alert.jsx";
 import { useMidiGuardian } from "./hooks/use-midi-guardian.js";
 import useDeferredModulationHistory from "./tuning/use-deferred-modulation-history.js";
@@ -1239,6 +1240,17 @@ const App = () => {
     barIndex: 0,
   });
   const sequenceRepeatPlaybackStateRef = useRef({});
+  const [keepScreenAwake, setKeepScreenAwake] = useScreenWakeLock(() => {
+    if (Number.isFinite(timedPlaybackUiRef.current.clockSeconds)) return true;
+    const keys = keysRef.current;
+    const voices = [
+      ...(keys?._allActiveHexes?.() ?? []),
+      ...(keys?.state?.sustainedNotes?.map(([hex]) => hex) ?? []),
+      ...(keys?._snapshotHexes ?? []),
+      ...(keys?._soundingSnapshotHexes ?? []),
+    ];
+    return voices.some(hex => hex && !hex.release);
+  });
   const previousSnapSequenceToCurrentTuningRef = useRef(false);
   const previousSequenceSnapRuntimeKeyRef = useRef(null);
   const liveSequenceSnapRuntimeRef = useRef(null);
@@ -6322,6 +6334,8 @@ const App = () => {
                   canCommitModulation={hasCommittableModulation}
                   onCommitCurrentModulation={onCommitCurrentModulation}
                   persistOnReload={persistOnReload}
+                  keepScreenAwake={keepScreenAwake}
+                  setKeepScreenAwake={setKeepScreenAwake}
                   setPersistOnReload={setPersistOnReload}
                   activatePendingPreset={activatePendingPreset}
                   onRevertBuiltin={onRevertBuiltin}

@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   derivePagedPanelScrollTop,
   derivePreferredTargetBounds,
   deriveTopAlignedPanelScrollTop,
   isLiveSequencerScrollTarget,
 } from "./autoscroll-controller.js";
-import { bottomOcclusionHeight } from "./viewport-geometry.js";
+import { bottomOcclusionHeight, sequencerScrollClearance } from "./viewport-geometry.js";
 
 const baseGeometry = {
   scrollTop: 400,
@@ -18,6 +18,17 @@ const baseGeometry = {
 };
 
 describe("sequencer autoscroll geometry", () => {
+  it("leaves more transport clearance only on phone portrait", () => {
+    const previous = window.matchMedia;
+    try {
+      window.matchMedia = vi.fn(() => ({ matches: true }));
+      expect(sequencerScrollClearance()).toBe(16);
+      expect(window.matchMedia).toHaveBeenCalledWith("(max-width: 480px) and (orientation: portrait)");
+      window.matchMedia = vi.fn(() => ({ matches: false }));
+      expect(sequencerScrollClearance()).toBe(6);
+    } finally { window.matchMedia = previous; }
+  });
+
   it("top-aligns a selected transport target even when it is already visible", () => {
     expect(
       deriveTopAlignedPanelScrollTop({

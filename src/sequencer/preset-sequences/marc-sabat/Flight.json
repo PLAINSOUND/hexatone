@@ -1,8 +1,8 @@
 {
   "type": "hexatone-sequence",
   "version": 6,
-  "name": "Fleeting Flight Sleeping Woke (47-limit JI / 36edo)",
-  "description": "This sequence of chords is orchestrated in Marc Sabat's chamber ensemble work “Fleeting Flight Sleeping Woke”, a work featuring Alois Haba‘s 1/6 tone harmonium. In the composition, the harmonium is treated as a close approximation of harmonic partial relationships that are tuned in close proximity to its native 36edo tuning. The sequence in its JI form (what the flexible-pitch instruments aim to realise) may be compared to the tempered version (what the harmonium is able to play) or against other speculative rationalisations by using \"Snap Sequence to Current Hexatone Tuning\" feature below.",
+  "name": "Fleeting flight sleeping woke",
+  "description": "This sequence of chords is orchestrated in Marc Sabat‘s chamber ensemble work “Fleeting flight sleeping woke” (2021/26). Featuring Alois Haba‘s 1/6 tone harmonium, this instrument‘s tuning is treated as a close approximation of nearby 47-limit harmonic partial relationships. The sequence in its JI form (what the flexible-pitch instruments aim to realise) may be compared to the tempered version (what the harmonium is able to play) by loading 36edo and using “Snap Sequence to Current Hexatone Tuning”.",
   "snapshotLabelMode": "odd_proportion",
   "autoCreateBars": false,
   "manualArpeggiation": {
@@ -56263,6 +56263,16 @@
       "pitchFrameId": "frame-1"
     }
   ],
+  "pitchFrames": [
+    {
+      "id": "frame-1",
+      "referenceLabel": "A4",
+      "referenceFrequency": 440,
+      "referenceInterval": "27/16",
+      "hejiAnchorLabel": "E",
+      "hejiAnchorInterval": "81/64"
+    }
+  ],
   "bars": [
     {
       "id": "bar:default",
@@ -56961,15 +56971,5 @@
       "denominator": 2
     }
   ],
-  "repeats": [],
-  "pitchFrames": [
-    {
-      "id": "frame-1",
-      "referenceLabel": "A4",
-      "referenceFrequency": 440,
-      "referenceInterval": "27/16",
-      "hejiAnchorLabel": "*nE",
-      "hejiAnchorInterval": "81/64"
-    }
-  ]
+  "repeats": []
 }

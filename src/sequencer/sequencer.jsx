@@ -38,7 +38,7 @@ import {
   SEQUENCER_VIEWPORT_OWNER_TIMED_PLAYBACK,
 } from "./timed-playback-visual-presenter.js";
 import useSequencerAutoscroll from "./autoscroll-controller.js";
-import { bottomOcclusionHeight, visibleElementBounds } from "./viewport-geometry.js";
+import { bottomOcclusionHeight, visibleElementBounds, sequencerScrollClearance } from "./viewport-geometry.js";
 import { deriveDragAutoscrollVelocity } from "./drag-autoscroll.js";
 import {
   loadSequencerAutoScrollPreference,
@@ -1463,7 +1463,7 @@ const Sequencer = ({
       releaseVirtualSequenceAnchor();
       return scrollVirtualSequenceIndexIntoView(numericIndex, {
         align: "start",
-        topOffset: stickyTransportOverlap + 6,
+        topOffset: stickyTransportOverlap + sequencerScrollClearance(),
         bottomOffset: measureSequenceBottomOcclusion(),
         targetIndexes: [numericIndex],
         materializedIndexes,
@@ -1736,7 +1736,7 @@ const Sequencer = ({
           : Math.max(0, Math.min(playbackRect.bottom, panelRect.bottom) - panelRect.top);
       return scrollVirtualSequenceIndexIntoView(recentSnapshotIndex, {
         align: "start",
-        topOffset: stickyTransportOverlap + 6,
+        topOffset: stickyTransportOverlap + sequencerScrollClearance(),
         bottomOffset: measureSequenceBottomOcclusion(),
         // Mount the complete physical interval. No estimated spacer is then
         // allowed between the first and last relevant event row.
