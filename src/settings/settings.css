@@ -2314,6 +2314,40 @@ td.scale-color-col .color-input {
 }
 
 @media (max-width: 926px) and (orientation: landscape) {
+  /* Grow targets away from menus; a small select margin separates the hit
+     regions without increasing button dimensions or wrapping the row. */
+  .sequencer-playback-row[aria-label="Sequence playback"] {
+    flex-wrap: nowrap;
+  }
+
+  #sidebar .sequencer-playback-control:not(.sequencer-playback-control--bar)
+    .sequencer-playback-select {
+    margin-inline: 0.12em;
+  }
+
+  #sidebar .sequencer-playback-row[aria-label="Sequence playback"]
+    .sequencer-arrow-btn--snapshot {
+    position: relative;
+    touch-action: manipulation;
+  }
+
+  #sidebar .sequencer-playback-row[aria-label="Sequence playback"]
+    .sequencer-arrow-btn--snapshot::after {
+    content: "";
+    position: absolute;
+    inset: -0.45em 0;
+  }
+
+  #sidebar .sequencer-playback-row[aria-label="Sequence playback"]
+    .sequencer-arrow-btn--snapshot:has(.sequencer-arrow-glyph--left)::after {
+    left: -0.8em;
+  }
+
+  #sidebar .sequencer-playback-row[aria-label="Sequence playback"]
+    .sequencer-arrow-btn--snapshot:has(.sequencer-arrow-glyph--right)::after {
+    right: -0.8em;
+  }
+
   .sequencer-playback-block {
     top: -0.7em;
   }
