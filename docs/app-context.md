@@ -291,7 +291,15 @@ build finishes. Cleanup detaches ownership and attempts all releases.
 Keys reconciles the output graph into existing composite voices. Joining outputs
 receive controller state before attacks; retained outputs must not receive a
 global expression replay that overwrites per-note state. Held sample voices may
-retain their instrument until release. Backend shutdown and graph exclusion are
+retain their instrument until release for held input notes. Sustaining sequence
+voices adopt a ready replacement sample through child-only reconciliation:
+release the old sample and attack the new one with remembered pitch/expression.
+Do not replay the snapshot, cancel its gestures, or reattack healthy outputs
+when a sample becomes ready. FluidSynth preset changes likewise reattack only
+held snapshot voices, on their existing channels after program selection, without
+resetting pitch/expression or cancelling queued releases. Live input notes keep
+their existing sound, and future queued attacks use the new preset naturally.
+Backend shutdown and graph exclusion are
 not interchangeable with Panic. FluidSynth transport events carry output-owner
 identity so obsolete wrappers can cancel their own queued work.
 

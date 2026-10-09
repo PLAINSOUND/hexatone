@@ -1,7 +1,40 @@
 import { expect, it, vi } from "vitest";
-import { createInternalVoiceSynth } from "./voices.js";
+import { createInternalVoiceSynth, reattackFluidSynthSnapshots } from "./voices.js";
 import { create_midi_synth } from "../midi_synth/index.js";
 import { mtsToMidiFloat } from "../tuning/mts-format.js";
+
+it("reattacks only held snapshots after program selection, preserving channels and queued releases", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn(), cancelEvents: vi.fn() };
+  const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 } });
+  const make = (sequence) => synth.makeHex(null, 0, 0, 0, 12, -100, 100, null, 77, null, 1,
+    sequence ? { absoluteMidicents: 60 } : {});
+  const held = make(true);
+  const live = make(false);
+  const pending = make(true);
+  const released = make(true);
+  const now = performance.now();
+  held.noteOn(now);
+  live.noteOn(now);
+  pending.noteOn(now + 1000);
+  released.noteOn(now);
+  released.noteOff(0, now + 500);
+  held.sequenceRetune(12);
+  held.pressure(80);
+  held.cc74(60);
+  const channel = held.channel;
+  output.sendCommand.mockClear();
+  reattackFluidSynthSnapshots(output, now + 20);
+  expect(output.sendCommand.mock.calls.map(([command]) => command)).toEqual([
+    { channel, op: "off", a: held.steps, b: 0 },
+    { channel, op: "on", a: held.steps, b: 77 },
+  ]);
+  expect(output.cancelEvents).not.toHaveBeenCalled();
+  expect(held.channel).toBe(channel);
+  expect(held.release).toBe(false);
+  held.noteOff(0, now + 200);
+  expect(output.sendCommand.mock.calls.at(-1)[0]).toMatchObject({ channel, op: "off" });
+});
 
 it("distinguishes pending attacks from voices invalidated by cleanup", () => {
   const output = { send: vi.fn(), sendCommand: vi.fn(), panic: vi.fn() };

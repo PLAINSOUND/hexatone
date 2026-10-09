@@ -110,14 +110,19 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
 
       // Existing Keys note objects survive output-graph changes. Reconcile the
       // child voices in-place so a newly enabled output joins sounding notes.
-      // Replacing a sample instrument instead preserves held voices until release.
+      // Sample changes replace only sequencer-owned sample children; held input
+      // notes keep their old sample until release. Other outputs never reattack.
       reconcileSynths(nextSynths, timestamp) {
         const desired = Array.isArray(nextSynths) ? nextSynths.filter(Boolean) : [];
-        // A held sample voice keeps its instrument until its musical release.
+        // A held input sample keeps its instrument until its musical release.
+        // Snapshots adopt the decoded replacement here, without replaying the
+        // snapshot or cancelling its sequencer gestures/other backend voices.
         // Store the newest graph for a later attack on this same wrapper.
         this._nextSynths = desired;
         const keepSample =
           this._compositeSounding &&
+          !Number.isFinite(args[11]?.absoluteMidicents) &&
+          !Number.isFinite(this._snapshotMidicents) &&
           hexSynths.some((s) => s.family === "sample") &&
           desired.some((s) => s.family === "sample");
         for (let index = hexSynths.length - 1; index >= 0; index -= 1) {

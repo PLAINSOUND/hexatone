@@ -2,6 +2,41 @@ import { describe, it, expect, vi } from "vitest";
 import { create_composite_synth } from "./index.js";
 
 describe("composite_synth controller-state replay", () => {
+  it("replaces only the sample child of a sustaining snapshot without reattacking other outputs", () => {
+    const makeEngine = (family) => {
+      const hex = { noteOn: vi.fn(), noteOff: vi.fn(), retune: vi.fn(),
+        applyNormalizedSnapshotPressure: vi.fn(), applyNormalizedSnapshotTimbre: vi.fn() };
+      return { family, makeHex: vi.fn(() => hex), hex };
+    };
+    const old = makeEngine("sample");
+    const next = makeEngine("sample");
+    const latest = makeEngine("sample");
+    const ss = makeEngine("osc");
+    const fluid = makeEngine("fluidsynth");
+    const args = [null, 0];
+    args[11] = { absoluteMidicents: 69, deferNoteOn: true };
+    const voice = create_composite_synth([old, ss, fluid]).makeHex(...args);
+    voice.noteOn(100);
+    voice.applyNormalizedSnapshotPressure(0.25);
+    voice.applyNormalizedSnapshotTimbre(0.5);
+    voice.reconcileSynths([next, ss, fluid], 120);
+    expect(old.hex.noteOff).toHaveBeenCalledWith(0, 120);
+    expect(next.hex.noteOn).toHaveBeenCalledWith(120);
+    expect(next.hex.applyNormalizedSnapshotPressure).toHaveBeenCalledWith(0.25);
+    expect(next.hex.applyNormalizedSnapshotTimbre).toHaveBeenCalledWith(0.5);
+    voice.reconcileSynths([latest, ss, fluid], 140);
+    expect(next.hex.noteOff).toHaveBeenCalledWith(0, 140);
+    expect(latest.hex.noteOn).toHaveBeenCalledWith(140);
+    voice.reconcileSynths([latest, ss, fluid], 160);
+    expect(latest.hex.noteOn).toHaveBeenCalledOnce();
+    for (const engine of [ss, fluid]) {
+      expect(engine.hex.noteOn).toHaveBeenCalledOnce();
+      expect(engine.hex.noteOff).not.toHaveBeenCalled();
+    }
+    voice.noteOff(32, 200);
+    expect(latest.hex.noteOff).toHaveBeenCalledWith(32, 200);
+  });
+
   it("restarts only an ended local child and primes expression before the attack", () => {
     let ended = false;
     const calls = [];

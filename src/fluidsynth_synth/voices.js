@@ -10,6 +10,14 @@ let nextOwner = 0;
 let nextVoice = 0;
 const clamp = (value, max = 127) => Math.max(0, Math.min(max, Math.round(value)));
 
+// Program selection changes future attacks, not existing FluidSynth voices.
+// Rearticulate only sequencer-owned held notes on their existing channels so
+// pitch/expression and already scheduled releases remain intact. Live keys and
+// future queued attacks must not be restarted.
+export function reattackFluidSynthSnapshots(output, timestamp = performance.now()) {
+  for (const hex of pools.get(output)?.owners ?? []) hex?.reattackSnapshot?.(timestamp);
+}
+
 export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwake, forceAudioRebuild }) {
   const output = outputMode.output;
   const requestedRange = Number(outputMode.pitchBendRange ?? 48);
@@ -52,6 +60,12 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
         needsRetainedVoiceRecovery() {
           return !closed && this._hasAttacked === true &&
             (!this.sounding || pool.owners[this.channel] !== this);
+        },
+        reattackSnapshot(timestamp) {
+          if (closed || metadata.scope !== "sequence" || this.release || !this.sounding ||
+              pool.owners[this.channel] !== this || this.attackTimestamp > timestamp) return;
+          voiceSend(this.channel, "off", this.steps, 0, timestamp);
+          voiceSend(this.channel, "on", this.steps, this.velocity, timestamp);
         },
         noteOn(timestamp) {
           if (closed || this.release || this.sounding) return;

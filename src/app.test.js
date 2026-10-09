@@ -1602,7 +1602,7 @@ describe("App workspace tabs", () => {
     } finally { view.unmount(); }
   });
 
-  it("replays a manual snapshot only when a replacement instrument is ready in I/O", async () => {
+  it("does not replay the whole snapshot when a replacement sample becomes ready in I/O", async () => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
     });
@@ -1626,13 +1626,13 @@ describe("App workspace tabs", () => {
       expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
       synthWiringState.readySampleInstrument = "hammond";
       view.rerender(<App />);
-      await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalledTimes(2));
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
       view.rerender(<App />);
-      expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
       fireEvent.click(screen.getByLabelText("Stop snapshot 1"));
       synthWiringState.readySampleInstrument = "sruti";
       view.rerender(<App />);
-      expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
     } finally {
       view.unmount();
       settings = previousSettings;

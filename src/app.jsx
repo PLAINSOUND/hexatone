@@ -1051,7 +1051,6 @@ const App = () => {
 
   const {
     synth,
-    readySampleInstrument,
     retryAudioOutputs,
     enginesLoading,
     engineStartupErrors,
@@ -4629,20 +4628,6 @@ const App = () => {
   // so SNAP resolves against its new tuning, not the retired runtime. Timed
   // transport and ordinary MIDI/output rebinding keep their own lifecycle.
   const snapshotReplayKeys = keysRef.current;
-  const previousReadySampleInstrumentRef = useRef(readySampleInstrument);
-  useEffect(() => {
-    const previous = previousReadySampleInstrumentRef.current;
-    previousReadySampleInstrumentRef.current = readySampleInstrument;
-    if (!previous || !readySampleInstrument || previous === readySampleInstrument) return;
-    const position = sequencePlayheadRef.current;
-    if (workspaceTab !== "io" || position.stopped || position.markerIndex != null ||
-        Number.isFinite(timedPlaybackUiRef.current.clockSeconds)) return;
-    if (!snapshots[position.stepIndex]) return;
-    cancelPendingManualCueUiCommit();
-    cancelManualSnapshotGestures();
-    playManualSnapshotAtIndex(position.stepIndex);
-  }, [readySampleInstrument, workspaceTab, snapshots, cancelPendingManualCueUiCommit,
-    cancelManualSnapshotGestures, playManualSnapshotAtIndex]);
   const previousSnapshotReplaySurfaceRef = useRef(null);
   useEffect(() => {
     if (!snapshotReplayKeys || snapshotReplayKeys !== keysRef.current) return;

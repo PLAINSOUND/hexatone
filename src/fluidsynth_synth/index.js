@@ -12,6 +12,7 @@ import {
 import { warnLog } from "../debug/logging.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
 import { createFluidMidiScheduler } from "./midi-scheduler.js";
+import { reattackFluidSynthSnapshots } from "./voices.js";
 
 let enginePromise = null;
 let engine = null;
@@ -341,6 +342,8 @@ export async function getFluidSynthEngine() {
       };
       engine.selectPreset = (preset) => {
         if (!preset || engine.soundfontId == null) return;
+        const changed = engine.selectedPreset?.bank !== preset.bank ||
+          engine.selectedPreset?.program !== preset.program;
         engine.selectedPreset = { bank: preset.bank, program: preset.program };
         engine.node.port.postMessage({
           type: "select-program",
@@ -348,6 +351,7 @@ export async function getFluidSynthEngine() {
           bank: preset.bank,
           program: preset.program,
         });
+        if (changed) reattackFluidSynthSnapshots(engine.output);
       };
       return engine;
     })().catch((error) => {
