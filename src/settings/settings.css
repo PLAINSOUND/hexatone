@@ -2351,7 +2351,42 @@ td.scale-color-col .color-input {
   .sequencer-playback-row[aria-label="Sequence playback"]
     > .sequencer-playback-control:not(.sequencer-playback-control--bar)
     + .sequencer-playback-control:not(.sequencer-playback-control--bar) {
-    margin-left: 0.9em;
+    margin-left: auto;
+  }
+
+  /* Keep the compact row geometry. Extra touch height stays outside layout;
+     horizontal expansion is bounded by the gap beside each select menu. */
+  #sidebar .sequencer-playback-row[aria-label="Sequence playback"]
+    .sequencer-arrow-btn--snapshot {
+    width: 1.1em;
+    min-width: 1.1em;
+    height: 1.5em;
+    min-height: 1.5em;
+    position: relative;
+    touch-action: manipulation;
+  }
+
+  #sidebar .sequencer-playback-row[aria-label="Sequence playback"]
+    .sequencer-arrow-btn--snapshot::after {
+    content: "";
+    position: absolute;
+    inset: -0.35em -0.1em;
+  }
+
+  #sidebar .sequencer-playback-row[aria-label="Sequence playback"]
+    .sequencer-arrow-btn--snapshot:has(.sequencer-arrow-glyph--left)::after {
+    left: -0.6em;
+  }
+
+  #sidebar .sequencer-playback-row[aria-label="Sequence playback"]
+    .sequencer-arrow-btn--snapshot:has(.sequencer-arrow-glyph--right)::after {
+    right: -0.6em;
+  }
+
+  .sequencer-playback-row[aria-label="Sequence playback"]
+    > .sequencer-playback-control--cue {
+    margin-left: auto;
+    margin-right: 0.9em;
   }
 
   .sequencer-playback-row[aria-label="Timed sequence playback"] > .sequencer-playback-label {

@@ -2,6 +2,20 @@ import { render, screen } from "@testing-library/preact";
 import { fireEvent } from "../test-utils/dom-events.js";
 import SequenceControls from "./sequence-controls.jsx";
 
+it("disables backward stepping at the prepared first snapshot and cue", () => {
+  const step = vi.fn();
+  render(<SequenceControls snapshots={[{ id: 1, notes: [] }]}
+    renderedSnapshots={[]} sortedBars={[]} sequenceCueGroups={[]}
+    playhead={{ stepIndex: -1, stopped: true }}
+    impliedPendingSnapshotIndex="0" impliedPendingCueIndex="0"
+    onStepSequence={step} onStepSequenceMarker={step} />);
+  for (const label of ["previous sequence step", "previous sequence marker"]) {
+    expect(screen.getByLabelText(label).disabled).toBe(true);
+    fireEvent.click(screen.getByLabelText(label));
+  }
+  expect(step).not.toHaveBeenCalled();
+});
+
 it.each(["start", "end"])("timed %s navigation stops before a deferred edit commit", (target) => {
   const calls = [];
   let pending;

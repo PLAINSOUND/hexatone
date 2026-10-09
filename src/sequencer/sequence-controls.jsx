@@ -353,9 +353,13 @@ const SequenceControls = ({
   const decayVariationPercent = Math.round(normalizedManualArpeggiation.decayVariation * 100);
   const decaySliderValue = manualArpeggiationDecaySliderValue(normalizedManualArpeggiation);
   const decayDisplayValue = manualArpeggiationDecayDisplay(normalizedManualArpeggiation);
-  // Item 1 is not the beginning of the transport: Previous first reaches the
-  // rewound state with item 1 prepared, then reaches explicit pre-start.
+  // A sounding first item can rewind to (1), but that prepared first item is
+  // the lower boundary: do not add another silent pre-start navigation step.
   const transportBackAvailable = snapshots.length > 0 && playhead?.preStart !== true;
+  const snapshotBackAvailable = transportBackAvailable &&
+    (timedTransportUiState?.running || impliedPendingSnapshotIndex !== "0");
+  const cueBackAvailable = transportBackAvailable &&
+    (timedTransportUiState?.running || impliedPendingCueIndex !== "0");
   const { runTransportAction, triggerManualTarget } = createManualTransportActions({
     timedTransportUiState,
     onTimedTransportStop,
@@ -810,8 +814,9 @@ const SequenceControls = ({
                 class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
                 aria-label="previous sequence step"
                 title="Previous step"
-                disabled={!transportBackAvailable}
+                disabled={!snapshotBackAvailable}
                 onClick={() => {
+                  if (!snapshotBackAvailable) return;
                   setPlayFromTarget("snapshot");
                   triggerManualTarget("snapshot", () => onStepSequence?.(-1), -1);
                 }}
@@ -887,15 +892,16 @@ const SequenceControls = ({
               </button>
             </span>
 
-            <span class="sequencer-playback-control">
+            <span class="sequencer-playback-control sequencer-playback-control--cue">
               <span class="sequencer-playback-key">CUE</span>
               <button
                 type="button"
                 class="sequencer-arrow-btn sequencer-arrow-btn--snapshot"
                 aria-label="previous sequence marker"
                 title="Previous marker"
-                disabled={!transportBackAvailable}
+                disabled={!cueBackAvailable}
                 onClick={() => {
+                  if (!cueBackAvailable) return;
                   setPlayFromTarget("cue");
                   triggerManualTarget("cue", () => onStepSequenceMarker?.(-1), -1);
                 }}

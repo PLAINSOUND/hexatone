@@ -2767,6 +2767,7 @@ const App = () => {
         return;
       }
       const pendingSnapshotIndex = pendingTransportSelectionRef.current.snapshotIndex;
+      if (direction < 0 && livePlayhead.stopped === true && pendingSnapshotIndex === 0) return;
       if (
         livePlayhead.stopped === true &&
         Number.isFinite(pendingSnapshotIndex) &&
@@ -2926,6 +2927,7 @@ const App = () => {
         const atEnd = playheadStepIndex != null && playheadStepIndex >= snapshots.length;
         let nextCue = currentCueIndex;
         const queuedCueIndex = pendingTransportSelectionRef.current.cueIndex;
+        if (direction < 0 && livePlayhead.stopped === true && queuedCueIndex === 0) return;
 
         if (livePlayhead.stopped === true && queuedCueIndex != null) {
           if (direction > 0) {
