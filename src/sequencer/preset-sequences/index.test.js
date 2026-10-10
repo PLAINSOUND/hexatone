@@ -39,6 +39,18 @@ describe("buildPresetSequenceGroups", () => {
     expect(groups[0].sequences.map((sequence) => sequence.name)).toEqual(["Alpha", "Beta"]);
   });
 
+  it("uses registry display names for case-sensitive lazy module paths", () => {
+    const groups = buildPresetSequenceGroups({
+      jsonModules: {
+        "./marc-sabat/Seeds-of-Skies-Alibis.json": async () => ({
+          name: "Seeds of skies, alibis", snapshots: [],
+        }),
+      },
+    });
+
+    expect(groups[0].sequences[0].name).toBe("Seeds of skies, alibis");
+  });
+
   it("keeps each registry menu name identical to the loaded sequence name", async () => {
     for (const group of presetSequenceGroups) {
       for (const descriptor of group.sequences) {
