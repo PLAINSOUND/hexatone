@@ -29,7 +29,7 @@ describe("sequence pitch frames", () => {
     expect(fallFrame).toMatchObject({
       referenceFrequency: 441,
       referenceInterval: "27/16",
-      hejiAnchorLabel: "*nA",
+      hejiAnchorLabel: "A",
       hejiAnchorInterval: "27/16",
     });
     expect(formatSequencePitchFrameCompact(fallFrame)).toBe(
