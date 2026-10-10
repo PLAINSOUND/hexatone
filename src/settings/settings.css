@@ -4120,7 +4120,7 @@ td.scale-color-col .color-input {
 }
 
 .sequencer-event__heji {
-  font-family: "Plainsound Notation", "Plainsound Sans", sans-serif;
+  font-family: "Plainsound Sans", sans-serif;
   justify-content: flex-start;
   white-space: nowrap;
 }
