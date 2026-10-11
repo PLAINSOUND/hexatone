@@ -107,6 +107,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   const loadGenerationRef = useRef(0);
   const activeEngine = peekFluidSynthEngine();
   const source = activeEngine?.soundfontSource;
+  const localSoundfontLoaded = activeEngine?.soundfontId != null && !!source && !source.url;
   const loadedMenuMatches = !hostedSoundfont || source?.name === hostedSoundfont;
   const menuKey = hostedSoundfont ? hostedUrl(hostedSoundfont) : null;
   useEffect(() => {
@@ -377,11 +378,12 @@ const FluidSynthSettings = ({ settings, onChange }) => {
         <select
           class="sidebar-input"
           aria-label="Hexatone FluidSynth SoundFont"
-          value={hostedSoundfont}
+          value={localSoundfontLoaded && !shuttingDown && !hostedSoundfont ? "local" : hostedSoundfont}
           disabled={busy}
           style={(!loaded || !loadedMenuMatches) && hostedSoundfont ? { color: "var(--muted-text, #888)" } : undefined}
           onChange={(event) => {
             const value = event.currentTarget.value;
+            if (value === "local") return;
             setHostedSoundfont(value);
             setStatus("");
             setStorageStatus("");
@@ -397,6 +399,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
             }
           }}
         >
+          {localSoundfontLoaded ? <option value="local" disabled>Choose a hosted SoundFont…</option> : null}
           <option value="">OFF</option>
           {HOSTED_SOUNDFONTS.map((name) => (
             <option key={name} value={name}>

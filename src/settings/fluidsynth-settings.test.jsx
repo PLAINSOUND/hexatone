@@ -25,6 +25,17 @@ vi.mock("../fluidsynth_synth/index.js", () => ({
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
 
 describe("FluidSynth settings", () => {
+  it("shows the hosted-bank prompt rather than OFF while a local SoundFont is playing", () => {
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "MyOrgan.sf2" },
+      presets: [{ bank: 0, program: 0, name: "Organ" }], selectedPreset: { bank: 0, program: 0 } };
+    const onChange = vi.fn();
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    const menu = screen.getByLabelText("Hexatone FluidSynth SoundFont");
+    expect(menu.selectedOptions[0].textContent).toBe("Choose a hosted SoundFont…");
+    expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(false);
+    fireEvent.change(menu, { target: { value: "" } });
+    expect(fluidsynthMock.stop).toHaveBeenCalledWith({ naturalRelease: true });
+  });
   it("resynchronizes the loaded bank and preset when the warm output is toggled back on", async () => {
     fluidsynthMock.engine = { soundfontId: 1,
       soundfontSource: { name: "PlainsoundOrgan.sf2" },
@@ -136,6 +147,7 @@ describe("FluidSynth settings", () => {
     expect(screen.getByLabelText("FluidSynth SoundFont").disabled).toBe(false);
   });
   beforeEach(() => {
+    fluidsynthMock.stop.mockReset().mockResolvedValue(undefined);
     vi.stubGlobal("fetch", vi.fn((_url, options) => new Promise((_resolve, reject) => {
       options?.signal?.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")));
     })));

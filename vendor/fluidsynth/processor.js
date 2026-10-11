@@ -15,6 +15,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   async initialize(wasmBytes) {
     try {
       this.module = await createFluidSynth({ wasmBinary: wasmBytes, locateFile: () => "" });
+      if (this.disposed) return;
       this.synth = this.module._ps_create(sampleRate);
       if (!this.synth) throw new Error("FluidSynth instance creation failed");
       this.initializeChannelTunings();
@@ -42,8 +43,35 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   }
 
   handleMessage(message) {
+    if (message?.type === "dispose") {
+      if (this.disposed) return;
+      this.disposed = true;
+      this.midiQueue = [];
+      if (this.synth) this.module._ps_destroy(this.synth);
+      this.synth = null;
+      for (const pointer of [this.leftPointer, this.rightPointer, this.sysexPointer, this.handledPointer]) {
+        if (pointer) this.module._free(pointer);
+      }
+      this.port.close();
+      return;
+    }
     if (!this.module || !this.synth || !message) return;
     try {
+      if (message.type === "release-for-shutdown") {
+        this.releasing = true;
+        this.silentReleaseFrames = 0;
+        this.midiQueue = [];
+        for (const channel of this.usedChannels ?? []) {
+          this.module._ps_cc(this.synth, channel, 64, 0);
+          this.module._ps_cc(this.synth, channel, 66, 0);
+          // Release only rendered attacks. Scanning all 16,384 possible keys
+          // blocks the audio thread and can interrupt the very tail we need.
+          for (const key of this.heldKeys?.get(channel) ?? []) this.module._ps_note_off(this.synth, channel, key);
+        }
+        this.heldKeys?.clear();
+        return;
+      }
+      if (this.releasing) return;
       if (message.type === "cancel-owner-events") {
         this.midiQueue = this.midiQueue.filter(event => !(event.owner === message.owner &&
           (message.scope == null || (event.scope === message.scope && event.generation === message.generation)) &&
@@ -168,8 +196,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     const channel = bytes[0] & 0x0f;
     const a = bytes[1] ?? 0;
     const b = bytes[2] ?? 0;
-    if (status === 0x80 || (status === 0x90 && b === 0)) this.module._ps_note_off(this.synth, channel, a);
-    else if (status === 0x90) this.module._ps_note_on(this.synth, channel, a, b);
+    if (status === 0x80 || (status === 0x90 && b === 0)) this.dispatchCommand({ channel, op: "off", a });
+    else if (status === 0x90) this.dispatchCommand({ channel, op: "on", a, b });
     else if (status === 0xb0) this.module._ps_cc(this.synth, channel, a, b);
     else if (status === 0xd0) this.module._ps_channel_pressure(this.synth, channel, a);
     else if (status === 0xa0) this.module._ps_key_pressure(this.synth, channel, a, b);
@@ -178,6 +206,14 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
 
   dispatchCommand({ channel, op, a = 0, b = 0 }) {
     if (!Number.isInteger(channel) || channel < 0 || channel >= 128) return;
+    if (op === "on" && b > 0) {
+      this.usedChannels ??= new Set();
+      this.usedChannels.add(channel);
+      this.heldKeys ??= new Map();
+      if (!this.heldKeys.has(channel)) this.heldKeys.set(channel, new Set());
+      this.heldKeys.get(channel).add(a);
+    } else if (op === "off" || (op === "on" && b === 0)) this.heldKeys?.get(channel)?.delete(a);
+    else if (op === "cc" && (a === 120 || a === 123)) this.heldKeys?.delete(channel);
     const functions = { on: "_ps_note_on", off: "_ps_note_off", cc: "_ps_cc",
       bend: "_ps_pitch_bend", pressure: "_ps_channel_pressure" };
     const fn = functions[op];
@@ -185,6 +221,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   }
 
   process(_inputs, outputs) {
+    if (this.disposed) return false;
     const channels = outputs[0];
     if (!channels?.length) return true;
     const frames = channels[0].length;
@@ -216,6 +253,15 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     const right = this.rightPointer >>> 2;
     channels[0].set(this.module.HEAPF32.subarray(left, left + frames));
     if (channels[1]) channels[1].set(this.module.HEAPF32.subarray(right, right + frames));
+    if (this.releasing) {
+      // Include the rendered effects tail, not merely the note-off commands.
+      const silent = channels.every(channel => channel.every(value => Math.abs(value) < 0.000001));
+      this.silentReleaseFrames = silent ? this.silentReleaseFrames + frames : 0;
+      if (this.silentReleaseFrames >= sampleRate / 4 && !this.releaseComplete) {
+        this.releaseComplete = true;
+        this.port.postMessage({ type: "release-complete" });
+      }
+    }
     for (const trace of touchTraces) this.port.postMessage(trace);
     return true;
   }
