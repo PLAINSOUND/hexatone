@@ -46,9 +46,9 @@ describe("SuperCollider scsynth settings", () => {
     expect(screen.getByText("Built-in scsynth")).toBeTruthy();
     expect(screen.getByText("Built-in scsynth").closest("fieldset").classList.contains("output-routing-fieldset")).toBe(true);
     expect(screen.getByLabelText("Use SuperCollider Sounds")).toBeTruthy();
-    expect(screen.getByLabelText("SuperSonic 0.88")).toBeTruthy();
+    expect(screen.getByLabelText("scsynth Server").value).toBe("supersonic");
     const description = screen.getByText(/SynthDefs run directly in the browser/);
-    expect(description.closest("p")?.previousElementSibling?.textContent.trim()).toBe("SuperSonic 0.88");
+    expect(description.closest("p")?.previousElementSibling?.querySelector("select")).toBe(screen.getByLabelText("scsynth Server"));
     expect(description.closest("em")).toBeTruthy();
   });
 
@@ -58,8 +58,24 @@ describe("SuperCollider scsynth settings", () => {
     );
 
     const description = screen.getByText(/local WebSocket→OSC bridge/);
-    expect(description.closest("p")?.previousElementSibling?.textContent.trim()).toBe("SuperSonic 0.88");
+    expect(screen.getByLabelText("scsynth Server").value).toBe("bridge");
     expect(description.closest("em")).toBeTruthy();
+  });
+
+  it("offers server OFF independently of the warm output toggle", () => {
+    const onChange = vi.fn();
+    const view = render(<SuperColliderSettings settings={{ output_osc: true, osc_local: true }} onChange={onChange} />);
+    const menu = screen.getByLabelText("scsynth Server");
+    expect([...menu.options].map(option => option.textContent)).toEqual(["OFF", "SuperSonic 0.88", "Local via OSC Bridge"]);
+    fireEvent.change(menu, { target: { value: "OFF" } });
+    expect(onChange).toHaveBeenCalledWith("osc_server_off", true);
+    expect(onChange).not.toHaveBeenCalledWith("output_osc", false);
+    view.rerender(<SuperColliderSettings settings={{ output_osc: true, osc_local: true, osc_server_off: true }} onChange={onChange} />);
+    expect(menu.value).toBe("OFF");
+    expect(screen.queryByRole("slider", { name: "Pluck volume" })).toBeNull();
+    fireEvent.change(menu, { target: { value: "bridge" } });
+    expect(onChange).toHaveBeenCalledWith("osc_local", false);
+    expect(onChange).toHaveBeenCalledWith("osc_server_off", false);
   });
 
   it("updates and persists layer volume", () => {

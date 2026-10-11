@@ -954,7 +954,7 @@ const useSynthWiring = (
       settings.mpe_hi_ch >= settings.mpe_lo_ch;
 
     // OSC → SuperCollider via local WebSocket bridge (node osc-bridge/index.js)
-    const wantOsc = settings.output_osc;
+    const wantOsc = settings.output_osc && !settings.osc_server_off;
 
     // FluidSynth mirror — must be computed before the early-return guard below,
     // otherwise the TDZ reference to wantFluidsynth in that condition would throw
@@ -992,13 +992,18 @@ const useSynthWiring = (
     if (!wantSample && sampleSynthRef.current.synth?.pauseOutput)
       park(sampleSynthRef, warmSampleSynthRef);
     if (!wantInternalFluidSynth) {
+      if (!fluidSynthEngine) clearOutputRef(warmFluidSynthRef, { panic: true });
       for (const [key, synth] of mtsSynthsRef.current) {
         if (synth.audioBackend !== "fluidsynth" || !synth.pauseOutput) continue;
         mtsSynthsRef.current.delete(key);
-        park({ current: { key, synth } }, warmFluidSynthRef);
+        if (fluidSynthEngine) park({ current: { key, synth } }, warmFluidSynthRef);
+        else synth.shutdown?.({ panic: true });
       }
     }
-    if (!wantOsc && oscSynthRef.current.synth?.pauseOutput) {
+    if (settings.osc_server_off) {
+      clearOutputRef(warmOscSynthRef, { naturalRelease: true });
+      clearOutputRef(oscSynthRef, { naturalRelease: true });
+    } else if (!wantOsc && oscSynthRef.current.synth?.pauseOutput) {
       park(oscSynthRef, warmOscSynthRef);
     }
     if (
@@ -1396,6 +1401,7 @@ const useSynthWiring = (
     settings.output_osc,
     settings.osc_bridge_url,
     settings.osc_local,
+    settings.osc_server_off,
     settings.osc_synth_names,
     settings.mts_bulk_device,
     settings.mts_bulk_mode,

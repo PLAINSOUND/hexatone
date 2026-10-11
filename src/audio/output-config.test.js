@@ -202,5 +202,11 @@ describe("output construction plans", () => {
       runtime, output, createOutputPortIdentity());
     expect(continuum.args.outputMode.pitchBendRange).toBe(96);
     expect(continuum.key).not.toBe(plan.key);
+    const identity = createOutputPortIdentity();
+    const before = fluidSynthOutputConfig(settings, runtime, output, identity);
+    const reloaded = fluidSynthOutputConfig({ ...settings, fluidsynth_runtime_revision: 1 },
+      runtime, output, identity);
+    expect(reloaded.key).not.toBe(before.key);
+    expect(reloaded.args.outputMode.output).toBe(output);
   });
 });

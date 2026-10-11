@@ -2,6 +2,52 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { expect, it, vi } from "vitest";
 
+it("naturally releases all channels and waits for rendered silence before shutdown acknowledgement", () => {
+  let Processor;
+  runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {
+    sampleRate: 512, currentFrame: 0, AudioWorkletProcessor: class {},
+    registerProcessor: (_, processor) => { Processor = processor; },
+  });
+  const processor = Object.create(Processor.prototype);
+  const heap = new Float32Array(256);
+  heap.fill(0.1);
+  Object.assign(processor, { synth: 1, blockSize: 128, leftPointer: 0, rightPointer: 512,
+    heldKeys: new Map([[127, new Set([127])]]), usedChannels: new Set([127]),
+    midiQueue: [{ frame: 0 }], port: { postMessage: vi.fn() },
+    module: { _ps_cc: vi.fn(), _ps_note_off: vi.fn(), _ps_render: vi.fn(() => 0), HEAPF32: heap } });
+  processor.handleMessage({ type: "release-for-shutdown" });
+  expect(processor.midiQueue).toEqual([]);
+  expect(processor.module._ps_cc).toHaveBeenCalledWith(1, 127, 66, 0);
+  expect(processor.module._ps_cc).toHaveBeenCalledTimes(2);
+  expect(processor.module._ps_note_off).toHaveBeenCalledWith(1, 127, 127);
+  expect(processor.module._ps_note_off).toHaveBeenCalledOnce();
+  expect(processor.module._ps_cc.mock.calls.some(call => call[2] === 120)).toBe(false);
+  const outputs = [[new Float32Array(128), new Float32Array(128)]];
+  processor.process([], outputs);
+  expect(processor.port.postMessage).not.toHaveBeenCalled();
+  heap.fill(0);
+  processor.process([], outputs);
+  expect(processor.port.postMessage).toHaveBeenCalledExactlyOnceWith({ type: "release-complete" });
+});
+
+it("disposes the synth and render buffers and stops audio processing", () => {
+  let Processor;
+  runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {
+    AudioWorkletProcessor: class {}, registerProcessor: (_, processor) => { Processor = processor; },
+  });
+  const processor = Object.create(Processor.prototype);
+  Object.assign(processor, { synth: 1, leftPointer: 4, rightPointer: 8, sysexPointer: 12, handledPointer: 16,
+    midiQueue: [{ frame: 128 }], port: { close: vi.fn() },
+    module: { _ps_destroy: vi.fn(), _free: vi.fn() } });
+  processor.handleMessage({ type: "dispose" });
+  processor.handleMessage({ type: "dispose" });
+  expect(processor.module._ps_destroy).toHaveBeenCalledExactlyOnceWith(1);
+  expect(processor.module._free.mock.calls.flat()).toEqual([4, 8, 12, 16]);
+  expect(processor.midiQueue).toEqual([]);
+  expect(processor.port.close).toHaveBeenCalledOnce();
+  expect(processor.process([], [])).toBe(false);
+});
+
 it("acknowledges traced attacks only after a successful render block", () => {
   let Processor;
   runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {

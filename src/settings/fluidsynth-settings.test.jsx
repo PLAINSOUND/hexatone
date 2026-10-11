@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/preact";
 
-const fluidsynthMock = vi.hoisted(() => ({ engine: null, load: vi.fn(), listeners: new Set() }));
+const fluidsynthMock = vi.hoisted(() => ({ engine: null, load: vi.fn(), stop: vi.fn(async () => {}), listeners: new Set() }));
 const storageMock = vi.hoisted(() => ({ read: vi.fn(), store: vi.fn(), keep: vi.fn(), remove: vi.fn(), save: vi.fn() }));
 vi.mock("../fluidsynth_synth/soundfont-storage.js", () => ({
   soundfontStorageKey: (source) => source.url || `local:${source.name}`,
@@ -14,6 +14,7 @@ vi.mock("../fluidsynth_synth/soundfont-storage.js", () => ({
 }));
 vi.mock("../fluidsynth_synth/index.js", () => ({
   loadFluidSynthSoundFont: fluidsynthMock.load,
+  stopFluidSynthEngine: fluidsynthMock.stop,
   peekFluidSynthEngine: () => fluidsynthMock.engine,
   subscribeFluidSynthEngine: (listener) => {
     fluidsynthMock.listeners.add(listener);
@@ -24,6 +25,53 @@ vi.mock("../fluidsynth_synth/index.js", () => ({
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
 
 describe("FluidSynth settings", () => {
+  it("resynchronizes the loaded bank and preset when the warm output is toggled back on", async () => {
+    fluidsynthMock.engine = { soundfontId: 1,
+      soundfontSource: { name: "PlainsoundOrgan.sf2" },
+      presets: [{ bank: 0, program: 1, name: "Organ" }],
+      selectedPreset: { bank: 0, program: 1 } };
+    const onChange = vi.fn();
+    const view = render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), {
+      target: { value: "PlainsoundOrganGedackt.sf2" },
+    });
+    expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(true);
+    view.rerender(<FluidSynthSettings settings={{ output_fluidsynth: false }} onChange={onChange} />);
+    view.rerender(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    await vi.waitFor(() => {
+      expect(screen.getByLabelText("Hexatone FluidSynth SoundFont").value).toBe("PlainsoundOrgan.sf2");
+      expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(false);
+      expect(screen.getByLabelText("FluidSynth preset").value).toBe("0:1");
+    });
+    expect(fluidsynthMock.load).not.toHaveBeenCalled();
+  });
+  it("replaces the placeholder with OFF and stops the engine without disabling the output preference", async () => {
+    localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrgan.sf2");
+    const onChange = vi.fn();
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    expect(screen.getByRole("option", { name: "OFF" }).value).toBe("");
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), { target: { value: "" } });
+    await vi.waitFor(() => expect(fluidsynthMock.stop).toHaveBeenCalledOnce());
+    expect(fluidsynthMock.stop).toHaveBeenCalledWith({ naturalRelease: true });
+    expect(onChange).not.toHaveBeenCalledWith("output_fluidsynth", false);
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), { target: { value: "PlainsoundOrgan.sf2" } });
+    fluidsynthMock.load.mockResolvedValue({ presets: [] });
+    fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalled());
+  });
+  it("disables the SoundFont menu until natural release finishes", async () => {
+    let finish;
+    fluidsynthMock.stop.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    const menu = screen.getByLabelText("Hexatone FluidSynth SoundFont");
+    fireEvent.change(menu, { target: { value: "" } });
+    expect(menu.disabled).toBe(true);
+    expect(screen.getByText("Releasing FluidSynth sounds…")).toBeTruthy();
+    expect(screen.getByLabelText("FluidSynth preset").textContent).toBe("Shutting down…");
+    finish();
+    await vi.waitFor(() => expect(menu.disabled).toBe(false));
+    expect(screen.getByLabelText("FluidSynth preset").textContent).toBe("Load the selected SoundFont first");
+  });
   afterEach(() => vi.unstubAllGlobals());
   it("uses the shared output fader styling", () => {
     render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);

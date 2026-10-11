@@ -46,6 +46,7 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
       nodes.push(this);
       const listeners = new Set();
       const emit = (data) => listeners.forEach((listener) => listener({ data }));
+      this.emit = emit;
       this.port = {
         addEventListener: (_, listener) => listeners.add(listener),
         removeEventListener: (_, listener) => listeners.delete(listener),
@@ -78,6 +79,8 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
     getFluidSynthAudioDiagnostics,
     panicFluidSynth,
     fadeFluidSynthAfterRecovery,
+    stopFluidSynthEngine,
+    peekFluidSynthEngine,
   } = await import("./index.js");
   const engine = await getFluidSynthEngine();
   expect(gains[0].gain.value).toBe(0);
@@ -133,4 +136,37 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
     bank: 2,
     program: 7,
   });
+  const stopping = stopFluidSynthEngine({ naturalRelease: true });
+  expect(nodes[1].port.postMessage).toHaveBeenCalledWith({ type: "release-for-shutdown" });
+  expect(nodes[1].disconnect).not.toHaveBeenCalled();
+  expect(peekFluidSynthEngine()).toBe(engine);
+  nodes[1].emit({ type: "release-complete" });
+  await stopping;
+  expect(peekFluidSynthEngine()).toBeNull();
+  expect(nodes[1].disconnect).toHaveBeenCalledOnce();
+  expect(nodes[1].port.postMessage).toHaveBeenCalledWith({ type: "dispose" });
+  expect(localStorage.getItem("fluidsynth_last_soundfont_source")).toBeNull();
+  expect(context.state).toBe("running");
+  await loadFluidSynthSoundFont(source);
+  expect(nodes).toHaveLength(3);
+  expect(peekFluidSynthEngine()).not.toBe(engine);
+  expect(getFluidSynthAudioDiagnostics().soundfontLoaded).toBe(true);
+  const freshNode = nodes[2];
+  freshNode.port.postMessage.mockClear();
+  // Old graph teardown and stale voice releases cannot target the new bank.
+  const freshGains = gains.slice(-2);
+  for (const gain of freshGains) gain.gain.setValueAtTime.mockClear();
+  synth.shutdown({ panic: true });
+  engine.output.sendCommand({ channel: 7, op: "off", a: 60 });
+  await Promise.resolve();
+  expect(freshNode.port.postMessage).not.toHaveBeenCalled();
+  for (const gain of freshGains) expect(gain.gain.setValueAtTime).not.toHaveBeenCalled();
+  const joining = await create_midi_synth({
+    outputMode: { output: peekFluidSynthEngine().output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 },
+  });
+  joining.makeHex("rejoined", 0, 0, 0, 12, -100, 100, 60, 72, 0, 1).noteOn();
+  await Promise.resolve();
+  expect(freshNode.port.postMessage.mock.calls.filter(([message]) => message.type === "midi-batch")
+    .flatMap(([message]) => message.events).some(event => event.command?.op === "on")).toBe(true);
 });

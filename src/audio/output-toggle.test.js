@@ -16,6 +16,20 @@ function setup(keepWarm = false) {
   vi.spyOn(synth, "allSoundOff");
   return { synth, attack, release, shutdown, mute, fadeIn };
 }
+it("server OFF releases immediately without muting or converting disposal to panic", async () => {
+  const { synth, release, shutdown, mute, attack } = setup(true);
+  const hex = synth.makeHex();
+  hex.noteOn();
+  synth.shutdown({ naturalRelease: true });
+  expect(release).toHaveBeenCalledOnce();
+  expect(shutdown).toHaveBeenCalledWith({ naturalRelease: true });
+  expect(mute).not.toHaveBeenCalled();
+  hex.noteOn();
+  expect(attack).toHaveBeenCalledOnce();
+  expect(synth.cancelShutdown()).toBe(false);
+  await vi.advanceTimersByTimeAsync(6000);
+  expect(release).toHaveBeenCalledOnce();
+});
 it("fades before teardown and blocks queued attacks while off", async () => {
   const { synth, attack, shutdown, mute, fadeIn } = setup();
   const hex = synth.makeHex();

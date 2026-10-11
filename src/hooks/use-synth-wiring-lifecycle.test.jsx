@@ -34,6 +34,23 @@ function Harness({ settings = base, userHasInteracted = true }) {
   current = useSynthWiring(settings, setSettings, { ready: true, userHasInteracted, keysRef, synthRef });
   return null;
 }
+it("server OFF disposes a parked SuperSonic engine and creates no bridge", async () => {
+  const dispose = vi.fn();
+  const local = smoothOutputToggle({ local: true, shutdown: dispose, allSoundOff: vi.fn(),
+    makeHex: () => ({ noteOn: vi.fn() }) },
+    { mute: vi.fn(), fadeIn: vi.fn(), keepWarm: true });
+  factories.local.mockResolvedValue(local);
+  const settings = { ...base, output_sample: false, output_osc: true, osc_local: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  view.rerender(<Harness settings={{ ...settings, output_osc: false }} />);
+  await waitFor(() => expect(local.isOutputPaused()).toBe(true));
+  view.rerender(<Harness settings={{ ...settings, osc_server_off: true }} />);
+  await waitFor(() => expect(dispose).toHaveBeenCalledWith({ naturalRelease: true }));
+  await waitFor(() => expect(current.synth?.children).toEqual([]));
+  expect(factories.osc).not.toHaveBeenCalled();
+  expect(factories.local).toHaveBeenCalledOnce();
+});
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
@@ -149,6 +166,19 @@ it("includes a loaded internal SoundFont without a canvas tuning", async () => {
   expect(factories.mts.mock.calls[0][0].tuningContext).toMatchObject({
     fundamental: 440, scale: [0], degree0toRefAsArray: [0, 1],
   });
+});
+it("publishes a fresh FluidSynth child after loading or selecting a sound on the same transport", async () => {
+  const first = { ...engine(), audioBackend: "fluidsynth" };
+  const reloaded = { ...engine(), audioBackend: "fluidsynth" };
+  fluid.engine = { soundfontId: 1, output: { id: "internal-fluid" } };
+  factories.mts.mockResolvedValueOnce(first).mockResolvedValueOnce(reloaded);
+  const settings = { ...base, output_sample: false, output_fluidsynth: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([first]));
+  view.rerender(<Harness settings={{ ...settings, fluidsynth_runtime_revision: 1 }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([reloaded]));
+  expect(factories.mts).toHaveBeenCalledTimes(2);
+  expect(keysRef.current.updateLiveOutputState.mock.calls.at(-1)[1].children).toEqual([reloaded]);
 });
 
 it("includes samples and SuperSonic without a canvas tuning or fundamental", async () => {

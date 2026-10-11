@@ -15,7 +15,7 @@ export function needsInitialAudioStart(synth, settings = {}) {
     } catch { return false; }
   });
   if (settings.output_sample && settings.instrument !== "OFF" && !ready("samples")) return true;
-  if (settings.output_osc && settings.osc_local && !ready("supersonic")) return true;
+  if (settings.output_osc && !settings.osc_server_off && settings.osc_local && !ready("supersonic")) return true;
   // A missing SoundFont needs a file selection, not an audio activation prompt.
   return !!settings.output_fluidsynth && outputs.some(output =>
     output.audioBackend === "fluidsynth" && !ready("fluidsynth"));
@@ -217,6 +217,11 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
         releaseNotes: () => keysRef.current?.releaseActiveBrowserNotes?.(),
       });
       const failed = results.filter((result) => !result.ok);
+      const recoveredBackends = starting
+        ? recorder.current.snapshot(synthRef.current).filter(output =>
+          output.audioContext?.state === "running").map(output => output.backend)
+        : results.filter(result => result.ok).map(result => result.backend);
+      keysRef.current?.rejoinRecoveredAudio?.(recoveredBackends);
       setStatus(
         startupErrors.length
           ? `Audio startup failed: ${[...new Set(startupErrors)].join("; ")}. Tap Retry, or Report to save diagnostics.`

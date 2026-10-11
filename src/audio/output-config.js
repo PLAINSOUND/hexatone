@@ -138,5 +138,8 @@ export function fluidSynthOutputConfig(settings, tuningRuntime, output, portIden
     // The internal channel is a member voice, not the global wheel/manager.
     pitchBendRange: settings.midiin_scale_bend_range ?? 48,
   };
-  return mtsOutputConfig(settings, tuningRuntime, outputMode, portIdentity, null);
+  const plan = mtsOutputConfig(settings, tuningRuntime, outputMode, portIdentity, null);
+  // A restored/reloaded bank may keep the same transport, but its old voices
+  // no longer exist. Publish a fresh child so held/sustained notes rejoin it.
+  return { ...plan, key: JSON.stringify([plan.key, Number(settings.fluidsynth_runtime_revision) || 0]) };
 }

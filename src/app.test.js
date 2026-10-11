@@ -1775,7 +1775,10 @@ describe("App workspace tabs", () => {
     const { default: seeds } = await import("./sequencer/preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json");
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
-      ...seeds, manualArpeggiation: { ...seeds.manualArpeggiation, mode: "off" },
+      // Keep the real first six snapshots and their initial bar positions;
+      // rendering all 277 Seeds snapshots is unrelated to this regression.
+      ...seeds, snapshots: seeds.snapshots.slice(0, 6), bars: seeds.bars.slice(0, 6),
+      manualArpeggiation: { ...seeds.manualArpeggiation, mode: "off" },
     }));
     const view = render(<App />);
     const keys = { settings: { note_names: [], heji_names: [] },
@@ -1802,9 +1805,7 @@ describe("App workspace tabs", () => {
       localStorage.removeItem("hexatone_persist_on_reload");
       sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
     }
-  // Mounting the full Seeds editor is costly under parallel CI workers. Keep
-  // assertion waits bounded; allow this integration test more overall time.
-  }, 15000);
+  });
 
   it.each([
     { snap: false, transferred: false }, { snap: true, transferred: false },

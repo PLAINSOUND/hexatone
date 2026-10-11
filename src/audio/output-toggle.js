@@ -86,6 +86,16 @@ export function smoothOutputToggle(synth, { mute, fadeIn, cutOnShutdown = false,
   };
   synth.shutdown = (options) => {
     clearTimeout(graceTimer);
+    if (options?.naturalRelease && !options.panic) {
+      // Server OFF is a retirement, not a mute: leave the speaker gate open
+      // while the backend drains its own envelopes, then disposes itself.
+      warm.delete(synth);
+      paused = false;
+      pauseRevision++;
+      stopped = true;
+      releaseParkedVoices();
+      return shutdown(options);
+    }
     if (options?.engineSwitch && paused) {
       warm.delete(synth);
       paused = false;

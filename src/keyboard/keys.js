@@ -1899,6 +1899,21 @@ class Keys {
     this.onTakeSnapshot = typeof handler === "function" ? handler : null;
   };
 
+  rejoinRecoveredAudio = (backends) => {
+    const recovered = (this.synth?.childSynths?.() ?? []).filter(child =>
+      !child.isOutputPaused?.() && backends.includes(child.audioBackend ??
+        (child.family === "sample" ? "samples" : null)));
+    const held = new Set([
+      ...(this._allActiveHexes?.() ?? []),
+      ...(this.state?.sustainedNotes?.map(([hex]) => hex) ?? []),
+    ]);
+    const timestamp = performance.now() + 20;
+    withOutputTransaction(() => {
+      for (const hex of held) if (hex && !hex.release)
+        hex.rejoinRecoveredSynths?.(recovered, timestamp);
+    });
+  };
+
   updateLiveOutputState = (nextSettings, synth) => {
     if (nextSettings) Object.assign(this.settings, nextSettings);
     // Live output/runtime architecture update only. This is the boundary used

@@ -21,6 +21,7 @@ import {
   fadeFluidSynthAfterRecovery,
   prepareFluidSynthOutput,
   clearFluidSynthRecoveryEvents,
+  peekFluidSynthEngine,
 } from "../fluidsynth_synth/index.js";
 
 function safeSend(midi_output, bytes) {
@@ -56,8 +57,14 @@ export const create_midi_synth = async ({
     };
     synth.clearRecoveryEvents = clearFluidSynthRecoveryEvents;
     synth.getDiagnostics = getFluidSynthAudioDiagnostics;
-    smoothOutputToggle(synth, { mute: muteFluidSynthForRecovery,
-      fadeIn: () => fadeFluidSynthAfterRecovery({ fromCurrent: true, durationMs: 40 }), keepWarm: true });
+    // A retired wrapper must never mute a newly loaded FluidSynth instance.
+    const ownsEngine = () => peekFluidSynthEngine()?.output === outputMode.output;
+    smoothOutputToggle(synth, { mute: (...args) => {
+      if (ownsEngine()) return muteFluidSynthForRecovery(...args);
+    },
+    fadeIn: () => {
+      if (ownsEngine()) return fadeFluidSynthAfterRecovery({ fromCurrent: true, durationMs: 40 });
+    }, keepWarm: true });
     const shutdown = synth.shutdown;
     synth.shutdown = (options) => {
       const pending = shutdown(options);

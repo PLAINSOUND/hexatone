@@ -99,17 +99,22 @@ const SuperColliderSettings = ({
         />
       </label>
 
-      {settings.output_osc && (
+      <label>
+        Server
+        <select class="sidebar-input" aria-label="scsynth Server"
+          value={settings.osc_server_off ? "OFF" : settings.osc_local ? "supersonic" : "bridge"}
+          onChange={event => {
+            const value = event.currentTarget.value;
+            if (value !== "OFF") save("osc_local", value === "supersonic", onChange);
+            save("osc_server_off", value === "OFF", onChange);
+          }}>
+          <option value="OFF">OFF</option>
+          <option value="supersonic">SuperSonic 0.88</option>
+          <option value="bridge">Local via OSC Bridge</option>
+        </select>
+      </label>
+      {settings.output_osc && !settings.osc_server_off && (
         <>
-          <label class="settings-form__checkbox-row">
-            <input
-              type="checkbox"
-              name="osc_local"
-              checked={!!settings.osc_local}
-              onChange={(event) => save(event.target.name, event.target.checked, onChange)}
-            />
-            SuperSonic 0.88
-          </label>
           <p class="settings-form__intro-copy">
             <em>
               {settings.osc_local

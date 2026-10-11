@@ -9,6 +9,7 @@ import {
   loadFluidSynthSoundFont,
   peekFluidSynthEngine,
   subscribeFluidSynthEngine,
+  stopFluidSynthEngine,
 } from "../fluidsynth_synth/index.js";
 
 import { REVERB_KEY, readFluidSynthReverb } from "../fluidsynth_synth/reverb.js";
@@ -91,6 +92,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   const [volume, setVolume] = useState(readVolume);
   const [reverb, setReverb] = useState(readFluidSynthReverb);
   const [busy, setBusy] = useState(false);
+  const [shuttingDown, setShuttingDown] = useState(false);
   const [status, setStatus] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(null);
   const [offlineKey, setOfflineKey] = useState(null);
@@ -147,7 +149,9 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     };
     syncEngineState();
     return subscribeFluidSynthEngine(syncEngineState);
-  }, []);
+  // The warm output toggle does not reload the bank. Reopening its controls
+  // must reflect the playing engine, not a previously browsed menu candidate.
+  }, [settings.output_fluidsynth]);
   const loaded = activeEngine?.soundfontId != null && presets.length > 0;
   const presetControlsReady = loaded && loadedMenuMatches && !busy;
   const selectedPreset = presetControlsReady ? presetValue : "";
@@ -341,6 +345,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     setPresetValue(event.currentTarget.value);
     if (source) rememberPreset(soundfontStorageKey(source), event.currentTarget.value);
     onChange("fluidsynth_preset", event.currentTarget.value);
+    onChange("fluidsynth_runtime_revision", (Number(settings.fluidsynth_runtime_revision) || 0) + 1);
   };
 
   return (
@@ -376,12 +381,23 @@ const FluidSynthSettings = ({ settings, onChange }) => {
           disabled={busy}
           style={(!loaded || !loadedMenuMatches) && hostedSoundfont ? { color: "var(--muted-text, #888)" } : undefined}
           onChange={(event) => {
-            setHostedSoundfont(event.currentTarget.value);
+            const value = event.currentTarget.value;
+            setHostedSoundfont(value);
             setStatus("");
             setStorageStatus("");
+            if (!value) {
+              setBusy(true);
+              setShuttingDown(true);
+              setStatus("Releasing FluidSynth sounds…");
+              void stopFluidSynthEngine({ naturalRelease: true }).then(() => {
+                setStatus("");
+                onChange("fluidsynth_runtime_revision", (Number(settings.fluidsynth_runtime_revision) || 0) + 1);
+              }).catch(error => setStatus(`FluidSynth release failed: ${error.message}`))
+                .finally(() => { setBusy(false); setShuttingDown(false); });
+            }
           }}
         >
-          <option value="">Choose an instrument</option>
+          <option value="">OFF</option>
           {HOSTED_SOUNDFONTS.map((name) => (
             <option key={name} value={name}>
               {name}
@@ -436,7 +452,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
               disabled={!presetControlsReady}
               onChange={selectPreset}
             >
-              {!presetControlsReady ? <option value="">{busy && !quietOfflineLoad ? "Loading instrument…" : "Load the selected SoundFont first"}</option> : null}
+              {!presetControlsReady ? <option value="">{shuttingDown ? "Shutting down…" : busy && !quietOfflineLoad ? "Loading instrument…" : "Load the selected SoundFont first"}</option> : null}
               {(presetControlsReady ? presets : []).map((preset) => (
                 <option
                   key={`${preset.bank}:${preset.program}`}

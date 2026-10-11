@@ -29,7 +29,7 @@ export function createFluidMidiScheduler(getEngine, ensureAwake) {
   };
   const enqueue = (event, timestamp) => {
     const engine = getEngine();
-    if (!engine?.node) return;
+    if (!engine?.node || engine.stopping) return;
     const attack = event.command?.op === "on" ||
       (event.data?.[0] >> 4 === 9 && event.data?.[2] > 0);
     if (attack && !audioAttackAllowed(engine.context)) return;
@@ -73,7 +73,7 @@ export function createFluidMidiScheduler(getEngine, ensureAwake) {
       pending = [];
       batchClock = null;
       const active = getEngine();
-      if (events.length && active?.node === node && active.context === context)
+      if (events.length && !active?.stopping && active?.node === node && active.context === context)
         node.port.postMessage({ type: "midi-batch", events });
     });
   };

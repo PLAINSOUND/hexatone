@@ -175,6 +175,20 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
         return this._compositeSounding && hexes.some(h => h.needsRetainedVoiceRecovery?.() === true);
       },
 
+      rejoinRecoveredSynths(recoveredSynths, timestamp) {
+        if (!this._compositeSounding || this.release) return;
+        const desired = [...hexSynths];
+        for (let i = hexSynths.length - 1; i >= 0; i--) {
+          if (!recoveredSynths.includes(hexSynths[i])) continue;
+          hexes[i].cancelPendingEvents?.();
+          hexes[i].noteOff?.(0, timestamp);
+          hexSynths.splice(i, 1);
+          hexPitchReferences.splice(i, 1);
+          hexes.splice(i, 1);
+        }
+        this.reconcileSynths(desired, timestamp);
+      },
+
       recoverRetainedVoice(note, timestamp) {
         if (!this._compositeSounding || this.release) return false;
         let recovered = false;

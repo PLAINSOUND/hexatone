@@ -33,6 +33,38 @@ export function subscribeFluidSynthEngine(listener) {
   return () => engineListeners.delete(listener);
 }
 
+// OFF disposes only FluidSynth, never the shared sample AudioContext.
+export async function stopFluidSynthEngine({ naturalRelease = false } = {}) {
+  if (enginePromise && !engine) {
+    try { await enginePromise; } catch { /* Nothing left to dispose. */ }
+  }
+  ++rebindGeneration;
+  const previous = engine;
+  if (naturalRelease && previous?.node && previous.soundfontId != null) {
+    previous.stopping = true;
+    previous.output?.resetClock();
+    const released = waitForMessage(previous.node, message => message?.type === "release-complete", true);
+    previous.node.port.postMessage({ type: "release-for-shutdown" });
+    try { await released; }
+    catch (error) { previous.stopping = false; throw error; }
+  }
+  engine = null;
+  enginePromise = null;
+  pendingLoad = null;
+  if (!naturalRelease) previous?.output?.panic?.();
+  if (previous?.node) {
+    recoveryGates.get(previous.node)?.disconnect();
+    previous.node.disconnect();
+    previous.node.port.postMessage({ type: "dispose" });
+    previous.node = null;
+  }
+  try {
+    localStorage.removeItem("fluidsynth_last_soundfont_source");
+    localStorage.removeItem("fluidsynth_last_hosted_soundfont");
+  } catch { /* Storage restrictions must not prevent shutdown. */ }
+  notifyEngineListeners();
+}
+
 const baseUrl = import.meta.env.BASE_URL || "/";
 
 const waitForMessage = (node, predicate, failOnError = false) =>
@@ -345,7 +377,9 @@ export async function getFluidSynthEngine() {
       };
       notifyEngineListeners();
 
-      engine.output = createFluidMidiScheduler(() => engine, ensureFluidSynthEngineAwake);
+      const ownedEngine = engine;
+      engine.output = createFluidMidiScheduler(() => ownedEngine.node ? ownedEngine : null,
+        () => engine === ownedEngine ? ensureFluidSynthEngineAwake() : false);
       engine.setReverb = (value) => {
         engine.reverb = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
         engine.output.reverbSend = engine.reverb;
@@ -407,6 +441,7 @@ export async function loadFluidSynthSoundFont(
     // Persist before transferring/detaching the ArrayBuffer into the worklet.
     await onBytesReady?.(source, bytes);
     signal?.throwIfAborted();
+    if (engine !== active) throw new DOMException("FluidSynth was turned off", "AbortError");
     const replacing = active.soundfontId != null;
     const requested = typeof preferredPreset === "string" ? preferredPreset.split(":").map(Number) : null;
     const previousPreset = requested ? { bank: requested[0], program: requested[1] }
@@ -425,6 +460,7 @@ export async function loadFluidSynthSoundFont(
     );
     try {
       const result = await loaded;
+      if (engine !== active) throw new DOMException("FluidSynth was turned off", "AbortError");
       active.soundfontId = result.soundfontId;
       active.presets = result.presets || [];
       active.soundfontSource = source;

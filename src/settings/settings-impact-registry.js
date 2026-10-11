@@ -140,6 +140,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "fluidsynth_out_port",
     "osc_bridge_url",
     "osc_local",
+    "osc_server_off",
   ],
 };
 

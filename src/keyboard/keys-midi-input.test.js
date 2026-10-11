@@ -6273,6 +6273,15 @@ describe("Keys MIDI input integration", () => {
     expect(joining.applyZoneModwheel).toHaveBeenCalledWith(93);
     expect(retained.applyZoneModwheel).not.toHaveBeenCalled();
   });
+  it("rejoins onscreen sustained notes after audio recovery without a toggle", () => {
+    const fluid = { audioBackend: "fluidsynth" };
+    const muted = { audioBackend: "supersonic", isOutputPaused: () => true };
+    const keys = createKeys({}, {}, { childSynths: () => [fluid, muted] });
+    const held = { release: false, rejoinRecoveredSynths: vi.fn() };
+    keys.state.sustainedNotes = [[held, 0]];
+    keys.rejoinRecoveredAudio(["fluidsynth", "supersonic"]);
+    expect(held.rejoinRecoveredSynths).toHaveBeenCalledWith([fluid], expect.any(Number));
+  });
 
   it("replays remembered controller state to a newly swapped synth", () => {
     const oldSynth = {

@@ -2,6 +2,20 @@ import { describe, it, expect, vi } from "vitest";
 import { create_composite_synth } from "./index.js";
 
 describe("composite_synth controller-state replay", () => {
+  it("rejoins held notes after recovery even when the engine identity is unchanged", () => {
+    const voices = [];
+    const recovered = { family: "sample", makeHex: vi.fn(() => {
+      const child = { noteOn: vi.fn(), noteOff: vi.fn() }; voices.push(child); return child;
+    }) };
+    const midi = { makeHex: vi.fn(() => ({ noteOn: vi.fn(), noteOff: vi.fn() })) };
+    const held = create_composite_synth([recovered, midi]).makeHex(null, 0);
+    held.noteOn();
+    held.rejoinRecoveredSynths([recovered], 120);
+    expect(recovered.makeHex).toHaveBeenCalledTimes(2);
+    expect(voices[1].noteOn).toHaveBeenCalledWith(120);
+    expect(midi.makeHex).toHaveBeenCalledOnce();
+    expect(midi.makeHex.mock.results[0].value.noteOff).not.toHaveBeenCalled();
+  });
   it("replaces only the sample child of a sustaining snapshot without reattacking other outputs", () => {
     const makeEngine = (family) => {
       const hex = { noteOn: vi.fn(), noteOff: vi.fn(), retune: vi.fn(),
