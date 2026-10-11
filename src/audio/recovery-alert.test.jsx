@@ -5,7 +5,7 @@ import AudioRecoveryAlert from "./recovery-alert.jsx";
 afterEach(cleanup);
 
 it.each([
-  [true, false, "Tap Start Audio to prepare the built-in sounds before playing."],
+  [true, false, "Tap Start Audio to prepare built-in sounds."],
   [true, true, "Starting audio…"],
   [false, true, "Restoring audio…"],
   [false, false, "SuperSonic could not start: the audio clock is interrupted."],

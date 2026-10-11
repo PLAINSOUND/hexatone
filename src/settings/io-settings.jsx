@@ -12,6 +12,7 @@ import MIDIio from "./midi";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
 import SuperColliderSettings from "./supercollider-settings.jsx";
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
+import AudioDiagnostics from "./audio-diagnostics.jsx";
 
 const IOSettings = ({
   showActivateAudioContext,
@@ -45,6 +46,7 @@ const IOSettings = ({
   onEnableLumatoneAutoSync,
   onProbeLumatoneConnection,
   lumatoneDriverReady,
+  onSaveAudioReport,
 }) => {
   const [restoreIO, setRestoreIO] = useState(() => restoreIOOnReload());
   return (
@@ -63,6 +65,7 @@ const IOSettings = ({
           <em class="settings-form__helper-text">Restore I/O settings on reload</em>
         </label>
       </div>
+      <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} />
       <SampleSynth
         showActivateAudioContext={showActivateAudioContext}
         activateAudioContext={activateAudioContext}

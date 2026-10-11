@@ -452,6 +452,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider
                 ariaLabel="FluidSynth volume"
+                defaultValue={100}
                 min={0}
                 max={127}
                 step={1}
@@ -468,6 +469,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
             Reverb
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider ariaLabel="FluidSynth reverb" min={0} max={127} step={1}
+                defaultValue={20}
                 value={reverb} disabled={!loaded}
                 onInputValue={changeReverb} onCommitValue={changeReverb} />
               <span class="settings-form__range-value">{reverb}</span>

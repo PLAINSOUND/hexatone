@@ -4,6 +4,7 @@
 
 import { useMemo, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { deriveStickyCenterValue } from "./sticky-center.js";
 
 function clamp(value, min, max) {
   const numeric = Number(value);
@@ -24,24 +25,29 @@ export default function CustomRangeSlider({
   step,
   value,
   disabled = false,
+  defaultValue,
   onInputValue,
   onCommitValue,
 }) {
   const trackRef = useRef(null);
   const draggingRef = useRef(false);
   const pointerIdRef = useRef(null);
+  const lockRef = useRef(false);
   const [isActive, setIsActive] = useState(false);
 
   const safeMin = Number(min);
   const safeMax = Number(max);
   const safeStep = Number(step);
   const clampedValue = useMemo(
-    () => clamp(snapToStep(Number(value), safeMin, safeStep), safeMin, safeMax),
-    [value, safeMin, safeMax, safeStep],
+    () => clamp(Number.isFinite(defaultValue) && Number(value) === defaultValue
+      ? defaultValue : snapToStep(Number(value), safeMin, safeStep), safeMin, safeMax),
+    [value, safeMin, safeMax, safeStep, defaultValue],
   );
 
   const commitNumericValue = (nextValue, commit = false) => {
-    const snappedValue = clamp(snapToStep(Number(nextValue), safeMin, safeStep), safeMin, safeMax);
+    const snappedValue = Number.isFinite(defaultValue) && nextValue === defaultValue
+      ? clamp(defaultValue, safeMin, safeMax)
+      : clamp(snapToStep(Number(nextValue), safeMin, safeStep), safeMin, safeMax);
     onInputValue?.(snappedValue);
     if (commit) onCommitValue?.(snappedValue);
     return snappedValue;
@@ -51,7 +57,15 @@ export default function CustomRangeSlider({
     const rect = trackRef.current?.getBoundingClientRect?.();
     if (!rect || rect.width <= 0) return clampedValue;
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return safeMin + ratio * (safeMax - safeMin);
+    const raw = safeMin + ratio * (safeMax - safeMin);
+    if (!Number.isFinite(defaultValue)) return raw;
+    const offset = raw - defaultValue;
+    const extent = offset < 0 ? defaultValue - safeMin : safeMax - defaultValue;
+    return defaultValue + deriveStickyCenterValue(offset, {
+      lockRef, engageThreshold: (safeMax - safeMin) * 0.01,
+      releaseThreshold: (safeMax - safeMin) * (52 / 2400),
+      maxAbs: extent, outputMaxAbs: extent,
+    }).outputValue;
   };
 
   const beginDrag = (event) => {
@@ -60,6 +74,8 @@ export default function CustomRangeSlider({
     draggingRef.current = true;
     pointerIdRef.current = event.pointerId;
     setIsActive(true);
+    lockRef.current = Number.isFinite(defaultValue) &&
+      Math.abs(clampedValue - defaultValue) <= (safeMax - safeMin) * 0.01;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     commitNumericValue(valueFromClientX(event.clientX));
   };
@@ -132,6 +148,7 @@ CustomRangeSlider.propTypes = {
   step: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
   disabled: PropTypes.bool,
+  defaultValue: PropTypes.number,
   onInputValue: PropTypes.func,
   onCommitValue: PropTypes.func,
 };

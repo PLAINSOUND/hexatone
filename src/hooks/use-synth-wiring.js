@@ -18,6 +18,7 @@ import { createMonoSynth } from "../mono_synth/index.js";
 import { create_composite_synth } from "../composite_synth";
 import { create_osc_synth } from "../osc_synth";
 import { peekFluidSynthEngine } from "../fluidsynth_synth/index.js";
+import { traceAudioImport } from "../audio/runtime-diagnostics.js";
 import { readSampleVolume } from "../audio/sample-volume.js";
 import { detectController, getControllerById } from "../controllers/registry.js";
 import {
@@ -94,7 +95,8 @@ const midiAccessRank = {
 let sampleSynthModulePromise = null;
 
 const loadSampleSynthModule = async () => {
-  sampleSynthModulePromise ??= import("../sample_synth");
+  sampleSynthModulePromise ??= traceAudioImport("samples-backend", "module:src/sample_synth/index.js",
+    () => import("../sample_synth"));
   return sampleSynthModulePromise;
 };
 
@@ -1177,7 +1179,8 @@ const useSynthWiring = (
             oscKey,
             (signal) =>
               settings.osc_local
-                ? import("../supersonic_synth/index.js").then(({ create_supersonic_synth }) =>
+                ? traceAudioImport("supersonic-backend", "module:src/supersonic_synth/index.js",
+                    () => import("../supersonic_synth/index.js")).then(({ create_supersonic_synth }) =>
                     create_supersonic_synth(
                       ...oscConfig.args({ ...readOscRuntimeControls(settingsRef.current), signal }),
                     ),

@@ -1,5 +1,7 @@
 // Session-only, bounded diagnostics. Never include audio assets or MIDI traffic.
 import { restartAudioContext, verifyAudioClock } from "./restart-context.js";
+import { audioRuntimeReport } from "./runtime-diagnostics.js";
+import { blockAudioAttacks, allowAudioAttacks } from "./attack-gate.js";
 export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = {}) {
   const startedAt = new Date().toISOString();
   const history = [];
@@ -103,6 +105,7 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
       clearTimeout(hideTimer);
       const children = outputs(synth);
       for (const child of children) {
+        blockAudioAttacks(child.getAudioContext?.());
         try {
           const route = child.muteForRecovery?.(40);
           if (child.muteForRecovery) mutedOutputs.add(child);
@@ -145,6 +148,7 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
         return Promise.resolve([result]);
       }
       for (const child of children) {
+        blockAudioAttacks(child.getAudioContext?.());
         const outputRoute = child.muteForRecovery?.();
         if (outputRoute)
           record("recovery-output-disconnected", {
@@ -200,8 +204,16 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
       );
       pending = Promise.all([sampleWork, Promise.all(otherWork), fluidWork])
         .then((groups) => {
+          const results = groups.flat();
+          for (const child of children) {
+            const context = child.getAudioContext?.();
+            const siblings = children.filter(s => s.getAudioContext?.() === context);
+            if (siblings.every(s => results.some(result =>
+              result.backend === (s.audioBackend ?? "samples") && result.ok)))
+              allowAudioAttacks(context);
+          }
           record("after-recovery", { outputs: snapshot(synth) });
-          return groups.flat();
+          return results;
         })
         .finally(() => {
           pending = null;
@@ -222,6 +234,7 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
         settings,
         outputs: snapshot(synth),
         events: [...history],
+        runtime: audioRuntimeReport(),
         note: "Context state and clock progress do not prove audible speaker output.",
       };
     },

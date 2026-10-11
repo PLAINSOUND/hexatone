@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { createAudioRecovery, saveAudioReport } from "../audio/recovery.js";
 import { getPendingSuperSonicDiagnostics } from "../supersonic_synth/startup-diagnostics.js";
+import { audioRuntimeReport, recordAudioRuntime, captureInputTiming, recordEventLoopGap,
+  getLatencyMeasurementEnabled, subscribeLatencyMeasurement } from "../audio/runtime-diagnostics.js";
+import { blockAudioAttacks } from "../audio/attack-gate.js";
 
 export function needsInitialAudioStart(synth, settings = {}) {
   const outputs = (synth?.childSynths?.() ?? [synth]).filter(Boolean);
@@ -36,10 +39,51 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
   }, []);
   useEffect(() => {
     const log = recorder.current;
+    const inputTypes = ["touchstart", "touchmove", "pointerdown", "pointermove"];
+    const capture = event => {
+      if (event.target?.tagName === "CANVAS") captureInputTiming(event);
+    };
+    let heartbeatAt = performance.now();
+    const heartbeatTick = () => {
+      const now = performance.now();
+      if (!document.hidden && now - heartbeatAt - 25 > 4)
+        recordEventLoopGap(heartbeatAt + 25, now);
+      heartbeatAt = now;
+    };
+    let heartbeat;
+    let taskObserver;
+    const stopLatency = () => {
+      clearInterval(heartbeat);
+      heartbeat = undefined;
+      for (const type of inputTypes) window.removeEventListener(type, capture, true);
+      taskObserver?.disconnect();
+      taskObserver = undefined;
+    };
+    const updateLatency = () => {
+      stopLatency();
+      if (!getLatencyMeasurementEnabled()) return;
+      heartbeatAt = performance.now();
+      for (const type of inputTypes) window.addEventListener(type, capture, { capture: true, passive: true });
+      heartbeat = setInterval(heartbeatTick, 25);
+      if (globalThis.PerformanceObserver?.supportedEntryTypes?.includes("longtask")) {
+        taskObserver = new PerformanceObserver(list => {
+          for (const entry of list.getEntries()) recordAudioRuntime("main-thread-long-task",
+            { startTimeMs: entry.startTime, durationMs: entry.duration });
+        });
+        taskObserver.observe({ entryTypes: ["longtask"] });
+      }
+      recordAudioRuntime("latency-diagnostics-capabilities", {
+        longTasks: !!taskObserver, pointerEvents: "PointerEvent" in globalThis,
+      });
+    };
+    updateLatency();
+    const unsubscribeLatency = subscribeLatencyMeasurement(updateLatency);
     let previous = new Map();
     let wasHidden = false;
     let reportedStartupErrors = "";
     const lifecycle = (event) => {
+      // Background timer throttling is not foreground input-processing delay.
+      heartbeatAt = performance.now();
       log.record(event.type, {
         visibility: document.visibilityState,
         persisted: event.persisted ?? null,
@@ -67,9 +111,8 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       }
       const outputs = log.snapshot(synthRef.current);
       if (engineLifecycleRef?.current?.loading) {
-        previous = new Map();
-        log.record("engines-loading", { outputs, pending: getPendingSuperSonicDiagnostics() });
-        return;
+        log.record("engines-loading", { outputs, pending: getPendingSuperSonicDiagnostics(),
+          pendingImports: audioRuntimeReport().pendingImports });
       }
       const startupErrors = (engineLifecycleRef?.current?.errors ?? []).join("; ");
       if (startupErrors && startupErrors !== reportedStartupErrors) {
@@ -100,10 +143,15 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           ["interrupted", "closed"].includes(context.state) ||
           (context.state === "suspended" && last?.state === "running")
         ) {
+          const children = synthRef.current?.childSynths?.() ?? [synthRef.current];
+          for (const child of children) {
+            if ((child?.audioBackend ?? (child?.family === "sample" ? "samples" : null)) === output.backend)
+              blockAudioAttacks(child.getAudioContext?.());
+          }
           // Before the first gesture, suspension is normal browser policy,
           // not an interruption requiring a recovery popup.
           if (!busy.current && !initialiseRef?.current?.needed?.())
-            setStatus("Built-in audio needs attention. Tap Retry.");
+            setStatus("Built-in audio needs attention.");
           log.record("audio-needs-attention", {
             backend: output.backend,
             context,
@@ -116,6 +164,8 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       log.record("sample", { outputs });
     }, 2000);
     return () => {
+      unsubscribeLatency();
+      stopLatency();
       log.cancelHide();
       clearInterval(timer);
       document.removeEventListener("visibilitychange", lifecycle);

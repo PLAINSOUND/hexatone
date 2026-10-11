@@ -6,6 +6,7 @@
 import { outputAudioTime } from "../midi/output-transaction.js";
 import { installAudioGestureRecovery } from "./gesture-recovery.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
+import { recordTouchAudio } from "../audio/runtime-diagnostics.js";
 
 import { instruments } from "./instruments";
 import { scalaToCents } from "../settings/scale/parse-scale";
@@ -556,7 +557,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           hex.audioContext = sharedAudioContext;
           hex.masterGain = masterGain;
           hex._attackAttempted = true;
-          if (!decodedBuffers || !sharedAudioContext || sharedAudioContext.state === "closed") return;
+          if (!decodedBuffers || recoveryMuted || !audioAttackAllowed(sharedAudioContext)) return;
           // Preparation can finish long before this engine joins a held chord.
           // Start the output fade at the first attack, not during sample decode.
           if (outputFadePending && !recoveryMuted) {
@@ -738,6 +739,7 @@ ActiveHex.prototype.noteOn = function () {
 
   gainNode.gain.value = 0;
   source.start(0);
+  recordTouchAudio("samples", this.audioContext);
   this._sourceEnded = false;
   // A late completion from an older source must not invalidate a new attack.
   source.onended = () => {
@@ -936,3 +938,4 @@ export const forceResumeAudioContext = async () => {
 export const isRunningOnIOS = () => isIOS;
 
 export default create_sample_synth;
+import { audioAttackAllowed } from "../audio/attack-gate.js";

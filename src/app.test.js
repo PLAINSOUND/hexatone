@@ -1042,6 +1042,32 @@ describe("App input runtime", () => {
 });
 
 describe("App workspace tabs", () => {
+  it("clears a silent manual snapshot when Retry restores audio", async () => {
+    onTestFinished(() => {
+      localStorage.removeItem("hexatone_persist_on_reload");
+      sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+    });
+    settings = { ...settings, output_osc: true, osc_local: true };
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: 1, length: 100, notes: [{ id: "a", midicents: 60, start: 0, end: 100 }] }],
+      bars: [], tempi: [], repeats: [],
+    }));
+    render(<App />);
+    const keys = { playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+    fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+    fireEvent.click(await screen.findByLabelText("Play snapshot 1"));
+    expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(false);
+    const attacks = keys.playSnapshot.mock.calls.length;
+    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(true);
+    expect(document.querySelector(".snapshot-palette-body .snapshot-playing")).toBeNull();
+    expect(keys.stopSnapshot).toHaveBeenCalled();
+    expect(keys.playSnapshot).toHaveBeenCalledTimes(attacks);
+  });
   it("waits for a sequence before offering audio Retry on fresh load", async () => {
     settings = { ...settings, output_osc: true, osc_local: true };
     const view = render(<App />);
@@ -2126,6 +2152,33 @@ describe("App workspace tabs", () => {
     expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
     await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
     expect(screen.queryByLabelText("pause timed transport")).toBeNull();
+  });
+
+  it.each(["pagehide", "visibilitychange"])("clears manual snapshot playback on %s without restarting on return", async (eventType) => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    localStorage.setItem("hexatone_persist_on_reload", "true");
+    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      snapshots: [{ id: 1, length: 100, notes: [{ id: "a", midicents: 60, start: 0, end: 100 }] }],
+      bars: [], tempi: [], repeats: [],
+    }));
+    render(<App />);
+    const keys = { playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
+    await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+    act(() => lastKeyboardProps.onKeysReady(keys));
+    fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+    fireEvent.click(await screen.findByLabelText("Play snapshot 1"));
+    expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(false);
+    const attacks = keys.playSnapshot.mock.calls.length;
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    try {
+      act(() => (eventType === "pagehide" ? window : document).dispatchEvent(new Event(eventType)));
+      expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(true);
+      expect(document.querySelector(".snapshot-palette-body .snapshot-playing")).toBeNull();
+      hidden.mockReturnValue(false);
+      act(() => window.dispatchEvent(new Event("pageshow")));
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(attacks);
+      expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(true);
+    } finally { hidden.mockRestore(); }
   });
 
   it("follows timed playback in the I/O snapshot palette without a manual playhead commit", async () => {

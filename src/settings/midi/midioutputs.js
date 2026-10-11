@@ -858,6 +858,7 @@ const MidiOutputs = (props) => {
                         max={127}
                         step={1}
                         value={eaganCcDrafts[key] ?? 64}
+                        defaultValue={64}
                         onInputValue={(nextValue) => {
                           const next = clampMidiCc(nextValue);
                           setEaganCcDrafts((prev) => ({ ...prev, [key]: next }));

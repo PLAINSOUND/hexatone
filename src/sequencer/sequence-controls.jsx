@@ -4,6 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
+import { deriveStickyCenterValue } from "../settings/shared/sticky-center.js";
 import { createManualTransportActions, stopTimedTransportBefore } from "./transport-actions.js";
 import { SNAPSHOT_LABEL_MODES } from "./labels.js";
 import ChordSnapControls from "./chord-snap-controls.jsx";
@@ -35,55 +36,7 @@ function sliderExponentToSpeed(value) {
   return Math.pow(2, exponent);
 }
 
-function deriveStickyCenterValue(
-  rawValue,
-  {
-    lockRef,
-    engageThreshold = 0,
-    releaseThreshold = engageThreshold,
-    maxAbs = 1,
-    outputMaxAbs = maxAbs,
-  } = {},
-) {
-  const raw = Number(rawValue) || 0;
-  const distance = Math.abs(raw);
-  const sign = Math.sign(raw);
-  const safeEngageThreshold = Math.max(0, Number(engageThreshold) || 0);
-  const safeReleaseThreshold = Math.max(safeEngageThreshold, Number(releaseThreshold) || 0);
-  const safeMaxAbs = Math.max(safeReleaseThreshold, Number(maxAbs) || 0);
-  const safeOutputMaxAbs = Math.max(0, Number(outputMaxAbs) || 0);
-
-  if (lockRef?.current) {
-    if (distance <= safeReleaseThreshold) {
-      return { sliderValue: 0, outputValue: 0, locked: true };
-    }
-    lockRef.current = false;
-  }
-
-  if (distance <= safeEngageThreshold) {
-    if (lockRef) lockRef.current = true;
-    return { sliderValue: 0, outputValue: 0, locked: true };
-  }
-
-  if (safeMaxAbs <= safeReleaseThreshold) {
-    return {
-      sliderValue: raw,
-      outputValue: sign * Math.min(safeOutputMaxAbs, distance),
-      locked: false,
-    };
-  }
-
-  const normalized = Math.max(
-    0,
-    Math.min(1, (distance - safeReleaseThreshold) / (safeMaxAbs - safeReleaseThreshold)),
-  );
-  return {
-    sliderValue: sign * normalized * safeMaxAbs,
-    outputValue: sign * normalized * safeOutputMaxAbs,
-    locked: false,
-  };
-}
-
+// The same magnetic default mapping is used by the built-in audio faders.
 function formatEffectiveTempoCourtesy(tempo) {
   const bpm = Number(tempo?.effectiveBpm ?? tempo?.bpm);
   if (!Number.isFinite(bpm) || bpm <= 0) return "";

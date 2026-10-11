@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import Point from "./point.js";
 import { createSoundingNoteState } from "./sounding-note-runtime.js";
 import * as input from "./keys-browser-input.js";
+import { setTouchInputMode } from "./touch-input-mode.js";
 
 function makeKeys() {
   const canvas = document.createElement("canvas");
@@ -37,6 +38,37 @@ function sustain(keys, shift = false) {
 }
 
 describe("canvas touch input", () => {
+  it("allows an explicit iPhone pointer override, but falls back without support", () => {
+    expect(input.shouldUsePointerTouchInput({ PointerEvent: function() {} },
+      { userAgent: "iPhone" }, "pointer")).toBe(true);
+    expect(input.shouldUsePointerTouchInput({}, { userAgent: "iPhone" }, "pointer")).toBe(false);
+    expect(input.shouldUsePointerTouchInput({ PointerEvent: function() {} }, {}, "touch")).toBe(false);
+  });
+  it("switches listeners without duplicate touch input and releases held contacts", () => {
+    const keys = makeKeys();
+    keys.handleTouch = vi.fn();
+    keys.handleTouchCancel = vi.fn();
+    keys.handlePointerDown = vi.fn();
+    keys.handlePointerMove = vi.fn();
+    keys.handlePointerEnd = vi.fn();
+    keys.releaseActiveBrowserNotes = vi.fn();
+    vi.stubGlobal("PointerEvent", function() {});
+    try {
+      input.configureTouchInput.call(keys, "touch");
+      input.configureTouchInput.call(keys, "pointer");
+      keys.state.canvas.dispatchEvent(new Event("touchstart"));
+      keys.state.canvas.dispatchEvent(new Event("pointerdown"));
+      expect(keys.handleTouch).not.toHaveBeenCalled();
+      expect(keys.handlePointerDown).toHaveBeenCalledOnce();
+      expect(keys.releaseActiveBrowserNotes).toHaveBeenCalledTimes(2);
+      expect(keys.state.canvas.style.touchAction).toBe("none");
+      input.configureTouchInput.call(keys, "touch");
+      keys.state.canvas.dispatchEvent(new Event("pointerdown"));
+      keys.state.canvas.dispatchEvent(new Event("touchstart"));
+      expect(keys.handlePointerDown).toHaveBeenCalledOnce();
+      expect(keys.handleTouch).toHaveBeenCalledOnce();
+    } finally { vi.unstubAllGlobals(); setTouchInputMode("auto"); }
+  });
   it("keeps iPhone and iPad touch input on the established Touch Events path", () => {
     const pointerWindow = { PointerEvent: function PointerEvent() {} };
     expect(
@@ -187,6 +219,24 @@ describe("canvas touch input", () => {
     expect(keys.state.activeTouch.size).toBe(0);
     expect(keys.state.touchCoords.size).toBe(0);
     expect(keys.state.isTouchDown).toBe(false);
+  });
+
+  it("does not reattack on lift moves or unmarked compatibility mouse events", async () => {
+    const keys = makeKeys();
+    keys.usesPointerTouchInput = true;
+    const pointer = { pointerId: 1, pointerType: "touch", buttons: 1,
+      clientX: 5, clientY: 5, currentTarget: keys.state.canvas, preventDefault: vi.fn() };
+    input.handlePointerDown.call(keys, pointer);
+    input.handlePointerMove.call(keys, { ...pointer, buttons: 0, clientX: 25 });
+    input.handlePointerEnd.call(keys, pointer);
+    await input.mouseDown.call(keys, { currentTarget: keys.state.canvas, clientX: 5, clientY: 5 });
+    expect(keys.hexOn).toHaveBeenCalledTimes(1);
+    expect(keys.noteOff).toHaveBeenCalledTimes(1);
+    expect(keys.state.activeTouch.size).toBe(0);
+    input.handlePointerDown.call(keys, { ...pointer, pointerType: "mouse" });
+    await input.mouseDown.call(keys, { currentTarget: keys.state.canvas, clientX: 5, clientY: 5 });
+    expect(keys.hexOn).toHaveBeenCalledTimes(2);
+    input.mouseUp.call(keys, {});
   });
 
   it("cancels only the affected contact without retriggering the remaining finger", async () => {

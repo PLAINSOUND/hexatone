@@ -2,6 +2,33 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { expect, it, vi } from "vitest";
 
+it("acknowledges traced attacks only after a successful render block", () => {
+  let Processor;
+  runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {
+    currentFrame: 128, sampleRate: 48000, AudioWorkletProcessor: class {},
+    registerProcessor: (_, processor) => { Processor = processor; },
+  });
+  const processor = Object.create(Processor.prototype);
+  Object.assign(processor, { synth: 1, blockSize: 128, leftPointer: 0, rightPointer: 512,
+    port: { postMessage: vi.fn() }, module: { _ps_render: vi.fn(() => 0),
+      _ps_note_on: vi.fn(), HEAPF32: new Float32Array(256) },
+    midiQueue: [], midiSequence: 0 });
+  processor.handleMessage({ type: "midi-batch", events: [
+    { frame: 64, touchTrace: 9, command: { channel: 0, op: "on", a: 60, b: 80 } },
+  ] });
+  expect(processor.midiQueue[0].touchTrace).toBe(9);
+  processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  expect(processor.port.postMessage).toHaveBeenCalledWith({ type: "touch-rendered", id: 9,
+    lateFrames: 64, sampleRate: 48000, audioTime: 128 / 48000 });
+  processor.port.postMessage.mockClear();
+  processor.module._ps_render.mockReturnValue(-1);
+  processor.handleMessage({ type: "midi-batch", events: [
+    { frame: 64, touchTrace: 10, command: { channel: 0, op: "on", a: 60, b: 80 } },
+  ] });
+  processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  expect(processor.port.postMessage).not.toHaveBeenCalled();
+});
+
 it("preserves equal-frame setup order and cancels only the requested sequence generation", () => {
   let Processor;
   const source = readFileSync("vendor/fluidsynth/processor.js", "utf8");

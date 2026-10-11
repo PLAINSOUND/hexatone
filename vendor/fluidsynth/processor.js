@@ -113,6 +113,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         const events = message.type === "midi-batch" ? message.events : [message];
         for (const event of events) {
           this.midiQueue.push({ data: event.data, command: event.command, owner: event.owner,
+            touchTrace: event.touchTrace,
             scope: event.scope, generation: event.generation, voice: event.voice,
             frame: Number.isFinite(event.frame) ? event.frame : currentFrame,
             sequence: this.midiSequence++ });
@@ -192,11 +193,15 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       return true;
     }
     let consumed = 0;
+    const touchTraces = [];
     while (consumed < this.midiQueue.length && this.midiQueue[consumed].frame <= currentFrame) {
       try {
         const event = this.midiQueue[consumed];
         if (event.command) this.dispatchCommand(event.command);
         else this.dispatchMidi(event.data);
+        if (event.touchTrace != null) touchTraces.push({ type: "touch-rendered", id: event.touchTrace,
+          lateFrames: Math.max(0, currentFrame - event.frame), sampleRate,
+          audioTime: currentFrame / sampleRate });
       }
       catch (error) { this.port.postMessage({ type: "error", message: String(error) }); }
       consumed++;
@@ -211,6 +216,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     const right = this.rightPointer >>> 2;
     channels[0].set(this.module.HEAPF32.subarray(left, left + frames));
     if (channels[1]) channels[1].set(this.module.HEAPF32.subarray(right, right + frames));
+    for (const trace of touchTraces) this.port.postMessage(trace);
     return true;
   }
 

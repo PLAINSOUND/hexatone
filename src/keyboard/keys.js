@@ -447,25 +447,7 @@ class Keys {
     // Key listeners always on window — ESC key sustain must work even when sidebar is closed.
     window.addEventListener("keydown", this.onKeyDown, false);
     window.addEventListener("keyup", this.onKeyUp, false);
-    this.usesPointerTouchInput = KeysBrowserInput.shouldUsePointerTouchInput(
-      window,
-      globalThis.navigator,
-    );
-    if (this.usesPointerTouchInput) {
-      // Pointer capture keeps each touchscreen contact routed to the canvas
-      // through movement/release, while touch-action:none suppresses native
-      // pan/zoom gestures. Keep mouse input on its existing path below.
-      this.state.canvas.addEventListener("pointerdown", this.handlePointerDown, { passive: false });
-      this.state.canvas.addEventListener("pointermove", this.handlePointerMove, { passive: false });
-      this.state.canvas.addEventListener("pointerup", this.handlePointerEnd, { passive: false });
-      this.state.canvas.addEventListener("pointercancel", this.handlePointerEnd, { passive: false });
-      this.state.canvas.addEventListener("lostpointercapture", this.handlePointerEnd, { passive: false });
-    } else {
-      this.state.canvas.addEventListener("touchstart", this.handleTouch, { passive: false });
-      this.state.canvas.addEventListener("touchend", this.handleTouch, { passive: false });
-      this.state.canvas.addEventListener("touchmove", this.handleTouch, { passive: false });
-      this.state.canvas.addEventListener("touchcancel", this.handleTouchCancel, false);
-    }
+    this.configureTouchInput();
     this.state.canvas.addEventListener("mousedown", this.mouseDown, false);
     window.addEventListener("mouseup", this.mouseUp, false);
 
@@ -2344,18 +2326,7 @@ class Keys {
 
     window.removeEventListener("keydown", this.onKeyDown, false);
     window.removeEventListener("keyup", this.onKeyUp, false);
-    if (this.usesPointerTouchInput) {
-      this.state.canvas.removeEventListener("pointerdown", this.handlePointerDown, false);
-      this.state.canvas.removeEventListener("pointermove", this.handlePointerMove, false);
-      this.state.canvas.removeEventListener("pointerup", this.handlePointerEnd, false);
-      this.state.canvas.removeEventListener("pointercancel", this.handlePointerEnd, false);
-      this.state.canvas.removeEventListener("lostpointercapture", this.handlePointerEnd, false);
-    } else {
-      this.state.canvas.removeEventListener("touchstart", this.handleTouch, false);
-      this.state.canvas.removeEventListener("touchend", this.handleTouch, false);
-      this.state.canvas.removeEventListener("touchmove", this.handleTouch, false);
-      this.state.canvas.removeEventListener("touchcancel", this.handleTouchCancel, false);
-    }
+    KeysBrowserInput.removeTouchInputListeners(this);
     this.state.canvas.removeEventListener("mousedown", this.mouseDown, false);
     window.removeEventListener("mouseup", this.mouseUp, false);
     this.state.canvas.removeEventListener("mousemove", this.mouseActive, false);
@@ -2794,6 +2765,10 @@ class Keys {
 
   handlePointerDown = (e) => {
     return KeysBrowserInput.handlePointerDown.call(this, e);
+  };
+
+  configureTouchInput = (mode) => {
+    return KeysBrowserInput.configureTouchInput.call(this, mode);
   };
 
   handlePointerMove = (e) => {

@@ -7,6 +7,7 @@ import { createLocalOscTransport } from "./transport.js";
 import { warnLog } from "../debug/logging.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
 import { smoothOutputToggle } from "../audio/output-toggle.js";
+import { traceAudioImport } from "../audio/runtime-diagnostics.js";
 import { pendingSuperSonicStartups as pendingStartups } from "./startup-diagnostics.js";
 export { getPendingSuperSonicDiagnostics } from "./startup-diagnostics.js";
 
@@ -23,7 +24,9 @@ export async function create_supersonic_synth(...args) {
   const signal = args[10]?.signal;
   signal?.throwIfAborted();
   const base = new URL(`${import.meta.env.BASE_URL}supersonic/`, location.href).href;
-  const { SuperSonic } = await import(/* @vite-ignore */ `${base}client/supersonic.js`);
+  const url = `${base}client/supersonic.js`;
+  const { SuperSonic } = await traceAudioImport("supersonic-client", url,
+    () => import(/* @vite-ignore */ url));
   signal?.throwIfAborted();
   return createSuperSonicOutput(SuperSonic, base, args);
 }
@@ -234,7 +237,10 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     signal?.removeEventListener("abort", dispose);
     // Stable transport keeps the OSC voice implementation and live fader values.
     const transport = {
-      send: (...values) => currentTransport.send(...values),
+      send: (...values) => {
+        if (recoveryMuted && values[0] === "/s_new") return;
+        return currentTransport.send(...values);
+      },
       cancelScheduled: (...values) => currentTransport.cancelScheduled(...values),
       release: (...values) => currentTransport.release(...values),
       _flushBundles: () => currentTransport._flushBundles(),

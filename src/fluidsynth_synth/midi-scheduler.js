@@ -1,4 +1,6 @@
 import { getOutputTransaction } from "../midi/output-transaction.js";
+import { audioAttackAllowed } from "../audio/attack-gate.js";
+import { recordTouchAudio, recordTouchRender } from "../audio/runtime-diagnostics.js";
 
 /** One clock snapshot per chord/batch, one frame per musical timestamp.
  * Re-reading performance.now() for every message can reverse setup/note order
@@ -12,6 +14,14 @@ export function createFluidMidiScheduler(getEngine, ensureAwake) {
   let batchClock;
   let timestampFrames = new Map();
   const clockKey = {};
+  const renderTiming = event => {
+    const data = event.data;
+    if (data?.type === "touch-rendered") recordTouchRender(data.id, {
+      renderQueueLateMs: data.lateFrames / data.sampleRate * 1000,
+      renderedAudioTime: data.audioTime,
+      renderConfirmation: "FluidSynth attack processed in a successfully rendered block; not audible onset",
+    });
+  };
   const resetClock = () => {
     pending = [];
     batchClock = null;
@@ -20,10 +30,15 @@ export function createFluidMidiScheduler(getEngine, ensureAwake) {
   const enqueue = (event, timestamp) => {
     const engine = getEngine();
     if (!engine?.node) return;
+    const attack = event.command?.op === "on" ||
+      (event.data?.[0] >> 4 === 9 && event.data?.[2] > 0);
+    if (attack && !audioAttackAllowed(engine.context)) return;
     if (node !== engine.node || context !== engine.context) {
+      node?.port.removeEventListener?.("message", renderTiming);
       resetClock();
       node = engine.node;
       context = engine.context;
+      node.port.addEventListener?.("message", renderTiming);
     }
     const transaction = getOutputTransaction();
     let clock = transaction?.data.get(clockKey) ?? batchClock;
@@ -41,12 +56,20 @@ export function createFluidMidiScheduler(getEngine, ensureAwake) {
         ? Math.max(0, timestamp - clock.now) / 1000 : 0)) * context.sampleRate);
       if (Number.isFinite(timestamp)) timestampFrames.set(timestamp, frame);
     }
-    pending.push({ ...event, frame });
+    const queued = { ...event, frame };
+    if (event.command?.op === "on" && event.scope !== "sequence")
+      queued.touchTrace = recordTouchAudio("fluidsynth", context,
+        frame / context.sampleRate * 1000 - context.currentTime * 1000);
+    pending.push(queued);
     if (flushScheduled) return;
     flushScheduled = true;
     queueMicrotask(() => {
       flushScheduled = false;
-      const events = pending;
+      const events = pending.filter(event => {
+        const attack = event.command?.op === "on" ||
+          (event.data?.[0] >> 4 === 9 && event.data?.[2] > 0);
+        return !attack || audioAttackAllowed(context);
+      });
       pending = [];
       batchClock = null;
       const active = getEngine();

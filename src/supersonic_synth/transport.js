@@ -3,6 +3,8 @@
  * This transport exclusively owns its engine; panic may clear its scheduler.
  */
 import { warnLog } from "../debug/logging.js";
+import { audioAttackAllowed } from "../audio/attack-gate.js";
+import { recordTouchAudio, recordTouchRender } from "../audio/runtime-diagnostics.js";
 
 // Retiring engines no longer belong to the active output graph, but PANIC
 // must still reach them. Bound overlap during repeated output toggles.
@@ -15,6 +17,7 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
   const groups = new Map([57101, 57102, 57103, 57104].map((port, i) => [port, 9100 + i]));
   const nodes = new Map();
   const tails = new Map();
+  const touchStarts = new Map();
   let tailLimit = 64;
   let closed = false;
   let purging = false;
@@ -26,6 +29,7 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     if (closed) return;
     closed = true;
     pending = [];
+    touchStarts.clear();
     clearTimeout(drainTimer);
     retiring.delete(finish);
     sonic.node?.disconnect();
@@ -33,7 +37,16 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
   };
   const dispatch = (address, args, timestamp) => {
     if (closed) return;
+    if (address === "/s_new" && !audioAttackAllowed(sonic.audioContext)) return;
     if (purging) { pending.push([address, args, timestamp]); return; }
+    if (address === "/s_new") {
+      const id = recordTouchAudio("supersonic", sonic.audioContext,
+        Number.isFinite(timestamp) ? timestamp - performance.now() : 0);
+      if (id != null) {
+        if (touchStarts.size >= 180) touchStarts.delete(touchStarts.keys().next().value);
+        touchStarts.set(args[1], { id, submittedAt: performance.now() });
+      }
+    }
     const delay = Number.isFinite(timestamp) ? (timestamp - performance.now()) / 1000 : 0;
     if (delay > 0) sonic.sendOSC(encodeBundle(sonic.clock.now() + delay, [[address, ...args]]));
     else sonic.send(address, ...args);
@@ -48,7 +61,16 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     }
   };
   sonic.on("in", message => {
+    if (message[0] === "/n_go") {
+      const trace = touchStarts.get(message[1]);
+      if (trace) recordTouchRender(trace.id, {
+        nodeStartAcknowledgementMs: performance.now() - trace.submittedAt,
+        renderConfirmation: "SuperSonic node-start acknowledgement received; includes return-message delay, not audible onset",
+      });
+      touchStarts.delete(message[1]);
+    }
     if (message[0] === "/n_end") {
+      touchStarts.delete(message[1]);
       nodes.delete(message[1]);
       tails.delete(message[1]);
       if (draining && !nodes.size) finish();
@@ -87,6 +109,7 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     prepare: () => sonic.audioContext.resume(),
     send(address, typedArgs, port, timestamp) {
       if (closed || draining || !groups.has(port)) return;
+      if (address === "/s_new" && !audioAttackAllowed(sonic.audioContext)) return;
       const group = groups.get(port);
       const args = typedArgs.map(arg => arg.value);
       if (address === "/s_new") {

@@ -1006,7 +1006,12 @@ const App = () => {
   const engineLifecycleRef = useRef({ loading: true });
   const [restoringLocalSoundfont, setRestoringLocalSoundfont] = useState(false);
   const audioRecovery = useAudioRecovery(synthRef, keysRef, settings, initialiseAudioRef, engineLifecycleRef);
-  const restoreBuiltInAudio = audioRecovery.restore;
+  const stopInterruptedManualPlaybackRef = useRef(null);
+  const restoreAudioEngines = audioRecovery.restore;
+  const restoreBuiltInAudio = useCallback(() => {
+    stopInterruptedManualPlaybackRef.current?.();
+    return restoreAudioEngines();
+  }, [restoreAudioEngines]);
   const [initialAudioPromptDismissed, setInitialAudioPromptDismissed] = useState(false);
   const [modulationArmed, setModulationArmed] = useState(false);
   const [modulationMode, setModulationMode] = useState("idle");
@@ -2537,6 +2542,29 @@ const App = () => {
     ],
   );
 
+  const stopInterruptedManualPlayback = useCallback(() => {
+      // Audio recovery releases voices, but does not restart manual snapshots.
+      // Cancel pending attacks/UI commits too, so foregrounding cannot restore
+      // a stale sounding highlight or replay an interrupted arpeggio.
+      if (Number.isFinite(timedPlaybackUiRef.current.clockSeconds)) return;
+      if (playingSnapshotId == null &&
+        manualGestureRuntimeRef.current.activeGestureIds().length === 0 &&
+        !pendingManualCueUiCommitRef.current.payload) return;
+      onStopSnapshot();
+  }, [onStopSnapshot, playingSnapshotId]);
+  stopInterruptedManualPlaybackRef.current = stopInterruptedManualPlayback;
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) stopInterruptedManualPlayback();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", stopInterruptedManualPlayback);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", stopInterruptedManualPlayback);
+    };
+  }, [stopInterruptedManualPlayback]);
+
   const onPlayPaletteSnapshot = useCallback(
     (id) => {
       if (typeof timedTransportStopRef.current === "function") {
@@ -4040,6 +4068,7 @@ const App = () => {
     return true;
   }, []);
   const refreshKeyboardAndAudio = useCallback(async () => {
+    stopInterruptedManualPlaybackRef.current?.();
     if (keysRef.current) {
       keysRef.current.resizeHandler();
       keysRef.current.scheduleImmediateGridRedraw();
@@ -5373,6 +5402,7 @@ const App = () => {
     <>
     <Suspense fallback={<SidebarLoadingFallback />}>
       <IOSettings
+        onSaveAudioReport={audioRecovery.save}
         onChange={onChange}
         midiLearnActive={midiLearnActive}
         hakenPedalLearnActive={hakenPedalLearnActive}
@@ -5428,7 +5458,7 @@ const App = () => {
         (audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored"))) && (
         <AudioRecoveryAlert
           message={audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored")
-            ? audioRecovery.status : "Audio is not ready. Tap Retry to prepare the built-in sounds before playing."}
+            ? audioRecovery.status : "Audio is not ready. Tap Retry to prepare built-in sounds."}
           onActivate={() => { void restoreBuiltInAudio(); }}
           onSave={audioRecovery.save}
           onDismiss={() => {

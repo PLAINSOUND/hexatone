@@ -1,6 +1,7 @@
 import { act, cleanup, render, screen } from "@testing-library/preact";
 import { afterEach, expect, it, vi } from "vitest";
 import useAudioRecovery, { needsInitialAudioStart } from "./use-audio-recovery.js";
+import { setLatencyMeasurementEnabled } from "../audio/runtime-diagnostics.js";
 
 it("checks enabled engine readiness rather than whether a gesture occurred", () => {
   const settings = { output_sample: true, output_osc: true, osc_local: true, output_fluidsynth: true };
@@ -13,7 +14,28 @@ it("checks enabled engine readiness rather than whether a gesture occurred", () 
   expect(needsInitialAudioStart(null, { output_fluidsynth: true })).toBe(false);
 });
 
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+afterEach(() => { cleanup(); setLatencyMeasurementEnabled(false); vi.useRealTimers(); });
+
+it("installs latency probes only while enabled and cleans them up", () => {
+  const add = vi.spyOn(window, "addEventListener");
+  const remove = vi.spyOn(window, "removeEventListener");
+  try {
+    harness();
+    const baseline = vi.getTimerCount();
+    expect(add.mock.calls.some(([type]) => type === "touchmove")).toBe(false);
+    setLatencyMeasurementEnabled(true);
+    expect(vi.getTimerCount()).toBe(baseline + 1);
+    expect(add.mock.calls.some(([type]) => type === "touchmove")).toBe(true);
+    setLatencyMeasurementEnabled(false);
+    expect(vi.getTimerCount()).toBe(baseline);
+    expect(remove.mock.calls.some(([type]) => type === "touchmove")).toBe(true);
+    setLatencyMeasurementEnabled(true);
+    cleanup();
+    expect(vi.getTimerCount()).toBe(0);
+    setLatencyMeasurementEnabled(false);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally { add.mockRestore(); remove.mockRestore(); }
+});
 
 it("coalesces Retry taps during startup into one serialized fresh attempt", async () => {
   let finish;
@@ -90,12 +112,12 @@ it("does not compare a new engine clock with the previous engine", async () => {
   await test.tick();
   expect(screen.getByTestId("status").textContent).toContain("Retry");
 });
-it("suppresses checks while engines load, then reports an actual interruption", async () => {
+it("checks installed engines for interruption while another engine loads", async () => {
   const test = harness();
   test.lifecycle.current.loading = true;
   test.audio().state = "interrupted";
   await test.tick();
-  expect(screen.getByTestId("status").textContent).toBe("");
+  expect(screen.getByTestId("status").textContent).toContain("needs attention");
   test.lifecycle.current.loading = false;
   await test.tick();
   expect(screen.getByTestId("status").textContent).toContain("Retry");

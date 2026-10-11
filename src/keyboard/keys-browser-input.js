@@ -4,19 +4,54 @@
 // or harmonic frames.
 
 import Point from "./point";
+import { withTouchTiming, markInputHandler } from "../audio/runtime-diagnostics.js";
+import { getTouchInputMode, setTouchInputMode } from "./touch-input-mode.js";
+import { recordAudioRuntime } from "../audio/runtime-diagnostics.js";
 
 // Windows benefits from Pointer Events plus pointer capture: preventDefault and
 // touch-action:none keep the OS from interpreting multi-touch canvas gestures
 // as scrolling. iOS's established Touch Events path has more reliable tap/latch
 // semantics across Safari-based browsers, so retain it there.
-export function shouldUsePointerTouchInput(windowObject, navigatorObject) {
+export function shouldUsePointerTouchInput(windowObject, navigatorObject, mode = "auto") {
   if (typeof windowObject?.PointerEvent !== "function") return false;
+  if (mode !== "auto") return mode === "pointer";
   const platform = String(navigatorObject?.platform ?? "");
   const userAgent = String(navigatorObject?.userAgent ?? "");
   const isAppleTouchDevice =
     /iPhone|iPad|iPod/i.test(userAgent) ||
     (platform === "MacIntel" && Number(navigatorObject?.maxTouchPoints) > 1);
   return !isAppleTouchDevice;
+}
+
+export function removeTouchInputListeners(keys) {
+  const canvas = keys.state.canvas;
+  for (const [type, handler] of [
+    ["pointerdown", keys.handlePointerDown], ["pointermove", keys.handlePointerMove],
+    ["pointerup", keys.handlePointerEnd], ["pointercancel", keys.handlePointerEnd],
+    ["lostpointercapture", keys.handlePointerEnd], ["touchstart", keys.handleTouch],
+    ["touchmove", keys.handleTouch], ["touchend", keys.handleTouch],
+    ["touchcancel", keys.handleTouchCancel],
+  ]) canvas.removeEventListener(type, handler, false);
+}
+
+export function configureTouchInput(mode = getTouchInputMode()) {
+  this.releaseActiveBrowserNotes?.();
+  removeTouchInputListeners(this);
+  setTouchInputMode(mode);
+  this.usesPointerTouchInput = shouldUsePointerTouchInput(window, navigator, mode);
+  this._pointerMouseInput = false;
+  const canvas = this.state.canvas;
+  // Set before the next contact starts; changing this during a gesture is too late.
+  canvas.style.touchAction = "none";
+  const listeners = this.usesPointerTouchInput
+    ? [["pointerdown", this.handlePointerDown], ["pointermove", this.handlePointerMove],
+      ["pointerup", this.handlePointerEnd], ["pointercancel", this.handlePointerEnd],
+      ["lostpointercapture", this.handlePointerEnd]]
+    : [["touchstart", this.handleTouch], ["touchmove", this.handleTouch],
+      ["touchend", this.handleTouch], ["touchcancel", this.handleTouchCancel]];
+  for (const [type, handler] of listeners) canvas.addEventListener(type, handler, { passive: false });
+  recordAudioRuntime("touch-input-mode", { requested: mode,
+    active: this.usesPointerTouchInput ? "pointer" : "touch" });
 }
 
 function isModulationToggleKeyCode(code) {
@@ -271,6 +306,10 @@ export function mouseUp(_e) {
 
 export async function mouseDown(e) {
   if (e.sourceCapabilities?.firesTouchEvents) return;
+  // In Pointer Events mode only a preceding real mouse pointerdown may
+  // enter this legacy path. Compatibility mouse events after a touch lift
+  // need not expose sourceCapabilities.
+  if (this.usesPointerTouchInput && !this._pointerMouseInput) return;
   if (this._onFirstInteraction) {
     // Do not block visual/touch responsiveness on audio wake/prepare work.
     // On iOS restore paths that async preparation can stall long enough to
@@ -291,6 +330,7 @@ export async function mouseDown(e) {
 
 export function mouseActive(e) {
   if (e.sourceCapabilities?.firesTouchEvents) return;
+  if (this.usesPointerTouchInput && !this._pointerMouseInput) return;
   let coords = this.getPointerPosition(e);
   coords = this.getHexCoordsAt(coords);
 
@@ -363,6 +403,8 @@ function releaseCapturedPointer(canvas, pointerId) {
 }
 
 export function handlePointerDown(e) {
+  markInputHandler(e);
+  this._pointerMouseInput = e.pointerType === "mouse";
   if (e.pointerType === "mouse") return;
   e.preventDefault?.();
   if (this._onFirstInteraction) void this._onFirstInteraction();
@@ -373,7 +415,7 @@ export function handlePointerDown(e) {
   const coords = this.getHexCoordsAt(this.getPointerPosition(e));
   this.state.touchCoords.set(id, coords);
   this.state.isTouchDown = true;
-  this._touchStartOnCoords(id, coords);
+  withTouchTiming(e, () => this._touchStartOnCoords(id, coords));
 
   try {
     e.currentTarget.setPointerCapture?.(id);
@@ -383,14 +425,20 @@ export function handlePointerDown(e) {
 }
 
 export function handlePointerMove(e) {
+  markInputHandler(e);
   if (e.pointerType === "mouse" || !this.state.touchCoords.has(e.pointerId)) return;
+  // A final lift/hover move must not glide into a new key and attack it.
+  if (e.buttons === 0) {
+    handlePointerEnd.call(this, e);
+    return;
+  }
   e.preventDefault?.();
   const id = e.pointerId;
   const coords = this.getHexCoordsAt(this.getPointerPosition(e));
   if (this.state.touchCoords.get(id)?.equals(coords)) return;
   releaseTouch(this, id);
   this.state.touchCoords.set(id, coords);
-  this._touchStartOnCoords(id, coords);
+  withTouchTiming(e, () => this._touchStartOnCoords(id, coords));
 }
 
 export function handlePointerEnd(e) {
@@ -422,6 +470,7 @@ export function releaseActiveBrowserNotes() {
 }
 
 export async function handleTouch(e) {
+  markInputHandler(e);
   e.preventDefault();
   if (this._onFirstInteraction) {
     // Audio preparation must not delay the gesture's note lifecycle.
@@ -446,7 +495,7 @@ export async function handleTouch(e) {
     if (this.state.touchCoords.get(id)?.equals(coords)) continue;
     releaseTouch(this, id);
     this.state.touchCoords.set(id, coords);
-    this._touchStartOnCoords(id, coords);
+    withTouchTiming(e, () => this._touchStartOnCoords(id, coords));
   }
 }
 

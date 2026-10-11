@@ -6,12 +6,25 @@ afterEach(() => vi.restoreAllMocks());
 function fixture() {
   let now = 1000;
   vi.spyOn(performance, "now").mockImplementation(() => now);
-  const engine = { context: { currentTime: 10, sampleRate: 48000 },
+  const engine = { context: { state: "running", currentTime: 10, sampleRate: 48000 },
     node: { port: { postMessage: vi.fn() } } };
   const output = createFluidMidiScheduler(() => engine);
   return { engine, output, advance: (ms) => { now += ms; },
     batches: () => engine.node.port.postMessage.mock.calls.map(([m]) => m).filter(m => m.type === "midi-batch") };
 }
+
+it("drops attacks if interruption happens before flushing but still sends releases", async () => {
+  const f = fixture();
+  f.output.sendCommand({ op: "on" }, undefined, 1);
+  f.engine.context.state = "interrupted";
+  f.output.sendCommand({ op: "off" }, undefined, 1);
+  await Promise.resolve();
+  expect(f.batches()[0].events.map(event => event.command.op)).toEqual(["off"]);
+  f.engine.context.state = "running";
+  f.output.sendCommand({ op: "on" }, undefined, 1);
+  await Promise.resolve();
+  expect(f.batches()).toHaveLength(1);
+});
 
 it("assigns one frame to an ordered chord despite main-thread and audio-block clock changes", async () => {
   const f = fixture();

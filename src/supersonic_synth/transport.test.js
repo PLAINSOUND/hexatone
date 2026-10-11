@@ -1,19 +1,46 @@
 // Local transport must preserve layer isolation, timing and terminal cleanup.
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { createLocalOscTransport, stopRetiredSuperSonicOutputs } from "./transport.js";
 import { create_osc_synth } from "../osc_synth/index.js";
+import { beginTouchTiming, audioRuntimeReport, setLatencyMeasurementEnabled } from "../audio/runtime-diagnostics.js";
+
+afterEach(() => setLatencyMeasurementEnabled(false));
 
 const typed = (...values) => values.map(value => ({ value }));
 function setup() {
   let incoming;
   const sonic = { send: vi.fn(), sendOSC: vi.fn(), purge: vi.fn(async () => {}), clock: { now: () => 1000 },
-    audioContext: { resume: vi.fn(async () => {}) }, on: (_, fn) => { incoming = fn; } };
+    audioContext: { state: "running", resume: vi.fn(async () => {}) }, on: (_, fn) => { incoming = fn; } };
   const encode = vi.fn(() => new Uint8Array([1]));
   const dispose = vi.fn();
   const transport = createLocalOscTransport(sonic, encode, dispose);
-  return { sonic, encode, dispose, transport, ended: id => incoming(["/n_end", id]) };
+  return { sonic, encode, dispose, transport, ended: id => incoming(["/n_end", id]),
+    started: id => incoming(["/n_go", id]) };
 }
 describe("local OSC transport", () => {
+  it("drops interrupted attacks without tracking or replaying them, retaining cleanup", () => {
+    const { sonic, transport } = setup();
+    sonic.audioContext.state = "interrupted";
+    transport.send("/s_new", typed("pluck", 101, 1, 1), 57101);
+    sonic.audioContext.state = "running";
+    transport.send("/s_new", typed("pluck", 102, 1, 1), 57101);
+    expect(transport.hasNode(101)).toBe(false);
+    expect(transport.hasNode(102)).toBe(false);
+    expect(sonic.send.mock.calls.some(call => call[0] === "/s_new")).toBe(false);
+    transport.send("/g_freeAll", typed(1), 57101);
+    expect(sonic.send).toHaveBeenLastCalledWith("/g_freeAll", 9100);
+    transport.release();
+  });
+  it("correlates a touch attack with its node-start acknowledgement", () => {
+    const { transport, started } = setup();
+    setLatencyMeasurementEnabled(true);
+    beginTouchTiming({ timeStamp: performance.now() });
+    transport.send("/s_new", typed("pluck", 101, 1, 1), 57101);
+    started(101);
+    expect(audioRuntimeReport().touchLatency.at(-1)).toMatchObject({ backend: "supersonic",
+      nodeStartAcknowledgementMs: expect.any(Number) });
+    transport.release();
+  });
   it("recovers only an ended enabled layer, not pending or healthy layers", async () => {
     const { sonic, transport, ended } = setup();
     const synth = await create_osc_synth(undefined, undefined, undefined, 0, 0.1, false,

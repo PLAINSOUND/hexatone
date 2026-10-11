@@ -33,6 +33,7 @@ const Sample = (props) => {
         <span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider
             ariaLabel="Volume"
+            defaultValue={0.5}
             min={0}
             max={1}
             step={0.01}

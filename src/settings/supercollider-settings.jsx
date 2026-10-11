@@ -150,6 +150,7 @@ const SuperColliderSettings = ({
                   max={1}
                   step={0.01}
                   value={layerVolumes[key] ?? 0.5}
+                  defaultValue={0.5}
                   onInputValue={(nextValue) => {
                     const next = clampVolume(parseFloat(nextValue));
                     setLayerVolumes((current) => ({ ...current, [key]: next }));
@@ -186,6 +187,7 @@ const SuperColliderSettings = ({
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider
                 ariaLabel="Brightness"
+                defaultValue={0.2}
                 min={0}
                 max={1}
                 step={1 / 127}
@@ -201,6 +203,7 @@ const SuperColliderSettings = ({
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider
                 ariaLabel="Release Override Amount"
+                defaultValue={0.5}
                 min={0}
                 max={1}
                 step={0.01}
@@ -247,6 +250,7 @@ const SuperColliderSettings = ({
             <span class="sidebar-input settings-form__range-row">
               <CustomRangeSlider
                 ariaLabel="Release Time"
+                defaultValue={0.25}
                 min={0.01}
                 max={2}
                 step={0.005}

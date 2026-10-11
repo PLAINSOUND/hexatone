@@ -1,5 +1,31 @@
 # debug README
 
+## Audio recovery report and touch latency
+
+The audio popup's Report action exports bounded session diagnostics, including
+module import URLs/stages/durations and pending imports before engine creation.
+Vite-managed imports use a `module:` source identifier rather than pretending
+it is the generated chunk URL; recent resource timings accompany import failures.
+Installed engine health checks continue while another engine is loading.
+
+I/O → Audio Diagnostics → Measure audio latency is off by default and resets on
+reload. While off, timing hooks return immediately and input capture listeners,
+the 25 ms timer probe, and the long-task observer are absent. Switching the toggle
+clears latency history. Recovery history remains capped at 180 events, runtime
+engine events at 120, and enabled latency/timer histories at 180/120 respectively.
+
+`runtime.touchLatency` records synchronous canvas touch attacks for Samples,
+FluidSynth and SuperSonic, once per backend per gesture. `inputAgeMs` estimates
+event delivery age; `dispatchMs` measures handler entry to backend submission.
+`estimatedOutputMs` adds scheduled delay and browser-reported base/output latency;
+it is null when output latency is unavailable or the context is not running.
+It is not a speaker measurement and excludes envelopes and unmeasured engine queues.
+FluidSynth additionally reports render-block queue lateness; SuperSonic reports
+node-start acknowledgement delay (including return-message delivery).
+Deferred attacks and sequence playback are not attributed to a recent touch.
+Long main-thread tasks are included where the browser supports that observer.
+No pitches, raw controller payloads or audio assets are recorded.
+
 Hexatone currently exposes three kinds of debug controls:
 
 1. Log-category flags via `localStorage` / `sessionStorage`
