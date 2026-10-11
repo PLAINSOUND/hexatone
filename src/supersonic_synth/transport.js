@@ -138,8 +138,18 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     },
     cancelScheduled() {
       if (closed) return;
+      if (purging) {
+        // A repeated cancellation must discard queued attacks, not erase the
+        // silence commands waiting for this same purge acknowledgement.
+        // allSoundOff followed by clearRecoveryEvents otherwise loses its
+        // /g_deepFree, leaving orphan voices in a parked warm engine.
+        pending = pending.filter(([address, args]) =>
+          ["/g_deepFree", "/g_freeAll", "/n_free"].includes(address) ||
+          (address === "/n_set" && args.some((value, index) =>
+            index % 2 === 1 && value === "gate" && args[index + 1] <= 0)));
+        return purgePromise;
+      }
       pending = [];
-      if (purging) return purgePromise;
       purging = true;
       // /clearSched alone does not clear SuperSonic's upstream WASM scheduler.
       // Keep subsequent frees/new attacks behind the confirmed purge barrier.

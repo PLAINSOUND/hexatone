@@ -6,13 +6,15 @@ afterEach(() => vi.useRealTimers());
 function setup(keepWarm = false) {
   vi.useFakeTimers();
   const attack = vi.fn();
+  const release = vi.fn();
   const shutdown = vi.fn();
   const mute = vi.fn();
   const fadeIn = vi.fn();
-  const synth = smoothOutputToggle({ makeHex: () => ({ noteOn: attack }), shutdown,
+  const synth = smoothOutputToggle({ makeHex: () => ({ noteOn: attack, noteOff: release }), shutdown,
     allSoundOff: vi.fn(), clearRecoveryEvents: vi.fn(), prepare: vi.fn() },
     { mute, fadeIn, cutOnShutdown: true, reuseWindowMs: 5000, keepWarm });
-  return { synth, attack, shutdown, mute, fadeIn };
+  vi.spyOn(synth, "allSoundOff");
+  return { synth, attack, release, shutdown, mute, fadeIn };
 }
 it("fades before teardown and blocks queued attacks while off", async () => {
   const { synth, attack, shutdown, mute, fadeIn } = setup();
@@ -31,12 +33,14 @@ it("fades before teardown and blocks queued attacks while off", async () => {
   expect(shutdown).toHaveBeenCalledWith({ panic: true });
   expect(synth.cancelShutdown()).toBe(false);
 });
-it("keeps voices for quick A–B toggles, then clears them without disposing the warm engine", async () => {
-  const { synth, shutdown, fadeIn } = setup(true);
+it("keeps the engine warm and naturally releases voices after five seconds", async () => {
+  const { synth, shutdown, fadeIn, release, mute } = setup(true);
   synth.makeHex().noteOn();
   synth.pauseOutput();
+  expect(mute).toHaveBeenCalledWith(40);
   await vi.advanceTimersByTimeAsync(4999);
   expect(synth.allSoundOff).not.toHaveBeenCalled();
+  expect(release).not.toHaveBeenCalled();
   await synth.resumeOutput();
   expect(fadeIn).toHaveBeenCalledTimes(2);
   await vi.advanceTimersByTimeAsync(6000);
@@ -44,13 +48,40 @@ it("keeps voices for quick A–B toggles, then clears them without disposing the
   const cleared = synth.pauseOutput();
   await vi.advanceTimersByTimeAsync(5000);
   await cleared;
-  expect(synth.allSoundOff).toHaveBeenCalledOnce();
-  expect(synth.clearRecoveryEvents).toHaveBeenCalledOnce();
+  expect(synth.allSoundOff).not.toHaveBeenCalled();
+  expect(synth.clearRecoveryEvents).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(60000);
   expect(shutdown).not.toHaveBeenCalled();
   await synth.resumeOutput();
   synth.makeHex().noteOn();
   expect(fadeIn).toHaveBeenCalledTimes(3);
+  synth.shutdown({ panic: true });
+});
+it("blocks muted attacks and delays detached voice releases until the grace deadline", async () => {
+  const { synth, attack, release, fadeIn } = setup(true);
+  const old = synth.makeHex();
+  old.noteOn();
+  fadeIn.mockClear();
+  await synth.pauseOutput();
+  expect(synth.isOutputPaused()).toBe(true);
+  const hex = synth.makeHex();
+  hex.noteOn();
+  expect(attack).toHaveBeenCalledOnce();
+  expect(fadeIn).not.toHaveBeenCalled();
+  old.noteOff();
+  expect(release).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(4999);
+  expect(release).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(release).toHaveBeenCalledOnce();
+  await synth.resumeOutput();
+  expect(synth.isOutputPaused()).toBe(false);
+  expect(fadeIn).toHaveBeenCalledOnce();
+  expect(attack).toHaveBeenCalledOnce();
+  const fresh = synth.makeHex();
+  fresh.noteOn();
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(release).toHaveBeenCalledOnce();
   synth.shutdown({ panic: true });
 });
 it("quick off/on reclaims the same engine and cancels pending cleanup", async () => {
@@ -68,6 +99,32 @@ it("quick off/on reclaims the same engine and cancels pending cleanup", async ()
   expect(fadeIn).toHaveBeenCalledTimes(2);
   await reused.shutdown({ panic: true });
   expect(shutdown).toHaveBeenCalledOnce();
+});
+it("rejoins during the grace window without a stale timer releasing fresh voices", async () => {
+  vi.useFakeTimers();
+  const releases = [];
+  const shutdown = vi.fn();
+  const synth = smoothOutputToggle({ makeHex: () => {
+    const noteOff = vi.fn();
+    releases.push(noteOff);
+    return { noteOn: vi.fn(), noteOff };
+  }, shutdown }, { mute: vi.fn(), fadeIn: vi.fn(), keepWarm: true });
+  const old = synth.makeHex();
+  old.noteOn();
+  await synth.pauseOutput();
+  old.noteOff();
+  await vi.advanceTimersByTimeAsync(2000);
+  expect(releases[0]).not.toHaveBeenCalled();
+  await synth.resumeOutput();
+  expect(releases[0]).toHaveBeenCalledOnce();
+  const fresh = synth.makeHex();
+  fresh.noteOn();
+  await vi.advanceTimersByTimeAsync(6000);
+  expect(releases[1]).not.toHaveBeenCalled();
+  expect(shutdown).not.toHaveBeenCalled();
+  fresh.noteOff();
+  expect(releases[1]).toHaveBeenCalledOnce();
+  synth.shutdown({ panic: true });
 });
 it("expired or differently keyed engines cannot be reclaimed", async () => {
   const { synth, shutdown } = setup();

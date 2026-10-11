@@ -18,6 +18,23 @@ function setup() {
     started: id => incoming(["/n_go", id]) };
 }
 describe("local OSC transport", () => {
+  it("preserves queued silence when warm-output cleanup repeats an in-flight purge", async () => {
+    const { sonic, transport } = setup();
+    let finish;
+    sonic.purge.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    transport.send("/s_new", typed("string", 101, 1, 1), 57101);
+    const purge = transport.cancelScheduled();
+    transport.send("/n_set", typed(101, "gate", 0), 57101);
+    transport.panic();
+    transport.send("/s_new", typed("string", 102, 1, 1), 57101);
+    expect(transport.cancelScheduled()).toBe(purge);
+    expect(sonic.purge).toHaveBeenCalledOnce();
+    finish();
+    await purge;
+    expect(sonic.send).toHaveBeenCalledWith("/g_deepFree", 0);
+    expect(sonic.send.mock.calls.filter(call => call[0] === "/s_new")).toHaveLength(1);
+    transport.release();
+  });
   it("drops interrupted attacks without tracking or replaying them, retaining cleanup", () => {
     const { sonic, transport } = setup();
     sonic.audioContext.state = "interrupted";

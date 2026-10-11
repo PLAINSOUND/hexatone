@@ -257,7 +257,10 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
     synth.audioBackend = "supersonic";
     synth.getAudioContext = () => context;
     synth.muteForRecovery = (durationMs) => { recoveryMuted = true; return recoveryGate?.mute(durationMs); };
-    synth.fadeAfterRecovery = () => { recoveryMuted = false; return recoveryGate?.fadeIn(); };
+    synth.fadeAfterRecovery = () => {
+      recoveryMuted = false;
+      if (!synth.isOutputPaused?.()) return recoveryGate?.fadeIn();
+    };
     synth.clearRecoveryEvents = async () => {
       await currentTransport.cancelScheduled();
       if (currentTransport.getDiagnostics().transport?.closed) throw new Error("SuperSonic purge failed");

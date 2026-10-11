@@ -143,7 +143,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           ["interrupted", "closed"].includes(context.state) ||
           (context.state === "suspended" && last?.state === "running")
         ) {
-          const children = synthRef.current?.childSynths?.() ?? [synthRef.current];
+          const children = synthRef.current?.getRecoveryOutputs?.() ?? synthRef.current?.childSynths?.() ?? [synthRef.current];
           for (const child of children) {
             if ((child?.audioBackend ?? (child?.family === "sample" ? "samples" : null)) === output.backend)
               blockAudioAttacks(child.getAudioContext?.());

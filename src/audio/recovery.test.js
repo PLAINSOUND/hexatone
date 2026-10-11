@@ -114,6 +114,13 @@ describe("built-in audio recovery", () => {
     expect(JSON.parse(JSON.stringify(report)).schema).toBe("hexatone-audio-recovery/v1");
     expect(report.settings.output_sample).toBe(true);
   });
+  it("includes parked engines in recovery without adding them to the live note graph", async () => {
+    const parked = backend("supersonic");
+    const synth = { childSynths: () => [], getRecoveryOutputs: () => [parked] };
+    const log = createAudioRecovery();
+    expect(log.snapshot(synth)).toHaveLength(1);
+    expect((await log.restore(synth))[0]).toMatchObject({ backend: "supersonic", ok: true });
+  });
   it("downloads a JSON report and releases its temporary URL", async () => {
     vi.useFakeTimers();
     const create = vi.fn(() => "blob:report");

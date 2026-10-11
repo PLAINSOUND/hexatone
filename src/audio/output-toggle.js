@@ -1,6 +1,6 @@
-// Local output toggles use a separate gain envelope, not musical release or
-// volume controls. Mark the old graph closed immediately, then tear it down
-// after the short fade; queued logical attacks must not revive it meanwhile.
+// Warm local toggles fade to mute in 40 ms, block new attacks and retain old
+// voices for five seconds before their natural release. Rejoining releases
+// retired voices naturally; it never uses a backend-wide clear to cut tails.
 const fading = new Set();
 const warm = new Set();
 export function stopFadingOutputToggles() {
@@ -18,64 +18,75 @@ export function smoothOutputToggle(synth, { mute, fadeIn, cutOnShutdown = false,
   let cancel;
   let paused = false;
   let pauseRevision = 0;
-  let clearing = Promise.resolve();
-  let voiceTimer;
-  let cancelVoiceClear;
+  let graceTimer;
+  const voices = new Map();
+  const releaseParkedVoices = () => {
+    clearTimeout(graceTimer);
+    for (const [hex, release] of [...voices]) {
+      release(0);
+      voices.delete(hex);
+    }
+  };
+  const allSoundOff = synth.allSoundOff?.bind(synth);
+  if (allSoundOff) synth.allSoundOff = (...args) => {
+    clearTimeout(graceTimer);
+    voices.clear();
+    return allSoundOff(...args);
+  };
+  synth.isOutputPaused = () => paused;
   if (keepWarm) {
     synth.pauseOutput = () => {
       pauseRevision++;
-      if (paused) return clearing;
+      if (paused) return Promise.resolve();
       paused = true;
       stopped = true;
       warm.add(synth);
-      mute(30);
-      clearing = new Promise(resolve => {
-        cancelVoiceClear = () => {
-          clearTimeout(voiceTimer);
-          cancelVoiceClear = null;
-          resolve(false);
-        };
-        voiceTimer = setTimeout(() => {
-          cancelVoiceClear = null;
-          resolve(true);
-        }, 5000);
-      }).then(async shouldClear => {
-        if (!shouldClear || !paused) return;
-        // Clear the engine only under the silent gate, not at the toggle edge.
-        synth.allSoundOff?.();
-        await synth.clearRecoveryEvents?.();
-      });
-      return clearing;
+      mute(40);
+      // The graph detaches immediately, but its old voices keep sounding
+      // behind the gate until the grace window expires.
+      graceTimer = setTimeout(releaseParkedVoices, 5000);
+      return Promise.resolve();
     };
     synth.resumeOutput = async () => {
       if (!paused) return;
       const revision = pauseRevision;
-      const retainedVoices = !!cancelVoiceClear;
-      cancelVoiceClear?.();
-      await clearing;
-      if (!paused || revision !== pauseRevision) return;
       await synth.prepare?.();
       if (!paused || revision !== pauseRevision) return;
+      // Release only the retired voice objects, never a backend-wide clear.
+      // Their tails may overlap the fresh voices joined by reconciliation.
+      releaseParkedVoices();
       paused = false;
       warm.delete(synth);
       stopped = false;
-      started = retainedVoices;
-      if (retainedVoices) fadeIn();
+      started = true;
+      fadeIn();
     };
   }
   synth.makeHex = (...args) => {
     const hex = makeHex(...args);
     const noteOn = hex.noteOn?.bind(hex);
+    const noteOff = hex.noteOff?.bind(hex);
     hex.noteOn = (...values) => {
       if (stopped) return;
-      if (!started) { started = true; fadeIn(); }
+      if (!started && !paused) { started = true; fadeIn(); }
+      for (const old of voices.keys()) if (old.release === true) voices.delete(old);
+      if (noteOff) voices.set(hex, noteOff);
       return noteOn?.(...values);
     };
+    if (noteOff) hex.noteOff = (...values) => {
+      if (paused && voices.has(hex)) return;
+      voices.delete(hex);
+      return noteOff(...values);
+    };
+    if (hex._onSourceEnded) {
+      const ended = hex._onSourceEnded;
+      hex._onSourceEnded = (...values) => { voices.delete(hex); return ended(...values); };
+    }
     return hex;
   };
   synth.shutdown = (options) => {
+    clearTimeout(graceTimer);
     if (options?.engineSwitch && paused) {
-      cancelVoiceClear?.();
       warm.delete(synth);
       paused = false;
       pauseRevision++;
@@ -85,7 +96,6 @@ export function smoothOutputToggle(synth, { mute, fadeIn, cutOnShutdown = false,
     // parked engine, rather than silently returning because attacks are blocked.
     if (options?.panic || paused) {
       const shutdownOptions = paused ? { ...options, panic: true } : options;
-      cancelVoiceClear?.();
       warm.delete(synth);
       paused = false;
       pauseRevision++;

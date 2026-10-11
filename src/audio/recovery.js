@@ -15,7 +15,7 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
     if (history.length > historyLimit) history.shift();
   };
   const outputs = (synth) =>
-    (synth?.childSynths?.() ?? [synth]).filter(
+    (synth?.getRecoveryOutputs?.() ?? synth?.childSynths?.() ?? [synth]).filter(
       (s) => s && (s.family === "sample" || s.audioBackend),
     );
   const snapshot = (synth) =>

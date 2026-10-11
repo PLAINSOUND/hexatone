@@ -545,6 +545,8 @@ const useSynthWiring = (
   const mtsSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
   const warmOscSynthRef = useRef({ key: null, synth: null });
+  const warmSampleSynthRef = useRef({ key: null, synth: null });
+  const warmFluidSynthRef = useRef({ key: null, synth: null });
   const midiRequestRef = useRef(null);
   const midiDisableRef = useRef(null);
   const midiPermissionGenerationRef = useRef(0);
@@ -569,6 +571,8 @@ const useSynthWiring = (
   const clearAllOutputSynthRefs = useCallback((preserveWarm = false) => {
     oscRequestsRef.current.cancelAll();
     if (!preserveWarm) {
+      clearOutputRef(warmSampleSynthRef, { panic: true });
+      clearOutputRef(warmFluidSynthRef, { panic: true });
       clearOutputRef(warmOscSynthRef, { panic: true });
       if (oscSynthRef.current.synth?.pauseOutput) clearOutputRef(oscSynthRef, { panic: true });
     }
@@ -962,12 +966,40 @@ const useSynthWiring = (
       !!settings.output_fluidsynth && fluidSynthEngine?.soundfontId != null;
 
     const monoOutput = settings.output_mono && midi?.outputs.get(settings.mono_device);
+    const includeWarmRecoveryOutputs = s => {
+      s.getRecoveryOutputs = () => [...new Set([
+        ...(s.childSynths?.() ?? []), warmOscSynthRef.current.synth,
+        warmSampleSynthRef.current.synth, warmFluidSynthRef.current.synth,
+      ].filter(Boolean))];
+      return s;
+    };
+    const park = (activeRef, warmRef) => {
+      clearOutputRef(warmRef, { panic: true });
+      warmRef.current = activeRef.current;
+      activeRef.current = { key: null, synth: null };
+      void warmRef.current.synth.pauseOutput().catch(error =>
+        warnLog("Warm output pause failed:", error));
+      // Detach now, before asynchronous graph work can be superseded by a
+      // quick on-toggle. Held wrappers must recreate children when rejoining.
+      const currentChildren = synthRef.current?.childSynths?.();
+      if (currentChildren?.includes(warmRef.current.synth)) {
+        const detached = includeWarmRecoveryOutputs(create_composite_synth(
+          currentChildren.filter(child => child !== warmRef.current.synth), retiringSampleSynthsRef.current));
+        keysRef.current?.updateLiveOutputState?.(null, detached);
+        synthRef.current = detached;
+      }
+    };
+    if (!wantSample && sampleSynthRef.current.synth?.pauseOutput)
+      park(sampleSynthRef, warmSampleSynthRef);
+    if (!wantInternalFluidSynth) {
+      for (const [key, synth] of mtsSynthsRef.current) {
+        if (synth.audioBackend !== "fluidsynth" || !synth.pauseOutput) continue;
+        mtsSynthsRef.current.delete(key);
+        park({ current: { key, synth } }, warmFluidSynthRef);
+      }
+    }
     if (!wantOsc && oscSynthRef.current.synth?.pauseOutput) {
-      clearOutputRef(warmOscSynthRef, { panic: true });
-      warmOscSynthRef.current = oscSynthRef.current;
-      oscSynthRef.current = { key: null, synth: null };
-      void warmOscSynthRef.current.synth.pauseOutput().catch(error =>
-        warnLog("SuperSonic muted-output cleanup failed:", error));
+      park(oscSynthRef, warmOscSynthRef);
     }
     if (
       !wantSample &&
@@ -980,9 +1012,10 @@ const useSynthWiring = (
       !monoOutput
     ) {
       clearAllOutputSynthRefs(true);
-      const silentSynth = create_composite_synth([]);
+      const silentSynth = includeWarmRecoveryOutputs(create_composite_synth([]));
       keysRef.current?.updateLiveOutputState?.(null, silentSynth);
       setSynth(silentSynth);
+      synthRef.current = silentSynth;
       return () => {
         cancelled = true;
       };
@@ -1061,13 +1094,20 @@ const useSynthWiring = (
 
     const sampleConfig = sampleOutputConfig(playbackSettings, playbackTuning);
     const sampleKey = sampleConfig.key;
+    if (wantSample && warmSampleSynthRef.current.synth) {
+      if (warmSampleSynthRef.current.key === sampleKey) {
+        sampleSynthRef.current = warmSampleSynthRef.current;
+        warmSampleSynthRef.current = { key: null, synth: null };
+      } else clearOutputRef(warmSampleSynthRef);
+    }
     if (!wantSample) {
       clearSampleOutputs(sampleSynthRef, retiringSampleSynthsRef);
     }
 
     if (wantSample) {
       if (sampleSynthRef.current.key === sampleKey && sampleSynthRef.current.synth) {
-        promises.push(Promise.resolve(sampleSynthRef.current.synth));
+        const retained = sampleSynthRef.current.synth;
+        promises.push(Promise.resolve(retained.resumeOutput?.()).then(() => retained));
       } else {
         promises.push(
           sampleRequestsRef.current(
@@ -1136,13 +1176,19 @@ const useSynthWiring = (
           outputPortIdentityRef.current,
         );
         desiredMtsKeys.add(fluidKey);
+        if (warmFluidSynthRef.current.synth) {
+          if (warmFluidSynthRef.current.key === fluidKey) {
+            mtsSynthsRef.current.set(fluidKey, warmFluidSynthRef.current.synth);
+            warmFluidSynthRef.current = { key: null, synth: null };
+          } else clearOutputRef(warmFluidSynthRef);
+        }
         if (!mtsSynthsRef.current.has(fluidKey)) {
           const fading = reclaimFadingOutput(mtsSynthsRef, fluidKey);
           if (fading) mtsSynthsRef.current.set(fluidKey, fading);
         }
         const existing = mtsSynthsRef.current.get(fluidKey);
         if (existing) {
-          promises.push(Promise.resolve(existing));
+          promises.push(Promise.resolve(existing.resumeOutput?.()).then(() => existing));
         } else {
           promises.push(
             midiRequestsRef.current(
@@ -1280,6 +1326,7 @@ const useSynthWiring = (
           cents: internalPlaybackTuning.degree0toRefAsArray[0],
           ratio: internalPlaybackTuning.degree0toRefAsArray[1],
         });
+        includeWarmRecoveryOutputs(s);
         if (s.setVolume) {
           const volume = readSampleVolume();
           s.setVolume(volume);

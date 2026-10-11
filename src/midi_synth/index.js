@@ -51,11 +51,13 @@ export const create_midi_synth = async ({
     synth.getAudioContext = getFluidSynthAudioContext;
     synth.resumeAfterAudioRestart = resumeFluidSynthAfterAudioRestart;
     synth.muteForRecovery = muteFluidSynthForRecovery;
-    synth.fadeAfterRecovery = fadeFluidSynthAfterRecovery;
+    synth.fadeAfterRecovery = (...args) => {
+      if (!synth.isOutputPaused?.()) return fadeFluidSynthAfterRecovery(...args);
+    };
     synth.clearRecoveryEvents = clearFluidSynthRecoveryEvents;
     synth.getDiagnostics = getFluidSynthAudioDiagnostics;
     smoothOutputToggle(synth, { mute: muteFluidSynthForRecovery,
-      fadeIn: () => fadeFluidSynthAfterRecovery({ fromCurrent: true, durationMs: 40 }) });
+      fadeIn: () => fadeFluidSynthAfterRecovery({ fromCurrent: true, durationMs: 40 }), keepWarm: true });
     const shutdown = synth.shutdown;
     synth.shutdown = (options) => {
       const pending = shutdown(options);

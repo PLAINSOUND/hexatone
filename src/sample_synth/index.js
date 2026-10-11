@@ -7,6 +7,7 @@ import { outputAudioTime } from "../midi/output-transaction.js";
 import { installAudioGestureRecovery } from "./gesture-recovery.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
 import { recordTouchAudio } from "../audio/runtime-diagnostics.js";
+import { smoothOutputToggle } from "../audio/output-toggle.js";
 
 import { instruments } from "./instruments";
 import { scalaToCents } from "../settings/scale/parse-scale";
@@ -420,11 +421,14 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       }
     };
 
-    return {
+    const synth = {
       family: "sample",
       getAudioContext: () => sharedAudioContext,
       muteForRecovery: (durationMs) => { recoveryMuted = true; return recoveryGate?.mute(durationMs); },
-      fadeAfterRecovery: () => { recoveryMuted = false; return recoveryGate?.fadeIn(); },
+      fadeAfterRecovery: () => {
+        recoveryMuted = false;
+        if (!synth.isOutputPaused?.()) return recoveryGate?.fadeIn();
+      },
       getDiagnostics: () => ({ family: "sample", retainedHexes: knownHexes.size,
         audioContext: { state: sharedAudioContext?.state, sampleRate: sharedAudioContext?.sampleRate,
           currentTime: sharedAudioContext?.currentTime, baseLatency: sharedAudioContext?.baseLatency } }),
@@ -594,6 +598,17 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         knownHexes.clear();
       },
     };
+    synth.shutdown = ({ panic = false } = {}) => panic ? synth.allSoundOff() : synth.releaseAll();
+    return smoothOutputToggle(synth, {
+      keepWarm: true,
+      mute: durationMs => recoveryGate?.mute(durationMs),
+      fadeIn: () => {
+        if (!recoveryMuted) {
+          outputFadePending = false;
+          recoveryGate?.fadeIn({ fromCurrent: true, durationMs: 40 });
+        }
+      },
+    });
   } catch (e) {
     errorLog(e);
   }

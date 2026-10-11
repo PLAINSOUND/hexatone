@@ -96,6 +96,7 @@ it("reuses a muted SuperSonic engine without foreground Loading on re-enable", a
   const view = render(<Harness settings={settings} />);
   await waitFor(() => expect(current.synth?.children).toEqual([local]));
   view.rerender(<Harness settings={{ ...settings, output_osc: false }} />);
+  await waitFor(() => expect(local.isOutputPaused()).toBe(true));
   await waitFor(() => expect(current.synth?.children).toEqual([]));
   view.rerender(<Harness settings={settings} />);
   expect(current.loading).toBe(0);
