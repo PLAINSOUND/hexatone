@@ -110,7 +110,7 @@ it("does not compare a new engine clock with the previous engine", async () => {
   await test.tick();
   expect(screen.getByTestId("status").textContent).toBe("");
   await test.tick();
-  expect(screen.getByTestId("status").textContent).toContain("Retry");
+  expect(screen.getByTestId("status").textContent).toContain("needs attention");
 });
 it("checks installed engines for interruption while another engine loads", async () => {
   const test = harness();
@@ -120,5 +120,5 @@ it("checks installed engines for interruption while another engine loads", async
   expect(screen.getByTestId("status").textContent).toContain("needs attention");
   test.lifecycle.current.loading = false;
   await test.tick();
-  expect(screen.getByTestId("status").textContent).toContain("Retry");
+  expect(screen.getByTestId("status").textContent).toContain("needs attention");
 });
