@@ -106,7 +106,7 @@ describe("recoverable SuperSonic engine", () => {
     const rejection = expect(work).rejects.toThrow("superseded");
     await vi.advanceTimersByTimeAsync(100);
     expect(getPendingSuperSonicDiagnostics()[0]).toMatchObject({
-      phase: "waiting-for-context", version: "0.88",
+      phase: "waiting-for-context", version: "0.90",
       contexts: [{ state: "suspended" }],
     });
     document.dispatchEvent(new Event("touchend"));

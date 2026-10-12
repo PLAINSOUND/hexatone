@@ -7,7 +7,12 @@ const root = new URL("../../", import.meta.url);
 const bundle = new URL("vendor/supersonic/", root);
 const manifest = JSON.parse(await readFile(new URL("manifest.json", bundle), "utf8"));
 const version = manifest.version.replace(/-dfm1$/, "");
-for (const name of ["node_modules/supersonic-scsynth/package.json", "vendor/supersonic/core/package.json"]) {
+for (const name of [
+  "node_modules/supersonic-scsynth/package.json",
+  "node_modules/supersonic-scsynth-core/package.json",
+  "vendor/supersonic/client/package.json",
+  "vendor/supersonic/core/package.json",
+]) {
   const pkg = JSON.parse(await readFile(new URL(name, root), "utf8"));
   if (pkg.version !== version) throw new Error(`SuperSonic client/core version mismatch: ${name} is ${pkg.version}, expected ${version}`);
 }

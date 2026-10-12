@@ -66,7 +66,7 @@ describe("SuperCollider scsynth settings", () => {
     const onChange = vi.fn();
     const view = render(<SuperColliderSettings settings={{ output_osc: true, osc_local: true }} onChange={onChange} />);
     const menu = screen.getByLabelText("scsynth Server");
-    expect([...menu.options].map(option => option.textContent)).toEqual(["OFF", "SuperSonic 0.88", "Local via OSC Bridge"]);
+    expect([...menu.options].map(option => option.textContent)).toEqual(["OFF", "SuperSonic 0.90", "Local via OSC Bridge"]);
     fireEvent.change(menu, { target: { value: "OFF" } });
     expect(onChange).toHaveBeenCalledWith("osc_server_off", true);
     expect(onChange).not.toHaveBeenCalledWith("output_osc", false);

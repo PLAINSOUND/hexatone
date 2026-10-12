@@ -1,5 +1,5 @@
 /** Exercises Hexatone's real local OSC adapter against a running Vite server. */
-import { chromium } from "./upstream-088/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-090/node_modules/playwright/index.mjs";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 const production = process.argv.includes("--production");
@@ -43,6 +43,25 @@ try {
     const data = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(data);
     const peak = Math.max(...data.map(Math.abs));
+    await context.suspend();
+    await synth.prepare();
+    const resumedState = context.state;
+    // A stalled/silent engine Retry rebuilds its isolated context. Check two
+    // consecutive rebuilds, not just the first successful boot.
+    const recoveryPeaks = [];
+    const retiredStates = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      synth.allSoundOff();
+      const oldContext = context;
+      await synth.forceAudioRebuild();
+      context = synth.getAudioContext();
+      analyser = analysers.get(context);
+      synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1).noteOn();
+      await new Promise(resolve => setTimeout(resolve, 800));
+      analyser.getFloatTimeDomainData(data);
+      recoveryPeaks.push(Math.max(...data.map(Math.abs)));
+      retiredStates.push(oldContext.state);
+    }
     const future = synth.makeHex({ x: 1, y: 0 }, 700, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
     future.noteOn(performance.now() + 150);
     synth.allSoundOff();
@@ -69,10 +88,14 @@ try {
     while (context.state !== "closed" && performance.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    return { peak, panicPeak, contextState, releasePeak, releaseState, drainedState: context.state };
+    return { peak, resumedState, recoveryPeaks, retiredStates, panicPeak, contextState,
+      releasePeak, releaseState, drainedState: context.state };
   }, production ? `${base}/assets/${productionChunk}` : "/src/supersonic_synth/index.js");
   console.log(result);
   assert(result.peak > 0 && result.peak < 1);
+  assert.equal(result.resumedState, "running");
+  assert(result.recoveryPeaks.every(peak => peak > 0 && peak < 1));
+  assert.deepEqual(result.retiredStates, ["closed", "closed"]);
   assert(result.panicPeak < 0.00001);
   assert.equal(result.contextState, "closed");
   assert(result.releasePeak > 0);

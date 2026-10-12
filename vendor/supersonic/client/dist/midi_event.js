@@ -1,0 +1,2 @@
+var o="/clockwork/midi/in/";function f(n){let l=0;for(;l<n.length&&n[l]!==0;)l++;let t=l+4&-4;if(n[t]!==44)return"";let r=t;for(;r<n.length&&n[r]!==0;)r++;return String.fromCharCode.apply(null,n.subarray(t+1,r))}function h(n,l){if(!n||n[0]!==47)return null;let t;try{t=l(n)}catch{return null}let r=t[0];if(typeof r!="string"||!r.startsWith(o))return null;let i=r.slice(o.length);if(!i||i.includes("/"))return null;let c=f(n),u=[i];for(let e=1;e<t.length;e++)c[e-1]!=="t"&&u.push(t[e]);return u}export{h as midiInDecode};
+//# sourceMappingURL=midi_event.js.map

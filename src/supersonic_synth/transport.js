@@ -151,8 +151,8 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
       }
       pending = [];
       purging = true;
-      // /clearSched alone does not clear SuperSonic's upstream WASM scheduler.
-      // Keep subsequent frees/new attacks behind the confirmed purge barrier.
+      // 0.90 fixes /clearSched's WASM scheduler flush. Retain the acknowledged
+      // purge barrier so subsequent frees/new attacks cannot overtake cleanup.
       purgePromise = sonic.purge().then(() => {
         purging = false;
         if (closed) { dispose(); return; }

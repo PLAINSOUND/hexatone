@@ -1,0 +1,98 @@
+{
+  "name": "supersonic-scsynth",
+  "version": "0.90.0",
+  "description": "SuperCollider scsynth on clockwork, for the browser as an AudioWorklet and natively as a server",
+  "main": "dist/supersonic.js",
+  "types": "supersonic.d.ts",
+  "unpkg": "dist/supersonic.js",
+  "jsdelivr": "dist/supersonic.js",
+  "type": "module",
+  "scripts": {
+    "build": "./scripts/build-web.sh",
+    "build:release": "./scripts/build-web.sh --release",
+    "clean": "./scripts/clean.sh",
+    "dev": "cd example && npx serve",
+    "pretest": "esbuild node_modules/fast-check/lib/fast-check.js --bundle --format=esm --outfile=test/assets/fast-check.bundle.js",
+    "test": "playwright test --reporter=list --max-failures=1",
+    "test:all": "playwright test --reporter=list",
+    "test:native": "./build/native/test/native/SuperSonicNativeTests '~[benchmark]'",
+    "test:transports": "./test/transport-harness/run.sh",
+    "prepublishOnly": "./scripts/build-web.sh --release",
+    "test:types": "tsd",
+    "test:simd": "node test/wasm_simd/run_tests.mjs",
+    "docs:api": "typedoc && mv docs/api-generated/README.md docs/API.md && rm -rf docs/api-generated",
+    "docs:npm-readme": "node scripts/build-npm-readme.mjs"
+  },
+  "tsd": {
+    "compilerOptions": {
+      "module": "esnext"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samaaron/supersonic.git"
+  },
+  "keywords": [
+    "supercollider",
+    "scsynth",
+    "audio",
+    "synthesis",
+    "webassembly",
+    "audioworklet",
+    "wasm",
+    "music",
+    "sound"
+  ],
+  "author": "Sam Aaron",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/samaaron/supersonic/issues"
+  },
+  "homepage": "https://github.com/samaaron/supersonic#readme",
+  "exports": {
+    ".": "./dist/supersonic.js",
+    "./osc-channel": "./dist/osc_channel.js",
+    "./metrics": "./dist/metrics_component.js",
+    "./metrics-dark.css": "./dist/metrics-dark.css",
+    "./metrics-light.css": "./dist/metrics-light.css",
+    "./osc-fast": "./dist/osc_fast.js"
+  },
+  "files": [
+    "dist/supersonic.js",
+    "supersonic.d.ts",
+    "dist/osc_channel.js",
+    "dist/osc_fast.js",
+    "dist/osc_in_pump.js",
+    "dist/midi_event.js",
+    "dist/metrics_component.js",
+    "dist/metrics-dark.css",
+    "dist/metrics-light.css",
+    "dist/workers/osc_in_worker.js",
+    "dist/workers/osc_out_log_sab_worker.js",
+    "dist/chunks/*.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@thi.ng/malloc": "^6.1.128"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "esbuild": "^0.24.0",
+    "fast-check": "^4.6.0",
+    "remark-gfm": "^4.0.1",
+    "tsd": "^0.33.0",
+    "typedoc": "^0.28.17",
+    "typedoc-plugin-markdown": "^4.10.0",
+    "typedoc-plugin-remark": "^2.0.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "workspaces": [
+    "packages/supersonic-scsynth-core",
+    "packages/supersonic-scsynth-samples",
+    "packages/supersonic-scsynth-synthdefs"
+  ]
+}

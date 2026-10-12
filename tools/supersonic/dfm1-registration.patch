@@ -31,4 +31,4 @@ diff --git a/dsp/scsynth/CMakeLists.txt b/dsp/scsynth/CMakeLists.txt
 +    synth/plugins/HexatoneDFM1/Dfm1Lut.cpp
 +    synth/plugins/HexatoneDFM1/NoiseGen.cpp)
  
- add_library(scsynth STATIC
+ # Where -D looks (a host reads it; the engine reads no files). Native only.

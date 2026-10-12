@@ -5728,8 +5728,8 @@ __metadata:
     prop-types: "npm:^15.8.1"
     stylelint: "npm:^17.14.0"
     stylelint-config-standard: "npm:^40.0.0"
-    supersonic-scsynth: "npm:0.88.0"
-    supersonic-scsynth-core: "npm:0.88.0"
+    supersonic-scsynth: "file:vendor/supersonic/client"
+    supersonic-scsynth-core: "file:vendor/supersonic/core"
     vite: "npm:^8.2.0"
     vite-plugin-svgr: "npm:^5.2.0"
     vitest: "npm:^4.1.10"
@@ -6740,19 +6740,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"supersonic-scsynth-core@npm:0.88.0":
-  version: 0.88.0
-  resolution: "supersonic-scsynth-core@npm:0.88.0"
-  checksum: 10c0/096d794c3337240f5a3122ec133c65e36f74c50be726f7b9fe57303af554aba898006e93216f6396acef2a218c8a79f99af951827b493a8b37e9a4b4984819e2
+"supersonic-scsynth-core@file:vendor/supersonic/core::locator=plainsound-hexatone%40workspace%3A.":
+  version: 0.90.0
+  resolution: "supersonic-scsynth-core@file:vendor/supersonic/core#vendor/supersonic/core::hash=0ab2ba&locator=plainsound-hexatone%40workspace%3A."
+  checksum: 10c0/9baf5340439957ec3e5758b7af5dc80e94f6ac94fff743f599244c0bf6b16ad44443868dc18378af7576fe80dfcba14e27c361fc7ebde25954ff0f7e10a7bcb4
   languageName: node
   linkType: hard
 
-"supersonic-scsynth@npm:0.88.0":
-  version: 0.88.0
-  resolution: "supersonic-scsynth@npm:0.88.0"
+"supersonic-scsynth@file:vendor/supersonic/client::locator=plainsound-hexatone%40workspace%3A.":
+  version: 0.90.0
+  resolution: "supersonic-scsynth@file:vendor/supersonic/client#vendor/supersonic/client::hash=a963ff&locator=plainsound-hexatone%40workspace%3A."
   dependencies:
     "@thi.ng/malloc": "npm:^6.1.128"
-  checksum: 10c0/54d4e45a8ea563eea8c092bd28959f67e2d693038e51260f635511b786f63fc7a1755b502146440285ee7f377bdc96d2a3eb4b9b51b8e0c85170176e09197e46
+  checksum: 10c0/ee73ec71c0cb83a9dd10d113740a0ef84725fa8c3f539196e8d9865b5f9a84700b559becd49adcc22864c4540b83577b1582138383358ea0fc17d1e212f216af
   languageName: node
   linkType: hard
 

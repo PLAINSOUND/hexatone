@@ -3,11 +3,11 @@
 # Fetch sources and install upstream npm dependencies first (see README).
 set -euo pipefail
 LAB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-UPSTREAM_DIR="${HEXATONE_SUPERSONIC_UPSTREAM:-$LAB_DIR/upstream-088}"
+UPSTREAM_DIR="${HEXATONE_SUPERSONIC_UPSTREAM:-$LAB_DIR/upstream-090}"
 PLUGIN_DIR="$LAB_DIR/sc3-plugins"
-test "$(git -C "$UPSTREAM_DIR" rev-parse HEAD)" = 8a82576df1e6367484ed9ea711e2cc19267f986a
+test "$(git -C "$UPSTREAM_DIR" rev-parse HEAD)" = 71ecaa6d9b67f1c7f13a5eabb6a980ac0dcc78f9
 test "$(git -C "$PLUGIN_DIR" rev-parse HEAD)" = fa926d6b554acef35b2fd9deb2f996085fa86bd7
-test "$(git -C "$UPSTREAM_DIR/clockwork" rev-parse HEAD)" = 132197a41507496f28281b4f9e68b8348ef4f162
+test "$(git -C "$UPSTREAM_DIR/clockwork" rev-parse HEAD)" = d6c2c5ccd936d6c6b023722f5473a6f1de350869
 
 if git -C "$UPSTREAM_DIR" apply --check "$LAB_DIR/dfm1-registration.patch"; then
   git -C "$UPSTREAM_DIR" apply "$LAB_DIR/dfm1-registration.patch"

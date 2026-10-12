@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { chromium } from "./upstream-088/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-090/node_modules/playwright/index.mjs";
 
 const core = process.argv[2] ?? "dfm1";
 const mode = process.argv[3] ?? "postMessage";
@@ -50,11 +50,14 @@ try {
     });
     const failures = [];
     const ended = new Set();
+    const started = new Set();
     sonic.on("in", msg => { if (msg[0] === "/fail") failures.push(msg); });
     sonic.on("in", msg => { if (msg[0] === "/n_end") ended.add(msg[1]); });
+    sonic.on("in", msg => { if (msg[0] === "/n_go") started.add(msg[1]); });
     const result = { core, mode, instruments: [] };
     try {
       await sonic.init();
+      result.version = sonic.getInfo().version;
       await sonic.audioContext.resume();
       sonic.send("/notify", 1);
       sonic.send("/g_new", 991, 0, 0);
@@ -92,6 +95,25 @@ try {
         result.instruments.push({ name, loaded: true, peak, finite, errors: failures.slice(before) });
         await new Promise(resolve => setTimeout(resolve, 100));
       }
+      // Exercise 0.90's /clearSched fix directly, without our purge workaround.
+      // First prove a timed attack reaches this engine, then cancel another.
+      const schedule = (node) => sonic.sendOSC(SuperSonic.osc.encodeBundle(
+        sonic.clock.now() + 0.3,
+        [["/s_new", "hexlab_pluck", node, 0, 991, "freq", 220, "vol", 0.01]],
+      ));
+      const scheduledNode = sonic.nextNodeId();
+      schedule(scheduledNode);
+      await new Promise(resolve => setTimeout(resolve, 650));
+      if (!started.has(scheduledNode)) throw new Error("Scheduled control note did not start");
+      sonic.send("/g_freeAll", 991);
+      await sonic.sync();
+      const cancelledNode = sonic.nextNodeId();
+      schedule(cancelledNode);
+      sonic.send("/clearSched");
+      await sonic.sync();
+      await new Promise(resolve => setTimeout(resolve, 650));
+      result.clearSched = { controlStarted: started.has(scheduledNode), cancelledStarted: started.has(cancelledNode) };
+      if (result.clearSched.cancelledStarted) throw new Error("/clearSched did not cancel the scheduled note");
       if (envelopes) {
         result.envelopes = [];
         const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -145,6 +167,7 @@ try {
     } finally { await sonic.destroy(); }
   }, { core, mode, envelopes, cycles });
   console.log(JSON.stringify(result, null, 2));
+  if (core === "dfm1") assert.equal(result.version, "0.90.0");
   for (const instrument of result.instruments) {
     if (core === "baseline" && ["pluck", "tone"].includes(instrument.name)) {
       assert(!instrument.loaded && instrument.errors.some(msg => msg.join(" ").includes("DFM1")));

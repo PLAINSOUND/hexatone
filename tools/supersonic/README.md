@@ -1,6 +1,6 @@
 # SuperSonic / native SuperCollider comparison
 
-Comparison laboratory using pinned SuperSonic 0.88.0 packages. The separate lab
+Comparison laboratory using pinned SuperSonic 0.90.0 packages. The separate lab
 does not modify Hexatone's audio context or routing. An experimental integrated
 output is now available separately in I/O (see below).
 Use one laboratory tab at a time; its dedicated group/node range is shared by
@@ -11,7 +11,23 @@ instances. Start with low listening volume.
 Run `yarn install` and `yarn supersonic:assets` for local development.
 The tested custom core, SynthDefs and corresponding source archives are committed
 under `vendor/supersonic/`. Staging verifies their SHA-256 manifest and copies them,
-the pinned npm client and licences into ignored `public/supersonic/`.
+the matching vendored client and licences into ignored `public/supersonic/`.
+The 0.90 browser packages are not yet published on npm, so both packages are
+local file dependencies on the committed vendor distribution.
+After regenerating the vendor bundle, run `yarn install` to refresh those file
+dependencies and the lockfile before staging or building.
+
+### 0.90 upgrade verification (2026-10-12)
+
+The custom DFM1 core and client were rebuilt together at the pinned 0.90 tag.
+Hexatone retains its acknowledged purge barrier and existing recovery policy.
+All four layers rendered finite, nonzero audio in postMessage and SAB modes;
+the smoke test confirms the running engine reports 0.90.0 and that `/clearSched`
+cancels a timed attack after a control attack successfully starts. Natural and
+quick-release envelopes, integrated recovery/PANIC/draining, and the production
+build passed. Real-device sustain toggling and phone lock/unlock remain the
+manual merge gate.
+
 `yarn build` stages automatically, including in GitHub Pages CI. No Rust,
 Emscripten or SuperCollider installation is required for ordinary deployment.
 Pages serves the source archives alongside the engine at
@@ -84,14 +100,14 @@ from node_modules or the ignored generated directory, not bundled into the appli
 Toolchain versions are recorded in `TOOLCHAIN.md`. Fetch the pinned sources once:
 
 ```sh
-git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-088
-git -C tools/supersonic/upstream-088 checkout 8a82576df1e6367484ed9ea711e2cc19267f986a
-git -C tools/supersonic/upstream-088 submodule update --init --recursive
+git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-090
+git -C tools/supersonic/upstream-090 checkout 71ecaa6d9b67f1c7f13a5eabb6a980ac0dcc78f9
+git -C tools/supersonic/upstream-090 submodule update --init --recursive
 git clone https://github.com/supercollider/sc3-plugins.git tools/supersonic/sc3-plugins
 git -C tools/supersonic/sc3-plugins checkout fa926d6b554acef35b2fd9deb2f996085fa86bd7
 ```
 
-Run `npm ci` inside `tools/supersonic/upstream-088`. Activate the installed Emscripten
+Run `npm ci` inside `tools/supersonic/upstream-090`. Activate the installed Emscripten
 SDK in the build shell (`source /Users/marcsabat/Dev/emsdk/emsdk_env.sh` on this
 machine), with Rust/Cargo on PATH. Before applying the extension, the optional
 unmodified comparison core can be built and saved from the upstream directory:
@@ -206,4 +222,6 @@ Three adapter tests, ESLint for the prototype, credits check and production buil
 
 See ../../codex/planning/SUPERSONIC_SYNTHDEF_IMPLEMENTATION_NOTES.md for the DSP
 comparison and articulation recommendations. The client and core dependency
-licences are supplied in their installed packages (MIT client, GPL core).
+licences are supplied in their installed packages. The 0.90 distribution is
+AGPL-3.0-or-later; the linked scsynth and original DFM1 also retain their supplied
+GPL licences. Corresponding source archives are included in the vendor bundle.
