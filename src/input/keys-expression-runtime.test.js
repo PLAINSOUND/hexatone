@@ -4,6 +4,18 @@ import { applyTimbreCC74, passthroughCC } from "./keys-expression-runtime.js";
 import { routeLumatoneTimbre } from "./lumatone-timbre.js";
 
 describe("input/keys-expression-runtime timbre routing", () => {
+  it("shapes only Exquis Y around the live brightness fader without a reattack", () => {
+    const hex = { release: false, polyTimbre: vi.fn(), noteOn: vi.fn() };
+    const keys = { controller: { id: "exquis" }, inputRuntime: { mpeInput: true },
+      exquisExpressionYCenter: 0.2 };
+    applyTimbreCC74.call(keys, hex, 64);
+    expect(hex.polyTimbre).toHaveBeenLastCalledWith(expect.closeTo(25.4));
+    expect(hex._exquisRawCC74).toBe(64);
+    keys.exquisExpressionYCenter = 0.8;
+    applyTimbreCC74.call(keys, hex, hex._exquisRawCC74);
+    expect(hex.polyTimbre).toHaveBeenLastCalledWith(expect.closeTo(101.6));
+    expect(hex.noteOn).not.toHaveBeenCalled();
+  });
   it("routes MPE-input CC74 through polyTimbre instead of generic cc74", () => {
     const polyTimbre = vi.fn();
     const cc74 = vi.fn();

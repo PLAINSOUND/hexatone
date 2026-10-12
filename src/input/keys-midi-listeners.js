@@ -988,7 +988,7 @@ export function setupMidiInput() {
               } else {
                 // Non-MPE: brightness to front of recency stack (global target).
                 const front = this.recencyStack.front;
-                if (front && front.cc74) front.cc74(value);
+                if (front) this._applyTimbreCC74(front, value);
               }
             }
 

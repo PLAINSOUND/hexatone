@@ -5500,6 +5500,7 @@ const App = () => {
           onModulationArmChange={onModulationArmChange}
           onModulationStateChange={onModulationStateChange}
           onModWheelChange={onKeysModWheelChange}
+          expressionYCenter={oscBrightness}
           onTakeSnapshot={onTakeSnapshot}
           active={active}
           midiLearnActive={midiLearnActive}

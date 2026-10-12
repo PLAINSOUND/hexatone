@@ -67,6 +67,7 @@ const Keyboard = (props) => {
     }
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
+    keys.exquisExpressionYCenter = props.expressionYCenter;
     keys.linnstrumentLEDs = props.linnstrumentLedsRef?.current ?? null;
     keysRef.current = keys;
     // Keys already draws once during construction from props.settings. Avoid an
@@ -112,6 +113,17 @@ const Keyboard = (props) => {
       keysRef.current.updateInputRuntime(props.inputRuntime, props.liveInputSettings);
     }
   }, [props.inputRuntime, props.liveInputSettings]);
+
+  useEffect(() => {
+    const keys = keysRef.current;
+    if (!keys) return;
+    keys.exquisExpressionYCenter = props.expressionYCenter;
+    if (keys.controller?.id !== "exquis") return;
+    for (const hex of keys._allActiveHexes?.() ?? []) {
+      if (!hex.release && hex._exquisRawCC74 != null)
+        keys._applyTimbreCC74(hex, hex._exquisRawCC74);
+    }
+  }, [props.expressionYCenter]);
 
   useEffect(() => {
     if (keysRef.current?.ensureMidiInputBinding) {
@@ -256,6 +268,7 @@ Keyboard.propTypes = {
   onModulationArmChange: PropTypes.func,
   onModulationStateChange: PropTypes.func,
   onModWheelChange: PropTypes.func,
+  expressionYCenter: PropTypes.number,
   onTakeSnapshot: PropTypes.func,
   midiLearnActive: PropTypes.bool,
   onAnchorLearn: PropTypes.func,

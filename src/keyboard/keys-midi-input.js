@@ -1101,7 +1101,8 @@ export function hakenRasterBend(entry, channel, bend14, scaleMode) {
     else this._applyPolyAftertouch(newHex, hex._lastAftertouch);
   }
   if (hex._lastCC74 != null) {
-    if (hex._lastCC7414 != null) this._applyTimbreCC74(newHex, hex._lastCC74, hex._lastCC7414);
+    if (hex._exquisRawCC74 != null) this._applyTimbreCC74(newHex, hex._exquisRawCC74);
+    else if (hex._lastCC7414 != null) this._applyTimbreCC74(newHex, hex._lastCC74, hex._lastCC7414);
     else this._applyTimbreCC74(newHex, hex._lastCC74);
   }
 }

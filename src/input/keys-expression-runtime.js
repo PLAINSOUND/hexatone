@@ -4,6 +4,7 @@
 // modulation history; callers provide the current Keys runtime state.
 
 import { WebMidi } from "webmidi";
+import { shapeExquisExpressionY } from "./exquis-expression-y.js";
 import { usesPerChannelPitchBend } from "./expression-routing.js";
 import { allowsForwardedCC } from "../controllers/forwarded-cc-policy.js";
 import { scalaToCents } from "../settings/scale/parse-scale";
@@ -113,8 +114,13 @@ export function applyPolyAftertouch(hex, value, value14 = null) {
 
 export function applyTimbreCC74(hex, value, value14 = null) {
   if (!hex || hex.release) return;
-  const cc74 = Math.max(0, Math.min(127, Number(value) || 0));
-  const cc7414 = Number.isFinite(value14) ? Math.max(0, Math.min(16256, Number(value14))) : null;
+  const rawCC74 = Math.max(0, Math.min(127, Number(value) || 0));
+  const exquis = this.controller?.id === "exquis";
+  if (exquis) hex._exquisRawCC74 = rawCC74;
+  const cc74 = exquis ? shapeExquisExpressionY(rawCC74,
+    this.exquisExpressionYCenter ?? this.settings?.osc_brightness ?? 0.2) : rawCC74;
+  const cc7414 = Number.isFinite(value14)
+    ? exquis ? cc74 * 128 : Math.max(0, Math.min(16256, Number(value14))) : null;
   const polyphonicTimbre = !!this.inputRuntime?.mpeInput;
   hex._lastCC74 = cc74;
   hex._lastCC7414 = cc7414;
