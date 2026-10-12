@@ -4,6 +4,7 @@ import { getPendingSuperSonicDiagnostics } from "../supersonic_synth/startup-dia
 import { audioRuntimeReport, recordAudioRuntime, captureInputTiming, recordEventLoopGap,
   getLatencyMeasurementEnabled, subscribeLatencyMeasurement } from "../audio/runtime-diagnostics.js";
 import { blockAudioAttacks } from "../audio/attack-gate.js";
+import { needsMobileBackgroundRecovery } from "../audio/background-policy.js";
 
 export function needsInitialAudioStart(synth, settings = {}) {
   const outputs = (synth?.childSynths?.() ?? [synth]).filter(Boolean);
@@ -16,7 +17,14 @@ export function needsInitialAudioStart(synth, settings = {}) {
   });
   if (settings.output_sample && settings.instrument !== "OFF" && !ready("samples")) return true;
   if (settings.output_osc && !settings.osc_server_off && settings.osc_local && !ready("supersonic")) return true;
-  // A missing SoundFont needs a file selection, not an audio activation prompt.
+  // A remembered bank awaits activation/restoration, even before its worklet
+  // appears in the live graph. A genuinely unselected bank needs a file picker.
+  if (settings.output_fluidsynth && !outputs.some(output => output.audioBackend === "fluidsynth")) {
+    try {
+      if (JSON.parse(localStorage.getItem("fluidsynth_last_soundfont_source") || "null")?.name ||
+          localStorage.getItem("fluidsynth_last_hosted_soundfont")) return true;
+    } catch { /* Malformed or unavailable storage is not an audio engine. */ }
+  }
   return !!settings.output_fluidsynth && outputs.some(output =>
     output.audioBackend === "fluidsynth" && !ready("fluidsynth"));
 }
@@ -91,12 +99,16 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       });
       if (document.hidden || event.type === "pagehide") {
         wasHidden = true;
-        log.hide(synthRef.current);
+        if (event.type === "pagehide" || needsMobileBackgroundRecovery()) log.hide(synthRef.current);
       }
       else if (wasHidden || event.persisted) {
         wasHidden = false;
-        if (log.snapshot(synthRef.current).length)
+        if (needsMobileBackgroundRecovery() && log.snapshot(synthRef.current).length)
           setStatus("Audio may have been interrupted. Tap Retry if sound is missing.");
+        else if (log.snapshot(synthRef.current).some(output =>
+          ["suspended", "interrupted", "closed"].includes(
+            (output.audioContext ?? output.engine?.audioContext)?.state)))
+          setStatus("Audio paused while away. Tap Retry to resume.");
       }
       if (!document.hidden && log.needsRestore(synthRef.current) && !busy.current)
         setStatus("Audio paused while away. Tap Retry to resume.");

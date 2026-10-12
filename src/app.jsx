@@ -42,6 +42,7 @@ import { parseExactInterval } from "./tuning/interval.js";
 import useSynthWiring from "./hooks/use-synth-wiring.js";
 import { createTransportClock } from "./sequencer/transport-clock.js";
 import useAudioRecovery from "./hooks/use-audio-recovery.js";
+import { needsMobileBackgroundRecovery } from "./audio/background-policy.js";
 import useScreenWakeLock from "./hooks/use-screen-wake-lock.js";
 import AudioRecoveryAlert from "./audio/recovery-alert.jsx";
 import { useMidiGuardian } from "./hooks/use-midi-guardian.js";
@@ -795,7 +796,7 @@ const App = () => {
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
-        markAudioStale();
+        if (needsMobileBackgroundRecovery()) markAudioStale();
         return;
       }
       if (document.visibilityState === "visible") {
@@ -1099,12 +1100,17 @@ const App = () => {
   engineLifecycleRef.current = { loading: !ready || enginesLoading > 0 || restoringLocalSoundfont,
     errors: engineStartupErrors };
   const localSoundfontAttemptedRef = useRef(false);
-  useEffect(() => {
-    if (!ready || !userHasInteracted || !settings.output_fluidsynth || localSoundfontAttemptedRef.current) return;
+  const localSoundfontRestorePromiseRef = useRef(null);
+  const localSoundfontRestoreControllerRef = useRef(null);
+  useEffect(() => () => localSoundfontRestoreControllerRef.current?.abort(), []);
+  const restoreRememberedSoundfont = () => {
+    if (!settings.output_fluidsynth) return Promise.resolve();
+    if (localSoundfontAttemptedRef.current) return localSoundfontRestorePromiseRef.current;
     localSoundfontAttemptedRef.current = true;
     const controller = new AbortController();
+    localSoundfontRestoreControllerRef.current = controller;
     setRestoringLocalSoundfont(true);
-    void import("./fluidsynth_synth/restore-local-soundfont.js")
+    localSoundfontRestorePromiseRef.current = import("./fluidsynth_synth/restore-local-soundfont.js")
       .then(({ restoreLocalSoundfont }) => restoreLocalSoundfont({
         signal: controller.signal, preferredPreset: settings.fluidsynth_preset,
       }))
@@ -1120,7 +1126,10 @@ const App = () => {
         if (!controller.signal.aborted) audioRecovery.startupFailed("FluidSynth", error);
       })
       .finally(() => { if (!controller.signal.aborted) setRestoringLocalSoundfont(false); });
-    return () => { controller.abort(); setRestoringLocalSoundfont(false); };
+    return localSoundfontRestorePromiseRef.current;
+  };
+  useEffect(() => {
+    if (ready && userHasInteracted && settings.output_fluidsynth) void restoreRememberedSoundfont();
     // One local-only attempt on first activation; preset changes must not cancel it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, userHasInteracted, settings.output_fluidsynth]);
@@ -1129,6 +1138,7 @@ const App = () => {
     const activation = primeAudioFromUserInteraction();
     if (pendingRestoredPreset) await activatePendingPreset();
     await activation;
+    await restoreRememberedSoundfont();
     return retryAudioOutputs(signal);
   };
   initialiseAudioRef.current.needed = () => !!pendingRestoredPreset || !userHasInteracted ||
@@ -2555,7 +2565,7 @@ const App = () => {
   stopInterruptedManualPlaybackRef.current = stopInterruptedManualPlayback;
   useEffect(() => {
     const onVisibilityChange = () => {
-      if (document.hidden) stopInterruptedManualPlayback();
+      if (document.hidden && needsMobileBackgroundRecovery()) stopInterruptedManualPlayback();
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
     window.addEventListener("pagehide", stopInterruptedManualPlayback);
@@ -4707,6 +4717,8 @@ const App = () => {
   ]);
 
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
+  const exquisMpeInputRef = useRef(effectiveMpeInput);
+  exquisMpeInputRef.current = effectiveMpeInput;
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
   // loaded (Keyboard only mounts when isValid — i.e. a scale is present).
   useEffect(() => {
@@ -4733,13 +4745,14 @@ const App = () => {
         exquisRawPorts.input,
         (ok, reason) => {
           setExquisLedStatus(ok ? { ok: true } : { ok: false, reason });
+          if (ok) exquisLedsRef.current?.setMPEMode(exquisMpeInputRef.current);
           if (ok && keysRef.current?.settings?.exquis_led_sync) {
             keysRef.current.syncExquisLEDs();
           }
         },
         settings.exquis_led_luminosity ?? 15,
         settings.exquis_led_saturation ?? 1.3,
-        effectiveMpeInput,
+        exquisMpeInputRef.current,
         settings.exquis_orientation ?? 90,
       );
       if (disposed) {
@@ -4758,7 +4771,7 @@ const App = () => {
       bindControllerLedRefs(keysRef.current, { exquis: null });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- LED appearance settings update the existing driver; only port/routing changes own its lifecycle.
-  }, [exquisRawPorts, inputRuntime?.target, settings.midi_passthrough]);
+  }, [exquisRawPorts?.input, exquisRawPorts?.output, inputRuntime?.target, settings.midi_passthrough]);
 
   useEffect(() => {
     exquisLedsRef.current?.setOrientation(settings.exquis_orientation ?? 90);
@@ -4767,9 +4780,8 @@ const App = () => {
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.
   useEffect(() => {
-    if (exquisLedsRef.current?.ready) {
-      exquisLedsRef.current.setMPEMode(effectiveMpeInput);
-    }
+    // setMPEMode remembers changes before the firmware handshake completes.
+    exquisLedsRef.current?.setMPEMode(effectiveMpeInput);
   }, [effectiveMpeInput]);
 
   useEffect(() => {
@@ -5454,7 +5466,7 @@ const App = () => {
         .join(" ")}
     >
       {((ready && !initialAudioPromptDismissed &&
-          (snapshots.length > 0 || !!pendingRestoredPreset) && audioRecovery.needsStart()) ||
+          audioRecovery.needsStart()) ||
         (audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored"))) && (
         <AudioRecoveryAlert
           message={audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored")

@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "../midi/enable-webmidi";
+import { rememberControllerAnchorForReload } from "../persistence/controller-anchor-reload.js";
 import { create_midi_synth } from "../midi_synth";
 import create_mpe_synth from "../mpe_synth";
 import { createMonoSynth } from "../mono_synth/index.js";
@@ -1761,6 +1762,7 @@ const useSynthWiring = (
       // noteToSteps() for all paths (sequential, unknown, passthrough).
       sessionStorage.setItem("midiin_anchor_note", String(update.midiin_anchor_note));
       sessionStorage.setItem("midiin_anchor_channel", String(update.midiin_anchor_channel));
+      if (ctrl) rememberControllerAnchorForReload(ctrl.id, noteNum, ch);
       setSettings((s) => ({ ...s, ...update }), { updateUrl: false });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- settingsRef is stable; setSettings is a stable state setter

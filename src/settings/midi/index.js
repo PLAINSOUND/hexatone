@@ -13,7 +13,9 @@ import {
   getControllerById,
   getTonalPlexusInputMode,
 } from "../../controllers/registry.js";
-import { saveControllerPref } from "../../input/controller-anchor.js";
+import { saveControllerPref, saveAnchor } from "../../input/controller-anchor.js";
+import { buildControllerPresetAnchorUpdate } from "../../controllers/preset-anchors.js";
+import { rememberControllerAnchorForReload } from "../../persistence/controller-anchor-reload.js";
 import {
   deactivateLinnstrumentUserFirmware,
   isLinnstrumentUserFirmwareEligible,
@@ -72,6 +74,15 @@ const MIDIio = (props) => {
   const autoUnknownController =
     controllerOverrideId === "auto" && !!connectedDevice && !detectedController;
   const ctrl = resolveControllerDisplay(controllerOverrideId, detectedController, connectedDevice);
+  const saveTypedAnchor = (value) => {
+    props.onChange("midiin_anchor_note", value);
+    sessionStorage.setItem("midiin_anchor_note", String(value));
+    if (!ctrl) return;
+    saveAnchor(ctrl, value, props.settings);
+    rememberControllerAnchorForReload(ctrl.id, value);
+    for (const [key, anchor] of Object.entries(buildControllerPresetAnchorUpdate(ctrl.id, value)))
+      props.onChange(key, anchor);
+  };
   const mpeInputPolicy = autoUnknownController ? "optional" : getControllerMpeInputPolicy(ctrl);
   const tonalPlexus41Mode =
     ctrl?.id === "tonalplexus" && getTonalPlexusInputMode(props.settings) === "blocks_41";
@@ -588,8 +599,7 @@ const MIDIio = (props) => {
                               val >= anchorNoteRange.min &&
                               val <= anchorNoteRange.max
                             ) {
-                              props.onChange("midiin_anchor_note", val);
-                              sessionStorage.setItem("midiin_anchor_note", String(val));
+                              saveTypedAnchor(val);
                             } else {
                               e.target.value = controllerAnchorNote;
                             }
@@ -610,8 +620,7 @@ const MIDIio = (props) => {
                           onBlur={(e) => {
                             const val = parseInt(e.target.value);
                             if (!isNaN(val) && val >= 0 && val <= 127) {
-                              props.onChange("midiin_anchor_note", val);
-                              sessionStorage.setItem("midiin_anchor_note", val);
+                              saveTypedAnchor(val);
                             } else {
                               e.target.value = centralNote;
                             }
@@ -787,8 +796,7 @@ const MIDIio = (props) => {
                       onBlur={(e) => {
                         const val = parseInt(e.target.value);
                         if (!isNaN(val) && val >= 0 && val <= 127) {
-                          props.onChange("midiin_anchor_note", val);
-                          sessionStorage.setItem("midiin_anchor_note", val);
+                          saveTypedAnchor(val);
                         } else {
                           e.target.value = centralNote;
                         }

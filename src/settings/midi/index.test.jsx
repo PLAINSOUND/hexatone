@@ -2,9 +2,11 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { onTestFinished } from "vitest";
 import MIDIio from "./index.js";
 import { deactivateLinnstrumentUserFirmware } from "../../controllers/linnstrument-user-firmware.js";
+import { saveAnchor } from "../../input/controller-anchor.js";
 
 vi.mock("../../input/controller-anchor.js", () => ({
   saveControllerPref: vi.fn(),
+  saveAnchor: vi.fn(),
 }));
 
 vi.mock("../../controllers/linnstrument-user-firmware.js", () => ({
@@ -62,6 +64,19 @@ const makeProps = (settings = {}) => ({
 // Detailed-control tests explicitly opt into the expanded fieldset.
 beforeEach(() => sessionStorage.setItem("hexatone_midi_input_collapsed", "false"));
 afterEach(() => sessionStorage.removeItem("hexatone_midi_input_collapsed"));
+
+it("persists typed Exquis anchor edits in the controller store and active preset field", () => {
+  const props = makeProps({ midiin_controller_override: "exquis", midiin_anchor_note: 30 });
+  props.midi.inputs = new Map([["input-1", { id: "input-1", name: "Exquis" }]]);
+  const view = render(<MIDIio {...props} />);
+  const anchor = view.container.querySelector('input[name="midiin_anchor_note"]');
+  fireEvent.input(anchor, { target: { value: "17" } });
+  fireEvent.blur(anchor);
+  expect(saveAnchor).toHaveBeenCalledWith(expect.objectContaining({ id: "exquis" }), 17, props.settings);
+  expect(props.onChange).toHaveBeenCalledWith("midiin_anchor_note", 17);
+  expect(props.onChange).toHaveBeenCalledWith("exquis_anchor_note", 17);
+  expect(sessionStorage.getItem("midiin_anchor_note")).toBe("17");
+});
 
 it("defaults MIDI Input to collapsed on a fresh load", () => {
   sessionStorage.removeItem("hexatone_midi_input_collapsed");

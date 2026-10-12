@@ -16,6 +16,15 @@ it("checks enabled engine readiness rather than whether a gesture occurred", () 
 
 afterEach(() => { cleanup(); setLatencyMeasurementEnabled(false); vi.useRealTimers(); });
 
+it("offers activation for a remembered SoundFont before its engine joins", () => {
+  const key = "fluidsynth_last_soundfont_source";
+  localStorage.setItem(key, JSON.stringify({ name: "Organ.sf2", url: "" }));
+  try {
+    expect(needsInitialAudioStart(null, { output_fluidsynth: true })).toBe(true);
+    expect(needsInitialAudioStart(null, { output_fluidsynth: false })).toBe(false);
+  } finally { localStorage.removeItem(key); }
+});
+
 it("installs latency probes only while enabled and cleans them up", () => {
   const add = vi.spyOn(window, "addEventListener");
   const remove = vi.spyOn(window, "removeEventListener");
@@ -78,6 +87,36 @@ function harness() {
   return { lifecycle, audio: () => audio, replace: (next) => { audio = next; },
     tick: () => act(async () => { await vi.advanceTimersByTimeAsync(2000); }) };
 }
+
+it.each([false, true])("only preemptively mutes mobile audio when hidden (mobile=$mobile)", async (mobile) => {
+  const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(mobile ? "iPhone" : "Windows NT");
+  const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+  const mute = vi.fn();
+  const context = { state: "running", currentTime: 1 };
+  const synth = { audioBackend: "supersonic", getAudioContext: () => context,
+    getDiagnostics: () => ({ audioContext: context }), muteForRecovery: mute, allSoundOff: vi.fn() };
+  function Harness() {
+    const recovery = useAudioRecovery({ current: synth }, { current: null }, {});
+    return <span data-testid="status">{recovery.status}</span>;
+  }
+  try {
+    render(<Harness />);
+    hidden.mockReturnValue(true);
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(mute).toHaveBeenCalledTimes(mobile ? 1 : 0);
+    hidden.mockReturnValue(false);
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    if (!mobile) {
+      expect(screen.getByTestId("status").textContent).toBe("");
+      hidden.mockReturnValue(true);
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+      context.state = "suspended";
+      hidden.mockReturnValue(false);
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+      expect(screen.getByTestId("status").textContent).toContain("Audio paused while away");
+    }
+  } finally { cleanup(); ua.mockRestore(); hidden.mockRestore(); }
+});
 
 it("prepares first startup without rebuilding the freshly initialised engines", async () => {
   const rebuild = vi.fn();

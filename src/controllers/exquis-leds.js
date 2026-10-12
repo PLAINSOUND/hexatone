@@ -223,6 +223,7 @@ export class ExquisLEDs {
    *  Sending while a pad is held triggers an Exquis firmware bug where that pad
    *  stops sending note-on until power-cycled. */
   setMPEMode(enabled) {
+    if (this._mpeEnabled === !!enabled) return;
     this._mpeEnabled = !!enabled;
     if (!this._ready || !this._out) return;
     clearTimeout(this._mpeModePending);

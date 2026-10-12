@@ -1068,19 +1068,20 @@ describe("App workspace tabs", () => {
     expect(keys.stopSnapshot).toHaveBeenCalled();
     expect(keys.playSnapshot).toHaveBeenCalledTimes(attacks);
   });
-  it("waits for a sequence before offering audio Retry on fresh load", async () => {
+  it("offers audio Retry on restored MIDI startup even without a sequence", async () => {
+    const previousSettings = settings;
+    onTestFinished(() => { settings = previousSettings; });
     settings = { ...settings, output_osc: true, osc_local: true };
+    sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
     const view = render(<App />);
     await waitFor(() => expect(lastUsePresetsOptions).not.toBeNull());
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
-    view.unmount();
-    localStorage.setItem("hexatone_persist_on_reload", "true");
-    sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
-      snapshots: [{ id: 1, length: 1, notes: [{ id: "a", midicents: 69, start: 0, end: 1 }] }],
-      bars: [], tempi: [], repeats: [],
-    }));
-    render(<App />);
     expect(await screen.findByRole("button", { name: "Retry" })).toBeTruthy();
+    expect(screen.getByText("Audio is not ready. Tap Retry to prepare built-in sounds.")).toBeTruthy();
+    view.unmount();
+    settings = { ...settings, osc_server_off: true, output_sample: false, output_fluidsynth: false };
+    render(<App />);
+    await waitFor(() => expect(lastUsePresetsOptions).not.toBeNull());
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
   it.each([
     ["sequencer", "SEQUENCER"],
@@ -2155,7 +2156,14 @@ describe("App workspace tabs", () => {
     expect(screen.queryByLabelText("pause timed transport")).toBeNull();
   });
 
-  it.each(["pagehide", "visibilitychange"])("clears manual snapshot playback on %s without restarting on return", async (eventType) => {
+  it.each([
+    { eventType: "pagehide", mobile: true, stops: true },
+    { eventType: "pagehide", mobile: false, stops: true },
+    { eventType: "visibilitychange", mobile: true, stops: true },
+    { eventType: "visibilitychange", mobile: false, stops: false },
+  ])("handles manual snapshot background playback ($eventType, mobile=$mobile)", async ({ eventType, mobile, stops }) => {
+    const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(mobile ? "iPhone" : "Windows NT");
+    onTestFinished(() => ua.mockRestore());
     window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
@@ -2173,12 +2181,12 @@ describe("App workspace tabs", () => {
     const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
     try {
       act(() => (eventType === "pagehide" ? window : document).dispatchEvent(new Event(eventType)));
-      expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(true);
-      expect(document.querySelector(".snapshot-palette-body .snapshot-playing")).toBeNull();
+      expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(stops);
+      if (stops) expect(document.querySelector(".snapshot-palette-body .snapshot-playing")).toBeNull();
       hidden.mockReturnValue(false);
       act(() => window.dispatchEvent(new Event("pageshow")));
       expect(keys.playSnapshot).toHaveBeenCalledTimes(attacks);
-      expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(true);
+      expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(stops);
     } finally { hidden.mockRestore(); }
   });
 

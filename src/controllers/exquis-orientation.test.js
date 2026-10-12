@@ -6,6 +6,20 @@ import { ExquisLEDs } from "./exquis-leds.js";
 afterEach(() => vi.useRealTimers());
 
 describe("Exquis orientation", () => {
+  it("uses MPE changes received before the handshake and avoids redundant mode commands", () => {
+    vi.useFakeTimers();
+    const out = { send: vi.fn() };
+    const driver = new ExquisLEDs(out, null);
+    driver.setMPEMode(true);
+    driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, 3, 0, 0, 0xf7] });
+    expect(out.send.mock.calls.map(([message]) => [...message]))
+      .toContainEqual([0xf0, 0, 0x21, 0x7e, 7, 1, 0xf7]);
+    vi.advanceTimersByTime(200);
+    out.send.mockClear();
+    driver.setMPEMode(true);
+    expect(out.send).not.toHaveBeenCalled();
+    driver.exit();
+  });
   it("defaults to the existing 90-degree setup", () => {
     expect(exquisOrientation(undefined)).toBe(90);
     expect(exquisOrientation(42)).toBe(90);
