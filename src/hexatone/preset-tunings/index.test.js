@@ -8,6 +8,31 @@ import {
 } from "./index.js";
 
 describe("preset tunings registry", () => {
+  it("places Zarlino after Breed and preserves the exported tuning and Exquis anchor", () => {
+    const group = presetTuningGroups.find((entry) => entry.name === "Rational Intonation (JI)");
+    const breedIndex = group.settings.findIndex((preset) => preset.name === "41-(13-Limit) Breed");
+    const zarlino = group.settings[breedIndex + 1];
+    expect(zarlino).toMatchObject({
+      name: "41-(13-Limit) Zarlino",
+      short_description: "41-JI-13L(Zarlino)",
+      built_in_group: "Rational Intonation (JI)",
+      exquis_anchor_note: 31,
+      fundamental: 440,
+      reference_degree: 31,
+      key_colors_mode: "manual",
+      key_labels: "heji",
+    });
+    expect(zarlino.scale).toHaveLength(41);
+    expect(zarlino.note_names).toHaveLength(41);
+    expect(zarlino.note_names[15]).toBe("F−52");
+    expect(zarlino.scale[14]).toBe("13/10");
+    expect(zarlino.note_colors[15]).toBe("#e8c9e4");
+    expect(zarlino.note_colors).toHaveLength(41);
+    expect(zarlino.scale[4]).toBe("351/320");
+    expect(zarlino.note_colors[5]).toBe("#e8c9e4");
+    expect(findPresetTuningByName(zarlino.name)).toEqual(zarlino);
+  });
+
   it("places the renamed 53-Tertial replica directly after The Tree", () => {
     const group = presetTuningGroups.find((entry) => entry.name === "Marc Sabat NYKY Ensemble");
     const treeIndex = group.settings.findIndex(

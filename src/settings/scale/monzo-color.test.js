@@ -514,7 +514,33 @@ describe("monzoToSuggestedColor", () => {
     expect(fiveOverUnderThirteen.r).toBeGreaterThanOrEqual(underThirteen.r);
     expect(fiveOverUnderThirteen.b).toBeLessThan(underThirteen.b);
     expect(underFiveOverThirteen.g).toBeLessThan(overThirteen.g);
-    expect(Math.abs(fiveOverUnderThirteen.b - underFiveOverThirteen.b)).toBeGreaterThanOrEqual(12);
+    // Distinguish these by hue, not a blue-channel gap that penalizes violet.
+    const [warmHue] = srgb_to_okhsl(
+      fiveOverUnderThirteen.r,
+      fiveOverUnderThirteen.g,
+      fiveOverUnderThirteen.b,
+    );
+    const [violetHue] = srgb_to_okhsl(
+      underFiveOverThirteen.r,
+      underFiveOverThirteen.g,
+      underFiveOverThirteen.b,
+    );
+    const hueGap = Math.abs(warmHue - violetHue);
+    expect(Math.min(hueGap, 1 - hueGap)).toBeGreaterThan(0.05);
+  });
+
+  it("retains a saturated violet tint for 13°u5 without changing other families", () => {
+    const color = (monzo) =>
+      monzoToSuggestedColor(monzo, undefined, {
+        structuralOverlay: "none",
+      }).screenHex;
+    expect(color([0, 0, -1, 0, 0, 1])).toBe("#e8c9e4");
+    expect(color([0, 0, 0, 0, 0, 1])).toBe("#e6d7fe");
+    expect(color([0, 0, 1, 0, 0, -1])).toBe("#f3dedc");
+    expect(color([0, 0, 1, 0, 0, 1])).toBe("#e9d7d3");
+    expect(color([0, 0, -1, 1])).toBe("#fde4d3");
+    expect(color([0, 0, -1, 0, 1])).toBe("#e3f5d0");
+    expect(color([0, 0, 0, -1, 0, 1])).toBe("#e7d4f5");
   });
 
   it("makes undertonal 11-family notes noticeably darker than overtonal 11-family notes", () => {

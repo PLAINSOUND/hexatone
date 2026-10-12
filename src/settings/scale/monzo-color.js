@@ -1205,11 +1205,20 @@ export function monzoToSuggestedColor(monzo, basis = EXTENDED_MONZO_BASIS, optio
       } else {
         lowerColor = mixHex(QUINTAL_DIATONIC_COLORS[1], "#fef5be", 0.38);
       }
-      if (dominant.exponent > 0 && entry.exponent < 0) weight *= 2.45;
+      if (dominant.exponent > 0 && entry.exponent < 0) weight *= 1.6;
       if (dominant.exponent < 0 && entry.exponent > 0) weight *= 2.65;
       maxWeight = 0.72;
     }
     color = mixHex(color, lowerColor, Math.min(maxWeight, weight));
+    if (dominant.prime === 13 && dominant.exponent > 0 && entry.prime === 5 && entry.exponent < 0) {
+      // Retain the violet family while counteracting the earthy u5 blend's
+      // desaturation. Scale the correction down when 5 is a secondary component.
+      const strength = clamp01(weight / (0.15 * 1.15 * 1.6));
+      color = adjustHexOkhsl(color, {
+        sOffset: 0.22 * strength,
+        lOffset: -0.01 * strength,
+      });
+    }
   });
 
   if (hasSeptimalUndertonalQuintalMix) {
