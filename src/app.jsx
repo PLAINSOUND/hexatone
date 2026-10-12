@@ -4800,10 +4800,12 @@ const App = () => {
 
     document.addEventListener("visibilitychange", recoverExquisAppMode);
     window.addEventListener("pageshow", recoverExquisAppMode);
+    window.addEventListener("focus", recoverExquisAppMode);
 
     return () => {
       document.removeEventListener("visibilitychange", recoverExquisAppMode);
       window.removeEventListener("pageshow", recoverExquisAppMode);
+      window.removeEventListener("focus", recoverExquisAppMode);
     };
   }, [exquisRawPorts, inputRuntime?.target, settings.midi_passthrough]);
 

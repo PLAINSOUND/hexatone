@@ -130,6 +130,8 @@ export class ExquisLEDs {
     this._heartbeatTimer = null;
     this._appModeInitTimer = null;
     this._lastHeartbeatSentAt = 0;
+    this._recoveryPending = false;
+    this._heldPads = new Set();
 
     this._heldPadCount = 0; // raw note-on/off counter from device input
     this._mpeModePending = null; // deferred CMD 0x07 send timer
@@ -158,7 +160,7 @@ export class ExquisLEDs {
     if (!this._ready || !this._out) return false;
     const last = this._lastHeartbeatSentAt;
     const stale = !Number.isFinite(last) || performance.now() - last > HEARTBEAT_STALE_MS;
-    if (!stale) return false;
+    if (!stale && !this._recoveryPending) return false;
     debugLog("controllers", "Exquis App Mode heartbeat stale — re-entering App Mode.");
     this._enterAppMode();
     return true;
@@ -168,6 +170,7 @@ export class ExquisLEDs {
   sendColors(colors) {
     if (!this._ready || !this._out) return;
     this._lastColors = colors;
+    if (this._recoveryPending) return;
     for (let noteId = 0; noteId < 61; noteId++) {
       const { r, g, b } = _boostSaturation(colors[noteId] ?? "#000000", this._saturation);
       this._out.send(new Uint8Array([...HDR, 0x14, noteId, r >> 1, g >> 1, b >> 1, 0xf7]));
@@ -177,6 +180,8 @@ export class ExquisLEDs {
   /** Send black to all 61 pads. No-op if not ready. */
   clearColors() {
     if (!this._ready || !this._out) return;
+    this._lastColors = Array(61).fill("#000000");
+    if (this._recoveryPending) return;
     for (let noteId = 0; noteId < 61; noteId++) {
       this._out.send(new Uint8Array([...HDR, 0x14, noteId, 0, 0, 0, 0xf7]));
     }
@@ -262,6 +267,8 @@ export class ExquisLEDs {
     this._out = null;
     this._in = null;
     this._ready = false;
+    this._recoveryPending = false;
+    this._heldPads.clear();
     this._lastHeartbeatSentAt = 0;
     if (out && wasReady) out.send(QUIT);
   }
@@ -272,12 +279,22 @@ export class ExquisLEDs {
     const d = event.data;
     if (!d || d.length < 1) return;
 
-    // Track raw pad hold count so setMPEMode can defer until all pads released.
+    // Repeated note-ons for one channel/key are not additional held pads.
     const status = d[0] & 0xf0;
+    const padKey = `${d[0] & 0x0f}.${d[1]}`;
     if (status === 0x90 && d[2] > 0) {
-      this._heldPadCount++;
+      this._heldPads.add(padKey);
+      this._heldPadCount = this._heldPads.size;
     } else if (status === 0x80 || (status === 0x90 && d[2] === 0)) {
-      this._heldPadCount = Math.max(0, this._heldPadCount - 1);
+      this._heldPads.delete(padKey);
+      this._heldPadCount = this._heldPads.size;
+      if (!this._heldPadCount && this._recoveryPending) {
+        clearTimeout(this._appModeInitTimer);
+        this._appModeInitTimer = setTimeout(() => {
+          this._appModeInitTimer = null;
+          if (this._out && this._recoveryPending) this._enterAppMode();
+        }, 0);
+      }
       if (!this._heldPadCount && this._orientationPending) {
         // Let all input listeners release using the old map first.
         clearTimeout(this._orientationTimer);
@@ -286,7 +303,7 @@ export class ExquisLEDs {
     }
 
     // If pads all released and a mode switch is pending, send it now.
-    if (this._heldPadCount === 0 && this._mpeModePending) {
+    if (this._heldPadCount === 0 && this._mpeModePending && !this._recoveryPending) {
       clearTimeout(this._mpeModePending);
       this._mpeModePending = null;
       this._sendMPEMode();
@@ -326,20 +343,24 @@ export class ExquisLEDs {
     clearTimeout(this._appModeInitTimer);
     this._appModeInitTimer = null;
 
+    // Keepalive can resume immediately. Routing/MPE/map writes must wait for
+    // physical pad releases; they can disturb the firmware's held-note state.
+    this._sendHeartbeat(false);
+    this._heartbeatTimer = setInterval(() => this._sendHeartbeat(), HEARTBEAT_INTERVAL_MS);
+    if (this._heldPadCount) { this._recoveryPending = true; return; }
+    this._recoveryPending = false;
+    this._mpeModePending = null;
+
     this._out.send(PAD_REMOTE_0);
     this._out.send(new Uint8Array([...HDR, 0x05, this._luminosity, 0xf7]));
     this._out.send(new Uint8Array([...HDR, 0x07, this._mpeEnabled ? 1 : 0, 0xf7]));
-
-    this._sendHeartbeat();
-    this._heartbeatTimer = setInterval(() => {
-      this._sendHeartbeat();
-    }, HEARTBEAT_INTERVAL_MS);
 
     // Delay note map + color commands to ensure App Mode is fully active on the
     // device before we send bulk note_number / note_colour frames.
     this._appModeInitTimer = setTimeout(() => {
       this._appModeInitTimer = null;
       if (!this._out) return;
+      if (this._heldPadCount) { this._recoveryPending = true; return; }
 
       this._sendLayoutFlags();
 
@@ -349,6 +370,7 @@ export class ExquisLEDs {
       for (let noteId = 0; noteId < 61; noteId++) {
         this._out.send(new Uint8Array([...HDR, 0x15, noteId, noteId, 0xf7]));
       }
+      if (this._lastColors) this.sendColors(this._lastColors);
 
       if (this._onReady) this._onReady(true);
     }, 200);
@@ -356,8 +378,18 @@ export class ExquisLEDs {
     // onReady is called inside the timeout above, after note map is sent.
   }
 
-  _sendHeartbeat() {
+  _sendHeartbeat(checkRecovery = true) {
     if (!this._out) return;
+    // Detect the missed interval BEFORE updating last-sent time. This also
+    // handles the timer firing before focus/visibility events on return.
+    if (checkRecovery && this._ready) {
+      if (performance.now() - this._lastHeartbeatSentAt > HEARTBEAT_STALE_MS)
+        this._recoveryPending = true;
+      if (this._recoveryPending && !this._heldPadCount) {
+        this._enterAppMode();
+        return;
+      }
+    }
     this._out.send(HEARTBEAT);
     this._lastHeartbeatSentAt = performance.now();
   }

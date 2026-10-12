@@ -3,9 +3,54 @@ import { getControllerById } from "./registry.js";
 import { exquisOrientation, exquisLayoutFlags, rotateExquisCoords } from "./exquis-orientation.js";
 import { ExquisLEDs } from "./exquis-leds.js";
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("Exquis orientation", () => {
+  it("restores mode, note map and saved colours even when the returning timer runs first", () => {
+    vi.useFakeTimers();
+    const now = vi.spyOn(performance, "now").mockReturnValue(100);
+    const out = { send: vi.fn() };
+    const driver = new ExquisLEDs(out, null);
+    driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, 3, 0, 0, 0xf7] });
+    vi.advanceTimersByTime(200);
+    driver.sendColors(Array(61).fill("#ff0000"));
+    out.send.mockClear();
+    now.mockReturnValue(11100);
+    driver._sendHeartbeat();
+    expect([...out.send.mock.calls[0][0]]).toEqual([0xf0, 0, 0x21, 0x7e, 0xf7]);
+    expect(out.send.mock.calls.map(([frame]) => [...frame]))
+      .toContainEqual([0xf0, 0, 0x21, 0x7e, 7, 1, 0xf7]);
+    expect(driver.recoverIfHeartbeatStale()).toBe(false); // already restoring
+    vi.advanceTimersByTime(200);
+    const frames = out.send.mock.calls.map(([frame]) => [...frame]);
+    expect(frames.filter(frame => frame[4] === 0x15)).toHaveLength(61);
+    expect(frames.some(frame => frame[4] === 0x14 && frame[6] > 0)).toBe(true);
+    driver.exit();
+  });
+
+  it("keeps recovery latched while held and handles duplicate note-ons with one release", () => {
+    vi.useFakeTimers();
+    const now = vi.spyOn(performance, "now").mockReturnValue(100);
+    const out = { send: vi.fn() };
+    const driver = new ExquisLEDs(out, null);
+    driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, 3, 0, 0, 0xf7] });
+    vi.advanceTimersByTime(200);
+    driver._onMessage({ data: [0x91, 19, 90] });
+    driver._onMessage({ data: [0x91, 19, 100] });
+    out.send.mockClear();
+    now.mockReturnValue(11100);
+    driver._sendHeartbeat();
+    expect(driver.recoverIfHeartbeatStale()).toBe(true);
+    expect(out.send.mock.calls.every(([frame]) => frame.length === 5)).toBe(true);
+    driver._onMessage({ data: [0x81, 19, 0] });
+    vi.advanceTimersByTime(0);
+    expect(out.send.mock.calls.map(([frame]) => [...frame]))
+      .toContainEqual([0xf0, 0, 0x21, 0x7e, 7, 1, 0xf7]);
+    driver.exit();
+    out.send.mockClear();
+    vi.advanceTimersByTime(1000);
+    expect(out.send).not.toHaveBeenCalled();
+  });
   it("uses MPE changes received before the handshake and avoids redundant mode commands", () => {
     vi.useFakeTimers();
     const out = { send: vi.fn() };
