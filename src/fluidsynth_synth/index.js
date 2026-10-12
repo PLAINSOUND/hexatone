@@ -14,6 +14,18 @@ import { createRecoveryGate } from "../audio/recovery-gate.js";
 import { createFluidMidiScheduler } from "./midi-scheduler.js";
 import { reattackFluidSynthSnapshots } from "./voices.js";
 import { readFluidSynthReverb } from "./reverb.js";
+import { recordAudioRuntime, registerFluidSynthLifecycleDiagnostics } from "../audio/runtime-diagnostics.js";
+
+let nextProcessorId = 0;
+let disposedProcessors = 0;
+let stoppedProcessors = 0;
+const processorLifecycle = new Map();
+export function getFluidSynthLifecycleDiagnostics() {
+  return { created: nextProcessorId, disposalAcknowledged: disposedProcessors,
+    finalCallbackAcknowledged: stoppedProcessors, processors: [...processorLifecycle.values()],
+    meaning: "Disposed confirms synth/buffer destruction. Processing-stopped confirms a callback returned false; a disconnected processor may receive no further callback. Missing acknowledgements are unknown, not proof of continued processing." };
+}
+registerFluidSynthLifecycleDiagnostics(getFluidSynthLifecycleDiagnostics);
 
 let enginePromise = null;
 let engine = null;
@@ -35,6 +47,7 @@ export function subscribeFluidSynthEngine(listener) {
 
 // OFF disposes only FluidSynth, never the shared sample AudioContext.
 export async function stopFluidSynthEngine({ naturalRelease = false } = {}) {
+  recordAudioRuntime("fluidsynth-shutdown-start", { naturalRelease });
   if (enginePromise && !engine) {
     try { await enginePromise; } catch { /* Nothing left to dispose. */ }
   }
@@ -63,6 +76,7 @@ export async function stopFluidSynthEngine({ naturalRelease = false } = {}) {
     localStorage.removeItem("fluidsynth_last_hosted_soundfont");
   } catch { /* Storage restrictions must not prevent shutdown. */ }
   notifyEngineListeners();
+  recordAudioRuntime("fluidsynth-shutdown-detached");
 }
 
 const baseUrl = import.meta.env.BASE_URL || "/";
@@ -89,6 +103,7 @@ const waitForMessage = (node, predicate, failOnError = false) =>
   });
 
 async function createWorkletNode(context) {
+  recordAudioRuntime("fluidsynth-worklet-module-start");
   wasmBytesPromise ??= (async () => {
     const wasmUrl = `${baseUrl}fluidsynth/fluidsynth.wasm`;
     let response;
@@ -118,6 +133,27 @@ async function createWorkletNode(context) {
     numberOfOutputs: 1,
     outputChannelCount: [2],
     processorOptions: { wasmBytes },
+  });
+  const processorId = ++nextProcessorId;
+  const lifecycle = { processorId, createdAt: new Date().toISOString(), state: "created" };
+  processorLifecycle.set(processorId, lifecycle);
+  if (processorLifecycle.size > 24) processorLifecycle.delete(processorLifecycle.keys().next().value);
+  recordAudioRuntime("fluidsynth-processor-created", { processorId });
+  node.port.addEventListener("message", ({ data }) => {
+    if (!["ready", "processor-disposed", "processing-stopped", "soundfont-loaded", "release-complete", "memory-snapshot"].includes(data?.type)) return;
+    Object.assign(lifecycle, { state: data.type, updatedAt: new Date().toISOString() });
+    if (data.type === "processor-disposed" && !lifecycle.disposedAt) {
+      lifecycle.disposedAt = lifecycle.updatedAt;
+      disposedProcessors++;
+    }
+    if (data.type === "processing-stopped" && !lifecycle.processingStoppedAt) {
+      lifecycle.processingStoppedAt = lifecycle.updatedAt;
+      stoppedProcessors++;
+    }
+    if (data.memory) lifecycle.memory = data.memory;
+    recordAudioRuntime(`fluidsynth-${data.type}`, { processorId, frame: data.frame ?? null,
+      ...(data.memory ? { memory: data.memory } : {}),
+      ...(data.phase ? { phase: data.phase, inputBytes: data.inputBytes } : {}) });
   });
   const ready = waitForMessage(node, (message) => message?.type === "ready", true);
   // A new worklet must never join the speakers at full gain. The owning
@@ -422,6 +458,7 @@ export async function loadFluidSynthSoundFont(
   { onDownloadProgress, onDownloadComplete, onBytesReady, preferredPreset, signal } = {},
 ) {
   if (!file) throw new Error("Choose a SoundFont file first");
+  recordAudioRuntime("fluidsynth-soundfont-load-start");
   const active = await getFluidSynthEngine();
   signal?.throwIfAborted();
   if (pendingLoad) {
@@ -436,6 +473,7 @@ export async function loadFluidSynthSoundFont(
     // requiring a fresh worklet synth and SoundFont load.
     const source = file;
     const bytes = await source.arrayBuffer(onDownloadProgress);
+    recordAudioRuntime("fluidsynth-soundfont-bytes-ready", { inputBytes: bytes.byteLength });
     signal?.throwIfAborted();
     onDownloadComplete?.();
     // Persist before transferring/detaching the ArrayBuffer into the worklet.

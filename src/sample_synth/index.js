@@ -343,7 +343,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         const checkEpoch = () => {
           if (epoch !== preparationEpoch) throw new Error("Sample preparation superseded by audio recovery");
         };
-        if (isIOS && iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
+        if (iosForceRecreateOnPrepare && sharedAudioContext?.state !== "closed") {
           const staleContext = sharedAudioContext;
           // Explicit recovery must not await a wedged iOS close() promise or
           // lose the user gesture before creating/resuming the replacement.
@@ -463,14 +463,14 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         }
       },
 
-      forceAudioRebuild: async () => {
+      forceAudioRebuild: async ({ forceRecreate = false } = {}) => {
         // Manual recovery intentionally ends this engine's voices; automatic
         // gesture recovery preserves the graph and continues to use ensureAwake.
-        if (isIOS) for (const hex of [...knownHexes]) hex.allSoundOff();
-        if (isIOS) iosForceRecreateOnPrepare = true;
+        if (isIOS || forceRecreate) for (const hex of [...knownHexes]) hex.allSoundOff();
+        if (isIOS || forceRecreate) iosForceRecreateOnPrepare = true;
         // A background resume may never settle. Explicit recovery must not
         // queue behind it; the replacement context is started by this gesture.
-        if (isIOS) {
+        if (isIOS || forceRecreate) {
           preparationEpoch += 1;
           preparePromise = null;
         }

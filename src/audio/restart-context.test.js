@@ -104,6 +104,28 @@ it("does not report a frozen replacement as successful recovery", async () => {
   expect(synth.forceAudioRebuild).toHaveBeenCalledOnce();
 });
 
+it("forces replacement of running contexts instead of cycling them", async () => {
+  vi.useFakeTimers();
+  const old = context();
+  let current = old;
+  const replacement = context();
+  const synth = {
+    family: "sample",
+    getAudioContext: () => current,
+    getDiagnostics: () => ({ audioContext: { state: current.state } }),
+    forceAudioRebuild: vi.fn(async () => { current = replacement; }),
+  };
+  const log = createAudioRecovery();
+  const work = log.restore(synth, { forceRecreate: true });
+  expect(synth.forceAudioRebuild).toHaveBeenCalledWith({ forceRecreate: true });
+  expect(old.suspend).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1000);
+  expect((await work)[0].ok).toBe(true);
+  const events = log.report(synth).events;
+  expect(events.find(e => e.name === "before-recovery").outputs[0].contextId).toBe(1);
+  expect(events.find(e => e.name === "after-recovery").outputs[0].contextId).toBe(2);
+});
+
 it("reports missing engines as a failure, not restored audio", async () => {
   expect((await createAudioRecovery().restore(null))[0]).toMatchObject({ ok: false });
 });

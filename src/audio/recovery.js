@@ -133,11 +133,11 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
     cancelHide() {
       clearTimeout(hideTimer);
     },
-    restore(synth, { releaseNotes } = {}) {
+    restore(synth, { releaseNotes, forceRecreate = false } = {}) {
       clearTimeout(hideTimer);
       if (pending) return pending;
       const children = outputs(synth);
-      record("before-recovery", { outputs: snapshot(synth) });
+      record("before-recovery", { forceRecreate, outputs: snapshot(synth) });
       if (!children.length) {
         const result = {
           backend: "built-in audio",
@@ -170,6 +170,7 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
       }
       const restarts = new Map();
       const restartFor = (s) => {
+        if (forceRecreate) return null;
         const context = s.getAudioContext?.();
         if (!context) return null;
         if (!restarts.has(context)) {
@@ -182,24 +183,27 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
         return restarts.get(context);
       };
       const restartBySynth = new Map(children.map((s) => [s, restartFor(s)]));
+      const rebuild = s => forceRecreate
+        ? () => s.forceAudioRebuild({ forceRecreate: true })
+        : s.forceAudioRebuild ?? s.ensureAwake ?? s.prepare;
       const samples = children.filter((s) => s.family === "sample");
       const independent = children.filter(
         (s) => s.audioBackend !== "fluidsynth" && s.family !== "sample",
       );
       const sampleWork = Promise.all(
         samples.map((s) =>
-          run(s, s.forceAudioRebuild ?? s.ensureAwake ?? s.prepare, restartBySynth.get(s)),
+          run(s, rebuild(s), restartBySynth.get(s)),
         ),
       );
       const otherWork = independent.map((s) =>
-        run(s, s.forceAudioRebuild ?? s.ensureAwake ?? s.prepare, restartBySynth.get(s)),
+        run(s, rebuild(s), restartBySynth.get(s)),
       );
       // FluidSynth shares the sample context; rebind after its owner replaces it.
       const fluidWork = sampleWork.then(() =>
         Promise.all(
           children
             .filter((s) => s.audioBackend === "fluidsynth")
-            .map((s) => run(s, s.forceAudioRebuild ?? s.ensureAwake, restartBySynth.get(s))),
+            .map((s) => run(s, rebuild(s), restartBySynth.get(s))),
         ),
       );
       pending = Promise.all([sampleWork, Promise.all(otherWork), fluidWork])

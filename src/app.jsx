@@ -5424,6 +5424,7 @@ const App = () => {
     <Suspense fallback={<SidebarLoadingFallback />}>
       <IOSettings
         onSaveAudioReport={audioRecovery.save}
+        onRecreateAudioContexts={() => audioRecovery.restore({ forceRecreate: true })}
         onChange={onChange}
         midiLearnActive={midiLearnActive}
         hakenPedalLearnActive={hakenPedalLearnActive}

@@ -1,6 +1,21 @@
 // Bounded, session-only telemetry. No note pitches, MIDI payloads or assets.
 const events = [];
 const latency = [];
+const stages = [];
+let currentStage = null;
+let fluidSynthLifecycleProvider = null;
+export function registerFluidSynthLifecycleDiagnostics(provider) {
+  fluidSynthLifecycleProvider = provider;
+}
+export function markAudioTestStage(label) {
+  if (!latencyEnabled) return;
+  currentStage = { id: stages.length ? stages.at(-1).id + 1 : 1,
+    label, at: new Date().toISOString() };
+  stages.push(currentStage);
+  if (stages.length > 6) stages.shift();
+  recordAudioRuntime("audio-test-stage", currentStage);
+  return currentStage.id;
+}
 const eventStages = new WeakMap();
 const eventLoopGaps = [];
 let latencyEnabled = false;
@@ -16,6 +31,8 @@ export function setLatencyMeasurementEnabled(enabled) {
   latencyEnabled = enabled;
   touch = null;
   latency.length = 0;
+  stages.length = 0;
+  currentStage = null;
   eventLoopGaps.length = 0;
   recordAudioRuntime("latency-measurement", { enabled });
   for (const listener of latencyListeners) listener();
@@ -97,7 +114,7 @@ export function recordTouchAudio(backend, context, scheduledDelayMs = 0) {
   const dispatchMs = performance.now() - touch.at;
   const baseLatencyMs = Number.isFinite(context?.baseLatency) ? context.baseLatency * 1000 : null;
   const outputLatencyMs = Number.isFinite(context?.outputLatency) ? context.outputLatency * 1000 : null;
-  const measurement = { id: ++nextMeasurement, touchId: touch.id, backend, at: new Date().toISOString(),
+  const measurement = { id: ++nextMeasurement, touchId: touch.id, stageId: currentStage?.id ?? null, backend, at: new Date().toISOString(),
     eventType: touch.eventType, pointerType: touch.pointerType,
     eventToCaptureMs: touch.eventToCaptureMs, captureToHandlerMs: touch.captureToHandlerMs,
     handlerPreparationMs: touch.handlerPreparationMs, recentEventLoopDelayMs: touch.recentEventLoopDelayMs,
@@ -106,7 +123,11 @@ export function recordTouchAudio(backend, context, scheduledDelayMs = 0) {
     estimatedOutputMs: context?.state === "running" && outputLatencyMs != null
       ? dispatchMs + Math.max(0, scheduledDelayMs) + (baseLatencyMs ?? 0) + outputLatencyMs : null };
   latency.push(measurement);
-  if (latency.length > 180) latency.shift();
+  // Preserve up to 180 rows per stage for a three-pass comparison, bounded
+  // independently of how many stage markers the user adds.
+  const sameStage = latency.filter(row => row.stageId === measurement.stageId);
+  if (sameStage.length > 180) latency.splice(latency.indexOf(sameStage[0]), 1);
+  if (latency.length > 720) latency.shift();
   return measurement.id;
 }
 export function recordTouchRender(id, detail) {
@@ -115,7 +136,21 @@ export function recordTouchRender(id, detail) {
   if (measurement) Object.assign(measurement, detail);
 }
 export function audioRuntimeReport() {
-  return { latencyMeasurementEnabled: latencyEnabled, events: [...events], pendingImports: [...imports].map(({ backend, url, started }) =>
+  const summarize = rows => Object.fromEntries([
+    "inputAgeMs", "dispatchMs", "baseLatencyMs", "outputLatencyMs",
+    "renderQueueLateMs", "nodeStartAcknowledgementMs",
+  ].map(key => {
+    const values = rows.map(row => row[key]).filter(Number.isFinite).sort((a, b) => a - b);
+    return [key, values.length ? { count: values.length,
+      median: values[Math.floor(values.length / 2)],
+      p95: values[Math.ceil(values.length * 0.95) - 1], max: values.at(-1) } : null];
+  }));
+  return { latencyMeasurementEnabled: latencyEnabled,
+    fluidSynthLifecycle: fluidSynthLifecycleProvider?.() ?? null,
+    testStages: stages.map(stage => ({ ...stage, backends: Object.fromEntries(
+      [...new Set(latency.filter(row => row.stageId === stage.id).map(row => row.backend))]
+        .map(backend => [backend, summarize(latency.filter(row => row.stageId === stage.id && row.backend === backend))])) })),
+    events: [...events], pendingImports: [...imports].map(({ backend, url, started }) =>
     ({ backend, url, elapsedMs: performance.now() - started })), touchLatency: [...latency],
     eventLoopGaps: [...eventLoopGaps],
   latencyMeaning: "inputAgeMs is event timestamp to canvas handler entry. eventToCaptureMs ends at window capture; captureToHandlerMs measures propagation to the canvas handler. handlerPreparationMs is included in dispatchMs (handler entry to backend submission). recentEventLoopDelayMs is the largest 25ms timer delay observed in the preceding second, contextual evidence only, not an additive latency. Pre-capture delay cannot distinguish OS/browser input processing from main-thread waiting. estimatedOutputMs adds scheduling and browser latency estimates; it excludes envelopes, engine queues and speaker measurement. Missing output latency is unknown, not zero. Async attacks are not attributed." };

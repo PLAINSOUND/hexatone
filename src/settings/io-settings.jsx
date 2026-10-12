@@ -47,6 +47,7 @@ const IOSettings = ({
   onProbeLumatoneConnection,
   lumatoneDriverReady,
   onSaveAudioReport,
+  onRecreateAudioContexts,
 }) => {
   const [restoreIO, setRestoreIO] = useState(() => restoreIOOnReload());
   return (
@@ -65,7 +66,7 @@ const IOSettings = ({
           <em class="settings-form__helper-text">Restore I/O settings on reload</em>
         </label>
       </div>
-      {import.meta.env.DEV && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} />}
+      {import.meta.env.DEV && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} onRecreateContexts={onRecreateAudioContexts} />}
       <SampleSynth
         showActivateAudioContext={showActivateAudioContext}
         activateAudioContext={activateAudioContext}

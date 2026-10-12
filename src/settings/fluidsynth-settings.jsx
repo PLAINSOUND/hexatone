@@ -370,7 +370,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       <p class="settings-form__intro-copy">
         <em>
           Hexatone SoundFont banks are fetched from soundfonts.plainsound.org. Alternately, choose a
-          local file in .sf2 or .sf3 format. The built-in WebAssembly player supports per-note tuning and expression.</em>
+          local file in .sf2 or .sf3 format. The built-in WebAssembly player supports per-note tuning and expression. On iOS larger SoundFonts (i.e., PlainsoundOrgan and PlainsoundHarpsichord) may add some latency, the slimmer single register versions may offer better performance.</em>
       </p>
 
       <label>

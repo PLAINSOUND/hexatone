@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { audioRuntimeReport, beginTouchTiming, recordTouchAudio, recordTouchRender,
   traceAudioImport, withTouchTiming, captureInputTiming, markInputHandler,
-  recordEventLoopGap, setLatencyMeasurementEnabled, recordAudioRuntime } from "./runtime-diagnostics.js";
+  recordEventLoopGap, setLatencyMeasurementEnabled, recordAudioRuntime, markAudioTestStage } from "./runtime-diagnostics.js";
 
 beforeEach(() => setLatencyMeasurementEnabled(true));
 afterEach(() => setLatencyMeasurementEnabled(false));
@@ -101,4 +101,20 @@ it("reports pending imports, their URL and failed stage without swallowing error
 it("bounds touch history", () => {
   for (let i = 0; i < 200; i++) { beginTouchTiming({}); recordTouchAudio("samples", {}); }
   expect(audioRuntimeReport().touchLatency).toHaveLength(180);
+});
+
+it("preserves four bounded passes and summarizes late acknowledgements by stage", () => {
+  for (const label of ["Baseline", "FluidSynth loaded", "SoundFont OFF", "Contexts recreated"]) {
+    markAudioTestStage(label);
+    for (let i = 0; i < 200; i++) {
+      beginTouchTiming({});
+      const id = recordTouchAudio("supersonic", {});
+      recordTouchRender(id, { nodeStartAcknowledgementMs: label === "Baseline" ? 4 : 10 });
+    }
+  }
+  const report = audioRuntimeReport();
+  expect(report.touchLatency).toHaveLength(720);
+  expect(report.testStages.map(stage => stage.backends.supersonic.nodeStartAcknowledgementMs.median)).toEqual([4, 10, 10, 10]);
+  setLatencyMeasurementEnabled(false);
+  expect(audioRuntimeReport().testStages).toEqual([]);
 });

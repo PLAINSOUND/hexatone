@@ -33,19 +33,33 @@ it("naturally releases all channels and waits for rendered silence before shutdo
 it("disposes the synth and render buffers and stops audio processing", () => {
   let Processor;
   runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {
-    AudioWorkletProcessor: class {}, registerProcessor: (_, processor) => { Processor = processor; },
+    currentFrame: 128, AudioWorkletProcessor: class {}, registerProcessor: (_, processor) => { Processor = processor; },
   });
   const processor = Object.create(Processor.prototype);
   Object.assign(processor, { synth: 1, leftPointer: 4, rightPointer: 8, sysexPointer: 12, handledPointer: 16,
-    midiQueue: [{ frame: 128 }], port: { close: vi.fn() },
+    midiQueue: [{ frame: 128 }], port: { close: vi.fn(), postMessage: vi.fn() },
     module: { _ps_destroy: vi.fn(), _free: vi.fn() } });
+  const module = processor.module;
+  module.HEAPU8 = new Uint8Array(1024);
+  module.FS = { unlink: vi.fn() };
+  processor.soundfontFileBytes = 512;
   processor.handleMessage({ type: "dispose" });
   processor.handleMessage({ type: "dispose" });
-  expect(processor.module._ps_destroy).toHaveBeenCalledExactlyOnceWith(1);
-  expect(processor.module._free.mock.calls.flat()).toEqual([4, 8, 12, 16]);
+  expect(module._ps_destroy).toHaveBeenCalledExactlyOnceWith(1);
+  expect(module._free.mock.calls.flat()).toEqual([4, 8, 12, 16]);
+  expect(module.FS.unlink).toHaveBeenCalledExactlyOnceWith("/hexatone-soundfont.sf2");
+  expect(processor.module).toBeNull();
   expect(processor.midiQueue).toEqual([]);
-  expect(processor.port.close).toHaveBeenCalledOnce();
+  expect(processor.port.postMessage).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+    type: "processor-disposed", frame: 128, memory: expect.objectContaining({
+      before: { wasmHeapCapacityBytes: 1024, soundfontFileBytes: 512 },
+      afterFree: { wasmHeapCapacityBytes: 1024, soundfontFileBytes: 0 },
+      moduleReferenceReleased: true, soundfontFileRemoved: true,
+    }),
+  }));
   expect(processor.process([], [])).toBe(false);
+  expect(processor.port.postMessage).toHaveBeenLastCalledWith({ type: "processing-stopped", frame: 128 });
+  expect(processor.port.close).toHaveBeenCalledOnce();
 });
 
 it("acknowledges traced attacks only after a successful render block", () => {

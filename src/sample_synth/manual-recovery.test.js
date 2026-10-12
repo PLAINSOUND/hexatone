@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
 
-it("creates and resumes a replacement synchronously despite a stalled close", async () => {
+it.each(["iPhone", "Desktop"])("creates and resumes a replacement on %s despite a stalled close", async platform => {
   vi.resetModules();
   const contexts = [];
   class Context {
@@ -25,7 +25,7 @@ it("creates and resumes a replacement synchronously despite a stalled close", as
     }
     decodeAudioData() { return Promise.resolve({}); }
   }
-  vi.stubGlobal("navigator", { userAgent: "iPhone", platform: "iPhone", maxTouchPoints: 1 });
+  vi.stubGlobal("navigator", { userAgent: platform, platform, maxTouchPoints: 1 });
   vi.stubGlobal("window", { AudioContext: Context, addEventListener: vi.fn(), removeEventListener: vi.fn() });
   vi.stubGlobal("document", { addEventListener: vi.fn(), removeEventListener: vi.fn() });
   vi.stubGlobal("fetch", vi.fn(async () => ({ arrayBuffer: async () => new ArrayBuffer(8) })));
@@ -39,7 +39,7 @@ it("creates and resumes a replacement synchronously despite a stalled close", as
   contexts[0].resume.mockImplementation(() => new Promise(resolve => { resumeOld = resolve; }));
   const stalledPrepare = synth.prepare();
   const superseded = expect(stalledPrepare).rejects.toThrow("superseded");
-  const rebuilding = synth.forceAudioRebuild();
+  const rebuilding = synth.forceAudioRebuild({ forceRecreate: true });
   expect(contexts).toHaveLength(2);
   expect(contexts[0].close).toHaveBeenCalledOnce();
   expect(contexts[1].resume).toHaveBeenCalledOnce();

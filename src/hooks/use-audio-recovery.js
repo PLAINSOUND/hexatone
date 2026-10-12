@@ -185,7 +185,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       window.removeEventListener("pageshow", lifecycle);
     };
   }, [synthRef, initialiseRef, engineLifecycleRef, startupFailed]);
-  const restore = useCallback(async () => {
+  const restore = useCallback(async ({ forceRecreate = false } = {}) => {
     if (busy.current) {
       // Serialize retries: concurrent context/worklet replacements can orphan
       // voices. Repeated taps coalesce into one fresh attempt, not a no-op.
@@ -227,6 +227,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       // immediately cycle those fresh contexts as though they had interrupted.
       const results = starting ? [] : await recorder.current.restore(synthRef.current, {
         releaseNotes: () => keysRef.current?.releaseActiveBrowserNotes?.(),
+        forceRecreate,
       });
       const failed = results.filter((result) => !result.ok);
       const recoveredBackends = starting
