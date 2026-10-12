@@ -14,8 +14,9 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
 
   async initialize(wasmBytes) {
     try {
-      this.module = await createFluidSynth({ wasmBinary: wasmBytes, locateFile: () => "" });
+      const module = await createFluidSynth({ wasmBinary: wasmBytes, locateFile: () => "" });
       if (this.disposed) return;
+      this.module = module;
       this.synth = this.module._ps_create(sampleRate);
       if (!this.synth) throw new Error("FluidSynth instance creation failed");
       this.initializeChannelTunings();
@@ -47,12 +48,28 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       if (this.disposed) return;
       this.disposed = true;
       this.midiQueue = [];
+      const before = this.memorySizes();
       if (this.synth) this.module._ps_destroy(this.synth);
       this.synth = null;
       for (const pointer of [this.leftPointer, this.rightPointer, this.sysexPointer, this.handledPointer]) {
         if (pointer) this.module._free(pointer);
       }
-      this.port.close();
+      let soundfontFileRemoved = this.soundfontFileBytes == null || this.soundfontFileBytes === 0;
+      try {
+        this.module?.FS.unlink("/hexatone-soundfont.sf2");
+        soundfontFileRemoved = true;
+      } catch { /* No file on an unloaded processor, or cleanup unavailable. */ }
+      this.soundfontFileBytes = soundfontFileRemoved ? 0 : this.soundfontFileBytes;
+      const afterFree = this.memorySizes();
+      this.module = null;
+      this.soundfontId = null;
+      this.leftPointer = this.rightPointer = this.sysexPointer = this.handledPointer = 0;
+      this.heldKeys?.clear();
+      this.usedChannels?.clear();
+      this.port.onmessage = null;
+      this.port.postMessage({ type: "processor-disposed", frame: currentFrame,
+        memory: { before, afterFree, moduleReferenceReleased: true, soundfontFileRemoved,
+          meaning: "Heap capacity is not live allocation size. Dropping references does not confirm browser memory reclamation." } });
       return;
     }
     if (!this.module || !this.synth || !message) return;
@@ -101,12 +118,15 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           this.soundfontId = null;
         }
         const path = "/hexatone-soundfont.sf2";
+        this.port.postMessage({ type: "memory-snapshot", phase: "before-soundfont-load",
+          inputBytes: message.bytes.byteLength, memory: this.memorySizes() });
         try {
           this.module.FS.unlink(path);
         } catch {
           // No virtual file exists on the first load.
         }
         this.module.FS.writeFile(path, new Uint8Array(message.bytes));
+        this.soundfontFileBytes = message.bytes.byteLength;
         const pathPointer = this.module.stringToNewUTF8(path);
         let soundfontId;
         try {
@@ -124,7 +144,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           this.synth, channel, soundfontId, first.bank, first.program,
         );
         if (selected !== 0) throw new Error(`Selecting first preset failed: ${selected}`);
-        this.port.postMessage({ type: "soundfont-loaded", soundfontId, presets });
+        this.port.postMessage({ type: "soundfont-loaded", soundfontId, presets,
+          memory: this.memorySizes() });
         return;
       }
 
@@ -151,6 +172,11 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     } catch (error) {
       this.port.postMessage({ type: "error", message: String(error), stack: error?.stack });
     }
+  }
+
+  memorySizes() {
+    return { wasmHeapCapacityBytes: this.module?.HEAPU8?.buffer?.byteLength ?? null,
+      soundfontFileBytes: this.soundfontFileBytes ?? 0 };
   }
 
   readPresets(soundfontId) {
@@ -221,7 +247,14 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   }
 
   process(_inputs, outputs) {
-    if (this.disposed) return false;
+    if (this.disposed) {
+      if (!this.stopReported) {
+        this.stopReported = true;
+        this.port.postMessage({ type: "processing-stopped", frame: currentFrame });
+        this.port.close();
+      }
+      return false;
+    }
     const channels = outputs[0];
     if (!channels?.length) return true;
     const frames = channels[0].length;
