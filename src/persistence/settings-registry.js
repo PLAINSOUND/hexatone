@@ -588,6 +588,14 @@ export const SETTINGS_REGISTRY = [
     description: "Exquis clockwise physical orientation: 0, 90, 180 or 270 degrees",
   },
   {
+    key: "exquis_arpeggiator_pattern",
+    tier: "local",
+    type: "int",
+    default: 0,
+    perController: false,
+    description: "Exquis native slider arpeggiator pattern (0–5; mapping pending hardware verification)",
+  },
+  {
     key: "lumatone_modwheel_timbre",
     tier: "local",
     type: "bool",

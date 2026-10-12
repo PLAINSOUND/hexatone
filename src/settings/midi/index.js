@@ -29,6 +29,7 @@ import TonalPlexusSettings from "./controllers/tonal-plexus-settings.js";
 import LinnstrumentSettings from "./controllers/linnstrument-settings.js";
 import LumatoneSettings from "./controllers/lumatone-settings.js";
 import ExquisSettings from "./controllers/exquis-settings.js";
+import ExquisArpeggiator from "./controllers/exquis-arpeggiator.jsx";
 import HakenContinuumSettings from "./controllers/haken-continuum-settings.js";
 import { buildAutoSelectInputProps } from "../../ui/input-selection.js";
 
@@ -923,6 +924,21 @@ const MIDIio = (props) => {
                 }}
               />
             </label>
+          )}
+
+          {ctrl?.id === "exquis" && (
+            <ExquisArpeggiator
+              settings={props.settings}
+              keysRef={props.keysRef}
+              onChange={props.onChange}
+              disabled={
+                scaleMode ||
+                !!props.settings.midi_passthrough ||
+                !hasSysexMidi ||
+                !props.exquisRawPorts ||
+                !props.exquisLedStatus?.ok
+              }
+            />
           )}
 
           {/* ── Pitch Bending Interval ───────────────────────────────────────────

@@ -181,6 +181,7 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
     "linnstrument_out_port",
     "exquis_led_luminosity",
     "exquis_led_saturation",
+    "exquis_arpeggiator_pattern",
   ],
 };
 

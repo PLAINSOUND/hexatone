@@ -116,6 +116,7 @@ export class ExquisLEDs {
     saturation = 1.5,
     mpeEnabled = true,
     orientation = 90,
+    arpeggiatorPattern = 0,
   ) {
     this._out = outputPort;
     this._in = inputPort;
@@ -124,6 +125,7 @@ export class ExquisLEDs {
     this._saturation = Math.max(0.75, Math.min(2.5, saturation));
     this._mpeEnabled = !!mpeEnabled;
     this._orientation = exquisOrientation(orientation);
+    this._arpeggiatorPattern = Math.max(0, Math.min(5, Math.round(arpeggiatorPattern) || 0));
     this._orientationPending = null;
     this._orientationTimer = null;
     this._ready = false;
@@ -192,6 +194,20 @@ export class ExquisLEDs {
     if (!this._ready || !this._out) return;
     this._luminosity = Math.max(0, Math.min(100, Math.round(value)));
     this._out.send(new Uint8Array([...HDR, 0x05, this._luminosity, 0xf7]));
+  }
+
+  /** Remember the selected pattern even before the firmware handshake. */
+  setArpeggiatorPattern(value) {
+    const pattern = Math.max(0, Math.min(5, Math.round(value) || 0));
+    if (pattern === this._arpeggiatorPattern) return;
+    this._arpeggiatorPattern = pattern;
+    if (this._ready && this._out) this._sendArpeggiatorPattern();
+  }
+
+  _sendArpeggiatorPattern() {
+    // Native slider performs the arpeggiation; remote mode only reports touch.
+    this._out.send(new Uint8Array([...HDR, 0x3c, 0, 0xf7]));
+    this._out.send(new Uint8Array([...HDR, 0x40, this._arpeggiatorPattern, 0xf7]));
   }
 
   /** Apply device flags and commit the matching host geometry only with no pads held. */
@@ -352,6 +368,7 @@ export class ExquisLEDs {
     this._mpeModePending = null;
 
     this._out.send(PAD_REMOTE_0);
+    this._sendArpeggiatorPattern();
     this._out.send(new Uint8Array([...HDR, 0x05, this._luminosity, 0xf7]));
     this._out.send(new Uint8Array([...HDR, 0x07, this._mpeEnabled ? 1 : 0, 0xf7]));
 

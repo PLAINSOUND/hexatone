@@ -4719,6 +4719,8 @@ const App = () => {
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   const exquisMpeInputRef = useRef(effectiveMpeInput);
   exquisMpeInputRef.current = effectiveMpeInput;
+  const exquisArpeggiatorRef = useRef(settings.exquis_arpeggiator_pattern ?? 0);
+  exquisArpeggiatorRef.current = settings.exquis_arpeggiator_pattern ?? 0;
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
   // loaded (Keyboard only mounts when isValid — i.e. a scale is present).
   useEffect(() => {
@@ -4754,6 +4756,7 @@ const App = () => {
         settings.exquis_led_saturation ?? 1.3,
         exquisMpeInputRef.current,
         settings.exquis_orientation ?? 90,
+        exquisArpeggiatorRef.current,
       );
       if (disposed) {
         leds.exit();
@@ -4776,6 +4779,10 @@ const App = () => {
   useEffect(() => {
     exquisLedsRef.current?.setOrientation(settings.exquis_orientation ?? 90);
   }, [settings.exquis_orientation]);
+
+  useEffect(() => {
+    exquisLedsRef.current?.setArpeggiatorPattern(settings.exquis_arpeggiator_pattern ?? 0);
+  }, [settings.exquis_arpeggiator_pattern]);
 
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.
