@@ -30,6 +30,9 @@ describe("preset tunings registry", () => {
     expect(zarlino.note_colors).toHaveLength(41);
     expect(zarlino.scale[4]).toBe("351/320");
     expect(zarlino.note_colors[5]).toBe("#e8c9e4");
+    expect(zarlino.scale[34]).toBe("9/5");
+    expect(zarlino.note_names[35]).toBe("B+12");
+    expect(zarlino.note_colors[35]).toBe("#c7c1a1");
     expect(findPresetTuningByName(zarlino.name)).toEqual(zarlino);
   });
 
