@@ -3,6 +3,11 @@ import { describe, it, expect, vi } from "vitest";
 import ExquisArpeggiator from "./exquis-arpeggiator.jsx";
 
 describe("Exquis Arpeggiator", () => {
+  it("shows Note Repeat for a saved experimental OFF selection", () => {
+    render(<ExquisArpeggiator settings={{ exquis_arpeggiator_pattern: -1 }} onChange={vi.fn()} />);
+    expect(screen.getByLabelText("Arpeggiator").selectedOptions[0].text).toBe("Note Repeat");
+    expect(screen.queryByRole("option", { name: "OFF" })).toBeNull();
+  });
   it("keeps the menu order with the tested IDs and saves/sends the selection", () => {
     const onChange = vi.fn();
     const setArpeggiatorPattern = vi.fn();
