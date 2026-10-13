@@ -751,11 +751,18 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
       sOffset: -0.05,
       lOffset: -0.04,
     });
-  const makeOvertonalChromatic = (base, magnitude = 1) =>
-    adjustHexOkhsl(mixHex(base, "#8c8574", magnitude === 1 ? 0.16 : 0.19), {
+  const makeOvertonalChromatic = (base, magnitude = 1, overtonal = true) => {
+    if (magnitude === 2 && overtonal) {
+      // Dark-key 25° keeps its saturated overtonal identity rather than
+      // converging on earthy u5. Default #fef5be becomes #f0e5a4;
+      // relative OKHSL offsets also preserve custom family colours.
+      return adjustHexOkhsl(base, { sOffset: -0.25, lOffset: -0.055 });
+    }
+    return adjustHexOkhsl(mixHex(base, "#8c8574", magnitude === 1 ? 0.16 : 0.19), {
       sOffset: magnitude === 1 ? -0.06 : -0.07,
       lOffset: magnitude === 1 ? -0.025 : -0.04,
     });
+  };
   const makeUndertonalChromatic = (base) =>
     adjustHexOkhsl(mixHex(base, "#8c8574", 0.2), {
       sOffset: -0.1,
@@ -838,7 +845,7 @@ function getQuintalProfileColor(monzo, basis = EXTENDED_MONZO_BASIS, options = {
     if (isChromatic) {
       const useSharpStyle = preferSharpChromatic;
       const chromaticColor = useSharpStyle
-        ? makeOvertonalChromatic(base, absFive)
+        ? makeOvertonalChromatic(base, absFive, false)
         : makeUndertonalChromatic(base);
       return {
         screenHex: chromaticColor,

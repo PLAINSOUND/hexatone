@@ -148,8 +148,10 @@ describe("monzoToSuggestedColor", () => {
     expect(monzoToSuggestedColor([-2, 0, 1]).screenHex).toBe("#fffae5");
     expect(monzoToSuggestedColor([-7, 3, 1]).screenHex).toBe("#e6e0cb");
     expect(monzoToSuggestedColor([2, -4, 2]).screenHex).toBe("#fef5be");
-    expect(monzoToSuggestedColor([-3, -1, 2]).screenHex).toBe("#ddd5a4");
-    expect(monzoToSuggestedColor([-3, -1, 2]).screenHex).toBe("#ddd5a4");
+    expect(monzoToSuggestedColor([-3, -1, 2]).screenHex).toBe("#f0e5a4");
+    expect(monzoToSuggestedColor([-6, 1, 2], undefined, {
+      chainRole: "chromatic", notationSide: "sharp",
+    }).screenHex).toBe("#f0e5a4");
   });
 
   it("uses quintal-chain colors for pure 5-limit undertonal diatonics and darker flats", () => {

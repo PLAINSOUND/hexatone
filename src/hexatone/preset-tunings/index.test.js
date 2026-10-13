@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { deriveAutoNoteColors } from "../../settings/scale/auto-colors.js";
 
 import {
   buildFilePresetTuningGroups,
@@ -8,6 +9,13 @@ import {
 } from "./index.js";
 
 describe("preset tunings registry", () => {
+  it("stores regenerated auto colours as manual palettes for Quintal and Zarlino", () => {
+    for (const name of ["55-Quintal (Sabat Euler Lattice, centre D)", "41-(13-Limit) Zarlino"]) {
+      const preset = findPresetTuningByName(name);
+      expect(preset.key_colors_mode).toBe("manual");
+      expect(preset.note_colors).toEqual(deriveAutoNoteColors(preset));
+    }
+  });
   it("places Zarlino after Breed and preserves the exported tuning and Exquis anchor", () => {
     const group = presetTuningGroups.find((entry) => entry.name === "Rational Intonation (JI)");
     const breedIndex = group.settings.findIndex((preset) => preset.name === "41-(13-Limit) Breed");
@@ -33,6 +41,15 @@ describe("preset tunings registry", () => {
     expect(zarlino.scale[34]).toBe("9/5");
     expect(zarlino.note_names[35]).toBe("B+12");
     expect(zarlino.note_colors[35]).toBe("#c7c1a1");
+    for (const [degree, ratio, label, color] of [
+      [3, "21/20", "D", "#fde4d3"],
+      [10, "75/64", "D", "#f0e5a4"],
+      [32, "33/20", "A", "#e3f5d0"],
+    ]) {
+      expect(zarlino.scale[degree - 1]).toBe(ratio);
+      expect(zarlino.note_names[degree]).toBe(label);
+      expect(zarlino.note_colors[degree]).toBe(color);
+    }
     expect(findPresetTuningByName(zarlino.name)).toEqual(zarlino);
   });
 
