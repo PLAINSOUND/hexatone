@@ -9,6 +9,28 @@ import {
 } from "./index.js";
 
 describe("preset tunings registry", () => {
+  it("places 53-Quintal immediately before 55-Quintal with its saved anchors", () => {
+    const group = presetTuningGroups.find((entry) => entry.name === "Rational Intonation (JI)");
+    const index = group.settings.findIndex((preset) => preset.name === "55-Quintal (Sabat Euler Lattice, centre D)");
+    const preset = group.settings[index - 1];
+    expect(preset).toMatchObject({
+      name: "53-Quintal (Sabat Euler Lattice, centre D)",
+      short_description: "53-JI-5L(Euler)",
+      equivSteps: 53,
+      center_degree: 9,
+      reference_degree: 40,
+      rSteps: 9,
+      drSteps: 4,
+      exquis_anchor_note: 35,
+      lumatone_anchor_note: 27,
+      lumatone_anchor_channel: 3,
+    });
+    expect(preset.scale).toHaveLength(53);
+    expect(preset.note_names).toHaveLength(53);
+    expect(preset.note_colors).toHaveLength(53);
+    expect(preset.scale.at(-1)).toBe("2/1");
+  });
+
   it("stores regenerated auto colours as manual palettes for Quintal and Zarlino", () => {
     for (const name of ["55-Quintal (Sabat Euler Lattice, centre D)", "41-(13-Limit) Zarlino"]) {
       const preset = findPresetTuningByName(name);

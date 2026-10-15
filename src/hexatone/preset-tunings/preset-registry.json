@@ -78,6 +78,7 @@
       "name": "Rational Intonation (JI)",
       "presets": [
         "53-tertial-center-d",
+        "53-quintal-sabat-euler-lattice-centre-d",
         "55-quintal-sabat-euler-lattice-center-d",
         "41-septimal-tertial",
         "41-septimal-tertial-tonnetz-layout",
