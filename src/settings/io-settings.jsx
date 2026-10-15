@@ -66,7 +66,9 @@ const IOSettings = ({
           <em class="settings-form__helper-text">Restore I/O settings on reload</em>
         </label>
       </div>
-      {import.meta.env.DEV && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} onRecreateContexts={onRecreateAudioContexts} />}
+      {/* Pages is a production-optimised preview build, so DEV alone is false.
+          Opt in at build time only; normal production builds keep this hidden. */}
+      {(import.meta.env.DEV || import.meta.env.VITE_AUDIO_DIAGNOSTICS === "true") && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} onRecreateContexts={onRecreateAudioContexts} />}
       <SampleSynth
         showActivateAudioContext={showActivateAudioContext}
         activateAudioContext={activateAudioContext}

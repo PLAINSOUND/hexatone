@@ -55,6 +55,8 @@ jobs:
           yarn run build
         env:
           VITE_BASE_PATH: /hexatone/
+          # Dev-branch Pages preview only; not enabled by a normal production build.
+          VITE_AUDIO_DIAGNOSTICS: 'true'
 
       - name: Check build output
         run: |
