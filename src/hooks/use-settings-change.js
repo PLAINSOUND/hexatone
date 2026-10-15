@@ -12,6 +12,7 @@
 import { useRef, useCallback, useEffect } from "preact/hooks";
 import { detectController, getControllerById } from "../controllers/registry.js";
 import { buildControllerPresetAnchorUpdate } from "../controllers/preset-anchors.js";
+import { rememberControllerAnchorForReload } from "../persistence/controller-anchor-reload.js";
 import { normalizeColors } from "../settings/normalize-settings.js";
 import { deriveImportedLayoutSteps } from "../settings/scale/parse-scale.js";
 import {
@@ -311,6 +312,9 @@ const useSettingsChange = (
           key === "midiin_anchor_note" ? value : s.midiin_anchor_note,
           key === "midiin_anchor_channel" ? value : s.midiin_anchor_channel,
         );
+        rememberControllerAnchorForReload(ctrl.id,
+          key === "midiin_anchor_note" ? value : s.midiin_anchor_note,
+          key === "midiin_anchor_channel" ? value : s.midiin_anchor_channel);
       }
     }
     const next = { ...s, [key]: value, ...controllerAnchorUpdate };
@@ -350,6 +354,9 @@ const useSettingsChange = (
           updates.midiin_anchor_note ?? s.midiin_anchor_note,
           updates.midiin_anchor_channel ?? s.midiin_anchor_channel,
         );
+        rememberControllerAnchorForReload(ctrl.id,
+          updates.midiin_anchor_note ?? s.midiin_anchor_note,
+          updates.midiin_anchor_channel ?? s.midiin_anchor_channel);
       }
     }
     const next = { ...s, ...updates, ...controllerAnchorUpdate };

@@ -182,6 +182,10 @@ export const COLOR_PAIRS = [
   ["fef5be", "ffe63f"], // 25° 75° 225°
   ["ffef8a", "cdaf06"], // 125°
   ["dee2da", "425d3b"], // u5 u15 (dee2da also = 43°; first entry wins)
+  // Dark-key quintal colours need more separation on physical LEDs than on
+  // screen. Lift the o5 yellow; anchor u5 at its previous transfer result.
+  ["e6e0cb", "998b43"], // o5 chromatic (screen colour stays unchanged)
+  ["c7c1a1", "6c643f"], // u5 chromatic
 
   // ── Red / 7-limit ─────────────────────────────────────────────────────────
   ["ffe5e5", "ff98aa"], // 7° 21° 63° 189°

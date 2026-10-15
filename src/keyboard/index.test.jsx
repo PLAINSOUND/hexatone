@@ -31,6 +31,7 @@ vi.mock("./keys.js", () => {
       onModWheelChange,
     ) {
       this.initialSettings = settings;
+      this.settings = settings;
       this.onTakeSnapshot = onTakeSnapshot;
       this.onModWheelChange = onModWheelChange;
       this.updateInputRuntime = vi.fn();
@@ -39,6 +40,7 @@ vi.mock("./keys.js", () => {
         this.onTakeSnapshot = handler;
       });
       this.updateColors = vi.fn();
+      this.syncExquisLEDs = vi.fn();
       this.scheduleImmediateGridRedraw = vi.fn();
       this.updateLabels = vi.fn();
       this.resizeHandler = vi.fn();
@@ -88,6 +90,22 @@ const baseProps = {
 };
 
 describe("Keyboard settings-impact boundary", () => {
+  it("resends the anchored Exquis colours after preset reconstruction even with unchanged live props", () => {
+    const leds = { ready: true };
+    const props = { ...baseProps, exquisLedsRef: { current: leds },
+      settings: { ...baseSettings, exquis_led_sync: true, midiin_anchor_note: 35,
+        exquis_anchor_note: 35, center_degree: 9, rSteps: 9, drSteps: 4 } };
+    const { rerender } = render(<Keyboard {...props} />);
+    const first = keysState.instances.at(-1);
+    expect(first.syncExquisLEDs).toHaveBeenCalledOnce();
+    rerender(<Keyboard {...props} reconstructionKey="preset-reloaded" />);
+    const replacement = keysState.instances.at(-1);
+    expect(replacement).not.toBe(first);
+    expect(replacement.initialSettings.midiin_anchor_note).toBe(35);
+    expect(replacement.exquisLEDs).toBe(leds);
+    expect(replacement.syncExquisLEDs).toHaveBeenCalledOnce();
+  });
+
   beforeEach(() => {
     keysState.instances.length = 0;
     Keys.mockClear?.();

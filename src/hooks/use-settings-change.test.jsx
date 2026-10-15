@@ -4,6 +4,7 @@
 import { render } from "@testing-library/preact";
 import { useEffect } from "preact/hooks";
 import useSettingsChange, { resizeScaleWithEquavePadding } from "./use-settings-change.js";
+import { settingsToTuningRecord } from "../hexatone/tuning-record.js";
 
 const HookHarness = ({
   settings,
@@ -228,6 +229,38 @@ describe("useSettingsChange", () => {
     expect(sessionStorage.getItem("heji_palette_deviation")).toBeNull();
     expect(sessionStorage.getItem("heji_palette_decimals")).toBe("2");
   });
+
+  it.each([["Exquis", "exquis", 17, 1], ["Lumatone", "lumatone", 41, 2]])(
+    "saves auto-detected %s anchor edits and refreshes the reload snapshot",
+    (name, id, note, channel) => {
+      const snapshotKey = "hexatone_restored_preset_payload";
+      const previous = sessionStorage.getItem(snapshotKey);
+      localStorage.setItem("hexatone_restore_io_on_reload", "true");
+      sessionStorage.setItem(snapshotKey, JSON.stringify({ preset: { name: "Anchor edit", scale: ["2/1"] } }));
+      const setSettings = vi.fn();
+      let handlers;
+      render(<HookHarness settings={{ name: "Anchor edit", scale: ["2/1"],
+        midiin_device: "input-1", midiin_controller_override: "auto", midi_passthrough: false,
+        midiin_anchor_note: 60, midiin_anchor_channel: 3 }}
+        midi={{ inputs: new Map([["input-1", { id: "input-1", name }]]) }}
+        setSettings={setSettings} capture={value => { handlers = value; }} />);
+      try {
+        handlers.onChange("midiin_anchor_note", note);
+        handlers.onChange("midiin_anchor_channel", channel);
+        const next = setSettings.mock.calls.at(-1)[0]();
+        const saved = settingsToTuningRecord(next);
+        const restored = JSON.parse(sessionStorage.getItem(snapshotKey)).preset;
+        for (const record of [saved, restored]) {
+          expect(record[`${id}_anchor_note`]).toBe(note);
+          expect(record[`${id}_anchor_channel`]).toBe(id === "exquis" ? undefined : channel);
+        }
+      } finally {
+        if (previous == null) sessionStorage.removeItem(snapshotKey);
+        else sessionStorage.setItem(snapshotKey, previous);
+        localStorage.removeItem("hexatone_restore_io_on_reload");
+      }
+    },
+  );
 
   it("copies manual Lumatone anchor edits into preset-specific fields", () => {
     const setSettings = vi.fn();

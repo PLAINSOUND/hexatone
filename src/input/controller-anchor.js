@@ -35,6 +35,7 @@
  *      automatically. No changes needed here.
  */
 
+import { applyControllerPresetAnchor } from "../controllers/preset-anchors.js";
 import {
   PER_CONTROLLER_ENTRIES,
   CROSS_CONTROLLER_ENTRIES,
@@ -448,7 +449,7 @@ export function loadAnchorSettingsUpdate(controller, settings = null) {
     }
   }
 
-  return update;
+  return applyControllerPresetAnchor(settings ?? {}, controller.id, update);
 }
 
 /**

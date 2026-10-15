@@ -55,6 +55,7 @@ const TuningLibrary = ({
   activatePendingPreset,
   onLoadBuiltinTuning,
   onLoadUserTuning,
+  onSaveUserTuning,
   onClearWorkspace,
   onRevertBuiltin,
   onRevertUser,
@@ -188,11 +189,12 @@ const TuningLibrary = ({
     }
     setUserTunings(nextLibrary);
     setError("");
-    onLoadUserTuning?.(record);
+    (onSaveUserTuning ?? onLoadUserTuning)?.(record);
   }, [
     attachedUserTuning,
     currentModulationLibrary,
     onLoadUserTuning,
+    onSaveUserTuning,
     settings,
     tuningName,
     userTunings,
@@ -266,7 +268,7 @@ const TuningLibrary = ({
     const nextLibrary = upsertUserTuning(copy, userTunings);
     setUserTunings(nextLibrary);
     setError("");
-    onLoadUserTuning?.(copy);
+    (onSaveUserTuning ?? onLoadUserTuning)?.(copy);
   };
 
   const handleDelete = () => {
@@ -648,6 +650,7 @@ TuningLibrary.propTypes = {
   canCommitModulation: PropTypes.bool,
   onCommitCurrentModulation: PropTypes.func,
   onSaveActionStateChange: PropTypes.func,
+  onSaveUserTuning: PropTypes.func,
   onPrimarySaveVisibilityChange: PropTypes.func,
 };
 

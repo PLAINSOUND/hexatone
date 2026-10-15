@@ -8,6 +8,8 @@ vi.mock("./preset-tunings/index.js", () => ({
 }));
 import TuningLibrary from "./tuning-library.jsx";
 import { loadUserTunings, USER_TUNINGS_STORAGE_KEY } from "./user-tunings.js";
+import { withCurrentControllerPresetAnchor } from "../controllers/preset-anchors.js";
+import { settingsToPresetJson } from "../settings/scale/parse-scale.js";
 
 const presetGroups = [
   {
@@ -73,6 +75,32 @@ function TuningLibraryHarness({
 }
 
 describe("TuningLibrary", () => {
+  it.each([["exquis", 17, 12], ["lumatone", 41, 2]])(
+    "overwrites an existing %s preset anchor on Save without reloading the instrument",
+    (id, note, channel) => {
+      const old = { name: "Anchored", scale: ["2/1"], [`${id}_anchor_note`]: 19 };
+      localStorage.setItem(USER_TUNINGS_STORAGE_KEY, JSON.stringify([old]));
+      const onLoad = vi.fn(), onSave = vi.fn();
+      const settings = withCurrentControllerPresetAnchor({ ...old,
+        midiin_controller_override: "auto", midi_passthrough: false,
+        midiin_mpe_input: id === "exquis", midiin_anchor_note: note,
+        midiin_anchor_channel: channel, exquis_anchor_channel: 9,
+      }, id);
+      render(<TuningLibrary settings={settings} presetGroups={presetGroups}
+        currentModulationLibrary={[]} activeSource="user" activePresetName="Anchored"
+        isPresetDirty persistOnReload={false} setPersistOnReload={vi.fn()}
+        onLoadUserTuning={onLoad} onSaveUserTuning={onSave} />);
+      fireEvent.click(screen.getByText("Save current settings"));
+      expect(onLoad).not.toHaveBeenCalled();
+      expect(onSave).toHaveBeenCalledOnce();
+      for (const record of [loadUserTunings()[0], onSave.mock.calls[0][0],
+        JSON.parse(settingsToPresetJson(settings))]) {
+        expect(record[`${id}_anchor_note`]).toBe(note);
+        expect(record[`${id}_anchor_channel`]).toBe(id === "exquis" ? undefined : channel);
+        expect(record.exquis_anchor_channel).toBeUndefined();
+      }
+    },
+  );
   beforeEach(() => {
     localStorage.removeItem(USER_TUNINGS_STORAGE_KEY);
     vi.restoreAllMocks();

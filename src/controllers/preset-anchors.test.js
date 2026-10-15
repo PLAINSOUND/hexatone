@@ -7,6 +7,18 @@ import {
 } from "./preset-anchors.js";
 
 describe("controller preset anchors", () => {
+  it("replaces loaded preset anchors with current edits when saving", () => {
+    expect(deriveControllerPresetAnchorFields({
+      midiin_controller_override: "exquis", midi_passthrough: false,
+      midiin_anchor_note: 60, midiin_anchor_channel: 9,
+      exquis_anchor_note: 19, exquis_anchor_channel: 1,
+    })).toEqual({ exquis_anchor_note: 60 });
+    expect(deriveControllerPresetAnchorFields({
+      midiin_controller_override: "lumatone", midi_passthrough: false,
+      midiin_anchor_note: 41, midiin_anchor_channel: 2,
+      lumatone_anchor_note: 26, lumatone_anchor_channel: 3,
+    })).toEqual({ lumatone_anchor_note: 41, lumatone_anchor_channel: 2 });
+  });
   it("omits an unchanged active controller default", () => {
     expect(
       deriveControllerPresetAnchorFields({

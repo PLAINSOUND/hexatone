@@ -78,6 +78,23 @@ it("persists typed Exquis anchor edits in the controller store and active preset
   expect(sessionStorage.getItem("midiin_anchor_note")).toBe("17");
 });
 
+it.each(["exquis", "lumatone"])("Enter resends an unchanged %s anchor", (controller) => {
+  const props = makeProps({ midiin_controller_override: controller, midiin_anchor_note: 35 });
+  const keys = {
+    inputRuntime: {},
+    updateInputRuntime: vi.fn(),
+    syncExquisLEDs: vi.fn(),
+    syncLumatoneLEDs: vi.fn(),
+  };
+  props.keysRef.current = keys;
+  const view = render(<MIDIio {...props} />);
+  const anchor = view.container.querySelector('input[name="midiin_anchor_note"]');
+  anchor.focus();
+  fireEvent.keyDown(anchor, { key: "Enter" });
+  expect(keys.updateInputRuntime).toHaveBeenCalledWith(keys.inputRuntime, { midiin_anchor_note: 35 });
+  expect(controller === "exquis" ? keys.syncExquisLEDs : keys.syncLumatoneLEDs).toHaveBeenCalledOnce();
+});
+
 it("defaults MIDI Input to collapsed on a fresh load", () => {
   sessionStorage.removeItem("hexatone_midi_input_collapsed");
   render(<MIDIio {...makeProps()} />);

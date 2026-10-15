@@ -11,6 +11,7 @@ import Layout from "./layout";
 import { normalizeColors } from "./normalize-settings.js";
 import { presetTuningGroups } from "../hexatone/preset-tunings/index.js";
 import TuningLibrary from "../hexatone/tuning-library.jsx";
+import { withCurrentControllerPresetAnchor } from "../controllers/preset-anchors.js";
 
 const Settings = ({
   onLoadBuiltinPreset,
@@ -20,6 +21,7 @@ const Settings = ({
   onImport,
   importCount,
   onLoadCustomPreset,
+  onSaveCustomPreset,
   onClearUserPresets,
   activeSource,
   activePresetName,
@@ -54,22 +56,27 @@ const Settings = ({
   });
   const [primaryTuningSaveVisible, setPrimaryTuningSaveVisible] = useState(false);
   const hasMusicalSurface = Array.isArray(settings.scale) && settings.scale.length > 0;
+  const activeControllerId = keysRef?.current?.controller?.id;
+  const persistenceSettings = useMemo(
+    () => withCurrentControllerPresetAnchor(settings, activeControllerId),
+    [settings, activeControllerId],
+  );
   const effectiveScaleSettings = useMemo(
     () => ({
-      ...settings,
+      ...persistenceSettings,
       ...normalizeColors(settings),
     }),
-    [settings],
+    [settings, persistenceSettings],
   );
   const effectiveTuningLibrarySettings = useMemo(() => {
     if (settings.key_labels !== "heji" || !Array.isArray(heji_names) || !heji_names.length) {
-      return settings;
+      return persistenceSettings;
     }
     // In HEJI mode the visible labels are derived from the current anchor and
     // scale. Persist those effective labels rather than an unrelated, stale
     // note_names array left over from an earlier spelling frame.
-    return { ...settings, note_names: [...heji_names] };
-  }, [heji_names, settings]);
+    return { ...persistenceSettings, note_names: [...heji_names] };
+  }, [heji_names, settings, persistenceSettings]);
 
   return (
     <div autoComplete="off" role="group" aria-label="Hexatone settings">
@@ -82,6 +89,7 @@ const Settings = ({
         isPresetDirty={isPresetDirty}
         onLoadBuiltinTuning={onLoadBuiltinPreset}
         onLoadUserTuning={onLoadCustomPreset}
+        onSaveUserTuning={onSaveCustomPreset}
         onClearWorkspace={onClearUserPresets}
         persistOnReload={persistOnReload}
         setPersistOnReload={setPersistOnReload}

@@ -20,7 +20,8 @@ import { loadUserTunings } from "../hexatone/user-tunings.js";
 import { PRESET_SKIP_KEYS, buildRegistryDefaults } from "../persistence/settings-registry.js";
 import { normalizeModulationHistory } from "../tuning/modulation-runtime.js";
 import { getControllerById, getControllerMpeInputPolicy } from "../controllers/registry.js";
-import { CONTROLLER_PRESET_ANCHOR_CONFIGS } from "../controllers/preset-anchors.js";
+import { CONTROLLER_PRESET_ANCHOR_CONFIGS, CONTROLLER_PRESET_ANCHOR_FIELDS,
+  applyControllerPresetAnchor } from "../controllers/preset-anchors.js";
 import { loadSavedAnchor, loadSavedAnchorChannel } from "../input/controller-anchor.js";
 import { deriveKeyColorFlags } from "../settings/scale/key-colors-mode.js";
 import { primeSharedSampleAudio } from "../sample_synth/prime-shared-audio.js";
@@ -261,7 +262,9 @@ export function mergeRestoredPresetIntoSettings(settings, preset) {
     if (key in settings) merged[key] = settings[key];
     else delete merged[key];
   }
-  return merged;
+  // Restore I/O must not undo explicit tuning anchors with stale session values.
+  const config = getPresetAnchorConfig(preset, settings.midiin_controller_override);
+  return config ? { ...merged, ...applyControllerPresetAnchor(merged, config.controllerId) } : merged;
 }
 
 const snapshotOf = (s, modulationLibrary = []) => {
@@ -693,6 +696,27 @@ const usePresets = (
     applyBuiltinPreset(preset);
   };
 
+  // Saving the current workspace is not a preset load. In particular, do not
+  // reset controller maps, held notes, modulation, or the learned anchor.
+  const onSaveCustomPreset = (preset) => {
+    const savedAnchors = Object.fromEntries(CONTROLLER_PRESET_ANCHOR_FIELDS
+      .filter(key => Number.isFinite(preset[key])).map(key => [key, preset[key]]));
+    const savedSettings = { ...settings, ...savedAnchors, name: preset.name };
+    setActiveSource("user");
+    setActivePresetName(preset.name);
+    setRestoredOnMount(false);
+    setPendingRestoredPreset(null);
+    sessionStorage.setItem("hexatone_preset_source", "user");
+    sessionStorage.setItem("hexatone_preset_name", preset.name);
+    setSavedPresetSnapshot(snapshotOf(savedSettings, currentModulationLibrary));
+    writeRestorablePresetPayload("user", savedSettings, currentModulationLibrary);
+    // Save Copy changes only the workspace name, never its runtime settings.
+    if (settings.name !== preset.name || Object.entries(savedAnchors)
+      .some(([key, value]) => settings[key] !== value)) {
+      setSettings((current) => ({ ...current, ...savedAnchors, name: preset.name }));
+    }
+  };
+
   const onLoadCustomPreset = (preset) => {
     onUserInteraction();
     setRestoredOnMount(false);
@@ -839,6 +863,7 @@ const usePresets = (
     presetChanged,
     onLoadBuiltinPreset,
     onLoadCustomPreset,
+    onSaveCustomPreset,
     onClearUserPresets,
     onRevertBuiltin,
     onRevertUser,

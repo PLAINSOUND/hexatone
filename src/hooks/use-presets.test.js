@@ -492,6 +492,35 @@ describe("usePresets refresh ordering", () => {
     localStorage.clear();
   });
 
+  it("marks an edited anchored workspace saved without loading or resetting its runtime", async () => {
+    let hook;
+    const initial = { name: "Anchored", scale: ["2/1"], midi_passthrough: false,
+      midiin_controller_override: "auto", midiin_anchor_note: 17,
+      midiin_anchor_channel: 12, exquis_anchor_note: 19 };
+    const reset = vi.fn(), importCount = vi.fn(), libraryLoaded = vi.fn();
+    const Harness = () => {
+      const [settings, setSettings] = useState(initial);
+      hook = usePresets(settings, setSettings, { synthRef: { current: null },
+        onUserInteraction: vi.fn(), bumpImportCount: importCount,
+        bumpPresetRuntimeReset: reset, currentModulationLibrary: [],
+        setPresetModulationLibrary: vi.fn(), onPresetModulationLibraryLoaded: libraryLoaded });
+      return <span>{settings.midiin_anchor_note}:{settings.exquis_anchor_note}</span>;
+    };
+    const view = render(<Harness />);
+    await act(async () => {
+      hook.onSaveCustomPreset({ name: "Anchored", scale: ["2/1"], exquis_anchor_note: 17 });
+    });
+    expect(view.container.textContent).toBe("17:17");
+    expect(hook.activeSource).toBe("user");
+    expect(hook.isPresetDirty).toBe(false);
+    expect(reset).not.toHaveBeenCalled();
+    expect(importCount).not.toHaveBeenCalled();
+    expect(libraryLoaded).not.toHaveBeenCalled();
+    const saved = JSON.parse(sessionStorage.getItem("hexatone_restored_preset_payload")).preset;
+    expect(saved.exquis_anchor_note).toBe(17);
+    expect(saved.exquis_anchor_channel).toBeUndefined();
+  });
+
   it("applies merged preset settings before scheduling the runtime reset on builtin refresh", async () => {
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem("hexatone_preset_source", "builtin");

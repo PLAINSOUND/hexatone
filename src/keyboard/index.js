@@ -80,6 +80,13 @@ const Keyboard = (props) => {
       props.onModulationStateChange(keys.getModulationState());
     }
     if (props.onKeysReady) props.onKeysReady(keys);
+    // A preset load can replace Keys without changing the memoized colour or
+    // input props, so their update effects will not run again. The long-lived
+    // Exquis driver still holds the retired map's colours until explicitly
+    // refreshed from the replacement map (including its learned anchor).
+    if (keys.exquisLEDs?.ready && initialSettings.exquis_led_sync) {
+      keys.syncExquisLEDs?.();
+    }
     return () => {
       // Sequencer voices belong to playback, not the canvas tuning. Detach them
       // before deconstructing the old surface, then adopt them on the new one.

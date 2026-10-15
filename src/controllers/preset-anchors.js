@@ -54,6 +54,14 @@ export function hasControllerPresetAnchor(settings = {}, controllerId) {
   );
 }
 
+// Use the connected runtime's identity for Auto Detect, without changing the
+// user's controller-override preference or copying another device's anchor.
+export function withCurrentControllerPresetAnchor(settings, controllerId) {
+  if (!controllerId || settings.midi_passthrough === true) return settings;
+  return { ...settings, ...buildControllerPresetAnchorUpdate(controllerId,
+    settings.midiin_anchor_note, settings.midiin_anchor_channel) };
+}
+
 export function applyControllerPresetAnchor(settings = {}, controllerId, update = {}) {
   if (!hasControllerPresetAnchor(settings, controllerId)) return update;
   const config = getControllerPresetAnchorConfig(controllerId);
@@ -91,13 +99,15 @@ export function deriveControllerPresetAnchorFields(settings = {}) {
   const hasExplicitChannel =
     activeConfig.channelKey && Number.isFinite(settings[activeConfig.channelKey]);
 
+  // This is a SAVE operation: current edits replace the loaded preset value.
+  // LOAD precedence is handled separately by applyControllerPresetAnchor.
   if (Number.isFinite(note) && (hasExplicitNote || note !== controller?.anchorDefault)) {
     fields[activeConfig.noteKey] = note;
   }
   if (
     activeConfig.channelKey &&
     Number.isFinite(channel) &&
-    (hasExplicitChannel || channel !== controller?.anchorChannelDefault)
+    (hasExplicitChannel || channel !== (controller?.anchorChannelDefault ?? 1))
   ) {
     fields[activeConfig.channelKey] = channel;
   }

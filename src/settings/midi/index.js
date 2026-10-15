@@ -75,6 +75,16 @@ const MIDIio = (props) => {
   const autoUnknownController =
     controllerOverrideId === "auto" && !!connectedDevice && !detectedController;
   const ctrl = resolveControllerDisplay(controllerOverrideId, detectedController, connectedDevice);
+  const resendAnchor = (update) => {
+    const keys = props.keysRef?.current;
+    if (!keys) return;
+    // A same-value commit does not trigger the settings effects. Reapply the
+    // displayed anchor to the live map before explicitly resending its colours.
+    keys.updateInputRuntime?.(keys.inputRuntime, update);
+    if (ctrl?.id === "exquis") keys.syncExquisLEDs?.();
+    if (ctrl?.id === "lumatone") keys.syncLumatoneLEDs?.();
+    if (ctrl?.id === "linnstrument") keys.syncLinnstrumentLEDs?.();
+  };
   const saveTypedAnchor = (value) => {
     props.onChange("midiin_anchor_note", value);
     sessionStorage.setItem("midiin_anchor_note", String(value));
@@ -83,6 +93,9 @@ const MIDIio = (props) => {
     rememberControllerAnchorForReload(ctrl.id, value);
     for (const [key, anchor] of Object.entries(buildControllerPresetAnchorUpdate(ctrl.id, value)))
       props.onChange(key, anchor);
+    if (value === props.settings.midiin_anchor_note) {
+      resendAnchor({ midiin_anchor_note: value });
+    }
   };
   const mpeInputPolicy = autoUnknownController ? "optional" : getControllerMpeInputPolicy(ctrl);
   const tonalPlexus41Mode =
@@ -551,6 +564,9 @@ const MIDIio = (props) => {
                               ) {
                                 props.onChange("midiin_anchor_channel", val);
                                 sessionStorage.setItem("midiin_anchor_channel", String(val));
+                                if (val === props.settings.midiin_anchor_channel) {
+                                  resendAnchor({ midiin_anchor_channel: val });
+                                }
                                 if (lumatoneBypassAnchorUi) {
                                   props.onChange("midiin_anchor_note", 60);
                                   sessionStorage.setItem("midiin_anchor_note", "60");

@@ -1036,6 +1036,7 @@ const App = () => {
     activatePendingPreset,
     onLoadBuiltinPreset,
     onLoadCustomPreset,
+    onSaveCustomPreset,
     onClearUserPresets,
     onRevertBuiltin,
     onRevertUser,
@@ -6381,6 +6382,7 @@ const App = () => {
                   importCount={importCount}
                   onLoadBuiltinPreset={onLoadBuiltinPreset}
                   onLoadCustomPreset={onLoadCustomPreset}
+                  onSaveCustomPreset={onSaveCustomPreset}
                   onClearUserPresets={onClearUserPresets}
                   activeSource={activeSource}
                   activePresetName={activePresetName}

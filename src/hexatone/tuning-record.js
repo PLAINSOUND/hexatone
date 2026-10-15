@@ -16,8 +16,7 @@ import { cloneJsonValue } from "../persistence/clone-json-value.js";
 
 const CONTROLLER_ANCHOR_FIELDS = [
   ...CONTROLLER_PRESET_ANCHOR_FIELDS,
-  // Accepted for backwards/forwards compatibility even though these
-  // single-channel controllers do not currently derive a channel value.
+  // Accepted for legacy file compatibility, not derived from MPE voice channels.
   "exquis_anchor_channel",
   "haken_anchor_channel",
 ];
