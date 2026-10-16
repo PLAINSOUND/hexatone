@@ -2,6 +2,12 @@ import { transferColor } from "./color-transfer.js";
 import { monzoToSuggestedColor } from "./monzo-color.js";
 
 describe("transferColor", () => {
+  it("gives 11°u5 a small LED-only green saturation lift", () => {
+    expect(transferColor("#e2eecd")).toBe("#66cc0c");
+    expect(transferColor("#dee2da")).toBe("#425d3b");
+    expect(transferColor("#c7c1a1")).toBe("#6c643f");
+  });
+
   it("separates dark-key o5 from u5 on LEDs without changing their screen colours", () => {
     const options = { notationRole: "chromatic" };
     const over = monzoToSuggestedColor([0, 0, 1], undefined, options).screenHex;

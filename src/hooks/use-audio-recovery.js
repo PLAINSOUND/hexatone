@@ -5,6 +5,7 @@ import { audioRuntimeReport, recordAudioRuntime, captureInputTiming, recordEvent
   getLatencyMeasurementEnabled, subscribeLatencyMeasurement } from "../audio/runtime-diagnostics.js";
 import { blockAudioAttacks } from "../audio/attack-gate.js";
 import { needsMobileBackgroundRecovery } from "../audio/background-policy.js";
+import { serviceWorkerDiagnostics } from "../audio/report-environment.js";
 
 export function needsInitialAudioStart(synth, settings = {}) {
   const outputs = (synth?.childSynths?.() ?? [synth]).filter(Boolean);
@@ -255,7 +256,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       }
     }
   }, [synthRef, keysRef, initialiseRef]);
-  const save = useCallback(() => {
+  const save = useCallback(async () => {
     const audioSettings = Object.fromEntries(
       Object.entries(settings).filter(
         ([key]) =>
@@ -265,9 +266,11 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           ["volume", "instrument"].includes(key),
       ),
     );
-    saveAudioReport({ ...recorder.current.report(synthRef.current, audioSettings),
+    const report = { ...recorder.current.report(synthRef.current, audioSettings),
       canvas: keysRef.current?.getCanvasDiagnostics?.() ?? null,
-      pending: getPendingSuperSonicDiagnostics() });
+      pending: getPendingSuperSonicDiagnostics() };
+    report.serviceWorker = await serviceWorkerDiagnostics();
+    saveAudioReport(report);
   }, [synthRef, keysRef, settings]);
   return { status, restoring, restore, save, dismiss, startupFailed,
     needsStart: () => needsInitialAudioStart(synthRef.current, settings) };

@@ -13,6 +13,7 @@ import fs from 'fs';
 import process from 'process';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'url';
+import { execFileSync } from 'node:child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +21,14 @@ const packageJson = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'),
 );
 const appVersion = packageJson.version || '0.0.0';
+let buildRevision = process.env.GITHUB_SHA || null;
+let buildTrackedChanges = null;
+try { buildTrackedChanges = !!execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: __dirname, encoding: 'utf8' }).trim(); }
+catch { /* Unknown for source archives. */ }
+if (!buildRevision) {
+  try { buildRevision = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: __dirname, encoding: 'utf8' }).trim(); }
+  catch { /* Source archives may not contain Git metadata. */ }
+}
 
 const devHttpsEnabled = process.env.VITE_DEV_HTTPS === 'true';
 const devHttpsKeyPath = process.env.VITE_DEV_SSL_KEY || path.resolve(__dirname, '.cert/localhost-key.pem');
@@ -93,6 +102,9 @@ export default defineConfig({
 
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+    'import.meta.env.VITE_BUILD_REVISION': JSON.stringify(buildRevision),
+    'import.meta.env.VITE_BUILD_TIME': JSON.stringify(new Date().toISOString()),
+    'import.meta.env.VITE_BUILD_TRACKED_CHANGES': JSON.stringify(buildTrackedChanges),
   },
 
   build: {

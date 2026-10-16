@@ -2,6 +2,7 @@
 import { restartAudioContext, verifyAudioClock } from "./restart-context.js";
 import { audioRuntimeReport } from "./runtime-diagnostics.js";
 import { blockAudioAttacks, allowAudioAttacks } from "./attack-gate.js";
+import { buildDiagnostics, playbackClockDiagnostics } from "./report-environment.js";
 export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = {}) {
   const startedAt = new Date().toISOString();
   const history = [];
@@ -24,7 +25,8 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
         const context = s.getAudioContext?.();
         if (context && !contextIds.has(context)) contextIds.set(context, ++nextContextId);
         return { backend: s.audioBackend ?? "samples", ...s.getDiagnostics?.(),
-          contextId: context ? contextIds.get(context) : null };
+          contextId: context ? contextIds.get(context) : null,
+          playbackClock: playbackClockDiagnostics(context) };
       } catch (error) {
         return { backend: s.audioBackend ?? "samples", error: String(error.message ?? error) };
       }
@@ -235,6 +237,7 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
         schema: "hexatone-audio-recovery/v1",
         startedAt,
         exportedAt: new Date().toISOString(),
+        build: buildDiagnostics(),
         browser: {
           userAgent: navigator.userAgent,
           platform: navigator.platform,

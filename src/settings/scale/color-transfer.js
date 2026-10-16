@@ -207,7 +207,7 @@ export const COLOR_PAIRS = [
   ["bae5f7", "6591a3"], // 7°u11
   ["e4fbe6", "3d9c43"], // 11°u7
   ["e1d0e1", "7e9b60"], // 5°u11
-  ["e2eecd", "92cc2d"], // 11°u5
+  ["e2eecd", "66cc0c"], // 11°u5: greener/more saturated on LEDs only
 
   // ── Purple / 13-limit ─────────────────────────────────────────────────────
   ["e6d7fe", "ad76ff"], // 13° 39° 117°
