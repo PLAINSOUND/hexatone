@@ -198,6 +198,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     setRestoring(true);
     setStatus(starting ? "Starting audio…" : "Restoring audio…");
     try {
+      keysRef.current?.recoverCanvas?.();
       let startupErrors = [];
       if (initialiseRef?.current &&
           (!recorder.current.snapshot(synthRef.current).length || initialiseRef.current.needed?.())) {
@@ -265,8 +266,9 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       ),
     );
     saveAudioReport({ ...recorder.current.report(synthRef.current, audioSettings),
+      canvas: keysRef.current?.getCanvasDiagnostics?.() ?? null,
       pending: getPendingSuperSonicDiagnostics() });
-  }, [synthRef, settings]);
+  }, [synthRef, keysRef, settings]);
   return { status, restoring, restore, save, dismiss, startupFailed,
     needsStart: () => needsInitialAudioStart(synthRef.current, settings) };
 }

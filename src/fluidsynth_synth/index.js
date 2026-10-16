@@ -14,6 +14,7 @@ import { createRecoveryGate } from "../audio/recovery-gate.js";
 import { createFluidMidiScheduler } from "./midi-scheduler.js";
 import { reattackFluidSynthSnapshots } from "./voices.js";
 import { readFluidSynthReverb } from "./reverb.js";
+import { readRecoverySoundfont } from "./recovery-source.js";
 import { recordAudioRuntime, registerFluidSynthLifecycleDiagnostics } from "../audio/runtime-diagnostics.js";
 
 let nextProcessorId = 0;
@@ -81,12 +82,12 @@ export async function stopFluidSynthEngine({ naturalRelease = false } = {}) {
 
 const baseUrl = import.meta.env.BASE_URL || "/";
 
-const waitForMessage = (node, predicate, failOnError = false) =>
+const waitForMessage = (node, predicate, failOnError = false, timeoutMs = 30000) =>
   new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       node.port.removeEventListener("message", onMessage);
       reject(new Error("FluidSynth AudioWorklet did not respond in time"));
-    }, 30000);
+    }, timeoutMs);
     const onMessage = ({ data }) => {
       if (data?.type === "error" && failOnError) {
         clearTimeout(timeout);
@@ -176,7 +177,7 @@ async function createWorkletNode(context) {
 
 async function installSoundFont(active, source, preset = null, { notify = true } = {}) {
   const replacing = active.soundfontId != null;
-  const bytes = await source.arrayBuffer();
+  const bytes = await readRecoverySoundfont(source);
   const loaded = waitForMessage(
     active.node,
     (message) => message?.type === "soundfont-loaded",
@@ -201,8 +202,22 @@ async function installSoundFont(active, source, preset = null, { notify = true }
 
 async function rebindEngineToContext(context, signal) {
   const generation = ++rebindGeneration;
+  const oldNode = engine.node;
+  // Recovery is already silent. Retire the old synth before loading a second
+  // sample bank, rather than retaining both until replacement succeeds.
+  if (oldNode) {
+    failedNodes.add(oldNode);
+    const disposed = waitForMessage(oldNode, message => message?.type === "processor-disposed", false, 250);
+    try { oldNode.port.postMessage({ type: "dispose" }); } catch { /* Dead worklet. */ }
+    let acknowledged = false;
+    try { await disposed; acknowledged = true; } catch { /* A frozen worklet cannot acknowledge. */ }
+    recoveryGates.get(oldNode)?.disconnect();
+    oldNode.disconnect?.();
+    recordAudioRuntime("fluidsynth-recovery-retired-old-processor", { acknowledged });
+  }
   const nextNode = await createWorkletNode(context);
   const discard = () => {
+    try { nextNode.port.postMessage({ type: "dispose" }); } catch { /* Dead worklet. */ }
     recoveryGates.get(nextNode)?.disconnect();
     nextNode.disconnect?.();
     try { nextNode.port.close?.(); } catch { /* Already closed by the browser. */ }
@@ -215,7 +230,6 @@ async function rebindEngineToContext(context, signal) {
   };
   checkCurrent();
   signal?.addEventListener("abort", discard, { once: true });
-  const oldNode = engine.node;
   const source = engine.soundfontSource;
   const previousPreset = engine.selectedPreset;
 
@@ -260,6 +274,8 @@ async function rebindEngineToContext(context, signal) {
       await installSoundFont(candidate, source, previousPreset, { notify: false });
       checkCurrent();
     } catch (error) {
+      recoveryGates.get(nextNode)?.disconnect();
+      try { nextNode.port.postMessage({ type: "dispose" }); } catch { /* Port already closed. */ }
       nextNode.disconnect?.();
       try {
         nextNode.port.close?.();
@@ -282,8 +298,6 @@ async function rebindEngineToContext(context, signal) {
 
   signal?.removeEventListener("abort", discard);
 
-  oldNode?.disconnect?.();
-  if (oldNode) recoveryGates.get(oldNode)?.disconnect();
   try {
     oldNode?.port?.close?.();
   } catch {
@@ -375,7 +389,7 @@ export async function clearFluidSynthRecoveryEvents() {
   if (!engine?.node) return;
   engine.output?.resetClock();
   const node = engine.node;
-  const cleared = waitForMessage(node, message => message?.type === "recovery-cleared", true);
+  const cleared = waitForMessage(node, message => message?.type === "recovery-cleared", true, 1500);
   node.port.postMessage({ type: "clear-recovery-events" });
   return cleared;
 }

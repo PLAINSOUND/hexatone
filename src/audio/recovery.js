@@ -37,11 +37,16 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
       // Invoke before awaiting: independent engines receive the original gesture.
       const work = (async () => {
         let reused = false;
+        let cleared;
         if (restart) {
           try {
             await restart;
             await (s.resumeAfterAudioRestart ?? s.ensureAwake ?? s.prepare)?.call(s);
             await verifyAudioClock(s.getAudioContext());
+            await verifyEngineProgress(s);
+            // A moving context clock cannot prove that its worklet responds.
+            // Failure here must enter the rebuild path, not just fail Retry.
+            cleared = await s.clearRecoveryEvents?.();
             record("existing-context-recovered", { backend });
             reused = true;
           } catch (error) {
@@ -54,9 +59,10 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
         if (!reused) {
           await action.call(s);
           if (s.getAudioContext) await verifyAudioClock(s.getAudioContext());
+          await verifyEngineProgress(s);
         }
         record("recovery-clock-verified", { backend });
-        const cleared = await s.clearRecoveryEvents?.();
+        if (!reused) cleared = await s.clearRecoveryEvents?.();
         record("recovery-events-cleared", {
           backend,
           droppedEvents: cleared?.droppedEvents ?? null,
@@ -243,6 +249,18 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
       };
     },
   };
+}
+
+export async function verifyEngineProgress(synth, timeoutMs = 1200) {
+  const count = () => synth.getDiagnostics?.()?.engine?.metrics?.engineProcessCount;
+  const initial = count();
+  if (!Number.isFinite(initial)) return;
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    if (count() > initial) return;
+  }
+  throw new Error("Audio engine processing did not advance despite its context clock");
 }
 
 export function saveAudioReport(report) {

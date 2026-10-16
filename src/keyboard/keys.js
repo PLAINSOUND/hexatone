@@ -7,6 +7,7 @@
 
 import { calculateRotationMatrix } from "./matrix";
 import Point from "./point";
+import { bindCanvasRecovery, canvasDiagnostics, recoverCanvas } from "./canvas-recovery.js";
 import Euclid from "./euclidean";
 import { WebMidi } from "webmidi";
 import { withOutputTransaction } from "../midi/output-transaction.js";
@@ -444,6 +445,7 @@ class Keys {
     this.resizeHandler();
 
     // Set up keyboard, touch and mouse event handlers
+    this._unbindCanvasRecovery = bindCanvasRecovery(this);
     // Key listeners always on window — ESC key sustain must work even when sidebar is closed.
     window.addEventListener("keydown", this.onKeyDown, false);
     window.addEventListener("keyup", this.onKeyUp, false);
@@ -2334,6 +2336,7 @@ class Keys {
     this.linnstrumentLEDs = null;
 
     window.removeEventListener("resize", this.windowResizeHandler, false);
+    this._unbindCanvasRecovery?.();
     window.removeEventListener("orientationchange", this.orientationChangeHandler, false);
     if (window.visualViewport) {
       window.visualViewport.removeEventListener("resize", this.visualViewportResizeHandler, false);
@@ -2633,6 +2636,10 @@ class Keys {
     this.state.shake.y2 = y1;
     this.state.shake.z2 = z1;
   };
+
+  getCanvasDiagnostics = () => canvasDiagnostics(this);
+
+  recoverCanvas = () => recoverCanvas(this, "manual-audio-recovery");
 
   resizeHandler = () => {
     // visualViewport gives the actual visible area after browser chrome

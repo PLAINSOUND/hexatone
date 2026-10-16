@@ -207,7 +207,8 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         recoveryGate = nextGate;
         currentTransport = createLocalOscTransport(sonic, SuperSonic.osc.encodeBundle, () => {
           closeNext();
-          if (sonic === nextSonic) dispose();
+          // A failed purge retires this engine, not the recoverable output.
+          // Explicit shutdown/dispose still owns the output lifetime.
         });
         nextTransport = currentTransport;
         currentTransport.setTailPruning(pruning);

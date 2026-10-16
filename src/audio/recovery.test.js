@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAudioRecovery, saveAudioReport } from "./recovery.js";
+import { createAudioRecovery, saveAudioReport, verifyEngineProgress } from "./recovery.js";
 
 afterEach(() => vi.useRealTimers());
 const graph = (...children) => ({ childSynths: () => children });
@@ -11,6 +11,39 @@ const backend = (name, forceAudioRebuild = vi.fn(async () => {})) => ({
 });
 
 describe("built-in audio recovery", () => {
+  it("rejects a frozen engine even when its context reports running", async () => {
+    vi.useFakeTimers();
+    const synth = { getDiagnostics: () => ({ engine: { metrics: { engineProcessCount: 84519 } } }) };
+    const result = expect(verifyEngineProgress(synth)).rejects.toThrow("processing did not advance");
+    await vi.advanceTimersByTimeAsync(1250);
+    await result;
+  });
+
+  it("accepts an engine only after its processing counter advances", async () => {
+    vi.useFakeTimers();
+    let count = 1;
+    const synth = { getDiagnostics: () => ({ engine: { metrics: { engineProcessCount: count } } }) };
+    const result = verifyEngineProgress(synth);
+    count++;
+    await vi.advanceTimersByTimeAsync(50);
+    await result;
+  });
+
+  it("rebuilds when a worklet fails cleanup despite a moving context clock", async () => {
+    vi.useFakeTimers();
+    const context = {
+      state: "running", get currentTime() { return Date.now() / 1000; },
+      suspend: vi.fn(async () => {}), resume: vi.fn(async () => {}),
+    };
+    const synth = backend("fluidsynth");
+    synth.getAudioContext = () => context;
+    synth.clearRecoveryEvents = vi.fn().mockRejectedValueOnce(new Error("Worklet unresponsive")).mockResolvedValue({ droppedEvents: 0 });
+    const work = createAudioRecovery().restore(synth);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(await work).toEqual([{ backend: "fluidsynth", ok: true }]);
+    expect(synth.forceAudioRebuild).toHaveBeenCalledOnce();
+    expect(synth.clearRecoveryEvents).toHaveBeenCalledTimes(2);
+  });
   it("tracks hide-time muting even when clocks still run and clears it on recovery", async () => {
     const synth = backend("supersonic");
     synth.muteForRecovery = vi.fn();

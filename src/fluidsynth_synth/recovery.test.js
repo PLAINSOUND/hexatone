@@ -53,6 +53,7 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
         start: vi.fn(),
         close: vi.fn(),
         postMessage: vi.fn((message) => {
+          if (message.type === "dispose") queueMicrotask(() => emit({ type: "processor-disposed" }));
           if (["load-soundfont", "replace-soundfont"].includes(message.type))
             queueMicrotask(() =>
               emit({

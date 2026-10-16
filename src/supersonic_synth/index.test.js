@@ -79,6 +79,16 @@ function setup({ stallSecond = false, initialisation, blocked = false } = {}) {
 }
 
 describe("recoverable SuperSonic engine", () => {
+  it("can rebuild after a failed purge retires the current engine", async () => {
+    const { create, engines } = setup();
+    const synth = await create();
+    engines[0].purge.mockRejectedValueOnce(new Error("Worklet unresponsive"));
+    await synth.clearRecoveryEvents();
+    await synth.forceAudioRebuild();
+    expect(engines).toHaveLength(2);
+    expect(synth.getAudioContext().state).toBe("running");
+    synth.shutdown({ panic: true });
+  });
   it("primes cold output before publishing so the first attack has no startup delay", async () => {
     const { create, engines, contexts } = setup();
     const synth = await create();
