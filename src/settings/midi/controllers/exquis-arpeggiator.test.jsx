@@ -28,7 +28,7 @@ describe("Exquis Arpeggiator", () => {
       "Note Repeat",
     ]);
     expect([...menu.options].map((option) => option.value)).toEqual(["1", "2", "3", "4", "5", "0"]);
-    expect(menu.selectedOptions[0].text).toBe("Note Repeat");
+    expect(menu.selectedOptions[0].text).toBe("Order");
     fireEvent.change(menu, { target: { value: "4" } });
     expect(onChange).toHaveBeenCalledWith("exquis_arpeggiator_pattern", 4);
     expect(setArpeggiatorPattern).toHaveBeenCalledWith(4);
