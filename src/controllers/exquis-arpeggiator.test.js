@@ -4,6 +4,21 @@ import { ExquisLEDs } from "./exquis-leds.js";
 afterEach(() => vi.useRealTimers());
 
 describe("Exquis arpeggiator commands", () => {
+  it("defaults to Order and preserves Note Repeat as zero", () => {
+    vi.useFakeTimers();
+    const out = { send: vi.fn() };
+    const driver = new ExquisLEDs(out, null);
+    driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, 3, 0, 0, 0xf7] });
+    expect(out.send.mock.calls.map(([frame]) => [...frame])).toContainEqual([
+      0xf0, 0, 0x21, 0x7e, 0x40, 1, 0xf7,
+    ]);
+    out.send.mockClear();
+    driver.setArpeggiatorPattern(0);
+    expect(out.send.mock.calls.map(([frame]) => [...frame])).toContainEqual([
+      0xf0, 0, 0x21, 0x7e, 0x40, 0, 0xf7,
+    ]);
+    driver.exit();
+  });
   it("remembers a pre-handshake selection, sends native slider and pattern, and restores it", () => {
     vi.useFakeTimers();
     const out = { send: vi.fn() };

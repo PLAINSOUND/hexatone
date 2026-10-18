@@ -4720,8 +4720,8 @@ const App = () => {
   // ── Exquis App Mode lifecycle ─────────────────────────────────────────────
   const exquisMpeInputRef = useRef(effectiveMpeInput);
   exquisMpeInputRef.current = effectiveMpeInput;
-  const exquisArpeggiatorRef = useRef(settings.exquis_arpeggiator_pattern ?? 0);
-  exquisArpeggiatorRef.current = settings.exquis_arpeggiator_pattern ?? 0;
+  const exquisArpeggiatorRef = useRef(settings.exquis_arpeggiator_pattern ?? 1);
+  exquisArpeggiatorRef.current = settings.exquis_arpeggiator_pattern ?? 1;
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
   // loaded (Keyboard only mounts when isValid — i.e. a scale is present).
   useEffect(() => {
@@ -4782,7 +4782,7 @@ const App = () => {
   }, [settings.exquis_orientation]);
 
   useEffect(() => {
-    exquisLedsRef.current?.setArpeggiatorPattern(settings.exquis_arpeggiator_pattern ?? 0);
+    exquisLedsRef.current?.setArpeggiatorPattern(settings.exquis_arpeggiator_pattern ?? 1);
   }, [settings.exquis_arpeggiator_pattern]);
 
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.

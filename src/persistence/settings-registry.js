@@ -591,9 +591,9 @@ export const SETTINGS_REGISTRY = [
     key: "exquis_arpeggiator_pattern",
     tier: "local",
     type: "int",
-    default: 0,
+    default: 1,
     perController: false,
-    description: "Exquis native slider arpeggiator pattern (0–5; mapping pending hardware verification)",
+    description: "Exquis native slider pattern: Order=1, Up=2, Down=3, Convergent=4, Divergent=5, Note Repeat=0",
   },
   {
     key: "lumatone_modwheel_timbre",

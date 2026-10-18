@@ -3,6 +3,20 @@ import { describe, it, expect, vi } from "vitest";
 import ExquisArpeggiator from "./exquis-arpeggiator.jsx";
 
 describe("Exquis Arpeggiator", () => {
+  it("keeps Note Repeat selected after saving and rerendering zero", () => {
+    const onChange = vi.fn();
+    const setArpeggiatorPattern = vi.fn();
+    const props = { onChange, keysRef: { current: { exquisLEDs: { setArpeggiatorPattern } } } };
+    const { rerender } = render(<ExquisArpeggiator {...props} settings={{}} />);
+    const menu = screen.getByLabelText("Arpeggiator");
+    fireEvent.change(menu, { target: { value: "0" } });
+    expect(onChange).toHaveBeenCalledWith("exquis_arpeggiator_pattern", 0);
+    expect(setArpeggiatorPattern).toHaveBeenCalledWith(0);
+    expect(localStorage.getItem("exquis_arpeggiator_pattern")).toBe("0");
+    rerender(<ExquisArpeggiator {...props} settings={{ exquis_arpeggiator_pattern: 0 }} />);
+    expect(menu.value).toBe("0");
+    expect(menu.selectedOptions[0].text).toBe("Note Repeat");
+  });
   it("shows Note Repeat for a saved experimental OFF selection", () => {
     render(<ExquisArpeggiator settings={{ exquis_arpeggiator_pattern: -1 }} onChange={vi.fn()} />);
     expect(screen.getByLabelText("Arpeggiator").selectedOptions[0].text).toBe("Note Repeat");

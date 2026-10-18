@@ -116,7 +116,7 @@ export class ExquisLEDs {
     saturation = 1.5,
     mpeEnabled = true,
     orientation = 90,
-    arpeggiatorPattern = 0,
+    arpeggiatorPattern = 1,
   ) {
     this._out = outputPort;
     this._in = inputPort;
@@ -125,7 +125,7 @@ export class ExquisLEDs {
     this._saturation = Math.max(0.75, Math.min(2.5, saturation));
     this._mpeEnabled = !!mpeEnabled;
     this._orientation = exquisOrientation(orientation);
-    this._arpeggiatorPattern = Math.max(0, Math.min(5, Math.round(arpeggiatorPattern) || 0));
+    this._arpeggiatorPattern = Math.max(0, Math.min(5, Math.round(arpeggiatorPattern ?? 1)));
     this._orientationPending = null;
     this._orientationTimer = null;
     this._ready = false;

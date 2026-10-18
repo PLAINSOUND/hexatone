@@ -18,7 +18,7 @@ export default function ExquisArpeggiator({ settings, disabled, keysRef, onChang
       <select
         class="sidebar-input"
         name="exquis_arpeggiator_pattern"
-        value={Math.max(0, Math.min(5, Math.round(settings.exquis_arpeggiator_pattern) || 1))}
+        value={Math.max(0, Math.min(5, Math.round(settings.exquis_arpeggiator_pattern ?? 1)))}
         disabled={disabled}
         onChange={(event) => {
           const value = Number(event.target.value);
