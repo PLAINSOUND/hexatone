@@ -100,6 +100,12 @@ export class LumatoneLEDs {
     }));
     this._latestColorQueue = this._cloneQueue(nextQueue);
     if (this._suspended) return;
+    // Colour changes during first-time 2D setup must not discard unsent
+    // note/channel assignments. Merge only the LED commands instead.
+    if (this._queue.some(entry => entry.cmd === 0x00)) {
+      this.updateDegree(entries);
+      return;
+    }
     if (this._isDuplicateFullColorQueue(nextQueue)) return;
     this._queue = this._pending ? [this._queue[0], ...nextQueue] : nextQueue;
     this._refreshInitialSendDelay();
@@ -183,7 +189,7 @@ export class LumatoneLEDs {
 
     for (const newEntry of parsed) {
       const idx = this._queue.findIndex(
-        (q, i) => i >= startIdx && q.board === newEntry.board && q.key === newEntry.key,
+        (q, i) => i >= startIdx && q.cmd === 0x01 && q.board === newEntry.board && q.key === newEntry.key,
       );
       if (idx >= 0) {
         this._queue[idx] = newEntry; // replace existing queued entry

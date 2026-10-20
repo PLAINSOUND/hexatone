@@ -229,6 +229,7 @@ vi.mock("./loading-icon.jsx", () => ({
 import {
   applyReloadPersistencePolicy,
   autoSyncLumatoneSurface,
+  resetLumatoneAutomaticLayout,
   bindControllerLedRefs,
   commitModulationHistoryToPreset,
   getDefaultSnapshotPalettePos,
@@ -754,15 +755,34 @@ describe("autoSyncLumatoneSurface", () => {
     expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
   });
 
-  it("keeps ordinary automatic colour sync for a populated scale", () => {
-    const keys = { autoSyncLumatoneLEDs: vi.fn() };
+  it("initializes the full layout once, then sends only colours until automatic 2D is re-entered", () => {
+    const keys = { autoSyncLumatoneLEDs: vi.fn(), sendLumatoneLayoutAndColours: vi.fn(() => true) };
     const leds = { sendLayout: vi.fn() };
 
     expect(autoSyncLumatoneSurface({ keys, leds, scale: ["2/1"] })).toBe(true);
 
     expect(keys.lumatoneLEDs).toBe(leds);
+    expect(keys.sendLumatoneLayoutAndColours).toHaveBeenCalledTimes(1);
+    expect(keys.autoSyncLumatoneLEDs).not.toHaveBeenCalled();
+    autoSyncLumatoneSurface({ keys, leds, scale: ["2/1"] });
     expect(keys.autoSyncLumatoneLEDs).toHaveBeenCalledTimes(1);
+    expect(keys.sendLumatoneLayoutAndColours).toHaveBeenCalledTimes(1);
+    resetLumatoneAutomaticLayout(leds);
+    autoSyncLumatoneSurface({ keys, leds, scale: ["2/1"], eligible: false });
+    expect(keys.sendLumatoneLayoutAndColours).toHaveBeenCalledTimes(1);
+    autoSyncLumatoneSurface({ keys, leds, scale: ["2/1"] });
+    expect(keys.sendLumatoneLayoutAndColours).toHaveBeenCalledTimes(2);
     expect(leds.sendLayout).not.toHaveBeenCalled();
+  });
+
+  it("does not mark unavailable geometry as initialized and initializes a newly selected driver", () => {
+    const leds = {};
+    const keys = { sendLumatoneLayoutAndColours: vi.fn(() => false) };
+    expect(autoSyncLumatoneSurface({ keys, leds, scale: ["2/1"] })).toBe(false);
+    keys.sendLumatoneLayoutAndColours.mockReturnValue(true);
+    expect(autoSyncLumatoneSurface({ keys, leds, scale: ["2/1"] })).toBe(true);
+    expect(autoSyncLumatoneSurface({ keys, leds: {}, scale: ["2/1"] })).toBe(true);
+    expect(keys.sendLumatoneLayoutAndColours).toHaveBeenCalledTimes(3);
   });
 
   it("does not send a blank layout outside eligible Lumatone mapping modes", () => {

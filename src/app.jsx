@@ -503,13 +503,27 @@ export function sendLumatoneColorsNow(keys, leds) {
   return keys.syncLumatoneLEDs() !== false;
 }
 
+const lumatoneAutomaticLayouts = new WeakSet();
+
+export function resetLumatoneAutomaticLayout(leds) {
+  if (leds) lumatoneAutomaticLayouts.delete(leds);
+}
+
 export function autoSyncLumatoneSurface({ keys, leds, scale, eligible = true }) {
   if (!leds || !eligible) return false;
   if (!Array.isArray(scale) || scale.length === 0) {
-    return sendLumatoneBlankLayout(leds);
+    const sent = sendLumatoneBlankLayout(leds);
+    if (sent) lumatoneAutomaticLayouts.add(leds);
+    return sent;
   }
   if (!keys) return false;
   bindControllerLedRefs(keys, { lumatone: leds }, { eagerSync: false });
+  if (keys._canAutoSendLumatoneColors?.() === false) return false;
+  if (!lumatoneAutomaticLayouts.has(leds)) {
+    if (!keys.sendLumatoneLayoutAndColours?.()) return false;
+    lumatoneAutomaticLayouts.add(leds);
+    return true;
+  }
   keys.autoSyncLumatoneLEDs?.();
   return true;
 }
@@ -4585,6 +4599,7 @@ const App = () => {
   );
   const lumatoneAutoSyncEligible =
     inputController?.id === "lumatone" &&
+    !settings.midi_passthrough &&
     inputRuntime.target !== "scale" &&
     inputRuntime.layoutMode !== "sequential";
 
@@ -4858,6 +4873,9 @@ const App = () => {
         return;
       }
       lumatoneLedsRef.current = leds;
+      // A reconnected driver needs layout initialization even when port IDs
+      // and the musical surface are unchanged.
+      lumatoneAutoSyncKeyRef.current = "";
       // Binding the lazy driver must not itself start a second 280-command
       // transfer; established Keys/settings synchronization owns auto-send.
       bindControllerLedRefs(keysRef.current, { lumatone: leds }, { eagerSync: false });
@@ -5243,7 +5261,7 @@ const App = () => {
         },
         { eagerSync: false },
       );
-      if (settings.lumatone_led_sync && lumatoneLedsRef.current) {
+      if (settings.lumatone_led_sync && lumatoneAutoSyncEligible && lumatoneLedsRef.current) {
         const syncKey = buildLumatoneAutoSyncKey({
           lumatoneInId,
           lumatoneOutId,
@@ -5264,12 +5282,14 @@ const App = () => {
         setTimeout(() => {
           if (keysRef.current !== keys) return;
           if (lumatoneLedsRef.current == null) return;
-          keys.autoSyncLumatoneLEDs?.();
+          autoSyncLumatoneSurface({ keys, leds: lumatoneLedsRef.current,
+            scale: settings.scale, eligible: lumatoneAutoSyncEligible });
         }, 0);
       }
     },
     [
       linnstrumentUserFirmwareEligible,
+      lumatoneAutoSyncEligible,
       lumatoneInId,
       lumatoneOutId,
       settings.lumatone_led_sync,
@@ -5306,6 +5326,7 @@ const App = () => {
     const keys = keysRef.current;
     const leds = lumatoneLedsRef.current;
     if (!leds || !lumatoneAutoSyncEligible) return;
+    resetLumatoneAutomaticLayout(leds);
     lumatoneAutoSyncKeyRef.current = buildLumatoneAutoSyncKey({
       lumatoneInId,
       lumatoneOutId,
@@ -5355,6 +5376,13 @@ const App = () => {
     // other browsers that load the optional controller chunk more slowly.
     return leds.probeConnection();
   }, []);
+
+  useLayoutEffect(() => {
+    if (!settings.lumatone_led_sync || !lumatoneAutoSyncEligible) {
+      resetLumatoneAutomaticLayout(lumatoneLedsRef.current);
+      lumatoneAutoSyncKeyRef.current = "";
+    }
+  }, [settings.lumatone_led_sync, lumatoneAutoSyncEligible]);
 
   useEffect(() => {
     if (pendingRestoredPreset) return;

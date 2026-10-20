@@ -673,7 +673,7 @@ describe("MIDIio LinnStrument controller selection", () => {
 
     expect(screen.getByText("Send Blank Layout")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Send Layout and Colours" })).toBeTruthy();
-    expect(screen.getByRole("checkbox", { name: /Automatically Send LED Colours/ })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: /Automatically Send Layout and Colours/ })).toBeTruthy();
   });
 
   it("renders Exquis LED controls from its dedicated controller module", () => {

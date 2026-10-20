@@ -388,12 +388,13 @@ const LumatoneSettings = ({
           )}
           {rawPorts && (
             <label>
-              Automatically Send LED Colours
+              Automatically Send Layout and Colours
               <span class="settings-form__control-row settings-form__control-row--inline">
                 <input
                   name="lumatone_led_sync"
                   type="checkbox"
                   checked={!!settings.lumatone_led_sync}
+                  title="Send the full 2D layout and colours when enabled or returning to 2D mode; subsequent updates send colours only. Bypass layouts remain manual."
                   disabled={!hasSysexMidi}
                   onChange={(e) => {
                     onChange("lumatone_led_sync", e.target.checked);

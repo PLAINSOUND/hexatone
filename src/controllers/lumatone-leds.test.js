@@ -30,6 +30,22 @@ function makeWebMidiPorts() {
 }
 
 describe("LumatoneLEDs", () => {
+  it("preserves pending layout assignments through full and partial colour updates", () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+    leds.sendLayout([
+      { board: 1, key: 0, note: 0, channel: 0, hexColor: "#111111" },
+      { board: 1, key: 1, note: 1, channel: 0, hexColor: "#222222" },
+    ], [{ cmd: 0x0e, board: 0, value: 1 }]);
+    const assignments = leds._queue.filter(entry => entry.cmd === 0x00);
+    leds.sendAll([{ board: 1, key: 0, hexColor: "#333333" }]);
+    leds.updateDegree([{ board: 1, key: 1, hexColor: "#444444" }]);
+    expect(leds._queue.filter(entry => entry.cmd === 0x00)).toEqual(assignments);
+    expect(assignments).toHaveLength(2);
+    expect(leds._queue.filter(entry => entry.cmd === 0x01)).toHaveLength(2);
+    expect(leds._queue.find(entry => entry.cmd === 0x0e)).toBeDefined();
+    leds.destroy();
+  });
   beforeEach(() => {
     vi.useFakeTimers();
   });

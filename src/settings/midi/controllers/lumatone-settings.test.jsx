@@ -543,7 +543,7 @@ describe("LumatoneSettings", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /Automatically Send LED Colours/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /Automatically Send Layout and Colours/i }));
 
     expect(onChange).toHaveBeenCalledWith("lumatone_led_sync", true);
     expect(keysRef.current.settings.lumatone_led_sync).toBe(true);
@@ -572,7 +572,7 @@ describe("LumatoneSettings", () => {
     expect(screen.getByText("2D Bypass Key Layout")).toBeTruthy();
     expect(screen.getByText("Send Layout and Colours")).toBeTruthy();
     expect(screen.queryByText("Send Blank Layout")).toBeNull();
-    expect(screen.queryByText("Automatically Send LED Colours")).toBeNull();
+    expect(screen.queryByText("Automatically Send Layout and Colours")).toBeNull();
     expect(screen.queryByText("Lumatone Colour Filter")).toBeNull();
   });
 });
