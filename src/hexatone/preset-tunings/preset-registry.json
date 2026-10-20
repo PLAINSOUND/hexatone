@@ -77,9 +77,9 @@
       "slug": "rational-intonation-ji",
       "name": "Rational Intonation (JI)",
       "presets": [
-        "53-tertial-center-d",
+        "53-tertial-centre-d",
         "53-quintal-sabat-euler-lattice-centre-d",
-        "55-quintal-sabat-euler-lattice-center-d",
+        "55-quintal-sabat-euler-lattice-centre-d",
         "41-septimal-tertial",
         "41-septimal-tertial-tonnetz-layout",
         "18-oliveros-septimal-quintal",
@@ -97,9 +97,9 @@
       "slug": "extended-meantone",
       "name": "Extended Meantone",
       "presets": [
-        "38-vicentino-ii-1555-adaptive-meantone-ji",
-        "36-2-17-schisma-mt-based-on-helmholtz",
         "31-vicentino-i-1555-1-4-comma-g-a",
+        "38-vicentino-ii-1555-adaptive-meantone-ji",
+        "36-2-17-schisma-mt-based-on-helmholtz",        
         "43-1-5-syntonic-comma-mt-dbbb-d",
         "55-1-6-pythagorean-comma-mt-abbbb-g"
       ]
@@ -117,13 +117,13 @@
         "36ed2",
         "36ed2-rationalised-to-7lim",
         "41edo-septimal-tertial-notation",
+        "43edo-sauveur-1696-dbbb-d",
         "53edo-mercator-newton-quintal-tertial-notation",
         "53edo-tonnetz-layout",
+        "55edo-telemann-1767-abbbb-g",
         "72edo-sims-tenney",
         "205ed2-tonalplexus",
-        "55-heart-of-tones",
-        "43edo-sauveur-1696-dbbb-d",
-        "55edo-telemann-1767-abbbb-g"
+        "55-heart-of-tones"
       ]
     },
     {
