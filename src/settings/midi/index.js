@@ -1089,6 +1089,13 @@ const MIDIio = (props) => {
             )}
 
           {/* Reverse Bend Direction — hidden for LinnStrument User Firmware row-glide mode */}
+          {showPitchBendControls && (
+            <label title="Keep tracking incoming bend while bypassing its application. Switching glides between neutral and the latest bend using the portamento time.">
+              Bypass Bend
+              <input type="checkbox" checked={!!props.settings.midiin_bend_bypass}
+                onChange={e => props.onChange("midiin_bend_bypass", e.target.checked)} />
+            </label>
+          )}
           {showPitchBendControls && !showHakenContinuumUi &&
             !linnstrumentUserFirmwareActiveUi &&
             !linnstrumentBypassNonMpeUi && (

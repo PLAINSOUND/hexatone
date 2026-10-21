@@ -139,6 +139,8 @@ export const SETTINGS_REGISTRY = [
     perController: true,
     description: "Reverse pitch bend direction for this controller",
   },
+  { key: "midiin_bend_bypass", tier: "session", type: "bool", default: false,
+    description: "Track incoming pitch bend without applying it" },
   {
     key: "midiin_bend_range",
     tier: "local",

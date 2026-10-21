@@ -4,6 +4,7 @@
 // modulation history; callers provide the current Keys runtime state.
 
 import { WebMidi } from "webmidi";
+import { applyInputBend, tickBypassWheel, writeInputBend } from "./bend-bypass.js";
 import { shapeExquisExpressionY } from "./exquis-expression-y.js";
 import { usesPerChannelPitchBend } from "./expression-routing.js";
 import { allowsForwardedCC } from "../controllers/forwarded-cc-policy.js";
@@ -12,7 +13,6 @@ import { publishEaganBrightness, publishEaganTiltEq } from "../mpe_synth/eagan-m
 import { continuumRasterFilterSetFromRuntime } from "../controllers/continuum-raster-filters.js";
 import {
   applyTransferredCC74,
-  applyTransferredPitchBend,
   applyTransferredSourceAftertouch,
   synchronizeTransferredPitchBend,
 } from "../keyboard/note-transfer-runtime.js";
@@ -397,6 +397,12 @@ export function applyMpePitchBend(entry, channel, value14, value21 = null) {
     isContinuumMpe &&
     (hakenXGlideMode === "raster_to_notes" || !!entry.hex._continuumRasterPendingExitHandoff);
   if (continuumRasterMode) {
+    if (this.inputRuntime.bypassBend || this._retuneGlides.get(entry.hex)?.inputBendBypass) {
+      applyInputBend(this, entry.hex,
+        computeContinuumPitchBendCents(this, entry, channel, bend14, bend21),
+        { value14: bend14, value21: bend21, mpe: true });
+      return;
+    }
     this._hakenRasterBend(entry, channel, bend14, this.inputRuntime.target === "scale");
     return;
   }
@@ -410,13 +416,7 @@ export function applyMpePitchBend(entry, channel, value14, value21 = null) {
         (this.inputRuntime.bendFlip ? -1 : 1) *
         genericMpeRangeCents;
   entry.baseCents = baseCents;
-  entry.hex._lastPitchBend14 = bend14;
-  entry.hex._lastPitchBend21 = bend21;
-  entry.hex._lastPitchBendCents = bentCents;
-  if (applyTransferredPitchBend(entry.hex, { value14: bend14, value21: bend21, cents: bentCents }))
-    return;
-  if (bend21 != null) entry.hex.retune?.(bentCents, true, bend21);
-  else entry.hex.retune?.(bentCents, true);
+  applyInputBend(this, entry.hex, bentCents, { value14: bend14, value21: bend21, mpe: true });
 }
 
 export function activeHexesForInputChannel(channel) {
@@ -429,6 +429,7 @@ export function activeHexesForInputChannel(channel) {
 }
 
 export function currentWheelPitchStateForHex(hex) {
+  if (this.inputRuntime.bypassBend) return { value14: 8192, cents: hex?._baseCents ?? hex?.cents };
   if (!hex || this.inputRuntime.mpeInput || this._wheelValue14 === 8192) return null;
   if (!this.inputRuntime.wheelToRecent || this.inputRuntime.pitchBendMode === "all") {
     const baseCents = hex._baseCents ?? hex.cents ?? 0;
@@ -472,7 +473,7 @@ export function getControllerState() {
       ),
     ),
     channelPressure: this._channelPressureValue,
-    pitchBend14: this._wheelValue14,
+    pitchBend14: this.inputRuntime?.bypassBend ? 8192 : this._audibleWheelValue14 ?? this._wheelValue14,
   };
 }
 
@@ -518,11 +519,8 @@ export function handleWheelBend(val14) {
     this._wheelBend = offsetCents;
     for (const hex of this._allActiveHexes()) {
       if (hex.standardWheelPassthroughOnly) continue;
-      if (hex.standardWheelRetune) {
-        hex.standardWheelRetune((hex._baseCents ?? hex.cents) + offsetCents);
-      } else if (hex.retune) {
-        hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
-      }
+      applyInputBend(this, hex, (hex._baseCents ?? hex.cents) + offsetCents,
+        { standard: true, value14: val14 });
     }
     this._syncTransferredWheelBends();
     return;
@@ -535,7 +533,7 @@ export function handleWheelBend(val14) {
     const offsetCents = norm * rangeCents;
     this._wheelBend = offsetCents;
     for (const hex of this._allActiveHexes()) {
-      hex.retune((hex._baseCents ?? hex.cents) + offsetCents, true);
+      applyInputBend(this, hex, (hex._baseCents ?? hex.cents) + offsetCents, { value14: val14 });
     }
     this._syncTransferredWheelBends();
     return;
@@ -551,6 +549,10 @@ export function handleWheelBend(val14) {
   this._wheelBaseCents = baseCents;
   this._wheelBend = bentCents - baseCents;
   const glide = this._retuneGlides.get(target);
+  if (this.inputRuntime.bypassBend || glide?.inputBendBypass) {
+    applyInputBend(this, target, bentCents, { value14: val14 });
+    return;
+  }
   if (glide?.wheelHandoff) {
     const now = performance.now();
     const remaining = glide.startAt + glide.duration - now;
@@ -573,7 +575,7 @@ export function handleWheelBend(val14) {
     }
     this._retuneGlides.delete(target);
   }
-  target.retune(bentCents, true);
+  applyInputBend(this, target, bentCents, { value14: val14 });
   this._syncTransferredWheelBend(target);
 }
 
@@ -593,6 +595,8 @@ export function applyWheelInputNow(val14) {
 
 export function resetWheelInputState(resetToCurrent = false) {
   if (resetToCurrent) {
+    this._bendBypassWheelGlide = null;
+    this._audibleWheelValue14 = this.inputRuntime.bypassBend ? 8192 : this._wheelValue14;
     this._wheelInputState.current = this._wheelValue14;
     this._wheelInputState.target = this._wheelValue14;
   }
@@ -629,11 +633,11 @@ export function applyCurrentWheelToHex(hex) {
   }
   const baseCents = hex._baseCents ?? hex.cents;
   if (!this.inputRuntime.wheelToRecent) {
-    hex.retune(baseCents + this._wheelBend, true);
+    applyInputBend(this, hex, baseCents + this._wheelBend, { value14: this._wheelValue14 });
     return;
   }
   if (this.inputRuntime.pitchBendMode === "all") {
-    hex.retune(baseCents + this._wheelBend, true);
+    applyInputBend(this, hex, baseCents + this._wheelBend, { value14: this._wheelValue14 });
   }
 }
 
@@ -670,7 +674,7 @@ export function queueRetuneGlide(hex, targetBase, bendOnly = false) {
 }
 
 export function kickRetuneGlides() {
-  if (this._retuneGlides.size === 0) return;
+  if (this._retuneGlides.size === 0 && !this._bendBypassWheelGlide) return;
   if (this._retuneGlideTimer == null) {
     this._retuneGlideLastTime = performance.now() - RETUNE_GLIDE_TICK_MS;
     this._retuneGlideTimer = setTimeout(this._tickRetuneGlides, 0);
@@ -679,7 +683,7 @@ export function kickRetuneGlides() {
 
 export function tickRetuneGlides() {
   this._retuneGlideTimer = null;
-  if (this._retuneGlides.size === 0) {
+  if (this._retuneGlides.size === 0 && !this._bendBypassWheelGlide) {
     this._retuneGlideLastTime = 0;
     return;
   }
@@ -690,11 +694,23 @@ export function tickRetuneGlides() {
     : RETUNE_GLIDE_TICK_MS;
   this._retuneGlideLastTime = now;
 
-  let hasPending = false;
+  let hasPending = tickBypassWheel(this, now);
   let hasBaseGlide = false;
   for (const [hex, glide] of this._retuneGlides) {
     if (!hex?.retune || hex.release) {
       this._retuneGlides.delete(hex);
+      continue;
+    }
+    if (glide.inputBendBypass) {
+      const fraction = Math.min(1, Math.max(0, (now - glide.startAt) / glide.duration));
+      const cents = glide.from + (glide.to - glide.from) * fraction;
+      const base = hex._baseCents ?? cents;
+      const full = hex._inputBendTarget;
+      const ratio = full && full.cents !== base ? (cents - base) / (full.cents - base) : 0;
+      const value14 = Math.round(8192 + ((full?.value14 ?? 8192) - 8192) * ratio);
+      writeInputBend(hex, cents, { ...glide.expression, value14, value21: null });
+      if (fraction === 1) this._retuneGlides.delete(hex);
+      else hasPending = true;
       continue;
     }
     if (glide.wheelHandoff) {
@@ -808,6 +824,7 @@ export function updateWheelTarget(smoothReturn = false) {
       );
       if (
         smoothReturn &&
+        !this.inputRuntime.bypassBend &&
         this.inputRuntime.wheelPortamento &&
         duration > 0 &&
         newFront?.retune &&
@@ -822,14 +839,14 @@ export function updateWheelTarget(smoothReturn = false) {
         });
         this._kickRetuneGlides();
       } else if (!newFront._wheelPrimedBeforeNoteOn || newFront.cents !== bentCents) {
-        newFront.retune(bentCents, true);
+        applyInputBend(this, newFront, bentCents, { value14: this._wheelValue14 });
       }
     } else if (
       this._wheelBend !== 0 &&
       !newFront.standardWheelPassthroughOnly &&
       !newFront._wheelPrimedBeforeNoteOn
     ) {
-      newFront.retune(this._wheelBaseCents + this._wheelBend);
+      applyInputBend(this, newFront, this._wheelBaseCents + this._wheelBend, { value14: this._wheelValue14 });
     }
   } else {
     this._wheelBaseCents = null;

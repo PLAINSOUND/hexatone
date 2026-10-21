@@ -4545,6 +4545,7 @@ const App = () => {
       // Pitch bend range for incoming hardware controller bend messages.
       bendRange: settings.midiin_bend_range ?? "28/27",
       bendFlip: !!settings.midiin_bend_flip,
+      bypassBend: !!settings.midiin_bend_bypass,
       // Haken Continuum MPE+ uses a 96-semitone pitch-bend range.
       scaleBendRange:
         inputController?.id === "hakenaudio" ? 96 : (settings.midiin_scale_bend_range ?? 48),
@@ -4583,6 +4584,7 @@ const App = () => {
       linnstrumentBypassNonMpe,
       settings.midi_wheel_semitones,
       settings.midiin_bend_flip,
+      settings.midiin_bend_bypass,
       settings.midiin_scale_bend_range,
       settings.hakenaudio_x_glide_shaping,
       settings.hakenaudio_x_glide_mode,

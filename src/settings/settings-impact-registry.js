@@ -48,6 +48,7 @@ export const SETTINGS_IMPACT_FIELDS = {
     "midiin_mpe_lo_ch",
     "midiin_mpe_hi_ch",
     "midiin_bend_flip",
+    "midiin_bend_bypass",
     "midiin_bend_range",
     "linnstrument_channel_allocation",
     "linnstrument_pitch_bend_mode",

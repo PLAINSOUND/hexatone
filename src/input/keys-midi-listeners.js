@@ -4,6 +4,7 @@
 // not own harmonic frame derivation or canvas rendering directly.
 
 import Point from "../keyboard/point.js";
+import { applyInputBend } from "./bend-bypass.js";
 import { ignoresIncomingPitchBend, usesPerChannelPitchBend } from "./expression-routing.js";
 import { calibrateLumatoneFoot, routeLumatoneTimbre } from "./lumatone-timbre.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
@@ -421,7 +422,7 @@ function applyLinnstrumentUfXBend(channel, col, msb, lsb) {
   if (hex && !hex.release && hex.retune) {
     const appliedState = this._linnUfXAppliedState.get(key);
     if (appliedState?.smoothed === smoothedX14) {
-      hex.retune(appliedState.targetCents, true);
+      applyInputBend(this, hex, appliedState.targetCents);
       return;
     }
 
@@ -445,7 +446,7 @@ function applyLinnstrumentUfXBend(channel, col, msb, lsb) {
       smoothed: smoothedX14,
       targetCents,
     });
-    hex.retune(targetCents, true);
+    applyInputBend(this, hex, targetCents);
   }
 }
 
@@ -1146,9 +1147,10 @@ export function setupMidiInput() {
             // including MTS, while the internal sample engine is retuned directly.
             const val14f = this.inputRuntime.bendFlip ? 16383 - val14 : val14;
             this._handleIncomingWheelBend(val14f);
-            if (!this.inputRuntime.wheelToRecent) {
+            if (!this.inputRuntime.wheelToRecent && !this.inputRuntime.bypassBend && !this._bendBypassWheelGlide) {
               // Standard mode: raw PB to all outputs (MTS included).
               this._passthroughPitchBend(val14f);
+              this._audibleWheelValue14 = val14f;
             }
             this._rememberControllerStateInSynth();
           },

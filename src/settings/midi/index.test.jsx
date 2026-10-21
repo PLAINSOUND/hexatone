@@ -721,6 +721,7 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.queryByLabelText("Arpeggiator")).toBeNull();
     expect(!!screen.queryByText("Pitch Bending Interval (ratio/cents)")).toBe(mpe);
     expect(!!screen.queryByText("Reverse Bend Direction")).toBe(mpe);
+    expect(!!screen.queryByRole("checkbox", { name: "Bypass Bend" })).toBe(mpe);
     fireEvent.click(screen.getByRole("checkbox", { name: "Enable MPE Input" }));
     expect(props.onChange).toHaveBeenCalledWith("midiin_mpe_input", !mpe);
     expect(props.onChange).not.toHaveBeenCalledWith("midiin_mapping_target", expect.anything());
@@ -741,6 +742,15 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(checkbox.checked).toBe(true);
     fireEvent.click(checkbox);
     expect(props.onChange).toHaveBeenCalledWith("midi_passthrough", false);
+  });
+
+  it("changes bend bypass without changing input mode or MPE processing", () => {
+    const props = makeProps({ midiin_controller_override: "generic_mpe", midiin_mpe_input: true });
+    render(<MIDIio {...props} />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Bypass Bend" }));
+    expect(props.onChange).toHaveBeenCalledWith("midiin_bend_bypass", true);
+    expect(props.onChange).not.toHaveBeenCalledWith("midiin_mpe_input", expect.anything());
+    expect(props.onChange).not.toHaveBeenCalledWith("midiin_mapping_target", expect.anything());
   });
 
   it("shows the alternate Exquis description in sequential mode", () => {

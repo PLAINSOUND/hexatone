@@ -59,6 +59,7 @@ import * as KeysControllerLeds from "./keys-controller-leds.js";
 import * as KeysMidiInput from "./keys-midi-input.js";
 import * as LiveHexRuntime from "./live-hex-runtime.js";
 import * as PanicRuntime from "./panic-runtime.js";
+import { transitionBendBypass } from "../input/bend-bypass.js";
 import * as InputMidiListeners from "../input/keys-midi-listeners.js";
 import * as InputExpressionRuntime from "../input/keys-expression-runtime.js";
 import * as SequencerSnapshots from "../sequencer/snapshots.js";
@@ -227,6 +228,7 @@ class Keys {
       // Must match the range configured on the hardware device.
       bendRange: settings.midiin_bend_range ?? "28/27",
       bendFlip: !!settings.midiin_bend_flip,
+      bypassBend: !!settings.midiin_bend_bypass,
     };
 
     // 2. Bind environment/runtime dependencies and initialize ephemeral live
@@ -1978,6 +1980,7 @@ class Keys {
   };
 
   updateInputRuntime = (nextRuntime, nextSettings = null) => {
+    const previousBendBypass = !!this.inputRuntime.bypassBend;
     const previousMidiInputDevice = this.settings.midiin_device;
     const previousModulationStyle = this.settings.modulation_style;
     const previousHakenGlideMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
@@ -2052,6 +2055,7 @@ class Keys {
     }
     const nextHakenGlideMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
     this._handleHakenGlideModeTransition(previousHakenGlideMode, nextHakenGlideMode);
+    if (previousBendBypass !== !!this.inputRuntime.bypassBend) transitionBendBypass(this);
     this._refreshHakenGlideModeForActiveNotes();
   };
 

@@ -6,6 +6,7 @@
 // history directly; callers provide a Keys-like runtime object.
 
 import { usesPerChannelPitchBend } from "../input/expression-routing.js";
+import { applyInputBend } from "../input/bend-bypass.js";
 import {
   addSustainedHex,
   clearSustainedHexes,
@@ -245,12 +246,12 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
       let norm = (keys._normalizePitchBend14(bend14) - 8192) / 8192;
       if (keys.inputRuntime.bendFlip) norm = -norm;
       const bentCents = cents + norm * scalaToCents(keys.inputRuntime.bendRange ?? "9/8");
-      hex.retune(bentCents, true);
+      applyInputBend(keys, hex, bentCents, { value14: bend14, value21: bend21 ?? null });
       hex._mpePrimedBeforeNoteOn = {
         channel: inputChannel,
         bend14,
         bend21: bend21 ?? null,
-        bentCents,
+        bentCents: keys.inputRuntime.bypassBend ? cents : bentCents,
       };
       mpePrimedBeforeNoteOn = true;
     }
@@ -273,10 +274,10 @@ export function hexOn(keys, coords, note_played, velocity_played, bend, options 
   if (!keys.inputRuntime.wheelToRecent && keys._wheelValue14 !== 8192) {
     const wheelTargetCents = cents + keys._wheelBend;
     if (hex.standardWheelRetune) {
-      hex.standardWheelRetune(wheelTargetCents);
+      applyInputBend(keys, hex, wheelTargetCents, { standard: true, value14: keys._wheelValue14 });
       wheelPrimedBeforeNoteOn = !hex.standardWheelPassthroughOnly;
     } else if (hex.retune && !hex.standardWheelPassthroughOnly) {
-      hex.retune(wheelTargetCents, true);
+      applyInputBend(keys, hex, wheelTargetCents, { value14: keys._wheelValue14 });
       wheelPrimedBeforeNoteOn = true;
     }
   }
