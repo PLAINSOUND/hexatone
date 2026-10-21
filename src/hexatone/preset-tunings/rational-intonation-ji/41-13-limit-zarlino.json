@@ -1,6 +1,6 @@
 {
   "name": "41-(13-Limit) Zarlino",
-  "description": "An adaptation of Graham Breed's 41-tone 13-Limit Rational Intonation scale, consisting of 41 notes per octave derived from harmonic partial row intervals up to a prime limit of 13. Three notes are retuned to provide the missing 13°u5 notes in the Bass Flute part of Marc Sabat‘s Gioseffo Zarlino.",
+  "description": "An adaptation of Graham Breed‘s 41-tone 13-Limit Rational Intonation scale, consisting of 41 notes per octave derived from harmonic partial row intervals up to a prime limit of 13. Includes the pitches needed for Marc Sabat‘s “Gioseffo Zarlino.”",
   "scale": [
     "81/80",
     "33/32",
