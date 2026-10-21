@@ -7005,6 +7005,31 @@ describe("Keys MIDI input integration", () => {
     expect(retune).toHaveBeenCalledTimes(1);
   });
 
+  it.each(["scale", "hex_layout"])("ignores non-MPE Exquis pitch bend in %s without suppressing poly aftertouch", target => {
+    const listeners = {};
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Exquis", removeListener: vi.fn(),
+      addListener: vi.fn((event, options, handler) => {
+        listeners[event] = typeof options === "function" ? options : handler;
+      }),
+    });
+    const keys = createKeys({ midiin_device: "input-1", midiin_controller_override: "exquis" },
+      { target, mpeInput: false, wheelToRecent: true, pitchBendMode: "recency" });
+    const wheel = vi.spyOn(keys, "_handleIncomingWheelBend").mockImplementation(() => {});
+    const passthrough = vi.spyOn(keys, "_passthroughPitchBend").mockImplementation(() => {});
+    const mpe = vi.spyOn(keys, "_applyMpePitchBend").mockImplementation(() => {});
+    const pressure = vi.spyOn(keys, "_applyPolyAftertouch").mockImplementation(() => {});
+    const hex = {};
+    keys.state.activeMidi.set(60, hex);
+    listeners.pitchbend(makePitchBendEvent(16383, 1));
+    listeners.pitchbend(makePitchBendEvent(4096, 1));
+    expect(wheel).not.toHaveBeenCalled();
+    expect(passthrough).not.toHaveBeenCalled();
+    expect(mpe).not.toHaveBeenCalled();
+    listeners.keyaftertouch({ message: { channel: 1, dataBytes: [60, 72] } });
+    expect(pressure).toHaveBeenCalledWith(hex, 72);
+  });
+
   it.each([33, 22])("routes Exquis sustain CC%s without remapping modulation", (sustainCC) => {
     const listeners = {};
     const input = {

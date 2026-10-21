@@ -7,25 +7,12 @@
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { exquisOrientation } from "../../../controllers/exquis-orientation.js";
-import OutputPortPicker from "../output-port-picker.js";
 import CustomRangeSlider from "../../shared/range-slider.jsx";
-
-function ExquisAppModeStatus() {
-  return (
-    <label class="controller-inline-row controller-status-row">
-      App Mode
-      <span class="sidebar-input controller-status-value settings-form__status-value settings-form__status-value--inactive">
-        disabled
-      </span>
-    </label>
-  );
-}
 
 const ExquisSettings = ({
   settings,
   rawPorts,
   ledStatus,
-  midiOutputs,
   keysRef,
   hasSysexMidi,
   appModeEnabled,
@@ -101,12 +88,7 @@ const ExquisSettings = ({
     setPendingOrientation(null);
   }, [appModeEnabled, rawPorts]);
   if (!appModeEnabled) {
-    return (
-      <>
-        {ccControls}
-        <ExquisAppModeStatus />
-      </>
-    );
+    return ccControls;
   }
 
   const portConnected = !!rawPorts;
@@ -121,16 +103,6 @@ const ExquisSettings = ({
   return (
     <>
       {ccControls}
-      <OutputPortPicker
-        label="LED Output (App Mode)"
-        rawPorts={rawPorts}
-        outputs={midiOutputs}
-        overridePortId={settings.exquis_out_port ?? null}
-        onChange={(id) => {
-          onChange("exquis_out_port", id);
-          sessionStorage.setItem("exquis_out_port", id ?? "");
-        }}
-      />
       <label class="controller-inline-row">
         Orientation
         <select
@@ -259,7 +231,6 @@ ExquisSettings.propTypes = {
   settings: PropTypes.object.isRequired,
   rawPorts: PropTypes.object,
   ledStatus: PropTypes.object,
-  midiOutputs: PropTypes.object,
   keysRef: PropTypes.object,
   hasSysexMidi: PropTypes.bool.isRequired,
   appModeEnabled: PropTypes.bool.isRequired,

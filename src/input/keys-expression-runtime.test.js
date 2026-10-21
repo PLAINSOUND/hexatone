@@ -1,7 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import { WebMidi } from "webmidi";
-import { applyTimbreCC74, passthroughCC } from "./keys-expression-runtime.js";
+import { applyMpePitchBend, applyTimbreCC74, passthroughCC } from "./keys-expression-runtime.js";
 import { routeLumatoneTimbre } from "./lumatone-timbre.js";
+
+describe("MPE pitch bend direction", () => {
+  it.each(["scale", "hex_layout"])("reverses bend in %s mode", target => {
+    const keys = { controller: { id: "exquis" },
+      inputRuntime: { target, mpeInput: true, bendRange: "1200.", bendFlip: false },
+      _normalizePitchBend14: value => value, _mpeInputBendByChannel: new Map() };
+    const hex = { cents: 6000, _baseCents: 6000, retune: vi.fn() };
+    const entry = { hex, baseCents: 6000 };
+    applyMpePitchBend.call(keys, entry, 2, 12288);
+    expect(hex.retune).toHaveBeenLastCalledWith(6600, true);
+    keys.inputRuntime.bendFlip = true;
+    applyMpePitchBend.call(keys, entry, 2, 12288);
+    expect(hex.retune).toHaveBeenLastCalledWith(5400, true);
+    applyMpePitchBend.call(keys, entry, 2, 4096);
+    expect(hex.retune).toHaveBeenLastCalledWith(6600, true);
+    applyMpePitchBend.call(keys, entry, 2, 8192);
+    expect(hex.retune).toHaveBeenLastCalledWith(6000, true);
+  });
+});
 
 describe("input/keys-expression-runtime timbre routing", () => {
   it("shapes only Exquis Y around the live brightness fader without a reattack", () => {

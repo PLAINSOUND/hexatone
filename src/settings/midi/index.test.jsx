@@ -714,6 +714,25 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.queryByText(/Hexatone maps layout, colours, and toggles MPE mode/)).toBeNull();
   });
 
+  it.each([true, false])("hides the Exquis arpeggiator in nearest-scale mode with MPE=%s", mpe => {
+    const props = makeProps({ midiin_controller_override: "exquis", midiin_mapping_target: "scale",
+      midiin_mpe_input: mpe, wheel_to_recent: false });
+    render(<MIDIio {...props} />);
+    expect(screen.queryByLabelText("Arpeggiator")).toBeNull();
+    expect(!!screen.queryByText("Pitch Bending Interval (ratio/cents)")).toBe(mpe);
+    expect(!!screen.queryByText("Reverse Bend Direction")).toBe(mpe);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable MPE Input" }));
+    expect(props.onChange).toHaveBeenCalledWith("midiin_mpe_input", !mpe);
+    expect(props.onChange).not.toHaveBeenCalledWith("midiin_mapping_target", expect.anything());
+  });
+
+  it.each([true, false])("shows the Exquis arpeggiator in 2D only with MPE=%s", mpe => {
+    render(<MIDIio {...makeProps({ midiin_controller_override: "exquis", midiin_mpe_input: mpe })} />);
+    expect(!!screen.queryByLabelText("Arpeggiator")).toBe(mpe);
+    expect(!!screen.queryByText("Reverse Bend Direction")).toBe(mpe);
+    expect(!!screen.queryByText("Pitch Bending Interval (ratio/cents)")).toBe(mpe);
+  });
+
   it("shows the alternate Exquis description in sequential mode", () => {
     const props = makeProps({
       midiin_controller_override: "exquis",
@@ -732,5 +751,6 @@ describe("MIDIio LinnStrument controller selection", () => {
       screen.getByText(/User may choose Exquis Layout and MPE\/Polytouch mode manually/),
     ).toBeTruthy();
     expect(screen.queryByText(/Hexatone maps layout, colours, and toggles MPE mode/)).toBeNull();
+    expect(screen.queryByLabelText("Arpeggiator")).toBeNull();
   });
 });

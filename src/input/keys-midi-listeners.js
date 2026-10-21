@@ -4,7 +4,7 @@
 // not own harmonic frame derivation or canvas rendering directly.
 
 import Point from "../keyboard/point.js";
-import { usesPerChannelPitchBend } from "./expression-routing.js";
+import { ignoresIncomingPitchBend, usesPerChannelPitchBend } from "./expression-routing.js";
 import { calibrateLumatoneFoot, routeLumatoneTimbre } from "./lumatone-timbre.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 import { WebMidi } from "webmidi";
@@ -1080,6 +1080,7 @@ export function setupMidiInput() {
 
       // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
       this.midiin_data.addListener("pitchbend", (e) => {
+        if (ignoresIncomingPitchBend(this.controller, this.inputRuntime)) return;
         withMidiJitterInput(
           "pitchbendIn",
           {

@@ -407,7 +407,7 @@ export function applyMpePitchBend(entry, channel, value14, value21 = null) {
     ? computeContinuumPitchBendCents(this, entry, channel, bend14, bend21)
     : baseCents +
       (bend21 != null ? (bend21 - 1048576) / 1048576 : (bend14 - 8192) / 8192) *
-        (this.inputRuntime.bendFlip && this.inputRuntime.target !== "scale" ? -1 : 1) *
+        (this.inputRuntime.bendFlip ? -1 : 1) *
         genericMpeRangeCents;
   entry.baseCents = baseCents;
   entry.hex._lastPitchBend14 = bend14;

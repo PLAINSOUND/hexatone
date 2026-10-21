@@ -10,14 +10,13 @@ describe("ExquisSettings", () => {
       exquis_led_luminosity: 15,
       exquis_led_saturation: 1.3,
     },
-    midiOutputs: new Map(),
     keysRef: { current: { settings: {} } },
     hasSysexMidi: true,
     appModeEnabled: true,
     onChange: vi.fn(),
   };
 
-  it("labels the output as App Mode", () => {
+  it("shows orientation without an LED output row", () => {
     render(
       <ExquisSettings
         {...baseProps}
@@ -26,7 +25,7 @@ describe("ExquisSettings", () => {
       />,
     );
 
-    expect(screen.getByText("LED Output (App Mode)")).toBeTruthy();
+    expect(screen.queryByText("LED Output (App Mode)")).toBeNull();
     expect(screen.getByLabelText("Orientation").value).toBe("90");
     expect(screen.getByLabelText("Orientation").className).toBe("sidebar-input");
   });
@@ -103,7 +102,7 @@ describe("ExquisSettings", () => {
     expect(screen.queryByText("Please update the firmware on your Exquis")).toBeNull();
   });
 
-  it("shows App Mode disabled and hides LED controls in nearest-scale mode", () => {
+  it("hides App Mode status and LED controls in nearest-scale mode", () => {
     render(
       <ExquisSettings
         {...baseProps}
@@ -113,8 +112,8 @@ describe("ExquisSettings", () => {
       />,
     );
 
-    expect(screen.getByText("App Mode")).toBeTruthy();
-    expect(screen.getByText("disabled")).toBeTruthy();
+    expect(screen.queryByText("App Mode")).toBeNull();
+    expect(screen.queryByText("disabled")).toBeNull();
     expect(screen.queryByText("Auto Send Colours")).toBeNull();
     expect(screen.queryByText("LED Brightness")).toBeNull();
     expect(screen.queryByText("LED Saturation")).toBeNull();

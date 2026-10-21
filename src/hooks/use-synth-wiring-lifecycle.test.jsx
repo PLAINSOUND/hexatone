@@ -34,6 +34,19 @@ function Harness({ settings = base, userHasInteracted = true }) {
   current = useSynthWiring(settings, setSettings, { ready: true, userHasInteracted, keysRef, synthRef });
   return null;
 }
+it("does not reload Exquis mode preferences when only MPE processing changes", async () => {
+  WebMidi.enabled = true;
+  WebMidi.interface = { inputs: new Map([["exquis", { id: "exquis", name: "Exquis" }]]), outputs: new Map() };
+  const settings = { ...base, output_sample: false, midiin_device: "exquis",
+    midiin_controller_override: "exquis", midiin_mapping_target: "scale", midiin_mpe_input: true };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.midi).toBe(WebMidi.interface));
+  setSettings.mockClear();
+  view.rerender(<Harness settings={{ ...settings, midiin_mpe_input: false }} />);
+  expect(setSettings).not.toHaveBeenCalled();
+  view.rerender(<Harness settings={settings} />);
+  expect(setSettings).not.toHaveBeenCalled();
+});
 it("server OFF disposes a parked SuperSonic engine and creates no bridge", async () => {
   const dispose = vi.fn();
   const local = smoothOutputToggle({ local: true, shutdown: dispose, allSoundOff: vi.fn(),

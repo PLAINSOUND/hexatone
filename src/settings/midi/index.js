@@ -200,8 +200,8 @@ const MIDIio = (props) => {
   const linnstrumentPitchBendShape = props.settings.linnstrument_pitch_bend_shape ?? 60;
   const linnstrumentXSpikeReduction = props.settings.linnstrument_x_spike_reduction ?? 25;
   const linnstrumentXInputSmoothing = props.settings.linnstrument_x_input_smoothing ?? 80;
-  const showExquisBendControls = !(ctrl?.id === "exquis" && !mpeInputEnabled);
   const showWheelToRecent = !(ctrl?.id === "exquis" && !mpeInputEnabled) && !isLinnstrument;
+  const showPitchBendControls = !(ctrl?.id === "exquis" && !mpeInputEnabled);
   const showHakenContinuumUi = isHakenContinuum;
   const genericBypassesGeometry = ctrl?.id === "generic" || ctrl?.id === "generic_mpe";
   const mpeMemberChannelBounds = ctrl?.mpeMemberChannelBounds ?? null;
@@ -753,7 +753,6 @@ const MIDIio = (props) => {
                       settings={props.settings}
                       rawPorts={props.exquisRawPorts}
                       ledStatus={props.exquisLedStatus}
-                      midiOutputs={props.midi?.outputs}
                       keysRef={props.keysRef}
                       hasSysexMidi={hasSysexMidi}
                       appModeEnabled={!scaleMode && !props.settings.midi_passthrough}
@@ -942,7 +941,7 @@ const MIDIio = (props) => {
             </label>
           )}
 
-          {ctrl?.id === "exquis" && (
+          {ctrl?.id === "exquis" && !scaleMode && !props.settings.midi_passthrough && mpeInputEnabled && (
             <ExquisArpeggiator
               settings={props.settings}
               keysRef={props.keysRef}
@@ -986,8 +985,7 @@ const MIDIio = (props) => {
             />
           )}
 
-          {showExquisBendControls &&
-            !showHakenContinuumUi &&
+          {showPitchBendControls && !showHakenContinuumUi &&
             (isLinnstrument ? (
               <LinnstrumentSettings
                 ctrl={ctrl}
@@ -1089,8 +1087,7 @@ const MIDIio = (props) => {
             )}
 
           {/* Reverse Bend Direction — hidden for LinnStrument User Firmware row-glide mode */}
-          {showExquisBendControls &&
-            !showHakenContinuumUi &&
+          {showPitchBendControls && !showHakenContinuumUi &&
             !linnstrumentUserFirmwareActiveUi &&
             !linnstrumentBypassNonMpeUi && (
               <label title="Reverse pitch bend direction — useful when the controller surface is oriented so that sliding towards higher pitch sends negative bend values.">
