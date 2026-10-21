@@ -367,6 +367,7 @@ const MIDIio = (props) => {
         </button>
       </legend>
       <GeneralInputSettings
+        exquisPendingSettings={props.exquisPendingSettings}
         hasBasicMidi={hasBasicMidi}
         midi={props.midi}
         settings={props.settings}
@@ -667,8 +668,9 @@ const MIDIio = (props) => {
                         <input
                           name="midi_passthrough"
                           type="checkbox"
-                          checked={!!props.settings.midi_passthrough}
+                          checked={props.exquisPendingSettings?.midi_passthrough ?? !!props.settings.midi_passthrough}
                           onChange={(e) => {
+                            const checked = e.target.checked;
                             if (linnstrumentUserFirmwareEligible && e.target.checked) {
                               deactivateLinnstrumentUserFirmwareNow();
                             }
@@ -695,14 +697,14 @@ const MIDIio = (props) => {
                               props.onChange("midiin_channel_legacy", false);
                               sessionStorage.setItem("midiin_channel_legacy", "false");
                             }
-                            props.onChange("midi_passthrough", e.target.checked);
-                            sessionStorage.setItem("midi_passthrough", e.target.checked);
+                            props.onChange("midi_passthrough", checked);
+                            sessionStorage.setItem("midi_passthrough", checked);
                             saveControllerPref(
                               ctrl,
                               "midi_passthrough",
-                              e.target.checked,
+                              checked,
                               props.settings,
-                              { midi_passthrough: e.target.checked },
+                              { midi_passthrough: checked },
                             );
                           }}
                         />
@@ -1145,6 +1147,7 @@ const MIDIio = (props) => {
 };
 
 MIDIio.propTypes = {
+  exquisPendingSettings: PropTypes.object,
   settings: PropTypes.shape({
     midiin_device: PropTypes.string,
     midiin_controller_override: PropTypes.string,

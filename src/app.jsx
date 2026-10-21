@@ -4289,7 +4289,7 @@ const App = () => {
     setReady(true);
   }, []);
 
-  const { onChange, onAtomicChange } = useSettingsChange(settings, setSettings, {
+  const { onChange, onAtomicChange, exquisModePending, exquisPendingSettings, exquisHeldPads } = useSettingsChange(settings, setSettings, {
     midi,
     setMidiLearnActive,
     setHakenPedalLearnActive,
@@ -4773,6 +4773,7 @@ const App = () => {
         exquisMpeInputRef.current,
         settings.exquis_orientation ?? 90,
         exquisArpeggiatorRef.current,
+        exquisHeldPads(),
       );
       if (disposed) {
         leds.exit();
@@ -5450,8 +5451,10 @@ const App = () => {
   // shared sidebar also cleans up the hidden Sequencer's scheduled callbacks.
   const ioSettingsSidebar = (
     <>
+    {exquisModePending && <span role="status">Release keys to apply mode change.</span>}
     <Suspense fallback={<SidebarLoadingFallback />}>
       <IOSettings
+        exquisPendingSettings={exquisPendingSettings}
         onSaveAudioReport={audioRecovery.save}
         onRecreateAudioContexts={() => audioRecovery.restore({ forceRecreate: true })}
         onChange={onChange}

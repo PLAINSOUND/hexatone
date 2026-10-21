@@ -6,6 +6,19 @@ import { ExquisLEDs } from "./exquis-leds.js";
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("Exquis orientation", () => {
+  it("waits for pads held before driver construction before writing MPE and mapping", () => {
+    vi.useFakeTimers();
+    const out = { send: vi.fn() };
+    const driver = new ExquisLEDs(out, null, null, 15, 1.3, true, 90, 1, ["0.60"]);
+    driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, 3, 0, 0, 0xf7] });
+    vi.advanceTimersByTime(200);
+    expect(out.send.mock.calls.some(([frame]) => frame[4] === 0x07 || frame[4] === 0x15)).toBe(false);
+    driver._onMessage({ data: [0x80, 60, 0] });
+    vi.advanceTimersByTime(200);
+    expect(out.send.mock.calls.some(([frame]) => frame[4] === 0x07)).toBe(true);
+    expect(out.send.mock.calls.some(([frame]) => frame[4] === 0x15)).toBe(true);
+    driver.exit();
+  });
   it("restores mode, note map and saved colours even when the returning timer runs first", () => {
     vi.useFakeTimers();
     const now = vi.spyOn(performance, "now").mockReturnValue(100);

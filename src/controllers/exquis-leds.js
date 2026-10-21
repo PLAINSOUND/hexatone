@@ -117,6 +117,7 @@ export class ExquisLEDs {
     mpeEnabled = true,
     orientation = 90,
     arpeggiatorPattern = 1,
+    heldPads = [],
   ) {
     this._out = outputPort;
     this._in = inputPort;
@@ -133,9 +134,9 @@ export class ExquisLEDs {
     this._appModeInitTimer = null;
     this._lastHeartbeatSentAt = 0;
     this._recoveryPending = false;
-    this._heldPads = new Set();
+    this._heldPads = new Set(heldPads);
 
-    this._heldPadCount = 0; // raw note-on/off counter from device input
+    this._heldPadCount = this._heldPads.size; // includes presses before driver creation
     this._mpeModePending = null; // deferred CMD 0x07 send timer
 
     this._onMessage = this._onMessage.bind(this);

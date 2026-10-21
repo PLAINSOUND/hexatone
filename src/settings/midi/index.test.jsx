@@ -733,6 +733,16 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(!!screen.queryByText("Pitch Bending Interval (ratio/cents)")).toBe(mpe);
   });
 
+  it("shows the requested bypass state while the physical key-release gate is pending", () => {
+    const props = makeProps({ midiin_controller_override: "exquis", midiin_mpe_input: true,
+      midi_passthrough: false });
+    render(<MIDIio {...props} exquisPendingSettings={{ midi_passthrough: true }} />);
+    const checkbox = screen.getByRole("checkbox", { name: /Sequential mode/ });
+    expect(checkbox.checked).toBe(true);
+    fireEvent.click(checkbox);
+    expect(props.onChange).toHaveBeenCalledWith("midi_passthrough", false);
+  });
+
   it("shows the alternate Exquis description in sequential mode", () => {
     const props = makeProps({
       midiin_controller_override: "exquis",

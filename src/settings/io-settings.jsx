@@ -41,6 +41,7 @@ const IOSettings = ({
   linnstrumentRawPorts,
   hakenRawPorts,
   exquisLedStatus,
+  exquisPendingSettings,
   snapshots,
   tuningRuntime,
   onEnableLumatoneAutoSync,
@@ -97,6 +98,7 @@ const IOSettings = ({
         disableWebMidi={disableWebMidi}
       />
       <MIDIio
+        exquisPendingSettings={exquisPendingSettings}
         onChange={onChange}
         settings={settings}
         snapshots={snapshots}

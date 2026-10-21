@@ -9,7 +9,8 @@
  * synth wiring reacts.
  */
 
-import { useRef, useCallback, useEffect } from "preact/hooks";
+import { useRef, useCallback, useEffect, useState } from "preact/hooks";
+import { createExquisModeGate } from "../input/exquis-mode-gate.js";
 import { detectController, getControllerById } from "../controllers/registry.js";
 import { buildControllerPresetAnchorUpdate } from "../controllers/preset-anchors.js";
 import { rememberControllerAnchorForReload } from "../persistence/controller-anchor-reload.js";
@@ -139,9 +140,38 @@ const useSettingsChange = (
     midiRef.current = midi;
   }, [midi]);
 
+  const [exquisModePending, setExquisModePending] = useState(false);
+  const [exquisPendingSettings, setExquisPendingSettings] = useState({});
+  const exquisGate = useRef(null);
+  if (!exquisGate.current) exquisGate.current = createExquisModeGate((pending, requested) => {
+    setExquisModePending(pending);
+    setExquisPendingSettings(requested);
+  });
+  const selectedInput = midi?.inputs?.get(settings.midiin_device);
+  useEffect(() => {
+    const gate = exquisGate.current;
+    gate.reset();
+    const ctrl = getConnectedController(settings.midiin_device, midi, settings.midiin_controller_override);
+    if (ctrl?.id !== "exquis" || !selectedInput) return;
+    const input = selectedInput._midiInput ?? selectedInput;
+    const receive = event => gate.message(event);
+    let listener;
+    if (input.addEventListener) input.addEventListener("midimessage", receive);
+    else listener = input.addListener?.("midimessage", receive);
+    return () => {
+      if (input.removeEventListener) input.removeEventListener("midimessage", receive);
+      else if (listener?.remove) listener.remove();
+      else input.removeListener?.("midimessage", receive);
+      gate.reset();
+    };
+  }, [selectedInput, midi, settings.midiin_device, settings.midiin_controller_override]);
+
   const onChange = useCallback((key, value) => {
     const s = settingsRef.current;
     const m = midiRef.current;
+    const modeValue = key === "midi_passthrough" ? !!s[key]
+      : key === "midiin_mapping_target" ? s[key] || "hex_layout" : s[key];
+    if (exquisGate.current.defer(key, value, modeValue, () => onChange(key, value))) return;
 
     // Toggle MIDI-learn mode — handled outside settings state (no URL sync needed).
     if (key === "midiLearnAnchor") {
@@ -386,7 +416,8 @@ const useSettingsChange = (
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSettings is a stable React state setter
   }, []);
 
-  return { onChange, onAtomicChange };
+  return { onChange, onAtomicChange, exquisModePending, exquisPendingSettings,
+    exquisHeldPads: exquisGate.current.heldPads };
 };
 
 export default useSettingsChange;

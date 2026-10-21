@@ -1,7 +1,7 @@
 /**
  * Tests for src/hooks/use-settings-change.js
  */
-import { render } from "@testing-library/preact";
+import { act, render } from "@testing-library/preact";
 import { useEffect } from "preact/hooks";
 import useSettingsChange, { resizeScaleWithEquavePadding } from "./use-settings-change.js";
 import { settingsToTuningRecord } from "../hexatone/tuning-record.js";
@@ -87,6 +87,33 @@ describe("resizeScaleWithEquavePadding", () => {
       note_colors: ["#ffffff", "#ffffff", "#ffffff"],
     });
   });
+});
+
+it("keeps Exquis tracking attached across mode settings and applies a pending change only after release", () => {
+  vi.useFakeTimers();
+  try {
+    let receive, handlers;
+    const input = { id: "exquis", name: "Exquis",
+      addEventListener: vi.fn((_, handler) => { receive = handler; }), removeEventListener: vi.fn() };
+    const midi = { inputs: new Map([["exquis", input]]) };
+    const settings = { midiin_device: "exquis", midiin_controller_override: "exquis", midi_passthrough: false };
+    const setSettings = vi.fn();
+    const capture = value => { handlers = value; };
+    const view = render(<HookHarness {...{ settings, setSettings, midi, capture }} />);
+    act(() => receive({ data: [0x90, 60, 100] }));
+    act(() => handlers.onChange("midi_passthrough", true));
+    expect(setSettings).not.toHaveBeenCalled();
+    expect(handlers.exquisModePending).toBe(true);
+    view.rerender(<HookHarness {...{ settings: { ...settings, midiin_mpe_input: false }, setSettings, midi, capture }} />);
+    expect(input.addEventListener).toHaveBeenCalledOnce();
+    act(() => receive({ data: [0x80, 60, 0] }));
+    expect(setSettings).not.toHaveBeenCalled();
+    act(() => vi.runAllTimers());
+    expect(setSettings).toHaveBeenCalledOnce();
+    expect(setSettings.mock.calls[0][0]()).toMatchObject({ midi_passthrough: true });
+    view.unmount();
+    expect(input.removeEventListener).toHaveBeenCalled();
+  } finally { vi.useRealTimers(); }
 });
 
 describe("useSettingsChange", () => {

@@ -8,6 +8,7 @@ const GeneralInputSettings = ({
   hasBasicMidi,
   midi,
   settings,
+  exquisPendingSettings,
   controller,
   controllerOverrideId,
   detectedController,
@@ -84,16 +85,17 @@ const GeneralInputSettings = ({
       Input Mode
       <select
         class="sidebar-input"
-        value={settings.midiin_mapping_target || "hex_layout"}
+        value={exquisPendingSettings?.midiin_mapping_target ?? settings.midiin_mapping_target ?? "hex_layout"}
         disabled={!hasBasicMidi}
         onChange={(e) => {
+          const value = e.target.value;
           if (linnstrumentUserFirmwareEligible && e.target.value !== "hex_layout") {
             deactivateLinnstrumentUserFirmwareNow();
           }
-          onChange("midiin_mapping_target", e.target.value);
+          onChange("midiin_mapping_target", value);
           if (controller) {
-            saveControllerPref(controller, "midiin_mapping_target", e.target.value, settings, {
-              midiin_mapping_target: e.target.value,
+            saveControllerPref(controller, "midiin_mapping_target", value, settings, {
+              midiin_mapping_target: value,
             });
           }
         }}
@@ -106,6 +108,7 @@ const GeneralInputSettings = ({
 );
 
 GeneralInputSettings.propTypes = {
+  exquisPendingSettings: PropTypes.object,
   hasBasicMidi: PropTypes.bool.isRequired,
   midi: PropTypes.object,
   settings: PropTypes.object.isRequired,
