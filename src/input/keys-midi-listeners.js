@@ -5,6 +5,7 @@
 
 import Point from "../keyboard/point.js";
 import { applyInputBend } from "./bend-bypass.js";
+import { exquisBendBypassControl } from "./exquis-control-bindings.js";
 import { ignoresIncomingPitchBend, usesPerChannelPitchBend } from "./expression-routing.js";
 import { calibrateLumatoneFoot, routeLumatoneTimbre } from "./lumatone-timbre.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
@@ -835,6 +836,18 @@ export function setupMidiInput() {
               this._midiLearnCcCallback(cc, e.message.channel, value);
               this._midiLearnCcCallback = null;
               return;
+            }
+            if (this.controller?.id === "exquis") {
+              const bypass = exquisBendBypassControl(cc, value);
+              if (bypass != null) {
+                if (!!this.inputRuntime.bypassBend !== bypass) {
+                  // Apply immediately; App then persists the same checkbox state.
+                  this.updateInputRuntime({ ...this.inputRuntime, bypassBend: bypass },
+                    { midiin_bend_bypass: bypass });
+                  this.onBendBypassChange?.(bypass);
+                }
+                return; // A host binding, not Bank Select LSB for output synths.
+              }
             }
             if (
               this.controller?.id === "hakenaudio" &&

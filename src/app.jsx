@@ -5241,6 +5241,9 @@ const App = () => {
     onOscBrightnessChange(clampSequenceTimbreModWheel(value) / 127, false);
     applySequenceModWheelChange(value);
   }, [onOscBrightnessChange, applySequenceModWheelChange]);
+  const onKeysBendBypassChange = useCallback((enabled) => {
+    onChange("midiin_bend_bypass", enabled);
+  }, [onChange]);
   const onBrightnessFaderChange = useCallback((value) => {
     onOscBrightnessChange(value);
     // Like physical CC1, shape stored sequence timbre only when its preference
@@ -5251,6 +5254,7 @@ const App = () => {
   const onKeysReady = useCallback(
     (keys) => {
       keysRef.current = keys;
+      keys.onBendBypassChange = onKeysBendBypassChange;
       setKeysReadyRevision((revision) => revision + 1);
       if (linnstrumentUserFirmwareEligible && linnstrumentLedsRef.current) {
         linnstrumentLedsRef.current.userFirmwareActive = true;
@@ -5292,6 +5296,7 @@ const App = () => {
     },
     [
       linnstrumentUserFirmwareEligible,
+      onKeysBendBypassChange,
       lumatoneAutoSyncEligible,
       lumatoneInId,
       lumatoneOutId,

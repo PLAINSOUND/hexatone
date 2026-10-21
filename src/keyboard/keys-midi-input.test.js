@@ -7030,6 +7030,34 @@ describe("Keys MIDI input integration", () => {
     expect(pressure).toHaveBeenCalledWith(hex, 72);
   });
 
+  it("binds Exquis CC32 to shared bend bypass without forwarding or duplicate transitions", () => {
+    const listeners = {};
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue({
+      name: "Exquis", removeListener: vi.fn(),
+      addListener: vi.fn((event, options, handler) => {
+        listeners[event] = typeof options === "function" ? options : handler;
+      }),
+    });
+    const keys = createKeys({ midiin_device: "input-1", midiin_controller_override: "exquis" },
+      { target: "hex_layout", mpeInput: true, bypassBend: false });
+    keys.onBendBypassChange = vi.fn();
+    const forward = vi.spyOn(keys, "_passthroughCC").mockImplementation(() => {});
+    const send = (value, channel = 1) => listeners.controlchange({ message: { channel, dataBytes: [32, value] } });
+    send(127, 16); // host binding is global, not a voice-channel expression
+    expect(keys.inputRuntime.bypassBend).toBe(true);
+    expect(keys.settings.midiin_bend_bypass).toBe(true);
+    expect(keys.onBendBypassChange).toHaveBeenLastCalledWith(true);
+    send(64);
+    expect(keys.onBendBypassChange).toHaveBeenCalledTimes(1);
+    send(63);
+    expect(keys.inputRuntime.bypassBend).toBe(false);
+    expect(keys.onBendBypassChange).toHaveBeenLastCalledWith(false);
+    expect(forward).not.toHaveBeenCalled();
+    keys._midiLearnCcCallback = vi.fn();
+    send(127);
+    expect(keys.inputRuntime.bypassBend).toBe(false); // learning takes precedence
+  });
+
   it.each([33, 22])("routes Exquis sustain CC%s without remapping modulation", (sustainCC) => {
     const listeners = {};
     const input = {
