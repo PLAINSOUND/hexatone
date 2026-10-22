@@ -645,7 +645,8 @@ export function deleteSnapshotRangeFromWorkspace({
     bars,
     startPosition,
     endPosition,
-    includeBars,
+    // Including structural markers must never expand a destructive snapshot selection.
+    includeBars: false,
   });
   if (!range.valid) {
     return {

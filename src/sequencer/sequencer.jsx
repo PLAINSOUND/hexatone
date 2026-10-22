@@ -561,12 +561,12 @@ const Sequencer = ({
     setCopyRangeStart((prev) => {
       const parsed = Math.round(Number(prev) || 0);
       if (parsed >= 1 && parsed <= snapshots.length) return prev;
-      return String(selectedSnapshotPosition ?? 1);
+      return String(Math.max(1, Math.min(snapshots.length, parsed || 1)));
     });
     setCopyRangeEnd((prev) => {
       const parsed = Math.round(Number(prev) || 0);
       if (parsed >= 1 && parsed <= snapshots.length) return prev;
-      return String(selectedSnapshotPosition ?? snapshots.length);
+      return String(Math.max(1, Math.min(snapshots.length, parsed || snapshots.length)));
     });
     setCopyInsertPosition((prev) => {
       const parsed = Math.round(Number(prev) || 0);
@@ -589,28 +589,23 @@ const Sequencer = ({
 
   const handleCopyRangeStartInput = useCallback(
     (rawValue) => {
-      const nextValue = rawValue;
-      setCopyRangeStart(nextValue);
-      const nextStart = Math.max(1, Math.round(Number(nextValue) || 1));
-      const currentEnd = Math.max(1, Math.round(Number(copyRangeEnd) || 1));
-      if (currentEnd < nextStart) {
-        setCopyRangeEnd(String(nextStart));
-      }
+      setCopyRangeStart(rawValue);
     },
-    [copyRangeEnd],
+    [],
   );
 
   const handleCopyRangeEndInput = useCallback(
     (rawValue) => {
-      const nextEnd = Math.max(1, Math.round(Number(rawValue) || 1));
-      const currentStart = Math.max(1, Math.round(Number(copyRangeStart) || 1));
-      setCopyRangeEnd(String(nextEnd));
-      if (nextEnd < currentStart) {
-        setCopyRangeStart(String(nextEnd));
-      }
+      setCopyRangeEnd(rawValue);
     },
-    [copyRangeStart],
+    [],
   );
+
+  const commitCopyRangeEndpoint = (value, setValue) => {
+    const number = Number(value);
+    setValue(String(Math.max(1, Math.min(snapshots.length || 1,
+      Number.isFinite(number) ? Math.round(number) : 1))));
+  };
 
   const derivedInsertBarBeat = useMemo(() => {
     const position = Math.round(Number(copyInsertPosition) || 1);
@@ -654,6 +649,12 @@ const Sequencer = ({
         : [],
     [resolvedCopyRange, snapshots],
   );
+
+  const resolvedDeleteRange = resolveSnapshotCopyRange({
+    snapshots,
+    startPosition: copyRangeStart,
+    endPosition: copyRangeEnd,
+  });
 
   const currentCopySelectionSignature = useMemo(
     () =>
@@ -2356,7 +2357,7 @@ const Sequencer = ({
     setCopiedSnapshotBlock(null);
     setRangeEditUndo(null);
     setCopyInsertStatus(
-      `Deleted ${resolvedCopyRange.length} snapshot${resolvedCopyRange.length === 1 ? "" : "s"}` +
+      `Deleted ${resolvedDeleteRange.length} snapshot${resolvedDeleteRange.length === 1 ? "" : "s"}` +
         `${copyIncludeBars ? " with bars" : ""}` +
         `${copyIncludeTempi ? ", tempi" : ""}` +
         `${copyIncludeRepeats ? ", repeats" : ""}.`,
@@ -2368,9 +2369,9 @@ const Sequencer = ({
     copyRangeEnd,
     copyRangeStart,
     onDeleteSnapshotRange,
+    resolvedDeleteRange.length,
     requireValidCopyRange,
     resetDraftEditingState,
-    resolvedCopyRange,
   ]);
 
   const handleDeleteSnapshot = useCallback(
@@ -3213,6 +3214,7 @@ const Sequencer = ({
                 value={copyRangeStart}
                 {...buildAutoSelectInputProps()}
                 onInput={(e) => handleCopyRangeStartInput(e.currentTarget.value)}
+                onBlur={(e) => commitCopyRangeEndpoint(e.currentTarget.value, setCopyRangeStart)}
               />
             </label>
             <label class="sequencer-copy-block__range-item sequencer-copy-block__range-item--end">
@@ -3225,6 +3227,7 @@ const Sequencer = ({
                 value={copyRangeEnd}
                 {...buildAutoSelectInputProps()}
                 onInput={(e) => handleCopyRangeEndInput(e.currentTarget.value)}
+                onBlur={(e) => commitCopyRangeEndpoint(e.currentTarget.value, setCopyRangeEnd)}
               />
             </label>
           </span>
@@ -3283,6 +3286,13 @@ const Sequencer = ({
         )}
         <fieldset class="sequencer-copy-block__range-operations" hidden={copyInsertCollapsed}>
           <legend>Edit Selected Range</legend>
+          {resolvedDeleteRange.valid && (
+            <p class="sequencer-copy-block__summary" role="status">
+              Delete: snapshots {resolvedDeleteRange.startPosition}–{resolvedDeleteRange.endPosition}
+              {` (${resolvedDeleteRange.length}); ${snapshots.length - resolvedDeleteRange.length} remaining.`}
+              {copyIncludeBars && " Include Bars deletes bar markers within this exact range; it does not extend deletion to whole bars."}
+            </p>
+          )}
           <div class="sequencer-copy-block__range-actions">
             <span class="sequencer-copy-block__range-label">Positions</span>
             <button

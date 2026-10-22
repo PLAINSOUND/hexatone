@@ -1794,7 +1794,7 @@ describe("App workspace tabs", () => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(),
     });
-    const { default: seeds } = await import("./sequencer/preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json");
+    const { default: seeds } = await import("./sequencer/preset-sequences/marc-sabat/seeds-of-skies-alibis.json");
     localStorage.setItem("hexatone_persist_on_reload", "true");
     sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
       // Keep the real first six snapshots and their initial bar positions;

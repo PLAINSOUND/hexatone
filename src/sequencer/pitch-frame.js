@@ -305,6 +305,24 @@ function formatSequenceDeviation(value) {
   return `${normalized < 0 ? "−" : "+"}${magnitude}`;
 }
 
+// Canvas labels are pitch classes; sequencer notation also needs the sounded
+// register. Derive it from the destination spelling (including B#/Cb), not from
+// the source note or the scale's equave index.
+export function sequenceHejiNameAtMidicents(label, midicents) {
+  const source = String(label ?? "");
+  if (!source || !Number.isFinite(Number(midicents))) return source;
+  const deviation = source.match(/[+\-−]\d+(?:\.\d+)?¢?$/u)?.[0] ?? "";
+  const spelling = deviation ? source.slice(0, -deviation.length) : source;
+  try {
+    const data = sequenceOctaveForSpelling(
+      canonicalHejiAnchorLabelInput(spelling), (Number(midicents) - 60) * 100, "*nC",
+    );
+    return data ? `${spelling}${data.octave}${deviation}` : source;
+  } catch {
+    return source;
+  }
+}
+
 function sequenceHejiNameFromScalaInterval(resolved, frame) {
   const normalizedFrame = normalizeSequencePitchFrame(frame);
   const anchor = parseCalculatorInterval(normalizedFrame?.hejiAnchorInterval);

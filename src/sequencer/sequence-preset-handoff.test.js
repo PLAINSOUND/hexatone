@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vitest";
-import seeds from "./preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json";
+import seeds from "./preset-sequences/marc-sabat/seeds-of-skies-alibis.json";
 import tree from "../hexatone/preset-tunings/odd-partial-pitch-class-sets/81-47-limit-256-sabat-the-tree.json";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
 import { create_composite_synth } from "../composite_synth/index.js";

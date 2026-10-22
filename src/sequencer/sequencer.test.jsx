@@ -10,7 +10,7 @@ import {
 } from "../debug/sequencer-crash-diagnostics.js";
 import Sequencer from "./sequencer.jsx";
 import { buildSnapshotDescription } from "./labels.js";
-import flightSequence from "./preset-sequences/marc-sabat/Flight.json";
+import flightSequence from "./preset-sequences/marc-sabat/flight.json";
 import { loadUserSequences } from "./sequence-library.jsx";
 import { normalizeBarMarkers, normalizeTempoMarkers } from "./transport.js";
 import { deriveSequenceCueGroups, deriveSequenceEvents } from "./trigger-groups.js";
@@ -21,6 +21,33 @@ import {
 } from "./snapshot-workspace-runtime.js";
 
 describe("Sequencer", () => {
+  it("keeps range endpoints independent through typing and clamps the end on blur", () => {
+    const onDeleteSnapshotRange = vi.fn();
+    render(<Sequencer
+      snapshots={Array.from({ length: 277 }, (_, index) => ({ id: index + 1, length: 1, notes: [] }))}
+      bars={[]} tempi={[]} repeats={[]} onDeleteSnapshotRange={onDeleteSnapshotRange}
+    />);
+    const start = screen.getByLabelText("copy snapshot range start");
+    const end = screen.getByLabelText("copy snapshot range end");
+    for (const value of ["", "1", "14", "148"]) {
+      fireEvent.input(start, { target: { value } });
+    }
+    for (const value of ["", "9", "99", "999"]) {
+      fireEvent.input(end, { target: { value } });
+    }
+    expect(start.value).toBe("148");
+    fireEvent.blur(end);
+    expect(end.value).toBe("277");
+    for (const value of ["", "2", "27", "277"]) {
+      fireEvent.input(end, { target: { value } });
+    }
+    expect(start.value).toBe("148");
+    expect(screen.getByText(/Delete: snapshots 148–277/).textContent).toContain("147 remaining");
+    fireEvent.click(screen.getByRole("button", { name: "Delete Selected Range", hidden: true }));
+    expect(onDeleteSnapshotRange).toHaveBeenCalledWith(expect.objectContaining({
+      startPosition: "148", endPosition: "277",
+    }));
+  });
   it("reveals palette-triggered snapshots, including replay after scrolling away, without dispatching audio again", async () => {
     localStorage.setItem("hexatone_sequencer_auto_scroll_enabled", "true");
     const props = {

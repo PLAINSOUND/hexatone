@@ -4,9 +4,9 @@ import { rebuildSnapshotRationalIdentity } from "./snapshot-rational-identity.js
 import { resolveSequenceHejiName, resolveSequenceScalaInterval } from "./pitch-frame.js";
 
 const BUILT_IN_SEQUENCE_PATHS = [
-  "src/sequencer/preset-sequences/marc-sabat/Flight.json",
-  "src/sequencer/preset-sequences/marc-sabat/FALL.json",
-  "src/sequencer/preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json",
+  "src/sequencer/preset-sequences/marc-sabat/flight.json",
+  "src/sequencer/preset-sequences/marc-sabat/fall.json",
+  "src/sequencer/preset-sequences/marc-sabat/seeds-of-skies-alibis.json",
 ];
 
 describe("snapshot rational identity", () => {

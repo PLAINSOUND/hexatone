@@ -39,10 +39,10 @@ describe("buildPresetSequenceGroups", () => {
     expect(groups[0].sequences.map((sequence) => sequence.name)).toEqual(["Alpha", "Beta"]);
   });
 
-  it("uses registry display names for case-sensitive lazy module paths", () => {
+  it("uses registry display names for lowercase lazy module paths", () => {
     const groups = buildPresetSequenceGroups({
       jsonModules: {
-        "./marc-sabat/Seeds-of-Skies-Alibis.json": async () => ({
+        "./marc-sabat/seeds-of-skies-alibis.json": async () => ({
           name: "Seeds of skies, alibis", snapshots: [],
         }),
       },

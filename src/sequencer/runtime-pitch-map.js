@@ -4,6 +4,7 @@
 
 import { findNearestDegree } from "../input/scale-mapper.js";
 import { noteIdentity } from "./value-runtime.js";
+import { sequenceHejiNameAtMidicents } from "./pitch-frame.js";
 import { createScaleWorkspace, normalizeWorkspaceForKeys } from "../tuning/workspace.js";
 import { chooseChordSteps, clampChordDrift, chordSearchWithinBudget } from "./chord-snap.js";
 
@@ -221,7 +222,7 @@ function remapSequenceNoteAtSteps(note, runtime, steps, options) {
     displayLabel: destinationLabel,
     // Event rows prefer hejiName over displayLabel. Never retain the source
     // tuning's spelling in this playback/display-only projection.
-    hejiName: destinationLabel,
+    hejiName: sequenceHejiNameAtMidicents(destinationLabel, nextMidicents),
     displayLabelEdited: false,
     ratioText: exactIdentity?.ratioText,
     monzo: exactIdentity?.monzo,

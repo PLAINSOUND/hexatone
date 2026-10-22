@@ -110,7 +110,7 @@ describe("snapshot-filter-library", () => {
       ),
     );
     const sequence = JSON.parse(
-      readFileSync("src/sequencer/preset-sequences/marc-sabat/FALL.json", "utf8"),
+      readFileSync("src/sequencer/preset-sequences/marc-sabat/fall.json", "utf8"),
     );
     const workspace = createScaleWorkspace({
       scale: tuning.scale,
@@ -134,7 +134,7 @@ describe("snapshot-filter-library", () => {
       ),
     );
     const sequence = JSON.parse(
-      readFileSync("src/sequencer/preset-sequences/marc-sabat/FALL.json", "utf8"),
+      readFileSync("src/sequencer/preset-sequences/marc-sabat/fall.json", "utf8"),
     );
     const workspace = createScaleWorkspace({
       scale: tuning.scale,

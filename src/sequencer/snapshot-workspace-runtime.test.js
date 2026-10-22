@@ -178,6 +178,22 @@ describe("snapshot workspace runtime", () => {
     expect(reset[0].descriptionManual).toBe(false);
   });
 
+  it("deletes the exact tail range, including with bars or an oversized endpoint", () => {
+    const snapshots = Array.from({ length: 277 }, (_, index) => ({ id: index + 1, length: 1, notes: [] }));
+    for (const endPosition of [277, 999]) {
+      for (const includeBars of [false, true]) {
+        const result = deleteSnapshotRangeFromWorkspace({
+          snapshots,
+          bars: [{ id: 1, position: 1 }, { id: 2, position: 200 }],
+          startPosition: 148, endPosition, includeBars,
+        });
+        expect(result.snapshots).toHaveLength(147);
+        expect(result.snapshots.at(-1).id).toBe(147);
+        expect(result.range).toMatchObject({ startPosition: 148, endPosition: 277, length: 130 });
+      }
+    }
+  });
+
   it("expands a copied snapshot range to full bar boundaries when requested", () => {
     const range = resolveSnapshotCopyRange({
       snapshots: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }],
@@ -640,17 +656,17 @@ describe("snapshot workspace runtime", () => {
     });
 
     expect(result.error).toBeNull();
-    expect(result.snapshots.map((snapshot) => snapshot.id)).toEqual([5]);
-    expect(result.bars.map((bar) => bar.position)).toEqual([1]);
-    expect(result.tempi.map((tempo) => tempo.position)).toEqual([1]);
-    expect(result.repeats.map((repeat) => repeat.position)).toEqual([1, 1]);
+    expect(result.snapshots.map((snapshot) => snapshot.id)).toEqual([1, 5]);
+    expect(result.bars.map((bar) => bar.position)).toEqual([1, 2]);
+    expect(result.tempi.map((tempo) => tempo.position)).toEqual([2]);
+    expect(result.repeats.map((repeat) => repeat.position)).toEqual([2, 2]);
     expect(result.selectedSnapshotId).toBe(5);
     expect(result.selectedSnapshotMarker).toBeNull();
     expect(result.focus).toEqual({
       kind: "snapshot",
-      snapshotIndex: 0,
+      snapshotIndex: 1,
       snapshotId: 5,
-      snapshotCount: 1,
+      snapshotCount: 2,
     });
   });
 

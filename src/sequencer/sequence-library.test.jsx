@@ -492,7 +492,7 @@ describe("SequenceLibrary", () => {
           bars: [{ id: 1, position: 1, numerator: 5, denominator: 4 }],
         }),
       ],
-      "FALL.json",
+      "fall.json",
       { type: "application/json" },
     );
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import fallSequence from "./preset-sequences/marc-sabat/FALL.json";
+import fallSequence from "./preset-sequences/marc-sabat/fall.json";
 import {
   buildSequencePitchFrameRegistry,
   formatEditableSequenceScalaInterval,
@@ -11,6 +11,7 @@ import {
   resolveSequenceScalaInterval,
   resolveSequenceHejiName,
   sequenceIntervalCentsFromMidicents,
+  sequenceHejiNameAtMidicents,
   splitOctaveHejiName,
 } from "./pitch-frame.js";
 
@@ -24,6 +25,14 @@ const frame = {
 };
 
 describe("sequence pitch frames", () => {
+  it("adds the sounded octave to snapped pitch-class labels", () => {
+    expect(sequenceHejiNameAtMidicents("A", 69)).toBe("A4");
+    expect(sequenceHejiNameAtMidicents("*nA", 57)).toBe("*nA3");
+    expect(sequenceHejiNameAtMidicents("*nA", 81)).toBe("*nA5");
+    expect(sequenceHejiNameAtMidicents("B#", 60)).toBe("B#3");
+    expect(sequenceHejiNameAtMidicents("Cb", 59)).toBe("Cb4");
+    expect(sequenceHejiNameAtMidicents("A+12", 69.12)).toBe("A4+12");
+  });
   it("anchors FALL to A at zero deviation, with E a Pythagorean fourth below", () => {
     const fallFrame = fallSequence.pitchFrames[0];
     expect(fallFrame).toMatchObject({

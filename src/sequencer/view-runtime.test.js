@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import flightSequence from "./preset-sequences/marc-sabat/Flight.json";
+import flightSequence from "./preset-sequences/marc-sabat/flight.json";
 import { deriveSequenceEvents } from "./trigger-groups.js";
 import {
   buildCueExpandedSnapshotIdsAt,

@@ -64,14 +64,14 @@ describe("runtime-pitch-map", () => {
     expect(remapped[0].notes[0].midicents).toBeCloseTo(69, 6);
     expect(remapped[0].notes[0].frequency).toBeCloseTo(440, 6);
     expect(remapped[0].notes[0].displayLabel).toBe("A");
-    expect(remapped[0].notes[0].hejiName).toBe("A");
+    expect(remapped[0].notes[0].hejiName).toBe("A4");
     expect(snapshots[0].notes[0].hejiName).toBe("*nE4");
     const hejiMapped = remapSequenceSnapshotsToRuntime(snapshots, runtime, {
       hejiNames: ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "*nA", "Bb", "B"],
     });
-    expect(hejiMapped[0].notes[0].hejiName).toBe("*nA");
+    expect(hejiMapped[0].notes[0].hejiName).toBe("*nA4");
     const model = buildSequenceRuntimeModel({ snapshots: hejiMapped });
-    expect(model.sequenceEvents.find(event => event.kind === "attack").hejiName).toBe("*nA");
+    expect(model.sequenceEvents.find(event => event.kind === "attack").hejiName).toBe("*nA4");
   });
 
   it("preserves snapshot structure while remapping note pitch data", () => {

@@ -5,15 +5,15 @@
       "name": "Music Examples by Marc Sabat",
       "sequences": [
         {
-          "slug": "FALL",
+          "slug": "fall",
           "name": "FALL from “The Tree”"
         },
         {
-          "slug": "Flight",
+          "slug": "flight",
           "name": "Fleeting flight sleeping woke"
         },
         {
-          "slug": "Seeds-of-Skies-Alibis",
+          "slug": "seeds-of-skies-alibis",
           "name": "Seeds of skies, alibis"
         }
       ]
