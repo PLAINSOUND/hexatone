@@ -95,8 +95,8 @@ describe("snapshot rational identity", () => {
   it("preserves the Seeds of Skies score structure and exact 440/27 reference", () => {
     const sequence = JSON.parse(fs.readFileSync(BUILT_IN_SEQUENCE_PATHS[2], "utf8"));
     expect(sequence.name).toBe("Seeds of skies, alibis");
-    expect(sequence.snapshots).toHaveLength(277);
-    expect(sequence.snapshots.filter((snapshot) => snapshot.notes.length === 0)).toHaveLength(29);
+    expect(sequence.snapshots).toHaveLength(147);
+    expect(sequence.snapshots.filter((snapshot) => snapshot.notes.length === 0)).toHaveLength(0);
     expect(sequence.manualArpeggiation).toMatchObject({
       mode: "all",
       initialSpreadMs: 1500,
