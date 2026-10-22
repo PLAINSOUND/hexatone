@@ -47,7 +47,7 @@ it("cancels a pending selection when reselected, on disconnect, or when supersed
   gate.message({ data: [0x90, 60, 100] });
   gate.defer("midi_passthrough", true, false, commit);
   gate.message({ data: [0x80, 60, 0] });
-  expect(gate.defer("midi_passthrough", false, false, commit)).toBe(false);
+  expect(gate.defer("midi_passthrough", false, false, commit)).toBe(true);
   vi.runAllTimers();
   expect(commit).not.toHaveBeenCalled();
   gate.message({ data: [0x90, 60, 100] });
@@ -55,4 +55,17 @@ it("cancels a pending selection when reselected, on disconnect, or when supersed
   gate.reset();
   vi.runAllTimers();
   expect(commit).not.toHaveBeenCalled();
+});
+
+it("preserves the full quiet interval for requests arriving after the final release", () => {
+  vi.useFakeTimers();
+  const gate = createExquisModeGate(), commit = vi.fn();
+  gate.message({ data: [0x90, 60, 100] });
+  gate.message({ data: [0x80, 60, 0] });
+  vi.advanceTimersByTime(60);
+  expect(gate.defer("midi_passthrough", true, false, commit)).toBe(true);
+  vi.advanceTimersByTime(59);
+  expect(commit).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(1);
+  expect(commit).toHaveBeenCalledOnce();
 });

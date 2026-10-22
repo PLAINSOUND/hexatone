@@ -66,6 +66,8 @@ export class LumatoneLEDs {
     this._in = inputPort;
     this._queue = []; // Array of { cmd, board:1-5, key:0-55, ... }
     this._latestColorQueue = []; // Latest complete colour state, replayed after wake.
+    this._pendingLayout = null; // Retain assignments until the full transfer is acknowledged.
+    this._layoutHadFailures = false;
     this._pending = false; // True while awaiting an ACK for queue[0]
     this._suspended = false;
     this._timer = null; // ACK-timeout handle (clearTimeout on ACK)
@@ -133,6 +135,11 @@ export class LumatoneLEDs {
    *   (e.g. [{ cmd: 0x0E, board: 0, value: 1 }] to enable aftertouch first).
    */
   sendLayout(entries, preamble = []) {
+    this._pendingLayout = {
+      entries: entries.map(entry => ({ ...entry })),
+      preamble: preamble.map(entry => ({ ...entry })),
+    };
+    this._layoutHadFailures = false;
     this._latestColorQueue = entries.map(({ board, key, hexColor }) => ({
       cmd: 0x01,
       board,
@@ -141,16 +148,23 @@ export class LumatoneLEDs {
       ...this._parseHex(hexColor),
     }));
     if (this._suspended) return;
-    const nextQueue = [
-      ...preamble,
-      ...entries.flatMap(({ board, key, note, channel, hexColor, keyType = 0x01 }) => [
-        { cmd: 0x00, board, key, note, channel, keyType, retries: 0 },
-        { cmd: 0x01, board, key, retries: 0, ...this._parseHex(hexColor) },
-      ]),
-    ];
+    const nextQueue = this._buildPendingLayoutQueue();
     this._queue = this._pending ? [this._queue[0], ...nextQueue] : nextQueue;
     this._refreshInitialSendDelay();
     if (!this._pending) this._advance();
+  }
+
+  get layoutInitializationPending() { return this._pendingLayout != null; }
+
+  _buildPendingLayoutQueue() {
+    const colors = new Map(this._latestColorQueue.map(entry => [`${entry.board}.${entry.key}`, entry]));
+    return [
+      ...this._pendingLayout.preamble.map(entry => ({ ...entry, retries: 0 })),
+      ...this._pendingLayout.entries.flatMap(({ board, key, note, channel, hexColor, keyType = 0x01 }) => [
+        { cmd: 0x00, board, key, note, channel, keyType, retries: 0 },
+        { cmd: 0x01, board, key, ...this._parseHex(hexColor), ...colors.get(`${board}.${key}`), retries: 0 },
+      ]),
+    ];
   }
 
   /**
@@ -204,6 +218,8 @@ export class LumatoneLEDs {
 
   /** Drain the queue without sending anything further. */
   cancel() {
+    this._pendingLayout = null;
+    this._layoutHadFailures = false;
     this._latestColorQueue = [];
     this._clearActiveQueue();
     this._cancelProbe("cancelled");
@@ -248,7 +264,7 @@ export class LumatoneLEDs {
     this._clearActiveQueue();
   }
 
-  /** Resume by sending one fresh copy of the latest complete colour state. */
+  /** Resume unfinished layout setup first; otherwise replay current colours. */
   resume() {
     if (!this._suspended) return;
     this._suspended = false;
@@ -300,6 +316,7 @@ export class LumatoneLEDs {
     if (this._out === null || this._suspended) return;
     if (this._queue.length === 0) {
       this._pending = false;
+      if (!this._layoutHadFailures) this._pendingLayout = null;
       return;
     }
     const waitMs = this._readyAt - Date.now();
@@ -385,6 +402,7 @@ export class LumatoneLEDs {
         return;
       }
       let skipped = entry;
+      if (this._pendingLayout) this._layoutHadFailures = true;
       if (this._queue[0] === entry) {
         this._queue.shift();
       } else {
@@ -600,7 +618,9 @@ export class LumatoneLEDs {
     this._hasReceivedAck = false;
     this._sentSinceConnect = false;
     this._readyAt = Date.now() + WAKE_SEND_DELAY_MS;
-    this._queue = this._cloneQueue(this._latestColorQueue);
+    this._layoutHadFailures = false;
+    this._queue = this._pendingLayout
+      ? this._buildPendingLayoutQueue() : this._cloneQueue(this._latestColorQueue);
     this._advance();
   }
 

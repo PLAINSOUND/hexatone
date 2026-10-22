@@ -104,7 +104,8 @@ it("keeps Exquis tracking attached across mode settings and applies a pending ch
     act(() => handlers.onChange("midi_passthrough", true));
     expect(setSettings).not.toHaveBeenCalled();
     expect(handlers.exquisModePending).toBe(true);
-    view.rerender(<HookHarness {...{ settings: { ...settings, midiin_mpe_input: false }, setSettings, midi, capture }} />);
+    view.rerender(<HookHarness {...{ settings: { ...settings, midiin_mpe_input: false }, setSettings,
+      midi: { ...midi }, capture }} />);
     expect(input.addEventListener).toHaveBeenCalledOnce();
     act(() => receive({ data: [0x80, 60, 0] }));
     expect(setSettings).not.toHaveBeenCalled();
@@ -117,6 +118,28 @@ it("keeps Exquis tracking attached across mode settings and applies a pending ch
 });
 
 describe("useSettingsChange", () => {
+  it("defers an entire atomic Exquis mode edit until every key is released", () => {
+    vi.useFakeTimers();
+    let receive, handlers;
+    const input = { id: "exquis", name: "Exquis", removeEventListener: vi.fn(),
+      addEventListener: vi.fn((_, handler) => { receive = handler; }) };
+    const midi = { inputs: new Map([["exquis", input]]) };
+    const settings = { midiin_device: "exquis", midiin_controller_override: "exquis",
+      midi_passthrough: false, midiin_mapping_target: "hex_layout" };
+    const setSettings = vi.fn();
+    const view = render(<HookHarness {...{ settings, setSettings, midi }} capture={value => { handlers = value; }} />);
+    try {
+      act(() => receive({ data: [0x90, 60, 100] }));
+      const update = { midi_passthrough: true, midiin_mapping_target: "scale", name: "Atomic" };
+      act(() => handlers.onAtomicChange(update));
+      expect(setSettings).not.toHaveBeenCalled();
+      expect(handlers.exquisPendingSettings).toMatchObject(update);
+      act(() => receive({ data: [0x80, 60, 0] }));
+      act(() => vi.advanceTimersByTime(120));
+      expect(setSettings).toHaveBeenCalledOnce();
+      expect(setSettings.mock.calls[0][0]()).toMatchObject(update);
+    } finally { view.unmount(); vi.useRealTimers(); }
+  });
   it("changes instrument without panicking the canvas or clearing sustain", () => {
     const settings = { instrument: "old" };
     const setSettings = vi.fn();

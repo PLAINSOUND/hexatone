@@ -12,6 +12,7 @@ import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
+import { createExquisAppModeLifecycle } from "./controllers/exquis-app-mode-lifecycle.js";
 import { sendLumatoneBlankLayout } from "./keyboard/keys-controller-leds.js";
 import { primeSharedSampleAudio } from "./sample_synth/prime-shared-audio.js";
 import { bringPaletteToFront } from "./ui/palette-stacking.js";
@@ -503,25 +504,26 @@ export function sendLumatoneColorsNow(keys, leds) {
   return keys.syncLumatoneLEDs() !== false;
 }
 
-const lumatoneAutomaticLayouts = new WeakSet();
+// Deduplicate requests; the driver retains unfinished setup until ACK completion.
+const lumatoneAutomaticLayoutRequests = new WeakSet();
 
 export function resetLumatoneAutomaticLayout(leds) {
-  if (leds) lumatoneAutomaticLayouts.delete(leds);
+  if (leds) lumatoneAutomaticLayoutRequests.delete(leds);
 }
 
 export function autoSyncLumatoneSurface({ keys, leds, scale, eligible = true }) {
   if (!leds || !eligible) return false;
   if (!Array.isArray(scale) || scale.length === 0) {
     const sent = sendLumatoneBlankLayout(leds);
-    if (sent) lumatoneAutomaticLayouts.add(leds);
+    if (sent) lumatoneAutomaticLayoutRequests.add(leds);
     return sent;
   }
   if (!keys) return false;
   bindControllerLedRefs(keys, { lumatone: leds }, { eagerSync: false });
   if (keys._canAutoSendLumatoneColors?.() === false) return false;
-  if (!lumatoneAutomaticLayouts.has(leds)) {
+  if (!lumatoneAutomaticLayoutRequests.has(leds)) {
     if (!keys.sendLumatoneLayoutAndColours?.()) return false;
-    lumatoneAutomaticLayouts.add(leds);
+    lumatoneAutomaticLayoutRequests.add(leds);
     return true;
   }
   keys.autoSyncLumatoneLEDs?.();
@@ -4273,7 +4275,7 @@ const App = () => {
     setReady(true);
   }, []);
 
-  const { onChange, onAtomicChange, exquisModePending, exquisPendingSettings, exquisHeldPads } = useSettingsChange(settings, setSettings, {
+  const { onChange, onAtomicChange, exquisModePending, exquisPendingSettings, exquisTransitionGate } = useSettingsChange(settings, setSettings, {
     midi,
     setMidiLearnActive,
     setHakenPedalLearnActive,
@@ -4723,28 +4725,27 @@ const App = () => {
   exquisMpeInputRef.current = effectiveMpeInput;
   const exquisArpeggiatorRef = useRef(settings.exquis_arpeggiator_pattern ?? 1);
   exquisArpeggiatorRef.current = settings.exquis_arpeggiator_pattern ?? 1;
+  const exquisLifecycleRef = useRef(null);
+  if (!exquisLifecycleRef.current) {
+    exquisLifecycleRef.current = createExquisAppModeLifecycle({
+      gate: exquisTransitionGate,
+      loadDriver: loadExquisLEDs,
+      onDriverChange: leds => {
+        exquisLedsRef.current = leds;
+        bindControllerLedRefs(keysRef.current, { exquis: leds });
+      },
+      onError: error => setExquisLedStatus({ ok: false, reason: String(error.message ?? error) }),
+    });
+  }
+  useEffect(() => () => exquisLifecycleRef.current.dispose(), []);
   // Lives here (not in Keyboard) so App Mode is active even before a scale is
   // loaded (Keyboard only mounts when isValid — i.e. a scale is present).
   useEffect(() => {
     const wantAppMode =
       !!exquisRawPorts && inputRuntime?.target !== "scale" && !settings.midi_passthrough;
 
-    if (!wantAppMode) {
-      if (exquisLedsRef.current) {
-        exquisLedsRef.current.exit();
-        exquisLedsRef.current = null;
-        if (keysRef.current) keysRef.current.exquisLEDs = null;
-      }
-      return;
-    }
-
-    if (exquisLedsRef.current) return;
-
-    let disposed = false;
-
-    loadExquisLEDs().then(({ ExquisLEDs }) => {
-      if (disposed || exquisLedsRef.current) return;
-      const leds = new ExquisLEDs(
+    exquisLifecycleRef.current.request(wantAppMode ? ({ ExquisLEDs }, heldPads) =>
+      new ExquisLEDs(
         exquisRawPorts.output,
         exquisRawPorts.input,
         (ok, reason) => {
@@ -4759,23 +4760,8 @@ const App = () => {
         exquisMpeInputRef.current,
         settings.exquis_orientation ?? 90,
         exquisArpeggiatorRef.current,
-        exquisHeldPads(),
-      );
-      if (disposed) {
-        leds.exit();
-        return;
-      }
-      exquisLedsRef.current = leds;
-      bindControllerLedRefs(keysRef.current, { exquis: leds });
-    });
-
-    return () => {
-      disposed = true;
-      const leds = exquisLedsRef.current;
-      if (leds) leds.exit();
-      exquisLedsRef.current = null;
-      bindControllerLedRefs(keysRef.current, { exquis: null });
-    };
+        heldPads,
+      ) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- LED appearance settings update the existing driver; only port/routing changes own its lifecycle.
   }, [exquisRawPorts?.input, exquisRawPorts?.output, inputRuntime?.target, settings.midi_passthrough]);
 

@@ -4,7 +4,7 @@
 // modulation history; callers provide the current Keys runtime state.
 
 import { WebMidi } from "webmidi";
-import { applyInputBend, tickBypassWheel, writeInputBend } from "./bend-bypass.js";
+import { applyInputBend, tickBendBypassGlides, tickBypassWheel } from "./bend-bypass.js";
 import { shapeExquisExpressionY } from "./exquis-expression-y.js";
 import { usesPerChannelPitchBend } from "./expression-routing.js";
 import { allowsForwardedCC } from "../controllers/forwarded-cc-policy.js";
@@ -397,7 +397,7 @@ export function applyMpePitchBend(entry, channel, value14, value21 = null) {
     isContinuumMpe &&
     (hakenXGlideMode === "raster_to_notes" || !!entry.hex._continuumRasterPendingExitHandoff);
   if (continuumRasterMode) {
-    if (this.inputRuntime.bypassBend || this._retuneGlides.get(entry.hex)?.inputBendBypass) {
+    if (this.inputRuntime.bypassBend || this._bendBypassGlides?.has(entry.hex)) {
       applyInputBend(this, entry.hex,
         computeContinuumPitchBendCents(this, entry, channel, bend14, bend21),
         { value14: bend14, value21: bend21, mpe: true });
@@ -549,7 +549,7 @@ export function handleWheelBend(val14) {
   this._wheelBaseCents = baseCents;
   this._wheelBend = bentCents - baseCents;
   const glide = this._retuneGlides.get(target);
-  if (this.inputRuntime.bypassBend || glide?.inputBendBypass) {
+  if (this.inputRuntime.bypassBend || this._bendBypassGlides?.has(target)) {
     applyInputBend(this, target, bentCents, { value14: val14 });
     return;
   }
@@ -596,6 +596,7 @@ export function applyWheelInputNow(val14) {
 export function resetWheelInputState(resetToCurrent = false) {
   if (resetToCurrent) {
     this._bendBypassWheelGlide = null;
+    this._bendBypassGlides?.clear();
     this._audibleWheelValue14 = this.inputRuntime.bypassBend ? 8192 : this._wheelValue14;
     this._wheelInputState.current = this._wheelValue14;
     this._wheelInputState.target = this._wheelValue14;
@@ -664,7 +665,7 @@ export function retuneHexFromBase(hex, baseCents, bendOnly = false) {
     this._applyMpePitchBend(entry, channel, this._mpeInputBendByChannel.get(channel) ?? 8192);
     return;
   }
-  hex.retune(baseCents, bendOnly);
+  if (!this._bendBypassGlides?.has(hex)) hex.retune(baseCents, bendOnly);
 }
 
 export function queueRetuneGlide(hex, targetBase, bendOnly = false) {
@@ -674,7 +675,7 @@ export function queueRetuneGlide(hex, targetBase, bendOnly = false) {
 }
 
 export function kickRetuneGlides() {
-  if (this._retuneGlides.size === 0 && !this._bendBypassWheelGlide) return;
+  if (this._retuneGlides.size === 0 && !this._bendBypassWheelGlide && !this._bendBypassGlides?.size) return;
   if (this._retuneGlideTimer == null) {
     this._retuneGlideLastTime = performance.now() - RETUNE_GLIDE_TICK_MS;
     this._retuneGlideTimer = setTimeout(this._tickRetuneGlides, 0);
@@ -683,7 +684,7 @@ export function kickRetuneGlides() {
 
 export function tickRetuneGlides() {
   this._retuneGlideTimer = null;
-  if (this._retuneGlides.size === 0 && !this._bendBypassWheelGlide) {
+  if (this._retuneGlides.size === 0 && !this._bendBypassWheelGlide && !this._bendBypassGlides?.size) {
     this._retuneGlideLastTime = 0;
     return;
   }
@@ -699,18 +700,6 @@ export function tickRetuneGlides() {
   for (const [hex, glide] of this._retuneGlides) {
     if (!hex?.retune || hex.release) {
       this._retuneGlides.delete(hex);
-      continue;
-    }
-    if (glide.inputBendBypass) {
-      const fraction = Math.min(1, Math.max(0, (now - glide.startAt) / glide.duration));
-      const cents = glide.from + (glide.to - glide.from) * fraction;
-      const base = hex._baseCents ?? cents;
-      const full = hex._inputBendTarget;
-      const ratio = full && full.cents !== base ? (cents - base) / (full.cents - base) : 0;
-      const value14 = Math.round(8192 + ((full?.value14 ?? 8192) - 8192) * ratio);
-      writeInputBend(hex, cents, { ...glide.expression, value14, value21: null });
-      if (fraction === 1) this._retuneGlides.delete(hex);
-      else hasPending = true;
       continue;
     }
     if (glide.wheelHandoff) {
@@ -751,6 +740,8 @@ export function tickRetuneGlides() {
   if (hasBaseGlide && !this.inputRuntime.mpeInput && this._wheelValue14 !== 8192) {
     this._reapplyCurrentWheelBend();
   }
+  // Compose expression offsets only after this tick's base tuning is current.
+  hasPending = tickBendBypassGlides(this, now) || hasPending;
 
   if (hasPending || this._retuneGlides.size > 0) {
     this._retuneGlideTimer = setTimeout(this._tickRetuneGlides, RETUNE_GLIDE_TICK_MS);

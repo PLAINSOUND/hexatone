@@ -30,6 +30,63 @@ function makeWebMidiPorts() {
 }
 
 describe("LumatoneLEDs", () => {
+  const layout = () => [0, 1].map(key => ({ board: 1, key, note: key, channel: 0, hexColor: "#111111" }));
+  const acknowledgeAll = leds => {
+    vi.advanceTimersByTime(1600);
+    while (leds._queue.length) {
+      const { board, cmd } = leds._queue[0];
+      leds._onMessage({ data: [0xf0, 0, 0x21, 0x50, board, cmd, 1, 0xf7] });
+    }
+  };
+
+  it("retains full layout requests made during suspension and uses the newest colours on resume", () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+    leds.suspend();
+    leds.sendLayout(layout(), [{ cmd: 0x0e, board: 0, value: 1 }]);
+    leds.sendAll(layout().map(entry => ({ ...entry, hexColor: "#abcdef" })));
+    expect(leds.layoutInitializationPending).toBe(true);
+    leds.resume();
+    expect(leds._queue.map(entry => entry.cmd)).toEqual([14, 0, 1, 0, 1]);
+    expect(leds._queue.filter(entry => entry.cmd === 1).every(entry => entry.r === 0xab)).toBe(true);
+    acknowledgeAll(leds);
+    expect(leds.layoutInitializationPending).toBe(false);
+    leds.suspend();
+    leds.resume();
+    expect(leds._queue.every(entry => entry.cmd === 1)).toBe(true);
+    leds.destroy();
+  });
+
+  it("replays assignments after interrupting an acknowledged-but-incomplete layout", () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+    leds.sendLayout(layout());
+    vi.advanceTimersByTime(600);
+    leds._onMessage({ data: [0xf0, 0, 0x21, 0x50, 1, 0, 1, 0xf7] });
+    leds.suspend();
+    leds.resume();
+    expect(leds._queue.filter(entry => entry.cmd === 0)).toHaveLength(2);
+    acknowledgeAll(leds);
+    expect(leds.layoutInitializationPending).toBe(false);
+    leds.destroy();
+  });
+
+  it("does not declare timed-out layout setup complete and cancels retained requests explicitly", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+    try {
+      leds.sendLayout(layout());
+      vi.runAllTimers();
+      expect(leds.layoutInitializationPending).toBe(true);
+      leds.suspend();
+      leds.resume();
+      expect(leds._queue.some(entry => entry.cmd === 0)).toBe(true);
+      leds.cancel();
+      expect(leds.layoutInitializationPending).toBe(false);
+      expect(leds._queue).toHaveLength(0);
+    } finally { leds.destroy(); warn.mockRestore(); }
+  });
   it("preserves pending layout assignments through full and partial colour updates", () => {
     const { output, input } = makePorts();
     const leds = new LumatoneLEDs(output, input);

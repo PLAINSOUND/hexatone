@@ -188,6 +188,7 @@ vi.mock("./hooks/use-settings-change.js", () => ({
   default: () => ({
     onChange: vi.fn(),
     onAtomicChange: vi.fn(),
+    exquisTransitionGate: { whenReleased: callback => callback(), heldPads: () => [], cancelTransition: vi.fn() },
   }),
 }));
 vi.mock("./hooks/use-synth-wiring.js", () => ({

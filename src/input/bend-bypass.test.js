@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { applyInputBend, transitionBendBypass } from "./bend-bypass.js";
-import { kickRetuneGlides, tickRetuneGlides, applyMpePitchBend } from "./keys-expression-runtime.js";
+import { kickRetuneGlides, tickRetuneGlides, applyMpePitchBend, queueRetuneGlide, retuneHexFromBase,
+  resetWheelInputState } from "./keys-expression-runtime.js";
 
 afterEach(() => vi.useRealTimers());
 function fixture(hexes = []) {
@@ -19,6 +20,67 @@ function note() {
   hex.retune = vi.fn(cents => { hex.cents = cents; });
   return hex;
 }
+
+it("preserves and composes a tuning glide while bend bypass fades independently", () => {
+  vi.useFakeTimers();
+  const hex = note(), keys = fixture([hex]), entry = { hex, baseCents: 6000 };
+  hex._inputChannel = 2;
+  keys.state = { activeMidiByChannel: new Map([[2, entry]]) };
+  keys._applyMpePitchBend = applyMpePitchBend.bind(keys);
+  keys._retuneHexFromBase = retuneHexFromBase.bind(keys);
+  keys._refreshSoundingHexNeighbors = vi.fn();
+  applyMpePitchBend.call(keys, entry, 2, 12288);
+  queueRetuneGlide.call(keys, hex, 6500);
+  const tuningGlide = keys._retuneGlides.get(hex);
+  keys.inputRuntime.bypassBend = true;
+  transitionBendBypass(keys);
+  expect(keys._retuneGlides.get(hex)).toBe(tuningGlide);
+  expect(tuningGlide.targetBase).toBe(6500);
+  vi.advanceTimersByTime(70);
+  expect(hex.cents).toBe(hex._baseCents);
+  vi.advanceTimersByTime(800);
+  expect(hex._baseCents).toBe(6500);
+  expect(hex.cents).toBe(6500);
+  keys.inputRuntime.bypassBend = false;
+  transitionBendBypass(keys);
+  vi.advanceTimersByTime(70);
+  expect(hex.cents).toBe(7100);
+  expect(keys._retuneGlides.size).toBe(0);
+  expect(keys._bendBypassGlides.size).toBe(0);
+});
+
+it("panic/reset clears independent bypass glides and released voices leave no pending work", () => {
+  vi.useFakeTimers();
+  const hex = note(), keys = fixture([hex]);
+  transitionBendBypass(keys);
+  hex.release = true;
+  vi.advanceTimersByTime(10);
+  expect(keys._bendBypassGlides.size).toBe(0);
+  hex.release = false;
+  transitionBendBypass(keys);
+  keys._wheelInputState = {};
+  resetWheelInputState.call(keys, true);
+  expect(keys._bendBypassGlides.size).toBe(0);
+});
+
+it("also preserves a tuning destination queued after the bypass-return glide starts", () => {
+  vi.useFakeTimers();
+  const hex = note(), keys = fixture([hex]), entry = { hex, baseCents: 6000 };
+  hex._inputChannel = 2;
+  keys.state = { activeMidiByChannel: new Map([[2, entry]]) };
+  keys._applyMpePitchBend = applyMpePitchBend.bind(keys);
+  keys._retuneHexFromBase = retuneHexFromBase.bind(keys);
+  keys._refreshSoundingHexNeighbors = vi.fn();
+  keys.inputRuntime.bypassBend = true;
+  applyMpePitchBend.call(keys, entry, 2, 12288);
+  keys.inputRuntime.bypassBend = false;
+  transitionBendBypass(keys);
+  queueRetuneGlide.call(keys, hex, 6500);
+  expect(keys._bendBypassGlides.has(hex)).toBe(true);
+  vi.advanceTimersByTime(900);
+  expect(hex._baseCents).toBe(6500);
+  expect(hex.cents).toBe(7100);
+});
 
 it("glides to neutral and back to the latest tracked MPE bend without retriggering", () => {
   vi.useFakeTimers();

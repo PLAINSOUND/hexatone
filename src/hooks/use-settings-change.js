@@ -151,7 +151,7 @@ const useSettingsChange = (
   useEffect(() => {
     const gate = exquisGate.current;
     gate.reset();
-    const ctrl = getConnectedController(settings.midiin_device, midi, settings.midiin_controller_override);
+    const ctrl = getConnectedController(settings.midiin_device, midiRef.current, settings.midiin_controller_override);
     if (ctrl?.id !== "exquis" || !selectedInput) return;
     const input = selectedInput._midiInput ?? selectedInput;
     const receive = event => gate.message(event);
@@ -164,7 +164,7 @@ const useSettingsChange = (
       else input.removeListener?.("midimessage", receive);
       gate.reset();
     };
-  }, [selectedInput, midi, settings.midiin_device, settings.midiin_controller_override]);
+  }, [selectedInput, settings.midiin_device, settings.midiin_controller_override]);
 
   const onChange = useCallback((key, value) => {
     const s = settingsRef.current;
@@ -374,6 +374,7 @@ const useSettingsChange = (
 
   const onAtomicChange = useCallback((updates) => {
     const s = settingsRef.current;
+    if (exquisGate.current.deferBatch(updates, s, () => onAtomicChange(updates))) return;
     let controllerAnchorUpdate = {};
     if ("midiin_anchor_note" in updates || "midiin_anchor_channel" in updates) {
       const m = midiRef.current;
@@ -417,7 +418,7 @@ const useSettingsChange = (
   }, []);
 
   return { onChange, onAtomicChange, exquisModePending, exquisPendingSettings,
-    exquisHeldPads: exquisGate.current.heldPads };
+    exquisTransitionGate: exquisGate.current };
 };
 
 export default useSettingsChange;
