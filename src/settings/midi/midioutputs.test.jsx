@@ -96,17 +96,30 @@ describe("MidiOutputs FluidSynth independence", () => {
     expect(screen.getByRole("button", { name: "Show MIDI Output settings" })).toBeTruthy();
   });
 
-  it("does not reveal initially enabled output configuration until the fieldset is expanded", () => {
+  it("keeps enabled output routing visible while hiding descriptions and advanced controls", () => {
     sessionStorage.removeItem("hexatone_midi_output_collapsed");
-    const props = makeProps({ output_mono: true, output_mts: true, output_mts_bulk: true, output_mpe: true });
-    render(<MidiOutputs {...props} />);
-    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
-    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+    const props = makeProps({ output_mono: true, mono_device: "main-1", output_mts: true,
+      output_mts_bulk: true, output_mpe: true, mpe_device: "main-1", mpe_mode: "standard" });
+    const view = render(<MidiOutputs {...props} />);
+    expect(screen.getByRole("combobox", { name: "Monophonic MIDI Port" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Monophonic MIDI Channel" })).toBeTruthy();
+    expect(screen.getByLabelText("Monophonic MIDI PB Range")).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Portamento", exact: true })).toBeTruthy();
+    expect(screen.queryByLabelText("Monophonic MIDI Portamento Time")).toBeNull();
+    expect(screen.queryByLabelText("Map MPE ExpressionY (CC74) to")).toBeNull();
+    expect(screen.queryByLabelText("MPE+ 21-bit PB (LSB on CC87)")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send Pitch Bend Range" })).toBeNull();
+    expect(view.container.querySelector('select[name="midi_device"]')).toBeTruthy();
+    expect(view.container.querySelector('select[name="mts_bulk_device"]')).toBeTruthy();
+    expect(view.container.querySelector('select[name="mpe_lo_ch"]')).toBeTruthy();
+    for (const description of view.container.querySelectorAll(".settings-form__intro-copy")) {
+      expect(description.hidden).toBe(true);
+    }
     fireEvent.click(screen.getByRole("button", { name: "Show MIDI Output settings" }));
     expect(screen.getAllByRole("combobox").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: "Hide MIDI Output settings" }));
-    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
-    expect(screen.queryAllByRole("combobox")).toHaveLength(0);
+    expect(screen.getByRole("combobox", { name: "Monophonic MIDI Channel" })).toBeTruthy();
+    expect(screen.queryByLabelText("MPE+ 21-bit PB (LSB on CC87)")).toBeNull();
   });
 
   it("labels the section as MIDI Output", () => {

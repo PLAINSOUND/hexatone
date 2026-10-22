@@ -21,8 +21,8 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
           onChange={(e) => onSettingChange(e.target.name, e.target.checked)}
         />
       </label>
-      {!collapsed && <>
-      <p class="settings-form__intro-copy">
+      <>
+      <p class="settings-form__intro-copy" hidden={collapsed}>
         <em>
           Uses standard MIDI messages on a single channel to retune monophonically. For polyphonic
           microtonal playing use the MTS or MPE options below.
@@ -79,7 +79,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
               }
             />
           </label>
-          <label>
+          {!collapsed && <label>
             PB Configuration (RPN)
             <span class="sidebar-input settings-form__activate-row">
               <button
@@ -100,7 +100,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
                 Send Pitch Bend Range
               </button>
             </span>
-          </label>
+          </label>}
           <label>
             Portamento
             <input
@@ -109,6 +109,7 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
               onChange={(e) => onSettingChange("mono_portamento", e.target.checked)}
             />
           </label>
+          {!collapsed && <>
           <label>
             Map MPE ExpressionY (CC74) to
             <select
@@ -151,10 +152,11 @@ export default function MonoOutputSettings({ settings, midi, outputs, onSettingC
             </em>
           </p>
           </>}
+          </>}
         </>
       )}
       <br />
-      </>}
+      </>
     </>
   );
 }

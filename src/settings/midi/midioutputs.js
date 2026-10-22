@@ -233,8 +233,8 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      {!collapsed && <>
-      <p class="settings-form__intro-copy">
+      <>
+      <p class="settings-form__intro-copy" hidden={collapsed}>
         <em>
           The <a href="/midituning.html">MIDI Tuning Standard</a> uses sysex messages to modify the
           tuning of each MIDI note. The free{" "}
@@ -474,7 +474,7 @@ const MidiOutputs = (props) => {
       <br />
 
       {/* ── MTS BULK DUMP ──────────────────────────────────────────────── */}
-      </>}
+      </>
 
       <label class="midi-output-toggle-row">
         <b>MTS Bulk Dump Tuning Maps</b>
@@ -487,8 +487,8 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      {!collapsed && <>
-      <p class="settings-form__intro-copy">
+      <>
+      <p class="settings-form__intro-copy" hidden={collapsed}>
         <em>
           Old-school non-real-time 128 note mapping. Dynamic mode emulates real-time MTS by sending a new map before each note on. Static mode sends a map and plays on one channel.
         </em>
@@ -646,7 +646,7 @@ const MidiOutputs = (props) => {
       <br />
 
       {/* ── MPE ────────────────────────────────────────────────────────── */}
-      </>}
+      </>
 
       <label class="midi-output-toggle-row">
         <b>MPE</b>
@@ -659,8 +659,8 @@ const MidiOutputs = (props) => {
         />
       </label>
 
-      {!collapsed && <>
-      <p class="settings-form__intro-copy">
+      <>
+      <p class="settings-form__intro-copy" hidden={collapsed}>
         <em>
           <a href="https://midi.org/mpe-midi-polyphonic-expression">MIDI Polyphonic Expression</a>{" "}
           allows per-note bend and modulation with limited polyphony.
@@ -780,6 +780,7 @@ const MidiOutputs = (props) => {
                   </label>
                 </>
               )}
+              {!collapsed && <>
               <label title="When enabled, Hexatone adds MPE+ CC87 low-bit messages to outgoing pitch bend, producing 21-bit PB for compatible synths. CC74 and channel pressure retain their high-resolution CC87 data when available.">
                 MPE+ 21-bit PB (LSB on CC87)
                 <input
@@ -814,6 +815,7 @@ const MidiOutputs = (props) => {
                   </button>
                 </span>
               </label>
+              </>}
               <fieldset class="eagan-matrix-fieldset">
                 <legend>Eagan Matrix</legend>
                 <label
@@ -877,7 +879,7 @@ const MidiOutputs = (props) => {
           )}
         </>
       )}
-      </>}
+      </>
       </div>
     </fieldset>
   );

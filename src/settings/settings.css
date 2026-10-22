@@ -1557,6 +1557,7 @@ td.scale-color-col .color-input {
 
 /* Keep the nested frame, without adding a second inset to its fader rows. */
 #sidebar .output-routing-fieldset .eagan-matrix-fieldset {
+  border-bottom: 0;
   margin-inline: calc(-0.75em - 1px);
   padding-inline: 0.75em;
   width: calc(100% + 1.5em + 2px);
