@@ -2453,7 +2453,7 @@ describe("App workspace tabs", () => {
       let rowTop = 250;
       const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
         const top = this.classList.contains("snapshot-palette-body") ? 100
-          : this.dataset.snapshotId === "2" ? rowTop : 0;
+          : this.dataset.snapshotId === "2" ? rowTop - (this.parentElement?.scrollTop ?? 0) : 0;
         const height = this.classList.contains("snapshot-palette-body") ? 100 : 20;
         return { top, bottom: top + height, height, left: 0, right: 200, width: 200 };
       });
@@ -2503,7 +2503,7 @@ describe("App workspace tabs", () => {
         expect(document.querySelector(".snapshot-palette-body").scrollTop).toBe(70);
         // Re-enter with the row already visible: leave the scroll position alone.
         fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
-        rowTop = 150;
+        rowTop = 220; // viewport top 150 after the existing 70px scroll
         fireEvent.click(screen.getByRole("tab", { name: destination }));
         expect(document.querySelector(".snapshot-palette-body").scrollTop).toBe(70);
         expect(keys.playSnapshot).toHaveBeenCalledTimes(2);

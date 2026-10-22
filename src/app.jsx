@@ -97,7 +97,7 @@ import {
   defaultSequenceTempi,
 } from "./sequencer/workspace-runtime.js";
 import { sequenceWorkspaceTransition } from "./sequencer/workspace-transition.js";
-import { presentSnapshotPalette } from "./sequencer/snapshot-palette-presenter.js";
+import { presentSnapshotPalette, revealSnapshotPalette } from "./sequencer/snapshot-palette-presenter.js";
 import {
   effectiveManualSnapshotArticulation,
   normalizeManualArpeggiation,
@@ -1326,7 +1326,7 @@ const App = () => {
     const workspaceChanged = previousSnapshotPaletteWorkspaceRef.current === "sequencer" &&
       workspaceTab !== "sequencer";
     previousSnapshotPaletteWorkspaceRef.current = workspaceTab;
-    if ((!wasCollapsed && !workspaceChanged) || snapshotPaletteCollapsed) return;
+    if (snapshotPaletteCollapsed) return;
 
     // The manual audio cursor leads the deferred presentation during fast
     // stepping. Reveal that snapshot even before the tab handoff commits UI.
@@ -1335,29 +1335,13 @@ const App = () => {
       workspaceChanged && !livePosition.stopped && livePosition.markerIndex == null
         ? snapshots[livePosition.stepIndex]?.id
         : null;
-    const soundingSnapshotId = liveSnapshotId ?? manualPlayingSnapshotIds.at(-1) ?? playingSnapshotId;
+    const timedSnapshotId = Number.isFinite(timedPlaybackUiRef.current.clockSeconds)
+      ? timedPaletteSnapshotRef.current : null;
+    const soundingSnapshotId = liveSnapshotId ?? timedSnapshotId ?? manualPlayingSnapshotIds.at(-1) ?? playingSnapshotId;
     const body = snapshotPaletteBodyRef.current;
     if (soundingSnapshotId == null || !body) return;
-    const row = [...body.querySelectorAll(".snapshot-row")].find(
-      (candidate) => candidate.dataset.snapshotId === String(soundingSnapshotId),
-    );
-    if (!row) return;
-
-    const bodyRect = body.getBoundingClientRect();
-    const rowRect = row.getBoundingClientRect();
-    if (workspaceChanged) {
-      const visibleTop = bodyRect.top + body.clientTop;
-      const visibleBottom = visibleTop + body.clientHeight;
-      if (rowRect.top < visibleTop) {
-        body.scrollTop = Math.max(0, body.scrollTop + rowRect.top - visibleTop);
-      } else if (rowRect.bottom > visibleBottom) {
-        body.scrollTop += rowRect.bottom - visibleBottom;
-      }
-      return;
-    }
-    const rowTop = rowRect.top - bodyRect.top + body.scrollTop;
-    body.scrollTop = Math.max(0, rowTop - (body.clientHeight - rowRect.height) / 2);
-  }, [manualPlayingSnapshotIds, playingSnapshotId, snapshotPaletteCollapsed, snapshots, workspaceTab]);
+    revealSnapshotPalette(body, soundingSnapshotId, { center: wasCollapsed && !workspaceChanged });
+  }, [manualPlayingSnapshotIds, playingSnapshotId, selectedSnapshotMarker, snapshotPaletteCollapsed, snapshots, workspaceTab]);
 
   const appendSequenceSnapshot = useCallback(
     (notes = []) => {
