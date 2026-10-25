@@ -25,6 +25,43 @@ vi.mock("../fluidsynth_synth/index.js", () => ({
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
 
 describe("FluidSynth settings", () => {
+  it("limits the shared minimum to enabled smoothing times and persists it", () => {
+    localStorage.setItem("fluidsynth_internal_smoothing", JSON.stringify({ pressureMs: 100, expressionMs: 0, minimumMs: 20 }));
+    const setSmoothing = vi.fn();
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "MyOrgan.sf2" },
+      presets: [{ bank: 0, program: 0, name: "Organ" }], setSmoothing };
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    const minimum = screen.getByRole("slider", { name: "Minimum Smoothing (ms)" });
+    expect(minimum.getAttribute("aria-valuemax")).toBe("100");
+    fireEvent.keyDown(minimum, { key: "End" });
+    expect(setSmoothing).toHaveBeenLastCalledWith({ pressureMs: 100, expressionMs: 0, minimumMs: 100 });
+    expect(JSON.parse(localStorage.getItem("fluidsynth_internal_smoothing")).minimumMs).toBe(100);
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Pressure Smoothing (ms)" }), { key: "ArrowLeft" });
+    expect(minimum.getAttribute("aria-valuenow")).toBe("99");
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Pressure Smoothing (ms)" }), { key: "Home" });
+    expect(minimum.getAttribute("aria-disabled")).toBe("true");
+    expect(setSmoothing).toHaveBeenLastCalledWith({ pressureMs: 0, expressionMs: 0, minimumMs: 0 });
+  });
+  it("persists independent smoothing faders and greys their labels only at zero", () => {
+    const setSmoothing = vi.fn();
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "MyOrgan.sf2" },
+      presets: [{ bank: 0, program: 0, name: "Organ" }], setSmoothing };
+    const view = render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    const pressure = screen.getByRole("slider", { name: "Pressure Smoothing (ms)" });
+    const expression = screen.getByRole("slider", { name: "Expression Y Smoothing (ms)" });
+    expect(screen.getByText("Pressure Smoothing (ms)").className).toBe("fluidsynth-settings__smoothing-off");
+    expect(pressure.getAttribute("aria-valuemax")).toBe("500");
+    fireEvent.keyDown(pressure, { key: "End" });
+    fireEvent.keyDown(expression, { key: "ArrowRight" });
+    expect(setSmoothing).toHaveBeenLastCalledWith({ pressureMs: 500, expressionMs: 1, minimumMs: 0 });
+    expect(screen.getByText("Pressure Smoothing (ms)").className).toBe("");
+    view.unmount();
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    expect(screen.getByRole("slider", { name: "Pressure Smoothing (ms)" }).getAttribute("aria-valuenow")).toBe("500");
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Pressure Smoothing (ms)" }), { key: "Home" });
+    expect(setSmoothing).toHaveBeenLastCalledWith({ pressureMs: 0, expressionMs: 1, minimumMs: 0 });
+    expect(screen.getByText("Pressure Smoothing (ms)").className).toBe("fluidsynth-settings__smoothing-off");
+  });
   it("shows the hosted-bank prompt rather than OFF while a local SoundFont is playing", () => {
     fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "MyOrgan.sf2" },
       presets: [{ bank: 0, program: 0, name: "Organ" }], selectedPreset: { bank: 0, program: 0 } };

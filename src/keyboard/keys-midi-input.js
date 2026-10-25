@@ -253,7 +253,7 @@ function flushAllPendingRasterReleases(keys) {
 function releaseContinuumRasterHex(keys, channel, hex, releaseVelocity, notePlayed) {
   const minDurationMs = Math.max(
     0,
-    Math.min(100, Number(keys.inputRuntime.hakenNoteOffDelay ?? 0) || 0),
+    Math.min(200, Number(keys.inputRuntime.hakenNoteOffDelay ?? 0) || 0),
   );
   const startedAt = Number(hex?._rasterStartedAt);
   const elapsedMs = Number.isFinite(startedAt)

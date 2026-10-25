@@ -50,7 +50,7 @@ const HakenContinuumSettings = ({
   );
   const noteOffDelay = Math.max(
     0,
-    Math.min(100, Number(settings.hakenaudio_note_off_delay ?? 45) || 0),
+    Math.min(200, Number(settings.hakenaudio_note_off_delay ?? 45) || 0),
   );
   const rasterThrottleMs = Math.max(
     0,
@@ -583,12 +583,12 @@ const HakenContinuumSettings = ({
           <CustomRangeSlider
             ariaLabel="Minimum Note Duration"
             min={0}
-            max={100}
+            max={200}
             step={1}
             value={noteOffDelay}
             onInputValue={(nextValue) => {
               const parsed = parseInt(nextValue, 10);
-              const v = Math.max(0, Math.min(100, Number.isNaN(parsed) ? 0 : parsed));
+              const v = Math.max(0, Math.min(200, Number.isNaN(parsed) ? 0 : parsed));
               updateHakenPref("hakenaudio_note_off_delay", v, {
                 hakenaudio_note_off_delay: v,
               });

@@ -116,12 +116,16 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
     .flatMap(([message]) => message.events).some(event => event.command?.op === "on")).toBe(true);
   synth.shutdown({ panic: true });
   engine.setVolume(81);
+  engine.setSmoothing({ pressureMs: 120, expressionMs: 60 });
   nodes[0].onprocessorerror();
   expect(getFluidSynthAudioDiagnostics().processorFailed).toBe(true);
   const restoring = forceFluidSynthEngineRebuild();
   expect(recover).toHaveBeenCalledOnce(); // no await before the context wake
   await restoring;
   expect(nodes).toHaveLength(2);
+  expect(nodes[1].port.postMessage).toHaveBeenCalledWith({
+    type: "set-smoothing", pressureMs: 120, expressionMs: 60, minimumMs: 0,
+  });
   expect(gains[2].gain.value).toBe(0);
   expect(gains[2].connect).not.toHaveBeenCalledWith(context.destination);
   expect(engine.node).toBe(nodes[1]);

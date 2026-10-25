@@ -1,13 +1,44 @@
 #include <fluidsynth.h>
 #include <fluidsynth/sfont.h>
 #include <cstdio>
+#include <cmath>
 
 struct PlainsoundSynth {
     fluid_settings_t *settings;
     fluid_synth_t *synth;
+    double pressure_ms = 0.0;
+    double expression_ms = 0.0;
+    double minimum_ms = 0.0;
 };
 
 extern "C" {
+
+int ps_set_smoothing(void *handle, double pressure_ms, double expression_ms, double minimum_ms)
+{
+    if (!handle || !std::isfinite(pressure_ms) || !std::isfinite(expression_ms)
+        || pressure_ms < 0 || pressure_ms > 500 || expression_ms < 0 || expression_ms > 500
+        || !std::isfinite(minimum_ms) || minimum_ms < 0 || minimum_ms > 500)
+        return FLUID_FAILED;
+    auto *ps = static_cast<PlainsoundSynth *>(handle);
+    // Each setter scans playing voices. Do not invoke the other controller's
+    // callback, or repeat both scans for duplicate input/commit events.
+    if (ps->pressure_ms != pressure_ms) {
+        if (fluid_settings_setnum(ps->settings, "synth.pressure-attenuation-slew-ms", pressure_ms) != FLUID_OK)
+            return FLUID_FAILED;
+        ps->pressure_ms = pressure_ms;
+    }
+    if (ps->expression_ms != expression_ms) {
+        if (fluid_settings_setnum(ps->settings, "synth.expression-y-attenuation-slew-ms", expression_ms) != FLUID_OK)
+            return FLUID_FAILED;
+        ps->expression_ms = expression_ms;
+    }
+    if (ps->minimum_ms != minimum_ms) {
+        if (fluid_settings_setnum(ps->settings, "synth.attenuation-slew-min-ms", minimum_ms) != FLUID_OK)
+            return FLUID_FAILED;
+        ps->minimum_ms = minimum_ms;
+    }
+    return FLUID_OK;
+}
 
 void *ps_create(double sample_rate)
 {

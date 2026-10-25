@@ -2,6 +2,80 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { expect, it, vi } from "vitest";
 
+it("provides an elapsed clock only when the worklet has no Performance API", () => {
+  const source = readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, "");
+  let wallTime = 1000;
+  const scope = { Date: { now: () => wallTime }, AudioWorkletProcessor: class {}, registerProcessor() {} };
+  runInNewContext(source, scope);
+  expect(scope.performance.now()).toBe(0);
+  wallTime = 1050;
+  expect(scope.performance.now()).toBe(50);
+  wallTime = 900;
+  expect(scope.performance.now()).toBe(50);
+  const nativeClock = { now: vi.fn(() => 123) };
+  const nativeScope = { ...scope, performance: nativeClock };
+  runInNewContext(source, nativeScope);
+  expect(nativeScope.performance).toBe(nativeClock);
+});
+
+it("applies independent bounded smoothing times and retains them for synth recreation", () => {
+  let Processor;
+  runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {
+    AudioWorkletProcessor: class {}, registerProcessor: (_, processor) => { Processor = processor; },
+  });
+  const processor = Object.create(Processor.prototype);
+  Object.assign(processor, { synth: 1, module: { _ps_set_smoothing: vi.fn(() => 0) },
+    port: { postMessage: vi.fn() } });
+  processor.handleMessage({ type: "set-smoothing", pressureMs: 600, expressionMs: 25 });
+  expect(processor.module._ps_set_smoothing).not.toHaveBeenCalled();
+  processor.applySmoothing();
+  expect(processor.module._ps_set_smoothing).toHaveBeenLastCalledWith(1, 500, 25, 0);
+  processor.synth = 2;
+  processor.applySmoothing();
+  expect(processor.module._ps_set_smoothing).toHaveBeenLastCalledWith(2, 500, 25, 0);
+  processor.handleMessage({ type: "set-smoothing", pressureMs: 0, expressionMs: NaN });
+  processor.applySmoothing();
+  expect(processor.module._ps_set_smoothing).toHaveBeenLastCalledWith(2, 0, 0, 0);
+  expect(processor.port.postMessage).not.toHaveBeenCalled();
+});
+
+it("coalesces rapid and idle-backlogged smoothing updates without skipping audio rendering", () => {
+  let Processor;
+  const scope = { sampleRate: 48000, currentFrame: 0, AudioWorkletProcessor: class {},
+    registerProcessor: (_, processor) => { Processor = processor; } };
+  runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), scope);
+  const processor = Object.create(Processor.prototype);
+  Object.assign(processor, { synth: 1, blockSize: 128, leftPointer: 0, rightPointer: 512,
+    midiQueue: [], port: { postMessage: vi.fn() }, module: {
+      _ps_set_smoothing: vi.fn(() => 0), _ps_render: vi.fn(() => 0), HEAPF32: new Float32Array(256),
+    } });
+  const outputs = [[new Float32Array(128), new Float32Array(128)]];
+  for (let i = 0; i < 1000; i++) processor.handleMessage({ type: "set-smoothing", pressureMs: i % 251, expressionMs: 40 });
+  expect(processor.module._ps_set_smoothing).not.toHaveBeenCalled();
+  processor.process([], outputs);
+  expect(processor.module._ps_set_smoothing).toHaveBeenCalledExactlyOnceWith(1, 246, 40, 0);
+  for (let i = 1; i < 13; i++) {
+    scope.currentFrame = i * 128;
+    processor.handleMessage({ type: "set-smoothing", pressureMs: i, expressionMs: 40 });
+    processor.process([], outputs);
+  }
+  expect(processor.module._ps_set_smoothing).toHaveBeenCalledTimes(1);
+  // A long-idle return applies the latest value, without replaying the drag.
+  scope.currentFrame = 48000 * 3600;
+  processor.handleMessage({ type: "set-smoothing", pressureMs: 0, expressionMs: 40 });
+  processor.process([], outputs);
+  expect(processor.module._ps_set_smoothing).toHaveBeenLastCalledWith(1, 0, 40, 0);
+  expect(processor.module._ps_set_smoothing).toHaveBeenCalledTimes(2);
+  expect(processor.module._ps_render).toHaveBeenCalledTimes(14);
+  // Configuration errors are reported while rendering continues.
+  scope.currentFrame += 48000;
+  processor.module._ps_set_smoothing.mockImplementationOnce(() => { throw new Error("control failed"); });
+  processor.handleMessage({ type: "set-smoothing", pressureMs: 20, expressionMs: 40 });
+  expect(processor.process([], outputs)).toBe(true);
+  expect(processor.module._ps_render).toHaveBeenCalledTimes(15);
+  expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "error" }));
+});
+
 it("naturally releases all channels and waits for rendered silence before shutdown acknowledgement", () => {
   let Processor;
   runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {

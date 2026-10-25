@@ -1,5 +1,14 @@
 import createFluidSynth from "./fluidsynth.js";
 
+// AudioWorkletGlobalScope does not consistently expose Performance. Emscripten
+// uses this clock during SoundFont loading. Keep elapsed time nondecreasing if
+// the wall clock changes; MIDI scheduling still uses audio frames below.
+if (typeof globalThis.performance === "undefined") {
+  const origin = Date.now();
+  let elapsed = 0;
+  globalThis.performance = { now: () => (elapsed = Math.max(elapsed, Date.now() - origin)) };
+}
+
 class FluidSynthProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
@@ -43,6 +52,14 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     }
   }
 
+  applySmoothing() {
+    if (this.smoothing && this.module._ps_set_smoothing(this.synth,
+      this.smoothing.pressureMs, this.smoothing.expressionMs, this.smoothing.minimumMs ?? 0) !== 0) {
+      throw new Error("FluidSynth smoothing configuration failed");
+    }
+    this.smoothingPending = false;
+  }
+
   handleMessage(message) {
     if (message?.type === "dispose") {
       if (this.disposed) return;
@@ -74,6 +91,19 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     }
     if (!this.module || !this.synth || !message) return;
     try {
+      if (message.type === "set-smoothing") {
+        const time = (value) => Number.isFinite(Number(value))
+          ? Math.max(0, Math.min(500, Math.round(Number(value)))) : 0;
+        const next = { pressureMs: time(message.pressureMs), expressionMs: time(message.expressionMs), minimumMs: time(message.minimumMs) };
+        const enabled = [next.pressureMs, next.expressionMs].filter(ms => ms > 0);
+        next.minimumMs = Math.min(next.minimumMs, enabled.length ? Math.min(...enabled) : 0);
+        if (this.smoothing?.pressureMs === next.pressureMs && this.smoothing?.expressionMs === next.expressionMs && this.smoothing?.minimumMs === next.minimumMs) return;
+        this.smoothing = next;
+        // Messages may arrive in a burst after suspension or during a drag.
+        // Never do per-voice native settings work for every queued message.
+        this.smoothingPending = true;
+        return;
+      }
       if (message.type === "release-for-shutdown") {
         this.releasing = true;
         this.silentReleaseFrames = 0;
@@ -115,6 +145,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           this.synth = this.module._ps_create(sampleRate);
           if (!this.synth) throw new Error("FluidSynth recreation failed during SoundFont replacement");
           this.initializeChannelTunings();
+          this.applySmoothing();
           this.soundfontId = null;
         }
         const path = "/hexatone-soundfont.sf2";
@@ -261,6 +292,15 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     if (!this.module || !this.synth || frames !== this.blockSize) {
       channels.forEach((channel) => channel.fill(0));
       return true;
+    }
+    if (this.smoothingPending && !this.releasing && currentFrame >= (this.nextSmoothingFrame ?? 0)) {
+      this.smoothingPending = false;
+      this.nextSmoothingFrame = currentFrame + Math.ceil(sampleRate / 30);
+      try { this.applySmoothing(); }
+      catch (error) {
+        // A control failure must not escape process() and kill the worklet.
+        this.port.postMessage({ type: "error", message: String(error) });
+      }
     }
     let consumed = 0;
     const touchTraces = [];

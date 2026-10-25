@@ -13,6 +13,7 @@ import {
 } from "../fluidsynth_synth/index.js";
 
 import { REVERB_KEY, readFluidSynthReverb } from "../fluidsynth_synth/reverb.js";
+import { SMOOTHING_KEY, normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "../fluidsynth_synth/smoothing.js";
 
 const VOLUME_KEY = "fluidsynth_internal_volume";
 const LAST_BANK_KEY = "fluidsynth_last_hosted_soundfont";
@@ -91,6 +92,8 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   });
   const [volume, setVolume] = useState(readVolume);
   const [reverb, setReverb] = useState(readFluidSynthReverb);
+  const [smoothing, setSmoothing] = useState(readFluidSynthSmoothing);
+  const smoothingRef = useRef(smoothing);
   const [busy, setBusy] = useState(false);
   const [shuttingDown, setShuttingDown] = useState(false);
   const [status, setStatus] = useState("");
@@ -189,6 +192,19 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     setReverb(next);
     try { localStorage.setItem(REVERB_KEY, String(next)); } catch { /* Private storage unavailable. */ }
     peekFluidSynthEngine()?.setReverb?.(next);
+  };
+
+  const changeSmoothing = (key, value, commit = false) => {
+    const previous = smoothingRef.current;
+    const next = normalizeFluidSynthSmoothing({ ...previous, [key]: value });
+    // Keep disk-backed browser storage out of the pointer-move path.
+    if (commit) {
+      try { localStorage.setItem(SMOOTHING_KEY, JSON.stringify(next)); } catch { /* Private storage unavailable. */ }
+    }
+    if (previous.pressureMs === next.pressureMs && previous.expressionMs === next.expressionMs && previous.minimumMs === next.minimumMs) return;
+    smoothingRef.current = next;
+    setSmoothing(next);
+    peekFluidSynthEngine()?.setSmoothing?.(next);
   };
 
   const loadSoundFont = async (source, signal) => {
@@ -492,6 +508,32 @@ const FluidSynthSettings = ({ settings, onChange }) => {
                 value={reverb} disabled={!loaded}
                 onInputValue={changeReverb} onCommitValue={changeReverb} />
               <span class="settings-form__range-value">{reverb}</span>
+            </span>
+          </label>
+
+          {[["pressureMs", "Pressure Smoothing (ms)"], ["expressionMs", "Expression Y Smoothing (ms)"]].map(([key, label]) => (
+            <label key={key}>
+              <span class={smoothing[key] === 0 ? "fluidsynth-settings__smoothing-off" : undefined}>{label}</span>
+              <span class="sidebar-input settings-form__range-row">
+                <CustomRangeSlider ariaLabel={label} min={0} max={500} step={1}
+                  defaultValue={0} value={smoothing[key]} disabled={!loaded}
+                  onInputValue={(value) => changeSmoothing(key, value)}
+                  onCommitValue={(value) => changeSmoothing(key, value, true)} />
+                <span class="settings-form__range-value">{smoothing[key] === 0 ? "off" : smoothing[key]}</span>
+              </span>
+            </label>
+          ))}
+
+          <label>
+            <span class={smoothing.minimumMs === 0 ? "fluidsynth-settings__smoothing-off" : undefined}>Minimum Smoothing (ms)</span>
+            <span class="sidebar-input settings-form__range-row">
+              <CustomRangeSlider ariaLabel="Minimum Smoothing (ms)" min={0}
+                max={Math.min(...[smoothing.pressureMs, smoothing.expressionMs].filter(ms => ms > 0), 500)}
+                step={1} defaultValue={0} value={smoothing.minimumMs}
+                disabled={!loaded || (!smoothing.pressureMs && !smoothing.expressionMs)}
+                onInputValue={value => changeSmoothing("minimumMs", value)}
+                onCommitValue={value => changeSmoothing("minimumMs", value, true)} />
+              <span class="settings-form__range-value">{smoothing.minimumMs}</span>
             </span>
           </label>
 

@@ -16,7 +16,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourcePath = resolve(root, "Synths/SuperCollider-OSC/SeedsOfSkiesPrologue&PartOneEnd.scd");
 const outputPath = resolve(
   root,
-  "src/sequencer/preset-sequences/marc-sabat/Seeds-of-Skies-Alibis.json",
+  "src/sequencer/preset-sequences/marc-sabat/seeds-of-skies-alibis.json",
 );
 
 const source = await readFile(sourcePath, "utf8");

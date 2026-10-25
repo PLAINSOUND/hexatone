@@ -14,6 +14,7 @@ import { createRecoveryGate } from "../audio/recovery-gate.js";
 import { createFluidMidiScheduler } from "./midi-scheduler.js";
 import { reattackFluidSynthSnapshots } from "./voices.js";
 import { readFluidSynthReverb } from "./reverb.js";
+import { normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "./smoothing.js";
 import { readRecoverySoundfont } from "./recovery-source.js";
 import { recordAudioRuntime, registerFluidSynthLifecycleDiagnostics } from "../audio/runtime-diagnostics.js";
 
@@ -196,6 +197,7 @@ async function installSoundFont(active, source, preset = null, { notify = true }
   if (selected) active.selectPreset(selected);
   active.setVolume(active.volume);
   active.setReverb?.(active.reverb);
+  active.setSmoothing?.(active.smoothing);
   if (notify) notifyEngineListeners();
   return result;
 }
@@ -243,6 +245,11 @@ async function rebindEngineToContext(context, signal) {
       selectedPreset: null,
       volume: engine.volume,
       reverb: engine.reverb,
+      smoothing: engine.smoothing,
+      setSmoothing(value) {
+        candidate.smoothing = normalizeFluidSynthSmoothing(value);
+        candidate.node.port.postMessage({ type: "set-smoothing", ...candidate.smoothing });
+      },
       setReverb(value) {
         candidate.reverb = value;
         candidate.node.port.postMessage({ type: "midi-batch", events:
@@ -298,6 +305,7 @@ async function rebindEngineToContext(context, signal) {
 
   signal?.removeEventListener("abort", discard);
 
+  engine.setSmoothing?.(engine.smoothing);
   try {
     oldNode?.port?.close?.();
   } catch {
@@ -424,10 +432,23 @@ export async function getFluidSynthEngine() {
         soundfontSource: null,
         volume: 100,
         reverb: readFluidSynthReverb(),
+        smoothing: readFluidSynthSmoothing(),
       };
       notifyEngineListeners();
 
       const ownedEngine = engine;
+      engine.setSmoothing = (value) => {
+        const next = normalizeFluidSynthSmoothing({ ...ownedEngine.smoothing, ...value });
+        if (ownedEngine.smoothingSentNode === ownedEngine.node &&
+          ownedEngine.smoothingSent?.pressureMs === next.pressureMs &&
+          ownedEngine.smoothingSent?.expressionMs === next.expressionMs &&
+          ownedEngine.smoothingSent?.minimumMs === next.minimumMs) return;
+        ownedEngine.smoothing = next;
+        ownedEngine.smoothingSentNode = ownedEngine.node;
+        ownedEngine.smoothingSent = next;
+        ownedEngine.node.port.postMessage({ type: "set-smoothing", ...ownedEngine.smoothing });
+      };
+      engine.setSmoothing(engine.smoothing);
       engine.output = createFluidMidiScheduler(() => ownedEngine.node ? ownedEngine : null,
         () => engine === ownedEngine ? ensureFluidSynthEngineAwake() : false);
       engine.setReverb = (value) => {

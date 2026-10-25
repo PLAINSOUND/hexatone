@@ -17,7 +17,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const presetDirectory = path.join(root, "src/sequencer/preset-sequences/marc-sabat");
 const migrations = [
   {
-    file: "FALL.json",
+    file: "fall.json",
     frame: {
       id: "frame-1",
       referenceLabel: "A4",
@@ -28,7 +28,7 @@ const migrations = [
     },
   },
   {
-    file: "Flight.json",
+    file: "flight.json",
     frame: {
       id: "frame-1",
       referenceLabel: "A4",
@@ -39,7 +39,7 @@ const migrations = [
     },
   },
   {
-    file: "Seeds-of-Skies-Alibis.json",
+    file: "seeds-of-skies-alibis.json",
     frame: {
       id: "frame-1",
       referenceLabel: "A4",
@@ -73,7 +73,7 @@ for (const { file, frame } of migrations) {
   sequence.version = 5;
   sequence.pitchFrames = [frame];
   let serialized = JSON.stringify(sequence, null, 2);
-  if (file === "Seeds-of-Skies-Alibis.json") {
+  if (file === "seeds-of-skies-alibis.json") {
     serialized = serialized.replace(
       /\[\n\s+(-?\d+(?:\.\d+)?(?:,\n\s+-?\d+(?:\.\d+)?)*)\n\s+\]/g,
       (match) => `[${match.match(/-?\d+(?:\.\d+)?/g).join(", ")}]`,

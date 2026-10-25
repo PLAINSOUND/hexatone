@@ -6682,3 +6682,6 @@ input.equiv-cell:disabled,
     min-width: 0;
   }
 }
+.fluidsynth-settings__smoothing-off {
+  color: #888;
+}
