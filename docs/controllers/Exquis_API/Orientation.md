@@ -68,6 +68,13 @@ The physical octave-down/up buttons (App API button IDs 6/7) invoke the same
 release and duplicate press messages do not repeat. The current immediate or
 deferred transposition setting applies. Both buttons are lit in App mode.
 
+At OCT 0 both arrows are white. The active arrow changes colour per equave:
+down is lemon yellow, amber, orange, then red; up is yellow-green, green, cyan, blue, then
+violet. Further offsets retain red/violet; the other arrow stays dim white.
+Each press flashes its arrow brighter for 120 ms without changing its hue.
+Colours follow the selected OCT offset (including deferred and onscreen edits)
+and restore after App-mode sleep. Flash timers are cleared on recovery/exit.
+
 The API takes over panel buttons and encoder presses as a group. Hexatone keeps
 encoder rotation native, reads the configured button/encoder CC assignments via
 `flush`, and routes their remote press/release equivalents through the normal

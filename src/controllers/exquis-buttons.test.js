@@ -5,16 +5,79 @@ import { ExquisLEDs } from "./exquis-leds.js";
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 const frame = (...payload) => ({ data: [0xf0, 0, 0x21, 0x7e, ...payload, 0xf7] });
-function setup(mpe = true) {
+function setup(mpe = true, octave = 0) {
   vi.useFakeTimers();
   const out = { send: vi.fn() };
-  const controls = { onOctave: vi.fn(), onAnchor: vi.fn(), onMidi: vi.fn() };
+  const controls = { onOctave: vi.fn(), onAnchor: vi.fn(), onMidi: vi.fn(), getOctaveOffset: () => octave };
   const driver = new ExquisLEDs(out, null, null, 15, 1.3, mpe, 90, 1, [], controls);
   driver._onMessage(frame(0, 3, 0, 0));
   return { driver, out, controls, send: (...payload) => driver._onMessage(frame(...payload)) };
 }
 
 describe("Exquis App Mode buttons", () => {
+  it("starts at the host's restored octave offset", () => {
+    const { driver, out } = setup(true, 3);
+    vi.advanceTimersByTime(200);
+    expect(out.send.mock.calls.map(([data]) => [...data]))
+      .toContainEqual(frame(0x29, 7, 0, 60, 38).data);
+    expect(out.send.mock.calls.some(([data]) => data[4] === 0x29 && data[5] === 7 && data[6] === 40)).toBe(false);
+    driver.exit();
+  });
+  it.each([
+    [-1, 6, [60, 56, 0]], [-2, 6, [60, 34, 0]], [-3, 6, [60, 15, 0]],
+    [-4, 6, [60, 0, 0]], [-20, 6, [60, 0, 0]],
+    [1, 7, [32, 60, 0]], [2, 7, [0, 60, 0]], [3, 7, [0, 60, 38]],
+    [4, 7, [0, 10, 60]], [5, 7, [40, 0, 60]], [20, 7, [40, 0, 60]],
+  ])("shows spectral shading at OCT %s", (offset, active, rgb) => {
+    const { driver, out } = setup();
+    driver.setOctaveOffset(offset);
+    const messages = out.send.mock.calls.map(([data]) => [...data]);
+    expect(messages).toContainEqual(frame(0x29, active, ...rgb).data);
+    expect(messages).toContainEqual(frame(0x29, active === 6 ? 7 : 6, 20, 20, 20).data);
+    out.send.mockClear();
+    driver.setOctaveOffset(0);
+    for (const id of [6, 7]) expect(out.send.mock.calls.map(([data]) => [...data]))
+      .toContainEqual(frame(0x29, id, 40, 40, 40).data);
+    driver.exit();
+  });
+
+  it("flashes a press for 120ms, then restores the latest offset and cleans up on exit", () => {
+    const { driver, out, send, controls } = setup();
+    vi.advanceTimersByTime(200);
+    out.send.mockClear();
+    send(0x2a, 7, 1);
+    send(0x2a, 7, 1);
+    send(0x2a, 7, 0);
+    expect(controls.onOctave).toHaveBeenCalledExactlyOnceWith(1);
+    expect(out.send.mock.calls.map(([data]) => [...data]))
+      .toContainEqual(frame(0x29, 7, 68, 127, 0).data);
+    driver.setOctaveOffset(4); // onscreen change while the press flash is active
+    out.send.mockClear();
+    vi.advanceTimersByTime(120);
+    expect(out.send.mock.calls.map(([data]) => [...data]))
+      .toContainEqual(frame(0x29, 7, 0, 10, 60).data);
+    send(0x2a, 6, 1);
+    driver.exit();
+    out.send.mockClear();
+    vi.advanceTimersByTime(500);
+    expect(out.send).not.toHaveBeenCalled();
+  });
+
+  it("restores the current octave colours after sleep without retaining a stale flash", () => {
+    const { driver, out, send } = setup();
+    vi.advanceTimersByTime(200);
+    driver.setOctaveOffset(-1);
+    send(0x2a, 6, 1); // OCT -2, briefly bright amber
+    out.send.mockClear();
+    driver.restoreControls();
+    expect(out.send.mock.calls.map(([data]) => [...data]))
+      .toContainEqual(frame(0x29, 6, 60, 34, 0).data);
+    out.send.mockClear();
+    vi.advanceTimersByTime(120);
+    expect(out.send).not.toHaveBeenCalled();
+    driver.exit();
+  });
+
   it("assigns the anchor to the most recent played pad once per press, even after release and recovery", () => {
     const { driver, controls, out, send } = setup();
     send(0x2a, 4, 1);
@@ -54,7 +117,7 @@ describe("Exquis App Mode buttons", () => {
     const restored = messages.slice(lastButtonMode);
     expect(restored).toContainEqual(frame(0x28, 1).data);
     for (const id of [6, 7]) expect(restored).toContainEqual(frame(0x29, id, 40, 40, 40).data);
-    expect(restored).toContainEqual(frame(0x29, 2, ...(value ? [70, 0, 0] : [0, 70, 0])).data);
+    expect(restored).toContainEqual(frame(0x29, 2, ...(value ? [40, 0, 0] : [0, 40, 0])).data);
     expect(restored).toContainEqual(frame(0x29, 3, 20, 20, 20).data);
     expect(restored).toContainEqual(frame(0x29, 4, 0, 0, 0).data);
     send(0x2a, 7, 1);
@@ -155,11 +218,11 @@ describe("Exquis App Mode buttons", () => {
   it("lights the bypass/sustain buttons and follows presses and host bypass changes", () => {
     const { driver, controls, out, send } = setup();
     const frames = () => out.send.mock.calls.map(([data]) => [...data]);
-    expect(frames()).toContainEqual(frame(0x29, 2, 0, 70, 0).data);
+    expect(frames()).toContainEqual(frame(0x29, 2, 0, 40, 0).data);
     expect(frames()).toContainEqual(frame(0x29, 3, 20, 20, 20).data);
     expect(frames()).toContainEqual(frame(0x29, 4, 0, 0, 0).data);
     send(0x2a, 2, 1);
-    expect(frames()).toContainEqual(frame(0x29, 2, 70, 0, 0).data);
+    expect(frames()).toContainEqual(frame(0x29, 2, 40, 0, 0).data);
     send(0x2a, 3, 1);
     expect(frames()).toContainEqual(frame(0x29, 3, 0, 70, 20).data);
     out.send.mockClear();
@@ -168,7 +231,7 @@ describe("Exquis App Mode buttons", () => {
     controls.getControlValue = cc => cc === 32 ? 0 : undefined;
     out.send.mockClear();
     driver.refreshControlLeds();
-    expect(frames()).toContainEqual(frame(0x29, 2, 0, 70, 0).data);
+    expect(frames()).toContainEqual(frame(0x29, 2, 0, 40, 0).data);
     driver.exit();
   });
 

@@ -4730,6 +4730,8 @@ const App = () => {
   exquisArpeggiatorRef.current = settings.exquis_arpeggiator_pattern ?? 1;
   const exquisOctaveRef = useRef(shiftOctave);
   exquisOctaveRef.current = shiftOctave;
+  const exquisOctaveOffsetRef = useRef(octaveTranspose);
+  exquisOctaveOffsetRef.current = octaveTranspose;
   const exquisAnchorRef = useRef(onAnchorLearn);
   exquisAnchorRef.current = onAnchorLearn;
   const exquisLifecycleRef = useRef(null);
@@ -4770,6 +4772,7 @@ const App = () => {
         heldPads,
         {
           onOctave: direction => exquisOctaveRef.current(direction),
+          getOctaveOffset: () => exquisOctaveOffsetRef.current,
           onAnchor: (note, channel) => exquisAnchorRef.current(note, channel),
           // Remote button ownership replaces native CCs. Feed their equivalents
           // through the selected input's usual learn/forward/sustain/bypass path.
@@ -4794,6 +4797,10 @@ const App = () => {
   useEffect(() => {
     exquisLedsRef.current?.refreshControlLeds?.();
   }, [settings.midiin_bend_bypass]);
+
+  useEffect(() => {
+    exquisLedsRef.current?.setOctaveOffset?.(octaveTranspose);
+  }, [octaveTranspose]);
 
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.

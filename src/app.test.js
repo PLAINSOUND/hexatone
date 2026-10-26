@@ -214,6 +214,7 @@ vi.mock("./controllers/exquis-leds.js", () => ({ ExquisLEDs: class {
   setMPEMode() {}
   recoverIfHeartbeatStale = vi.fn(() => false);
   restoreControls = vi.fn();
+  setOctaveOffset = vi.fn();
 } }));
 vi.mock("./controllers/lumatone-leds.js", () => ({ LumatoneLEDs: class {} }));
 vi.mock("./controllers/linnstrument-user-firmware.js", () => ({
@@ -810,6 +811,7 @@ describe("autoSyncLumatoneSurface", () => {
 describe("App input runtime", () => {
   it("routes Exquis octave controls through the current onscreen octave action", async () => {
     const previousShift = synthWiringState.shiftOctave;
+    const previousOctave = synthWiringState.octaveTranspose;
     const previousSettings = settings;
     const input = { addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() };
     synthWiringState.exquisRawPorts = { input, output: { send: vi.fn() } };
@@ -821,6 +823,7 @@ describe("App input runtime", () => {
       unmount();
       settings = previousSettings;
       synthWiringState.shiftOctave = previousShift;
+      synthWiringState.octaveTranspose = previousOctave;
       synthWiringState.exquisRawPorts = null;
     });
     await waitFor(() => expect(lastExquisControls?.onOctave).toBeTypeOf("function"));
@@ -832,6 +835,10 @@ describe("App input runtime", () => {
     rerender(<App />);
     act(() => controls.onOctave(1));
     expect(nextShift).toHaveBeenCalledWith(1);
+    synthWiringState.octaveTranspose = 3;
+    rerender(<App />);
+    expect(lastExquisDriver.setOctaveOffset).toHaveBeenLastCalledWith(3);
+    expect(controls.getOctaveOffset()).toBe(3);
     controls.onMidi([0xb0, 33, 127]);
     expect([...input.dispatchEvent.mock.calls.at(-1)[0].data]).toEqual([0xb0, 33, 127]);
     act(() => controls.onAnchor(31, 4));

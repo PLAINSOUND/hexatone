@@ -41,6 +41,7 @@
 
 import { debugLog, warnLog } from "../debug/logging.js";
 import { exquisOrientation, exquisLayoutFlags } from "./exquis-orientation.js";
+import { exquisOctaveButtonRgb } from "../input/exquis-control-bindings.js";
 
 const HDR = [0xf0, 0x00, 0x21, 0x7e];
 
@@ -144,6 +145,9 @@ export class ExquisLEDs {
     this._buttonLedValues = new Map();
     this._controlChannel = 0;
     this._lastPlayedNote = null;
+    const octave = controls?.getOctaveOffset?.();
+    this._octaveOffset = Number.isFinite(octave) ? Math.trunc(octave) : 0;
+    this._octaveFlashes = new Map();
 
     this._heldPadCount = this._heldPads.size; // includes presses before driver creation
     this._mpeModePending = null; // deferred CMD 0x07 send timer
@@ -292,10 +296,41 @@ export class ExquisLEDs {
       // CC32 enables *bypass*: its asserted state means bend is OFF.
       // Anchor is available only after this input has supplied a playable pad.
       const rgb = id === 4 ? (anchorReady ? (active ? [0, 70, 20] : [20, 20, 20]) : [0, 0, 0]) : cc === 32
-        ? (active ? [70, 0, 0] : [0, 70, 0])
+        ? (active ? [40, 0, 0] : [0, 40, 0])
         : (active ? [0, 70, 20] : [20, 20, 20]);
       this._out.send(new Uint8Array([...HDR, 0x29, id, ...rgb, 0xf7]));
     }
+  }
+
+  setOctaveOffset(offset) {
+    if (!Number.isFinite(offset)) return;
+    this._octaveOffset = Math.trunc(offset);
+    this._refreshOctaveLeds();
+  }
+
+  _refreshOctaveLeds() {
+    if (!this._ready || !this._out || !this._controls) return;
+    for (const [id, direction] of [[6, -1], [7, 1]]) {
+      const rgb = exquisOctaveButtonRgb(this._octaveOffset, direction, this._octaveFlashes.has(id));
+      const state = rgb.join(",");
+      if (this._buttonLedValues.get(id) === state) continue;
+      this._buttonLedValues.set(id, state);
+      this._out.send(new Uint8Array([...HDR, 0x29, id, ...rgb, 0xf7]));
+    }
+  }
+
+  _clearOctaveFlashes() {
+    for (const timer of this._octaveFlashes.values()) clearTimeout(timer);
+    this._octaveFlashes.clear();
+  }
+
+  _flashOctaveButton(id) {
+    clearTimeout(this._octaveFlashes.get(id));
+    this._octaveFlashes.set(id, setTimeout(() => {
+      this._octaveFlashes.delete(id);
+      this._refreshOctaveLeds();
+    }, 120));
+    this._refreshOctaveLeds();
   }
 
   /** Reclaim buttons after App-mode sleep, even if a returning heartbeat
@@ -306,10 +341,9 @@ export class ExquisLEDs {
     this._out.send(new Uint8Array([...HDR, 0x28, 1, 0xf7]));
     this._out.send(new Uint8Array([...HDR, 0x32, 0, 0xf7]));
     if (queryAssignments) this._out.send(new Uint8Array([...HDR, 0x02, 0xf7]));
-    for (const button of [6, 7]) {
-      this._out.send(new Uint8Array([...HDR, 0x29, button, 40, 40, 40, 0xf7]));
-    }
+    this._clearOctaveFlashes();
     this._buttonLedValues.clear();
+    this._refreshOctaveLeds();
     this.refreshControlLeds();
   }
 
@@ -318,6 +352,7 @@ export class ExquisLEDs {
    * Call this on scale mode switch or device disconnect.
    */
   exit() {
+    this._clearOctaveFlashes();
     clearTimeout(this._orientationTimer);
     this._orientationPending = null;
     clearTimeout(this._versionTimeout);
@@ -509,7 +544,12 @@ export class ExquisLEDs {
     if (pressed) this._pressedButtons.add(key);
     else this._pressedButtons.delete(key);
     if (panel && [6, 7].includes(id)) {
-      if (pressed) this._controls.onOctave?.(id === 6 ? -1 : 1);
+      if (pressed) {
+        const direction = id === 6 ? -1 : 1;
+        this._octaveOffset += direction;
+        this._flashOctaveButton(id);
+        this._controls.onOctave?.(direction);
+      }
       return;
     }
     if (panel && id === 4 && this._controls.onAnchor) {
