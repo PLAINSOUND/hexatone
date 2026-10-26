@@ -539,6 +539,9 @@ function readCssPxVar(name) {
 
 function getDefaultModulationPalettePos() {
   if (typeof window === "undefined") return { x: 18, y: 58 };
+  // Reserve the sidebar button's horizontal space when palettes move left.
+  const buttonRight = document.getElementById("sidebar-button")?.getBoundingClientRect().right ?? 0;
+  const leftMargin = Math.max(18, Math.ceil(buttonRight + 16));
   const isLandscape =
     typeof window.matchMedia === "function"
       ? window.matchMedia("(orientation: landscape)").matches
@@ -558,7 +561,7 @@ function getDefaultModulationPalettePos() {
     const sidebarVisibleRight = sidebarRect && sidebarRect.right > 80 ? sidebarRect.right : 0;
     if (sidebarVisibleRight > 0) {
       const gap = 16;
-      const fallbackX = 18;
+      const fallbackX = leftMargin;
       const modulationPalette = document.getElementById("modulation-palette");
       const measuredPaletteWidth = modulationPalette?.getBoundingClientRect().width;
       const paletteWidth = measuredPaletteWidth > 0 ? measuredPaletteWidth : 340;
@@ -570,7 +573,7 @@ function getDefaultModulationPalettePos() {
       };
     }
   }
-  return { x: 18, y: 58 };
+  return { x: leftMargin, y: 58 };
 }
 
 function getDefaultSnapshotPalettePos() {
@@ -588,7 +591,8 @@ function getDefaultSnapshotPalettePos() {
     const sidebarVisibleRight = sidebarRect && sidebarRect.right > 80 ? sidebarRect.right : 0;
     if (sidebarVisibleRight > 0) {
       const gap = 16;
-      const fallbackX = 18;
+      const buttonRight = document.getElementById("sidebar-button")?.getBoundingClientRect().right ?? 0;
+      const fallbackX = Math.max(18, Math.ceil(buttonRight + 16));
       const snapshotRect = document.getElementById("snapshot-palette")?.getBoundingClientRect();
       const paletteWidth = snapshotRect?.width > 0 ? snapshotRect.width : 180;
       const maxX = Math.max(fallbackX, window.innerWidth - paletteWidth - gap);
@@ -5535,6 +5539,7 @@ const App = () => {
           tuningRuntime={keyboardTuningRuntime}
           reconstructionKey={`${sequenceOnlyPlaybackSurface ? "sequence" : "canvas"}:${keysReconstructionImpactKey}`}
           hidden={sequenceOnlyPlaybackSurface}
+          snapshotHighlightsEnabled={snapSequenceToCurrentTuning && !sequenceOnlyPlaybackSurface}
           liveInputSettings={liveInputSettings}
           liveOutputSettings={liveOutputSettings}
           liveMidiInputPort={connectedInput}

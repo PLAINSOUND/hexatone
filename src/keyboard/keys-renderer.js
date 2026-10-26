@@ -149,6 +149,7 @@ function cssViewportSize(keys) {
 }
 
 export function rebuildVisibleGridGeometry() {
+  this._snapshotHighlights?.invalidate();
   let max =
     this.state.centerpoint.x > this.state.centerpoint.y
       ? this.state.centerpoint.x / this.settings.hexSize
@@ -404,6 +405,7 @@ export function drawSoundingHex(hex) {
 }
 
 export function drawGrid() {
+  this._snapshotHighlights?.invalidate();
   if (this._ensureStaticGrid() && this._copyStaticGridToMain()) {
     this._redrawSoundingHexes();
     return;

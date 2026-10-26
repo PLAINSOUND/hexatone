@@ -7,9 +7,10 @@ import { useRef, useEffect } from "preact/hooks";
 import Keys from "./keys";
 import PropTypes from "prop-types";
 import { stopSnapshot } from "../sequencer/snapshots.js";
+import { createSnapshotHighlights } from "./snapshot-highlights.js";
 
 const snapshotPlaybackFields = ["_snapshotHexes", "_snapshotNotes", "_soundingSnapshotHexes",
-  "_snapshotGestureVoices", "_snapshotVoiceOwners", "_snapshotCoordSeed"];
+  "_snapshotGestureVoices", "_snapshotVoiceOwners", "_snapshotCoordSeed", "_snapshotHighlightState"];
 
 const sameArray = (a = [], b = []) => {
   if (a === b) return true;
@@ -35,6 +36,7 @@ const labelsMatchSettings = (labels, settings) => {
 
 const Keyboard = (props) => {
   const canvas = useRef(null);
+  const playbackCanvas = useRef(null);
   const keysRef = useRef(null);
   const appliedLabelSettingsRef = useRef(null);
   const pendingSnapshotPlayback = useRef(null);
@@ -70,6 +72,9 @@ const Keyboard = (props) => {
     keys.exquisExpressionYCenter = props.expressionYCenter;
     keys.linnstrumentLEDs = props.linnstrumentLedsRef?.current ?? null;
     keysRef.current = keys;
+    const highlights = createSnapshotHighlights(keys, playbackCanvas.current);
+    keys._snapshotHighlights = highlights;
+    highlights.setEnabled(props.snapshotHighlightsEnabled);
     // Keys already draws once during construction from props.settings. Avoid an
     // immediate duplicate redraw when labelSettings is the same payload.
     if (props.labelSettings && !labelsMatchSettings(props.labelSettings, props.settings)) {
@@ -92,6 +97,7 @@ const Keyboard = (props) => {
       // before deconstructing the old surface, then adopt them on the new one.
       pendingSnapshotPlayback.current = Object.fromEntries(snapshotPlaybackFields
         .filter((field) => keys[field] != null).map((field) => [field, keys[field]]));
+      highlights.dispose();
       keys._snapshotHexes = [];
       keys._snapshotNotes = [];
       keys._soundingSnapshotHexes = new Set();
@@ -114,6 +120,10 @@ const Keyboard = (props) => {
       pendingSnapshotPlayback.current = null;
     } else keysRef.current?.stopSnapshot?.();
   }, []);
+
+  useEffect(() => {
+    keysRef.current?._snapshotHighlights?.setEnabled(props.snapshotHighlightsEnabled);
+  }, [props.snapshotHighlightsEnabled]);
 
   useEffect(() => {
     if (keysRef.current?.updateInputRuntime) {
@@ -219,11 +229,18 @@ const Keyboard = (props) => {
         aria-hidden={props.hidden ? "true" : undefined}
         onContextMenu={(e) => e.preventDefault()}
       ></canvas>
+      <canvas
+        ref={playbackCanvas}
+        className="keyboard keyboard-playback-overlay"
+        hidden={props.hidden || !props.snapshotHighlightsEnabled}
+        aria-hidden="true"
+      />
     </Fragment>
   );
 };
 
 Keyboard.propTypes = {
+  snapshotHighlightsEnabled: PropTypes.bool,
   reconstructionKey: PropTypes.string,
   liveInputSettings: PropTypes.object,
   liveOutputSettings: PropTypes.object,

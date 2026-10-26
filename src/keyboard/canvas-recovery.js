@@ -15,6 +15,7 @@ export function canvasDiagnostics(keys) {
     contextLost: context.isContextLost?.() ?? null,
     staticContextLost: keys._staticGridContext?.isContextLost?.() ?? null,
     staticGridValid: keys._staticGridValid ?? false,
+    snapshotHighlights: keys._snapshotHighlights?.getDiagnostics() ?? null,
     viewport: window.visualViewport ? {
       width: window.visualViewport.width, height: window.visualViewport.height,
       scale: window.visualViewport.scale,

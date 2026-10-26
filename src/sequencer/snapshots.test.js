@@ -41,6 +41,30 @@ function makeRuntime(overrides = {}) {
 }
 
 describe("sequencer snapshots", () => {
+  it("publishes visual attacks at the audio timestamp, retains legato and clears on Stop", () => {
+    const synth = { makeHex: vi.fn(coords => ({ coords, noteOn: vi.fn(), noteOff: vi.fn(),
+      retune: vi.fn(), sequenceRetune: vi.fn() })) };
+    const runtime = makeRuntime({ synth });
+    const visual = { noteOn: vi.fn(), noteOff: vi.fn(), retune: vi.fn(), clear: vi.fn() };
+    runtime._snapshotHighlights = visual;
+    const notes = [{ id: "a", midicents: 69 }, { id: "b", midicents: 76 }];
+    const voices = playSnapshot(runtime, notes);
+    runtime._snapshotHexes = voices;
+    const timestamp = voices[0].noteOn.mock.calls[0][0];
+    expect(voices[1].noteOn).toHaveBeenCalledWith(timestamp);
+    expect(visual.noteOn.mock.calls).toEqual([[voices[0], timestamp], [voices[1], timestamp]]);
+    expect(voices[0]._snapshotAttackAt).toBe(timestamp);
+    const retained = playSnapshot(runtime, notes, { legato: true });
+    expect(retained).toEqual(voices);
+    expect(visual.noteOn).toHaveBeenCalledTimes(2);
+    expect(visual.retune).toHaveBeenCalledTimes(2);
+    retuneSnapshotHexes(runtime, [{ ...notes[0], midicents: 70 }, notes[1]], { sequencePitch: true });
+    expect(visual.retune).toHaveBeenCalledTimes(4);
+    stopSnapshot(voices, runtime);
+    expect(visual.noteOff).toHaveBeenCalledTimes(2);
+    expect(visual.clear).toHaveBeenCalledOnce();
+    expect(synth.makeHex).toHaveBeenCalledTimes(2);
+  });
   it("captures active note pitch and attack/release velocities", () => {
     const runtime = makeRuntime({
       _allActiveHexes: () => [{ cents: 0, velocity: 113 }],

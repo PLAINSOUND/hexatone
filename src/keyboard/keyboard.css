@@ -15,3 +15,7 @@
   left: 0;
   overflow: hidden;
 }
+
+.keyboard-playback-overlay {
+  pointer-events: none;
+}

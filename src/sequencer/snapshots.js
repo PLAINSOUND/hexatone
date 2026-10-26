@@ -343,12 +343,14 @@ function releaseSnapshotHex(runtime, hex, releaseVelocity = 0, timestamp) {
   if (!hex) return;
   if (Number.isFinite(Number(timestamp))) hex.noteOff?.(releaseVelocity, Number(timestamp));
   else hex.noteOff?.(releaseVelocity);
+  runtime?._snapshotHighlights?.noteOff(hex, timestamp);
   runtime?._soundingSnapshotHexes?.delete(hex);
 }
 
 function retuneSnapshotHex(runtime, hex, synthCents, bendOnly = false) {
   if (!Number.isFinite(synthCents)) return;
   hex._baseCents = synthCents;
+  runtime?._snapshotHighlights?.retune(hex);
   if (typeof hex.retuneSnapshot === "function") {
     hex.retuneSnapshot(synthCents, bendOnly, hex._snapshotMidicents);
     return;
@@ -468,6 +470,8 @@ function commitPreparedSnapshotHexesInTransaction(runtime, prepared, commitTimes
   }
   for (const { hex } of prepared) {
     hex.noteOn(timestamp);
+    hex._snapshotAttackAt = timestamp;
+    runtime._snapshotHighlights?.noteOn(hex, timestamp);
     registerSoundingSnapshotHex(runtime, hex);
   }
   for (const { hex, note } of prepared) applySnapshotExpression(runtime, hex, note);
@@ -799,7 +803,10 @@ function retuneSnapshotHexesInTransaction(runtime, notes, options = {}) {
     hex._snapshotMidicents = Number(note.midicents);
     if (instanceKey != null) hex._snapshotInstanceKey = instanceKey;
     setSnapshotPitchReference(hex, synthCents, note.midicents, pitchOffsetCents);
-    if (sequencePitch) sequenceRetuneSnapshotHex(hex, synthCents);
+    if (sequencePitch) {
+      sequenceRetuneSnapshotHex(hex, synthCents);
+      runtime._snapshotHighlights?.retune(hex);
+    }
     else retuneSnapshotHex(runtime, hex, synthCents, bendOnly);
     applySnapshotExpression(runtime, hex, note);
   }
@@ -830,6 +837,7 @@ export function remapActiveSnapshotHexes(runtime, resolveNote, pitchOffsetCents 
       hex._snapshotPitchKey = snapshotPitchKey(note.midicents);
       setSnapshotPitchReference(hex, cents, note.midicents, pitchOffsetCents);
       sequenceRetuneSnapshotHex(hex, cents);
+      runtime._snapshotHighlights?.retune(hex);
       retuned.add(hex);
     }
   });
@@ -871,6 +879,7 @@ function retuneActiveSnapshotHexesInTransaction(runtime, pitchOffsetCents, optio
       hex._snapshotPitchKey = snapshotPitchKey(nextMidicents);
     }
     sequenceRetuneSnapshotHex(hex, sourceBaseCents + safePitchOffsetCents);
+    runtime._snapshotHighlights?.retune(hex);
   }
 }
 
@@ -892,4 +901,5 @@ function stopSnapshotInTransaction(snapshotHexes, runtime = null) {
   }
   runtime?._snapshotGestureVoices?.clear();
   runtime?._snapshotVoiceOwners?.clear();
+  runtime?._snapshotHighlights?.clear();
 }
