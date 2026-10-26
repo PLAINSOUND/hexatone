@@ -27,6 +27,7 @@ let mockDetectedController = null;
 let mockControllerById = null;
 let pendingIOSettingsLoad = null;
 let pendingCalculatorLoad = null;
+let lastExquisControls = null;
 const { guardianPanicMock } = vi.hoisted(() => ({ guardianPanicMock: vi.fn() }));
 
 vi.mock("normalize.css", () => ({}));
@@ -204,7 +205,13 @@ vi.mock("./persistence/settings-registry.js", () => ({
   PRESET_SKIP_KEYS: [],
 }));
 vi.mock("./settings/session-defaults.js", () => ({ default: {} }));
-vi.mock("./controllers/exquis-leds.js", () => ({ ExquisLEDs: class {} }));
+vi.mock("./controllers/exquis-leds.js", () => ({ ExquisLEDs: class {
+  constructor(...args) { lastExquisControls = args[9]; }
+  exit() {}
+  setOrientation() {}
+  setArpeggiatorPattern() {}
+  setMPEMode() {}
+} }));
 vi.mock("./controllers/lumatone-leds.js", () => ({ LumatoneLEDs: class {} }));
 vi.mock("./controllers/linnstrument-user-firmware.js", () => ({
   attachLinnstrumentLedDriver: vi.fn(() => ({ userFirmwareActive: false })),
@@ -414,10 +421,12 @@ beforeEach(() => {
   sessionStorage.removeItem(CALCULATOR_WORKSPACE_STORAGE_KEY);
   lastKeyboardProps = null;
   lastUsePresetsOptions = null;
+  lastExquisControls = null;
   mockDetectedController = null;
   mockControllerById = null;
   synthWiringState.linnstrumentRawPorts = null;
   synthWiringState.hakenRawPorts = null;
+  synthWiringState.exquisRawPorts = null;
   settings = {
     ...settings,
     midiin_mpe_manager_ch: undefined,
@@ -795,6 +804,34 @@ describe("autoSyncLumatoneSurface", () => {
 });
 
 describe("App input runtime", () => {
+  it("routes Exquis octave controls through the current onscreen octave action", async () => {
+    const previousShift = synthWiringState.shiftOctave;
+    const previousSettings = settings;
+    const input = { addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() };
+    synthWiringState.exquisRawPorts = { input, output: { send: vi.fn() } };
+    settings = { ...settings, midiin_mapping_target: "hex_layout", midi_passthrough: false };
+    const shift = vi.fn();
+    synthWiringState.shiftOctave = shift;
+    const { rerender, unmount } = render(<App />);
+    onTestFinished(() => {
+      unmount();
+      settings = previousSettings;
+      synthWiringState.shiftOctave = previousShift;
+      synthWiringState.exquisRawPorts = null;
+    });
+    await waitFor(() => expect(lastExquisControls?.onOctave).toBeTypeOf("function"));
+    const controls = lastExquisControls;
+    act(() => controls.onOctave(-1));
+    expect(shift).toHaveBeenCalledWith(-1);
+    const nextShift = vi.fn();
+    synthWiringState.shiftOctave = nextShift;
+    rerender(<App />);
+    act(() => controls.onOctave(1));
+    expect(nextShift).toHaveBeenCalledWith(1);
+    controls.onMidi([0xb0, 33, 127]);
+    expect([...input.dispatchEvent.mock.calls.at(-1)[0].data]).toEqual([0xb0, 33, 127]);
+  });
+
   it.each(["scale", "hex_layout"])(
     "treats sequential Lumatone %s input as channel-polyphonic",
     async (target) => {

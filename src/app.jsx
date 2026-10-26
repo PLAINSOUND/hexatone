@@ -4728,6 +4728,8 @@ const App = () => {
   exquisMpeInputRef.current = effectiveMpeInput;
   const exquisArpeggiatorRef = useRef(settings.exquis_arpeggiator_pattern ?? 1);
   exquisArpeggiatorRef.current = settings.exquis_arpeggiator_pattern ?? 1;
+  const exquisOctaveRef = useRef(shiftOctave);
+  exquisOctaveRef.current = shiftOctave;
   const exquisLifecycleRef = useRef(null);
   if (!exquisLifecycleRef.current) {
     exquisLifecycleRef.current = createExquisAppModeLifecycle({
@@ -4764,6 +4766,16 @@ const App = () => {
         settings.exquis_orientation ?? 90,
         exquisArpeggiatorRef.current,
         heldPads,
+        {
+          onOctave: direction => exquisOctaveRef.current(direction),
+          // Remote button ownership replaces native CCs. Feed their equivalents
+          // through the selected input's usual learn/forward/sustain/bypass path.
+          onMidi: data => exquisRawPorts.input.dispatchEvent(new MessageEvent("midimessage", {
+            data: new Uint8Array(data),
+          })),
+          getControlValue: cc => cc === 32 && keysRef.current
+            ? (keysRef.current?.inputRuntime?.bypassBend ? 127 : 0) : undefined,
+        },
       ) : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- LED appearance settings update the existing driver; only port/routing changes own its lifecycle.
   }, [exquisRawPorts?.input, exquisRawPorts?.output, inputRuntime?.target, settings.midi_passthrough]);
@@ -4775,6 +4787,10 @@ const App = () => {
   useEffect(() => {
     exquisLedsRef.current?.setArpeggiatorPattern(settings.exquis_arpeggiator_pattern ?? 1);
   }, [settings.exquis_arpeggiator_pattern]);
+
+  useEffect(() => {
+    exquisLedsRef.current?.refreshControlLeds?.();
+  }, [settings.midiin_bend_bypass]);
 
   // Sync MPE mode to Exquis whenever midiin_mpe_input changes.
   // ExquisLEDs.setMPEMode() defers the send until all pads are released.

@@ -118,6 +118,7 @@ export class ExquisLEDs {
     orientation = 90,
     arpeggiatorPattern = 1,
     heldPads = [],
+    controls = null,
   ) {
     this._out = outputPort;
     this._in = inputPort;
@@ -135,6 +136,13 @@ export class ExquisLEDs {
     this._lastHeartbeatSentAt = 0;
     this._recoveryPending = false;
     this._heldPads = new Set(heldPads);
+    this._controls = controls;
+    this._pressedButtons = new Set();
+    this._buttonCcs = new Map([[2, 32], [3, 33], [4, 34]]);
+    this._knobButtonCcs = new Map([[0, 21], [1, 22], [2, 23]]);
+    this._controlValues = new Map();
+    this._buttonLedValues = new Map();
+    this._controlChannel = 0;
 
     this._heldPadCount = this._heldPads.size; // includes presses before driver creation
     this._mpeModePending = null; // deferred CMD 0x07 send timer
@@ -269,6 +277,25 @@ export class ExquisLEDs {
     this._out.send(new Uint8Array([...HDR, 0x07, this._mpeEnabled ? 1 : 0, 0xf7]));
   }
 
+  /** Remote ownership includes LEDs: keep assigned CC buttons visible, and
+   * distinguish their current value from the neutral, inactive state. */
+  refreshControlLeds() {
+    if (!this._ready || !this._out || !this._controls) return;
+    for (const [id, cc] of this._buttonCcs) {
+      const value = this._controls.getControlValue?.(cc) ?? this._controlValues.get(cc) ?? 0;
+      const active = id !== 4 && value >= 64;
+      const state = `${cc}:${active}`;
+      if (this._buttonLedValues.get(id) === state) continue;
+      this._buttonLedValues.set(id, state);
+      // CC32 enables *bypass*: its asserted state means bend is OFF.
+      // The four-circle Scene/Clips button has no Hexatone binding.
+      const rgb = id === 4 ? [0, 0, 0] : cc === 32
+        ? (active ? [70, 0, 0] : [0, 70, 0])
+        : (active ? [0, 70, 20] : [20, 20, 20]);
+      this._out.send(new Uint8Array([...HDR, 0x29, id, ...rgb, 0xf7]));
+    }
+  }
+
   /**
    * Exit App Mode cleanly. Sends quit, stops heartbeat, removes listener.
    * Call this on scale mode switch or device disconnect.
@@ -291,6 +318,13 @@ export class ExquisLEDs {
     this._ready = false;
     this._recoveryPending = false;
     this._heldPads.clear();
+    // Release host-side momentary controls before detaching their event path.
+    for (const key of [...this._pressedButtons]) {
+      const [command, id] = key.split(".").map(Number);
+      this._handleRemoteButton(command, id, false);
+    }
+    this._pressedButtons.clear();
+    this._controls = null;
     this._lastHeartbeatSentAt = 0;
     if (out && wasReady) out.send(QUIT);
   }
@@ -303,6 +337,11 @@ export class ExquisLEDs {
 
     // Repeated note-ons for one channel/key are not additional held pads.
     const status = d[0] & 0xf0;
+    if (status === 0xb0 && d.length === 3) {
+      this._controlValues.set(d[1], d[2]);
+      this.refreshControlLeds();
+    }
+    if (!this._mpeEnabled && status === 0x90 && d[2] > 0) this._controlChannel = d[0] & 15;
     const padKey = `${d[0] & 0x0f}.${d[1]}`;
     if (status === 0x90 && d[2] > 0) {
       this._heldPads.add(padKey);
@@ -334,6 +373,21 @@ export class ExquisLEDs {
     if (d.length < 4) return;
     if (d[0] !== 0xf0 || d[d.length - 1] !== 0xf7) return;
     if (d[1] !== 0x00 || d[2] !== 0x21 || d[3] !== 0x7e) return;
+    if (this._ready && this._controls && d.length === 8) {
+      // Flush replies preserve the user's native CC assignments without
+      // changing or saving any firmware settings.
+      if ([0x2b, 0x38].includes(d[4]) && d[6] <= 127) {
+        const assignments = d[4] === 0x2b ? this._buttonCcs : this._knobButtonCcs;
+        if ((d[4] === 0x2b && [2, 3, 4].includes(d[5])) ||
+            (d[4] === 0x38 && d[5] < 4)) assignments.set(d[5], d[6]);
+        this.refreshControlLeds();
+        return;
+      }
+      if ([0x2a, 0x34].includes(d[4]) && (d[6] === 0 || d[6] === 1)) {
+        this._handleRemoteButton(d[4], d[5], d[6] === 1);
+        return;
+      }
+    }
     if (d[4] !== 0x00 || d.length !== 9) return; // only handle version response
 
     clearTimeout(this._versionTimeout);
@@ -374,6 +428,17 @@ export class ExquisLEDs {
     this._mpeModePending = null;
 
     this._out.send(PAD_REMOTE_0);
+    this._buttonLedValues.clear();
+    this._out.send(new Uint8Array([...HDR, 0x28, this._controls ? 1 : 0, 0xf7]));
+    // Button ownership includes encoder presses, but rotation remains native.
+    this._out.send(new Uint8Array([...HDR, 0x32, 0, 0xf7]));
+    if (this._controls) {
+      this._out.send(new Uint8Array([...HDR, 0x02, 0xf7]));
+      for (const button of [6, 7]) {
+        this._out.send(new Uint8Array([...HDR, 0x29, button, 40, 40, 40, 0xf7]));
+      }
+      this.refreshControlLeds();
+    }
     this._sendArpeggiatorPattern();
     this._out.send(new Uint8Array([...HDR, 0x05, this._luminosity, 0xf7]));
     this._out.send(new Uint8Array([...HDR, 0x07, this._mpeEnabled ? 1 : 0, 0xf7]));
@@ -415,5 +480,29 @@ export class ExquisLEDs {
     }
     this._out.send(HEARTBEAT);
     this._lastHeartbeatSentAt = performance.now();
+  }
+
+  _handleRemoteButton(command, id, pressed) {
+    const panel = command === 0x2a;
+    if (id > (panel ? 9 : 3)) return;
+    const key = `${command}.${id}`;
+    if (pressed === this._pressedButtons.has(key)) return;
+    if (pressed) this._pressedButtons.add(key);
+    else this._pressedButtons.delete(key);
+    if (panel && [6, 7].includes(id)) {
+      if (pressed) this._controls.onOctave?.(id === 6 ? -1 : 1);
+      return;
+    }
+    const cc = (panel ? this._buttonCcs : this._knobButtonCcs).get(id);
+    if (cc == null) return;
+    let value = pressed ? 127 : 0;
+    if (panel && id === 2) {
+      if (!pressed) return; // Record's native CC32 behavior is a toggle.
+      const previous = this._controls.getControlValue?.(cc) ?? this._controlValues.get(cc) ?? 0;
+      value = previous >= 64 ? 0 : 127;
+    }
+    this._controlValues.set(cc, value);
+    this._controls.onMidi?.([0xb0 | (this._mpeEnabled ? 0 : this._controlChannel), cc, value]);
+    this.refreshControlLeds();
   }
 }

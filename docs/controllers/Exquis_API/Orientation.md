@@ -60,3 +60,21 @@ Assignments persist locally and are available independently of App-mode SysEx.
 Sustain maps to CC64 for both built-in synthesis and external output forwarding.
 Standard CC1 modulation and CC74 finger timbre are unchanged unless explicitly
 assigned to sustain. There is no Exquis-specific modulation mapping.
+
+## App-mode octave buttons
+
+The physical octave-down/up buttons (App API button IDs 6/7) invoke the same
+`shiftOctave(-1/+1)` action as the onscreen OCT controls. Each press shifts once;
+release and duplicate press messages do not repeat. The current immediate or
+deferred transposition setting applies. Both buttons are lit in App mode.
+
+The API takes over panel buttons and encoder presses as a group. Hexatone keeps
+encoder rotation native, reads the configured button/encoder CC assignments via
+`flush`, and routes their remote press/release equivalents through the normal
+MIDI input path. This preserves CC learning, sustain and the CC32 bend-bypass
+toggle. The bend button is green when bend is enabled and red when bypassed.
+The sustain button is dim when inactive and green when active. The unused
+four-circle Scene/Clips button stays unlit.
+The bypass LED also follows changes made in Hexatone. LED writes are deduplicated
+and restored after App-mode recovery. Held momentary buttons are released on exit.
+The other directional, Settings/Sound and Play buttons have no host binding yet.
