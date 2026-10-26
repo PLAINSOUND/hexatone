@@ -73,8 +73,24 @@ encoder rotation native, reads the configured button/encoder CC assignments via
 `flush`, and routes their remote press/release equivalents through the normal
 MIDI input path. This preserves CC learning, sustain and the CC32 bend-bypass
 toggle. The bend button is green when bend is enabled and red when bypassed.
-The sustain button is dim when inactive and green when active. The unused
-four-circle Scene/Clips button stays unlit.
+The sustain button is dim when inactive and green when active.
 The bypass LED also follows changes made in Hexatone. LED writes are deduplicated
 and restored after App-mode recovery. Held momentary buttons are released on exit.
 The other directional, Settings/Sound and Play buttons have no host binding yet.
+
+The four-circle Scene/Clips button now sets the controller anchor to the most
+recent Exquis pad played, using the existing anchor-learning/persistence path.
+Releasing that pad does not erase it. A button press acts once, does not forward
+CC34, and does nothing until a valid App-mode pad (0–60) has been played. Its LED
+is unlit before that first note, dim when available, and green while pressed.
+
+Changing the input anchor updates the map for subsequent notes. Held and
+pedal-sustained voices keep their existing pitch and envelope. Internal
+FluidSynth, MPE and real-time MTS outputs retain their wrappers through this
+input-only change; a bulk tuning map's own anchor remains part of its identity.
+
+Focus, page-show and visibility return restore button routing and LEDs even if
+the host heartbeat timestamp already looks fresh. Full App-mode re-entry also
+reasserts them after the delayed MPE/pad-layout setup. Button restoration does
+not rewrite pads or MPE mode, so it remains available while held pads defer
+full recovery. The last played pad and current host bend state survive recovery.

@@ -62,14 +62,15 @@ export function oscOutputConfig(settings, tuning) {
 }
 
 export function mpeOutputConfig(settings, tuning, output, portIdentity, haken = false) {
-  const pitch = [
+  const routingAndPitch = [
     settings.midiin_mpe_manager_ch,
     settings.mpe_lo_ch,
     settings.mpe_hi_ch,
     settings.fundamental,
     tuning.referenceDegree,
     tuning.centerDegree,
-    settings.midiin_anchor_note,
+  ];
+  const voiceSettings = [
     tuning.scale,
     haken ? "standard" : settings.mpe_mode,
     haken ? 96 : (settings.mpe_pitchbend_range ?? 48),
@@ -78,10 +79,14 @@ export function mpeOutputConfig(settings, tuning, output, portIdentity, haken = 
     tuning.equivInterval,
   ];
   return {
-    key: JSON.stringify([portIdentity(output), ...pitch]),
+    // Input anchoring moves the hardware-to-grid map, not the output pitch.
+    // Keep its legacy constructor argument, but do not replace sounding voices.
+    key: JSON.stringify([portIdentity(output), ...routingAndPitch, ...voiceSettings]),
     args: [
       output,
-      ...pitch,
+      ...routingAndPitch,
+      settings.midiin_anchor_note,
+      ...voiceSettings,
       undefined,
       undefined,
       !!settings.mpe_plus_output,
@@ -113,10 +118,14 @@ export function mtsOutputConfig(
     getDynamicBulkConfig:
       outputMode.transportMode === "bulk_dynamic_map" ? getDynamicBulkConfig : null,
   };
-  // Exclude the native port and live callback; everything else is constructor data.
+  // Only effective output configuration belongs in identity, not input metadata.
   const { output, ...mode } = args.outputMode;
+  // Real-time voices calculate pitch from frequency; their legacy input anchor
+  // is only metadata. Bulk maps do use their own anchor to build tuning tables.
+  // Input remapping must not replace a real-time output and reattack held notes.
+  if (!bulk) delete mode.anchorNote;
   return {
-    key: JSON.stringify([portIdentity(output), mode, args.tuningContext, args.legacyInput]),
+    key: JSON.stringify([portIdentity(output), mode, args.tuningContext]),
     args,
   };
 }

@@ -5497,6 +5497,35 @@ describe("Keys MIDI input integration", () => {
     expect(hexOn).toHaveBeenCalledTimes(1);
   });
 
+  it.each([false, true])("preserves Exquis voices across an anchor change (sustain: %s)", sustain => {
+    const input = { name: "Exquis", addListener: vi.fn(), removeListener: vi.fn() };
+    vi.spyOn(WebMidi, "getInputById").mockReturnValue(input);
+    const synth = { makeHex: vi.fn((coords, cents) => ({ coords, cents, release: false,
+      noteOn: vi.fn(), noteOff: vi.fn(function () { this.release = true; }),
+      retune: vi.fn(function (value) { this.cents = value; }),
+    })) };
+    const keys = createKeys({ midiin_device: "input-1", midiin_controller_override: "exquis",
+      midiin_anchor_note: 26 }, {}, synth);
+    keys.midinoteOn(makeMidiEvent(31));
+    const hex = synth.makeHex.mock.results[0].value;
+    const initialCents = hex.cents;
+    const retunes = hex.retune.mock.calls.length;
+    if (sustain) {
+      keys.sustainOn();
+      keys.midinoteOff(makeMidiEvent(31));
+    }
+    keys.updateInputRuntime({ ...keys.inputRuntime, seqAnchorNote: 31 },
+      { midiin_anchor_note: 31, exquis_anchor_note: 31 });
+    expect(synth.makeHex).toHaveBeenCalledOnce();
+    expect(hex.noteOn).toHaveBeenCalledOnce();
+    expect(hex.noteOff).not.toHaveBeenCalled();
+    expect(hex.retune).toHaveBeenCalledTimes(retunes);
+    expect(hex.cents).toBe(initialCents);
+    if (sustain) keys.sustainOff();
+    else keys.midinoteOff(makeMidiEvent(31));
+    expect(hex.noteOff).toHaveBeenCalledOnce();
+  });
+
   it("rebuilds controller maps live when the controller anchor changes", () => {
     vi.spyOn(WebMidi, "getInputById").mockReturnValue({
       name: "USB MIDI Interface",

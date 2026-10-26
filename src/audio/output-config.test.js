@@ -20,6 +20,21 @@ const tuning = {
 };
 
 describe("output construction plans", () => {
+  it("retains internal FluidSynth and MPE identities when only the input anchor changes", () => {
+    const output = {};
+    const identity = createOutputPortIdentity();
+    const changed = { ...settings, midiin_anchor_note: 31, midiin_anchor_channel: 4 };
+    expect(fluidSynthOutputConfig(changed, tuning, output, identity).key)
+      .toBe(fluidSynthOutputConfig(settings, tuning, output, identity).key);
+    expect(mpeOutputConfig(changed, tuning, output, identity).key)
+      .toBe(mpeOutputConfig(settings, tuning, output, identity).key);
+    const realtime = { output, transportMode: "single_note_realtime", allocationMode: "mts1" };
+    expect(mtsOutputConfig(changed, tuning, realtime, identity, null).key)
+      .toBe(mtsOutputConfig(settings, tuning, realtime, identity, null).key);
+    expect(fluidSynthOutputConfig({ ...changed, fundamental: 432 },
+      { ...tuning, fundamental: 432 }, output, identity).key)
+      .not.toBe(fluidSynthOutputConfig(settings, tuning, output, identity).key);
+  });
   it("uses the sample constructor arguments as its identity", () => {
     const plan = sampleOutputConfig(settings, tuning);
     expect(JSON.parse(plan.key)).toEqual(plan.args);
@@ -164,6 +179,8 @@ describe("output construction plans", () => {
     expect(
       mtsOutputConfig(settings, runtime, { ...mode, pitchBendRange: 12 }, id, callback).key,
     ).not.toBe(plan.key);
+    expect(mtsOutputConfig(settings, runtime, { ...mode, anchorNote: 65 }, id, callback).key)
+      .not.toBe(plan.key);
     expect(mtsOutputConfig(settings, runtime, { ...mode, output: {} }, id, callback).key).not.toBe(
       plan.key,
     );

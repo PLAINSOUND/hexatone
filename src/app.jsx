@@ -4730,6 +4730,8 @@ const App = () => {
   exquisArpeggiatorRef.current = settings.exquis_arpeggiator_pattern ?? 1;
   const exquisOctaveRef = useRef(shiftOctave);
   exquisOctaveRef.current = shiftOctave;
+  const exquisAnchorRef = useRef(onAnchorLearn);
+  exquisAnchorRef.current = onAnchorLearn;
   const exquisLifecycleRef = useRef(null);
   if (!exquisLifecycleRef.current) {
     exquisLifecycleRef.current = createExquisAppModeLifecycle({
@@ -4768,6 +4770,7 @@ const App = () => {
         heldPads,
         {
           onOctave: direction => exquisOctaveRef.current(direction),
+          onAnchor: (note, channel) => exquisAnchorRef.current(note, channel),
           // Remote button ownership replaces native CCs. Feed their equivalents
           // through the selected input's usual learn/forward/sustain/bypass path.
           onMidi: data => exquisRawPorts.input.dispatchEvent(new MessageEvent("midimessage", {
@@ -4810,7 +4813,8 @@ const App = () => {
 
     const recoverExquisAppMode = () => {
       if (document.visibilityState && document.visibilityState !== "visible") return;
-      exquisLedsRef.current?.recoverIfHeartbeatStale?.();
+      const leds = exquisLedsRef.current;
+      if (!leds?.recoverIfHeartbeatStale?.()) leds?.restoreControls?.();
     };
 
     document.addEventListener("visibilitychange", recoverExquisAppMode);

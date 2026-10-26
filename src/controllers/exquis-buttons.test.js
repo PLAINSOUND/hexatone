@@ -2,19 +2,83 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Input } from "webmidi";
 import { ExquisLEDs } from "./exquis-leds.js";
 
-afterEach(() => vi.useRealTimers());
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 const frame = (...payload) => ({ data: [0xf0, 0, 0x21, 0x7e, ...payload, 0xf7] });
 function setup(mpe = true) {
   vi.useFakeTimers();
   const out = { send: vi.fn() };
-  const controls = { onOctave: vi.fn(), onMidi: vi.fn() };
+  const controls = { onOctave: vi.fn(), onAnchor: vi.fn(), onMidi: vi.fn() };
   const driver = new ExquisLEDs(out, null, null, 15, 1.3, mpe, 90, 1, [], controls);
   driver._onMessage(frame(0, 3, 0, 0));
   return { driver, out, controls, send: (...payload) => driver._onMessage(frame(...payload)) };
 }
 
 describe("Exquis App Mode buttons", () => {
+  it("assigns the anchor to the most recent played pad once per press, even after release and recovery", () => {
+    const { driver, controls, out, send } = setup();
+    send(0x2a, 4, 1);
+    send(0x2a, 4, 0);
+    expect(controls.onAnchor).not.toHaveBeenCalled();
+    driver._onMessage({ data: [0x91, 20, 70] });
+    driver._onMessage({ data: [0x81, 20, 0] });
+    driver._onMessage({ data: [0x93, 31, 80] });
+    driver._onMessage({ data: [0x93, 31, 0] });
+    driver._onMessage({ data: [0x94, 90, 72] }); // not an App-mode pad ID
+    driver.recoverIfHeartbeatStale({ force: true });
+    out.send.mockClear();
+    send(0x2a, 4, 1);
+    send(0x2a, 4, 1);
+    send(0x2a, 4, 0);
+    expect(controls.onAnchor).toHaveBeenCalledExactlyOnceWith(31, 4);
+    expect(controls.onMidi).not.toHaveBeenCalled(); // consume the former CC34
+    const messages = out.send.mock.calls.map(([data]) => [...data]);
+    expect(messages).toContainEqual(frame(0x29, 4, 0, 70, 20).data);
+    expect(messages).toContainEqual(frame(0x29, 4, 20, 20, 20).data);
+    driver.exit();
+  });
+  it.each([0, 127])("restores button ownership and bend LED %s after a stale timer and delayed layout setup", value => {
+    const { driver, controls, out, send } = setup();
+    controls.getControlValue = cc => cc === 32 ? value : undefined;
+    vi.advanceTimersByTime(200);
+    const last = driver._lastHeartbeatSentAt;
+    vi.spyOn(performance, "now").mockReturnValue(last + 11000);
+    out.send.mockClear();
+    driver._sendHeartbeat(); // timer wins the race with the foreground event
+    vi.advanceTimersByTime(200);
+    const messages = out.send.mock.calls.map(([data]) => [...data]);
+    const lastMap = messages.findLastIndex(data => data[4] === 0x15);
+    const lastButtonMode = messages.findLastIndex(data => data[4] === 0x28);
+    expect(lastMap).toBeGreaterThan(-1);
+    expect(lastButtonMode).toBeGreaterThan(lastMap);
+    const restored = messages.slice(lastButtonMode);
+    expect(restored).toContainEqual(frame(0x28, 1).data);
+    for (const id of [6, 7]) expect(restored).toContainEqual(frame(0x29, id, 40, 40, 40).data);
+    expect(restored).toContainEqual(frame(0x29, 2, ...(value ? [70, 0, 0] : [0, 70, 0])).data);
+    expect(restored).toContainEqual(frame(0x29, 3, 20, 20, 20).data);
+    expect(restored).toContainEqual(frame(0x29, 4, 0, 0, 0).data);
+    send(0x2a, 7, 1);
+    send(0x2a, 7, 0);
+    expect(controls.onOctave).toHaveBeenCalledExactlyOnceWith(1);
+    driver.exit();
+  });
+
+  it("restores buttons with a fresh heartbeat while a held pad defers full recovery", () => {
+    const { driver, controls, out, send } = setup();
+    vi.advanceTimersByTime(200);
+    driver._onMessage({ data: [0x91, 19, 90] });
+    out.send.mockClear();
+    driver.recoverIfHeartbeatStale({ force: true });
+    expect(out.send.mock.calls.map(([data]) => [...data])).toContainEqual(frame(0x28, 1).data);
+    expect(out.send.mock.calls.some(([data]) => [0x07, 0x15].includes(data[4]))).toBe(false);
+    out.send.mockClear();
+    driver.restoreControls(); // focus may arrive after the heartbeat resumed
+    expect(out.send.mock.calls.map(([data]) => [...data])).toContainEqual(frame(0x29, 6, 40, 40, 40).data);
+    send(0x2a, 6, 1);
+    expect(controls.onOctave).toHaveBeenCalledExactlyOnceWith(-1);
+    driver.exit();
+  });
+
   it("takes over buttons, keeps rotation native, queries assignments and lights octave buttons", () => {
     const { driver, out } = setup();
     const messages = out.send.mock.calls.map(([data]) => [...data]);

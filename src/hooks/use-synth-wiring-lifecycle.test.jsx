@@ -180,6 +180,29 @@ it("includes a loaded internal SoundFont without a canvas tuning", async () => {
     fundamental: 440, scale: [0], degree0toRefAsArray: [0, 1],
   });
 });
+it.each(["fluidsynth", "mpe", "mts"])("retains a sounding %s output through an input-anchor change", async backend => {
+  WebMidi.enabled = true;
+  const output = { id: "port" };
+  WebMidi.interface = { inputs: new Map(), outputs: new Map([["port", output]]) };
+  const selected = engine();
+  const factory = backend === "mpe" ? factories.mpe : factories.mts;
+  factory.mockResolvedValue(selected);
+  if (backend === "fluidsynth") fluid.engine = { soundfontId: 1, output };
+  const settings = { ...base, output_sample: false, [`output_${backend}`]: true,
+    midiin_anchor_note: 26, mpe_device: "port", mpe_lo_ch: 2, mpe_hi_ch: 8,
+    midi_device: "port", midi_channel: 0, midi_mapping: "MTS1" };
+  const view = render(<Harness settings={settings} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([selected]));
+  const publications = keysRef.current.updateLiveOutputState.mock.calls.length;
+  view.rerender(<Harness settings={{ ...settings, midiin_anchor_note: 31,
+    midiin_anchor_channel: 4, exquis_anchor_note: 31 }} />);
+  await waitFor(() => expect(keysRef.current.updateLiveOutputState.mock.calls.length).toBeGreaterThan(publications));
+  expect(current.synth?.children).toEqual([selected]);
+  expect(factory).toHaveBeenCalledOnce();
+  expect(selected.shutdown).not.toHaveBeenCalled();
+  expect(selected.allSoundOff).not.toHaveBeenCalled();
+});
+
 it("publishes a fresh FluidSynth child after loading or selecting a sound on the same transport", async () => {
   const first = { ...engine(), audioBackend: "fluidsynth" };
   const reloaded = { ...engine(), audioBackend: "fluidsynth" };

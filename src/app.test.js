@@ -28,6 +28,7 @@ let mockControllerById = null;
 let pendingIOSettingsLoad = null;
 let pendingCalculatorLoad = null;
 let lastExquisControls = null;
+let lastExquisDriver = null;
 const { guardianPanicMock } = vi.hoisted(() => ({ guardianPanicMock: vi.fn() }));
 
 vi.mock("normalize.css", () => ({}));
@@ -206,11 +207,13 @@ vi.mock("./persistence/settings-registry.js", () => ({
 }));
 vi.mock("./settings/session-defaults.js", () => ({ default: {} }));
 vi.mock("./controllers/exquis-leds.js", () => ({ ExquisLEDs: class {
-  constructor(...args) { lastExquisControls = args[9]; }
+  constructor(...args) { lastExquisControls = args[9]; lastExquisDriver = this; }
   exit() {}
   setOrientation() {}
   setArpeggiatorPattern() {}
   setMPEMode() {}
+  recoverIfHeartbeatStale = vi.fn(() => false);
+  restoreControls = vi.fn();
 } }));
 vi.mock("./controllers/lumatone-leds.js", () => ({ LumatoneLEDs: class {} }));
 vi.mock("./controllers/linnstrument-user-firmware.js", () => ({
@@ -422,6 +425,7 @@ beforeEach(() => {
   lastKeyboardProps = null;
   lastUsePresetsOptions = null;
   lastExquisControls = null;
+  lastExquisDriver = null;
   mockDetectedController = null;
   mockControllerById = null;
   synthWiringState.linnstrumentRawPorts = null;
@@ -830,6 +834,13 @@ describe("App input runtime", () => {
     expect(nextShift).toHaveBeenCalledWith(1);
     controls.onMidi([0xb0, 33, 127]);
     expect([...input.dispatchEvent.mock.calls.at(-1)[0].data]).toEqual([0xb0, 33, 127]);
+    act(() => controls.onAnchor(31, 4));
+    expect(synthWiringState.onAnchorLearn).toHaveBeenLastCalledWith(31, 4);
+    act(() => window.dispatchEvent(new Event("focus")));
+    expect(lastExquisDriver.restoreControls).toHaveBeenCalledOnce();
+    lastExquisDriver.recoverIfHeartbeatStale.mockReturnValue(true);
+    act(() => window.dispatchEvent(new Event("focus")));
+    expect(lastExquisDriver.restoreControls).toHaveBeenCalledOnce(); // full recovery owns its restore
   });
 
   it.each(["scale", "hex_layout"])(

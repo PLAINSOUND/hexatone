@@ -143,6 +143,7 @@ export class ExquisLEDs {
     this._controlValues = new Map();
     this._buttonLedValues = new Map();
     this._controlChannel = 0;
+    this._lastPlayedNote = null;
 
     this._heldPadCount = this._heldPads.size; // includes presses before driver creation
     this._mpeModePending = null; // deferred CMD 0x07 send timer
@@ -283,17 +284,33 @@ export class ExquisLEDs {
     if (!this._ready || !this._out || !this._controls) return;
     for (const [id, cc] of this._buttonCcs) {
       const value = this._controls.getControlValue?.(cc) ?? this._controlValues.get(cc) ?? 0;
-      const active = id !== 4 && value >= 64;
-      const state = `${cc}:${active}`;
+      const anchorReady = id === 4 && !!this._controls.onAnchor && !!this._lastPlayedNote;
+      const active = id === 4 ? anchorReady && this._pressedButtons.has(`${0x2a}.4`) : value >= 64;
+      const state = `${cc}:${active}:${anchorReady}`;
       if (this._buttonLedValues.get(id) === state) continue;
       this._buttonLedValues.set(id, state);
       // CC32 enables *bypass*: its asserted state means bend is OFF.
-      // The four-circle Scene/Clips button has no Hexatone binding.
-      const rgb = id === 4 ? [0, 0, 0] : cc === 32
+      // Anchor is available only after this input has supplied a playable pad.
+      const rgb = id === 4 ? (anchorReady ? (active ? [0, 70, 20] : [20, 20, 20]) : [0, 0, 0]) : cc === 32
         ? (active ? [70, 0, 0] : [0, 70, 0])
         : (active ? [0, 70, 20] : [20, 20, 20]);
       this._out.send(new Uint8Array([...HDR, 0x29, id, ...rgb, 0xf7]));
     }
+  }
+
+  /** Reclaim buttons after App-mode sleep, even if a returning heartbeat
+   * already made its host timestamp look fresh. No pad routing or MPE writes:
+   * this is safe while a full layout recovery is waiting for held pads. */
+  restoreControls({ queryAssignments = false } = {}) {
+    if (!this._ready || !this._out || !this._controls) return;
+    this._out.send(new Uint8Array([...HDR, 0x28, 1, 0xf7]));
+    this._out.send(new Uint8Array([...HDR, 0x32, 0, 0xf7]));
+    if (queryAssignments) this._out.send(new Uint8Array([...HDR, 0x02, 0xf7]));
+    for (const button of [6, 7]) {
+      this._out.send(new Uint8Array([...HDR, 0x29, button, 40, 40, 40, 0xf7]));
+    }
+    this._buttonLedValues.clear();
+    this.refreshControlLeds();
   }
 
   /**
@@ -342,6 +359,10 @@ export class ExquisLEDs {
       this.refreshControlLeds();
     }
     if (!this._mpeEnabled && status === 0x90 && d[2] > 0) this._controlChannel = d[0] & 15;
+    if (this._ready && status === 0x90 && d.length === 3 && d[2] > 0 && d[1] <= 60) {
+      this._lastPlayedNote = { note: d[1], channel: (d[0] & 15) + 1 };
+      this.refreshControlLeds();
+    }
     const padKey = `${d[0] & 0x0f}.${d[1]}`;
     if (status === 0x90 && d[2] > 0) {
       this._heldPads.add(padKey);
@@ -423,21 +444,15 @@ export class ExquisLEDs {
     // physical pad releases; they can disturb the firmware's held-note state.
     this._sendHeartbeat(false);
     this._heartbeatTimer = setInterval(() => this._sendHeartbeat(), HEARTBEAT_INTERVAL_MS);
+    this.restoreControls({ queryAssignments: true });
     if (this._heldPadCount) { this._recoveryPending = true; return; }
     this._recoveryPending = false;
     this._mpeModePending = null;
 
     this._out.send(PAD_REMOTE_0);
-    this._buttonLedValues.clear();
-    this._out.send(new Uint8Array([...HDR, 0x28, this._controls ? 1 : 0, 0xf7]));
-    // Button ownership includes encoder presses, but rotation remains native.
-    this._out.send(new Uint8Array([...HDR, 0x32, 0, 0xf7]));
-    if (this._controls) {
-      this._out.send(new Uint8Array([...HDR, 0x02, 0xf7]));
-      for (const button of [6, 7]) {
-        this._out.send(new Uint8Array([...HDR, 0x29, button, 40, 40, 40, 0xf7]));
-      }
-      this.refreshControlLeds();
+    if (!this._controls) {
+      this._out.send(new Uint8Array([...HDR, 0x28, 0, 0xf7]));
+      this._out.send(new Uint8Array([...HDR, 0x32, 0, 0xf7]));
     }
     this._sendArpeggiatorPattern();
     this._out.send(new Uint8Array([...HDR, 0x05, this._luminosity, 0xf7]));
@@ -459,6 +474,10 @@ export class ExquisLEDs {
         this._out.send(new Uint8Array([...HDR, 0x15, noteId, noteId, 0xf7]));
       }
       if (this._lastColors) this.sendColors(this._lastColors);
+
+      // MPE/layout setup can overwrite panel feedback during device wake-up.
+      // Reassert ownership and LEDs after that burst, bypassing LED deduplication.
+      this.restoreControls();
 
       if (this._onReady) this._onReady(true);
     }, 200);
@@ -491,6 +510,13 @@ export class ExquisLEDs {
     else this._pressedButtons.delete(key);
     if (panel && [6, 7].includes(id)) {
       if (pressed) this._controls.onOctave?.(id === 6 ? -1 : 1);
+      return;
+    }
+    if (panel && id === 4 && this._controls.onAnchor) {
+      if (pressed && this._lastPlayedNote) {
+        this._controls.onAnchor(this._lastPlayedNote.note, this._lastPlayedNote.channel);
+      }
+      this.refreshControlLeds();
       return;
     }
     const cc = (panel ? this._buttonCcs : this._knobButtonCcs).get(id);
