@@ -1027,6 +1027,9 @@ const App = () => {
   const restoreAudioEngines = audioRecovery.restore;
   const restoreBuiltInAudio = useCallback(() => {
     stopInterruptedManualPlaybackRef.current?.();
+    // A recent heartbeat send does not confirm the hardware is still in App
+    // Mode. Retry also restores its routing/map/colours, without cycling ports.
+    exquisLedsRef.current?.recoverIfHeartbeatStale?.({ force: true });
     return restoreAudioEngines();
   }, [restoreAudioEngines]);
   const [initialAudioPromptDismissed, setInitialAudioPromptDismissed] = useState(false);

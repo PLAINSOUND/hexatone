@@ -1,7 +1,7 @@
 /** Stage checksum-verified, committed engine assets for dev and production.
  * Native compilation is only needed when maintainers update the vendor bundle.
  */
-import { cp, mkdir, access, readFile } from "node:fs/promises";
+import { cp, mkdir, access, readFile, rm } from "node:fs/promises";
 import { createHash } from "node:crypto";
 const root = new URL("../../", import.meta.url);
 const bundle = new URL("vendor/supersonic/", root);
@@ -33,6 +33,11 @@ for (const name of ["pluck", "string", "formant", "tone"]) {
 assets.push(["node_modules/supersonic-scsynth/COPYING", "CLIENT-COPYING"]);
 // Check all prerequisites before changing the staged asset set.
 for (const [source] of assets) await access(new URL(source, root));
+// Hashed chunks change between versions. Do not leave an old client/worklet
+// available for precaching beside the checksum-verified replacement.
+for (const name of ["client", "core"]) {
+  await rm(new URL(`public/supersonic/${name}/`, root), { recursive: true, force: true });
+}
 await mkdir(new URL("public/supersonic/synthdefs/", root), { recursive: true });
 for (const [source, target] of assets) {
   await cp(new URL(source, root), new URL(`public/supersonic/${target}`, root), { recursive: true });

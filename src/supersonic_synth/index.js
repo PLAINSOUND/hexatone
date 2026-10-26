@@ -52,7 +52,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
   let phase = "creating-context";
   let gestureAt = null;
   const startupSince = performance.now();
-  const startupDiagnostic = () => ({ backend: "supersonic", version: "0.90", phase,
+  const startupDiagnostic = () => ({ backend: "supersonic", version: "0.92", phase,
     elapsedMs: performance.now() - startupSince,
     gestureReceived: gestureAt != null,
     contexts: [...pendingContexts].map((candidate) => ({ state: candidate.state, currentTime: candidate.currentTime })),
@@ -136,7 +136,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       pendingCloses.add(closeNext);
       let deadline;
       // Initial iOS/private-browser activation may be blocked until another
-      // gesture. NTPTiming requires a running clock; do not start its timeout
+      // gesture. Engine initialisation requires a running clock; do not start its timeout
       // while waiting for browser permission. Hard recovery remains bounded.
       try {
         phase = "waiting-for-context";

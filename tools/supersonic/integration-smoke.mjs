@@ -1,5 +1,5 @@
 /** Exercises Hexatone's real local OSC adapter against a running Vite server. */
-import { chromium } from "./upstream-090/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-092/node_modules/playwright/index.mjs";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 const production = process.argv.includes("--production");
@@ -14,6 +14,9 @@ try {
   const page = await browser.newPage();
   const errors = [];
   page.on("pageerror", error => { errors.push(error.message); console.error(error.stack); });
+  page.on("console", message => {
+    if (["warning", "error"].includes(message.type())) console.error(message.text());
+  });
   const base = process.env.HEXATONE_TEST_URL ?? "http://127.0.0.1:5176";
   await page.goto(production ? `${base}/` : `${base}/supersonic-lab.html`);
   await page.waitForLoadState("networkidle");
@@ -46,6 +49,18 @@ try {
     await context.suspend();
     await synth.prepare();
     const resumedState = context.state;
+    // The reported failure affected timed sequence attacks while live attacks
+    // still worked. Exercise timed notes after both resume and hard recovery.
+    synth.allSoundOff();
+    const resumedNote = synth.makeHex({ x: 2, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    resumedNote.noteOn(performance.now() + 150);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    analyser.getFloatTimeDomainData(data);
+    const resumedScheduledPeak = Math.max(...data.map(Math.abs));
+    const resumedAttacks = synth.getDiagnostics().engine.dispatch.recentAttacks
+      .filter(attack => attack.timestamped);
+    const resumedScheduledStarted = resumedAttacks.length === 4 &&
+      resumedAttacks.every(attack => attack.acknowledgedAtMs != null);
     // A stalled/silent engine Retry rebuilds its isolated context. Check two
     // consecutive rebuilds, not just the first successful boot.
     const recoveryPeaks = [];
@@ -56,7 +71,8 @@ try {
       await synth.forceAudioRebuild();
       context = synth.getAudioContext();
       analyser = analysers.get(context);
-      synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1).noteOn();
+      synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1)
+        .noteOn(performance.now() + 150);
       await new Promise(resolve => setTimeout(resolve, 800));
       analyser.getFloatTimeDomainData(data);
       recoveryPeaks.push(Math.max(...data.map(Math.abs)));
@@ -68,6 +84,15 @@ try {
     await new Promise(resolve => setTimeout(resolve, 400));
     analyser.getFloatTimeDomainData(data);
     const panicPeak = Math.max(...data.map(Math.abs));
+    const panicDiagnostics = synth.getDiagnostics();
+    // A fresh timed attack immediately following PANIC must survive its
+    // barrier, even though the cancelled attack above must never start.
+    synth.allSoundOff();
+    const fresh = synth.makeHex({ x: 3, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    fresh.noteOn(performance.now() + 150);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    analyser.getFloatTimeDomainData(data);
+    const postPanicPeak = Math.max(...data.map(Math.abs));
     synth.shutdown({ panic: true });
     await new Promise(resolve => setTimeout(resolve, 100));
     const contextState = context.state;
@@ -88,15 +113,19 @@ try {
     while (context.state !== "closed" && performance.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    return { peak, resumedState, recoveryPeaks, retiredStates, panicPeak, contextState,
+    return { peak, resumedState, resumedScheduledPeak, resumedScheduledStarted,
+      recoveryPeaks, retiredStates, panicPeak, panicDiagnostics, postPanicPeak, contextState,
       releasePeak, releaseState, drainedState: context.state };
   }, production ? `${base}/assets/${productionChunk}` : "/src/supersonic_synth/index.js");
-  console.log(result);
+  console.log(JSON.stringify(result, null, 2));
   assert(result.peak > 0 && result.peak < 1);
   assert.equal(result.resumedState, "running");
+  assert(result.resumedScheduledPeak > 0 && result.resumedScheduledStarted);
   assert(result.recoveryPeaks.every(peak => peak > 0 && peak < 1));
   assert.deepEqual(result.retiredStates, ["closed", "closed"]);
   assert(result.panicPeak < 0.00001);
+  assert.equal(result.panicDiagnostics.engine.nodes.count, 5);
+  assert(result.postPanicPeak > 0 && result.postPanicPeak < 1);
   assert.equal(result.contextState, "closed");
   assert(result.releasePeak > 0);
   assert.equal(result.releaseState, "running");

@@ -185,7 +185,7 @@ async function installSoundFont(active, source, preset = null, { notify = true }
     true,
   );
   active.node.port.postMessage(
-    { type: replacing ? "replace-soundfont" : "load-soundfont", bytes },
+    { type: replacing ? "replace-soundfont" : "load-soundfont", bytes, reverbSend: active.reverb },
     [bytes],
   );
   const result = await loaded;
@@ -252,11 +252,7 @@ async function rebindEngineToContext(context, signal) {
       },
       setReverb(value) {
         candidate.reverb = value;
-        candidate.node.port.postMessage({ type: "midi-batch", events:
-          Array.from({ length: 128 }, (_, channel) => ({
-            command: { channel, op: "cc", a: 91, b: value },
-          })),
-        });
+        candidate.node.port.postMessage({ type: "set-reverb", value });
       },
       selectPreset(preset) {
         if (!preset || candidate.soundfontId == null) return;
@@ -454,9 +450,7 @@ export async function getFluidSynthEngine() {
       engine.setReverb = (value) => {
         engine.reverb = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
         engine.output.reverbSend = engine.reverb;
-        for (let channel = 0; channel < 128; channel++) {
-          engine.output.sendCommand({ channel, op: "cc", a: 91, b: engine.reverb });
-        }
+        engine.node.port.postMessage({ type: "set-reverb", value: engine.reverb });
       };
       engine.output.reverbSend = engine.reverb;
       engine.setVolume = (value) => {
@@ -527,8 +521,9 @@ export async function loadFluidSynthSoundFont(
       (message) => message?.type === "soundfont-loaded",
       true,
     );
+    active.output.resetClock();
     active.node.port.postMessage(
-      { type: replacing ? "replace-soundfont" : "load-soundfont", bytes },
+      { type: replacing ? "replace-soundfont" : "load-soundfont", bytes, reverbSend: active.reverb },
       [bytes],
     );
     try {

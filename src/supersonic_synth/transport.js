@@ -18,6 +18,14 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
   const nodes = new Map();
   const tails = new Map();
   const touchStarts = new Map();
+  const recentAttacks = [];
+  const serverFailures = [];
+  let scheduledMessages = 0;
+  let immediateMessages = 0;
+  const remember = (list, value, limit) => {
+    list.push(value);
+    if (list.length > limit) list.shift();
+  };
   let tailLimit = 64;
   let closed = false;
   let purging = false;
@@ -48,6 +56,18 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
       }
     }
     const delay = Number.isFinite(timestamp) ? (timestamp - performance.now()) / 1000 : 0;
+    if (address === "/s_new") {
+      const controls = {};
+      for (let i = 4; i + 1 < args.length; i += 2) controls[args[i]] = args[i + 1];
+      remember(recentAttacks, { submittedAtMs: performance.now(), nodeId: args[1],
+        synthDef: args[0], group: args[3], timestamped: Number.isFinite(timestamp),
+        delayMs: Math.max(0, delay * 1000), controls,
+        nonFiniteControls: Object.keys(controls).filter(key =>
+          typeof controls[key] === "number" && !Number.isFinite(controls[key])),
+        acknowledgedAtMs: null, endedAtMs: null }, 24);
+    }
+    if (delay > 0) scheduledMessages++;
+    else immediateMessages++;
     if (delay > 0) sonic.sendOSC(encodeBundle(sonic.clock.now() + delay, [[address, ...args]]));
     else sonic.send(address, ...args);
   };
@@ -61,6 +81,14 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     }
   };
   sonic.on("in", message => {
+    if (message[0] === "/fail") {
+      remember(serverFailures, { receivedAtMs: performance.now(), command: message[1],
+        details: message.slice(2) }, 12);
+    }
+    if (message[0] === "/n_go" || message[0] === "/n_end") {
+      const attack = recentAttacks.find(item => item.nodeId === message[1]);
+      if (attack) attack[message[0] === "/n_go" ? "acknowledgedAtMs" : "endedAtMs"] = performance.now();
+    }
     if (message[0] === "/n_go") {
       const trace = touchStarts.get(message[1]);
       if (trace) recordTouchRender(trace.id, {
@@ -96,6 +124,11 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
           nodes: { count: tree.nodeCount, droppedCount: tree.droppedCount, trackedLayerNodes: nodes.size },
           outputPeak: tree.nodes?.reduce((peak, node) => Math.max(peak, node.outPeak || 0), 0),
           transport: { pending: pending.length, purging, draining, closed },
+          dispatch: { scheduledMessages, immediateMessages,
+            recentAttacks: recentAttacks.map(attack => ({ ...attack, controls: { ...attack.controls },
+              nonFiniteControls: [...attack.nonFiniteControls] })),
+            serverFailures: serverFailures.map(failure => ({ ...failure, details: [...failure.details] })),
+            meaning: "Timestamped is not a sequence identifier: live output handovers may also be scheduled. Node acknowledgements do not prove audible output." },
           audioContext: {
             state: sonic.audioContext?.state ?? null,
             currentTime: sonic.audioContext?.currentTime ?? null,
@@ -151,11 +184,14 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
       }
       pending = [];
       purging = true;
-      // 0.90 fixes /clearSched's WASM scheduler flush. Retain the acknowledged
-      // purge barrier so subsequent frees/new attacks cannot overtake cleanup.
+      // First acknowledge the worklet purge, then clear in the OSC stream too:
+      // 0.92's purge marks due ingress stale but preserves future bundles still
+      // in the ring. The ordered /clearSched follows those bundles and cancels
+      // them before cleanup and fresh attacks are released through this barrier.
       purgePromise = sonic.purge().then(() => {
         purging = false;
         if (closed) { dispose(); return; }
+        sonic.send("/clearSched");
         const messages = pending;
         pending = [];
         messages.forEach(message => dispatch(...message));

@@ -99,7 +99,11 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
   expect(nodes[0].port.postMessage.mock.calls.filter(([message]) => message.type === "midi-batch")
     .flatMap(([message]) => message.events)).toEqual([]);
   const source = { name: "retained.sf2", arrayBuffer: vi.fn(async () => new ArrayBuffer(8)) };
+  engine.setReverb(17);
+  expect(nodes[0].port.postMessage).toHaveBeenCalledWith({ type: "set-reverb", value: 17 });
+  expect(engine.output.reverbSend).toBe(17);
   await loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
+  expect(nodes[0].port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "load-soundfont", reverbSend: 17 }), expect.any(Array));
   const { create_midi_synth } = await import("../midi_synth/index.js");
   const synth = await create_midi_synth({
     outputMode: { output: engine.output, velocity: 72 },
@@ -123,6 +127,7 @@ it("replaces a worklet in a running context and restores its bank, preset and vo
   expect(recover).toHaveBeenCalledOnce(); // no await before the context wake
   await restoring;
   expect(nodes).toHaveLength(2);
+  expect(nodes[1].port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "load-soundfont", reverbSend: 17 }), expect.any(Array));
   expect(nodes[1].port.postMessage).toHaveBeenCalledWith({
     type: "set-smoothing", pressureMs: 120, expressionMs: 60, minimumMs: 0,
   });

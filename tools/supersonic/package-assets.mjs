@@ -1,15 +1,16 @@
 /** Maintainer-only: package tested binaries and pinned corresponding sources. */
-import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, writeFile, rm } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 const root = new URL("../../", import.meta.url);
 const dest = new URL("vendor/supersonic/", root);
 await mkdir(new URL("sources/", dest), { recursive: true });
-// 0.90's browser packages are not on npm yet. Distribute the client built
-// from the same pinned checkout as the custom core, including its sources.
-const upstream = new URL("tools/supersonic/upstream-090/", root);
+// Distribute the client built from the same pinned checkout as the custom
+// core, including its sources. Remove old chunks when replacing a bundle.
+const upstream = new URL("tools/supersonic/upstream-092/", root);
 const client = new URL("client/", dest);
+await rm(new URL("dist/", client), { recursive: true, force: true });
 await mkdir(new URL("dist/", client), { recursive: true });
 for (const entry of await readdir(new URL("dist/", upstream), { withFileTypes: true })) {
   if (entry.isFile() && /\.(js|css|map)$/.test(entry.name)) {
@@ -23,6 +24,7 @@ for (const name of ["package.json", "supersonic.d.ts", "LICENSE", "COPYING"]) {
   await cp(new URL(name, upstream), new URL(name, client));
 }
 await cp(new URL("README.npm.md", upstream), new URL("README.md", client));
+await rm(new URL("core/", dest), { recursive: true, force: true });
 await cp(new URL("tools/supersonic/generated/dfm1-core/", root), new URL("core/", dest), { recursive: true });
 // Upstream ignores these build outputs locally; Hexatone distributes them.
 await writeFile(new URL("core/.gitignore", dest), "# Runtime WASM and worker assets are intentionally vendored for GitHub Pages.\n");
@@ -31,8 +33,8 @@ for (const name of ["pluck", "string", "formant", "tone"]) {
   await cp(new URL(`tools/supersonic/generated/hexlab_${name}.scsyndef`, root), new URL(`synthdefs/hexlab_${name}.scsyndef`, dest));
 }
 for (const [directory, revision, name] of [
-  ["upstream-090", "71ecaa6d9b67f1c7f13a5eabb6a980ac0dcc78f9", "supersonic"],
-  ["upstream-090/clockwork", "d6c2c5ccd936d6c6b023722f5473a6f1de350869", "clockwork"],
+  ["upstream-092", "ae62628e3f74fc930754430ea342072bacaba6bc", "supersonic"],
+  ["upstream-092/clockwork", "88bf70663f1e9635a08502c9c874d12ad73b07b9", "clockwork"],
   ["sc3-plugins", "fa926d6b554acef35b2fd9deb2f996085fa86bd7", "sc3-plugins"],
 ]) {
   execFileSync("git", ["-C", fileURLToPath(new URL(`tools/supersonic/${directory}`, root)), "archive", "--format=tar.gz", `--output=${fileURLToPath(new URL(`sources/${name}.tar.gz`, dest))}`, revision]);
@@ -51,4 +53,4 @@ async function hashDirectory(directory, prefix = "") {
   }
 }
 await hashDirectory(dest);
-await writeFile(new URL("manifest.json", dest), JSON.stringify({ version: "0.90.0-dfm1", files }, null, 2) + "\n");
+await writeFile(new URL("manifest.json", dest), JSON.stringify({ version: "0.92.0-dfm1", files }, null, 2) + "\n");

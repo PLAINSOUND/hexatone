@@ -262,6 +262,12 @@ export interface SuperSonicOptions {
   snapshotIntervalMs?: number;
 
   /**
+   * The latest a timed event may play, in ms: one that comes due later is dropped and counted
+   * (`engineSchedulerLateDropped`). Default 0: everything plays, however late. A page that can be flooded sets a limit.
+   */
+  schedulerLateLimitMs?: number;
+
+  /**
    * What the page going away, or out of sight, does to the engine.
    * `pagehide`: `'shutdown'` (default — an engine left running after its page is audio with no page to stop it) or
    * `'none'`. `hidden`: `'keep'` (default — a tab behind another plays on) or `'suspend'` (and resume when shown).
@@ -333,7 +339,7 @@ export interface RingBufferUsage {
  * `nrtOut`) are grouped here as `inBufferUsed`, `outBufferUsed` and
  * `nrtOutBufferUsed`; `mode` and `audioContextState` are strings here and
  * enum indexes in the array; `hasPlaybackStats` is a boolean here and 0 or 1
- * in the array; `ntpStartTime` is only here.
+ * in the array.
  */
 export interface SuperSonicMetrics {
   // Engine
@@ -355,6 +361,8 @@ export interface SuperSonicMetrics {
   engineWasmErrors: number;
   /** Bundles executed after their scheduled time. */
   engineSchedulerLates: number;
+  /** Timed events dropped for coming due later than the host allows (`schedulerLateLimitMs`); 0 unless a limit is set. */
+  engineSchedulerLateDropped: number;
   /** Maximum lateness observed in the scheduler (ms). */
   engineSchedulerMaxLateMs: number;
   /** Most recent late magnitude in the scheduler (ms). */
@@ -420,6 +428,10 @@ export interface SuperSonicMetrics {
   clockPhaseCenti: number;
   /** Transport playing (0 = stopped, 1 = playing). */
   clockPlaying: number;
+  /** The difference between the audio clock and the wall clock (µs, signed), smoothed. */
+  clockDriftUs: number;
+  /** Times the audio clock was re-anchored since boot. */
+  clockAnchors: number;
 
   // Link (native only; 0 on the web, where there is no Link session)
   /** Connected Ableton Link peers on the network. */
@@ -440,7 +452,7 @@ export interface SuperSonicMetrics {
   linkAudioStreamRate: number;
   /** Link Audio input frames that arrived too late to play, every input together. */
   linkAudioUnderruns: number;
-  /** Received Link Audio queued in the receiver (ms). */
+  /** Received Link Audio held ahead of playback, the most of any input (ms). */
   linkAudioBufferedMs: number;
   /** Read-rate deviation from the sender's clock (parts per million, signed). */
   linkAudioDriftPpm: number;
@@ -450,12 +462,8 @@ export interface SuperSonicMetrics {
   linkAudioSinks: number;
 
   // Context (main thread)
-  /** Clock drift between AudioContext and wall clock (ms, signed). */
-  driftOffsetMs: number;
   /** Clock offset for multi-system sync (ms, signed). */
   clockOffsetMs: number;
-  /** NTP time (seconds since 1900) when the AudioContext started; 0 before boot. */
-  ntpStartTime: number;
   /** AudioContext state; `'unknown'` when there is no context. */
   audioContextState: 'running' | 'suspended' | 'closed' | 'interrupted' | 'unknown';
   /** Transport mode. */
@@ -528,6 +536,29 @@ export interface NativeStatDefinition {
   unit?: string;
   /** Human-readable description. */
   description: string;
+}
+
+/** One window of a metric's history: see {@link SuperSonic.getMetricsHistory}. */
+export interface MetricHistoryWindow {
+  /** The lowest value seen in the window. */
+  low: number;
+  /** The highest value seen in the window. */
+  high: number;
+  /** The last value recorded. */
+  last: number;
+  /** The change across the window: for a counter, what it counted in that time. */
+  delta: number;
+  /** How many buckets the window found recorded: 0 means nothing yet. */
+  covered: number;
+}
+
+/** A metric's windows: the last second, ten seconds and minute, the last ten minutes, the last hour. */
+export interface MetricHistoryWindows {
+  s1: MetricHistoryWindow;
+  s10: MetricHistoryWindow;
+  m1: MetricHistoryWindow;
+  m10: MetricHistoryWindow;
+  h1: MetricHistoryWindow;
 }
 
 /**
@@ -818,28 +849,12 @@ export interface BootStats {
  * `numPeers()` always 0.
  */
 export interface ClockworkClock {
-  // ── Time / drift ─────────────────────────────────────────────────────
+  // ── Time ─────────────────────────────────────────────────────────────
 
-  /** Measure the NTP start time and the first drift. `init()` does this; a client does not need to. */
-  initialize(): Promise<void>;
-  /** Re-measure the NTP start time and drift, as after a suspend. */
-  resync(): void;
-  /** Start re-measuring the drift periodically. */
-  startDriftTimer(): void;
-  /** Stop re-measuring the drift. */
-  stopDriftTimer(): void;
-  /** Re-measure the drift now. */
-  updateDriftOffset(): void;
-  /** Drift between the AudioContext and the wall clock, in milliseconds (signed). */
-  getDriftOffset(): number;
-  /** NTP time (seconds since 1900) when the AudioContext started. */
-  getNTPStartTime(): number;
   /** The clock offset set by {@link setClockOffset}, in milliseconds. */
   getClockOffset(): number;
   /** Set the clock offset for multi-system sync, in seconds (stored rounded to the millisecond). */
   setClockOffset(offsetS: number): void;
-  /** Stop the drift timer and forget the timing state. */
-  reset(): void;
 
   // ── Session mutators ─────────────────────────────────────────────────
 
@@ -893,13 +908,6 @@ export interface ClockworkClock {
   now(): number;
 
   /**
-   * Compute audio-thread NTP for a specific `AudioContext.currentTime`.
-   * Lower-level than {@link now} — pass a value obtained from
-   * `audioContext.getOutputTimestamp()` for sample-aligned scheduling.
-   */
-  nowAt(audioCurrentTime: number): number;
-
-  /**
    * Current NTP time from the system wall clock. Use only when matching
    * against external wall-clock events; prefer {@link now} for scheduling
    * engine events.
@@ -941,7 +949,8 @@ export interface SuperSonicEventMap {
    * Fired after init completes, before `'ready'`.
    * Use for setting up groups, FX chains, and bus routing.
    * Can be async — init waits for all setup handlers to resolve; one that throws is reported on `'error'`.
-   * Also fires after a `reload()`, including one `recover()` falls back to.
+   * Also fires after a `reload()` that built a new engine, including one `recover()` falls back to. A reload
+   * that carried the engine on (`resumed` on `'reload:complete'`) kept everything built on it, and does not fire it.
    */
   'setup': () => void | Promise<void>;
 
@@ -999,8 +1008,11 @@ export interface SuperSonicEventMap {
   /** Full reload started (worklet and WASM will be recreated). */
   'reload:start': () => void;
 
-  /** Full reload completed, or failed (`success: false`, with the error). */
-  'reload:complete': (data: { success: boolean; error?: Error }) => void;
+  /**
+   * Full reload completed, or failed (`success: false`, with the error). `resumed`: the engine carried on in the
+   * memory it ran in, with everything it held — nodes, synthdefs, buffers — and nothing was put back.
+   */
+  'reload:complete': (data: { success: boolean; resumed?: boolean; error?: Error }) => void;
 
   /** A reload failed. What it built has been taken down; `reload()` and `recover()` answer false. */
   'reload:failed': (data: { error: Error }) => void;
@@ -1047,7 +1059,7 @@ export interface OscChannelMetrics {
 export interface OscChannelSABTransferable {
   mode: 'sab';
   sharedBuffer: SharedArrayBuffer;
-  ringBufferBase: number;
+  arenaBase: number;
   bufferConstants: Record<string, number>;
   controlIndices: Record<string, number>;
   sourceId: number;
@@ -1400,7 +1412,7 @@ export class SuperSonic {
   get bufferConstants(): Record<string, number> | null;
 
   /** Ring buffer base offset in SharedArrayBuffer. Internal. */
-  get ringBufferBase(): number;
+  get arenaBase(): number;
 
   /** The SharedArrayBuffer (SAB mode) or null (postMessage mode). Internal. */
   get sharedBuffer(): SharedArrayBuffer | null;
@@ -1605,11 +1617,17 @@ export class SuperSonic {
   suspend(): Promise<void>;
 
   /**
-   * Full reload — destroys and recreates the worklet and WASM, then restores
-   * all previously loaded synthdefs and audio buffers.
+   * Full reload — recreates the worklet and WASM, and brings the engine back
+   * doing as little as it can. In SAB mode the engine's memory is kept, and
+   * the engine carries on in it as it was — nodes, synthdefs and buffers all
+   * still there — unless the context it comes back on runs at another sample
+   * rate, when a new engine is built. A new engine (always, in postMessage
+   * mode, whose worklet takes its memory with it) has every previously
+   * loaded synthdef and audio buffer put back.
    *
-   * Emits `'reload:start'`, then `'setup'` (so you can rebuild groups, FX
-   * chains, and bus routing), `'ready'` and `'reload:complete'`. On failure
+   * Emits `'reload:start'`, then, for a new engine, `'setup'` (so you can
+   * rebuild groups, FX chains, and bus routing), then `'ready'` and
+   * `'reload:complete'` (with `resumed: true` when the engine carried on). On failure
    * it takes down what it built, emits `'reload:failed'` and
    * `'reload:complete'` with `success: false`, and resolves to false.
    * A call while a reload is under way gets that reload.
@@ -1748,13 +1766,19 @@ export class SuperSonic {
 
   // ── Buffer commands ────────────────────────────────────────────────
 
-  /** Async. Allocate an empty buffer. Queued and rewritten to /b_allocPtr internally. Use sync() after to ensure completion. Replies with `/done /b_allocPtr bufnum`. Note: completion messages are not supported (dropped during rewrite). */
-  send(address: '/b_alloc', bufnum: number, numFrames: number, numChannels?: number, sampleRate?: number): void;
-  /** Async. Allocate a buffer and read an audio file into it. The path is fetched via the configured sampleBaseURL. Queued and rewritten internally. Replies with `/done /b_allocPtr bufnum`. */
+  /** Allocate an empty buffer, from the engine's heap, as on every platform. Replies with `/done /b_alloc bufnum`; a completion message is honoured. */
+  send(address: '/b_alloc', bufnum: number, numFrames: number, numChannels?: number, completionMessage?: Uint8Array | ArrayBuffer): void;
+  /** Async. Allocate a buffer and read an audio file into it. The path is fetched via the configured sampleBaseURL, decoded, staged in the assets area and committed as an asset. Replies with `/clockwork/asset/committed bufnum`. */
   send(address: '/b_allocRead', bufnum: number, path: string, startFrame?: number, numFrames?: number): void;
-  /** Async. Allocate a buffer and read specific channels from an audio file. Queued and rewritten internally. Replies with `/done /b_allocPtr bufnum`. */
+  /** Async. Allocate a buffer and read specific channels from an audio file. As /b_allocRead. Replies with `/clockwork/asset/committed bufnum`. */
   send(address: '/b_allocReadChannel', bufnum: number, path: string, startFrame: number, numFrames: number, ...channels: number[]): void;
-  /** Async. SuperSonic extension: allocate a buffer from inline audio file bytes (WAV, FLAC, OGG, etc.) without URL fetch. Queued and rewritten internally. Replies with `/done /b_allocPtr bufnum`. */
+  /** Async. Read an audio file into a buffer that exists. The frames are decoded here and the engine copies them in. Replies with `/done /supersonic/buffer/read bufnum`. `leaveOpen` is not available. */
+  send(address: '/b_read', bufnum: number, path: string, startFrame?: number, numFrames?: number, bufStartFrame?: number, leaveOpen?: number): void;
+  /** Async. As /b_read, with channel selection. */
+  send(address: '/b_readChannel', bufnum: number, path: string, startFrame: number, numFrames: number, bufStartFrame: number, leaveOpen: number, ...channels: number[]): void;
+  /** Async. Write a buffer's frames out: the engine publishes them and a 32-bit float WAV is handed to `'buffer:written'` as `{ bufnum, path, blob }`, since a browser has no path to write to. */
+  send(address: '/b_write', bufnum: number, path: string, headerFormat: string, sampleFormat: string, numFrames?: number, startFrame?: number, leaveOpen?: number): void;
+  /** Async. SuperSonic extension: allocate a buffer from inline audio file bytes (WAV, FLAC, OGG, etc.) without URL fetch. Decoded, staged and committed as an asset. Replies with `/clockwork/asset/committed bufnum`. */
   send(address: '/b_allocFile', bufnum: number, data: Uint8Array | ArrayBuffer): void;
   /** Async. Free a buffer. Optional completionMessage is an encoded OSC message executed after freeing. Replies with `/done /b_free bufnum`. */
   send(address: '/b_free', bufnum: number, completionMessage?: Uint8Array | ArrayBuffer): void;
@@ -1798,10 +1822,11 @@ export class SuperSonic {
    * commands; this one takes any other address, and the multi-range forms of
    * commands like `/n_setn`, `/b_fill` and `/c_getn`.
    *
-   * Sent at once, except buffer allocation (`/b_alloc`, `/b_allocRead`,
-   * `/b_allocReadChannel`, `/b_allocFile`): those are queued, in the order
-   * written, while their material is fetched and decoded, then reach the
-   * engine as `/b_allocPtr`. A queued command that fails is reported on
+   * Sent at once, except the file verbs (`/b_allocRead`, `/b_allocReadChannel`,
+   * `/b_allocFile`, `/b_read`, `/b_readChannel`, `/b_write`): those are
+   * queued, in the order written, while their material is fetched and
+   * decoded, then reach the engine as an asset commit, a buffer read or a
+   * buffer publish. A queued command that fails is reported on
    * `'error'`. {@link sync} waits for the queue before its barrier.
    *
    * Nothing is refused here: a command the browser cannot serve (a file-path
@@ -2133,6 +2158,19 @@ export class SuperSonic {
    * console.log(`Scheduler depth: ${m.engineSchedulerDepth}`);
    */
   getMetrics(): SuperSonicMetrics;
+
+  /**
+   * What every counter and gauge did over the last hour, kept by the engine (so it survives a reload): for each metric
+   * with a history — every one but the constants — the windows `s1`, `s10`, `m1` (the last second, ten seconds and
+   * minute), `m10` and `h1`. Each is the lowest and highest value seen in the window, the last, the change across it
+   * (a counter's count in that time) and how many buckets it found recorded. `{}` before the engine is up. In
+   * postMessage mode the windows are from the last heartbeat's copy. See docs/METRICS.md.
+   *
+   * @example
+   * const h = sonic.getMetricsHistory();
+   * console.log(`lates in the last minute: ${h.engineSchedulerLates.m1.delta}`);
+   */
+  getMetricsHistory(): Record<string, MetricHistoryWindows>;
 
   /**
    * Get metrics as a flat Uint32Array for zero-allocation reading.

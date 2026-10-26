@@ -6741,18 +6741,18 @@ __metadata:
   linkType: hard
 
 "supersonic-scsynth-core@file:vendor/supersonic/core::locator=plainsound-hexatone%40workspace%3A.":
-  version: 0.90.0
-  resolution: "supersonic-scsynth-core@file:vendor/supersonic/core#vendor/supersonic/core::hash=0ab2ba&locator=plainsound-hexatone%40workspace%3A."
-  checksum: 10c0/9baf5340439957ec3e5758b7af5dc80e94f6ac94fff743f599244c0bf6b16ad44443868dc18378af7576fe80dfcba14e27c361fc7ebde25954ff0f7e10a7bcb4
+  version: 0.92.0
+  resolution: "supersonic-scsynth-core@file:vendor/supersonic/core#vendor/supersonic/core::hash=aaa20a&locator=plainsound-hexatone%40workspace%3A."
+  checksum: 10c0/d5410a41c80eacdc3e78bded12ed22782b44826d7e527d36a9de0bd4ecd91373ca36c96bbfd143782ff56f680fe767c8673241e2b6f6f34046a204632776c125
   languageName: node
   linkType: hard
 
 "supersonic-scsynth@file:vendor/supersonic/client::locator=plainsound-hexatone%40workspace%3A.":
-  version: 0.90.0
-  resolution: "supersonic-scsynth@file:vendor/supersonic/client#vendor/supersonic/client::hash=a963ff&locator=plainsound-hexatone%40workspace%3A."
+  version: 0.92.0
+  resolution: "supersonic-scsynth@file:vendor/supersonic/client#vendor/supersonic/client::hash=3c1264&locator=plainsound-hexatone%40workspace%3A."
   dependencies:
     "@thi.ng/malloc": "npm:^6.1.128"
-  checksum: 10c0/ee73ec71c0cb83a9dd10d113740a0ef84725fa8c3f539196e8d9865b5f9a84700b559becd49adcc22864c4540b83577b1582138383358ea0fc17d1e212f216af
+  checksum: 10c0/841ec53ac26225cedf2d915b8df83819fd74144a6c884609b688a5ab0dfa01c5ae2cf1eaccb1984368fa4897b869d79aab00790a58f6ab92a6980b59cafe3a56
   languageName: node
   linkType: hard
 

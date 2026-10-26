@@ -1,6 +1,6 @@
 # SuperSonic / native SuperCollider comparison
 
-Comparison laboratory using pinned SuperSonic 0.90.0 packages. The separate lab
+Comparison laboratory using pinned SuperSonic 0.92.0 packages. The separate lab
 does not modify Hexatone's audio context or routing. An experimental integrated
 output is now available separately in I/O (see below).
 Use one laboratory tab at a time; its dedicated group/node range is shared by
@@ -12,10 +12,32 @@ Run `yarn install` and `yarn supersonic:assets` for local development.
 The tested custom core, SynthDefs and corresponding source archives are committed
 under `vendor/supersonic/`. Staging verifies their SHA-256 manifest and copies them,
 the matching vendored client and licences into ignored `public/supersonic/`.
-The 0.90 browser packages are not yet published on npm, so both packages are
-local file dependencies on the committed vendor distribution.
+Both packages are local file dependencies on the committed vendor distribution,
+keeping the client matched to the custom DFM1 core.
 After regenerating the vendor bundle, run `yarn install` to refresh those file
 dependencies and the lockfile before staging or building.
+
+### 0.92 upgrade verification (2026-10-26)
+
+The client and original DFM1 core are built together at SuperSonic
+`ae62628e3f74fc930754430ea342072bacaba6bc`, with Clockwork
+`88bf70663f1e9635a08502c9c874d12ad73b07b9`. The extension patch applies unchanged.
+All four layers render finite, nonzero audio in postMessage and SAB modes, and
+the running engine reports 0.92.0. Timed attacks and `/clearSched` cancellation
+pass in both modes. The production-path adapter passes suspend/resume, timed
+attacks after resume and two hard rebuilds, PANIC and graceful release/draining.
+
+An integration regression was reproduced and fixed: 0.92's `purge()` can retain
+future bundles still in the input ring, allowing them to start after PANIC.
+Hexatone now follows the purge acknowledgement with an ordered `/clearSched`
+before sending cleanup and fresh attacks. The probe checks silence and an empty
+voice tree after cancellation, then verifies a fresh timed attack still plays.
+The clock API remains `sonic.clock.now() + delay`; it now reads the engine's
+published audio clock. No wall-clock offset is added by Hexatone.
+
+Real-device sustained sequence playback, desktop switching and phone lock/unlock
+still require manual testing; these automated probes do not reproduce the exact
+reported 0.90 sequence failure or measure speaker latency.
 
 ### 0.90 upgrade verification (2026-10-12)
 
@@ -100,14 +122,14 @@ from node_modules or the ignored generated directory, not bundled into the appli
 Toolchain versions are recorded in `TOOLCHAIN.md`. Fetch the pinned sources once:
 
 ```sh
-git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-090
-git -C tools/supersonic/upstream-090 checkout 71ecaa6d9b67f1c7f13a5eabb6a980ac0dcc78f9
-git -C tools/supersonic/upstream-090 submodule update --init --recursive
+git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-092
+git -C tools/supersonic/upstream-092 checkout ae62628e3f74fc930754430ea342072bacaba6bc
+git -C tools/supersonic/upstream-092 submodule update --init --recursive
 git clone https://github.com/supercollider/sc3-plugins.git tools/supersonic/sc3-plugins
 git -C tools/supersonic/sc3-plugins checkout fa926d6b554acef35b2fd9deb2f996085fa86bd7
 ```
 
-Run `npm ci` inside `tools/supersonic/upstream-090`. Activate the installed Emscripten
+Run `npm ci` inside `tools/supersonic/upstream-092`. Activate the installed Emscripten
 SDK in the build shell (`source /Users/marcsabat/Dev/emsdk/emsdk_env.sh` on this
 machine), with Rust/Cargo on PATH. Before applying the extension, the optional
 unmodified comparison core can be built and saved from the upstream directory:
@@ -222,6 +244,6 @@ Three adapter tests, ESLint for the prototype, credits check and production buil
 
 See ../../codex/planning/SUPERSONIC_SYNTHDEF_IMPLEMENTATION_NOTES.md for the DSP
 comparison and articulation recommendations. The client and core dependency
-licences are supplied in their installed packages. The 0.90 distribution is
+licences are supplied in their installed packages. The 0.92 distribution is
 AGPL-3.0-or-later; the linked scsynth and original DFM1 also retain their supplied
 GPL licences. Corresponding source archives are included in the vendor bundle.

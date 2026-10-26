@@ -2,6 +2,37 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { expect, it, vi } from "vitest";
 
+it("discards old-bank events and restores reverb before acknowledging SoundFont replacement", () => {
+  let Processor;
+  runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {
+    sampleRate: 48000, AudioWorkletProcessor: class {},
+    registerProcessor: (_, processor) => { Processor = processor; },
+  });
+  const processor = Object.create(Processor.prototype);
+  const cc = vi.fn();
+  Object.assign(processor, { synth: 1, soundfontId: 1, reverbSend: 100,
+    midiQueue: [{ frame: 999999, command: { channel: 0, op: "cc", a: 91, b: 127 } }],
+    heldKeys: new Map([[0, new Set([60])]]), usedChannels: new Set([0]),
+    readPresets: () => [{ bank: 0, program: 0, name: "Organ" }],
+    module: { _ps_destroy: vi.fn(), _ps_create: () => 2, _ps_activate_tuning: () => 0,
+      _ps_select_program: () => 0, _ps_load_soundfont: () => 3, _ps_cc: cc,
+      stringToNewUTF8: () => 4, _free: vi.fn(), FS: { unlink: vi.fn(), writeFile: vi.fn() } },
+    port: { postMessage: vi.fn(message => {
+      if (message.type === "soundfont-loaded") {
+        expect(cc).toHaveBeenCalledTimes(128);
+        expect(cc).toHaveBeenLastCalledWith(2, 127, 91, 0);
+      }
+    }) } });
+  processor.handleMessage({ type: "replace-soundfont", bytes: new ArrayBuffer(8), reverbSend: 0 });
+  expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "soundfont-loaded" }));
+  expect(processor.midiQueue).toEqual([]);
+  expect(processor.heldKeys.size).toBe(0);
+  expect(processor.usedChannels.size).toBe(0);
+  processor.handleMessage({ type: "set-reverb", value: 23 });
+  expect(cc).toHaveBeenLastCalledWith(2, 127, 91, 23);
+  expect(processor.reverbSend).toBe(23);
+});
+
 it("provides an elapsed clock only when the worklet has no Performance API", () => {
   const source = readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, "");
   let wallTime = 1000;

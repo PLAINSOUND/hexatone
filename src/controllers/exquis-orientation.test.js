@@ -6,6 +6,27 @@ import { ExquisLEDs } from "./exquis-leds.js";
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("Exquis orientation", () => {
+  it("explicitly restores App Mode despite recent heartbeats and defers mapping while held", () => {
+    vi.useFakeTimers();
+    vi.spyOn(performance, "now").mockReturnValue(100);
+    const out = { send: vi.fn() };
+    const driver = new ExquisLEDs(out, null);
+    driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, 3, 0, 0, 0xf7] });
+    vi.advanceTimersByTime(200);
+    driver.sendColors(Array(61).fill("#ff0000"));
+    expect(driver.recoverIfHeartbeatStale()).toBe(false);
+    driver._onMessage({ data: [0x91, 19, 90] });
+    out.send.mockClear();
+    expect(driver.recoverIfHeartbeatStale({ force: true })).toBe(true);
+    expect(out.send.mock.calls.every(([frame]) => frame.length === 5)).toBe(true);
+    driver._onMessage({ data: [0x81, 19, 0] });
+    vi.advanceTimersByTime(200);
+    const frames = out.send.mock.calls.map(([frame]) => [...frame]);
+    expect(frames).toContainEqual([0xf0, 0, 0x21, 0x7e, 7, 1, 0xf7]);
+    expect(frames.filter(frame => frame[4] === 0x15)).toHaveLength(61);
+    expect(frames.some(frame => frame[4] === 0x14 && frame[6] > 0)).toBe(true);
+    driver.exit();
+  });
   it("waits for pads held before driver construction before writing MPE and mapping", () => {
     vi.useFakeTimers();
     const out = { send: vi.fn() };

@@ -14,10 +14,35 @@ function setup() {
   const encode = vi.fn(() => new Uint8Array([1]));
   const dispose = vi.fn();
   const transport = createLocalOscTransport(sonic, encode, dispose);
-  return { sonic, encode, dispose, transport, ended: id => incoming(["/n_end", id]),
+  return { sonic, encode, dispose, transport, incoming: message => incoming(message), ended: id => incoming(["/n_end", id]),
     started: id => incoming(["/n_go", id]) };
 }
 describe("local OSC transport", () => {
+  it("captures bounded scheduled attacks, lifecycle replies and server failures for audio reports", () => {
+    const { sonic, transport, incoming, started, ended } = setup();
+    sonic.getMetrics = () => ({});
+    sonic.getRawTree = () => ({ nodeCount: 5, droppedCount: 0, nodes: [] });
+    for (let id = 100; id < 130; id++) {
+      transport.send("/s_new", typed("tone", id, 1, 1, "freq", 440, "vol", 0.5,
+        "pressure", id === 129 ? NaN : 0), 57104, id < 105 ? undefined : performance.now() + 1000);
+    }
+    started(129);
+    ended(129);
+    for (let i = 0; i < 15; i++) incoming(["/fail", "/n_set", `Node ${i} not found`]);
+    const report = transport.getDiagnostics().dispatch;
+    expect(report.scheduledMessages).toBe(25);
+    expect(report.immediateMessages).toBe(5);
+    expect(report.recentAttacks).toHaveLength(24);
+    expect(report.recentAttacks[0].nodeId).toBe(106);
+    expect(report.recentAttacks.at(-1)).toMatchObject({ nodeId: 129, synthDef: "hexlab_tone",
+      group: 9103, timestamped: true, acknowledgedAtMs: expect.any(Number), endedAtMs: expect.any(Number),
+      controls: { freq: 440, vol: 0.5 }, nonFiniteControls: ["pressure"] });
+    expect(report.serverFailures).toHaveLength(12);
+    expect(report.serverFailures[0]).toMatchObject({ command: "/n_set", details: ["Node 3 not found"] });
+    report.recentAttacks[0].controls.vol = 0;
+    expect(transport.getDiagnostics().dispatch.recentAttacks[0].controls.vol).toBe(0.5);
+    transport.release();
+  });
   it("preserves queued silence when warm-output cleanup repeats an in-flight purge", async () => {
     const { sonic, transport } = setup();
     let finish;
@@ -88,6 +113,7 @@ describe("local OSC transport", () => {
     resolve();
     await Promise.resolve();
     expect(sonic.send.mock.calls).toEqual([
+      ["/clearSched"],
       ["/g_deepFree", 0], ["/s_new", "hexlab_pluck", 101, 1, 9100],
     ]);
     transport.release();
@@ -150,6 +176,7 @@ describe("local OSC transport", () => {
     resolve();
     await Promise.resolve();
     expect(sonic.send.mock.calls).toEqual([
+      ["/clearSched"],
       ["/g_freeAll", 9100], ["/s_new", "hexlab_pluck", 101, 1, 9100],
     ]);
   });

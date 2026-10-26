@@ -60,6 +60,13 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     this.smoothingPending = false;
   }
 
+  setReverbSend(value) {
+    this.reverbSend = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
+    for (let channel = 0; channel < 128; channel++) {
+      this.module._ps_cc(this.synth, channel, 91, this.reverbSend);
+    }
+  }
+
   handleMessage(message) {
     if (message?.type === "dispose") {
       if (this.disposed) return;
@@ -91,6 +98,10 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     }
     if (!this.module || !this.synth || !message) return;
     try {
+      if (message.type === "set-reverb") {
+        this.setReverbSend(message.value);
+        return;
+      }
       if (message.type === "set-smoothing") {
         const time = (value) => Number.isFinite(Number(value))
           ? Math.max(0, Math.min(500, Math.round(Number(value)))) : 0;
@@ -138,6 +149,11 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         if (this.soundfontId != null && !replacing) {
           throw new Error("Use replace-soundfont to change the loaded SoundFont");
         }
+        // Events and held-key bookkeeping belong to the old bank. In
+        // particular, delayed controller resets must not alter the new bank.
+        this.midiQueue = [];
+        this.heldKeys?.clear();
+        this.usedChannels?.clear();
         if (replacing) {
           // The adapter has no sfunload export, so recreate FluidSynth to release
           // the old bank and its voices before loading the replacement.
@@ -175,6 +191,9 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           this.synth, channel, soundfontId, first.bank, first.program,
         );
         if (selected !== 0) throw new Error(`Selecting first preset failed: ${selected}`);
+        // Restore before acknowledging the load, rather than waiting for a
+        // later main-thread MIDI batch. Program selection preserves CC91.
+        this.setReverbSend(message.reverbSend ?? this.reverbSend ?? 20);
         this.port.postMessage({ type: "soundfont-loaded", soundfontId, presets,
           memory: this.memorySizes() });
         return;

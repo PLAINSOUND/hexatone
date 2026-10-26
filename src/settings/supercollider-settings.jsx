@@ -109,7 +109,7 @@ const SuperColliderSettings = ({
             save("osc_server_off", value === "OFF", onChange);
           }}>
           <option value="OFF">OFF</option>
-          <option value="supersonic">SuperSonic 0.90</option>
+          <option value="supersonic">SuperSonic 0.92</option>
           <option value="bridge">Local via OSC Bridge</option>
         </select>
       </label>

@@ -158,13 +158,18 @@ export class ExquisLEDs {
     return this._ready;
   }
 
-  /** Re-enter App Mode after a likely background timer lapse. */
-  recoverIfHeartbeatStale() {
+  /** Re-enter after a timer lapse, or an explicit recovery gesture. A recent
+   * send only proves host activity: the device may have missed the message.
+   * Forced recovery still waits for held pads before changing their mapping.
+   */
+  recoverIfHeartbeatStale({ force = false } = {}) {
     if (!this._ready || !this._out) return false;
     const last = this._lastHeartbeatSentAt;
     const stale = !Number.isFinite(last) || performance.now() - last > HEARTBEAT_STALE_MS;
-    if (!stale && !this._recoveryPending) return false;
-    debugLog("controllers", "Exquis App Mode heartbeat stale — re-entering App Mode.");
+    if (!force && !stale && !this._recoveryPending) return false;
+    debugLog("controllers", force
+      ? "Exquis App Mode restore requested — re-entering App Mode."
+      : "Exquis App Mode heartbeat stale — re-entering App Mode.");
     this._enterAppMode();
     return true;
   }
