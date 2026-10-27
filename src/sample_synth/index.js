@@ -3,6 +3,7 @@
 // in the browser AudioContext, while exposing the same makeHex/note lifecycle
 // interface as the other synth backends. It does not resolve controller input.
 
+import { sharedAudioContext, ensureSharedAudioContext, discardSharedAudioContext } from "../audio/shared-context.js";
 import { outputAudioTime } from "../midi/output-transaction.js";
 import { installAudioGestureRecovery } from "./gesture-recovery.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
@@ -20,7 +21,6 @@ import { debugLog, errorLog, warnLog } from "../debug/logging.js";
 // Created lazily inside prepare() which is only called after a user gesture,
 // satisfying Chrome's autoplay policy. Reused across all synth instances to
 // avoid hitting the browser's context limit (~6).
-let sharedAudioContext = null;
 
 // ─── Decoded buffer cache ──────────────────────────────────────────────────────
 // Keyed by fileName. Decoded AudioBuffers are context-bound, so the cache is
@@ -53,14 +53,13 @@ let removeAudioGestureRecovery = null;
 let iosNeedsGestureRestart = false;
 
 const createSharedAudioContext = () => {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  // Request the lowest practical latency the browser will honor. This helps
-  // Windows shared-mode backends where the default hint can feel sluggish.
-  sharedAudioContext = new AudioContextClass({ latencyHint: "interactive" });
+  const context = ensureSharedAudioContext();
+
   iosForceRecreateOnPrepare = false;
   iosNeedsGestureRestart = false;
   setupIOSAudioHandler();
-  return sharedAudioContext;
+
+  return context;
 };
 
 export const primeSharedSampleAudio = async () => {
@@ -93,7 +92,7 @@ export const recoverSharedAudioContext = async ({ forceRecreate = false } = {}) 
     sharedAudioContext?.state !== "closed"
   ) {
     const staleContext = sharedAudioContext;
-    sharedAudioContext = null;
+    discardSharedAudioContext(staleContext);
     clearKeepAliveNode();
     decodedBufferCache = {};
     decodedBufferCacheContext = null;
@@ -106,7 +105,7 @@ export const recoverSharedAudioContext = async ({ forceRecreate = false } = {}) 
     }
   }
   if (!sharedAudioContext || sharedAudioContext.state === "closed") {
-    sharedAudioContext = createSharedAudioContext();
+    createSharedAudioContext();
     decodedBufferCache = {};
     decodedBufferCacheContext = null;
   }
@@ -347,7 +346,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           const staleContext = sharedAudioContext;
           // Explicit recovery must not await a wedged iOS close() promise or
           // lose the user gesture before creating/resuming the replacement.
-          sharedAudioContext = null;
+          discardSharedAudioContext(staleContext);
           clearKeepAliveNode();
           masterGain = null;
           decodedBuffers = null;
@@ -361,7 +360,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         }
 
         if (!sharedAudioContext || sharedAudioContext.state === "closed") {
-          sharedAudioContext = createSharedAudioContext();
+          createSharedAudioContext();
           masterGain = null;
         }
 

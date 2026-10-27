@@ -90,12 +90,12 @@ export function createSnapshotHighlights(keys, canvas) {
     context.lineJoin = "round";
     for (const coords of visible.values()) {
       const geometry = keys._hexGeometryCache.get(`${coords.x},${coords.y}`) ?? keys._buildHexGeometry(coords);
-      // A smooth fade carries the rich red edge gently into the key.
+      // A smooth fade carries the dark edge gently into the key.
       const radius = Math.hypot(geometry.x[0] - geometry.center.x, geometry.y[0] - geometry.center.y);
       context.shadowBlur = 0;
-      context.lineWidth = 2;
+      context.lineWidth = 4;
       for (let depth = 0; depth < 10; depth++) {
-        const inset = Math.max(0, 0.96 - depth / Math.max(1, radius));
+        const inset = Math.max(0, 1 - depth / Math.max(1, radius));
         context.beginPath();
         for (let i = 0; i < 6; i++) {
           const x = geometry.center.x + (geometry.x[i] - geometry.center.x) * inset;
@@ -104,8 +104,8 @@ export function createSnapshotHighlights(keys, canvas) {
           else context.lineTo(x, y);
         }
         context.closePath();
-        const fade = (1 + Math.cos(Math.PI * depth / 13)) / 13;
-        context.strokeStyle = `rgba(7, 3, 0, ${0.75 * fade})`;
+        const fade = (1 + Math.cos(Math.PI * depth / 11)) / 16;
+        context.strokeStyle = `rgba(5, 3, 2, ${0.45 * fade})`;
         context.stroke();
       }
     }
