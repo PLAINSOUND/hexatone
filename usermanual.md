@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-10-08
+Updated: 2026-10-27
 
 ## About
 
@@ -344,12 +344,14 @@ If the workspace has unsaved changes and a different saved sequence is chosen, H
 ### Copy & Insert
 
 - select a range of snapshots by `Start` and `End` (both positions are included in the selected range)
+- an endpoint beyond the sequence resolves to its last snapshot; the delete preview shows the selected range and how many snapshots will remain
 - optionally include bars, repeats, tempo markers
 - `Edit Selected Range` in place appears when toggle is opened
   - reset `Note Offsets` to default positions
   - set arpeggiation of snapshots in the chosen range to `chord` or `arp`
   - revert the most recent range edit
   - delete the snapshots
+- `Include Bars` deletes bars within the selected range; it does not extend deletion to whole bars
 - copy, insert at bar or snapshot position, moving the existing sequence events accordingly
 - after insertion, copied range is automatically selected for further edits if needed
 
@@ -371,9 +373,13 @@ Editing controls start closed and may be toggled open.
 
 `Auto-Scroll` finds the bar, snapshot, or cue that is queued for next playback and follows manual navigation and timed playback. Manual-trigger highlights and scrolling update on the next display frame.
 
+The floating Snapshots palette also scrolls to keep the current snapshot in view when navigating by snapshot or cue, including timed playback.
+
 `Play Repeats` allows repeat markers to be toggled on and off.
 
 `Snap Sequence to Current Hexatone Tuning` plays saved sequence pitches through the currently active Hexatone tuning so that the same sequence may be auditioned in another scale without rewriting the stored event data; capturing the sounds while snapping is active stores the recomputed and retuned note data as new snapshots.
+
+With `Snap` enabled, playing sequence notes also highlights matching visible hexes at their sounding register. The shaded edges follow note attacks and releases, including legato and overlapping notes. Stop or disabling Snap clears them. Notes outside the visible layout are not shown. Snapped note names retain their octave annotations.
 
 With a blank Hexatone canvas (no scale loaded), this option has no effect: the sequence keeps its stored pitches.
 
@@ -482,6 +488,10 @@ When changing instruments, the current sound remains available while the new sam
 ### Built-in SoundFont Player
 
 Enable `Use FluidSynth Sounds`, choose a bank from `Hexatone SoundFonts`, and click `Load Hexatone SoundFont`. Alternatively, `Choose Local File` opens a `.sf2` or `.sf3` file. Once loaded, select a `Preset` and adjust `Volume`. The player supports per-note tuning, pitch bend, timbre, and pressure with up to 128-note polyphony; the response depends on the SoundFont’s own modulation settings. Performance depends on browser and local hardware setup.
+
+`Pressure Smoothing (ms)` and `Expression Y Smoothing (ms)` range from 0–500 ms; 0 is off. Pressure covers key and channel pressure; Expression Y covers CC1 and CC74. They smooth existing unipolar linear, concave, or convex attenuation modulators, with up to eight routes per voice. Other modulation remains immediate.
+
+The time applies to a full 127-unit change; smaller changes take proportionally less time. The shared `Minimum Smoothing (ms)` gives small changes more time and cannot exceed the lowest enabled smoothing time. Setting minimum and smoothing to the same value gives fixed-duration transitions. New notes start at the current controller value.
 
 File and storage controls appear below `Volume` when applicable:
 
@@ -606,9 +616,13 @@ The exact supported behaviour varies by controller, but the input system is desi
 
 For non-MPE input with `Pitch Wheel → Most Recent`, `Pitch Wheel Handoff Portamento` glides the bend back to an older held note when the newest note is released. It is enabled by default at 60 ms; `Portamento Time` ranges from 0–500 ms. The glide uses a power ease-in (exponent 2.5) in cents, starting slowly and accelerating toward the target. Wheel movement during a handoff updates its destination without extending its time or restarting the slow beginning. New attacks and wheel movements outside the handoff remain immediate. This does not affect MPE per-note expression.
 
+`Bypass Bend`, where pitch bend is available, keeps tracking incoming bend without applying it. Switching it on glides back to the unbent pitch; switching it off glides to the current bend.
+
 Lumatone has two modes: the default is 2D-geometry-aware and uses a custom key layout that matches the numbering of keys in a standard Lumatone (`.ltn`) file. Notes 0–55 are ordered from left to right and top to bottom, repeated five times to form five blocks, each on a separate MIDI channel (1–5). This fixed key layout allows Hexatone to compute the exact physical key being played from incoming MIDI data, map it to the on-screen canvas, and adapt to changing tunings, modulations, etc. Key colours are sent to Lumatone based on the user’s chosen `Anchor Note`, so Lumatone always remains aligned with the on-screen layout. There is an option to filter which scale degrees are coloured, a useful way of learning the layout when there are many different notes. The `Lumatone Colour Filter` can store, order, import, and export named collections of scale degrees. `Auto-Generate from Snapshots` adds filters derived from the notes present in captured snapshots.
 
 The Lumatone input options also offer `Mod Wheel → Timbre` (CC1, enabled by default) and `Foot Controller → Timbre` (CC4, disabled by default). Either can drive the existing mod-wheel timbre mapping for the active outputs. With both enabled, soft pickup prevents abrupt changes: the inactive control takes over when it reaches or crosses the current value. Lumatone foot-controller values are calibrated before pickup: 18 and below becomes 0, 125 and above becomes 127, with linear scaling between these endpoints. An unassigned foot controller retains CC4 forwarding with this calibration; disabling wheel-to-timbre suppresses its CC1 timbre route.
+
+Enabling automatic sending in 2D mode sends the fixed note/channel layout and colours together. This also happens when a saved automatic-send setting meets a newly selected or detected Lumatone, and when returning from 2D bypass. Later colour changes follow automatically. In 2D bypass, sending the layout remains manual.
 
 Newly activated outputs receive the last received, selected timbre value before held notes join them; another wheel or pedal movement is not needed. This uses the existing output-specific mapping, including the optional `Eagan Brightness / Tilt EQ` mapping. Hexatone cannot know a physical controller position that the device has not yet sent.
 
@@ -618,9 +632,22 @@ LinnStrument User Firmware mode also includes `Row Glide Shaping`, `X Spike Redu
 
 Exquis needs to be updated to firmware 3.0.0 or higher, which allows Hexatone to send LED colours and set up the MPE mode for landscape format playing using `App Mode`. If Exquis is not working as expected, check the browser console: if a firmware update is needed, the information will be there.
 
+In Exquis App Mode:
+
+- octave buttons shift by one equave; white marks the centre, with yellow-to-red shades below and green-to-violet above, and a brighter flash on press
+- the toggle button with a single dot controls `Bypass Bend` (CC32): green means bend on, red means bypassed
+- the button with round arrows is a momentary sustain (CC33 by default)
+- the four-circle button assigns the anchor to the last played key; held sounds continue without rearticulation
+
+Button assignments and lighting are restored when App Mode resumes after losing browser focus.
+
+`Enable MPE Input` changes expression processing without changing `Input Mode`. With MPE off, Exquis pitch bend is ignored and its pitch-bend controls are hidden. The arpeggiator is shown only for MPE input in 2D layout mode; it is hidden in nearest-scale-degree and sequential bypass modes. Patterns are `Order` (default), `Up`, `Down`, `Convergent`, `Divergent`, and `Note Repeat`.
+
 Haken `Continuum X Glide` offers two modes: `Rastered Attack + Pitch Bend` and `Rastered Notes`, along with controls for `X Glide Shaping` (applied to `Rastered Attack + Pitch Bend`) and `Pressure → Velocity`, `Minimum Note Duration`, `Minimum Retrigger Interval`, and `Raster Stability` (applied to `Rastered Notes`). The two modes can be toggled momentarily using a CC pedal (default controller number is 67) or by using the computer’s SPACEBAR key. Incoming MPE data is expected in MPE+ format (Pitch Bend Range 96, with CC87 providing a one-shot high-resolution LSB for incoming Pitch Bend, CC74, and Channel Pressure X/Y/Z data). `Continuum Raster Filter` lets the user store and order named collections of scale degrees. The selected filter constrains attacks and subsequent retriggers in `Rastered Notes`. `Apply Raster in Pitch Bending Mode` optionally applies it to attacks in `Rastered Attack + Pitch Bend`. Independently, `Shape X Glide to Raster` uses the filtered degrees rather than every scale degree as the stability centres for continuous X Glide Shaping. Collections may be imported or exported together as a .json file, while `Auto-Generate from Snapshots` adds filters derived from captured snapshots. Optional MPE+ pitch-bend output adds high-resolution CC87 data; it may be disabled when older MIDI connections cannot sustain the additional message density.
 
 ### Input Modes
+
+Continuum `Minimum Note Duration` extends to 200 ms, allowing more overlap with slow sounds.
 
 `Raster Attack Suppression` gives each new Continuum touch a short period of
 `Rastered Attack + Pitch Bend` before entering `Rastered Notes`. The default is
@@ -639,7 +666,7 @@ The second treats incoming pitch as musical material to be mapped into the curre
 
 ### MIDI Output
 
-This fieldset starts closed, keeping its four output on/off rows visible. Monophonic and MPE switches are disabled until MIDI is enabled; MTS also requires SysEx access.
+This fieldset starts closed, hiding descriptions while keeping its four output on/off rows visible. Enabled Monophonic output also shows Port, Ch, PB Range, and the Portamento toggle; MTS Real-Time and Bulk retain all their fields. MPE hides its MPE+ and pitch-bend configuration until expanded. Monophonic and MPE switches are disabled until MIDI is enabled; MTS also requires SysEx access.
 
 Enabling an output opens the fieldset to reveal its configuration. Disabling an output leaves the fieldset’s open/closed state unchanged.
 

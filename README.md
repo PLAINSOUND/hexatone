@@ -16,7 +16,7 @@ Design by [Siemen Terpstra](http://siementerpstra.com/) based on [Erv Wilson's m
 
 Initial development by James Fenn with additions and modifications from [Brandon Lewis](http://brandlew.com/), [Bo Constantinsen](http://whatmusicreallyis.com/), [Chengu Wang](https://sites.google.com/site/wangchengu/), [Ashton Snelgrove](https://ashton.snelgrove.science). Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, and Soni Musicae. Thanks to the open-source communities behind [SuperCollider](https://supercollider.github.io/), [SuperSonic](https://github.com/samaaron/supersonic), and [FluidSynth](https://www.fluidsynth.org/) for the audio engines used in Hexatone.
 
-Current version 3.3.0-rc.4 (8 October 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
+Current version 3.3.0-rc.5 (27 October 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
 
 *The text font with embedded HEJI accidentals (Plainsound Sans) is designed by Thomas Nicholson. Unicode data for copying/pasting may be found at [w3c-cg.github.io/smufl/latest/tables](https://w3c-cg.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html).*
 
@@ -27,7 +27,7 @@ cc 2026 [PLAINSOUND MUSIC EDITION](https://www.plainsound.org)
 
 ## Current State
 
-Hexatone **3.3.0-rc.4** is the current development release candidate, updated 8 October 2026. The [dev build](https://plainsound.github.io/hexatone) provides the latest development version.
+Hexatone **3.3.0-rc.5** is the current development release candidate, updated 27 October 2026. The [dev build](https://plainsound.github.io/hexatone) provides the latest development version.
 
 Five tabs organise the workspace: **HEXATONE** for tuning and keyboard layout, **SEQUENCER** for composing and playing sequences, **IO** for sound design and routing, **CALCULATOR** for HEJI pitch calculations, and **MANUAL** for documentation.
 
@@ -106,7 +106,18 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ## Version history
 
-### 3.3 RC4 _(current release candidate, 8 October 2026)_
+### 3.3 RC5 _(current release candidate, 27 October 2026)_
+
+- Snap playback highlights matching visible hexes, retaining legato and overlapping notes
+- FluidSynth pressure and Expression Y attenuation smoothing, with 0–500 ms controls and a shared minimum time
+- SuperSonic updated to 0.92 with DFM1
+- Exquis App Mode octave, bend-bypass, sustain, and last-played-key anchor buttons, with restored lighting on resume
+- bend bypass tracks expression and glides between bent and unbent pitches; Exquis non-MPE input ignores pitch bend
+- Lumatone automatic sending initialises the full layout and colours, including on return from 2D bypass
+- corrected snapshot range deletion, palette following, and octave annotations in snapped note names
+- compact MIDI Output controls and Continuum minimum note duration up to 200 ms
+
+### 3.3 RC4 _(8 October 2026)_
 
 - refined audio startup and recovery feedback, warm backend switching, and SoundFont offline storage
 - always-open sequence playback rows and next-frame manual-trigger feedback simplify playback following
