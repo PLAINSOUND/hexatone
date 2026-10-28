@@ -17,6 +17,9 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     this.blockSize = 128;
     this.midiQueue = [];
     this.midiSequence = 0;
+    this.latencyDiagnostics = !!options.processorOptions.latencyDiagnostics;
+    this.diagnosticSilentFrames = 0;
+    this.diagnosticOnsets = [];
     this.port.onmessage = ({ data }) => this.handleMessage(data);
     this.initialize(options.processorOptions.wasmBytes);
   }
@@ -68,10 +71,17 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   }
 
   handleMessage(message) {
+    if (message?.type === "latency-diagnostics") {
+      this.latencyDiagnostics = !!message.enabled;
+      this.diagnosticSilentFrames = 0;
+      this.diagnosticOnsets = [];
+      return;
+    }
     if (message?.type === "dispose") {
       if (this.disposed) return;
       this.disposed = true;
       this.midiQueue = [];
+      this.diagnosticOnsets = [];
       const before = this.memorySizes();
       if (this.synth) this.module._ps_destroy(this.synth);
       this.synth = null;
@@ -119,6 +129,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         this.releasing = true;
         this.silentReleaseFrames = 0;
         this.midiQueue = [];
+        this.diagnosticOnsets = [];
+        this.diagnosticSilentFrames = 0;
         for (const channel of this.usedChannels ?? []) {
           this.module._ps_cc(this.synth, channel, 64, 0);
           this.module._ps_cc(this.synth, channel, 66, 0);
@@ -140,6 +152,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       if (message.type === "clear-recovery-events") {
         const droppedEvents = this.midiQueue.length;
         this.midiQueue = [];
+        this.diagnosticOnsets = [];
+        this.diagnosticSilentFrames = 0;
         for (let channel = 0; channel < 128; channel++) this.module._ps_cc(this.synth, channel, 120, 0);
         this.port.postMessage({ type: "recovery-cleared", droppedEvents });
         return;
@@ -152,6 +166,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         // Events and held-key bookkeeping belong to the old bank. In
         // particular, delayed controller resets must not alter the new bank.
         this.midiQueue = [];
+        this.diagnosticOnsets = [];
+        this.diagnosticSilentFrames = 0;
         this.heldKeys?.clear();
         this.usedChannels?.clear();
         if (replacing) {
@@ -165,6 +181,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           this.soundfontId = null;
         }
         const path = "/hexatone-soundfont.sf2";
+        const loadStartedAt = Date.now();
         this.port.postMessage({ type: "memory-snapshot", phase: "before-soundfont-load",
           inputBytes: message.bytes.byteLength, memory: this.memorySizes() });
         try {
@@ -173,6 +190,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           // No virtual file exists on the first load.
         }
         this.module.FS.writeFile(path, new Uint8Array(message.bytes));
+        const fileReadyAt = Date.now();
         this.soundfontFileBytes = message.bytes.byteLength;
         const pathPointer = this.module.stringToNewUTF8(path);
         let soundfontId;
@@ -182,6 +200,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           this.module._free(pathPointer);
         }
         if (soundfontId < 0) throw new Error(`FluidSynth SoundFont load failed: ${soundfontId}`);
+        const bankReadyAt = Date.now();
         const presets = this.readPresets(soundfontId);
         if (!presets.length) throw new Error("The selected SoundFont contains no presets");
         this.soundfontId = soundfontId;
@@ -195,6 +214,9 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         // later main-thread MIDI batch. Program selection preserves CC91.
         this.setReverbSend(message.reverbSend ?? this.reverbSend ?? 20);
         this.port.postMessage({ type: "soundfont-loaded", soundfontId, presets,
+          loadTimingMs: { virtualFile: fileReadyAt - loadStartedAt,
+            nativeLoad: bankReadyAt - fileReadyAt, presetSetup: Date.now() - bankReadyAt,
+            total: Date.now() - loadStartedAt },
           memory: this.memorySizes() });
         return;
       }
@@ -345,6 +367,31 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     const right = this.rightPointer >>> 2;
     channels[0].set(this.module.HEAPF32.subarray(left, left + frames));
     if (channels[1]) channels[1].set(this.module.HEAPF32.subarray(right, right + frames));
+    // Optional diagnostic only: do not scan audio or read the wall clock when
+    // disabled. An onset in an already sounding mixture cannot be attributed
+    // to an individual key, so only observe attacks following 20 ms of silence.
+    if (this.latencyDiagnostics) {
+      this.diagnosticOnsets ??= [];
+      if ((this.diagnosticSilentFrames ?? 0) >= sampleRate * 0.02) {
+        for (const trace of touchTraces) {
+          if (this.diagnosticOnsets.length < 64)
+            this.diagnosticOnsets.push({ id: trace.id, expires: currentFrame + sampleRate * 2 });
+        }
+      }
+      const threshold = 0.00001;
+      let first = -1;
+      for (let i = 0; i < frames; i++) {
+        if (channels.some(channel => Math.abs(channel[i]) > threshold)) { first = i; break; }
+      }
+      this.diagnosticOnsets = this.diagnosticOnsets.filter(trace => trace.expires >= currentFrame);
+      if (first >= 0) {
+        const renderedAtEpochMs = this.diagnosticOnsets.length ? Date.now() : null;
+        for (const trace of this.diagnosticOnsets) this.port.postMessage({ type: "touch-first-signal",
+          id: trace.id, renderedAtEpochMs, audioTime: (currentFrame + first) / sampleRate, threshold });
+        this.diagnosticOnsets = [];
+        this.diagnosticSilentFrames = 0;
+      } else this.diagnosticSilentFrames = (this.diagnosticSilentFrames ?? 0) + frames;
+    }
     if (this.releasing) {
       // Include the rendered effects tail, not merely the note-off commands.
       const silent = channels.every(channel => channel.every(value => Math.abs(value) < 0.000001));
@@ -354,7 +401,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         this.port.postMessage({ type: "release-complete" });
       }
     }
-    for (const trace of touchTraces) this.port.postMessage(trace);
+    for (const trace of touchTraces) this.port.postMessage({ ...trace, renderedAtEpochMs: Date.now() });
     return true;
   }
 

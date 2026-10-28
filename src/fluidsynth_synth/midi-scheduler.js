@@ -19,7 +19,14 @@ export function createFluidMidiScheduler(getEngine, ensureAwake) {
     if (data?.type === "touch-rendered") recordTouchRender(data.id, {
       renderQueueLateMs: data.lateFrames / data.sampleRate * 1000,
       renderedAudioTime: data.audioTime,
+      renderedAtEpochMs: data.renderedAtEpochMs,
       renderConfirmation: "FluidSynth attack processed in a successfully rendered block; not audible onset",
+    });
+    if (data?.type === "touch-first-signal") recordTouchRender(data.id, {
+      firstSignalAtEpochMs: data.renderedAtEpochMs,
+      firstSignalAudioTime: data.audioTime,
+      firstSignalThreshold: data.threshold,
+      firstSignalMeaning: "First non-silent mixed-output block after an attack from silence; before output buffering, not measured speaker onset",
     });
   };
   const resetClock = () => {

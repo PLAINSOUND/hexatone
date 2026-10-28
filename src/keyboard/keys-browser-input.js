@@ -151,6 +151,11 @@ export function setTuneDragging(active) {
 }
 
 export function onKeyDown(e) {
+  markInputHandler(e);
+  return withTouchTiming(e, () => keyDown.call(this, e));
+}
+
+function keyDown(e) {
   if (
     e.code === "Space" &&
     !e.repeat &&
@@ -305,6 +310,7 @@ export function mouseUp(_e) {
 }
 
 export async function mouseDown(e) {
+  markInputHandler(e);
   if (e.sourceCapabilities?.firesTouchEvents) return;
   // In Pointer Events mode only a preceding real mouse pointerdown may
   // enter this legacy path. Compatibility mouse events after a touch lift
@@ -329,6 +335,11 @@ export async function mouseDown(e) {
 }
 
 export function mouseActive(e) {
+  markInputHandler(e);
+  return withTouchTiming(e, () => mouseActiveOnEvent.call(this, e));
+}
+
+function mouseActiveOnEvent(e) {
   if (e.sourceCapabilities?.firesTouchEvents) return;
   if (this.usesPointerTouchInput && !this._pointerMouseInput) return;
   let coords = this.getPointerPosition(e);

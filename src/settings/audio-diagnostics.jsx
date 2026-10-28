@@ -40,6 +40,8 @@ export default function AudioDiagnostics({ keysRef, onSaveReport, onRecreateCont
       setStage("");
     }} /> Measure audio latency</label>
     <p class="settings-form__helper-text">Off by default; resets on reload. Enable only while testing. Disabling stops timing capture and timer probes and clears measurements. Engine recovery diagnostics remain bounded and active. Reports do not measure speaker onset.</p>
+    <p class="settings-form__helper-text">Mouse clicks and drags, computer-keyboard notes, and touch input are recorded. FluidSynth reports input-to-render timing. For its first non-silent output measurement, play separate notes and let the sound fade to silence between them. This is before browser output buffering; actual speaker delay requires a loopback or microphone measurement.</p>
+    <p class="settings-form__helper-text">Each attack also records browser output-latency and playback-clock estimates. Safari may report the playback clock as identical to the render clock; this cannot rule out audible output buffering.</p>
     <p class="settings-form__helper-text">Before each pass, mark its stage. Keep measurements enabled throughout and save one report after the context reset. Each stage retains up to 180 backend measurements, with 720 total for four passes.</p>
     {["Baseline", "FluidSynth loaded", "SoundFont OFF"].map(label =>
       <button key={label} type="button" disabled={!measureLatency} onClick={() => {

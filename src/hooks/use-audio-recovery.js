@@ -48,9 +48,9 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
   }, []);
   useEffect(() => {
     const log = recorder.current;
-    const inputTypes = ["touchstart", "touchmove", "pointerdown", "pointermove"];
+    const inputTypes = ["touchstart", "touchmove", "pointerdown", "pointermove", "mousedown", "mousemove", "keydown"];
     const capture = event => {
-      if (event.target?.tagName === "CANVAS") captureInputTiming(event);
+      if (event.type === "keydown" || event.target?.tagName === "CANVAS") captureInputTiming(event);
     };
     let heartbeatAt = performance.now();
     const heartbeatTick = () => {

@@ -183,8 +183,8 @@ it("acknowledges traced attacks only after a successful render block", () => {
   ] });
   expect(processor.midiQueue[0].touchTrace).toBe(9);
   processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
-  expect(processor.port.postMessage).toHaveBeenCalledWith({ type: "touch-rendered", id: 9,
-    lateFrames: 64, sampleRate: 48000, audioTime: 128 / 48000 });
+  expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "touch-rendered", id: 9,
+    lateFrames: 64, sampleRate: 48000, audioTime: 128 / 48000, renderedAtEpochMs: expect.any(Number) }));
   processor.port.postMessage.mockClear();
   processor.module._ps_render.mockReturnValue(-1);
   processor.handleMessage({ type: "midi-batch", events: [
@@ -192,6 +192,43 @@ it("acknowledges traced attacks only after a successful render block", () => {
   ] });
   processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
   expect(processor.port.postMessage).not.toHaveBeenCalled();
+});
+
+it("observes first non-silent output only for traced attacks from silence", () => {
+  let Processor;
+  const scope = { currentFrame: 0, sampleRate: 48000, Date: { now: () => 5000 },
+    AudioWorkletProcessor: class {}, registerProcessor: (_, processor) => { Processor = processor; } };
+  runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), scope);
+  const processor = Object.create(Processor.prototype);
+  const heap = new Float32Array(256);
+  const postMessage = vi.fn();
+  Object.assign(processor, { synth: 1, blockSize: 128, leftPointer: 0, rightPointer: 512,
+    port: { postMessage }, module: { _ps_render: () => 0, _ps_note_on: vi.fn(), HEAPF32: heap },
+    midiQueue: [], midiSequence: 0 });
+  processor.handleMessage({ type: "latency-diagnostics", enabled: true });
+  const render = () => {
+    processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+    scope.currentFrame += 128;
+  };
+  for (let i = 0; i < 8; i++) render();
+  processor.handleMessage({ type: "midi-batch", events: [
+    { frame: scope.currentFrame, touchTrace: 31, command: { channel: 0, op: "on", a: 60, b: 80 } },
+  ] });
+  render();
+  expect(postMessage.mock.calls.some(([message]) => message.type === "touch-first-signal")).toBe(false);
+  heap[4] = 0.1;
+  render();
+  expect(postMessage).toHaveBeenCalledWith({ type: "touch-first-signal", id: 31,
+    renderedAtEpochMs: 5000, audioTime: (1152 + 4) / 48000, threshold: 0.00001 });
+  postMessage.mockClear();
+  processor.handleMessage({ type: "midi-batch", events: [
+    { frame: scope.currentFrame, touchTrace: 32, command: { channel: 0, op: "on", a: 61, b: 80 } },
+  ] });
+  render(); // Already sounding output cannot identify the new note's onset.
+  expect(postMessage.mock.calls.some(([message]) => message.type === "touch-first-signal")).toBe(false);
+  processor.handleMessage({ type: "latency-diagnostics", enabled: false });
+  expect(processor.diagnosticOnsets).toEqual([]);
+  expect(processor.diagnosticSilentFrames).toBe(0);
 });
 
 it("preserves equal-frame setup order and cancels only the requested sequence generation", () => {

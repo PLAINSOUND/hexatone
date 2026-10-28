@@ -62,6 +62,22 @@ Saved sequence → derived runtime model → playback decisions
   into retained outputs such as SuperSonic. Keep audio-clock suspension intact;
   transport continuity must not alter backend voice-scheduling timestamps.
 
+Output backends follow their transport or engine: `mono_synth` for monophonic
+single-channel MIDI, `mts_synth` for real-time and bulk MTS, `mpe_synth` for MPE,
+and `fluidsynth_synth` for the built-in SoundFont player. FluidSynth's `synth.js`
+assembles its voice adapter and lifecycle; the wiring hook keeps its instances
+separate from external MTS outputs. `input/played-notes.js` owns shared input
+note identities used by release handling and PANIC.
+
+`audio/shared-context.js` owns context creation and identity for samples and
+FluidSynth. The sample module retains its priming and recovery wrappers, including
+iOS setup. Explicit forced recovery replaces the shared context once, then passes
+it to every shared-context engine through `forceAudioRebuild({ sharedContext })`.
+Independent engines recover immediately; shared engines reject stale contexts.
+Context recovery is time-bounded, and a late completion cannot start an obsolete
+backend rebuild. Automatic recovery retains the existing sample-first restart
+path. DSF is not yet integrated.
+
 The detailed [built-in audio mixing contract](built-in-audio-mixing.md) records
 output gates, warm versus cold toggles, OSC bridge handoff, shared clocks,
 voice reconciliation, recovery and the future DSF integration checklist.

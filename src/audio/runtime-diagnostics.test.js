@@ -66,6 +66,38 @@ it("times the actual Touch Events handler and closes its scope synchronously", a
   expect(recordTouchAudio("fluidsynth", context)).toBeUndefined();
 });
 
+it("separates input-to-render time from the return-message delay and samples playback buffering", () => {
+  const clock = vi.spyOn(performance, "now").mockReturnValue(1000);
+  const wall = vi.spyOn(Date, "now").mockReturnValue(100000);
+  try {
+    const event = { type: "mousedown", timeStamp: 990 };
+    markInputHandler(event);
+    clock.mockReturnValue(1005);
+    wall.mockReturnValue(100005);
+    const context = { state: "running", currentTime: 2, baseLatency: 0.003, outputLatency: 0.02,
+      getOutputTimestamp: () => ({ contextTime: 1.98, performanceTime: 1000 }) };
+    let id;
+    withTouchTiming(event, () => { id = recordTouchAudio("fluidsynth", context); });
+    clock.mockReturnValue(1050);
+    wall.mockReturnValue(100050);
+    recordTouchRender(id, { renderedAtEpochMs: 100020 });
+    recordTouchRender(id, { firstSignalAtEpochMs: 100025 });
+    expect(audioRuntimeReport().touchLatency[0]).toMatchObject({ inputAgeMs: 10,
+      dispatchMs: 5, handlerToRenderMs: 20, inputToRenderMs: 30,
+      renderReplyDelayMs: 30, inputToFirstSignalRenderMs: 35,
+      inputToRenderConfirmationMs: 60, reportedRenderAheadMs: expect.closeTo(15),
+      playbackClock: { playbackTimestampMatchesRenderClock: false } });
+  } finally { clock.mockRestore(); wall.mockRestore(); }
+});
+
+it("rejects implausible wall-clock jumps in render timing", () => {
+  beginTouchTiming({ timeStamp: performance.now() });
+  const id = recordTouchAudio("fluidsynth", {});
+  recordTouchRender(id, { renderedAtEpochMs: Date.now() - 120000 });
+  expect(audioRuntimeReport().touchLatency[0].renderClockInvalid).toBe(true);
+  expect(audioRuntimeReport().touchLatency[0].inputToRenderMs).toBeUndefined();
+});
+
 it("records all three backends once per touch and excludes unrelated async attacks", async () => {
   beginTouchTiming({ timeStamp: performance.now() });
   const context = { state: "running", baseLatency: 0.003, outputLatency: 0.02 };

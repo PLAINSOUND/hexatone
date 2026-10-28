@@ -1,8 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import Point from "./point.js";
 import { createSoundingNoteState } from "./sounding-note-runtime.js";
 import * as input from "./keys-browser-input.js";
 import { setTouchInputMode } from "./touch-input-mode.js";
+import { setLatencyMeasurementEnabled, recordTouchAudio, audioRuntimeReport } from "../audio/runtime-diagnostics.js";
+
+afterEach(() => setLatencyMeasurementEnabled(false));
 
 function makeKeys() {
   const canvas = document.createElement("canvas");
@@ -24,6 +27,42 @@ function makeKeys() {
 
 const touch = (identifier, clientX = 5, clientY = 5) => ({ identifier, clientX, clientY });
 const event = (...touches) => ({ preventDefault: vi.fn(), targetTouches: touches });
+
+describe("browser input latency attribution", () => {
+  it("records mouse clicks and drags but not a move within the same hex", async () => {
+    setLatencyMeasurementEnabled(true);
+    const keys = makeKeys();
+    keys.hexOn.mockImplementation(coords => {
+      recordTouchAudio("samples", { state: "running" });
+      return { coords, noteOff: vi.fn() };
+    });
+    const mouse = { type: "mousedown", clientX: 5, clientY: 5,
+      currentTarget: keys.state.canvas, timeStamp: performance.now() };
+    await input.mouseDown.call(keys, mouse);
+    input.mouseActive.call(keys, { ...mouse, type: "mousemove", clientX: 15 });
+    input.mouseActive.call(keys, { ...mouse, type: "mousemove", clientX: 16 });
+    expect(audioRuntimeReport().touchLatency.map(row => [row.eventType, row.inputSource]))
+      .toEqual([["mousedown", "mouse"], ["mousemove", "mouse"]]);
+    expect(recordTouchAudio("fluidsynth", {})).toBeUndefined();
+  });
+  it("records computer keyboard attacks and excludes held-key repeats", () => {
+    setLatencyMeasurementEnabled(true);
+    const keys = makeKeys();
+    keys.typing = true;
+    keys.inputIsFocused = () => false;
+    keys.settings = { centerHexOffset: new Point(0, 0), keyCodeToCoords: { KeyA: new Point(0, 0) } };
+    keys.hexOn.mockImplementation(coords => {
+      recordTouchAudio("fluidsynth", { state: "running" });
+      return { coords, noteOff: vi.fn() };
+    });
+    const keyboard = { type: "keydown", code: "KeyA", timeStamp: performance.now(), preventDefault: vi.fn() };
+    input.onKeyDown.call(keys, keyboard);
+    input.onKeyDown.call(keys, { ...keyboard, repeat: true });
+    expect(audioRuntimeReport().touchLatency).toHaveLength(1);
+    expect(audioRuntimeReport().touchLatency[0]).toMatchObject({ eventType: "keydown", inputSource: "keyboard" });
+    expect(recordTouchAudio("samples", {})).toBeUndefined();
+  });
+});
 
 function sustain(keys, shift = false) {
   const hex = { coords: new Point(0, 0), noteOff: vi.fn() };

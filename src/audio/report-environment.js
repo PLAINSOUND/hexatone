@@ -53,6 +53,8 @@ export function playbackClockDiagnostics(context) {
       performanceTime: timestamp.performanceTime,
       timestampAgeMs: Number.isFinite(timestamp.performanceTime) ? observedAtMs - timestamp.performanceTime : null,
       usable: valid,
+      renderPlaybackDifferenceMs: valid ? (currentTime - timestamp.contextTime) * 1000 : null,
+      playbackTimestampMatchesRenderClock: valid ? currentTime === timestamp.contextTime : null,
       renderAheadMs: valid ? (currentTime - timestamp.contextTime) * 1000 - (observedAtMs - timestamp.performanceTime) : null,
     });
   } catch (error) { result.error = String(error.message ?? error); }

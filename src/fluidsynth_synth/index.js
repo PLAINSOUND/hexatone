@@ -17,6 +17,11 @@ import { readFluidSynthReverb } from "./reverb.js";
 import { normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "./smoothing.js";
 import { readRecoverySoundfont } from "./recovery-source.js";
 import { recordAudioRuntime, registerFluidSynthLifecycleDiagnostics } from "../audio/runtime-diagnostics.js";
+import { getLatencyMeasurementEnabled, subscribeLatencyMeasurement } from "../audio/runtime-diagnostics.js";
+
+subscribeLatencyMeasurement(() => {
+  engine?.node?.port.postMessage({ type: "latency-diagnostics", enabled: getLatencyMeasurementEnabled() });
+});
 
 let nextProcessorId = 0;
 let disposedProcessors = 0;
@@ -134,7 +139,7 @@ async function createWorkletNode(context) {
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { wasmBytes },
+    processorOptions: { wasmBytes, latencyDiagnostics: getLatencyMeasurementEnabled() },
   });
   const processorId = ++nextProcessorId;
   const lifecycle = { processorId, createdAt: new Date().toISOString(), state: "created" };
@@ -153,8 +158,10 @@ async function createWorkletNode(context) {
       stoppedProcessors++;
     }
     if (data.memory) lifecycle.memory = data.memory;
+    if (data.loadTimingMs) lifecycle.loadTimingMs = data.loadTimingMs;
     recordAudioRuntime(`fluidsynth-${data.type}`, { processorId, frame: data.frame ?? null,
       ...(data.memory ? { memory: data.memory } : {}),
+      ...(data.loadTimingMs ? { loadTimingMs: data.loadTimingMs } : {}),
       ...(data.phase ? { phase: data.phase, inputBytes: data.inputBytes } : {}) });
   });
   const ready = waitForMessage(node, (message) => message?.type === "ready", true);
