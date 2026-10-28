@@ -17,7 +17,7 @@
     "workingTreeSnapshot": "sources/fluidsynth-smoothing.tar.gz"
   },
   "files": {
-    "README.md": "159a472ff3bce9879f750b9ab9ce8fa17849d1b4cfb56e39337bff75c9d4fba4",
+    "README.md": "d7da67b16b4053399b40a404009c09790b145cc2adebf525160539c7c1b22ace",
     "fluidsynth.js": "a2f89963a9e88c8f922c94408c282633e7b016a0713a5c6f562a192f5da329b8",
     "fluidsynth.wasm": "d44f0855f5ed9687aaacd7d1cf110dd3a04427ccb7d46b5908b89578a31e58d1",
     "licenses/FLUIDSYNTH-LGPL-2.1.txt": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95",

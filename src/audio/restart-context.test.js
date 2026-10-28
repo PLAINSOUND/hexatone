@@ -133,3 +133,43 @@ it("forces replacement of running contexts instead of cycling them", async () =>
 it("reports missing engines as a failure, not restored audio", async () => {
   expect((await createAudioRecovery().restore(null))[0]).toMatchObject({ ok: false });
 });
+
+it("diagnostically cycles each context once without engine preparation or rebuilding", async () => {
+  vi.useFakeTimers();
+  const shared = context(), separate = context();
+  const make = (audioBackend, audio) => ({ audioBackend, getAudioContext: () => audio,
+    usesSharedAudioContext: audio === shared, ensureAwake: vi.fn(), prepare: vi.fn(),
+    resumeAfterAudioRestart: vi.fn(), forceAudioRebuild: vi.fn(),
+    muteForRecovery: vi.fn(), clearRecoveryEvents: vi.fn(async () => {}), fadeAfterRecovery: vi.fn() });
+  const children = [make("samples", shared), make("fluidsynth", shared), make("supersonic", separate)];
+  const recoverSharedContext = vi.fn();
+  const log = createAudioRecovery({ recoverSharedContext });
+  const work = log.restore({ childSynths: () => children }, { restartOnly: true });
+  expect(shared.suspend).toHaveBeenCalledOnce();
+  expect(separate.suspend).toHaveBeenCalledOnce();
+  await vi.advanceTimersByTimeAsync(1500);
+  expect((await work).every(result => result.ok)).toBe(true);
+  expect(shared.resume).toHaveBeenCalledOnce();
+  expect(separate.resume).toHaveBeenCalledOnce();
+  expect(recoverSharedContext).not.toHaveBeenCalled();
+  for (const child of children) {
+    for (const method of ["ensureAwake", "prepare", "resumeAfterAudioRestart", "forceAudioRebuild"])
+      expect(child[method]).not.toHaveBeenCalled();
+    expect(child.clearRecoveryEvents).toHaveBeenCalledOnce();
+    expect(child.fadeAfterRecovery).toHaveBeenCalledOnce();
+  }
+});
+
+it.each(["clock", "cleanup"])("diagnostic cycling reports %s failure without rebuilding", async failure => {
+  vi.useFakeTimers();
+  const audio = context({ frozen: failure === "clock" });
+  const synth = { audioBackend: "fluidsynth", getAudioContext: () => audio,
+    forceAudioRebuild: vi.fn(), ensureAwake: vi.fn(), fadeAfterRecovery: vi.fn(),
+    clearRecoveryEvents: vi.fn(async () => { if (failure === "cleanup") throw new Error("Worklet did not reply"); }) };
+  const work = createAudioRecovery().restore(synth, { restartOnly: true });
+  await vi.advanceTimersByTimeAsync(3000);
+  expect((await work)[0].ok).toBe(false);
+  expect(synth.forceAudioRebuild).not.toHaveBeenCalled();
+  expect(synth.ensureAwake).not.toHaveBeenCalled();
+  expect(synth.fadeAfterRecovery).not.toHaveBeenCalled();
+});

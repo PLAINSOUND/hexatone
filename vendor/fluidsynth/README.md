@@ -53,6 +53,12 @@ a linear ramp from the current rendered value; identical targets do not restart
 it. Equal minimum and full-range times give fixed-duration ramps. Zero full-range
 time bypasses smoothing, even when the minimum is nonzero.
 
+Optional latency diagnostics timestamp rendered attack blocks and observe the
+first non-silent mixed-output block after 20 ms of silence. They do not measure
+speaker onset. Signal scanning is disabled outside diagnostic sessions; pending
+onset observations are bounded and expire after two seconds. SoundFont loading
+also reports virtual-file, native-load and preset-setup durations.
+
 `manifest.json` identifies the bundled version, source revisions and SHA-256
 for every shipped file. `yarn fluidsynth:assets` verifies the manifest and
 stages these files into the ignored `public/fluidsynth/` directory before the

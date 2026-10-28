@@ -477,6 +477,8 @@ Restoring `I/O` remembers the requested setup, not browser permission: MIDI/SysE
 
 All three built-in backends are enabled by default; saved `I/O` choices override these defaults. FluidSynth remains silent until a SoundFont is loaded. On audio activation, Hexatone tries to restore the last SoundFont and its preset from an available offline browser copy, without downloading it again. When activation or recovery is needed, a shared audio popup shows status separately from three actions: `Retry` prepares or restores audio, `Report` saves diagnostics, and `Dismiss` hides the popup.
 
+For latency testing, enable `Measure audio latency` in `Audio Diagnostics`. Mark each comparison stage and play using mouse clicks or drags, computer keys, or touch. The report records input and backend timing, with browser playback-clock and output-latency estimates. FluidSynth also reports rendered attacks and, for notes played from silence, the first non-silent output block. Let release tails fade between isolated notes. These measurements precede browser/device output buffering; recording physical key clicks and speaker sound is needed to check the audible delay. Safari's reported playback clock may not reveal that delay.
+
 When working with a loaded sequence, the `Sequencer Transport` fieldset below `MIDI Output` provides the sequencer’s `PLAY FROM`, `TIMED PLAYBACK`, `SPEED`, and `PITCH` controls. These operate the same transport as the `SEQUENCER` tab, so you can stop, resume, or adjust playback while designing sounds.
 
 ### Built-in Samples

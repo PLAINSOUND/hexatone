@@ -5468,6 +5468,7 @@ const App = () => {
         exquisPendingSettings={exquisPendingSettings}
         onSaveAudioReport={audioRecovery.save}
         onRecreateAudioContexts={() => audioRecovery.restore({ forceRecreate: true })}
+        onCycleAudioContexts={audioRecovery.cycleContexts}
         onChange={onChange}
         midiLearnActive={midiLearnActive}
         hakenPedalLearnActive={hakenPedalLearnActive}

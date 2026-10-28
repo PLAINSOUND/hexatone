@@ -5,6 +5,34 @@ import { setTouchInputMode } from "../keyboard/touch-input-mode.js";
 import { getLatencyMeasurementEnabled, setLatencyMeasurementEnabled, audioRuntimeReport } from "../audio/runtime-diagnostics.js";
 
 afterEach(() => { cleanup(); setTouchInputMode("auto"); setLatencyMeasurementEnabled(false); });
+it("suspends and resumes without requesting a rebuild and preserves comparison stages", async () => {
+  let finish;
+  const cycle = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  const recreate = vi.fn();
+  render(<AudioDiagnostics keysRef={{ current: null }} onCycleContexts={cycle} onRecreateContexts={recreate} />);
+  fireEvent.click(screen.getByRole("button", { name: "Show Audio Diagnostics settings" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Measure audio latency" }));
+  fireEvent.click(screen.getByRole("button", { name: "Mark Baseline" }));
+  const button = screen.getByRole("button", { name: "Suspend & Resume Audio" });
+  fireEvent.click(button);
+  expect(cycle).toHaveBeenCalledOnce();
+  expect(button.disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Recreate audio contexts" }).disabled).toBe(true);
+  finish();
+  await waitFor(() => expect(button.disabled).toBe(false));
+  expect(recreate).not.toHaveBeenCalled();
+  expect(audioRuntimeReport().testStages.map(stage => stage.label)).toEqual(["Baseline", "Contexts resumed"]);
+});
+it("reports a cycle failure without marking success or falling back to rebuilding", async () => {
+  const recreate = vi.fn();
+  render(<AudioDiagnostics keysRef={{ current: null }} onCycleContexts={async () => { throw new Error("Clock stalled"); }} onRecreateContexts={recreate} />);
+  fireEvent.click(screen.getByRole("button", { name: "Show Audio Diagnostics settings" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Measure audio latency" }));
+  fireEvent.click(screen.getByRole("button", { name: "Suspend & Resume Audio" }));
+  await screen.findByText("Audio suspend/resume failed: Clock stalled");
+  expect(audioRuntimeReport().testStages).toEqual([]);
+  expect(recreate).not.toHaveBeenCalled();
+});
 it("recreates contexts and marks a fourth pass without clearing measurements", async () => {
   let finish;
   const recreate = vi.fn(() => new Promise(resolve => { finish = resolve; }));

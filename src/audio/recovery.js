@@ -33,8 +33,9 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180,
         return { backend: s.audioBackend ?? "samples", error: String(error.message ?? error) };
       }
     });
-  const run = async (s, action, restart) => {
+  const run = async (s, action, restart, { restartOnly = false } = {}) => {
     const backend = s.audioBackend ?? "samples";
+    const originalContext = restartOnly ? s.getAudioContext?.() : null;
     record("recovery-start", { backend });
     let timer;
     try {
@@ -45,7 +46,12 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180,
         if (restart) {
           try {
             await restart;
-            await (s.resumeAfterAudioRestart ?? s.ensureAwake ?? s.prepare)?.call(s);
+            // Diagnostic cycling must not enter a backend preparation path:
+            // those may replace a processor or reload its SoundFont.
+            if (!restartOnly)
+              await (s.resumeAfterAudioRestart ?? s.ensureAwake ?? s.prepare)?.call(s);
+            if (restartOnly && s.getAudioContext?.() !== originalContext)
+              throw new Error("AudioContext changed during diagnostic suspend/resume");
             await verifyAudioClock(s.getAudioContext());
             await verifyEngineProgress(s);
             // A moving context clock cannot prove that its worklet responds.
@@ -58,9 +64,11 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180,
               backend,
               error: String(error.message ?? error),
             });
+            if (restartOnly) throw error;
           }
         }
         if (!reused) {
+          if (restartOnly) throw new Error("No existing AudioContext is available to suspend and resume");
           await action.call(s);
           if (s.getAudioContext) await verifyAudioClock(s.getAudioContext());
           await verifyEngineProgress(s);
@@ -143,11 +151,12 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180,
     cancelHide() {
       clearTimeout(hideTimer);
     },
-    restore(synth, { releaseNotes, forceRecreate = false } = {}) {
+    restore(synth, { releaseNotes, forceRecreate = false, restartOnly = false } = {}) {
+      if (forceRecreate && restartOnly) throw new Error("Diagnostic suspend/resume cannot replace audio contexts");
       clearTimeout(hideTimer);
       if (pending) return pending;
       const children = outputs(synth);
-      record("before-recovery", { forceRecreate, outputs: snapshot(synth) });
+      record("before-recovery", { forceRecreate, restartOnly, outputs: snapshot(synth) });
       if (!children.length) {
         const result = {
           backend: "built-in audio",
@@ -239,18 +248,18 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180,
       });
       const sampleWork = Promise.all(
         samples.map((s) =>
-          sharedContextWork ? recoverSharedEngine(s) : run(s, rebuild(s), restartBySynth.get(s)),
+          sharedContextWork ? recoverSharedEngine(s) : run(s, rebuild(s), restartBySynth.get(s), { restartOnly }),
         ),
       );
       const otherWork = independent.map((s) =>
-        run(s, rebuild(s), restartBySynth.get(s)),
+        run(s, rebuild(s), restartBySynth.get(s), { restartOnly }),
       );
       // Automatic recovery retains the existing sample-first handoff. Explicit
       // replacement lets every engine rebind independently to the same context.
       const dependentWork = (sharedContextWork ? Promise.resolve() : sampleWork).then(() =>
         Promise.all(
           dependents.map((s) =>
-            sharedContextWork ? recoverSharedEngine(s) : run(s, rebuild(s), restartBySynth.get(s)),
+            sharedContextWork ? recoverSharedEngine(s) : run(s, rebuild(s), restartBySynth.get(s), { restartOnly }),
           ),
         ),
       );

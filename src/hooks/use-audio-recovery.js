@@ -256,6 +256,33 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       }
     }
   }, [synthRef, keysRef, initialiseRef]);
+  const cycleContexts = useCallback(async () => {
+    if (busy.current) throw new Error("Another audio recovery is already in progress");
+    busy.current = true;
+    setRestoring(true);
+    setStatus("Suspending and resuming audio…");
+    try {
+      const results = await recorder.current.restore(synthRef.current, {
+        restartOnly: true,
+        releaseNotes: () => keysRef.current?.releaseActiveBrowserNotes?.(),
+      });
+      keysRef.current?.rejoinRecoveredAudio?.(results.filter(result => result.ok).map(result => result.backend));
+      const failed = results.filter(result => !result.ok);
+      if (failed.length) throw new Error(failed.map(result => `${result.backend}: ${result.error}`).join("; "));
+      setStatus("Audio engines restored by suspend/resume. Compare the response with the same sound.");
+      return results;
+    } catch (error) {
+      setStatus(`Audio suspend/resume failed: ${error.message ?? error}`);
+      throw error;
+    } finally {
+      busy.current = false;
+      setRestoring(false);
+      if (retryRequested.current) {
+        retryRequested.current = false;
+        void restore();
+      }
+    }
+  }, [synthRef, keysRef, restore]);
   const save = useCallback(async () => {
     const audioSettings = Object.fromEntries(
       Object.entries(settings).filter(
@@ -272,6 +299,6 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     report.serviceWorker = await serviceWorkerDiagnostics();
     saveAudioReport(report);
   }, [synthRef, keysRef, settings]);
-  return { status, restoring, restore, save, dismiss, startupFailed,
+  return { status, restoring, restore, cycleContexts, save, dismiss, startupFailed,
     needsStart: () => needsInitialAudioStart(synthRef.current, settings) };
 }

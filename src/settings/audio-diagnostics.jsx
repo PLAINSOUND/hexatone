@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import { getTouchInputMode, setTouchInputMode } from "../keyboard/touch-input-mode.js";
 import { getLatencyMeasurementEnabled, setLatencyMeasurementEnabled, markAudioTestStage } from "../audio/runtime-diagnostics.js";
 
-export default function AudioDiagnostics({ keysRef, onSaveReport, onRecreateContexts }) {
+export default function AudioDiagnostics({ keysRef, onSaveReport, onRecreateContexts, onCycleContexts }) {
   const [mode, setMode] = useState(getTouchInputMode);
   const [measureLatency, setMeasureLatency] = useState(getLatencyMeasurementEnabled);
   const [collapsed, setCollapsed] = useState(true);
@@ -48,6 +48,18 @@ export default function AudioDiagnostics({ keysRef, onSaveReport, onRecreateCont
         markAudioTestStage(label); setStage(label);
       }}>Mark {label}</button>)}
     {stage && <p role="status">Recording stage: {stage}</p>}
+    <p class="settings-form__helper-text">Suspend and resume the existing audio contexts to check whether output delay clears. This releases notes but keeps engines and SoundFonts loaded. A failed cycle reports an error without rebuilding them.</p>
+    <button type="button" disabled={recreating || !onCycleContexts} onClick={async () => {
+      setRecreating(true);
+      setResetStatus("Suspending and resuming audio…");
+      try {
+        await onCycleContexts();
+        if (measureLatency) { markAudioTestStage("Contexts resumed"); setStage("Contexts resumed"); }
+        setResetStatus("Audio contexts resumed without rebuilding engines. Compare the same sound, then save the report.");
+      } catch (error) {
+        setResetStatus(`Audio suspend/resume failed: ${error.message ?? error}`);
+      } finally { setRecreating(false); }
+    }}>Suspend &amp; Resume Audio</button>
     <p class="settings-form__helper-text">After SoundFont OFF, recreate audio contexts to test whether immediacy returns. This releases notes and rebuilds initialized built-in engines without clearing saved settings or cached SoundFonts. Wait for recovery to finish before playing.</p>
     <button type="button" disabled={recreating || !onRecreateContexts} onClick={async () => {
       setRecreating(true);
