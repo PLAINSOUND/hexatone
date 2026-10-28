@@ -134,11 +134,11 @@ export function recordTouchAudio(backend, context, scheduledDelayMs = 0) {
   latency.push(measurement);
   measurementClocks.set(measurement, { handlerAt: touch.at,
     handlerEpochMs: Date.now() - dispatchMs });
-  // Preserve up to 180 rows per stage for a three-pass comparison, bounded
+  // Preserve up to 180 rows per stage for a five-pass comparison, bounded
   // independently of how many stage markers the user adds.
   const sameStage = latency.filter(row => row.stageId === measurement.stageId);
   if (sameStage.length > 180) latency.splice(latency.indexOf(sameStage[0]), 1);
-  if (latency.length > 720) latency.shift();
+  if (latency.length > 900) latency.shift();
   return measurement.id;
 }
 export function recordTouchRender(id, detail) {

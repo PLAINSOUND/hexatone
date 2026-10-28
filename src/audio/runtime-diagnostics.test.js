@@ -135,8 +135,8 @@ it("bounds touch history", () => {
   expect(audioRuntimeReport().touchLatency).toHaveLength(180);
 });
 
-it("preserves four bounded passes and summarizes late acknowledgements by stage", () => {
-  for (const label of ["Baseline", "FluidSynth loaded", "SoundFont OFF", "Contexts recreated"]) {
+it("preserves five bounded passes and summarizes late acknowledgements by stage", () => {
+  for (const label of ["Baseline", "FluidSynth loaded", "Contexts resumed", "FluidSynth worklet restarted", "Contexts recreated"]) {
     markAudioTestStage(label);
     for (let i = 0; i < 200; i++) {
       beginTouchTiming({});
@@ -145,8 +145,8 @@ it("preserves four bounded passes and summarizes late acknowledgements by stage"
     }
   }
   const report = audioRuntimeReport();
-  expect(report.touchLatency).toHaveLength(720);
-  expect(report.testStages.map(stage => stage.backends.supersonic.nodeStartAcknowledgementMs.median)).toEqual([4, 10, 10, 10]);
+  expect(report.touchLatency).toHaveLength(900);
+  expect(report.testStages.map(stage => stage.backends.supersonic.nodeStartAcknowledgementMs.median)).toEqual([4, 10, 10, 10, 10]);
   setLatencyMeasurementEnabled(false);
   expect(audioRuntimeReport().testStages).toEqual([]);
 });
