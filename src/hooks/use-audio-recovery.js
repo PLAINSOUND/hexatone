@@ -3,7 +3,7 @@ import { createAudioRecovery, saveAudioReport } from "../audio/recovery.js";
 import { getPendingSuperSonicDiagnostics } from "../supersonic_synth/startup-diagnostics.js";
 import { audioRuntimeReport, recordAudioRuntime, captureInputTiming, recordEventLoopGap,
   getLatencyMeasurementEnabled, subscribeLatencyMeasurement } from "../audio/runtime-diagnostics.js";
-import { blockAudioAttacks } from "../audio/attack-gate.js";
+import { blockAudioAttacks, allowAudioAttacks } from "../audio/attack-gate.js";
 import { needsMobileBackgroundRecovery } from "../audio/background-policy.js";
 import { serviceWorkerDiagnostics } from "../audio/report-environment.js";
 
@@ -283,6 +283,51 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       }
     }
   }, [synthRef, keysRef, restore]);
+  const restartFluidSynthWorklet = useCallback(async () => {
+    if (busy.current) throw new Error("Another audio recovery is already in progress");
+    const outputs = synthRef.current?.childSynths?.() ?? [synthRef.current];
+    const output = outputs.find(output => output?.audioBackend === "fluidsynth");
+    const context = output?.getAudioContext?.();
+    if (!context || context.state !== "running" || !output.forceAudioRebuild)
+      throw new Error("Load and enable FluidSynth with running audio first");
+    busy.current = true;
+    setRestoring(true);
+    setStatus("Restarting FluidSynth worklet…");
+    recorder.current.record("before-fluidsynth-worklet-restart", {
+      outputs: recorder.current.snapshot(synthRef.current),
+    });
+    try {
+      keysRef.current?.releaseActiveBrowserNotes?.();
+      blockAudioAttacks(context);
+      output.allSoundOff?.();
+      output.muteForRecovery?.(0);
+      // Supplying the current context bypasses context recovery entirely.
+      const ok = await output.forceAudioRebuild({ sharedContext: context });
+      if (!ok || output.getAudioContext() !== context || context.state !== "running")
+        throw new Error("FluidSynth did not restart on the original running context");
+      await output.clearRecoveryEvents?.();
+      output.fadeAfterRecovery?.({ durationMs: 80 });
+      allowAudioAttacks(context);
+      keysRef.current?.rejoinRecoveredAudio?.(["fluidsynth"]);
+      recorder.current.record("after-fluidsynth-worklet-restart", {
+        ok: true, contextPreserved: true, outputs: recorder.current.snapshot(synthRef.current),
+      });
+      setStatus("Audio engines restored: FluidSynth worklet restarted on the same context.");
+    } catch (error) {
+      recorder.current.record("fluidsynth-worklet-restart-error", { error: String(error.message ?? error) });
+      // The context also serves samples; a failed worklet must not block them.
+      allowAudioAttacks(context);
+      setStatus(`FluidSynth worklet restart failed: ${error.message ?? error}`);
+      throw error;
+    } finally {
+      busy.current = false;
+      setRestoring(false);
+      if (retryRequested.current) {
+        retryRequested.current = false;
+        void restore();
+      }
+    }
+  }, [synthRef, keysRef, restore]);
   const save = useCallback(async () => {
     const audioSettings = Object.fromEntries(
       Object.entries(settings).filter(
@@ -299,6 +344,6 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
     report.serviceWorker = await serviceWorkerDiagnostics();
     saveAudioReport(report);
   }, [synthRef, keysRef, settings]);
-  return { status, restoring, restore, cycleContexts, save, dismiss, startupFailed,
+  return { status, restoring, restore, cycleContexts, restartFluidSynthWorklet, save, dismiss, startupFailed,
     needsStart: () => needsInitialAudioStart(synthRef.current, settings) };
 }

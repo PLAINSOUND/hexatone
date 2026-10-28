@@ -50,6 +50,7 @@ const IOSettings = ({
   onSaveAudioReport,
   onRecreateAudioContexts,
   onCycleAudioContexts,
+  onRestartFluidSynthWorklet,
 }) => {
   const [restoreIO, setRestoreIO] = useState(() => restoreIOOnReload());
   return (
@@ -70,7 +71,7 @@ const IOSettings = ({
       </div>
       {/* Pages is a production-optimised preview build, so DEV alone is false.
           Opt in at build time only; normal production builds keep this hidden. */}
-      {(import.meta.env.DEV || import.meta.env.VITE_AUDIO_DIAGNOSTICS === "true") && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} onRecreateContexts={onRecreateAudioContexts} onCycleContexts={onCycleAudioContexts} />}
+      {(import.meta.env.DEV || import.meta.env.VITE_AUDIO_DIAGNOSTICS === "true") && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} onRecreateContexts={onRecreateAudioContexts} onCycleContexts={onCycleAudioContexts} onRestartFluidSynthWorklet={onRestartFluidSynthWorklet} />}
       <SampleSynth
         showActivateAudioContext={showActivateAudioContext}
         activateAudioContext={activateAudioContext}

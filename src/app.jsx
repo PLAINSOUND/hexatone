@@ -5469,6 +5469,7 @@ const App = () => {
         onSaveAudioReport={audioRecovery.save}
         onRecreateAudioContexts={() => audioRecovery.restore({ forceRecreate: true })}
         onCycleAudioContexts={audioRecovery.cycleContexts}
+        onRestartFluidSynthWorklet={audioRecovery.restartFluidSynthWorklet}
         onChange={onChange}
         midiLearnActive={midiLearnActive}
         hakenPedalLearnActive={hakenPedalLearnActive}

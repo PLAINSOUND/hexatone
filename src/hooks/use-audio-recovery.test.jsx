@@ -191,3 +191,34 @@ it("checks installed engines for interruption while another engine loads", async
   await test.tick();
   expect(screen.getByTestId("status").textContent).toContain("needs attention");
 });
+
+it("restarts only FluidSynth on its existing context without startup or context cycling", async () => {
+  const context = { state: "running", currentTime: 1, suspend: vi.fn(), resume: vi.fn() };
+  const synth = { audioBackend: "fluidsynth", getAudioContext: () => context,
+    forceAudioRebuild: vi.fn(async () => true), clearRecoveryEvents: vi.fn(async () => {}),
+    fadeAfterRecovery: vi.fn(), muteForRecovery: vi.fn(), allSoundOff: vi.fn() };
+  const other = { audioBackend: "supersonic", forceAudioRebuild: vi.fn() };
+  const keys = { releaseActiveBrowserNotes: vi.fn(), rejoinRecoveredAudio: vi.fn() };
+  const initialise = vi.fn();
+  let recovery;
+  const synthRef = { current: { childSynths: () => [synth, other] } };
+  function Harness() {
+    recovery = useAudioRecovery(synthRef, { current: keys }, {}, { current: initialise });
+    return null;
+  }
+  render(<Harness />);
+  await act(async () => { await recovery.restartFluidSynthWorklet(); });
+  expect(synth.forceAudioRebuild).toHaveBeenCalledWith({ sharedContext: context });
+  expect(context.suspend).not.toHaveBeenCalled();
+  expect(context.resume).not.toHaveBeenCalled();
+  expect(other.forceAudioRebuild).not.toHaveBeenCalled();
+  expect(initialise).not.toHaveBeenCalled();
+  expect(keys.releaseActiveBrowserNotes).toHaveBeenCalledOnce();
+  expect(keys.rejoinRecoveredAudio).toHaveBeenCalledWith(["fluidsynth"]);
+  expect(synth.clearRecoveryEvents).toHaveBeenCalledOnce();
+  expect(synth.fadeAfterRecovery).toHaveBeenCalledOnce();
+  synth.forceAudioRebuild.mockRejectedValueOnce(new Error("Restart failed"));
+  await act(async () => { await expect(recovery.restartFluidSynthWorklet()).rejects.toThrow("Restart failed"); });
+  expect(synth.forceAudioRebuild).toHaveBeenCalledTimes(2);
+  expect(context.resume).not.toHaveBeenCalled();
+});

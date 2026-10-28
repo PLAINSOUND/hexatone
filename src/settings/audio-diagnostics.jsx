@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import { getTouchInputMode, setTouchInputMode } from "../keyboard/touch-input-mode.js";
 import { getLatencyMeasurementEnabled, setLatencyMeasurementEnabled, markAudioTestStage } from "../audio/runtime-diagnostics.js";
 
-export default function AudioDiagnostics({ keysRef, onSaveReport, onRecreateContexts, onCycleContexts }) {
+export default function AudioDiagnostics({ keysRef, onSaveReport, onRecreateContexts, onCycleContexts, onRestartFluidSynthWorklet }) {
   const [mode, setMode] = useState(getTouchInputMode);
   const [measureLatency, setMeasureLatency] = useState(getLatencyMeasurementEnabled);
   const [collapsed, setCollapsed] = useState(true);
@@ -60,6 +60,18 @@ export default function AudioDiagnostics({ keysRef, onSaveReport, onRecreateCont
         setResetStatus(`Audio suspend/resume failed: ${error.message ?? error}`);
       } finally { setRecreating(false); }
     }}>Suspend &amp; Resume Audio</button>
+    <p class="settings-form__helper-text">Restart only the FluidSynth worklet and reload its current SoundFont and preset on the same running audio context. Compare the same sound before and after; other engines keep their contexts.</p>
+    <button type="button" disabled={recreating || !onRestartFluidSynthWorklet} onClick={async () => {
+      setRecreating(true);
+      setResetStatus("Restarting FluidSynth worklet…");
+      try {
+        await onRestartFluidSynthWorklet();
+        if (measureLatency) { markAudioTestStage("FluidSynth worklet restarted"); setStage("FluidSynth worklet restarted"); }
+        setResetStatus("FluidSynth worklet restarted on the same context. Compare the same sound, then save the report.");
+      } catch (error) {
+        setResetStatus(`FluidSynth worklet restart failed: ${error.message ?? error}`);
+      } finally { setRecreating(false); }
+    }}>Restart FluidSynth worklet</button>
     <p class="settings-form__helper-text">After SoundFont OFF, recreate audio contexts to test whether immediacy returns. This releases notes and rebuilds initialized built-in engines without clearing saved settings or cached SoundFonts. Wait for recovery to finish before playing.</p>
     <button type="button" disabled={recreating || !onRecreateContexts} onClick={async () => {
       setRecreating(true);

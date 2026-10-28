@@ -91,3 +91,25 @@ it("marks all three comparison passes without clearing earlier stages", () => {
   expect(audioRuntimeReport().testStages.map(stage => stage.label)).toEqual(["Baseline", "FluidSynth loaded", "SoundFont OFF"]);
   expect(screen.getByRole("status").textContent).toContain("SoundFont OFF");
 });
+
+it("marks a worklet-only restart and serializes diagnostic reset buttons", async () => {
+  let finish;
+  const restart = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+  const recreate = vi.fn();
+  const cycle = vi.fn();
+  render(<AudioDiagnostics keysRef={{ current: null }} onRestartFluidSynthWorklet={restart}
+    onCycleContexts={cycle} onRecreateContexts={recreate} />);
+  fireEvent.click(screen.getByRole("button", { name: "Show Audio Diagnostics settings" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Measure audio latency" }));
+  fireEvent.click(screen.getByRole("button", { name: "Mark Baseline" }));
+  const button = screen.getByRole("button", { name: "Restart FluidSynth worklet" });
+  fireEvent.click(button);
+  expect(button.disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Recreate audio contexts" }).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Suspend & Resume Audio" }).disabled).toBe(true);
+  finish();
+  await waitFor(() => expect(button.disabled).toBe(false));
+  expect(audioRuntimeReport().testStages.map(stage => stage.label)).toEqual(["Baseline", "FluidSynth worklet restarted"]);
+  expect(cycle).not.toHaveBeenCalled();
+  expect(recreate).not.toHaveBeenCalled();
+});
