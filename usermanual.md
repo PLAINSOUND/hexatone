@@ -479,6 +479,8 @@ All three built-in backends are enabled by default; saved `I/O` choices override
 
 For latency testing, enable `Measure audio latency` in `Audio Diagnostics`. Mark each comparison stage and play using mouse clicks or drags, computer keys, or touch. The report records input and backend timing, with browser playback-clock and output-latency estimates. FluidSynth also reports rendered attacks and, for notes played from silence, the first non-silent output block. Let release tails fade between isolated notes. These measurements precede browser/device output buffering; recording physical key clicks and speaker sound is needed to check the audible delay. Safari's reported playback clock may not reveal that delay.
 
+`Suspend & Resume Audio` cycles the existing contexts without rebuilding engines or reloading SoundFonts. It releases notes and marks a `Contexts resumed` stage when measurement is enabled. Compare the same sound before and after. A failed cycle reports an error without attempting a rebuild. `Recreate audio contexts` is the separate, stronger recovery action.
+
 When working with a loaded sequence, the `Sequencer Transport` fieldset below `MIDI Output` provides the sequencer’s `PLAY FROM`, `TIMED PLAYBACK`, `SPEED`, and `PITCH` controls. These operate the same transport as the `SEQUENCER` tab, so you can stop, resume, or adjust playback while designing sounds.
 
 ### Built-in Samples

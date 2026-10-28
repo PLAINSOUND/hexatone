@@ -88,6 +88,36 @@ function harness() {
     tick: () => act(async () => { await vi.advanceTimersByTimeAsync(2000); }) };
 }
 
+it("cycles loaded audio without invoking startup, preparation or rebuild callbacks", async () => {
+  vi.useFakeTimers();
+  const context = { state: "running", get currentTime() { return Date.now() / 1000; },
+    suspend: vi.fn(async () => {}), resume: vi.fn(async () => {}) };
+  const synth = { audioBackend: "fluidsynth", usesSharedAudioContext: true,
+    getAudioContext: () => context, ensureAwake: vi.fn(), forceAudioRebuild: vi.fn(),
+    clearRecoveryEvents: vi.fn(async () => {}), muteForRecovery: vi.fn(), fadeAfterRecovery: vi.fn() };
+  const synthRef = { current: synth };
+  const keysRef = { current: { releaseActiveBrowserNotes: vi.fn(), rejoinRecoveredAudio: vi.fn() } };
+  const initialise = Object.assign(vi.fn(), { needed: () => true });
+  const initialiseRef = { current: initialise };
+  let recovery;
+  function Harness() {
+    recovery = useAudioRecovery(synthRef, keysRef, {}, initialiseRef);
+    return <span data-testid="cycle-status">{recovery.status}</span>;
+  }
+  render(<Harness />);
+  let work;
+  act(() => { work = recovery.cycleContexts(); });
+  expect(context.suspend).toHaveBeenCalledOnce();
+  await act(async () => { await vi.advanceTimersByTimeAsync(1500); await work; });
+  expect(context.resume).toHaveBeenCalledOnce();
+  expect(initialise).not.toHaveBeenCalled();
+  expect(synth.ensureAwake).not.toHaveBeenCalled();
+  expect(synth.forceAudioRebuild).not.toHaveBeenCalled();
+  expect(keysRef.current.releaseActiveBrowserNotes).toHaveBeenCalledOnce();
+  expect(keysRef.current.rejoinRecoveredAudio).toHaveBeenCalledWith(["fluidsynth"]);
+  expect(screen.getByTestId("cycle-status").textContent).toContain("restored by suspend/resume");
+});
+
 it.each([false, true])("only preemptively mutes mobile audio when hidden (mobile=$mobile)", async (mobile) => {
   const ua = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(mobile ? "iPhone" : "Windows NT");
   const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(false);
