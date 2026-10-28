@@ -4,7 +4,7 @@
 // only tears down current note/activity state in a consistent order.
 
 import Point from "./point.js";
-import { notes } from "../midi_synth";
+import { notes } from "../input/played-notes.js";
 import { cancelModulation } from "../tuning/modulation-runtime.js";
 import { panicFluidSynth } from "../fluidsynth_synth/index.js";
 

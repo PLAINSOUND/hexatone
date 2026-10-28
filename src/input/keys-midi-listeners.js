@@ -10,7 +10,7 @@ import { ignoresIncomingPitchBend, usesPerChannelPitchBend } from "./expression-
 import { calibrateLumatoneFoot, routeLumatoneTimbre } from "./lumatone-timbre.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 import { WebMidi } from "webmidi";
-import { notes } from "../midi_synth";
+import { notes } from "../input/played-notes.js";
 import { detectController, getAnchorNote, getControllerById } from "../controllers/registry.js";
 import { debugLog } from "../debug/logging.js";
 import { allowsContinuumPerformanceCC } from "../controllers/continuum-cc-policy.js";

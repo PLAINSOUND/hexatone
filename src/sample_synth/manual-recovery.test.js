@@ -18,7 +18,8 @@ it.each(["iPhone", "Desktop"])("creates and resumes a replacement on %s despite 
       this.close = vi.fn(() => new Promise(() => {}));
     }
     createGain() {
-      return { gain: { value: 0, setTargetAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() };
+      return { gain: { value: 0, setTargetAtTime: vi.fn(), cancelScheduledValues: vi.fn(),
+        setValueAtTime: vi.fn(), linearRampToValueAtTime: vi.fn() }, connect: vi.fn(), disconnect: vi.fn() };
     }
     createConstantSource() {
       return { offset: { value: 0 }, connect: vi.fn(), start: vi.fn(), stop: vi.fn(), disconnect: vi.fn() };
@@ -51,4 +52,61 @@ it.each(["iPhone", "Desktop"])("creates and resumes a replacement on %s despite 
   await superseded;
   await synth.prepare();
   expect(contexts).toHaveLength(2);
+
+  // Simulate the coordinator replacing the shared context first.
+const { recoverSharedAudioContext } = await import("./index.js");
+
+const previous = synth.getAudioContext();
+
+const replacement = await recoverSharedAudioContext({
+  forceRecreate: true,
+});
+
+expect(replacement).not.toBe(previous);
+expect(contexts).toHaveLength(3);
+
+const createGain = vi.spyOn(replacement, "createGain");
+const contextCount = contexts.length;
+
+// The sample engine must reconnect, not replace the context again.
+await synth.forceAudioRebuild({
+  sharedContext: replacement,
+});
+
+expect(contexts).toHaveLength(contextCount);
+expect(synth.getAudioContext()).toBe(replacement);
+expect(createGain).toHaveBeenCalled();
+expect(previous.close).toHaveBeenCalledOnce();
+expect(replacement.close).not.toHaveBeenCalled();
+
+// An older recovery must not reconnect to an obsolete context.
+await expect(
+  synth.forceAudioRebuild({ sharedContext: previous }),
+).rejects.toThrow("Sample recovery received a stale context");
+
+expect(synth.getAudioContext()).toBe(replacement);
+
+  // The real coordinator must replace the context once for multiple adapters,
+  // even when the old close promise never resolves.
+  const sibling = await create_sample_synth("WMRIByzantineST", 440, 0, [0, 100, 200]);
+  await sibling.prepare();
+  const { createAudioRecovery } = await import("../audio/recovery.js");
+  const recoverSharedContext = vi.fn(async options => {
+    const context = await recoverSharedAudioContext(options);
+    Object.defineProperty(context, "currentTime", { get: () => performance.now() / 1000 });
+    return context;
+  });
+  const rebuild = vi.spyOn(synth, "forceAudioRebuild");
+  const rebuildSibling = vi.spyOn(sibling, "forceAudioRebuild");
+  const log = createAudioRecovery({ recoverSharedContext });
+  const results = await log.restore({ childSynths: () => [synth, sibling] }, { forceRecreate: true });
+  expect(results).toHaveLength(2);
+  expect(results.every(result => result.ok)).toBe(true);
+  expect(recoverSharedContext).toHaveBeenCalledExactlyOnceWith({ forceRecreate: true });
+  expect(contexts).toHaveLength(contextCount + 1);
+  const coordinated = contexts.at(-1);
+  expect(rebuild).toHaveBeenCalledExactlyOnceWith({ sharedContext: coordinated });
+  expect(rebuildSibling).toHaveBeenCalledExactlyOnceWith({ sharedContext: coordinated });
+  expect(replacement.close).toHaveBeenCalledOnce();
+  expect(coordinated.close).not.toHaveBeenCalled();
 });

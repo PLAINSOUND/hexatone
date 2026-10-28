@@ -131,24 +131,27 @@ export function mtsOutputConfig(
 }
 
 export function fluidSynthOutputConfig(settings, tuningRuntime, output, portIdentity) {
-  const outputMode = {
-    family: "mts",
-    allocationMode: "mts1",
-    transportMode: "single_note_realtime",
-    output,
-    channel: 0,
-    velocity: settings.midi_velocity ?? 72,
-    deviceId: 127,
-    mapNumber: 0,
-    isFluidsynthMirror: false,
-    anchorNote: settings.midiin_anchor_note,
-    sysexType: 127,
-    // Controller profiles already set the member-note range (Continuum: 96).
-    // The internal channel is a member voice, not the global wheel/manager.
-    pitchBendRange: settings.midiin_scale_bend_range ?? 48,
+  const args = {
+    outputMode: {
+      output,
+      velocity: settings.midi_velocity ?? 72,
+      // Match the controller member-note range (Continuum: 96).
+      pitchBendRange: settings.midiin_scale_bend_range ?? 48,
+    },
+    tuningContext: {
+      fundamental: tuningRuntime?.fundamental,
+      degree0toRefAsArray: tuningRuntime?.degree0toRefAsArray,
+      scale: tuningRuntime?.scale,
+      equivInterval: tuningRuntime?.equivInterval,
+      name: tuningRuntime?.name,
+    },
   };
-  const plan = mtsOutputConfig(settings, tuningRuntime, outputMode, portIdentity, null);
-  // A restored/reloaded bank may keep the same transport, but its old voices
-  // no longer exist. Publish a fresh child so held/sustained notes rejoin it.
-  return { ...plan, key: JSON.stringify([plan.key, Number(settings.fluidsynth_runtime_revision) || 0]) };
+  // A bank reload loses its voices even when the command transport is retained.
+  // Publish a fresh child so held/sustained notes can rejoin it.
+  const { output: _output, ...mode } = args.outputMode;
+  return {
+    key: JSON.stringify([portIdentity(output), mode, args.tuningContext,
+      Number(settings.fluidsynth_runtime_revision) || 0]),
+    args,
+  };
 }

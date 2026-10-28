@@ -13,7 +13,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "preact/hooks";
 import { enableMidi } from "../midi/enable-webmidi";
 import { rememberControllerAnchorForReload } from "../persistence/controller-anchor-reload.js";
-import { create_midi_synth } from "../midi_synth";
+import { create_mts_synth } from "../mts_synth/index.js";
+import { createFluidSynth } from "../fluidsynth_synth/synth.js";
 import create_mpe_synth from "../mpe_synth";
 import { createMonoSynth } from "../mono_synth/index.js";
 import { create_composite_synth } from "../composite_synth";
@@ -527,6 +528,7 @@ const useSynthWiring = (
       oscRequestsRef.current.cancelAll();
       sampleRequestsRef.current = createOutputCandidateRequests();
       midiRequestsRef.current = createOutputCandidateRequests();
+      fluidRequestsRef.current = createOutputCandidateRequests();
       oscRequestsRef.current = createOutputCandidateRequests();
       resolve({ errors: [{ phase: "initialisation", error: "Audio initialisation cancelled" }] });
     };
@@ -544,6 +546,7 @@ const useSynthWiring = (
   const mpeSynthRef = useRef({ key: null, synth: null });
   const monoSynthRef = useRef({ key: null, synth: null });
   const mtsSynthsRef = useRef(new Map());
+  const fluidSynthsRef = useRef(new Map());
   const oscSynthRef = useRef({ key: null, synth: null });
   const warmOscSynthRef = useRef({ key: null, synth: null });
   const warmSampleSynthRef = useRef({ key: null, synth: null });
@@ -557,6 +560,8 @@ const useSynthWiring = (
   if (!sampleRequestsRef.current) sampleRequestsRef.current = createOutputCandidateRequests();
   const midiRequestsRef = useRef(null);
   if (!midiRequestsRef.current) midiRequestsRef.current = createOutputCandidateRequests();
+  const fluidRequestsRef = useRef(null);
+  if (!fluidRequestsRef.current) fluidRequestsRef.current = createOutputCandidateRequests();
   const oscRequestsRef = useRef(null);
   if (!oscRequestsRef.current) oscRequestsRef.current = createOutputCandidateRequests();
   const oscRuntimeControlsRef = useRef(null);
@@ -579,7 +584,7 @@ const useSynthWiring = (
     }
     clearOutputSynthRefs({
       activeRefs: [sampleSynthRef, oscSynthRef, mpeSynthRef, monoSynthRef],
-      mtsRef: mtsSynthsRef,
+      mapRefs: [mtsSynthsRef, fluidSynthsRef],
       retiringSamplesRef: retiringSampleSynthsRef,
     });
   }, []);
@@ -994,9 +999,9 @@ const useSynthWiring = (
       park(sampleSynthRef, warmSampleSynthRef);
     if (!wantInternalFluidSynth) {
       if (!fluidSynthEngine) clearOutputRef(warmFluidSynthRef, { panic: true });
-      for (const [key, synth] of mtsSynthsRef.current) {
-        if (synth.audioBackend !== "fluidsynth" || !synth.pauseOutput) continue;
-        mtsSynthsRef.current.delete(key);
+      for (const [key, synth] of fluidSynthsRef.current) {
+        if (!synth.pauseOutput) continue;
+        fluidSynthsRef.current.delete(key);
         if (fluidSynthEngine) park({ current: { key, synth } }, warmFluidSynthRef);
         else synth.shutdown?.({ panic: true });
       }
@@ -1137,7 +1142,7 @@ const useSynthWiring = (
         );
       }
     }
-    if (wantMts || wantFluidsynth || wantDirect || wantInternalFluidSynth) {
+    if (wantMts || wantFluidsynth || wantDirect) {
       const desiredMtsKeys = new Set();
       for (const outputMode of mtsOutputs) {
         if (!outputMode.output) continue;
@@ -1165,7 +1170,7 @@ const useSynthWiring = (
         promises.push(
           midiRequestsRef.current(
             JSON.stringify(["mts", mtsKey, permissionGeneration]),
-            () => create_midi_synth(args),
+            () => create_mts_synth(args),
             {
               isCurrent: () =>
                 isCurrentBuild() && midi?.outputs.get(outputMode.output.id) === outputMode.output,
@@ -1174,44 +1179,47 @@ const useSynthWiring = (
           ),
         );
       }
-      if (wantInternalFluidSynth && fluidSynthEngine?.output) {
-        const { key: fluidKey, args } = fluidSynthOutputConfig(
-          playbackSettings,
-          internalPlaybackTuning,
-          fluidSynthEngine.output,
-          outputPortIdentityRef.current,
-        );
-        desiredMtsKeys.add(fluidKey);
-        if (warmFluidSynthRef.current.synth) {
-          if (warmFluidSynthRef.current.key === fluidKey) {
-            mtsSynthsRef.current.set(fluidKey, warmFluidSynthRef.current.synth);
-            warmFluidSynthRef.current = { key: null, synth: null };
-          } else clearOutputRef(warmFluidSynthRef);
-        }
-        if (!mtsSynthsRef.current.has(fluidKey)) {
-          const fading = reclaimFadingOutput(mtsSynthsRef, fluidKey);
-          if (fading) mtsSynthsRef.current.set(fluidKey, fading);
-        }
-        const existing = mtsSynthsRef.current.get(fluidKey);
-        if (existing) {
-          promises.push(Promise.resolve(existing.resumeOutput?.()).then(() => existing));
-        } else {
-          promises.push(
-            midiRequestsRef.current(
-              JSON.stringify(["internal-fluidsynth", fluidKey]),
-              () => create_midi_synth(args),
-              {
-                isCurrent: isCurrentBuild,
-                adopt: (synth) => mtsSynthsRef.current.set(fluidKey, synth),
-              },
-            ),
-          );
-        }
-      }
       pruneOutputMap(mtsSynthsRef, desiredMtsKeys);
     } else if (mtsSynthsRef.current.size > 0) {
       pruneOutputMap(mtsSynthsRef);
     }
+
+    const desiredFluidKeys = new Set();
+    if (wantInternalFluidSynth && fluidSynthEngine?.output) {
+      const { key: fluidKey, args } = fluidSynthOutputConfig(
+        playbackSettings,
+        internalPlaybackTuning,
+        fluidSynthEngine.output,
+        outputPortIdentityRef.current,
+      );
+      desiredFluidKeys.add(fluidKey);
+      if (warmFluidSynthRef.current.synth) {
+        if (warmFluidSynthRef.current.key === fluidKey) {
+          fluidSynthsRef.current.set(fluidKey, warmFluidSynthRef.current.synth);
+          warmFluidSynthRef.current = { key: null, synth: null };
+        } else clearOutputRef(warmFluidSynthRef);
+      }
+      if (!fluidSynthsRef.current.has(fluidKey)) {
+        const fading = reclaimFadingOutput(fluidSynthsRef, fluidKey);
+        if (fading) fluidSynthsRef.current.set(fluidKey, fading);
+      }
+      const existing = fluidSynthsRef.current.get(fluidKey);
+      if (existing) {
+        promises.push(Promise.resolve(existing.resumeOutput?.()).then(() => existing));
+      } else {
+        promises.push(
+          fluidRequestsRef.current(
+            JSON.stringify(["internal-fluidsynth", fluidKey]),
+            () => createFluidSynth(args),
+            {
+              isCurrent: isCurrentBuild,
+              adopt: (synth) => fluidSynthsRef.current.set(fluidKey, synth),
+            },
+          ),
+        );
+      }
+    }
+    pruneOutputMap(fluidSynthsRef, desiredFluidKeys);
 
     if (wantOsc) {
       const oscKey = oscConfig.key;

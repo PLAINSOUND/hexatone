@@ -2,7 +2,7 @@
  * osc_synth — sends note events directly to SuperCollider via WebSocket → OSC bridge.
  * Ordinary routing shutdown lets release tails finish; Panic remains an immediate stop.
  *
- * Implements the shared voice interface used by midi_synth and sample_synth:
+ * Implements the shared voice interface used by mts_synth and sample_synth:
  *   makeHex(coords, cents, ...) → { noteOn(), noteOff(), retune(), aftertouch() }
  *
  * Routing:
@@ -337,7 +337,7 @@ const buildSNewArgs = (
 };
 
 /**
- * Factory — mirrors the async signature of create_midi_synth / create_mpe_synth.
+ * Factory — mirrors the async signature of create_mts_synth / create_mpe_synth.
  */
 export const create_osc_synth = async (
   wsUrl = WS_URL_DEFAULT,

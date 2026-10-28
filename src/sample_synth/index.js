@@ -87,9 +87,8 @@ export const peekSharedAudioContext = () => sharedAudioContext;
 // context flag before simply resuming the old graph.
 export const recoverSharedAudioContext = async ({ forceRecreate = false } = {}) => {
   if (
-    isIOS &&
-    (iosForceRecreateOnPrepare || forceRecreate) &&
-    sharedAudioContext?.state !== "closed"
+    (forceRecreate || (isIOS && iosForceRecreateOnPrepare)) && sharedAudioContext &&
+    sharedAudioContext.state !== "closed"
   ) {
     const staleContext = sharedAudioContext;
     discardSharedAudioContext(staleContext);
@@ -287,23 +286,23 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
     const filterCoeffs =
       filter_low && filter_mid && filter_high
         ? (() => {
-            const n = 64 / 127;
-            const C = Math.log2(filter_low);
-            const lh = Math.log2(filter_high / filter_low);
-            const lm = Math.log2(filter_mid / filter_low);
-            const A = (lm - n * lh) / (n * n - n);
-            const B = lh - A;
-            return {
-              A,
-              B,
-              C,
-              tracking: Math.max(0, Math.min(1, Number(filter_tracking) || 0)),
-              referenceHz:
-                Number.isFinite(Number(filter_reference_hz)) && Number(filter_reference_hz) > 0
-                  ? Number(filter_reference_hz)
-                  : 400,
-            };
-          })()
+          const n = 64 / 127;
+          const C = Math.log2(filter_low);
+          const lh = Math.log2(filter_high / filter_low);
+          const lm = Math.log2(filter_mid / filter_low);
+          const A = (lm - n * lh) / (n * n - n);
+          const B = lh - A;
+          return {
+            A,
+            B,
+            C,
+            tracking: Math.max(0, Math.min(1, Number(filter_tracking) || 0)),
+            referenceHz:
+              Number.isFinite(Number(filter_reference_hz)) && Number(filter_reference_hz) > 0
+                ? Number(filter_reference_hz)
+                : 400,
+          };
+        })()
         : null;
     const sampleLoopPoints = instrument.loopPoints || [0, 0, 0, 0, 0, 0, 0, 0];
 
@@ -422,15 +421,20 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
 
     const synth = {
       family: "sample",
+      usesSharedAudioContext: true,
       getAudioContext: () => sharedAudioContext,
       muteForRecovery: (durationMs) => { recoveryMuted = true; return recoveryGate?.mute(durationMs); },
       fadeAfterRecovery: () => {
         recoveryMuted = false;
         if (!synth.isOutputPaused?.()) return recoveryGate?.fadeIn();
       },
-      getDiagnostics: () => ({ family: "sample", retainedHexes: knownHexes.size,
-        audioContext: { state: sharedAudioContext?.state, sampleRate: sharedAudioContext?.sampleRate,
-          currentTime: sharedAudioContext?.currentTime, baseLatency: sharedAudioContext?.baseLatency } }),
+      getDiagnostics: () => ({
+        family: "sample", retainedHexes: knownHexes.size,
+        audioContext: {
+          state: sharedAudioContext?.state, sampleRate: sharedAudioContext?.sampleRate,
+          currentTime: sharedAudioContext?.currentTime, baseLatency: sharedAudioContext?.baseLatency
+        }
+      }),
       hasVoices: () => knownHexes.size > 0,
       // ── Call once after a user gesture (e.g. preset selection) ───────────────
       // Creates/resumes the AudioContext and decodes all samples so that noteOn
@@ -462,16 +466,37 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         }
       },
 
-      forceAudioRebuild: async ({ forceRecreate = false } = {}) => {
-        // Manual recovery intentionally ends this engine's voices; automatic
-        // gesture recovery preserves the graph and continues to use ensureAwake.
-        if (isIOS || forceRecreate) for (const hex of [...knownHexes]) hex.allSoundOff();
-        if (isIOS || forceRecreate) iosForceRecreateOnPrepare = true;
-        // A background resume may never settle. Explicit recovery must not
-        // queue behind it; the replacement context is started by this gesture.
-        if (isIOS || forceRecreate) {
+      forceAudioRebuild: async ({ forceRecreate = false, sharedContext = null, } = {}) => {
+        if (sharedContext) {
+          if (
+            sharedContext !== sharedAudioContext || sharedContext.state === "closed"
+          ) {
+            throw new Error("Sample recovery received a stale context");
+          }
+
+          // Rebuild this engine's graph without replacing the shared context.
+          for (const hex of [...knownHexes]) hex.allSoundOff();
+
           preparationEpoch += 1;
           preparePromise = null;
+          iosForceRecreateOnPrepare = false;
+
+          masterGain?.disconnect();
+          recoveryGate?.disconnect();
+          masterGain = null;
+          recoveryGate = null;
+          decodedBuffers = null;
+        } else {
+          // Manual recovery intentionally ends this engine's voices; automatic
+          // gesture recovery preserves the graph and continues to use ensureAwake.
+          if (isIOS || forceRecreate) for (const hex of [...knownHexes]) hex.allSoundOff();
+          if (isIOS || forceRecreate) iosForceRecreateOnPrepare = true;
+          // A background resume may never settle. Explicit recovery must not
+          // queue behind it; the replacement context is started by this gesture.
+          if (isIOS || forceRecreate) {
+            preparationEpoch += 1;
+            preparePromise = null;
+          }
         }
         await prepareSynth();
       },
@@ -687,7 +712,7 @@ ActiveHex.prototype.noteOn = function () {
     this.fundamental * Math.pow(2, (this.playbackSourceCents - this.centsToReference) / 1200);
   const vol = this.velocity_response
     ? this.velocity_floor +
-      (1 - this.velocity_floor) * (this.velocity_played / 127) ** this.velocity_exp
+    (1 - this.velocity_floor) * (this.velocity_played / 127) ** this.velocity_exp
     : 1.0 - this.velocity_floor;
   //console.log("vol:",vol);
   this.base_vol = vol;
@@ -863,7 +888,7 @@ ActiveHex.prototype.modwheel = function (value) {
   if (this._setModWheel) this._setModWheel(value);
   this.cc74(value);
 };
-ActiveHex.prototype.expression = function () {};
+ActiveHex.prototype.expression = function () { };
 
 ActiveHex.prototype.noteOff = function (_release_velocity) {
   // Guard against double noteOff - prevents clicks from duplicate release calls

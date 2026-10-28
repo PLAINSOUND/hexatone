@@ -5,6 +5,7 @@ afterEach(() => vi.useRealTimers());
 const graph = (...children) => ({ childSynths: () => children });
 const backend = (name, forceAudioRebuild = vi.fn(async () => {})) => ({
   family: name === "samples" ? "sample" : "osc",
+  usesSharedAudioContext: name === "samples" || name === "fluidsynth",
   audioBackend: name === "samples" ? undefined : name,
   forceAudioRebuild,
   getDiagnostics: () => ({ audioContext: { state: "running", currentTime: 1 } }),
@@ -94,15 +95,18 @@ describe("built-in audio recovery", () => {
     );
     const sonic = backend("supersonic");
     const fluid = backend("fluidsynth");
+    const dsf = { ...backend("dsf"), usesSharedAudioContext: true, };
     const external = { family: "mts", forceAudioRebuild: vi.fn() };
     const log = createAudioRecovery();
-    const recovering = log.restore(graph(samples, sonic, fluid, external));
+    const recovering = log.restore(graph(samples, sonic, fluid, dsf, external));
     expect(samples.forceAudioRebuild).toHaveBeenCalledOnce();
     expect(sonic.forceAudioRebuild).toHaveBeenCalledOnce();
     expect(fluid.forceAudioRebuild).not.toHaveBeenCalled();
+    expect(dsf.forceAudioRebuild).not.toHaveBeenCalled();
     finishSamples();
     expect((await recovering).every((result) => result.ok)).toBe(true);
     expect(fluid.forceAudioRebuild).toHaveBeenCalledOnce();
+    expect(dsf.forceAudioRebuild).toHaveBeenCalled();
     expect(external.forceAudioRebuild).not.toHaveBeenCalled();
   });
   it("bounds hanging work, continues other engines, and allows another attempt", async () => {
@@ -125,6 +129,84 @@ describe("built-in audio recovery", () => {
     await vi.advanceTimersByTimeAsync(51);
     await second;
     expect(stuck.forceAudioRebuild).toHaveBeenCalledTimes(2);
+  });
+  it("replaces the shared context once before rebuilding its engines", async () => {
+    let finishContextRecovery;
+    const recoverSharedContext = vi.fn(() => new Promise(resolve => { finishContextRecovery = resolve; }));
+    const samples = backend("samples");
+    const fluid = backend("fluidsynth");
+    const dsf = { ...backend("dsf"), usesSharedAudioContext: true };
+    const sonic = backend("supersonic");
+    const log = createAudioRecovery({ recoverSharedContext });
+    const synth = graph(samples, fluid, dsf, sonic);
+    const recovering = log.restore(synth, { forceRecreate: true });
+    expect(log.restore(synth, { forceRecreate: true })).toBe(recovering);
+    expect(recoverSharedContext).toHaveBeenCalledExactlyOnceWith({ forceRecreate: true });
+    expect(sonic.forceAudioRebuild).toHaveBeenCalledExactlyOnceWith({ forceRecreate: true });
+    for (const child of [samples, fluid, dsf]) expect(child.forceAudioRebuild).not.toHaveBeenCalled();
+    const context = { state: "running" };
+    finishContextRecovery(context);
+    const results = await recovering;
+    for (const child of [samples, fluid, dsf])
+      expect(child.forceAudioRebuild).toHaveBeenCalledExactlyOnceWith({ sharedContext: context });
+    expect(results).toHaveLength(4);
+    expect(results.every(result => result.ok)).toBe(true);
+  });
+  it("recovers a shared worklet without a sample backend", async () => {
+    const context = { state: "running" };
+    const recoverSharedContext = vi.fn(() => Promise.resolve(context));
+    const fluid = backend("fluidsynth");
+    const log = createAudioRecovery({ recoverSharedContext });
+    expect(await log.restore(fluid, { forceRecreate: true })).toEqual([{ backend: "fluidsynth", ok: true }]);
+    expect(recoverSharedContext).toHaveBeenCalledOnce();
+    expect(fluid.forceAudioRebuild).toHaveBeenCalledExactlyOnceWith({ sharedContext: context });
+  });
+  it("rejects an engine that retains a stale context", async () => {
+    vi.useFakeTimers();
+    const fluid = backend("fluidsynth");
+    fluid.getAudioContext = () => ({ state: "running" });
+    fluid.fadeAfterRecovery = vi.fn();
+    const results = await createAudioRecovery({ recoverSharedContext: async () => ({ state: "running" }) })
+      .restore(fluid, { forceRecreate: true });
+    expect(results).toEqual([{ backend: "fluidsynth", ok: false,
+      error: "Audio engine did not adopt the recovered shared context" }]);
+    expect(fluid.fadeAfterRecovery).not.toHaveBeenCalled();
+  });
+  it.each(["reject", "throw", "interrupted"])("keeps shared engines muted on context failure: %s", async failure => {
+    const error = new Error("Context unavailable");
+    const recoverSharedContext = vi.fn(() => {
+      if (failure === "throw") throw error;
+      return failure === "reject" ? Promise.reject(error) : Promise.resolve({ state: "interrupted" });
+    });
+    const samples = backend("samples"), fluid = backend("fluidsynth"), sonic = backend("supersonic");
+    samples.fadeAfterRecovery = vi.fn();
+    fluid.fadeAfterRecovery = vi.fn();
+    const results = await createAudioRecovery({ recoverSharedContext })
+      .restore(graph(samples, fluid, sonic), { forceRecreate: true });
+    expect(results.filter(result => !result.ok).map(result => result.backend)).toEqual(["samples", "fluidsynth"]);
+    expect(results.find(result => result.backend === "supersonic").ok).toBe(true);
+    for (const child of [samples, fluid]) {
+      expect(child.forceAudioRebuild).not.toHaveBeenCalled();
+      expect(child.fadeAfterRecovery).not.toHaveBeenCalled();
+    }
+  });
+  it("bounds shared-context recovery and ignores a late completion after retry", async () => {
+    vi.useFakeTimers();
+    let finishOld;
+    const replacement = { state: "running" };
+    const recoverSharedContext = vi.fn()
+      .mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }))
+      .mockResolvedValueOnce(replacement);
+    const fluid = backend("fluidsynth");
+    const log = createAudioRecovery({ timeoutMs: 50, recoverSharedContext });
+    const first = log.restore(fluid, { forceRecreate: true });
+    await vi.advanceTimersByTimeAsync(51);
+    expect(await first).toEqual([{ backend: "fluidsynth", ok: false, error: "Shared audio context recovery timed out" }]);
+    expect(fluid.forceAudioRebuild).not.toHaveBeenCalled();
+    expect(await log.restore(fluid, { forceRecreate: true })).toEqual([{ backend: "fluidsynth", ok: true }]);
+    finishOld({ state: "running" });
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fluid.forceAudioRebuild).toHaveBeenCalledExactlyOnceWith({ sharedContext: replacement });
   });
   it("reports failures even when resuming resolves without a running context", async () => {
     const synth = backend("fluidsynth");

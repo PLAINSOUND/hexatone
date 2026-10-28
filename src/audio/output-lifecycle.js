@@ -93,12 +93,12 @@ export function silentOutputHex(coords, cents) {
   };
 }
 
-export function clearOutputSynthRefs({ activeRefs, mtsRef, retiringSamplesRef }) {
+export function clearOutputSynthRefs({ activeRefs, mapRefs, retiringSamplesRef }) {
   const retired = [...retiringSamplesRef.current];
   retiringSamplesRef.current.clear();
   runOutputCleanup([
     ...retired.map(synth => () => synth.allSoundOff?.()),
     ...activeRefs.map(ref => () => clearOutputRef(ref)),
-    () => pruneOutputMap(mtsRef),
+    ...mapRefs.map(ref => () => pruneOutputMap(ref)),
   ]);
 }

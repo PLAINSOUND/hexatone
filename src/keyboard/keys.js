@@ -67,7 +67,7 @@ import {
   appendPersistedTimedTransportDiagnostic,
   isTimedTransportDiagnosticsEnabled,
 } from "../debug/timed-transport-diagnostics.js";
-import * as MtsOutputRuntime from "../midi_synth/mts-output-runtime.js";
+import * as MtsOutputRuntime from "../mts_synth/mts-output-runtime.js";
 import { deriveLiveHexPitch } from "./keys-geometry-runtime.js";
 import {
   clearFundamentalPreview,

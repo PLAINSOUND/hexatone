@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { createInternalVoiceSynth, reattackFluidSynthSnapshots } from "./voices.js";
-import { create_midi_synth } from "../midi_synth/index.js";
+import { create_mts_synth } from "../mts_synth/index.js";
 import { mtsToMidiFloat } from "../tuning/mts-format.js";
 
 it("restores the reverb send after controller reset and before each new attack", () => {
@@ -199,7 +199,7 @@ it("gives 128 voices independent channels/maps, then bends without further MTS",
 
 it("external MTS suppresses the post-attack duplicate but keeps changed real-time tunings", async () => {
   const output = { send: vi.fn() };
-  const synth = await create_midi_synth({
+  const synth = await create_mts_synth({
     outputMode: { output, channel: 0, midiMapping: "MTS1", velocity: 72 },
     tuningContext: { fundamental: 261.6255653, degree0toRefAsArray: [1, 1], scale: [], equivInterval: "2/1" },
     legacyInput: {},

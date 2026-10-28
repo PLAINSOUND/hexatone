@@ -5,14 +5,15 @@ import useSynthWiring from "./use-synth-wiring.js";
 import { smoothOutputToggle } from "../audio/output-toggle.js";
 import { WebMidi } from "webmidi";
 
-const factories = vi.hoisted(() => ({ sample: vi.fn(), osc: vi.fn(), local: vi.fn(), mpe: vi.fn(), mts: vi.fn() }));
+const factories = vi.hoisted(() => ({ sample: vi.fn(), osc: vi.fn(), local: vi.fn(), mpe: vi.fn(), mts: vi.fn(), fluid: vi.fn() }));
 const fluid = vi.hoisted(() => ({ engine: null }));
 vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => fluid.engine }));
+vi.mock("../fluidsynth_synth/synth.js", () => ({ createFluidSynth: factories.fluid }));
 vi.mock("../supersonic_synth/index.js", () => ({ create_supersonic_synth: factories.local }));
 vi.mock("../sample_synth", () => ({ create_sample_synth: factories.sample }));
 vi.mock("../osc_synth", () => ({ create_osc_synth: factories.osc }));
 vi.mock("../mpe_synth", () => ({ default: factories.mpe }));
-vi.mock("../midi_synth", () => ({ create_midi_synth: factories.mts }));
+vi.mock("../mts_synth/index.js", () => ({ create_mts_synth: factories.mts }));
 vi.mock("webmidi", () => ({ WebMidi: { enabled: false } }));
 vi.mock("../composite_synth", () => ({
   create_composite_synth: children => ({ children, setVolume: vi.fn() }),
@@ -73,6 +74,7 @@ beforeEach(() => {
   factories.local.mockReset();
   factories.mpe.mockReset();
   factories.mts.mockReset();
+  factories.fluid.mockReset();
   fluid.engine = null;
   WebMidi.enabled = false;
   WebMidi.interface = null;
@@ -172,11 +174,11 @@ it.each([null, "0", "0.73"])("initializes brightness from the saved preference (
 it("includes a loaded internal SoundFont without a canvas tuning", async () => {
   const selected = engine();
   fluid.engine = { soundfontId: 1, output: { id: "internal-fluid" } };
-  factories.mts.mockResolvedValue(selected);
+  factories.fluid.mockResolvedValue(selected);
   render(<Harness settings={{ ...base, output_sample: false,
     output_fluidsynth: true, scale: null, fundamental: null }} />);
   await waitFor(() => expect(current.synth?.children).toEqual([selected]));
-  expect(factories.mts.mock.calls[0][0].tuningContext).toMatchObject({
+  expect(factories.fluid.mock.calls[0][0].tuningContext).toMatchObject({
     fundamental: 440, scale: [0], degree0toRefAsArray: [0, 1],
   });
 });
@@ -185,7 +187,7 @@ it.each(["fluidsynth", "mpe", "mts"])("retains a sounding %s output through an i
   const output = { id: "port" };
   WebMidi.interface = { inputs: new Map(), outputs: new Map([["port", output]]) };
   const selected = engine();
-  const factory = backend === "mpe" ? factories.mpe : factories.mts;
+  const factory = backend === "mpe" ? factories.mpe : backend === "fluidsynth" ? factories.fluid : factories.mts;
   factory.mockResolvedValue(selected);
   if (backend === "fluidsynth") fluid.engine = { soundfontId: 1, output };
   const settings = { ...base, output_sample: false, [`output_${backend}`]: true,
@@ -207,14 +209,38 @@ it("publishes a fresh FluidSynth child after loading or selecting a sound on the
   const first = { ...engine(), audioBackend: "fluidsynth" };
   const reloaded = { ...engine(), audioBackend: "fluidsynth" };
   fluid.engine = { soundfontId: 1, output: { id: "internal-fluid" } };
-  factories.mts.mockResolvedValueOnce(first).mockResolvedValueOnce(reloaded);
+  factories.fluid.mockResolvedValueOnce(first).mockResolvedValueOnce(reloaded);
   const settings = { ...base, output_sample: false, output_fluidsynth: true };
   const view = render(<Harness settings={settings} />);
   await waitFor(() => expect(current.synth?.children).toEqual([first]));
   view.rerender(<Harness settings={{ ...settings, fluidsynth_runtime_revision: 1 }} />);
   await waitFor(() => expect(current.synth?.children).toEqual([reloaded]));
-  expect(factories.mts).toHaveBeenCalledTimes(2);
+  expect(factories.fluid).toHaveBeenCalledTimes(2);
   expect(keysRef.current.updateLiveOutputState.mock.calls.at(-1)[1].children).toEqual([reloaded]);
+});
+
+it("keeps built-in FluidSynth when MIDI access closes and releases both maps on unmount", async () => {
+  WebMidi.enabled = true;
+  const output = { id: "port" };
+  WebMidi.interface = { inputs: new Map(), outputs: new Map([["port", output]]) };
+  fluid.engine = { soundfontId: 1, output: { id: "internal-fluid" } };
+  const internal = { ...engine(), audioBackend: "fluidsynth" };
+  const external = engine();
+  factories.fluid.mockResolvedValue(internal);
+  factories.mts.mockResolvedValue(external);
+  const view = render(<Harness settings={{ ...base, output_sample: false,
+    output_fluidsynth: true, output_mts: true, midi_device: "port", midi_channel: 0,
+    midi_mapping: "MTS1" }} />);
+  await waitFor(() => expect(current.synth?.children).toEqual(expect.arrayContaining([internal, external])));
+
+  await act(async () => { await current.disableWebMidi(); });
+  await waitFor(() => expect(current.synth?.children).toEqual([internal]));
+  expect(external.shutdown).toHaveBeenCalledOnce();
+  expect(internal.shutdown).not.toHaveBeenCalled();
+  expect(factories.fluid).toHaveBeenCalledOnce();
+
+  view.unmount();
+  expect(internal.shutdown).toHaveBeenCalledOnce();
 });
 
 it("includes samples and SuperSonic without a canvas tuning or fundamental", async () => {

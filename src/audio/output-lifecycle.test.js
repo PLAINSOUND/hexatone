@@ -9,13 +9,17 @@ describe("output lifecycle", () => {
   it("attempts every graph release and empties caches despite backend failures", () => {
     const broken = { shutdown: vi.fn(() => { throw new Error("shutdown"); }) };
     const good = { shutdown: vi.fn() };
+    const internal = { shutdown: vi.fn() };
     const tail = { allSoundOff: vi.fn(() => { throw new Error("tail"); }) };
     const activeRefs = [broken, good].map(synth => ({ current: { key: "key", synth } }));
     const refs = { activeRefs, retiringSamplesRef: { current: new Set([tail]) },
-      mtsRef: { current: new Map([["bad", broken], ["good", good]]) } };
+      mapRefs: [{ current: new Map([["bad", broken], ["good", good]]) },
+        { current: new Map([["internal", internal]]) }] };
     expect(() => clearOutputSynthRefs(refs)).toThrow(AggregateError);
     expect(good.shutdown).toHaveBeenCalledTimes(2);
-    expect(refs.mtsRef.current.size).toBe(0);
+    expect(refs.mapRefs[0].current.size).toBe(0);
+    expect(refs.mapRefs[1].current.size).toBe(0);
+    expect(internal.shutdown).toHaveBeenCalledOnce();
     expect(refs.retiringSamplesRef.current.size).toBe(0);
     expect(activeRefs.every(ref => ref.current.synth === null)).toBe(true);
     expect(() => clearOutputSynthRefs(refs)).not.toThrow();
@@ -100,7 +104,7 @@ describe("output lifecycle", () => {
     const tail = { allSoundOff: vi.fn(() => order.push("tail")) };
     const refs = {
       activeRefs,
-      mtsRef: { current: new Map([["port", mts]]) },
+      mapRefs: [{ current: new Map([["port", mts]]) }],
       retiringSamplesRef: { current: new Set([tail]) },
     };
     clearOutputSynthRefs(refs);
@@ -110,7 +114,7 @@ describe("output lifecycle", () => {
       true,
     );
     expect(active.every((synth) => synth.allSoundOff.mock.calls.length === 0)).toBe(true);
-    expect(refs.mtsRef.current.size).toBe(0);
+    expect(refs.mapRefs[0].current.size).toBe(0);
     expect(refs.retiringSamplesRef.current.size).toBe(0);
   });
 });

@@ -111,16 +111,20 @@ it("forces replacement of running contexts instead of cycling them", async () =>
   const replacement = context();
   const synth = {
     family: "sample",
+    usesSharedAudioContext: true,
     getAudioContext: () => current,
     getDiagnostics: () => ({ audioContext: { state: current.state } }),
-    forceAudioRebuild: vi.fn(async () => { current = replacement; }),
+    forceAudioRebuild: vi.fn(async ({ sharedContext }) => { current = sharedContext; }),
   };
-  const log = createAudioRecovery();
+  const recoverSharedContext = vi.fn(async () => replacement);
+  const log = createAudioRecovery({ recoverSharedContext });
   const work = log.restore(synth, { forceRecreate: true });
-  expect(synth.forceAudioRebuild).toHaveBeenCalledWith({ forceRecreate: true });
+  expect(recoverSharedContext).toHaveBeenCalledExactlyOnceWith({ forceRecreate: true });
+  expect(synth.forceAudioRebuild).not.toHaveBeenCalled();
   expect(old.suspend).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1000);
   expect((await work)[0].ok).toBe(true);
+  expect(synth.forceAudioRebuild).toHaveBeenCalledExactlyOnceWith({ sharedContext: replacement });
   const events = log.report(synth).events;
   expect(events.find(e => e.name === "before-recovery").outputs[0].contextId).toBe(1);
   expect(events.find(e => e.name === "after-recovery").outputs[0].contextId).toBe(2);

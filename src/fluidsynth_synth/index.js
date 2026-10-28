@@ -324,8 +324,12 @@ export async function ensureFluidSynthEngineAwake() {
   return context.state === "running";
 }
 
-export async function forceFluidSynthEngineRebuild() {
+export async function forceFluidSynthEngineRebuild({
+  sharedContext = null,
+} = {}) {
   if (!engine) return false;
+  if (sharedContext && (sharedContext !== peekSharedAudioContextNow() || sharedContext.state === "closed"))
+    throw new Error("FluidSynth recovery received a stale context");
   const controller = new AbortController();
   let timer;
   const currentContext = peekSharedAudioContextNow();
@@ -334,7 +338,9 @@ export async function forceFluidSynthEngineRebuild() {
   // explicit iOS context recreation the sample backend performs.
   const contextWasAlreadyRebuilt = engine.context !== currentContext;
   // Start replacement/resume synchronously, while this call still owns the tap.
-  const contextWork = recoverSharedAudioContext({ forceRecreate: !contextWasAlreadyRebuilt });
+  const contextWork = sharedContext
+    ? Promise.resolve(sharedContext)
+    : recoverSharedAudioContext({ forceRecreate: !contextWasAlreadyRebuilt });
   const work = (async () => {
     const context = await contextWork;
     controller.signal.throwIfAborted();

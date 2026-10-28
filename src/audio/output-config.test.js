@@ -195,7 +195,7 @@ describe("output construction plans", () => {
     expect(single.args.getDynamicBulkConfig).toBeNull();
   });
 
-  it("routes internal FluidSynth through MTS real-time with tuning map zero", () => {
+  it("builds internal FluidSynth independently of external MTS configuration", () => {
     const output = { id: "internal-fluid" };
     const runtime = {
       fundamental: 440,
@@ -207,12 +207,10 @@ describe("output construction plans", () => {
     const plan = fluidSynthOutputConfig(settings, runtime, output, createOutputPortIdentity());
     expect(plan.args.outputMode).toMatchObject({
       output,
-      channel: 0,
-      transportMode: "single_note_realtime",
-      midiMapping: "MTS1",
-      mapNumber: 0,
-      sysexType: 127,
+      velocity: 72,
     });
+    expect(plan.args.outputMode).not.toHaveProperty("midiMapping");
+    expect(plan.args).not.toHaveProperty("legacyInput");
     expect(plan.args.tuningContext.scale).toBe(tuning.scale);
     expect(plan.args.outputMode.pitchBendRange).toBe(48);
     const continuum = fluidSynthOutputConfig({ ...settings, midiin_scale_bend_range: 96 },

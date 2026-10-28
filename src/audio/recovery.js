@@ -3,7 +3,9 @@ import { restartAudioContext, verifyAudioClock } from "./restart-context.js";
 import { audioRuntimeReport } from "./runtime-diagnostics.js";
 import { blockAudioAttacks, allowAudioAttacks } from "./attack-gate.js";
 import { buildDiagnostics, playbackClockDiagnostics } from "./report-environment.js";
-export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = {}) {
+import { recoverSharedAudioContext } from "../sample_synth/prime-shared-audio.js";
+export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180,
+  recoverSharedContext = recoverSharedAudioContext } = {}) {
   const startedAt = new Date().toISOString();
   const history = [];
   let pending = null;
@@ -195,26 +197,64 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180 } = 
         ? () => s.forceAudioRebuild({ forceRecreate: true })
         : s.forceAudioRebuild ?? s.ensureAwake ?? s.prepare;
       const samples = children.filter((s) => s.family === "sample");
-      const independent = children.filter(
-        (s) => s.audioBackend !== "fluidsynth" && s.family !== "sample",
+
+      const dependents = children.filter(
+        (s) => s.usesSharedAudioContext && s.family !== "sample",
       );
+
+      const independent = children.filter(
+        (s) => !s.usesSharedAudioContext && s.family !== "sample",
+      );
+      let sharedContextWork;
+      const shared = [...samples, ...dependents];
+      if (forceRecreate && shared.length) {
+        // Start in the original gesture. One replacement is shared by all
+        // engines, including a graph containing only a worklet backend.
+        let timer;
+        let contextWork;
+        record("shared-context-recovery-start");
+        try {
+          contextWork = recoverSharedContext({ forceRecreate: true });
+        } catch (error) {
+          contextWork = Promise.reject(error);
+        }
+        sharedContextWork = Promise.race([
+          contextWork,
+          new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error("Shared audio context recovery timed out")), timeoutMs);
+          }),
+        ]).then(context => {
+          if (!context || context.state !== "running")
+            throw new Error(`Shared AudioContext is ${context?.state ?? "unavailable"} after recovery`);
+          blockAudioAttacks(context);
+          record("shared-context-recovered");
+          return context;
+        }).finally(() => clearTimeout(timer));
+      }
+      const recoverSharedEngine = s => run(s, async () => {
+        const context = await sharedContextWork;
+        await s.forceAudioRebuild({ sharedContext: context });
+        if (s.getAudioContext && s.getAudioContext() !== context)
+          throw new Error("Audio engine did not adopt the recovered shared context");
+      });
       const sampleWork = Promise.all(
         samples.map((s) =>
-          run(s, rebuild(s), restartBySynth.get(s)),
+          sharedContextWork ? recoverSharedEngine(s) : run(s, rebuild(s), restartBySynth.get(s)),
         ),
       );
       const otherWork = independent.map((s) =>
         run(s, rebuild(s), restartBySynth.get(s)),
       );
-      // FluidSynth shares the sample context; rebind after its owner replaces it.
-      const fluidWork = sampleWork.then(() =>
+      // Automatic recovery retains the existing sample-first handoff. Explicit
+      // replacement lets every engine rebind independently to the same context.
+      const dependentWork = (sharedContextWork ? Promise.resolve() : sampleWork).then(() =>
         Promise.all(
-          children
-            .filter((s) => s.audioBackend === "fluidsynth")
-            .map((s) => run(s, rebuild(s), restartBySynth.get(s))),
+          dependents.map((s) =>
+            sharedContextWork ? recoverSharedEngine(s) : run(s, rebuild(s), restartBySynth.get(s)),
+          ),
         ),
       );
-      pending = Promise.all([sampleWork, Promise.all(otherWork), fluidWork])
+      pending = Promise.all([sampleWork, Promise.all(otherWork), dependentWork])
         .then((groups) => {
           const results = groups.flat();
           for (const child of children) {

@@ -3,7 +3,7 @@
 // current controller/sequential mapping rules, and drives note-on/note-off
 // lifecycle updates. It does not derive tuning or modulation history state.
 
-import { notes } from "../midi_synth";
+import { notes } from "../input/played-notes.js";
 import { usesPerChannelPitchBend } from "../input/expression-routing.js";
 import { findNearestDegree } from "../input/scale-mapper.js";
 import { debugLog } from "../debug/logging.js";
