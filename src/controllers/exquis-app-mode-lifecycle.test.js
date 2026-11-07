@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { createExquisModeGate } from "../input/exquis-mode-gate.js";
-import { createExquisAppModeLifecycle } from "./exquis-app-mode-lifecycle.js";
+import { createExquisAppModeLifecycle, releaseExpiredExquisInput } from "./exquis-app-mode-lifecycle.js";
 
 afterEach(() => vi.useRealTimers());
 const press = gate => gate.message({ data: [0x90, 60, 100] });
@@ -66,4 +66,19 @@ it("cancels delayed entry on disposal and never revives a driver after unmount",
   resolve({});
   await vi.runAllTimersAsync();
   expect(create).not.toHaveBeenCalled();
+});
+
+it("releases expired MIDI input and unblocks pending transitions without dropping edits", () => {
+  vi.useFakeTimers();
+  const gate = createExquisModeGate();
+  const keys = { allnotesOff: vi.fn() };
+  const commit = vi.fn();
+  press(gate);
+  gate.defer("midi_passthrough", true, false, commit);
+  releaseExpiredExquisInput(gate, keys);
+  expect(keys.allnotesOff).toHaveBeenCalledExactlyOnceWith({ disconnect: true });
+  expect(gate.heldPads()).toEqual([]);
+  expect(commit).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(120);
+  expect(commit).toHaveBeenCalledOnce();
 });

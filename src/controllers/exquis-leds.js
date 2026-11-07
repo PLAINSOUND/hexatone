@@ -180,6 +180,7 @@ export class ExquisLEDs {
     const last = this._lastHeartbeatSentAt;
     const stale = !Number.isFinite(last) || performance.now() - last > HEARTBEAT_STALE_MS;
     if (!force && !stale && !this._recoveryPending) return false;
+    if (stale) this._releaseExpiredPads();
     debugLog("controllers", force
       ? "Exquis App Mode restore requested — re-entering App Mode."
       : "Exquis App Mode heartbeat stale — re-entering App Mode.");
@@ -525,8 +526,10 @@ export class ExquisLEDs {
     // Detect the missed interval BEFORE updating last-sent time. This also
     // handles the timer firing before focus/visibility events on return.
     if (checkRecovery && this._ready) {
-      if (performance.now() - this._lastHeartbeatSentAt > HEARTBEAT_STALE_MS)
+      if (performance.now() - this._lastHeartbeatSentAt > HEARTBEAT_STALE_MS) {
+        this._releaseExpiredPads();
         this._recoveryPending = true;
+      }
       if (this._recoveryPending && !this._heldPadCount) {
         this._enterAppMode();
         return;
@@ -534,6 +537,16 @@ export class ExquisLEDs {
     }
     this._out.send(HEARTBEAT);
     this._lastHeartbeatSentAt = performance.now();
+  }
+
+  _releaseExpiredPads() {
+    // Once firmware has left App Mode, releases can use its native note map.
+    // The old addresses cannot safely gate restoration or retain host voices.
+    const held = [...this._heldPads];
+    this._heldPads.clear();
+    this._heldPadCount = 0;
+    this._pressedButtons.clear();
+    this._controls?.onHeartbeatLost?.(held);
   }
 
   _handleRemoteButton(command, id, pressed) {

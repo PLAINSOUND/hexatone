@@ -62,24 +62,29 @@ describe("Exquis orientation", () => {
     driver.exit();
   });
 
-  it("keeps recovery latched while held and handles duplicate note-ons with one release", () => {
+  it.each(["timer", "focus"])("releases obsolete held pads after heartbeat expiry via %s", path => {
     vi.useFakeTimers();
     const now = vi.spyOn(performance, "now").mockReturnValue(100);
     const out = { send: vi.fn() };
-    const driver = new ExquisLEDs(out, null);
+    const onHeartbeatLost = vi.fn();
+    const driver = new ExquisLEDs(out, null, null, 15, 1.3, true, 90, 1, [], { onHeartbeatLost });
     driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, 3, 0, 0, 0xf7] });
     vi.advanceTimersByTime(200);
     driver._onMessage({ data: [0x91, 19, 90] });
     driver._onMessage({ data: [0x91, 19, 100] });
     out.send.mockClear();
     now.mockReturnValue(11100);
-    driver._sendHeartbeat();
-    expect(driver.recoverIfHeartbeatStale()).toBe(true);
-    expect(out.send.mock.calls.every(([frame]) => frame.length === 5)).toBe(true);
-    driver._onMessage({ data: [0x81, 19, 0] });
-    vi.advanceTimersByTime(0);
-    expect(out.send.mock.calls.map(([frame]) => [...frame]))
-      .toContainEqual([0xf0, 0, 0x21, 0x7e, 7, 1, 0xf7]);
+    if (path === "timer") driver._sendHeartbeat();
+    else driver.recoverIfHeartbeatStale();
+    expect(onHeartbeatLost).toHaveBeenCalledExactlyOnceWith(["1.19"]);
+    expect(driver._heldPadCount).toBe(0);
+    expect(driver.recoverIfHeartbeatStale()).toBe(false);
+    vi.advanceTimersByTime(200);
+    const frames = out.send.mock.calls.map(([frame]) => [...frame]);
+    expect(frames).toContainEqual([0xf0, 0, 0x21, 0x7e, 7, 1, 0xf7]);
+    expect(frames.filter(frame => frame[4] === 0x15)).toHaveLength(61);
+    driver._onMessage({ data: [0x81, 19, 0] }); // late release is harmless
+    expect(onHeartbeatLost).toHaveBeenCalledOnce();
     driver.exit();
     out.send.mockClear();
     vi.advanceTimersByTime(1000);

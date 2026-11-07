@@ -12,7 +12,7 @@ import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "preact/hooks";
 
 import Keyboard from "./keyboard";
-import { createExquisAppModeLifecycle } from "./controllers/exquis-app-mode-lifecycle.js";
+import { createExquisAppModeLifecycle, releaseExpiredExquisInput } from "./controllers/exquis-app-mode-lifecycle.js";
 import { sendLumatoneBlankLayout } from "./keyboard/keys-controller-leds.js";
 import { primeSharedSampleAudio } from "./sample_synth/prime-shared-audio.js";
 import { bringPaletteToFront } from "./ui/palette-stacking.js";
@@ -4775,6 +4775,7 @@ const App = () => {
         exquisArpeggiatorRef.current,
         heldPads,
         {
+          onHeartbeatLost: () => releaseExpiredExquisInput(exquisTransitionGate, keysRef.current),
           onOctave: direction => exquisOctaveRef.current(direction),
           getOctaveOffset: () => exquisOctaveOffsetRef.current,
           onAnchor: (note, channel) => exquisAnchorRef.current(note, channel),
