@@ -4,6 +4,8 @@ import * as KeysBrowserInput from "./keys-browser-input.js";
 import Point from "./point.js";
 import { WebMidi } from "webmidi";
 import { createMonoSynth } from "../mono_synth/index.js";
+import { releaseExpiredExquisInput } from "../controllers/exquis-app-mode-lifecycle.js";
+import { createExquisModeGate } from "../input/exquis-mode-gate.js";
 import { ensureMidiInputBinding, rebuildControllerMap } from "../input/keys-midi-listeners.js";
 import { parseExactInterval } from "../tuning/interval.js";
 import { settingsImpactSnapshot } from "../settings/settings-impact-registry.js";
@@ -204,6 +206,15 @@ describe("Keys MIDI input integration", () => {
     expect(second._inputChannel).toBe(5);
     expect(keys.state.activeMidiByChannel.has(4)).toBe(true);
     expect(keys.state.activeMidiByChannel.has(5)).toBe(true);
+    keys.deconstruct();
+  });
+
+  it("clears output voices on Exquis heartbeat loss even without a MIDI-held record", () => {
+    const synth = { allSoundOff: vi.fn() };
+    const keys = createKeys({}, {}, synth);
+    expect(keys.state.activeMidi.size).toBe(0);
+    releaseExpiredExquisInput(createExquisModeGate(), keys);
+    expect(synth.allSoundOff).toHaveBeenCalledOnce();
     keys.deconstruct();
   });
 

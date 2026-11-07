@@ -68,15 +68,16 @@ it("cancels delayed entry on disposal and never revives a driver after unmount",
   expect(create).not.toHaveBeenCalled();
 });
 
-it("releases expired MIDI input and unblocks pending transitions without dropping edits", () => {
+it("clears all notes on heartbeat expiry and unblocks pending transitions without dropping edits", () => {
   vi.useFakeTimers();
   const gate = createExquisModeGate();
-  const keys = { allnotesOff: vi.fn() };
+  const keys = { panic: vi.fn(), allnotesOff: vi.fn() };
   const commit = vi.fn();
   press(gate);
   gate.defer("midi_passthrough", true, false, commit);
   releaseExpiredExquisInput(gate, keys);
-  expect(keys.allnotesOff).toHaveBeenCalledExactlyOnceWith({ disconnect: true });
+  expect(keys.panic).toHaveBeenCalledExactlyOnceWith();
+  expect(keys.allnotesOff).not.toHaveBeenCalled();
   expect(gate.heldPads()).toEqual([]);
   expect(commit).not.toHaveBeenCalled();
   vi.advanceTimersByTime(120);

@@ -10,7 +10,8 @@ describe("Exquis orientation", () => {
     vi.useFakeTimers();
     vi.spyOn(performance, "now").mockReturnValue(100);
     const out = { send: vi.fn() };
-    const driver = new ExquisLEDs(out, null);
+    const onHeartbeatLost = vi.fn();
+    const driver = new ExquisLEDs(out, null, null, 15, 1.3, true, 90, 1, [], { onHeartbeatLost });
     driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, 3, 0, 0, 0xf7] });
     vi.advanceTimersByTime(200);
     driver.sendColors(Array(61).fill("#ff0000"));
@@ -18,7 +19,8 @@ describe("Exquis orientation", () => {
     driver._onMessage({ data: [0x91, 19, 90] });
     out.send.mockClear();
     expect(driver.recoverIfHeartbeatStale({ force: true })).toBe(true);
-    expect(out.send.mock.calls.every(([frame]) => frame.length === 5)).toBe(true);
+    expect(onHeartbeatLost).not.toHaveBeenCalled();
+    expect(out.send.mock.calls.some(([frame]) => frame[4] === 0x07 || frame[4] === 0x15)).toBe(false);
     driver._onMessage({ data: [0x81, 19, 0] });
     vi.advanceTimersByTime(200);
     const frames = out.send.mock.calls.map(([frame]) => [...frame]);

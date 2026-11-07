@@ -42,10 +42,11 @@ export function createExquisAppModeLifecycle({ gate, loadDriver, onDriverChange,
   };
 }
 
-// Heartbeat expiry invalidates the old firmware note map. Release input-owned
-// voices through their real backend noteOff paths, without a global panic.
+// Heartbeat expiry invalidates the old firmware note map. Clear the outputs as
+// well as host note records: a lost release may no longer have an activeMidi
+// entry, so a selective input disconnect sweep cannot guarantee silence.
 export function releaseExpiredExquisInput(gate, keys) {
-  keys?.allnotesOff?.({ disconnect: true });
+  keys?.panic?.();
   for (const address of gate.heldPads()) {
     const [channel, note] = address.split(".").map(Number);
     gate.message({ data: [0x80 | channel, note, 0] });

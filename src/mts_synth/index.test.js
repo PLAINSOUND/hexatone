@@ -26,6 +26,31 @@ afterEach(() => {
 });
 
 describe("mts_synth controller-state replay", () => {
+  it.each(["single_note_realtime", "bulk_static_map", "bulk_dynamic_map"])(
+    "panic clears owned notes and pedals for %s, including untracked receiver voices", async transportMode => {
+      const output = { send: vi.fn() };
+      const synth = await create_mts_synth({
+        outputMode: { output, channel: 2, midiMapping: transportMode === "single_note_realtime" ? "MTS1" : "MTS_BULK",
+          transportMode, velocity: 72, mapNumber: 0, anchorNote: 60 },
+        tuningContext: { fundamental: 440, degree0toRefAsArray: [0, 1],
+          scale: scale12, equivInterval: 1200, name: "test" },
+        legacyInput: { midiin_anchor_note: 60 },
+      });
+      const hex = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 12, -100, 100, 60, 72, 0, 1);
+      hex.noteOn();
+      output.send.mockClear();
+      synth.allSoundOff();
+      expect(hex.release).toBe(true);
+      expect(output.send.mock.calls.some(([message]) => message[0] === 0x82)).toBe(true);
+      expect(output.send.mock.calls.slice(-4).map(([message]) => message)).toEqual([
+        [0xb2, 64, 0], [0xb2, 66, 0], [0xb2, 123, 0], [0xb2, 120, 0],
+      ]);
+      output.send.mockClear();
+      synth.allSoundOff(); // receiver may still have a voice absent from the host pool
+      expect(output.send).toHaveBeenCalledWith([0xb2, 120, 0]);
+      synth.shutdown();
+    },
+  );
   it.each(["MTS1", "MTS_BULK"])("retires pending %s attacks after their onset without clearing a shared port", async (mapping) => {
     const output = { send: vi.fn(), clear: vi.fn() };
     const make = channel => create_mts_synth({

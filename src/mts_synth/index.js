@@ -215,9 +215,14 @@ export const create_mts_synth = async ({
     },
 
     allSoundOff: () => {
-      if (!midi_output) return;
-      // Send CC123 on the configured output channel.
+      if (!midi_output || channel == null || channel < 0) return;
+      releaseOwnedNotes();
+      // CC123 alone can retain pedal-held voices. Panic must also silence
+      // voices whose host records were lost, on this backend's channel only.
+      safeSend(midi_output, [0xb0 + channel, 64, 0]);
+      safeSend(midi_output, [0xb0 + channel, 66, 0]);
       safeSend(midi_output, [0xb0 + channel, 123, 0]);
+      safeSend(midi_output, [0xb0 + channel, 120, 0]);
     },
 
     applyControllerState: (state = {}) => {
