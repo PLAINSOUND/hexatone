@@ -1,7 +1,7 @@
 {
   "name": "supersonic-scsynth",
-  "version": "0.92.0",
-  "description": "SuperCollider scsynth on clockwork, for the browser as an AudioWorklet and natively as a server",
+  "version": "0.94.0",
+  "description": "A scsynth-compatible synth powered by Clockwork, for the browser as an AudioWorklet and natively as a server",
   "main": "dist/supersonic.js",
   "types": "supersonic.d.ts",
   "unpkg": "dist/supersonic.js",
@@ -16,6 +16,7 @@
     "test": "playwright test --reporter=list --max-failures=1",
     "test:all": "playwright test --reporter=list",
     "test:native": "./build/native/test/native/SuperSonicNativeTests '~[benchmark]'",
+    "test:benchmark": "playwright test --config=playwright.benchmark.mjs --reporter=line",
     "test:transports": "./test/transport-harness/run.sh",
     "prepublishOnly": "./scripts/build-web.sh --release",
     "test:types": "tsd",
@@ -70,6 +71,7 @@
     "dist/workers/osc_in_worker.js",
     "dist/workers/osc_out_log_sab_worker.js",
     "dist/chunks/*.js",
+    "sbom/",
     "README.md",
     "LICENSE"
   ],
@@ -78,7 +80,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.25.12",
     "fast-check": "^4.6.0",
     "remark-gfm": "^4.0.1",
     "tsd": "^0.33.0",

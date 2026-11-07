@@ -52,7 +52,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
   let phase = "creating-context";
   let gestureAt = null;
   const startupSince = performance.now();
-  const startupDiagnostic = () => ({ backend: "supersonic", version: "0.92", phase,
+  const startupDiagnostic = () => ({ backend: "supersonic", version: "0.94", phase,
     elapsedMs: performance.now() - startupSince,
     gestureReceived: gestureAt != null,
     contexts: [...pendingContexts].map((candidate) => ({ state: candidate.state, currentTime: candidate.currentTime })),

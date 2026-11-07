@@ -236,6 +236,14 @@ export const mergePresetIntoSettings = (settings, preset) => {
   );
 
   const keyColorFlags = deriveKeyColorFlags(preset);
+  // MPE belongs to the active input controller, never to a tuning's anchor
+  // metadata or legacy saved MPE flag. Auto detection is resolved by App;
+  // preserve its current preference rather than treating an unknown device
+  // here as a controller that forbids MPE.
+  const controller = getControllerById(settings.midiin_controller_override);
+  const mpePolicy = controller ? getControllerMpeInputPolicy(controller) : null;
+  const mpeInput = mpePolicy === "always" ? true
+    : mpePolicy === "never" ? false : !!settings.midiin_mpe_input;
 
   return {
     ...settings,
@@ -248,6 +256,7 @@ export const mergePresetIntoSettings = (settings, preset) => {
     ...clearedPresetAnchorFields,
     ...presetWithoutControllerAnchors,
     ...keyColorFlags,
+    midiin_mpe_input: mpeInput,
     midiin_anchor_note: presetAnchorNote,
     midiin_anchor_channel: presetAnchorChannel,
     ...incomingPresetAnchorFields,
@@ -392,30 +401,11 @@ function clearRestorablePresetPayload() {
   sessionStorage.removeItem(RESTORED_PRESET_PAYLOAD_KEY);
 }
 
-function normalizePresetControllerInputSettings(preset = {}) {
-  const normalized = { ...preset };
-  const activePresetAnchorConfig = getPresetAnchorConfig(normalized);
-  const controllerId =
-    normalized.midiin_controller_override && normalized.midiin_controller_override !== "auto"
-      ? normalized.midiin_controller_override
-      : (activePresetAnchorConfig?.controllerId ?? null);
-  const controller = controllerId ? getControllerById(controllerId) : null;
-  const policy = getControllerMpeInputPolicy(controller);
-
-  if (policy === "always") {
-    normalized.midiin_mpe_input = true;
-  } else if (policy === "never") {
-    normalized.midiin_mpe_input = false;
-  }
-
-  return normalized;
-}
-
 function adjustPresetForRestore(preset = {}) {
-  return normalizePresetControllerInputSettings({
+  return {
     ...preset,
     hexSize: scaleHexSizeForScreen(preset.hexSize),
-  });
+  };
 }
 
 /**

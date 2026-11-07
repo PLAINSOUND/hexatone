@@ -1,7 +1,7 @@
 {
   "name": "supersonic-scsynth-core",
-  "version": "0.92.0",
-  "description": "SuperCollider scsynth on clockwork: the WebAssembly engine and AudioWorklet for SuperSonic",
+  "version": "0.94.0",
+  "description": "The WebAssembly synth and AudioWorklet of SuperSonic, a scsynth-compatible synth powered by Clockwork",
   "type": "module",
   "main": "index.js",
   "unpkg": "index.js",
@@ -29,6 +29,7 @@
     "wasm/",
     "workers/clockwork_audio_worklet.js",
     "index.js",
+    "sbom/",
     "README.md",
     "LICENSE"
   ]

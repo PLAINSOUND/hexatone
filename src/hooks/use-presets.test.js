@@ -128,6 +128,22 @@ describe("mergePresetIntoSettings", () => {
     localStorage.clear();
   });
 
+  it.each([
+    ["exquis", true, {}, false],
+    ["exquis", true, { lumatone_anchor_note: 41 }, false],
+    ["exquis", false, { exquis_anchor_note: 19 }, true],
+    ["auto", true, {}, false],
+    ["auto", false, { haken_anchor_note: 60 }, true],
+    ["generic_mpe", false, {}, false],
+    ["lumatone", true, { exquis_anchor_note: 19 }, true],
+  ])("keeps MPE owned by active controller %s (preference %s, anchors %j, saved flag %s)",
+    (controller, enabled, anchors, savedMpe) => {
+      const result = mergePresetIntoSettings({ midiin_controller_override: controller,
+        midiin_mpe_input: enabled }, { name: "Tuning", ...anchors, midiin_mpe_input: savedMpe });
+      const expected = controller === "generic_mpe" ? true : controller === "lumatone" ? false : enabled;
+      expect(result.midiin_mpe_input).toBe(expected);
+    });
+
   it("clears stale HEJI anchor values when loading a preset without an explicit anchor", () => {
     const merged = mergePresetIntoSettings(
       {
@@ -1069,5 +1085,34 @@ describe("usePresets refresh ordering", () => {
       expect(lastHook?.activePresetName).toBe("Preset A");
       expect(lastHook?.isPresetDirty).toBe(false);
     });
+  });
+});
+
+
+describe("controller MPE across tuning preset loads", () => {
+  it.each(["builtin", "user"])("preserves Exquis MPE and bypass through %s loads", async (source) => {
+    let hook, current;
+    const Harness = () => {
+      const [settings, setSettings] = useState({ name: "Before", scale: ["1200."],
+        fundamental: 440, reference_degree: 0, midiin_controller_override: "exquis",
+        midiin_mpe_input: true, midiin_bend_bypass: false });
+      current = settings;
+      hook = usePresets(settings, setSettings, { synthRef: { current: null },
+        onUserInteraction: vi.fn(), currentModulationLibrary: [], setPresetModulationLibrary: vi.fn() });
+      return null;
+    };
+    render(<Harness />);
+    for (const anchors of [{}, { lumatone_anchor_note: 41 }, { exquis_anchor_note: 19 }]) {
+      const preset = { name: "After", scale: ["700.", "1200."], fundamental: 440,
+        reference_degree: 0, midiin_mpe_input: false, ...anchors };
+      await act(async () => {
+        if (source === "builtin") hook.onLoadBuiltinPreset(preset);
+        else hook.onLoadCustomPreset(preset);
+      });
+      expect(current.midiin_mpe_input).toBe(true);
+      expect(current.midiin_bend_bypass).toBe(false);
+      const payload = JSON.parse(sessionStorage.getItem("hexatone_restored_preset_payload"));
+      expect(payload.preset.midiin_mpe_input).toBe(true);
+    }
   });
 });

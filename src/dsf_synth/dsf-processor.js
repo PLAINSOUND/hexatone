@@ -1,3 +1,5 @@
+import { DsfOscillator } from "./dsf-oscillator.js";
+
 const ATTACK_TIME = 0.012;
 const RELEASE_TIME = 0.08;
 const NOTE_GAIN = 0.05;
@@ -6,8 +8,8 @@ class DsfProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
 
-    this.phase = 0;
-    this.frequency = 440;
+    this.oscillator = new DsfOscillator(sampleRate);
+    this.oscillator.setFrequency(440);
     this.gain = 0;
     this.targetGain = 0;
     this.gainStep = 0;
@@ -33,7 +35,7 @@ class DsfProcessor extends AudioWorkletProcessor {
         return;
       }
 
-      this.frequency = frequency;
+      this.oscillator.setFrequency(frequency);
 
       if (data.command === "start") {
         this.ramp(ATTACK_TIME, NOTE_GAIN);
@@ -44,9 +46,6 @@ class DsfProcessor extends AudioWorkletProcessor {
   process(_inputs, outputs) {
     const channels = outputs[0];
     if (!channels?.length) return true;
-
-    const twoPi = 2 * Math.PI;
-    const phaseStep = twoPi * this.frequency / sampleRate;
 
     for (let i = 0; i < channels[0].length; i++) {
       if (this.gainStepsRemaining > 0) {
@@ -59,14 +58,11 @@ class DsfProcessor extends AudioWorkletProcessor {
         }
       }
 
-      const sample = Math.sin(this.phase) * this.gain;
+      const sample = this.oscillator.nextSample() * this.gain;
 
       for (const channel of channels) {
         channel[i] = sample;
       }
-
-      this.phase += phaseStep;
-      if (this.phase >= twoPi) this.phase -= twoPi;
     }
 
     return true;
@@ -79,7 +75,7 @@ class DsfProcessor extends AudioWorkletProcessor {
     this.gainStepsRemaining = Math.round(time * sampleRate);
 
     if (this.gainStepsRemaining === 0) {
-      this.gain = target;
+      this.gain = this.targetGain;
       this.gainStep = 0;
       return;
     }

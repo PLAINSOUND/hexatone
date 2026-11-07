@@ -110,7 +110,7 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 - Snap playback highlights matching visible hexes, retaining legato and overlapping notes
 - FluidSynth pressure and Expression Y attenuation smoothing, with 0–500 ms controls and a shared minimum time
-- SuperSonic updated to 0.92 with DFM1
+- SuperSonic updated to 0.94 with DFM1
 - Exquis App Mode octave, bend-bypass, sustain, and last-played-key anchor buttons, with restored lighting on resume
 - bend bypass tracks expression and glides between bent and unbent pitches; Exquis non-MPE input ignores pitch bend
 - Lumatone automatic sending initialises the full layout and colours, including on return from 2D bypass

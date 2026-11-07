@@ -1,6 +1,6 @@
 # SuperSonic / native SuperCollider comparison
 
-Comparison laboratory using pinned SuperSonic 0.92.0 packages. The separate lab
+Comparison laboratory using pinned SuperSonic 0.94.0 packages. The separate lab
 does not modify Hexatone's audio context or routing. An experimental integrated
 output is now available separately in I/O (see below).
 Use one laboratory tab at a time; its dedicated group/node range is shared by
@@ -17,11 +17,26 @@ keeping the client matched to the custom DFM1 core.
 After regenerating the vendor bundle, run `yarn install` to refresh those file
 dependencies and the lockfile before staging or building.
 
+### 0.94 upgrade (2026-11-02)
+
+Pinned SuperSonic `7af16e099e7fed76255bad1f41267cd7ed0d7f0b` and Clockwork
+`7d664bbb644ffefd68562ee5200b0cc4b74f114d`. The DFM1 registration patch is
+adapted to the current declarations; the original TJUGens DSP sources are
+unchanged. Client, custom core, source archives, manifest and UI label move
+together to 0.94. Retain the explicit `/clearSched` cancellation barrier until
+its removal is independently justified by browser tests.
+
+Verification passed: DFM1 browser probes in postMessage and SAB modes (four
+instruments, timed attacks and cancellation), production-adapter suspend/resume,
+two hard rebuilds, PANIC cancellation, fresh attacks after PANIC, and natural
+release shutdown. All 2,976 unit tests, lint and the production build passed.
+Browser checks used headless Brave; Safari responsiveness remains a manual test.
+
 ### 0.92 upgrade verification (2026-10-26)
 
 The client and original DFM1 core are built together at SuperSonic
-`ae62628e3f74fc930754430ea342072bacaba6bc`, with Clockwork
-`88bf70663f1e9635a08502c9c874d12ad73b07b9`. The extension patch applies unchanged.
+`7af16e099e7fed76255bad1f41267cd7ed0d7f0b`, with Clockwork
+`7d664bbb644ffefd68562ee5200b0cc4b74f114d`. The extension patch applies unchanged.
 All four layers render finite, nonzero audio in postMessage and SAB modes, and
 the running engine reports 0.92.0. Timed attacks and `/clearSched` cancellation
 pass in both modes. The production-path adapter passes suspend/resume, timed
@@ -122,14 +137,14 @@ from node_modules or the ignored generated directory, not bundled into the appli
 Toolchain versions are recorded in `TOOLCHAIN.md`. Fetch the pinned sources once:
 
 ```sh
-git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-092
-git -C tools/supersonic/upstream-092 checkout ae62628e3f74fc930754430ea342072bacaba6bc
-git -C tools/supersonic/upstream-092 submodule update --init --recursive
+git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-094
+git -C tools/supersonic/upstream-094 checkout 7af16e099e7fed76255bad1f41267cd7ed0d7f0b
+git -C tools/supersonic/upstream-094 submodule update --init --recursive
 git clone https://github.com/supercollider/sc3-plugins.git tools/supersonic/sc3-plugins
 git -C tools/supersonic/sc3-plugins checkout fa926d6b554acef35b2fd9deb2f996085fa86bd7
 ```
 
-Run `npm ci` inside `tools/supersonic/upstream-092`. Activate the installed Emscripten
+Run `npm ci` inside `tools/supersonic/upstream-094`. Activate the installed Emscripten
 SDK in the build shell (`source /Users/marcsabat/Dev/emsdk/emsdk_env.sh` on this
 machine), with Rust/Cargo on PATH. Before applying the extension, the optional
 unmodified comparison core can be built and saved from the upstream directory:
@@ -244,6 +259,6 @@ Three adapter tests, ESLint for the prototype, credits check and production buil
 
 See ../../codex/planning/SUPERSONIC_SYNTHDEF_IMPLEMENTATION_NOTES.md for the DSP
 comparison and articulation recommendations. The client and core dependency
-licences are supplied in their installed packages. The 0.92 distribution is
+licences are supplied in their installed packages. The 0.94 distribution is
 AGPL-3.0-or-later; the linked scsynth and original DFM1 also retain their supplied
 GPL licences. Corresponding source archives are included in the vendor bundle.
