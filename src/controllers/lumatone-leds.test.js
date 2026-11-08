@@ -488,6 +488,36 @@ describe("LumatoneLEDs", () => {
     expect(output.send).toHaveBeenCalledTimes(count);
   });
 
+  it("adjusts bulk colours live from the original state and restores them at neutral", async () => {
+    const { leds, output } = await connectFirmware();
+    leds.sendAll(completeColours());
+    vi.advanceTimersByTime(600);
+    reply(leds, 0, 0x55);
+    leds.setColourAdjustments(0.5, 0);
+    expect(output.send.mock.lastCall[0].slice(6, 9)).toEqual([64, 64, 64]);
+    reply(leds, 0, 0x55);
+    leds.setColourAdjustments(1, 1);
+    expect(output.send.mock.lastCall[0].slice(6, 9)).toEqual([127, 0, 64]);
+    expect(leds._latestColorQueue[0]).toMatchObject({ r: 255, g: 0, b: 128 });
+    reply(leds, 0, 0x55);
+    leds.destroy();
+  });
+
+  it("uses adjusted legacy colours on old firmware, including after sleep", async () => {
+    const { leds, output } = await connectFirmware([1, 4, 3]);
+    leds.setColourAdjustments(0.5, 0);
+    leds.sendAll([{ board: 1, key: 0, hexColor: "#804020" }]);
+    vi.advanceTimersByTime(600);
+    expect(output.send.mock.lastCall[0].slice(7, -1)).toEqual([4, 0, 4, 0, 4, 0]);
+    reply(leds, 1, 1);
+    leds.suspend();
+    leds.setColourAdjustments(1, 1);
+    leds.resume();
+    vi.advanceTimersByTime(1500);
+    expect(output.send.mock.lastCall[0].slice(7, -1)).toEqual([8, 0, 4, 0, 2, 0]);
+    leds.destroy();
+  });
+
   it("times out a probe without retrying", async () => {
     const { output, input } = makePorts();
     const leds = new LumatoneLEDs(output, input);

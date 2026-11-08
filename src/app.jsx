@@ -4939,6 +4939,13 @@ const App = () => {
     };
   }, [lumatoneInputPort, lumatoneOutputPort]);
 
+  useEffect(() => {
+    lumatoneLedsRef.current?.setColourAdjustments?.(
+      settings.lumatone_led_brightness ?? 1,
+      settings.lumatone_led_saturation ?? 1,
+    );
+  }, [lumatoneDriverReady, settings.lumatone_led_brightness, settings.lumatone_led_saturation]);
+
   // ── LinnStrument 128 lifecycle ────────────────────────────────────────────
   // Mirrors the Lumatone/Exquis pattern.  LinnStrumentLEDs and the initial
   // NRPN config burst live here so they survive Keys reconstruction.

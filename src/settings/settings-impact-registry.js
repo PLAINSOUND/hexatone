@@ -178,6 +178,8 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
   permissionState: ["webmidi_enabled", "webmidi_sysex_enabled", "webmidi_access"],
   ledDriverLifecycle: [
     "lumatone_out_port",
+    "lumatone_led_brightness",
+    "lumatone_led_saturation",
     "exquis_out_port",
     "linnstrument_out_port",
     "exquis_led_luminosity",

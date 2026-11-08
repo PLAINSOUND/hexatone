@@ -50,6 +50,8 @@
  * and direct integrations without replacing an existing message handler.
  */
 
+import { adjustLumatoneColour, normalizeLumatoneColourMultiplier } from "./lumatone-color-adjustments.js";
+
 const ACK_TIMEOUT_MS = 300;
 const INITIAL_ACK_TIMEOUT_MS = 1200;
 const PROBE_TIMEOUT_MS = 2000;
@@ -87,6 +89,8 @@ export class LumatoneLEDs {
     this._firmwareRequest = null;
     this._firmwareVersion = null;
     this._bulkRejected = false;
+    this._brightness = 1;
+    this._saturation = 1;
 
     this._onMessage = this._onMessage.bind(this);
     this._attachInputListener();
@@ -232,6 +236,20 @@ export class LumatoneLEDs {
     this._latestColorQueue = [];
     this._clearActiveQueue();
     this._cancelProbe("cancelled");
+  }
+
+  /** Adjust only the last requested LED colours, including manual bypass colours. */
+  setColourAdjustments(brightness = 1, saturation = 1) {
+    brightness = normalizeLumatoneColourMultiplier(brightness);
+    saturation = normalizeLumatoneColourMultiplier(saturation);
+    if (brightness === this._brightness && saturation === this._saturation) return;
+    this._brightness = brightness;
+    this._saturation = saturation;
+    if (!this._latestColorQueue.length) return;
+    this.sendAll(this._latestColorQueue.map(({ board, key, r, g, b }) => ({
+      board, key,
+      hexColor: "#" + [r, g, b].map(value => value.toString(16).padStart(2, "0")).join(""),
+    })));
   }
 
   /** Query the selected main controller, serialised with layout/colour traffic. */
@@ -441,13 +459,15 @@ export class LumatoneLEDs {
       ]);
     } else if (cmd === 0x55) {
       // CMD 55h: board/key order, single 7-bit R/G/B values (not nibbles).
-      const payload = entry.colors.flatMap(({ r, g, b }) =>
-        [r, g, b].map(value => Math.round(value * 127 / 255)));
+      const payload = entry.colors.flatMap(color => {
+        const { r, g, b } = adjustLumatoneColour(color, this._brightness, this._saturation);
+        return [r, g, b].map(value => Math.round(value * 127 / 255));
+      });
       msg = new Uint8Array([0xf0, ...MFR, board, 0x55, ...payload, 0xf7]);
     } else {
       // CMD 01h: Set key LED colour
       // F0 00 21 50 [board 1-5] 01 [key] rHi rLo gHi gLo bHi bLo F7
-      const { r, g, b } = entry;
+      const { r, g, b } = adjustLumatoneColour(entry, this._brightness, this._saturation);
       msg = new Uint8Array([
         0xf0,
         ...MFR,

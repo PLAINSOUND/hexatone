@@ -12,6 +12,30 @@ describe("LumatoneSettings", () => {
     sessionStorage.clear();
   });
 
+  it("offers centred output colour faders with persistent live settings", () => {
+    const onChange = vi.fn();
+    render(<LumatoneSettings
+      settings={{ midi_passthrough: true }}
+      rawPorts={{ output: { id: "lumatone", name: "Lumatone" } }}
+      midiOutputs={new Map()}
+      keysRef={{ current: {} }}
+      hasSysexMidi={true}
+      onChange={onChange}
+    />);
+    const brightness = screen.getByRole("slider", { name: "LED Brightness" });
+    const saturation = screen.getByRole("slider", { name: "LED Saturation" });
+    for (const slider of [brightness, saturation]) {
+      expect(slider.getAttribute("aria-valuenow")).toBe("100");
+      expect(slider.getAttribute("aria-valuemin")).toBe("0");
+      expect(slider.getAttribute("aria-valuemax")).toBe("200");
+    }
+    fireEvent.keyDown(brightness, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledWith("lumatone_led_brightness", 1.01);
+    expect(localStorage.getItem("lumatone_led_brightness")).toBe("1.01");
+    fireEvent.keyDown(saturation, { key: "Home" });
+    expect(onChange).toHaveBeenCalledWith("lumatone_led_saturation", 0);
+  });
+
   it("probes through the app-owned driver without depending on the Keys attachment", async () => {
     const onProbeLumatoneConnection = vi.fn().mockResolvedValue({
       ok: true,

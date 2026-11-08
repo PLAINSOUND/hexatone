@@ -533,6 +533,22 @@ export const SETTINGS_REGISTRY = [
     description: "Auto Send Colours to Lumatone LEDs when scale changes",
   },
   {
+    key: "lumatone_led_brightness",
+    tier: "local",
+    type: "float",
+    default: 1,
+    perController: false,
+    description: "Lumatone output brightness multiplier (0–2; 1 = original)",
+  },
+  {
+    key: "lumatone_led_saturation",
+    tier: "local",
+    type: "float",
+    default: 1,
+    perController: false,
+    description: "Lumatone output saturation multiplier (0–2; 1 = original)",
+  },
+  {
     key: "lumatone_degree_filter_mode",
     tier: "local",
     type: "string",

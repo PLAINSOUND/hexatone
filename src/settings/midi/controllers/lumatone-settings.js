@@ -6,6 +6,7 @@
 
 import PropTypes from "prop-types";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import CustomRangeSlider from "../../shared/range-slider.jsx";
 import OutputPortPicker from "../output-port-picker.js";
 import {
   exportableLumatoneColorFilterLibrary,
@@ -333,6 +334,33 @@ const LumatoneSettings = ({
           sessionStorage.setItem("lumatone_out_port", id ?? "");
         }}
       />
+      {rawPorts && [
+        ["lumatone_led_brightness", "LED Brightness"],
+        ["lumatone_led_saturation", "LED Saturation"],
+      ].map(([key, label]) => (
+        <label key={key}>
+          {label}
+          <span class="sidebar-input settings-form__range-row">
+            <CustomRangeSlider
+              ariaLabel={label}
+              min={0}
+              max={200}
+              step={1}
+              defaultValue={100}
+              value={Math.round((settings[key] ?? 1) * 100)}
+              disabled={!hasSysexMidi || !driverReady}
+              onInputValue={percent => {
+                const value = percent / 100;
+                onChange(key, value);
+                localStorage.setItem(key, String(value));
+              }}
+            />
+            <span class="settings-form__range-value settings-form__range-value--short">
+              {Math.round((settings[key] ?? 1) * 100)}%
+            </span>
+          </span>
+        </label>
+      ))}
       {rawPorts && (
         <label>
           SysEx Connection Test
