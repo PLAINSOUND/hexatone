@@ -330,7 +330,8 @@ const MIDIio = (props) => {
   const controllerInfo =
     ctrl && (ctrl.description || ctrl.descriptionScale)
       ? {
-          name: ctrl.name,
+          name: ctrl.id === "lumatone" && props.lumatoneFirmwareVersion
+            ? `${ctrl.name} (${props.lumatoneFirmwareVersion})` : ctrl.name,
           description:
             (useAlternateControllerDescription ? ctrl.descriptionScale : ctrl.description) ||
             ctrl.description ||
@@ -1219,6 +1220,7 @@ MIDIio.propTypes = {
   onEnableLumatoneAutoSync: PropTypes.func,
   onProbeLumatoneConnection: PropTypes.func,
   lumatoneDriverReady: PropTypes.bool,
+  lumatoneFirmwareVersion: PropTypes.string,
 };
 
 export default MIDIio;

@@ -1198,6 +1198,7 @@ const App = () => {
   const exquisLedsRef = useRef(null);
   const lumatoneLedsRef = useRef(null);
   const [lumatoneDriverReady, setLumatoneDriverReady] = useState(false);
+  const [lumatoneFirmwareVersion, setLumatoneFirmwareVersion] = useState(null);
   const lumatoneAutoSyncKeyRef = useRef("");
   const linnstrumentLedsRef = useRef(null);
 
@@ -4854,6 +4855,7 @@ const App = () => {
   const lumatoneInId = lumatoneInputPort?.id ?? null;
   const lumatoneOutId = lumatoneOutputPort?.id ?? null;
   useEffect(() => {
+    setLumatoneFirmwareVersion(null);
     setLumatoneDriverReady(false);
     if (!lumatoneRawPorts) {
       if (lumatoneLedsRef.current) {
@@ -4881,6 +4883,11 @@ const App = () => {
         return;
       }
       lumatoneLedsRef.current = leds;
+      leds.queryFirmware?.().then(result => {
+        if (!disposed && lumatoneLedsRef.current === leds) {
+          setLumatoneFirmwareVersion(result.ok ? result.firmwareVersion : null);
+        }
+      });
       // A reconnected driver needs layout initialization even when port IDs
       // and the musical surface are unchanged.
       lumatoneAutoSyncKeyRef.current = "";
@@ -5387,7 +5394,12 @@ const App = () => {
     // The driver is owned by App, independently of Keys reconstruction. Probe
     // it directly so a transient Keys/ref attachment race cannot block Edge or
     // other browsers that load the optional controller chunk more slowly.
-    return leds.probeConnection();
+    return leds.probeConnection().then(result => {
+      if (result.ok && lumatoneLedsRef.current === leds) {
+        setLumatoneFirmwareVersion(result.firmwareVersion ?? null);
+      }
+      return result;
+    });
   }, []);
 
   useLayoutEffect(() => {
@@ -5500,6 +5512,7 @@ const App = () => {
         onEnableLumatoneAutoSync={enableLumatoneAutoSyncNow}
         onProbeLumatoneConnection={probeLumatoneConnection}
         lumatoneDriverReady={lumatoneDriverReady}
+        lumatoneFirmwareVersion={lumatoneFirmwareVersion}
       />
     </Suspense>
     </>

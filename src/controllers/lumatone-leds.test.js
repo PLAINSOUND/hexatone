@@ -285,6 +285,209 @@ describe("LumatoneLEDs", () => {
     infoSpy.mockRestore();
   });
 
+  it("queries firmware before automatic colours and validates the main-controller reply", async () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+    const query = leds.queryFirmware();
+    leds.sendAll([{ board: 1, key: 2, hexColor: "#123456" }]);
+    vi.advanceTimersByTime(600);
+    expect(output.send).toHaveBeenCalledTimes(1);
+    expect(output.send.mock.calls[0][0]).toEqual([0xf0, 0, 0x21, 0x50, 0, 0x31, 0, 0, 0, 0, 0xf7]);
+    const receive = input.addEventListener.mock.calls[0][1];
+    receive({ data: [0xf0, 0, 0x21, 0x50, 1, 0x31, 1, 1, 5, 0, 0xf7] });
+    receive({ data: [0xf0, 0, 0x21, 0x50, 0, 0x31, 1, 1, 5, 0xf7] });
+    expect(output.send).toHaveBeenCalledTimes(1);
+    receive({ data: [0xf0, 0, 0x21, 0x50, 0, 0x31, 1, 1, 5, 0, 0xf7] });
+    await expect(query).resolves.toMatchObject({ ok: true, firmwareVersion: "1.5.0" });
+    expect(output.send).toHaveBeenCalledTimes(2);
+    expect(output.send.mock.calls[1][0][5]).toBe(1);
+    leds.destroy();
+  });
+
+  it("continues colours after firmware timeout and cancels a disconnected query", async () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+    const query = leds.queryFirmware();
+    leds.sendAll([{ board: 1, key: 2, hexColor: "#123456" }]);
+    vi.advanceTimersByTime(2600);
+    await expect(query).resolves.toMatchObject({ ok: false, reason: "timeout", command: 0x31 });
+    expect(output.send.mock.calls[1][0][5]).toBe(1);
+    const cancelled = leds.queryFirmware();
+    leds.destroy();
+    await expect(cancelled).resolves.toMatchObject({ ok: false, reason: "cancelled" });
+  });
+
+  it("defers a firmware query while suspended and waits for an in-flight layout ACK", async () => {
+    const { output, input } = makePorts();
+    const leds = new LumatoneLEDs(output, input);
+    leds.sendLayout(layout());
+    vi.advanceTimersByTime(600);
+    const query = leds.queryFirmware();
+    expect(output.send).toHaveBeenCalledTimes(1);
+    leds._onMessage({ data: [0xf0, 0, 0x21, 0x50, 1, 0, 1, 0xf7] });
+    expect(output.send.mock.calls[1][0][5]).toBe(0x31);
+    leds._onMessage({ data: [0xf0, 0, 0x21, 0x50, 0, 0x31, 1, 1, 4, 0, 0xf7] });
+    await expect(query).resolves.toMatchObject({ firmwareVersion: "1.4.0" });
+    leds.destroy();
+
+    const ports = makePorts();
+    const suspended = new LumatoneLEDs(ports.output, ports.input);
+    suspended.suspend();
+    const deferred = suspended.queryFirmware();
+    vi.advanceTimersByTime(3000);
+    expect(ports.output.send).not.toHaveBeenCalled();
+    suspended.resume();
+    vi.advanceTimersByTime(1500);
+    expect(ports.output.send.mock.calls[0][0][5]).toBe(0x31);
+    suspended.destroy();
+    await expect(deferred).resolves.toMatchObject({ reason: "cancelled" });
+  });
+
+  const completeColours = () => Array.from({ length: 280 }, (_, index) => ({
+    board: Math.floor(index / 56) + 1, key: index % 56,
+    hexColor: index === 0 ? "#ff0080" : index === 279 ? "#00ff00" : "#123456",
+  }));
+  const connectFirmware = async (version = [1, 5, 0], ports = makePorts()) => {
+    const leds = new LumatoneLEDs(ports.output, ports.input);
+    const result = leds.queryFirmware();
+    vi.advanceTimersByTime(600);
+    leds._onMessage({ data: [0xf0, 0, 0x21, 0x50, 0, 0x31, 1, ...version, 0xf7] });
+    await result;
+    ports.output.send.mockClear();
+    ports.output.sendSysex?.mockClear();
+    return { leds, ...ports };
+  };
+  const reply = (leds, board, cmd, status = 1) =>
+    leds._onMessage({ data: [0xf0, 0, 0x21, 0x50, board, cmd, status, 0xf7] });
+
+  it("sends a complete 847-byte RGB frame on verified firmware 1.5", async () => {
+    const { leds, output } = await connectFirmware();
+    leds.sendAll(completeColours().reverse());
+    vi.advanceTimersByTime(600);
+    expect(output.send).toHaveBeenCalledOnce();
+    const packet = output.send.mock.calls[0][0];
+    expect(packet).toHaveLength(847);
+    expect(packet.slice(0, 9)).toEqual([0xf0, 0, 0x21, 0x50, 0, 0x55, 127, 0, 64]);
+    expect(packet.slice(-4)).toEqual([0, 127, 0, 0xf7]);
+    expect(packet.slice(6, -1).every(value => value >= 0 && value < 128)).toBe(true);
+    reply(leds, 1, 0x55); // Wrong board cannot acknowledge an all-board frame.
+    expect(leds._pending).toBe(true);
+    reply(leds, 0, 0x55);
+    expect(leds._queue).toHaveLength(0);
+    leds.destroy();
+  });
+
+  it("sends one complete board through WebMidi and leaves incomplete boards on the legacy path", async () => {
+    const { leds, output } = await connectFirmware([1, 5, 0], makeWebMidiPorts());
+    leds.sendAll(completeColours().filter(entry => entry.board === 3));
+    vi.advanceTimersByTime(600);
+    const [manufacturer, payload] = output.sendSysex.mock.calls[0];
+    expect(manufacturer).toEqual([0, 0x21, 0x50]);
+    expect(payload).toHaveLength(170);
+    expect(payload.slice(0, 2)).toEqual([3, 0x55]);
+    reply(leds, 3, 0x55);
+    leds.sendAll([{ board: 2, key: 4, hexColor: "#ffffff" }]);
+    expect(output.sendSysex.mock.lastCall[1].slice(0, 3)).toEqual([2, 1, 4]);
+    leds.destroy();
+  });
+
+  it("retains per-key colours on older firmware and uses bulk on later numeric versions", async () => {
+    for (const [version, command] of [[[1, 4, 3], 1], [[1, 10, 0], 0x55], [[2, 0, 0], 0x55]]) {
+      const { leds, output } = await connectFirmware(version);
+      leds.sendAll(completeColours());
+      vi.advanceTimersByTime(600);
+      expect(output.send.mock.calls[0][0][5]).toBe(command);
+      leds.destroy();
+    }
+  });
+
+  it("coalesces changes behind an in-flight frame and preserves the latest partial colour update", async () => {
+    const { leds, output } = await connectFirmware();
+    leds.sendAll(completeColours());
+    vi.advanceTimersByTime(600);
+    leds.sendAll(completeColours().map(entry => ({ ...entry, hexColor: "#ffffff" })));
+    leds.updateDegree([{ board: 1, key: 0, hexColor: "#000000" }]);
+    expect(output.send).toHaveBeenCalledOnce();
+    reply(leds, 0, 0x55);
+    expect(output.send).toHaveBeenCalledTimes(2);
+    expect(output.send.mock.lastCall[0].slice(6, 12)).toEqual([0, 0, 0, 127, 127, 127]);
+    reply(leds, 0, 0x55);
+    expect(leds._queue).toHaveLength(0);
+    leds.destroy();
+  });
+
+  it("finishes aftertouch and assignments before the newest bulk colours", async () => {
+    const { leds, output } = await connectFirmware();
+    const entries = completeColours().map(entry => ({ ...entry, note: entry.key, channel: entry.board - 1 }));
+    leds.sendLayout(entries, [{ cmd: 0x0e, board: 0, value: 1 }]);
+    vi.advanceTimersByTime(600);
+    expect(output.send.mock.lastCall[0][5]).toBe(0x0e);
+    reply(leds, 0, 0x0e);
+    leds.updateDegree([{ board: 1, key: 0, hexColor: "#ffffff" }]);
+    for (let index = 0; index < 280; index += 1) {
+      const pending = leds._queue[0];
+      expect(pending.cmd).toBe(0);
+      reply(leds, pending.board, 0);
+    }
+    expect(output.send.mock.lastCall[0][5]).toBe(0x55);
+    expect(output.send.mock.lastCall[0].slice(6, 9)).toEqual([127, 127, 127]);
+    expect(leds.layoutInitializationPending).toBe(true);
+    reply(leds, 0, 0x55);
+    expect(leds.layoutInitializationPending).toBe(false);
+    leds.destroy();
+  });
+
+  it("retries BUSY without treating a frame as delivered or sending concurrent commands", async () => {
+    const { leds, output } = await connectFirmware();
+    leds.sendAll(completeColours());
+    vi.advanceTimersByTime(600);
+    reply(leds, 0, 0x55, 2);
+    vi.advanceTimersByTime(39);
+    expect(output.send).toHaveBeenCalledOnce();
+    expect(leds._pending).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(output.send).toHaveBeenCalledTimes(2);
+    expect(output.send.mock.lastCall[0][5]).toBe(0x55);
+    reply(leds, 0, 0x55);
+    expect(leds._queue).toHaveLength(0);
+    leds.destroy();
+  });
+
+  it("falls back to per-key RGB after a rejected or timed-out bulk command", async () => {
+    for (const failure of ["reject", "timeout", "busy"]) {
+      const { leds, output } = await connectFirmware();
+      leds.sendAll(completeColours());
+      vi.advanceTimersByTime(600);
+      if (failure === "reject") reply(leds, 0, 0x55, 4);
+      else if (failure === "timeout") vi.advanceTimersByTime(2400);
+      else for (let index = 0; index < 9; index += 1) {
+        reply(leds, 0, 0x55, 2);
+        vi.advanceTimersByTime(40);
+      }
+      expect(leds.supportsBulkColours).toBe(false);
+      expect(output.send.mock.lastCall[0].slice(4, 7)).toEqual([1, 1, 0]);
+      expect(output.send.mock.lastCall[0].slice(7, -1)).toEqual([15, 15, 0, 0, 8, 0]);
+      leds.destroy();
+    }
+  });
+
+  it("replays the latest bulk state after sleep and cancels a delayed BUSY retry on destroy", async () => {
+    const { leds, output } = await connectFirmware();
+    leds.sendAll(completeColours());
+    vi.advanceTimersByTime(600);
+    leds.suspend();
+    leds.updateDegree([{ board: 1, key: 0, hexColor: "#000000" }]);
+    leds.resume();
+    vi.advanceTimersByTime(1500);
+    expect(output.send.mock.lastCall[0][5]).toBe(0x55);
+    expect(output.send.mock.lastCall[0].slice(6, 9)).toEqual([0, 0, 0]);
+    reply(leds, 0, 0x55, 2);
+    const count = output.send.mock.calls.length;
+    leds.destroy();
+    vi.advanceTimersByTime(1000);
+    expect(output.send).toHaveBeenCalledTimes(count);
+  });
+
   it("times out a probe without retrying", async () => {
     const { output, input } = makePorts();
     const leds = new LumatoneLEDs(output, input);

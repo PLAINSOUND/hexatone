@@ -668,8 +668,14 @@ describe("MIDIio LinnStrument controller selection", () => {
     };
     props.lumatoneRawPorts = { output: { id: "lumatone-out", name: "Lumatone MIDI" } };
     props.midiAccess = "sysex";
+    props.lumatoneFirmwareVersion = "1.5.0";
 
-    render(<MIDIio {...props} />);
+    const { rerender } = render(<MIDIio {...props} />);
+    expect(screen.getByText("Lumatone (1.5.0)")).toBeTruthy();
+    expect(screen.getByText("Lumatone MIDI")).toBeTruthy();
+    expect(screen.queryByText("Lumatone MIDI (1.5.0)")).toBeNull();
+    rerender(<MIDIio {...props} lumatoneFirmwareVersion={null} />);
+    expect(screen.queryByText("Lumatone (1.5.0)")).toBeNull();
 
     expect(screen.getByText("Send Blank Layout")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Send Layout and Colours" })).toBeTruthy();

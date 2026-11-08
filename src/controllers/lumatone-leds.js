@@ -20,6 +20,10 @@
  *     rHi = r >> 4,  rLo = r & 0x0F   (likewise g, b)
  *   All nibble values are 0–15 (fit in a single MIDI data byte).
  *
+ * CMD 55h (firmware >= 1.5.0): complete board/all-key RGB frames use 7-bit
+ * components. Capability comes only from a validated 31h firmware response.
+ * ACK arrives after display; BUSY is retried, with legacy fallback on failure.
+ *
  * ── Queue discipline ─────────────────────────────────────────────────────────
  *
  * The Lumatone firmware processes one sysex per ACK.  This class serialises
@@ -49,6 +53,8 @@
 const ACK_TIMEOUT_MS = 300;
 const INITIAL_ACK_TIMEOUT_MS = 1200;
 const PROBE_TIMEOUT_MS = 2000;
+const BUSY_RETRY_MS = 40;
+const MAX_BUSY_RETRIES = 8;
 const INITIAL_SEND_DELAY_MS = 600;
 const WAKE_SEND_DELAY_MS = 1500;
 const SLEEP_GAP_GRACE_MS = 2000;
@@ -78,6 +84,9 @@ export class LumatoneLEDs {
     this._restoreOnMidiMessage = null;
     this._inputListenerHandle = null;
     this._probe = null;
+    this._firmwareRequest = null;
+    this._firmwareVersion = null;
+    this._bulkRejected = false;
 
     this._onMessage = this._onMessage.bind(this);
     this._attachInputListener();
@@ -225,12 +234,25 @@ export class LumatoneLEDs {
     this._cancelProbe("cancelled");
   }
 
+  /** Query the selected main controller, serialised with layout/colour traffic. */
+  queryFirmware() {
+    if (!this._out || !this._in) {
+      return Promise.resolve({ ok: false, reason: "disconnected", bytes: [] });
+    }
+    if (this._firmwareRequest) return this._firmwareRequest.promise;
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    this._firmwareRequest = { promise, resolve };
+    this._advance();
+    return promise;
+  }
+
   /** Reproduce the Editor's non-mutating identity handshake, with no retries. */
   probeConnection() {
     if (!this._out || !this._in) {
       return Promise.resolve({ ok: false, reason: "disconnected", bytes: [] });
     }
-    if (this._probe || this._pending || this._queue.length > 0) {
+    if (this._probe || this._firmwareRequest || this._pending || this._suspended || this._queue.length > 0) {
       return Promise.resolve({ ok: false, reason: "busy", bytes: [] });
     }
 
@@ -308,13 +330,49 @@ export class LumatoneLEDs {
     };
   }
 
+  get supportsBulkColours() {
+    const version = this._firmwareVersion;
+    return !this._bulkRejected && !!version &&
+      (version[0] > 1 || (version[0] === 1 && version[1] >= 5));
+  }
+
+  _prepareBulkColours() {
+    if (!this.supportsBulkColours || !this._queue.some(entry => entry.cmd === 0x01)) return;
+    const desired = new Map(this._latestColorQueue.map(entry => [`${entry.board}:${entry.key}`, entry]));
+    const colours = this._queue.flatMap(entry => entry.cmd === 0x55 ? entry.colors : entry.cmd === 0x01 ? [entry] : []);
+    const boards = [...new Set(colours.map(entry => entry.board))].sort();
+    const completeBoard = board => Array.from({ length: 56 }, (_, key) => desired.get(`${board}:${key}`));
+    const complete = boards.filter(board => board >= 1 && board <= 5 && completeBoard(board).every(Boolean));
+    if (!complete.length) return; // Never invent colours for keys we do not own.
+    const all = [1, 2, 3, 4, 5].flatMap(completeBoard);
+    const frames = all.every(Boolean)
+      ? [{ cmd: 0x55, board: 0, colors: all, retries: 0 }]
+      : complete.map(board => ({ cmd: 0x55, board, colors: completeBoard(board), retries: 0 }));
+    const remaining = colours.filter(entry => !complete.includes(entry.board));
+    // Finish aftertouch and note/channel assignments before publishing colours.
+    this._queue = [
+      ...this._queue.filter(entry => entry.cmd !== 0x01 && entry.cmd !== 0x55),
+      ...remaining,
+      ...frames,
+    ];
+  }
+
+  _fallbackFromBulk() {
+    this._bulkRejected = true; // Retain the legacy path for this device connection.
+    this._pending = false;
+    this._queue = this._queue.flatMap(entry => entry.cmd === 0x55
+      ? entry.colors.map(color => ({ ...color, retries: 0 })) : [entry]);
+    console.warn("[LumatoneLEDs] Bulk colours unavailable; using per-key colours");
+    this._advance();
+  }
+
   /**
    * Dequeue and send the next entry.  Starts the ACK-timeout guard.
    * No-op if the queue is empty or a send is already in flight.
    */
   _advance() {
-    if (this._out === null || this._suspended) return;
-    if (this._queue.length === 0) {
+    if (this._out === null || this._suspended || this._pending || this._probe) return;
+    if (this._queue.length === 0 && !this._firmwareRequest) {
       this._pending = false;
       if (!this._layoutHadFailures) this._pendingLayout = null;
       return;
@@ -330,6 +388,23 @@ export class LumatoneLEDs {
       return;
     }
 
+    if (this._firmwareRequest) {
+      const request = this._firmwareRequest;
+      this._firmwareRequest = null;
+      this._probe = {
+        resolve: request.resolve,
+        timer: null,
+        startedAt: Date.now(),
+        expectedCommand: 0x31,
+        serialBytes: [],
+      };
+      this._sendProbeMessage(
+        new Uint8Array([0xf0, ...MFR, 0x00, 0x31, 0, 0, 0, 0, 0xf7]),
+      );
+      return;
+    }
+
+    this._prepareBulkColours();
     this._pending = true;
     this._sentSinceConnect = true;
     const entry = this._queue[0]; // peek — shifted on ACK/timeout
@@ -364,6 +439,11 @@ export class LumatoneLEDs {
         0x00,
         0xf7,
       ]);
+    } else if (cmd === 0x55) {
+      // CMD 55h: board/key order, single 7-bit R/G/B values (not nibbles).
+      const payload = entry.colors.flatMap(({ r, g, b }) =>
+        [r, g, b].map(value => Math.round(value * 127 / 255)));
+      msg = new Uint8Array([0xf0, ...MFR, board, 0x55, ...payload, 0xf7]);
     } else {
       // CMD 01h: Set key LED colour
       // F0 00 21 50 [board 1-5] 01 [key] rHi rLo gHi gLo bHi bLo F7
@@ -384,7 +464,13 @@ export class LumatoneLEDs {
       ]);
     }
 
-    this._sendLumatoneMessage(msg);
+    try {
+      this._sendLumatoneMessage(msg);
+    } catch (error) {
+      if (entry.cmd !== 0x55) throw error;
+      this._fallbackFromBulk();
+      return;
+    }
 
     // Guard: if no ACK arrives within the timeout, skip this entry and continue.
     const timeoutMs = this._currentAckTimeoutMs();
@@ -396,9 +482,13 @@ export class LumatoneLEDs {
         this._recoverFromLongTimerGap();
         return;
       }
-      if (!this._hasReceivedAck && (entry.retries ?? 0) < 1) {
+      if ((entry.cmd === 0x55 || !this._hasReceivedAck) && (entry.retries ?? 0) < 1) {
         entry.retries = (entry.retries ?? 0) + 1;
         this._advance();
+        return;
+      }
+      if (entry.cmd === 0x55) {
+        this._fallbackFromBulk();
         return;
       }
       let skipped = entry;
@@ -444,41 +534,26 @@ export class LumatoneLEDs {
   _onMessage(event) {
     const d = event.data;
     if (this._probe && this._isLumatoneMessage(d)) {
+      const probe = this._probe;
+      // Ignore replies for octave boards or other concurrent MIDI applications.
+      if (d[4] !== 0 || d[5] !== probe.expectedCommand) return;
       console.info("[LumatoneLEDs:probe] RX", this._formatBytes(d));
-      if (d[5] === this._probe.expectedCommand) {
-        if (d[6] !== 0x01) {
-          const probe = this._probe;
-          this._probe = null;
-          clearTimeout(probe.timer);
-          probe.resolve({
-            ok: false,
-            reason: "device-status",
-            command: d[5],
-            status: d[6],
-            elapsedMs: Date.now() - probe.startedAt,
-            bytes: Array.from(d),
-          });
-        } else if (d[5] === 0x23) {
-          this._probe.serialBytes = Array.from(d);
-          this._probe.expectedCommand = 0x31;
-          // Exact second request observed from Lumatone Editor 1.0.2.
-          this._sendProbeMessage(
-            new Uint8Array([0xf0, ...MFR, 0x00, 0x31, 0x00, 0x00, 0x00, 0x00, 0xf7]),
-          );
-        } else {
-          const probe = this._probe;
-          this._probe = null;
-          clearTimeout(probe.timer);
-          probe.resolve({
-            ok: true,
-            reason: "response",
-            status: d[6],
-            elapsedMs: Date.now() - probe.startedAt,
-            bytes: Array.from(d),
-            serialBytes: probe.serialBytes,
-          });
-        }
+      if (d[6] !== 0x01) {
+        this._finishProbe({ ok: false, reason: "device-status", command: d[5], status: d[6], bytes: Array.from(d) });
+      } else if (d[5] === 0x23) {
+        probe.serialBytes = Array.from(d);
+        probe.expectedCommand = 0x31;
+        this._sendProbeMessage(
+          new Uint8Array([0xf0, ...MFR, 0x00, 0x31, 0, 0, 0, 0, 0xf7]),
+        );
+      } else if (d.length === 11 && Array.from(d.slice(7, 10)).every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 0x7f)) {
+        const version = Array.from(d.slice(7, 10));
+        this._finishProbe({
+          ok: true, reason: "response", status: d[6], bytes: Array.from(d),
+          firmwareVersion: version.join("."),
+        });
       }
+      return;
     }
     if (!this._pending || this._queue.length === 0) return;
     if (
@@ -488,7 +563,6 @@ export class LumatoneLEDs {
       d[2] !== 0x21 ||
       d[3] !== 0x50 ||
       /* d[4] = board, d[5] = cmd — checked below */
-      d[6] !== 0x01 || // ACK status
       d[7] !== 0xf7
     )
       return;
@@ -496,6 +570,35 @@ export class LumatoneLEDs {
     // Command echo and board byte must both match the in-flight entry.
     const pending = this._queue[0];
     if (d[5] !== pending.cmd || d[4] !== pending.board) return;
+
+    if (d[6] === 0x02) {
+      // BUSY means ignored, not delivered. Keep the entry until a bounded retry.
+      clearTimeout(this._timer);
+      pending.busyRetries = (pending.busyRetries ?? 0) + 1;
+      this._timer = setTimeout(() => {
+        this._timer = null;
+        this._pending = false;
+        if (pending.busyRetries > MAX_BUSY_RETRIES) {
+          if (pending.cmd === 0x55) {
+            this._fallbackFromBulk();
+            return;
+          }
+          if (this._pendingLayout) this._layoutHadFailures = true;
+          this._queue.shift();
+          console.warn("[LumatoneLEDs] BUSY retry limit reached", pending.cmd);
+        }
+        this._advance();
+      }, BUSY_RETRY_MS);
+      return;
+    }
+    if (d[6] !== 0x01) {
+      if (pending.cmd === 0x55 && [0x00, 0x03, 0x04].includes(d[6])) {
+        clearTimeout(this._timer);
+        this._timer = null;
+        this._fallbackFromBulk();
+      }
+      return;
+    }
 
     // Valid ACK received — clear timeout and advance.
     if (this._timer !== null) {
@@ -531,21 +634,27 @@ export class LumatoneLEDs {
     const expectedCommand = this._probe.expectedCommand;
     this._probe.timer = setTimeout(() => {
       if (!this._probe || this._probe.expectedCommand !== expectedCommand) return;
-      const probe = this._probe;
-      this._probe = null;
-      const result = {
-        ok: false,
-        reason: "timeout",
-        command: expectedCommand,
-        elapsedMs: Date.now() - probe.startedAt,
-        bytes: [],
-        serialBytes: probe.serialBytes,
-      };
-      console.warn("[LumatoneLEDs:probe] timeout", result);
-      probe.resolve(result);
+      console.warn("[LumatoneLEDs:probe] timeout", expectedCommand);
+      this._finishProbe({ ok: false, reason: "timeout", command: expectedCommand, bytes: [] });
     }, PROBE_TIMEOUT_MS);
     console.info("[LumatoneLEDs:probe] TX", this._formatBytes(message));
-    this._sendLumatoneMessage(message);
+    try {
+      this._sendLumatoneMessage(message);
+    } catch (error) {
+      this._finishProbe({ ok: false, reason: "transport-error", message: error?.message, bytes: [] });
+    }
+  }
+
+  _finishProbe(result) {
+    const probe = this._probe;
+    if (!probe) return;
+    this._probe = null;
+    clearTimeout(probe.timer);
+    if (result.ok && result.firmwareVersion) {
+      this._firmwareVersion = result.firmwareVersion.split(".").map(Number);
+    }
+    probe.resolve({ elapsedMs: Date.now() - probe.startedAt, serialBytes: probe.serialBytes, ...result });
+    this._advance();
   }
 
   _sendLumatoneMessage(message) {
@@ -561,6 +670,10 @@ export class LumatoneLEDs {
   }
 
   _cancelProbe(reason) {
+    if (this._firmwareRequest) {
+      this._firmwareRequest.resolve({ ok: false, reason, bytes: [] });
+      this._firmwareRequest = null;
+    }
     if (!this._probe) return;
     const probe = this._probe;
     this._probe = null;
@@ -581,6 +694,7 @@ export class LumatoneLEDs {
   _colorQueueSignature(queue) {
     if (!Array.isArray(queue) || queue.length === 0) return "";
     return queue
+      .flatMap(entry => entry.cmd === 0x55 ? entry.colors : [entry])
       .map((entry) => this._colorEntryKey(entry))
       .filter(Boolean)
       .join("|");

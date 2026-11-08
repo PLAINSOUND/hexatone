@@ -1,0 +1,6602 @@
+# Official SysEx command reference: firmware 1.5.0
+
+Retrieved 2026-11-08 from https://www.lumatone.io/support/sysex and its data script https://www.lumatone.io/s/lumatone-sysex-v8.js. This is a text extraction; table cells appear in source order. The JSON snapshot retains the original HTML tables. Local commentary and corrections are in FIRMWARE_1.5.0_REVIEW.md.
+
+## Manufacturer notice
+
+⚠
+Use at your own risk
+These messages change how your Lumatone works at a low level. Wrong values can leave keys unplayable or make the keyboard inoperable. Changing settings with SysEx messages voids your warranty, and Lumatone technical support is not available for keyboards whose function has been damaged by changing these settings. Before you start, save your presets with Lumatone Editor.
+If your Lumatone stops working properly
+Restore the default settings. Send Reset Board Thresholds (
+34h
+), Reset Aftertouch Trigger Delay (
+4Ch
+) and Reset Lumatouch Note Off Delay (
+4Dh
+) to each board (board IDs 01h to 05h). Then send Reset Velocity Configuration (
+0Ah
+), Reset Fader Configuration (
+0Dh
+), Reset Aftertouch Configuration (
+12h
+), Reset LumaTouch Configuration (
+2Fh
+), Reset Pitch and Modulation Wheel Thresholds (
+36h
+), Reset Expression Pedal Bounds (
+39h
+) and Reset Macro Light Intensity Settings (
+4Ah
+) to the main controller (board ID 00h).
+Recalibrate. In Lumatone Editor, open Settings and calibrate the keys, the aftertouch and the pitch and mod wheels. Without a computer, hold down both preset buttons on a board while powering up to calibrate that board's keys.
+Restore your presets. Load the presets you saved, or reset the presets to factory default in Lumatone Editor's Settings.
+Reinstall the latest firmware from the
+Software Downloads page
+.
+
+## Message format
+
+System Exclusive (SYSEX) messages are used to change operating parameters of the keyboard.
+Each transmission message starts with the same four bytes. The first byte is a MIDI standard byte that indicates the start of a SYSEX transmission. The next three bytes are reserved for a manufacturer ID.
+In general, each SYSEX transmission message follows the format shown in the table below.
+SYSEX Message Format
+BYTE
+0
+1
+2
+3
+4
+5
+6
+7
+…
+7+N
+7+N+1
+DESC
+START
+SYSEX
+Mfg ID1
+Mfg ID2
+Mfg ID3
+BOARD ID
+CMD
+DATA1
+DATA2
+…
+DATA
+N
+END
+SYSEX
+VALUE
+F0
+00
+21
+50
+00-05
+00-7F
+00-7F
+00-7F
+00-7F
+00-7F
+F7
+Start SYSEX
+Byte 0 is always value F0h to indicate the start of a SYSEX message.
+Mfg. ID1, ID2, ID3
+The manufacturer ID: Lumatone uses
+00h 21h 50h
+.
+BOARD ID
+The specific board ID for which the SYSEX message is destined. Value can be 0-5.
+0 = main controller (the whole keyboard).
+1 = board 1, or the left-most board.
+2 = board 2.
+3 = board 3.
+4 = board 4.
+5 = board 5.
+CMD
+The specific SYSEX command byte, from 00h-7Fh.
+DATA1 to DATA N
+Data specific to the given CMD byte. There will always be a
+minimum
+of
+4 DATA bytes
+END SYSEX
+The last byte is always value F7h to indicate the end of the SYSEX message.
+Note that all transactions are initiated via a command from the configuration application; with new commands only being issued after the response from the previous command has been received. The response SYSEX message is covered in
+Responses
+.
+
+## Responses
+
+Once the keyboard receives a SYSEX message, it will send back a response message once the SYSEX has been fully processed. If a SYSEX message is received during processing, it will respond with a busy response byte. The general format of the response SYSEX message is as follows.
+SYSEX Message Format
+BYTE
+0
+1
+2
+3
+4
+5
+6
+6+N
+6+N+1
+DESC
+START
+SYSEX
+Mfg ID1
+Mfg ID2
+Mfg ID3
+BOARD ID
+CMD
+RESP
+DATA1
+…
+DATA
+N
+END
+SYSEX
+VALUE
+F0
+00
+21
+50
+00-05
+00-7F
+00-04
+00-7F
+00-7F
+00-7F
+F7
+The format of the SYSEX message is the same as the transmitted message with the inclusion of the response status byte located after the command byte. The response status byte ranges from 0x00 to 0x04:
+00h – NACK. The transmitted command was not recognized
+01h – ACK. The transmitted command was processed successfully
+02h – BUSY. The transmitted command was not processed as it is currently processing the previous transmitted message.
+03h – ERROR. The transmitted command was not processed due to invalid data or board ID byte parameters or message length.
+04h – STATE. The transmitted command was not processed due to the keyboard not being in the correct operating state. See
+Calibrate Aftertouch (0Fh)
+,
+Calibrate Keys (24h)
+and
+Demo Mode (25h)
+.
+04h – LIST FULL (
+deprecated in rev 1.4
+). This response message’s usage has been deprecated in version 1.4. Used exclusively by command 00h, it indicated that the transmitted data was not processed due to the maximum amount of faders configurable has been reached. More information:
+Set Key Parameters (00h)
+.
+The data bytes for the response message are dependent on the specific command transmitted.
+
+## Board IDs
+
+Byte 4 of every message is the board ID.
+00h
+addresses the main controller, which handles settings for the whole keyboard.
+01h
+to
+05h
+address the five boards, from left to right as you face the keyboard. Each command lists the board IDs it accepts.
+00h
+main controller: the whole keyboard
+01h
+BOARD 1
+02h
+BOARD 2
+03h
+BOARD 3
+04h
+BOARD 4
+05h
+BOARD 5
+← PITCH AND MOD WHEELS
+FRONT (PLAYER SIDE)
+
+## Key numbering
+
+Each board has 56 keys, numbered 00h to 37h (0 to 55). The numbering is the same on all five boards; the board ID picks the board. The drawing shows one board as it sits in the Lumatone, seen from above.
+1A
+(26)
+1A
+key number in hex, as sent in SysEx messages
+(26)
+the same key number in decimal
+00
+(0)
+01
+(1)
+02
+(2)
+03
+(3)
+04
+(4)
+05
+(5)
+06
+(6)
+07
+(7)
+08
+(8)
+09
+(9)
+0A
+(10)
+0B
+(11)
+0C
+(12)
+0D
+(13)
+0E
+(14)
+0F
+(15)
+10
+(16)
+11
+(17)
+12
+(18)
+13
+(19)
+14
+(20)
+15
+(21)
+16
+(22)
+17
+(23)
+18
+(24)
+19
+(25)
+1A
+(26)
+1B
+(27)
+1C
+(28)
+1D
+(29)
+1E
+(30)
+1F
+(31)
+20
+(32)
+21
+(33)
+22
+(34)
+23
+(35)
+24
+(36)
+25
+(37)
+26
+(38)
+27
+(39)
+28
+(40)
+29
+(41)
+2A
+(42)
+2B
+(43)
+2C
+(44)
+2D
+(45)
+2E
+(46)
+2F
+(47)
+30
+(48)
+31
+(49)
+32
+(50)
+33
+(51)
+34
+(52)
+35
+(53)
+36
+(54)
+37
+(55)
+FRONT (PLAYER SIDE)
+
+## 00 Set Key Parameters
+
+This command is used to configure a specific key’s note, channel, and type parameters.
+In firmware version 1.3, the response returns 04h if the maximum amount of faders has already been reached. The maximum amount of faders for the keyboard is 15 faders. If this scenario occurs, one of the faders on the keyboard must first be assigned back to a note first to decrement the internal fader list index. To determine the keyboard’s current key type setup, the command
+Get Type Configuration (0x18h)
+can be used to read the key set up. More information regarding this command is in
+Get Type Configuration (18h)
+.
+In document version 1.4, response packet 04h has been deprecated since fader polyphony limitations are performed on the go rather than a static maximum limit.
+In firmware version 1.0.11 (documentation version 1.13), an extra key type was included: 00h Key Disabled.
+Software variables affected include the following:
+Key Channel values
+Key Note or CC values
+Key operating type
+CC polarity values
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+MFG ID field
+4
+Board ID
+01-05h
+Target board ID.
+5
+Command
+00h
+Set Key Parameters command byte 00h
+6
+Key number
+00-37h
+Target key to configure
+7
+Note / CC Type
+00-7Fh
+MIDI Note parameter if Type bit is 01h or 03h
+CC Type parameter if Type bit is 02h.
+For CC Type. Acceptable CC data bytes should be the messages with its 3
+rd
+byte value range from 0-127 in the list found
+here
+.
+8
+Channel
+00-0Fh
+MIDI Channel parameter
+9
+Type
+00h/01h/02h/03h
+Lower nibble of byte 9:
+00 = Disabled; 01 = Playable Note; 02 = Fader;
+03 = Lumatouch
+CC Polarity
+00h/10h
+Upper nibble of byte 9:
+00 = clear polarity bit for CC; 10 = set polarity bit for CC
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+MFG ID field
+4
+Board ID
+01h-05h
+Target board ID.
+5
+Command
+00h
+Set Key Parameters command byte 00h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 01 Set Key Light Parameters
+
+This command is used to configure a specific key’s red, green, and blue intensity parameters.
+In firmware versions prior to 1.0.11, the internal firmware of the Lumatone Keyboard will multiply the value by two and divide by five to reduce the final intensity value.
+In firmware version 1.0.11 and later, the payload data bytes have been modified. Each intensity value is composed of two bytes, containing the upper and lower nibble of the desired intensity.
+Software variables affected include the following:
+LED red intensity values
+LED green intensity values
+LED blue intensity values
+TRANSMIT SYSEX MESSAGE (Prior to Firmware v1.0.11)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01-05h
+Target board ID.
+5
+Command
+01h
+Set Key Light command byte 01h
+6
+Key number
+00-37h
+Target key to configure
+7
+Red Value
+00-7F
+Key LED’s red intensity
+8
+Green Value
+00-7F
+Key LED’s green intensity
+9
+Blue Value
+00-7F
+Key LED’s blue intensity
+10
+End SYSEX
+F7
+TRANSMIT SYSEX MESSAGE (Firmware v1.0.11+)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01-05h
+Target board ID.
+5
+Command
+01h
+Set Key Light command byte 01h
+6
+Key number
+00-37h
+Target key to configure
+7
+Red Value
+00-0F
+Upper Nibble of Key LED’s red intensity
+8
+Red Value
+00-0F
+Lower Nibble of Key LED’s red intensity
+9
+Green Value
+00-0F
+Upper Nibble of Key LED’s green intensity
+10
+Green Value
+00-0F
+Lower Nibble of Key LED’s green intensity
+11
+Blue Value
+00-0F
+Upper Nibble of Key LED’s blue intensity
+12
+Blue Value
+00-0F
+Lower Nibble of Key LED’s blue intensity
+13
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID.
+5
+Command
+01h
+Set Key Light command byte 01h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 02 Save Program
+
+This command is used to save the current configuration of the keyboard to a targeted preset.
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID.
+5
+Command
+02h
+Save Program command byte 02h
+6
+Target Preset
+00-09h
+Target preset to save current configuration to.
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID.
+5
+Command
+02h
+Save Program command byte 02h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 03 Set Expression Pedal Sensitivity
+
+This command is used to configure the sensitivity of the expression pedal. The higher the sensitivity value, the less sensitive the pedal will be to any changes on the expression pedal. Note that the default sensitivity is 0x05h and is not recommended to be set below this number.
+Software variables affected include the following:
+Expression Pedal Sensitivity
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+03h
+Set Expression Pedal Sensitivity command byte 03h
+6
+Sensitivity
+00h-7Fh
+Sensitivity granularity for the Expression Pedal
+7
+--
+XX
+8
+--
+XX
+9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+03h
+Set Expression Pedal Sensitivity command byte 03h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 04 Invert Expression Pedal
+
+This command is used to configure the on/off settings of the expression pedal. Using this command will configure the polarity of the expression pedal input.
+Software variables affected include the following:
+Expression Pedal Inversion Flag
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller.
+5
+Command
+04h
+Invert Expression Pedal command byte 04h
+6
+Polarity
+00h/01h
+00 = off; 01 = on
+7
+--
+XX
+8
+--
+XX
+9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+04h
+Invert Expression Pedal command byte 04h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 05 Set Macro Light On Configuration
+
+This command is used to configure the color value of the active macrobutton light (the light used to indicate the current program used).
+In firmware versions prior to 1.0.11, the internal firmware of the Lumatone Keyboard will multiply the received value by two and divide by five to reduce the final intensity value. This final value is stored into memory.
+In firmware version 1.0.11 and later, the payload data bytes have been modified. Each intensity value is composed of two bytes, containing the upper and lower nibble of the desired intensity.
+Software variables affected include the following:
+Active macro LED red intensity value
+Active macro LED green intensity value
+Active macro LED blue intensity value
+TRANSMIT SYSEX MESSAGE (Prior to Firmware v1.0.11)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+05h
+Set Macro Light On command byte 05h
+6
+Red Value
+00h-7Fh
+Active macro LED red intensity value
+7
+Green Value
+00h-7Fh
+Active macro LED green intensity value
+8
+Blue Value
+00h-7Fh
+Active macro LED blue intensity value
+9
+--
+XX
+10
+End SYSEX
+F7
+TRANSMIT SYSEX MESSAGE (Firmware v1.0.11+)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+05h
+Set Macro Light On command byte 05h
+6
+Red Value
+00h-0Fh
+Upper nibble of active macro LED red intensity value
+7
+Red Value
+00h-0Fh
+Lower nibble of active macro LED red intensity value
+8
+Green Value
+00h-0Fh
+Upper nibble of active macro LED green intensity value
+9
+Green Value
+00h-0Fh
+Lower nibble of active macro LED green intensity value
+10
+Blue Value
+00h-0Fh
+Upper nibble of active macro LED blue intensity value
+11
+Blue Value
+00h-0Fh
+Lower nibble of active macro LED blue intensity value
+12
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+05h
+Set Macro Light On command byte 05h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 06 Set Macro Light Off Configuration
+
+This command is used to configure the color value of the inactive macrobutton lights.
+In firmware versions prior to 1.0.11, the internal firmware of the Lumatone Keyboard will multiply the received value by two and divide by five to reduce the final intensity value. This final value is stored into memory.
+In firmware version 1.0.11 and later, the payload data bytes have been modified. Each intensity value is composed of two bytes, containing the upper and lower nibble of the desired intensity.
+Software variables affected include the following:
+Inactive macro LED red intensity value
+Inactive macro LED green intensity value
+Inactive macro LED blue intensity value
+TRANSMIT SYSEX MESSAGE (Prior to Firmware v1.0.11)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+06h
+Set Macro Light Off command byte 06h
+6
+Red Value
+00h-7Fh
+Inactive macro LED red intensity value
+7
+Green Value
+00h-7Fh
+Inactive macro LED green intensity value
+8
+Blue Value
+00h-7Fh
+Inactive macro LED blue intensity value
+9
+--
+XX
+10
+End SYSEX
+F7
+TRANSMIT SYSEX MESSAGE (Firmware v1.0.11+)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+06h
+Set Macro Light Off command byte 06h
+6
+Red Value
+00h-0Fh
+Upper nibble of inactive macro LED red intensity value
+7
+Red Value
+00h-0Fh
+Lower nibble of inactive macro LED red intensity value
+8
+Green Value
+00h-0Fh
+Upper nibble of inactive macro LED green intensity value
+9
+Green Value
+00h-0Fh
+Lower nibble of inactive macro LED green intensity value
+10
+Blue Value
+00h-0Fh
+Upper nibble of inactive macro LED blue intensity value
+11
+Blue Value
+00h-0Fh
+Lower nibble of inactive macro LED blue intensity value
+12
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+06h
+Set Macro Light Off command byte 06h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 07 Set Interaction Flag
+
+This command is used to enable or disable key lights during key strokes. Note that the velocity detection accuracy when this feature is enabled is compromised.
+Software variables affected include the following:
+LED Key Interactivity Flag
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+07h
+Set Interaction Flag command byte 07h
+6
+Flag
+00h,01h
+00 = off ; 01 = on
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+07h
+Set Interaction Flag command byte 07h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 08 Set Velocity Configuration
+
+This command is used to adjust the internal velocity look-up table. The velocity look up table is a 128 byte array used to map dwell counts to audible velocity values. Each dwell count represents 1 millisecond where a dwell tick of 0 represents the fastest speed possible.
+Information regarding the velocity curve mapping is in
+Velocity Curve Mapping
+.
+Software table affected include the following:
+Velocity look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+08h
+Set Velocity Configuration command byte 08h
+6-133
+LUT Map[i]
+01h-7Fh
+Byte 6: LUT Map Index 0 …. Byte 133: LUT Map Index 127
+134
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+08h
+Set Velocity Configuration command byte 08h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 09 Save Velocity Configuration
+
+This command is used to save the changes made to the velocity look-up table. As of document revision 1.3, this command also saves the velocity interval data array (see command 0x20h) to file. As of document revision 1.7, this command has been deprecated as saving LUT is done via macrobutton of the keyboard.
+Software table affected include the following:
+Velocity look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+09h
+Save Velocity Configuration command byte 09h
+6
+Preset Target
+00-09h
+Target preset to save the lookup table
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Targeted board ID
+5
+Command
+09h
+Save Velocity Configuration command byte 09h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 0A Reset Velocity Configuration
+
+This command is used to reset the velocity lookup table back to its factory velocity settings. As of document revision 1.3, this command also resets the velocity interval data array (see command 0x20h) back to its default factory settings.
+Software table affected include the following:
+Velocity look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+0Ah
+Reset Velocity Configuration command byte 0Ah
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+0Ah
+Reset Velocity Configuration command byte 0Ah
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 0B Set Fader Configuration
+
+This command is used to adjust the internal fader look-up table. The fader look up table is a 128 byte array used to map the relative key ADC positioning to a midi output value. An index of 0 in the look up table represents the key being fully released. An index of 127 represents the key being fully pressed.
+Software table affected include the following:
+Fader/CC look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+0Bh
+Set Fader Configuration command byte 0Bh
+6-133
+LUT Map[i]
+00h-7Fh
+Byte 6: LUT Map Index 0 …. Byte 133: LUT Map Index 127
+134
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+0Bh
+Set Fader Configuration command byte 0Bh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 0C Save Fader Configuration
+
+This command is used to save the changes made to the fader look-up table. As of document revision 1.7, this command has been deprecated as saving LUT is done via macrobutton of the keyboard.
+Software table affected include the following:
+Fader/CC look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+0Ch
+Save Fader Configuration command byte 0Ch
+6
+Preset Target
+00-09h
+Target preset to save the lookup table
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+0Ch
+Save Fader Configuration command byte 0Ch
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 0D Reset Fader Configuration
+
+This command is used to reset the fader lookup table back to its factory fader settings.
+Software table affected include the following:
+Fader/CC look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+0Dh
+Reset Fader Configuration command byte 0Dh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+0Dh
+Reset Fader Configuration command byte 0Dh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 0E Set Aftertouch Flag
+
+This command is used to enable or disable aftertouch functionality.
+Software variables affected include the following:
+Enable Aftertouch Flag
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+0Eh
+Set Aftertouch Flag command byte 0Eh
+6
+Flag
+00h,01h
+00 = off ; 01 = on
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+0Eh
+Set Aftertouch Flag command byte 0Eh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 0F Calibrate Aftertouch
+
+This command is used to initiate the aftertouch calibration routine. Upon receiving the SYSEX message, the keyboard will operate in its
+Aftertouch Calibration State.
+To return to normal operating state, the five boards must exit out its calibration mode by pressing their corresponding macro buttons to save or cancel calibration. Since firmware 1.4.3 the calibration can also be saved or cancelled from software with Confirm Calibration (CMD 52h); during calibration, every other command is answered with response 04h.
+Software variables affected include the following:
+Key Aftertouch Maximum Bounds
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+0Fh
+Calibrate Aftertouch command byte 0Fh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+0Fh
+Calibrate Aftertouch command byte 0Fh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 10 Set Aftertouch Configuration
+
+This command is used to adjust the internal aftertouch look-up table. The aftertouch look up table is a 128 byte array used to map the relative key ADC positioning in the aftertouch range to a midi output value. The index of 0 indicates the mapping of the key positioning at the key’s note on trigger. The index of 127 indicates the mapping of the key positioning at the key’s aftertouch maximum positioning (obtained after aftertouch calibration is performed).
+Software table affected include the following:
+Aftertouch look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+10h
+Set Aftertouch Configuration command byte 10h
+6-133
+LUT Map[i]
+00h-7Fh
+Byte 6: LUT Map Index 0 …. Byte 133: LUT Map Index 127
+134
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+10h
+Set Aftertouch Configuration command byte 10h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 11 Save Aftertouch Configuration
+
+This command is used to save the changes made to the aftertouch look-up table. As of document revision 1.7, this command has been deprecated as saving LUT is done via macrobutton of the keyboard.
+Software table affected include the following:
+Aftertouch look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+11h
+Save Aftertouch Configuration command byte 11h
+6
+Preset Target
+00-09h
+Target preset to save the lookup table
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+11h
+Save Aftertouch Configuration command byte 11h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 12 Reset Aftertouch Configuration
+
+This command is used to reset the aftertouch lookup table back to its factory aftertouch settings.
+Software table affected include the following:
+Aftertouch look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+12h
+Reset Aftertouch Configuration command byte 12h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+12h
+Reset Aftertouch Configuration command byte 12h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 13 Get Red LED Configuration
+
+This command is used to read back the current red intensity of all the keys of the target board.
+In firmware versions prior to v1.0.11, the response key data fields have a payload size is 56 bytes. The final read value must be multiplied by five.
+In firmware versions v1.0.11 and later, the key data payload size has been increased to 112 bytes. Each key data contains two bytes: each byte contains the upper and lower nibble of the red intensity used.
+Software variables affected include the following:
+LED Red Intensity Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+13h
+Get Red LED command byte 13h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE (Prior to Firmware v1.0.11)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+13h
+Get Red LED command byte 13h
+6
+Response
+00h-04h
+Response status message
+7-62
+Key data
+00h-33h
+Byte7: key 0 …. Byte 62: key 55
+63
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE (Firmware v1.0.11+)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+13h
+Get Red LED command byte 13h
+6
+Response
+00h-04h
+Response status message
+7-119
+Key data
+00h-0Fh
+Byte 7: key 0 upper nibble
+Byte 8: key 0 lower nibble
+….
+Byte 118: key 55 upper nibble
+Byte 119: key 55 lower nibble
+120
+End SYSEX
+F7
+
+## 14 Get Green LED Configuration
+
+This command is used to read back the current green intensity of all the keys of the target board.
+In firmware versions prior to v1.0.11, the response key data fields have a payload size is 56 bytes. The final read value must be multiplied by five.
+In firmware versions v1.0.11 and later, the key data payload size has been increased to 112 bytes. Each key data contains two bytes: each byte contains the upper and lower nibble of the red intensity used.
+Software variables affected include the following:
+LED Green Intensity Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+14h
+Get Green LED command byte 14h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE (Prior to Firmware v1.0.11)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+14h
+Get Green LED command byte 14h
+6
+Response
+00h-04h
+Response status message
+7-62
+Key data
+00h-33h
+Byte7: key 0 …. Byte 62: key 55
+63
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE (Firmware v1.0.11+)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+14h
+Get Green LED command byte 14h
+6
+Response
+00h-04h
+Response status message
+7-119
+Key data
+00h-0Fh
+Byte 7: key 0 upper nibble
+Byte 8: key 0 lower nibble
+….
+Byte 118: key 55 upper nibble
+Byte 119: key 55 lower nibble
+120
+End SYSEX
+F7
+
+## 15 Get Blue LED Configuration
+
+This command is used to read back the current blue intensity of all the keys of the target board.
+In firmware versions prior to v1.0.11, the response key data fields have a payload size is 56 bytes. The final read value must be multiplied by five.
+In firmware versions v1.0.11 and later, the key data payload size has been increased to 112 bytes. Each key data contains two bytes: each byte contains the upper and lower nibble of the red intensity used.
+Software variables affected include the following:
+LED Blue Intensity Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+15h
+Get Blue LED command byte 15h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE (Prior to Firmware v1.0.11)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+15h
+Get Blue LED command byte 15h
+6
+Response
+00h-04h
+Response status message
+7-62
+Key data
+00h-33h
+Byte7: key 0 …. Byte 62: key 55
+63
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE (Firmware v1.0.11+)
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+15h
+Get Blue LED command byte 15h
+6
+Response
+00h-04h
+Response status message
+7-119
+Key data
+00h-0Fh
+Byte 7: key 0 upper nibble
+Byte 8: key 0 lower nibble
+….
+Byte 118: key 55 upper nibble
+Byte 119: key 55 lower nibble
+120
+End SYSEX
+F7
+
+## 16 Get Channel Configuration
+
+This command is used to read back the current channel configuration of all the keys of the target board.
+Software variables affected include the following:
+Key Channel Values
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+16h
+Get Channel Configuration command byte 16h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+16h
+Get Channel Configuration command byte 16h
+6
+Response
+00h-04h
+Response status message
+7-62
+Key data
+00h-0Fh
+Byte7: key 0 …. Byte 62: key 55
+63
+End SYSEX
+F7
+
+## 17 Get Note Configuration
+
+This command is used to read back the current note configuration of all the keys of the target board.
+Software variables affected include the following:
+Key Note or CC Values
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+17h
+Get Note Configuration command byte 17h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+17h
+Get Note Configuration command byte 17h
+6
+Response
+00h-04h
+Response status message
+7-62
+Key data
+00h-7Fh
+Byte7: key 0 data…. Byte 62: key 55 data
+63
+End SYSEX
+F7
+
+## 18 Get Type Configuration
+
+This command is used to read back the current key type configuration of all the keys of the target board.
+Software variables affected include the following:
+Key Operating Type
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+18h
+Get Type Configuration command byte 18h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+18h
+Get Type Configuration command byte 18h
+6
+Response
+00h-04h
+Response status message
+7-62
+Key data
+01h/02h/03h
+Byte7: key 0 data …. Byte 62: key 55 data
+01 = Playable Note; 02 = Fader; 03 = Lumatouch
+63
+End SYSEX
+F7
+
+## 19 Get Maximum Parameters
+
+This command is used to read back the maximum threshold of all the keys of the target board. The maximum threshold is the ADC trigger value for a note on event.
+Software variables affected include the following:
+Key Maximum Bounds
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+19h
+Get Maximum Parameters command byte 19h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+19h
+Get Maximum Parameters command byte 19h
+6
+Response
+00h-04h
+Response status message
+7-119
+Key data
+00h-0Fh
+Byte 7: key 0 upper nibble data
+Byte 8: key 0 lower nibble data
+…
+Byte 118: key 55 upper nibble data
+Byte 119: key 55 lower nibble data
+120
+End SYSEX
+F7
+
+## 1A Get Minimum Parameters
+
+This command is used to read back the maximum threshold of all the keys of the target board. The minimum threshold is the ADC trigger value for a note off event.
+Software variables affected include the following:
+Key Minimum Bounds
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+1Ah
+Get Minimum Parameters command byte 1Ah
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+1Ah
+Get Minimum Parameters command byte 1Ah
+6
+Response
+00h-04h
+Response status message
+7-119
+Key data
+00h-0Fh
+Byte 7: key 0 upper nibble data
+Byte 8: key 0 lower nibble data
+…
+Byte 118: key 55 upper nibble data
+Byte 119: key 55 lower nibble data
+120
+End SYSEX
+F7
+
+## 1B Get Aftertouch Maximum Parameters
+
+This command is used to read back the aftertouch maximum threshold of all the keys of the target board. The aftertouch maximum threshold is the ADC threshold value for aftertouch events.
+Software variables affected include the following:
+Key Aftertouch Maximum Bounds
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+1Bh
+Get Aftertouch Maximum Parameters command byte 1Bh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+1Bh
+Get Aftertouch Maximum Parameters command byte 1Bh
+6
+Response
+00h-04h
+Response status message
+7-119
+Key data
+00h-0Fh
+Byte 7: key 0 upper nibble data
+Byte 8: key 0 lower nibble data
+…
+Byte 118: key 55 upper nibble data
+Byte 119: key 55 lower nibble data
+120
+End SYSEX
+F7
+
+## 1C Get Key Validity Parameters
+
+This command is used to read back the validity of all the keys of the target board. Validity indicates whether or not the key is functional or not depending if the key meets the minimum threshold difference during calibration.
+Software variables affected include the following:
+Key Validity
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+1Ch
+Get Key Validity Configuration command byte 1Ch
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+1Ch
+Get Key Validity Configuration command byte 1Ch
+6
+Response
+00h-04h
+Response status message
+7-62
+Key data
+00h / 01h
+Byte7: key 0 data …. Byte 62: key 55 data
+00h: Key Invalid ; 01h: Key Valid
+63
+End SYSEX
+F7
+
+## 1D Get Velocity Configuration
+
+This command is used to read back the current velocity look up table of the keyboard.
+Software table affected include the following:
+Velocity look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+1Dh
+Get Velocity Configuration command byte 1Dh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+1Dh
+Get Velocity Configuration command byte 1Dh
+6
+Response
+00h-04h
+Response status message
+7-134
+LUT mapping
+00h-7Fh
+Byte7: LUT map[0] data
+….
+Byte 134: LUT map[127] data
+135
+End SYSEX
+F7
+
+## 1E Get Fader Configuration
+
+This command is used to read back the current fader look up table of the keyboard.
+Software table affected include the following:
+Fader/CC look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+1Eh
+Get Fader Configuration command byte 1Eh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+1Eh
+Get Fader Configuration command byte 1Eh
+6
+Response
+00h-04h
+Response status message
+7-134
+LUT mapping
+00h-7Fh
+Byte7: LUT map[0] data
+….
+Byte 134: LUT map[127] data
+135
+End SYSEX
+F7
+
+## 1F Get Aftertouch Configuration
+
+This command is used to read back the current aftertouch look up table of the keyboard.
+Software table affected include the following:
+Aftertouch look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+1Fh
+Get Aftertouch Configuration command byte 1Fh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+1Fh
+Get Aftertouch Configuration command byte 1Fh
+6
+Response
+00h-04h
+Response status message
+7-134
+LUT mapping
+00h-7Fh
+Byte7: LUT map[0] data
+….
+Byte 134: LUT map[127] data
+135
+End SYSEX
+F7
+
+## 20 Set Velocity Intervals
+
+This command is used to configure the velocity interval data array for the Lumatone keyboard. The data array is composed of 127 12-bit variables which are used to map a range of time to a region index. Each increment of this velocity interval value represents ~1.1ms. In order to comply with the MIDI protocol, each 12-bit value is split into two 6-bit variables in the SYSEX message. The order of each interval mapping value must be greater than the previous value, up to 2048.
+Information regarding the velocity curve mapping is in
+Velocity Curve Mapping
+.
+Software table affected include the following:
+Velocity interval region look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+20h
+Set Velocity Intervals command byte 20h
+6-260
+Interval Mapping
+00-3Fh
+Byte 6: interval[0] upper 6 bits
+Byte7: interval[0] lower 6 bits
+..
+..
+Byte 259: interval[126] upper 6 bits
+Byte 260: interval[126] lower 6 bits
+261
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+20h
+Set Velocity Intervals command byte 20h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 21 Get Velocity Intervals
+
+This command is used to read back the current velocity intervals data array being used by the Lumatone keyboard firmware.
+Software table affected include the following:
+Velocity interval region look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+21h
+Get Velocity Intervals command byte 21h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+21h
+Get Velocity Intervals command byte 21h
+6
+Response
+00h-04h
+Response status message
+7-261
+Interval Mapping
+00h-7Fh
+Byte7: interval [0] upper 6 data bits
+Byte 8: interval [0] lower 6 data bits
+….
+Byte 260: interval [126] upper 6 data bits
+Byte 261: interval [126] lower 6 data bits
+262
+End SYSEX
+F7
+
+## 22 Get Continuous Controller Polarity Configuration
+
+This command is used to read back the current continuous controller polarity configuration of all keys on the targeted board.
+Software variables affected include the following:
+CC Polarity Values
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+22h
+Get Continuous Controller Configuration command byte 22h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+22h
+Get Continuous Controller Configuration command byte 22h
+6
+Response
+00h-04h
+Response status message
+7-62
+Key data
+00h-01h
+Byte7: key 0 …. Byte 62: key 55
+63
+End SYSEX
+F7
+
+## 23 Get Serial Identity
+
+This command is used to read back the serial identification number of the keyboard.
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+23h
+Get Serial Identity command byte 23h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+23h
+Get Serial Identity command byte 23h
+6
+Response
+00h-04h
+Response status message
+7-18
+Key data
+00h-7Fh
+Byte7: upper nibble of byte [0]
+Byte 8: lower nibble of byte [0]
+….
+Byte 17: upper nibble of byte [5]
+Byte 18: lower nibble of byte [5]
+19
+End SYSEX
+F7
+
+## 24 Calibrate Keys
+
+This command is used to initiate the key calibration routine. Upon receiving the SYSEX message, the keyboard will operate in its
+Key Calibration State.
+To return to normal operating state, the five boards must exit out its calibration mode by pressing their corresponding macro buttons to save or cancel calibration. Since firmware 1.4.3 the calibration can also be saved or cancelled from software with Confirm Calibration (CMD 52h); during calibration, every other command is answered with response 04h.
+Software variables affected include the following:
+Key Maximum Bounds
+Key Minimum Bounds
+Key Validity
+Key Aftertouch Maximum Bounds
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+24h
+Calibrate Keys command byte 24h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+24h
+Calibrate Keys command byte 24h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 25 Demo Mode
+
+This command is used to enter and exit demo mode. Upon receiving the SYSEX message with the flag byte set to 01h, the keyboard will operate in its
+Demo State.
+To return to normal operating state, the SYSEX message with the flag byte set to 00h must be sent.
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+25h
+Demo Mode command byte 25h
+6
+Flag
+00h,01h
+00 = off ; 01 = on
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+25h
+Demo Mode command byte 25h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 26 Calibrate Pitch Mod Wheel
+
+This command is used to initiate the pitch and mod wheel calibration routine. To start the enter pitch and mod calibration, the flag byte of the SYSEX message is set to 0x01h. To return to normal operating state, send the SYSEX message again with the Flag byte set to 0x00h.
+Software variables affected include the following:
+Modulation wheel minimum
+Modulation wheel maximum
+Pitch wheel minimum
+Pitch wheel maximum
+Pitch wheel center
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+26h
+Calibrate Pitch Mod Wheel command byte 26h
+6
+Flag
+00h,01h
+00 = stop calibration; 01 = start calibration
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+26h
+Calibrate Pitch Mod Wheel command byte 26h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 27 Set Mod Wheel Sensitivity
+
+This command is used to set the sensitivity value of the mod wheel. The sensitivity value can range from 0x01 to 0x7F.
+Software variables affected include the following:
+Modulation wheel sensitivity
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+27h
+Set Mod Wheel Sensitivity command byte 27h
+6
+Sensitivity
+00h-7Fh
+Must be greater than 00h
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+27h
+Set Mod Wheel Sensitivity command byte 27h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 28 Set Pitch Bend Sensitivity
+
+This command is used to set the sensitivity value of the mod wheel. The sensitivity value can range from 0x01 to 0x3FFF.
+Software variables affected include the following:
+Pitch wheel sensitivity
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+28h
+Set Pitch Bend Sensitivity command byte 28h
+6
+Sensitivity
+00h-7Fh
+Upper 7 bits of the fourteen bit sensitivity value
+7
+Sensitivity
+00h-7Fh
+Lower 7 bits of the fourteen bit sensitivity value
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+28h
+Set Pitch Bend Sensitivity command byte 28h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 29 Set Key Maximum Threshold
+
+This command is used to set the proximate distance value from key’s maximum value used to trigger key events for the target board. The threshold value can range from 0x00 to 0xFE.
+Software variables affected include the following:
+Key maximum threshold
+Key aftertouch maximum threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+29h
+Set Key Max Threshold command byte 29h
+6
+Max Value
+00h-0Fh
+Upper nibble of the maximum threshold byte value
+7
+Max Value
+00h-0Fh
+Lower nibble of the maximum threshold byte value
+8
+ATouch Max Value
+00h-0Fh
+Upper nibble of the aftertouch maximum threshold byte value
+9
+ATouch Max Value
+00h-0Fh
+Low nibble of the aftertouch maximum threshold byte value
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+29h
+Set Key Max Threshold command byte 29h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 2A Set Key Minimum Threshold
+
+This command is used to set the proximate distance value from key’s absolute minimum value used to trigger key events for the target board. The threshold value can range from 0x00 to 0xFE.
+Software variables affected include the following:
+Key minimum high threshold
+Key minimum low threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+2Ah
+Set Key Min Threshold command byte 2Ah
+6
+Hi Value
+00h-0Fh
+Upper nibble of the high threshold byte value
+7
+Hi Value
+00h-0Fh
+Lower nibble of the high threshold byte value
+8
+Lo Value
+00h-0Fh
+Upper nibble of the low threshold byte value
+9
+Lo Value
+00h-0Fh
+Lower nibble of the low threshold byte value
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+2Ah
+Set Key Min Threshold command byte 2Ah
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 2B Set Fader Key Sensitivity
+
+This command is used to set the target board sensitivity for continuous controller events. The sensitivity value can range from 0x00 to 0xFE.
+Software variables affected include the following:
+Fader/CC sensitivity
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+2Bh
+Set Fader Key Sensitivity command byte 2Bh
+6
+Sensitivity
+00h-0Fh
+Upper nibble of the threshold byte value
+7
+Sensitivity
+00h-0Fh
+Lower nibble of the threshold byte value
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+2Bh
+Set Fader Key Sensitivity command byte 2Bh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 2C Set Aftertouch Key Sensitivity
+
+This command is used to set the target board sensitivity for Aftertouch events. The sensitivity value can range from 0x00 to 0xFE.
+Software variables affected include the following:
+Aftertouch sensitivity
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+2Ch
+Set Aftertouch Key Sensitivity command byte 2Ch
+6
+Sensitivity
+00h-0Fh
+Upper nibble of the threshold byte value
+7
+Sensitivity
+00h-0Fh
+Lower nibble of the threshold byte value
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+2Ch
+Set Aftertouch Key Sensitivity command byte 2Ch
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 2D Set LumaTouch Configuration
+
+This command is used to adjust the internal LumaTouch look-up table. The LumaTouch look up table is a 128 byte array used to map the relative key ADC positioning to a midi output value. An index of 0 in the look up table represents the key being fully released. An index of 127 represents the key being fully pressed.
+Software table affected include the following:
+Lumatouch look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+2Dh
+Set LumaTouch Configuration command byte 2Dh
+6-133
+LUT Map[i]
+00h-7Fh
+Byte 6: LUT Map Index 0 …. Byte 133: LUT Map Index 127
+134
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+2Dh
+Set LumaTouch Configuration command byte 2Dh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 2E Save LumaTouch Configuration
+
+This command is used to save the changes made to the LumaTouch look-up table. As of document revision 1.7, this command has been deprecated as saving LUT is done via macrobutton of the keyboard.
+Software table affected include the following:
+Lumatouch look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+2Eh
+Save LumaTouch Configuration command byte 2Eh
+6
+Preset Target
+00-09h
+Target preset to save the lookup table
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+2Eh
+Save LumaTouch Configuration command byte 2Eh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 2F Reset LumaTouch Configuration
+
+This command is used to reset the LumaTouch lookup table back to its factory LumaTouch settings.
+Software table affected include the following:
+Lumatouch look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+2Fh
+Reset LumaTouch Configuration command byte 2Fh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+2Fh
+Reset LumaTouch Configuration command byte 2Fh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 30 Get LumaTouch Configuration
+
+This command is used to read back the current LumaTouch look up table of the keyboard.
+Software table affected include the following:
+Lumatouch look up table
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+30h
+Get LumaTouch Configuration command byte 30h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+30h
+Get LumaTouch Configuration command byte 30h
+6
+Response
+00h-04h
+Response status message
+7-134
+LUT mapping
+00h-7Fh
+Byte7: LUT map[0] data
+….
+Byte 134: LUT map[127] data
+135
+End SYSEX
+F7
+
+## 31 Get Firmware Revision
+
+This command is used to read back the current Lumatone firmware revision. The firmware version format is in the form {Major}.{Minor}.{Revision}. Each board has its own firmware revision value which is communicated and stored in RAM of the main controller upon initialization. If the board has not been initialized, the main controller will contain a firmware revision of 0.0.0 for the board.
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h-05h
+Target board ID
+5
+Command
+31h
+Get Firmware Revision command byte 31h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h-05h
+Target board ID
+00h for main controller, 01h-05h for boards 1-5
+5
+Command
+31h
+Get Firmware Revision command byte 31h
+6
+Response
+00h-04h
+Response status message
+7
+FW Major Number
+00h-7Fh
+8
+FW Minor Number
+00h-7Fh
+9
+FW Revision Number
+00h-7Fh
+135
+End SYSEX
+F7
+
+## 32 Set Continuous Controller Active Threshold
+
+This command is used to set the proximate distance value from key’s absolute minimum value used to trigger activate and deactivate continuous controller keys for the target board. The threshold value can range from 0x00 to 0xFE.
+Software variables affected include the following:
+CC activation threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+32h
+Set Continuous Controller Threshold command byte 32h
+6
+Sensitivity
+00h-0Fh
+Upper nibble of the threshold byte value
+7
+Sensitivity
+00h-0Fh
+Lower nibble of the threshold byte value
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01-05h
+Target board ID
+5
+Command
+32h
+Set Continuous Controller Threshold command byte 32h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 33 Software Ping
+
+This command is used to echo the payload received from the Lumatone Utility software for device detection.
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+33h
+Software Ping command byte 33h
+6-9
+Payload Bytes
+00h-7Fh
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+33h
+Software Ping command byte 33h
+6
+Response
+00h-04h
+Response status message
+7-10
+Payload Bytes
+00h-7Fh
+11
+End SYSEX
+F7
+
+## 34 Reset Board Thresholds
+
+This command is used to reset the proximate distance values for event activation for the target board to default. The command also resets the aftertouch and continuous controller sensitivity of the board to default as well. The variables that are reset include the following:
+Key maximum threshold (set with
+Set Key Maximum Threshold (29h)
+)
+Key aftertouch maximum threshold (set with
+Set Key Maximum Threshold (29h)
+)
+Key minimum high threshold (set with
+Set Key Minimum Threshold (2Ah)
+)
+Key minimum low threshold (set with
+Set Key Minimum Threshold (2Ah)
+)
+CC activation threshold (set with
+Set Continuous Controller Active Threshold (32h)
+)
+Fader/CC sensitivity (set with
+Set Fader Key Sensitivity (2Bh)
+)
+Aftertouch sensitivity (set with
+Set Aftertouch Key Sensitivity (2Ch)
+)
+Lumatouch threshold (set with
+Set Lumatouch Deactivation Threshold (50h)
+)
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+34h
+Reset Board Thresholds command byte 34h
+6-9
+Payload Bytes
+00h-7Fh
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+34h
+Reset Board Thresholds command byte 34h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 35 Set Key Sampling
+
+This command is used to enable/disable key sampling over putty for the target key and board.
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+35h
+Set Key Sampling command byte 35h
+6
+Target Key
+00h-37h
+Target key to enable
+7
+Disable/Enable
+00h/01h
+Turn on or off the raw sampling of targeted board
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+35h
+Set Key Sampling command byte 35h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 36 Reset Pitch and Modulation Wheel Thresholds
+
+This command is used to set the threshold values and bounds for the pitch and modulation wheel to their factory default settings. The variables that are reset include the following:
+Modulation wheel minimum (set by
+Calibrate Pitch Mod Wheel (26h)
+)
+Modulation wheel maximum (set by
+Calibrate Pitch Mod Wheel (26h)
+)
+Pitch wheel maximum (set by
+Calibrate Pitch Mod Wheel (26h)
+)
+Pitch wheel minimum (set by
+Calibrate Pitch Mod Wheel (26h)
+)
+Pitch wheel center (set by
+Calibrate Pitch Mod Wheel (26h)
+)
+Modulation wheel sensitivity (set with
+Set Mod Wheel Sensitivity (27h)
+)
+Pitch wheel sensitivity (set with
+Set Pitch Bend Sensitivity (28h)
+)
+Pitch wheel zero threshold (set with
+Set Pitch Wheel Zero Threshold (37h)
+)
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+36h
+Reset Pitch and Modulation Wheel Thresholds Command Byte 36h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+36h
+Reset Pitch and Modulation Wheel Thresholds Command Byte 36h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 37 Set Pitch Wheel Zero Threshold
+
+This command is used to set the proximate bounds from the calibrated zero adc value of the pitch wheel.
+Software variables affected include the following:
+Pitch wheel zero threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+37h
+Set Pitch Wheel Zero Threshold command byte 37h
+6
+Value
+00h-7Fh
+Upper 7 bits of the fourteen bit +/- Threshold value
+7
+Value
+00h-7Fh
+Lower 7 bits of the fourteen bit +/- Threshold value
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+37h
+Set Pitch Wheel Zero Threshold command byte 37h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 38 Calibrate Expression Pedal
+
+This command is used to initiate the expression pedal calibration routine. To start the enter expression pedal calibration, the flag byte of the SYSEX message is set to 0x01h. To return to normal operating state, send the SYSEX message again with the Flag byte set to 0x00h. Note that the expression pedal must be plugged in before starting the calibration process and must remain plugged in. If not, a not plugged flag is raised and the calibrated values are discarded upon stopping the calibration sequence. The variables that are reset include the following:
+Expression pedal maximum (set by
+Calibrate Expression Pedal (38h)
+)
+Expression pedal minimum (set by
+Calibrate Expression Pedal (38h)
+)
+Expression pedal ADC threshold (set by
+Set Expression Pedal ADC Threshold (43h)
+)
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+38h
+Calibrate Expression Pedal command byte 38h
+6
+Flag
+00h,01h
+Enable or disable expression pedal calibration
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+38h
+Calibrate Expression Pedal command byte 38h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 39 Reset Expression Pedal Bounds
+
+This command is used to reset expression pedal minimum and maximum bounds.
+Software variables affected include the following:
+Expression pedal maximum
+Expression pedal minimum
+Expression pedal ADC threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+39h
+Reset Expression Pedal Bounds command byte 39h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+39h
+Reset Expression Pedal Bounds command byte 39h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 3A Get Board Threshold Values
+
+This command is used to retrieve the key threshold values of a particular board. These include the minimum high threshold, the minimum low threshold, the maximum threshold, the aftertouch threshold, and the continuous controller threshold.
+Software variables affected include the following:
+Key maximum threshold
+Key aftertouch maximum threshold
+Key minimum high threshold
+Key minimum low threshold
+CC activation threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+3Ah
+Get Board Threshold Values command byte 3Ah
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+3Ah
+Get Board Threshold Values command byte 3Ah
+6
+Response
+00h-04h
+Response status message
+7
+Min. High Threshold
+00-0Fh
+Upper nibble of the key minimum high threshold byte
+8
+Min. High Threshold
+00-0Fh
+Lower nibble of the key minimum high threshold byte
+9
+Min. Low Threshold
+00-0Fh
+Upper nibble of the key minimum low threshold byte
+10
+Min. Low Threshold
+00-0Fh
+Lower nibble of the key minimum low threshold byte
+11
+Maximum Threshold
+00-0Fh
+Upper nibble of the key maximum threshold byte
+12
+Maximum Threshold
+00-0Fh
+Lower nibble of the key maximum threshold byte
+13
+Aftertouch Threshold
+00-0Fh
+Upper nibble of the key aftertouch threshold byte
+14
+Aftertouch Threshold
+00-0Fh
+Lower nibble of the key aftertouch threshold byte
+15
+CC Threshold
+00-0Fh
+Upper nibble of the active CC threshold byte
+16
+CC Threshold
+00-0Fh
+Lower nibble of the active CC threshold byte
+17
+End SYSEX
+F7
+
+## 3B Get Board Sensitivity Values
+
+This command is used to retrieve the continuous controller and aftertouch sensitvity values of a particular board.
+Software variables affected include the following:
+Aftertcouh sensitivity
+Fader/CC sensitivity
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+3Bh
+Get Board Sensitivity Values command byte 3Bh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+3Bh
+Get Board Sensitivity Values command byte 3Bh
+6
+Response
+00h-04h
+Response status message
+7
+CC Sensitivity
+00-0Fh
+Upper nibble of the Continuous Controller sensitivity byte
+8
+CC Sensitivity
+00-0Fh
+Lower nibble of the Continuous Controller sensitivity byte
+9
+Aftertouch Sensitivity
+00-0Fh
+Upper nibble of the Aftertouch sensitivity byte
+10
+Aftertouch Sensitvity
+00-0Fh
+Lower nibble of the Aftertouch sensitivity byte
+11
+End SYSEX
+F7
+
+## 3C Set Peripheral Channels
+
+This command is used to set the channel values of the targeted onboard peripherals. Software variables affected include the following:
+Pitch Wheel Channel
+Modulation Wheel Channel
+Expression Pedal Channel
+Sustain Pedal Channel
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+3Ch
+Set Peripheral Channels command byte 3Ch
+6
+Pitch Wheel Channel
+00h-0Fh
+MIDI Channel to be used for pitch wheel
+7
+Mod. Wheel Channel
+00h-0Fh
+MIDI Channel to be used for modulation wheel
+8
+Expression Channel
+00h-0Fh
+MIDI Channel to be used for the expression pedal
+9
+Sustain Pedal Channel
+00h-0Fh
+MIDI Channel to be used for the sustain pedal
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+3Ch
+Set Peripheral Channels command byte 3Ch
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 3D Get Peripheral Channels
+
+This command is used to retrieve the channel values of the targeted onboard peripherals. Software variables affected include the following:
+Pitch Wheel Channel
+Modulation Wheel Channel
+Expression Pedal Channel
+Sustain Pedal Channel
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+3Dh
+Get Peripheral Channels command byte 3Dh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+3Dh
+Get Peripheral Channels command byte 3Dh
+6
+Response
+00h-04h
+Response status message
+7
+Pitch Wheel Channel
+00-0Fh
+MIDI Channel to be used for pitch wheel
+8
+Mod. Wheel Channel
+00-0Fh
+MIDI Channel to be used for modulation wheel
+9
+Expression Channel
+00-0Fh
+MIDI Channel to be used for expression pedal
+10
+Sustain Pedal Channel
+00-0Fh
+MIDI Channel to be used for sustain pedal
+11
+End SYSEX
+F7
+
+## 3E Peripheral Calibration Data
+
+This SYSEX message is used to send calibration data from the keyboard to software every 100ms. Sending this command to the keyboard will result in a NACK. See
+Peripheral Calibration Data
+for more details.
+Sent by the keyboard during expression pedal and pitch/mod wheel calibration. See
+Peripheral Calibration Data
+.
+
+## 3F Set Aftertouch Trigger Delay
+
+This command is used to set the aftertouch trigger delay value. The delay is the time between a note on event on a note configured key and aftertouch events occurring. The aftertouch trigger delay value uses a counter that increments every 15ms.
+Software variables affected include the following:
+Aftertouch Trigger Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+3Fh
+Set Aftertouch Trigger Delay byte 3Fh
+6
+Trigger Value
+00h-0Fh
+Upper nibble of the aftertouch trigger value
+7
+Trigger Value
+00h-0Fh
+Lower nibble of the aftertouch trigger value
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+3Fh
+Set Aftertouch Trigger Delay byte 3Fh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 40 Get Aftertouch Trigger Delay
+
+This command is used to retrieve the Aftertouch trigger delay value of a particular board.
+Software variables affected include the following:
+Aftertouch Trigger Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+40h
+Get Aftertouch Trigger Delay byte 40h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+40h
+Get Aftertouch Trigger Delay byte 40h
+6
+Response
+00h-04h
+Response status message
+7
+Pitch Wheel Channel
+00-0Fh
+Upper nibble of the aftertouch trigger value
+8
+Mod. Wheel Channel
+00-0Fh
+Lower nibble of the aftertouch trigger value
+11
+End SYSEX
+F7
+
+## 41 Set Lumatouch Note Off Delay
+
+This command is used to set the Lumatouch note off delay value. The delay is a count threshold timed every 1.1ms. The Lumatouch configured key will send a note off event only when the key remains released for the delayed amount of counts. Note that the maximum delay value that can be set is 2048, or 0x800.
+Software variables affected include the following:
+Lumatouch Note Off Delay Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+41h
+Set Lumatouch Note Off Delay byte 41h
+6
+Delay Value
+00h-08h
+Bits 11-8 of the Delay value
+7
+Delay Value
+00h-0Fh
+Bits 7-4 of the Delay value
+8
+Delay Value
+00h-0Fh
+Bits 3-0 of the Delay value
+9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+41h
+Set Lumatouch Note Off Delay byte 41h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 42 Get Lumatouch Note Off Delay
+
+This command is used to retrieve the Lumatouch Note Off delay value of a particular board.
+Software variables affected include the following:
+Lumatouch Note Off Delay Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+42h
+Get Lumatouch Note Off Delay byte 42h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+42h
+Get Lumatouch Note Off Delay byte 42h
+6
+Response
+00h-04h
+Response status message
+7
+Delay Value
+00-08h
+Bits 11-8 of the Delay value
+8
+Delay Value
+00-0Fh
+Bits 7-4 of the Delay value
+9
+Delay Value
+00-0Fh
+Bits 3-0 of the Delay value
+10
+End SYSEX
+F7
+
+## 43 Set Expression Pedal ADC Threshold
+
+This command is used to set the Expression pedal ADC threshold value. This value can range from 0-4095 and is used to reduce streaming MIDI expression pedal outputs due to rounding as a result of scaling down the read analog value to the MIDI range.
+Software variables affected include the following:
+Expression Pedal ADC Threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+43h
+Set Expression Pedal ADC Threshold byte 43h
+6
+Threshold Value
+00h-0Fh
+Bits 11-8 of the Threshold value
+7
+Threshold Value
+00h-0Fh
+Bits 7-4 of the Threshold value
+8
+Threshold Value
+00h-0Fh
+Bits 3-0 of the Threshold value
+9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+43h
+Set Expression Pedal ADC Threshold byte 43h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 44 Get Expression Pedal ADC Threshold
+
+This command is used to get the current expression pedal ADC threshold value. This value can range from 0-4095 and is used to reduce streaming MIDI expression pedal outputs due to rounding as a result of scaling down the read analog value to the MIDI range.
+Software variables affected include the following:
+Expression Pedal ADC Threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+44h
+Get Expression Pedal ADC Threshold byte 44h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+44h
+Get Expression Pedal ADC Threshold byte 44h
+6
+Response
+00h-04h
+Response status message
+7
+Threshold Value
+00-0Fh
+Bits 11-8 of the Threshold value
+8
+Threshold Value
+00-0Fh
+Bits 7-4 of the Threshold value
+9
+Threshold Value
+00-0Fh
+Bits 3-0 of the Threshold value
+10
+End SYSEX
+F7
+
+## 45 Invert Sustain Pedal
+
+This command is used to configure the on/off settings of the Sustain pedal. Using this command will configure the polarity of the Sustain pedal input.
+Software variables affected include the following:
+Sustain Pedal Inversion Flag
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller.
+5
+Command
+45h
+Invert Sustain Pedal command byte 45h
+6
+Polarity
+00h/01h
+00 = off; 01 = on
+7
+--
+XX
+8
+--
+XX
+9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+45h
+Invert Sustain Pedal command byte 45h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 46 Reset Default Presets
+
+This command is used to replace the user defined presets with the preset configurations found in the directory
+/home/debian/LumatoneController/defaults
+/. All ten user defined presets are replaced with the ten presets configured by Cortex Design. Variables and tables that are modified include the following:
+Key Channel Values (set with
+Set Key Parameters (00h)
+)
+Key Note or CC Values (set with
+Set Key Parameters (00h)
+)
+Key Operating Type (set with
+Set Key Parameters (00h)
+)
+CC Polarity Values (set with
+Set Key Parameters (00h)
+)
+LED Red Intensity Values (set with
+Set Key Light Parameters (01h)
+)
+LED Green Intensity Values (set with
+Set Key Light Parameters (01h)
+)
+LED Blue Intensity Values (set with
+Set Key Light Parameters (01h)
+)
+Velocity Look Up Table (set with
+Set Velocity Configuration (08h)
+)
+Velocity Interval Region Look Up Table (set with
+Set Velocity Intervals (20h)
+)
+Fader/CC Look Up Table (set with
+Set Fader Configuration (0Bh)
+)
+Aftertouch Look Up Table (set with
+Set Aftertouch Configuration (10h)
+)
+Expression Pedal Sensitivity (set with
+Set Expression Pedal Sensitivity (03h)
+)
+Expression Pedal Inversion Flag (set with
+Invert Expression Pedal (04h)
+)
+LED Key Interactivity Flag (set with
+Set Interaction Flag (07h)
+)
+Enable Aftertouch Flag (set with
+Set Aftertouch Flag (0Eh)
+)
+Sustain Pedal Inversion Flag (set with
+Invert Sustain Pedal (45h)
+)
+Lumatouch Look Up Table (set with
+Set LumaTouch Configuration (2Dh)
+)
+Pitch Wheel Channel (set with
+Set Peripheral Channels (3Ch)
+)
+Modulation Wheel Channel (set with
+Set Peripheral Channels (3Ch)
+)
+Expression Pedal Channel (set with
+Set Peripheral Channels (3Ch)
+)
+Sustain Pedal Channel (set with
+Set Peripheral Channels (3Ch)
+)
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller.
+5
+Command
+46h
+Reset Default Presets command byte 46h
+6
+Target Preset
+00h-0Ah
+00h-09h: target preset to restore default values
+0Ah: target all presets for default value restoration
+7
+--
+XX
+8
+--
+XX
+9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+5
+Command
+46h
+Reset Default Presets command byte 46h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 47 Get Preset Flags
+
+This command is used to read back the currently configured preset flags of the keyboard. These flags include the following: 1. Expression Pedal Inversion Flag, 2. LED Key Interactivity Flag, 3. Enable Aftertouch Flag, and 4. Sustain Pedal Inversion Flag. This command acts as the counterpart of the set flag SYSEX messages:
+Invert Expression Pedal (04h)
+,
+Set Interaction Flag (07h)
+,
+Set Aftertouch Flag (0Eh)
+and
+Invert Sustain Pedal (45h)
+respectively.
+Software variables affected include the following:
+Expression Pedal Inversion Flag
+LED Key Interactivity Flag
+Enable Aftertouch Flag
+Sustain Pedal Inversion Flag
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+47h
+Get Preset Flags command byte 47h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+48h
+Get Preset Flags command byte 47h
+6
+Response
+00h-04h
+Response status message
+7
+Flag
+00-01h
+Expression Pedal Inversion Flag
+8
+Flag
+00-01h
+LED Key Interaction Flag
+9
+Flag
+00-01h
+Enable Aftertouch Flag
+10
+Flag
+00-01h
+Sustain Pedal Inversion Flag
+11
+End SYSEX
+F7
+
+## 48 Get Expression Pedal Sensitivity
+
+This command is used to read back the currently configured expression pedal sensitivity of the keyboard. This command acts as the counterpart of the Set Expression Pedal Sensitivity SYSEX message found in
+Set Expression Pedal Sensitivity (03h)
+.
+Software variables affected include the following:
+Expression Pedal Sensitivity
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+48h
+Get Expression Pedal Sensitivity command byte 48h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+48h
+Get Expression Pedal Sensitivity command byte 48h
+6
+Response
+00h-04h
+Response status message
+7
+Sensitivity
+00h-7Fh
+Expression Pedal Sensitivity Value
+10
+End SYSEX
+F7
+
+## 49 Get Macro Light Intensity
+
+This command is used to read back the currently configured LED settings on the preset buttons when displayed as active. This command acts as the counterpart for both Set Macro Light On Configuration and Set Macro Light Off Configuration SYSEX messages:
+Set Macro Light On Configuration (05h)
+and
+Set Macro Light Off Configuration (06h)
+.
+Software variables affected include the following:
+Active macro LED red intensity value
+Active macro LED green intensity value
+Active macro LED blue intensity value
+Inactive macro LED red intensity value
+Inactive macro LED green intensity value
+Inactive macro LED blue intensity value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+49h
+Get Macro Light Intensity command byte 49h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+49h
+Get Macro Light Intensity command byte 49h
+6
+Response
+00h-04h
+Response status message
+7
+Red On
+00h-7Fh
+Upper nibble of Macro Light active red intensity
+8
+Red On
+00h-7Fh
+Lower nibble of Macro Light active red intensity
+9
+Green On
+00h-7Fh
+Upper nibble of Macro Light active green intensity
+10
+Green On
+00h-7Fh
+Lower nibble of Macro Light active green intensity
+11
+Blue On
+00h-7Fh
+Upper nibble of Macro Light active blue intensity
+12
+Blue On
+00h-7Fh
+Lower nibble of Macro Light active blue intensity
+13
+Red Off
+00h-7Fh
+Upper nibble of Macro Light inactive red intensity
+14
+Red Off
+00h-7Fh
+Lower nibble of Macro Light inactive red intensity
+15
+Green Off
+00h-7Fh
+Upper nibble of Macro Light inactive green intensity
+16
+Green Off
+00h-7Fh
+Lower nibble of Macro Light inactive green intensity
+17
+Blue Off
+00h-7Fh
+Upper nibble of Macro Light inactive blue intensity
+18
+Blue Off
+00h-7Fh
+Lower nibble of Macro Light inactive blue intensity
+19
+End SYSEX
+F7
+
+## 4A Reset Macro Light Intensity Settings
+
+This command is used to reset the currently configured LED settings for the preset buttons to the default setting defined in firmware. This command acts as a reset command for both Set Macro Light On Configuration and Set Macro Light Off Configuration SYSEX messages:
+Set Macro Light On Configuration (05h)
+and
+Set Macro Light Off Configuration (06h)
+.
+Software variables affected include the following:
+Active macro LED red intensity value
+Active macro LED green intensity value
+Active macro LED blue intensity value
+Inactive macro LED red intensity value
+Inactive macro LED green intensity value
+Inactive macro LED blue intensity value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+4Ah
+Reset Preset LED Intensity command byte 4Ah
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+4Ah
+Reset Preset LED Intensity command byte 4Ah
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 4B Reset Board Keys
+
+This command is used to reset the target board’s maximum, minimum, and aftertouch maximum bounds obtained from the calibration routines:
+Calibrate Aftertouch (0Fh)
+and
+Calibrate Keys (24h)
+. This will also reset the board’s key validity values to true as well.
+Software variables affected include the following:
+Key Maximum Bounds
+Key Minimum Bounds
+Key Validity
+Key Aftertouch Maximum Bounds
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+4Bh
+Reset Board Keys command byte 4Bh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+4Bh
+Reset Board Keys command byte 4Bh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 4C Reset Aftertouch Trigger Delay
+
+This command is used to reset the target board’s aftertouch trigger delay value set with
+Set Aftertouch Trigger Delay (3Fh)
+to the default value in firmware.
+Software variables affected include the following:
+Aftertouch Trigger Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+4Ch
+Reset Aftertouch Trigger Delay command byte 4Ch
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+4Ch
+Reset Aftertouch Trigger Delay command byte 4Ch
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 4D Reset Lumatouch Note Off Delay
+
+This command is used to reset the target board’s Lumatouch Note off delay value set with
+Set Lumatouch Note Off Delay (41h)
+to the default value in firmware.
+Software variables affected include the following:
+Lumatouch Note Off Delay Value
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+4Dh
+Reset Lumatouch Note Off Delay command byte 4Dh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+4Dh
+Reset Lumatouch Note Off Delay command byte 4Dh
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 4E Get Modulation and Pitch Wheel Bounds
+
+This command is used to retrieve the currently defined parameters used for pitch wheel value detection. These include the minimum, maximum, and center parameters set by
+Calibrate Pitch Mod Wheel (26h)
+; as well as the sensitivity and zero proximity threshold values set directly with
+Set Mod Wheel Sensitivity (27h)
+,
+Set Pitch Bend Sensitivity (28h)
+and
+Set Pitch Wheel Zero Threshold (37h)
+.
+Software variables affected include the following:
+Modulation wheel minimum
+Modulation wheel maximum
+Pitch wheel minimum
+Pitch wheel maximum
+Pitch wheel center
+Modulation wheel sensitivity
+Pitch wheel sensitivity
+Pitch wheel zero threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+4Eh
+Get Modulation and Pitch Wheel Bounds command byte 4Eh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+4Eh
+Get Modulation and Pitch Wheel Bounds command byte 4Eh
+6
+Response
+00h-04h
+Response status message
+7
+Mod Max
+00h-0Fh
+Bits 11-8 of the modulation wheel maximum value
+8
+Mod Max
+00h-0Fh
+Bits 7-4 of the modulation wheel maximum value
+9
+Mod Max
+00h-0Fh
+Bits 3-0 of the modulation wheel maximum value
+10
+Mod Min
+00h-0Fh
+Bits 11-8 of the modulation wheel minimum value
+11
+Mod Min
+00h-0Fh
+Bits 7-4 of the modulation wheel minimum value
+12
+Mod Min
+00h-0Fh
+Bits 3-0 of the modulation wheel minimum value
+13
+Pitch Max
+00h-0Fh
+Bits 11-8 of the pitch wheel maximum value
+14
+Pitch Max
+00h-0Fh
+Bits 7-4 of the pitch wheel maximum value
+15
+Pitch Max
+00h-0Fh
+Bits 3-0 of the pitch wheel maximum value
+16
+Pitch Min
+00h-0Fh
+Bits 11-8 of the pitch wheel minimum value
+17
+Pitch Min
+00h-0Fh
+Bits 7-4 of the pitch wheel minimum value
+18
+Pitch Min
+00h-0Fh
+Bits 3-0 of the pitch wheel minimum value
+19
+Pitch Center
+00h-0Fh
+Bits 11-8 of the pitch wheel center value
+20
+Pitch Center
+00h-0Fh
+Bits 7-4 of the pitch wheel center value
+21
+Pitch Center
+00h-0Fh
+Bits 3-0 of the pitch wheel center value
+22
+Mod Sens
+00h-7Fh
+Modulation wheel sensitivity value
+23
+Pitch Sens
+00h-7Fh
+Upper 7 bits of the 14 bit pitch wheel sensitivity value
+24
+Pitch Sens
+00h-7Fh
+Lower 7 bits of the 14 bit pitch wheel sensitivity value
+25
+Pitch Zero
+00h-7Fh
+Upper 7 bits of the 14 bit zero proximity threshold value
+26
+Pitch Zero
+00h-7Fh
+Lower 7 bits of the 14 bit zero proximity threshold value
+26
+End SYSEX
+F7
+
+## 4F Get Expression Pedal Bounds
+
+This command is used to retrieve the currently defined bounds used for expression pedal detection. These include the minimum and maximum parameters set by
+Calibrate Expression Pedal (38h)
+.
+Software variables affected include the following:
+Expression Pedal Minimum
+Expression Pedal Maximum
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+4Fh
+Get Expression Pedal Bounds command byte 4Fh
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Target board ID
+5
+Command
+4Fh
+Get Expression Pedal Bounds command byte 4Fh
+6
+Response
+00h-04h
+Response status message
+7
+Exp Max
+00h-0Fh
+Bits 11-8 of the expression pedal maximum value
+8
+Exp Max
+00h-0Fh
+Bits 7-4 of the expression pedal maximum value
+9
+Exp Max
+00h-0Fh
+Bits 3-0 of the expression pedal maximum value
+10
+Exp Min
+00h-0Fh
+Bits 11-8 of the expression pedal minimum value
+11
+Exp Min
+00h-0Fh
+Bits 7-4 of the expression pedal minimum value
+12
+Exp Min
+00h-0Fh
+Bits 3-0 of the expression pedal minimum value
+13
+End SYSEX
+F7
+
+## 50 Set Lumatouch Deactivation Threshold
+
+This command is used to set the proximate distance value from key’s minimum bound used to deactivate lumatouch keys when aftertouch is active for the target board. The threshold value can range from 0x00 to 0xFE.
+Software variables affected include the following:
+Lumatouch deactivation threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+50h
+Set Lumatouch Deactivation Threshold command byte 50h
+6
+Threshold
+00h-0Fh
+Upper nibble of the Lumatouch threshold byte value
+7
+Threhsold
+00h-0Fh
+Lower nibble of the Lumatouch threshold byte value
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01-05h
+Target board ID
+5
+Command
+50h
+Set Lumatouch Deactivation Threshold command byte 50h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 51 Get Lumatouch Deactivation Threshold
+
+This command is used to retrieve the proximate distance value from key’s absolute minimum value used to trigger activate and deactivate continuous controller keys for the target board.
+Software variables affected include the following:
+Lumatouch deactivation threshold
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01h-05h
+Target board ID
+5
+Command
+51h
+Get Lumatouch Deactivation Threshold command byte 51h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+01-05h
+Target board ID
+5
+Command
+51h
+Get Lumatouch Deactivation Threshold command byte 51h
+6
+Response
+00h-04h
+Response status message
+7
+Threshold
+00-0Fh
+Upper nibble of the Lumatouch threshold byte
+8
+Threshold
+00-0Fh
+Lower nibble of the Lumatouch threshold byte
+9
+End SYSEX
+F7
+
+## 52 Confirm Calibration
+
+This command saves or cancels a running key calibration (CMD 24h) or aftertouch calibration (CMD 0Fh) from software, exactly as pressing the green (save) or red (cancel) macro button on each board does. It is the only command accepted while the keyboard is in its Key or Aftertouch Calibration State. Each targeted board exits calibration and reports back as it does for a button press, and the keyboard returns to its normal operating state once all five boards have exited. Response 01h (ACK) means the command was passed to the targeted board(s); 00h (NACK) means no key or aftertouch calibration is running; 03h (ERROR) means an invalid board ID or action. Firmware older than 1.4.3 answers this command with 04h during calibration. Added in firmware 1.4.3.
+Software variables affected include the following:
+Key calibration or aftertouch calibration in progress
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h-05h
+00h = all boards, 01h-05h = one board
+5
+Command
+52h
+Confirm Calibration command byte 52h
+6
+Action
+00h-01h
+01h = save (green button), 00h = cancel (red button)
+7-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h-05h
+Board ID of the request
+5
+Command
+52h
+Confirm Calibration command byte 52h
+6
+Response
+00h-04h
+Response status message
+7
+End SYSEX
+F7
+
+## 53 Set Program Change
+
+This command sets how the preset buttons use MIDI Program Change, and saves the setting on the keyboard. With sending on, selecting a preset with the preset buttons sends a Program Change on the selected channel: preset 1 to 10 sends program number 00h to 09h, which MIDI software displays as Program 1 to 10. With receiving on, a Program Change received on the selected channel with program number 00h to 09h selects preset 1 to 10; received Program Changes are not sent back. Both are off by default. Added in firmware 1.5.0.
+Software variables affected include the following:
+Program Change send/receive setting and channel
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+53h
+Set Program Change command byte 53h
+6
+Flags
+00h-03h
+Bit 0: send a Program Change when a preset button selects a preset. Bit 1: select a preset when a Program Change is received. 00h = off
+7
+Channel
+00h-0Fh
+MIDI channel 1-16
+8-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+53h
+Set Program Change command byte 53h
+6
+Response
+00h-04h
+01h ACK; 03h ERROR for invalid flags or channel
+7
+End SYSEX
+F7
+
+## 54 Get Program Change
+
+This command reads the Program Change setting (see CMD 53h). Added in firmware 1.5.0.
+Software variables affected include the following:
+Program Change send/receive setting and channel
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+54h
+Get Program Change command byte 54h
+6-9
+--
+XX
+10
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h
+Main controller
+5
+Command
+54h
+Get Program Change command byte 54h
+6
+Response
+00h-04h
+Response status message
+7
+Flags
+00h-03h
+Bit 0 send, bit 1 receive
+8
+Channel
+00h-0Fh
+MIDI channel 1-16
+9
+End SYSEX
+F7
+
+## 55 Set Colours
+
+This command sets the colours of all 280 keys (board ID 00h) or of the 56 keys of one board (board ID 01h-05h) in a single message, for fast or animated lighting. Each colour value is 00h-7Fh; the keys show about 50 brightness levels per colour, so 7 bits lose nothing (7Fh is full brightness, as FEh is in Set Key RGB). The colours are not saved: they stay until a preset is selected (preset button, Program Change, or pressing the lit preset button again) or saved. While they are shown, the preset button lights are switched off. The keyboard answers only once every targeted board shows the new colours (about 20 ms for all 280 keys). Until then it answers every other SysEx message, including the next 55h, with 02h (BUSY) and ignores it. Sending the next frame when the answer arrives therefore runs at the rate the keys show, up to about 50 updates per second. Added in firmware 1.5.0.
+Software variables affected include the following:
+Key colours of the target board (not saved)
+TRANSMIT SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h-05h
+00h = all 280 keys; 01h-05h = one board
+5
+Command
+55h
+Set Colours command byte 55h
+6-...
+Colours
+00h-7Fh
+Red, green and blue of key 0, then key 1, up to key 55: 168 bytes for one octave (bytes 6-173). For board ID 00h: octave 1, then octaves 2 to 5, 840 bytes (bytes 6-845)
+174 or 846
+End SYSEX
+F7
+RESPONSE SYSEX MESSAGE
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Start SYSEX
+F0
+1-3
+Mfg ID
+00h, 21h, 50h
+4
+Board ID
+00h-05h
+Board ID of the request
+5
+Command
+55h
+Set Colours command byte 55h
+6
+Response
+00h-04h
+01h ACK when the keys show the colours; 02h BUSY while a previous message is in progress; 03h ERROR for an invalid board or message length
+7
+End SYSEX
+F7
+
+## Peripheral Calibration Data (3Eh)
+
+When the keyboard is performing calibration for the expression pedal or the pitch and modulation wheels, the
+Peripheral Calibration Data
+SYSEX message is sent from the keyboard roughly every 100ms. The format of the response SYSEX message is as follows:
+SYSEX Message Format
+BYTE
+0
+1
+2
+3
+4
+5
+6
+7-21
+22
+DESC
+START
+SYSEX
+Mfg ID1
+Mfg ID2
+Mfg ID3
+BOARD ID
+CMD
+MODE
+PAYLOAD
+END
+SYSEX
+VALUE
+F0
+00
+21
+50
+00
+3E
+00-01
+00-7F
+F7
+Start SYSEX
+Byte 0 is always value F0h to indicate the start of a SYSEX message.
+Mfg. ID1, ID2, ID3
+The manufacturer ID: Lumatone uses
+00h 21h 50h
+.
+BOARD ID
+The peripheral calibration message will always output with board ID 0x00.
+CMD
+SYSEX command byte 0x3E,
+Peripheral Calibration Data
+MODE
+The Mode field indicates which type of calibration the keyboard, and the message, is currently in.
+00h: Expression Pedal Calibration
+01h: Pitch and Modulation Wheel Calibration
+PAYLOAD
+This message will always contain a payload size of 15, regardless of which calibration mode the keyboard is currently in.
+END SYSEX
+The last byte is always value F7h to indicate the end of the SYSEX message.
+Expression Pedal Calibration Status Payload
+When the keyboard is currently in expression pedal calibration, it will output the peripheral calibration SYSEX message, with its mode field set to 00h.
+The payload of the message during this mode is configured as the following:
+PERIPHERAL CALIBRATION DATA SYSEX MESSAGE PAYLOAD
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Min bound
+00-0Fh
+Bits 11-8 of the raw minimum ADC value
+1
+Min bound
+00-0Fh
+Bits 7-4 of the raw ADC value
+2
+Min bound
+00-0Fh
+Bits 3-0 of the raw ADC value
+3
+Max bound
+00-0Fh
+Bits 11-8 of the raw ADC value
+4
+Max bound
+00-0Fh
+Bits 7-4 of the raw ADC value
+5
+Max bound
+00-0Fh
+Bits 3-0 of the raw ADC value
+6
+Valid
+00h,01h
+Boolean indicating whether or not the expression pedal has been unplugged during any point of the calibration process. If it has been unplugged, this field will be written as 00h. Otherwise, the field will be written as 01h. Note that if the expression pedal was unplugged at any point during the calibration, the calibration values will be ignored at the end of the calibration routine.
+7-14
+--
+XX
+Expression Pedal Calibration Status Payload
+When the keyboard is currently in pitch and modulation wheel calibration, it will output the peripheral calibration SYSEX message, with its mode field set to 01h.
+The payload of the message during this mode is configured as the following:
+PERIPHERAL CALIBRATION DATA SYSEX MESSAGE PAYLOAD
+Byte
+Field
+Bit Range (hex)
+Notes:
+0
+Center Pitch
+00-0Fh
+Bits 11-8 of the raw ADC value
+1
+Center Pitch
+00-0Fh
+Bits 7-4 of the raw ADC value
+2
+Center Pitch
+00-0Fh
+Bits 3-0 of the raw ADC value
+3
+Min Pitch
+00-0Fh
+Bits 11-8 of the raw ADC value
+4
+Min Pitch
+00-0Fh
+Bits 7-4 of the raw ADC value
+5
+Min Pitch
+00-0Fh
+Bits 3-0 of the raw ADC value
+6
+Max Pitch
+00-0Fh
+Bits 11-8 of the raw ADC value
+7
+Max Pitch
+00-0Fh
+Bits 7-4 of the raw ADC value
+8
+Max Pitch
+00-0Fh
+Bits 3-0 of the raw ADC value
+9
+Min Mod
+00-0Fh
+Bits 11-8 of the raw ADC value
+10
+Min Mod
+00-0Fh
+Bits 7-4 of the raw ADC value
+11
+Min Mod
+00-0Fh
+Bits 3-0 of the raw ADC value
+12
+Max Mod
+00-0Fh
+Bits 11-8 of the raw ADC value
+13
+Max Mod
+00-0Fh
+Bits 7-4 of the raw ADC value
+14
+Max Mod
+00-0Fh
+Bits 3-0 of the raw ADC value
+
+## Velocity Curve Mapping
+
+The Lumatone keyboard uses a time of flight methodology to determine the velocity instead of the conventional pressure sensor. Each board scans the ADC positioning of all its keys every 1.1 milliseconds. The board records how many intervals the key takes to travel between key release and depressed events. This is known as dwell ticks.
+The Lumatone keyboard uses two data arrays, the velocity look up table and the velocity interval table, to map the dwell ticks to the final midi output velocity during a Note event. These tables can be configured via the SYSEX commands 0x08h and 0x20h.
+When a Note event is being processed, the tick value is compared to the velocity interval table. The velocity interval table is a 127 12-bit array which determines the region where the dwell tick lies. Each 12-bit represents the maximum time of each region. Interval [0] represents the first node above 0ms while Interval [126] represents the last node before the maximum ticks which is 2048. Note that the data in the array must be configured with each such that index 0 contains the lowest amount of ticks and subsequent increments should be continue to be a greater value than the previous up to a number of 2047. A graphical representation of the velocity interval table is shown in Figure 1.
+0 ticks
+Interval[0]
+Interval[1]
+Interval[124]
+Interval[125]
+Interval[126]
+2048 ticks
+Region 0
+Region 1
+…
+Region 125
+Region 126
+Region 127
+Figure 1: Graphical Representation of the Velocity Interval Array
+Once the region index has been obtained from the velocity interval table, the region index is then put into the velocity look up table to obtain the final midi output value. A graphical representation of the velocity look up table is shown in Figure 2.
+127
+1
+Region 0
+Region 1
+Region 2
+Region 3
+…
+Region 125
+Region 126
+Region 127
+127
+126
+125
+124
+3
+2
+1
+● Example table from the examples below
+Region index
+MIDI output velocity
+Figure 2: Graphical Representation of the Velocity Lookup Table
+Velocity Mapping Examples
+The following two tables are used for the following examples to show how the dwell tick to velocity mapping is performed.
+Velocity Interval Table
+Index
+Interval[0]
+Interval[1]
+Interval[2]
+…
+Interval[123]
+Interval[124]
+Interval[125]
+Interval[126]
+Output
+11
+15
+20
+…
+470
+490
+510
+550
+Velocity Look Up Table
+Index
+LUT[0]
+LUT[1]
+LUT[2]
+…
+LUT[123]
+LUT[124]
+LUT[125]
+LUT[126]
+LUT[127]
+Output
+127
+126
+125
+…
+5
+4
+3
+2
+1
+Example 1
+A Note On event was triggered on Key 1 on board 1 with a recorded dwell tick value of 500. The dwell tick value is processed with the velocity interval table to determine the region index. The dwell tick value is compared to each Interval [i] value. Since the dwell tick value of the key is 500 and lies between [Interval [124]: Interval [125]], the region index is region 125.
+0 ticks
+Interval[0]
+Interval[1]
+Interval[124]
+Interval[125]
+Interval[126]
+2048 ticks
+Region 0
+Region 1
+…
+Region 125
+Region 126
+Region 127
+tick = 500
+The region index is then inputted into the velocity look up table. The output of LUT [125] is 3.
+The final MIDI velocity for the Note event triggered by board 1 key 1 is 3.
+Example 2
+A Note On event was triggered on Key 3 on board 1 with a recorded dwell tick value of 558. The dwell tick value is processed with the velocity interval table to determine the region index. The dwell tick value is compared to each Interval [i] value. Since the dwell tick value of the key is 558 is above Interval [126], the region index is 127.
+0 ticks
+Interval[0]
+Interval[1]
+Interval[124]
+Interval[125]
+Interval[126]
+2048 ticks
+Region 0
+Region 1
+…
+Region 125
+Region 126
+Region 127
+tick = 558
+The region index is then inputted into the velocity look up table. The output of LUT [127] is 1.
+The final MIDI velocity for the Note event triggered by board 1 key 3 is 1.

@@ -1,0 +1,16 @@
+[
+  {
+    "file": "Lumatone-v1.5.0.tgz",
+    "bytes": 562805,
+    "sha256": "17add68748bb22f85928533fa5838517b628f5112317cb0270e60c698be936fb",
+    "source": "https://www.lumatone.io/s/Lumatone-v150.zip",
+    "retrieved": "2026-11-08"
+  },
+  {
+    "file": "sysex-reference-1.5.0.json",
+    "bytes": 335429,
+    "sha256": "40e907494a50ed66dd076e52d3e6dbffe09b09f747a025502bb3c1ab40c3a607",
+    "source": "https://www.lumatone.io/s/lumatone-sysex-v8.js",
+    "retrieved": "2026-11-08"
+  }
+]

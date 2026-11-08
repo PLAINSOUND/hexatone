@@ -47,6 +47,7 @@ const IOSettings = ({
   onEnableLumatoneAutoSync,
   onProbeLumatoneConnection,
   lumatoneDriverReady,
+  lumatoneFirmwareVersion,
   onSaveAudioReport,
   onRecreateAudioContexts,
   onCycleAudioContexts,
@@ -121,6 +122,7 @@ const IOSettings = ({
         onEnableLumatoneAutoSync={onEnableLumatoneAutoSync}
         onProbeLumatoneConnection={onProbeLumatoneConnection}
         lumatoneDriverReady={lumatoneDriverReady}
+        lumatoneFirmwareVersion={lumatoneFirmwareVersion}
       />
       <MidiOutputs
         onChange={onChange}
