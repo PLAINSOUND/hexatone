@@ -70,6 +70,7 @@ export function panic(keys) {
   keys._wheelInputState.target = 8192;
 
   keys.state.sustain = false;
+  keys.state.spaceSustainHeld = false;
   keys.state.latch = false;
   if (keys.onLatchChange) keys.onLatchChange(false);
   keys._modulationState = cancelModulation(keys._modulationState, "panic");
@@ -95,6 +96,7 @@ export function releaseAllKeyboardNotes(keys) {
 }
 
 export function resetLatch(keys) {
+  keys.state.spaceSustainHeld = false;
   keys.state.sustain = false;
   keys.state.latch = false;
   if (keys.onLatchChange) keys.onLatchChange(false);

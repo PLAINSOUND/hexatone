@@ -79,14 +79,6 @@ function keyboardCoordsForCode(keys, code) {
   return new Point(kbRaw.x + kbOffset.x, kbRaw.y + kbOffset.y);
 }
 
-function canMomentarilyFlipHakenGlide(keys) {
-  if (keys.inputIsFocused()) return false;
-  if (keys.controller?.id !== "hakenaudio") return false;
-  if (!keys.inputRuntime?.mpeInput) return false;
-  const mode = keys.inputRuntime.hakenXGlideMode ?? "pitch_bending";
-  return mode === "raster_to_notes" || mode === "pitch_bending";
-}
-
 function findSustainedIndexAt(state, coords) {
   return state.sustainedNotes.findIndex(
     ([h]) => h.coords.x === coords.x && h.coords.y === coords.y,
@@ -156,20 +148,17 @@ export function onKeyDown(e) {
 }
 
 function keyDown(e) {
-  if (
-    e.code === "Space" &&
-    !e.repeat &&
-    !e.metaKey &&
-    !e.ctrlKey &&
-    !e.altKey &&
-    canMomentarilyFlipHakenGlide(this)
-  ) {
+  if (this.inputIsFocused()) return;
+
+  if (e.code === "Space" && !e.metaKey && !e.ctrlKey && !e.altKey) {
     e.preventDefault();
-    this._setHakenSpaceGlideFlip?.(true);
+    if (!e.repeat && !this.state.spaceSustainHeld) {
+      this.state.spaceSustainHeld = true;
+      this.sustainOn();
+      this.onLatchChange?.(true);
+    }
     return;
   }
-
-  if (this.inputIsFocused()) return;
 
   if (isPanicKeyEvent(e)) {
     e.preventDefault?.();
@@ -250,18 +239,13 @@ function keyDown(e) {
 }
 
 export function onKeyUp(e) {
-  if (
-    e.code === "Space" &&
-    !e.metaKey &&
-    !e.ctrlKey &&
-    !e.altKey &&
-    canMomentarilyFlipHakenGlide(this)
-  ) {
+  // Release a pedal we started even if focus, modifiers or input mode changed.
+  if (e.code === "Space" && this.state.spaceSustainHeld) {
     e.preventDefault();
-    this._setHakenSpaceGlideFlip?.(false);
+    this.state.spaceSustainHeld = false;
+    this.sustainOff(true, { releaseShiftLatches: true });
     return;
   }
-
   if ((e.code === "Escape" || e.code === "F8") && this.state.escHeld) {
     this.state.escHeld = false;
     return;
@@ -304,7 +288,7 @@ export function mouseUp(_e) {
     if (!this.state.sustain) this.hexOff(coords);
   }
 
-  if (!this.state.escHeld && this.state.sustain && !this.state.isTuneDragging) {
+  if (!this.state.escHeld && !this.state.spaceSustainHeld && this.state.sustain && !this.state.isTuneDragging) {
     this.sustainOff();
   }
 }
@@ -478,6 +462,10 @@ export function releaseActiveBrowserNotes() {
   this.state.isMouseDown = false;
   canvas?.removeEventListener("mousemove", this.mouseActive);
   this.releaseAllKeyboardNotes?.();
+  if (this.state.spaceSustainHeld) {
+    this.state.spaceSustainHeld = false;
+    this.sustainOff(true, { releaseShiftLatches: true });
+  }
 }
 
 export async function handleTouch(e) {

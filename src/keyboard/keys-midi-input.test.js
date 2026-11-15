@@ -869,6 +869,179 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.escHeld).toBe(false);
   });
 
+  it.each(["keyboard", "shift-keyboard", "canvas"])(
+    "keeps Shift-latched notes releasable by %s after the on-screen sustain is toggled",
+    (releaseSource) => {
+      const keys = createKeys();
+      keys.typing = true;
+      keys.settings.keyCodeToCoords = { KeyH: new Point(0, 0) };
+      const noteOff = vi.fn();
+      const hex = { coords: new Point(0, 0), cents: 0, noteOff };
+      keys.hexOn = vi.fn(() => hex);
+      keys.drawHex = vi.fn();
+      keys.hexOff = vi.fn();
+      const event = { code: "KeyH", shiftKey: true, preventDefault: vi.fn() };
+      keys.onKeyDown(event);
+      keys.onKeyUp(event);
+
+      // The on-screen button uses latchToggle. Repeated pedal cycles must not
+      // discard the per-note latch or turn it into an unreachable held voice.
+      for (let cycle = 0; cycle < 2; cycle++) {
+        keys.latchToggle();
+        keys.latchToggle();
+        expect(noteOff).not.toHaveBeenCalled();
+        expect(keys.state.sustainedNotes).toEqual([[hex, 0]]);
+        expect(keys.state.sustainedCoords.has("0,0")).toBe(true);
+      }
+
+      if (releaseSource === "canvas") {
+        keys.getPointerPosition = () => new Point(0, 0);
+        keys.getHexCoordsAt = () => hex.coords;
+        keys.mouseActive({});
+      } else {
+        keys.onKeyDown({ ...event, shiftKey: releaseSource === "shift-keyboard" });
+        keys.onKeyUp(event);
+      }
+      expect(noteOff).toHaveBeenCalledExactlyOnceWith(0);
+      expect(keys.state.sustainedNotes).toEqual([]);
+      expect(keys.state.sustainedCoords.size).toBe(0);
+      expect(keys.state.activeKeyboard.size).toBe(0);
+      expect(keys.state.shiftSustainedKeys.size).toBe(0);
+      expect(keys.state.pressedKeys.size).toBe(0);
+      expect(keys.state.activeMouse).toBeNull();
+    },
+  );
+
+  it.each([false, true])(
+    "releases pedal-held MIDI notes while preserving a Shift latch (pedal first: %s)",
+    (pedalFirst) => {
+      const keys = createKeys();
+      keys.typing = true;
+      keys.settings.keyCodeToCoords = { KeyH: new Point(0, 0) };
+      keys.hexOn = vi.fn((coords) => ({ coords, cents: 0, noteOff: vi.fn() }));
+      keys.drawHex = vi.fn();
+      keys.hexOff = vi.fn();
+      const event = { code: "KeyH", shiftKey: true, preventDefault: vi.fn() };
+      if (pedalFirst) keys.latchToggle();
+      keys.onKeyDown(event);
+      const shiftHex = keys.state.activeKeyboard.get("KeyH");
+      if (!pedalFirst) keys.latchToggle();
+
+      keys.midinoteOn(makeMidiEvent(61));
+      const midiHex = keys.state.activeMidi.get(61);
+      keys.midinoteOff(makeMidiEvent(61, 1, 96, 55));
+      // Pedal-up while the Shift-latched keyboard key is still physically down.
+      keys.latchToggle();
+      keys.onKeyUp(event);
+
+      expect(midiHex.noteOff).toHaveBeenCalledExactlyOnceWith(55);
+      expect(shiftHex.noteOff).not.toHaveBeenCalled();
+      expect(keys.state.sustainedNotes).toEqual([[shiftHex, 0]]);
+      expect(keys.state.latch).toBe(false);
+      expect(keys.state.sustain).toBe(false);
+      keys.onKeyDown({ ...event, shiftKey: false });
+      keys.onKeyUp(event);
+      expect(shiftHex.noteOff).toHaveBeenCalledExactlyOnceWith(0);
+      expect(keys.state.sustainedNotes).toEqual([]);
+      expect(keys.state.activeKeyboard.size).toBe(0);
+    },
+  );
+
+  it.each([false, true])(
+    "Space lights sustain while pressed and releases MIDI and Shift latches (global latch: %s)",
+    (globalLatch) => {
+      const keys = createKeys();
+      keys.typing = true;
+      keys.settings.keyCodeToCoords = { KeyH: new Point(0, 0) };
+      keys.hexOn = vi.fn((coords) => ({ coords, cents: 0, noteOff: vi.fn() }));
+      keys.drawHex = vi.fn();
+      keys.hexOff = vi.fn();
+      keys.onLatchChange = vi.fn();
+      const noteEvent = { code: "KeyH", shiftKey: true, preventDefault: vi.fn() };
+      keys.onKeyDown(noteEvent);
+      keys.onKeyUp(noteEvent);
+      const shiftHex = keys.state.activeKeyboard.get("KeyH");
+      if (globalLatch) keys.latchToggle();
+      keys.midinoteOn(makeMidiEvent(61));
+      const midiHex = keys.state.activeMidi.get(61);
+
+      const space = { code: "Space", preventDefault: vi.fn() };
+      keys.onKeyDown(space);
+      keys.onKeyDown({ ...space, repeat: true });
+      expect(space.preventDefault).toHaveBeenCalledTimes(2);
+      expect(keys.state.spaceSustainHeld).toBe(true);
+      expect(keys.state.sustain).toBe(true);
+      expect(keys.onLatchChange).toHaveBeenLastCalledWith(true);
+      keys.midinoteOff(makeMidiEvent(61, 1, 96, 55));
+      // MIDI pedal-up cannot cancel a still-depressed computer pedal.
+      keys.sustainOff();
+      expect(keys.state.sustain).toBe(true);
+      expect(shiftHex.noteOff).not.toHaveBeenCalled();
+      expect(midiHex.noteOff).not.toHaveBeenCalled();
+
+      // A focus/modifier change must not swallow the matching pedal-up.
+      keys.inputIsFocused = () => true;
+      keys.typing = false;
+      keys.onKeyUp({ ...space, metaKey: true });
+      expect(shiftHex.noteOff).toHaveBeenCalledExactlyOnceWith(0);
+      expect(midiHex.noteOff).toHaveBeenCalledExactlyOnceWith(55);
+      expect(keys.state.sustain).toBe(false);
+      expect(keys.state.latch).toBe(false);
+      expect(keys.state.spaceSustainHeld).toBe(false);
+      expect(keys.onLatchChange).toHaveBeenLastCalledWith(false);
+      expect(keys.state.sustainedNotes).toEqual([]);
+      expect(keys.state.sustainedCoords.size).toBe(0);
+      expect(keys.state.shiftSustainedKeys.size).toBe(0);
+      expect(keys.state.activeKeyboard.size).toBe(0);
+    },
+  );
+
+  it("Space-up clears a physically held key's Shift latch and lets its normal key-up release it", () => {
+    const keys = createKeys();
+    keys.typing = true;
+    keys.settings.keyCodeToCoords = { KeyH: new Point(0, 0) };
+    const hex = { coords: new Point(0, 0), cents: 0, noteOff: vi.fn() };
+    keys.hexOn = vi.fn(() => hex);
+    keys.drawHex = vi.fn();
+    keys.hexOff = vi.fn();
+    const space = { code: "Space", preventDefault: vi.fn() };
+    const note = { code: "KeyH", shiftKey: true, preventDefault: vi.fn() };
+    keys.onKeyDown(space);
+    keys.onKeyDown(note);
+    keys.onKeyUp(space);
+    expect(hex.noteOff).not.toHaveBeenCalled();
+    expect(keys.state.shiftSustainedKeys.size).toBe(0);
+    expect(keys.state.sustainedNotes).toEqual([]);
+    expect(keys.state.activeKeyboard.get("KeyH")).toBe(hex);
+    keys.onKeyUp(note);
+    expect(hex.noteOff).toHaveBeenCalledExactlyOnceWith(0);
+    expect(keys.state.activeKeyboard.size).toBe(0);
+  });
+
+  it("releases Space sustain and its indicator when browser input is interrupted", () => {
+    const keys = createKeys();
+    keys.onLatchChange = vi.fn();
+    keys.onKeyDown({ code: "Space", preventDefault: vi.fn() });
+    keys.releaseActiveBrowserNotes();
+    expect(keys.state.spaceSustainHeld).toBe(false);
+    expect(keys.state.sustain).toBe(false);
+    expect(keys.onLatchChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("leaves focused text fields and modified Space shortcuts alone", () => {
+    const keys = createKeys();
+    const space = { code: "Space", preventDefault: vi.fn() };
+    keys.inputIsFocused = () => true;
+    keys.onKeyDown(space);
+    keys.inputIsFocused = () => false;
+    keys.onKeyDown({ ...space, metaKey: true });
+    keys.onKeyDown({ ...space, ctrlKey: true });
+    keys.onKeyDown({ ...space, altKey: true });
+    expect(keys.state.spaceSustainHeld).toBe(false);
+    expect(keys.state.sustain).toBe(false);
+    expect(space.preventDefault).not.toHaveBeenCalled();
+  });
+
   it("lets a canvas click release a note latched with Shift on the computer keyboard", () => {
     const createdHexes = [];
     const synth = {
@@ -3543,75 +3716,22 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.activeMidi.get(60)).toBe(newHex);
   });
 
-  it("momentarily flips Continuum Rastered Attack + Pitch Bend and Rastered Notes modes with the space bar", () => {
+  it("uses Space for sustain without changing Continuum glide mode or its pedal flip", () => {
     const keys = createKeys(
       { midiin_controller_override: "hakenaudio" },
-      {
-        target: "hex_layout",
-        mpeInput: true,
-        hakenXGlideMode: "pitch_bending",
-      },
+      { target: "hex_layout", mpeInput: true, hakenXGlideMode: "pitch_bending" },
     );
     keys.controller = { id: "hakenaudio" };
-    const hex = { release: false };
-    const entry = { hex, baseCents: 0, hexes: new Set([hex]) };
-    keys.state.activeMidiByChannel.set(5, entry);
-    keys._mpeInputBendByChannel.set(5, 10240);
-    const bendSpy = vi.spyOn(keys, "_applyMpePitchBend").mockImplementation(() => {});
-
-    keys.onKeyDown({
-      code: "Space",
-      repeat: false,
-      metaKey: false,
-      ctrlKey: false,
-      altKey: false,
-      preventDefault: vi.fn(),
-    });
-
-    expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(true);
-    expect(bendSpy).not.toHaveBeenCalled();
-
-    keys.onKeyUp({
-      code: "Space",
-      metaKey: false,
-      ctrlKey: false,
-      altKey: false,
-      preventDefault: vi.fn(),
-    });
-
-    expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(false);
-    expect(bendSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it("momentarily flips Continuum glide mode with a learned pedal CC and cancels the flip when pedal and space are both held", () => {
-    const keys = createKeys(
-      { midiin_controller_override: "hakenaudio" },
-      {
-        target: "hex_layout",
-        mpeInput: true,
-        hakenXGlideMode: "pitch_bending",
-      },
-    );
-    keys.controller = { id: "hakenaudio" };
-    const bendSpy = vi.spyOn(keys, "_applyMpePitchBend").mockImplementation(() => {});
-    const hex = { release: false };
-    const entry = { hex, baseCents: 0, hexes: new Set([hex]) };
-    keys.state.activeMidiByChannel.set(5, entry);
-    keys._mpeInputBendByChannel.set(5, 10240);
-
-    keys._setHakenPedalGlideFlip(true);
-    expect(keys.inputRuntime.hakenPedalGlideFlip).toBe(true);
-    expect(bendSpy).toHaveBeenCalledTimes(0);
-
-    keys._setHakenSpaceGlideFlip(true);
-    expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(true);
+    const event = { code: "Space", preventDefault: vi.fn() };
+    keys.onKeyDown(event);
+    expect(keys.state.sustain).toBe(true);
     expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("pitch_bending");
-
-    keys._setHakenSpaceGlideFlip(false);
+    keys._setHakenPedalGlideFlip(true);
     expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("raster_to_notes");
-
+    keys.onKeyUp(event);
+    expect(keys.state.sustain).toBe(false);
+    expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("raster_to_notes");
     keys._setHakenPedalGlideFlip(false);
-    expect(keys.inputRuntime.hakenPedalGlideFlip).toBe(false);
     expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("pitch_bending");
   });
 
@@ -3674,7 +3794,7 @@ describe("Keys MIDI input integration", () => {
       },
     );
     keys.controller = { id: "hakenaudio" };
-    keys.inputRuntime.hakenSpaceGlideFlip = true;
+    keys.inputRuntime.hakenPedalGlideFlip = true;
     const hex = {
       coords: new Point(3, 0),
       cents: 300,
@@ -3694,15 +3814,9 @@ describe("Keys MIDI input integration", () => {
     keys._mpeInputBendByChannel.set(5, 8704);
     keys.hexCoordsToCents = vi.fn(() => [300, 0, 2]);
 
-    keys.onKeyUp({
-      code: "Space",
-      metaKey: false,
-      ctrlKey: false,
-      altKey: false,
-      preventDefault: vi.fn(),
-    });
+    keys._setHakenPedalGlideFlip(false);
 
-    expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(false);
+    expect(keys.inputRuntime.hakenPedalGlideFlip).toBe(false);
     expect(hex._scaleModeBendAnchor14).toBe(8704);
     expect(hex._continuumPitchAnchor14).toBe(8704);
     expect(hex._continuumPitchAnchorSteps).toBe(2);
@@ -3726,7 +3840,7 @@ describe("Keys MIDI input integration", () => {
       },
     );
     keys.controller = { id: "hakenaudio" };
-    keys.inputRuntime.hakenSpaceGlideFlip = true;
+    keys.inputRuntime.hakenPedalGlideFlip = true;
     const hex = {
       coords: new Point(1, 0),
       cents: 300,
@@ -3744,15 +3858,9 @@ describe("Keys MIDI input integration", () => {
     keys._mpeInputBendByChannel.set(5, 12288); // current rastered note is already offset
     keys.hexCoordsToCents = vi.fn(() => [300, 0, 2]);
 
-    keys.onKeyUp({
-      code: "Space",
-      metaKey: false,
-      ctrlKey: false,
-      altKey: false,
-      preventDefault: vi.fn(),
-    });
+    keys._setHakenPedalGlideFlip(false);
 
-    expect(keys.inputRuntime.hakenSpaceGlideFlip).toBe(false);
+    expect(keys.inputRuntime.hakenPedalGlideFlip).toBe(false);
     expect(hex._continuumPitchAnchor14).toBe(12288);
     expect(hex._continuumPitchAnchorSteps).toBe(2);
     expect(hex.retune).not.toHaveBeenCalled();
@@ -3806,7 +3914,7 @@ describe("Keys MIDI input integration", () => {
     };
     keys.hexOn = vi.fn(() => newHex);
 
-    keys._setHakenSpaceGlideFlip(true);
+    keys._setHakenPedalGlideFlip(true);
 
     expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("raster_to_notes");
     expect(oldHex._continuumRasterPendingHandoff).toBe(true);
@@ -3884,7 +3992,7 @@ describe("Keys MIDI input integration", () => {
     };
     keys.hexOn = vi.fn(() => newHex);
 
-    keys._setHakenSpaceGlideFlip(true);
+    keys._setHakenPedalGlideFlip(true);
     keys._applyMpePitchBend(entry, 5, 9800);
 
     expect(oldHex.noteOff).not.toHaveBeenCalled();
@@ -3950,7 +4058,7 @@ describe("Keys MIDI input integration", () => {
     };
     keys.hexOn = vi.fn(() => newHex);
 
-    keys._setHakenSpaceGlideFlip(true);
+    keys._setHakenPedalGlideFlip(true);
     expect(oldHex._continuumRasterEntryTargetFloat).toBeCloseTo(
       applyContinuumPitchShape(8 * ((12600 - 8192) / 8192), keys.inputRuntime),
       5,
@@ -4019,7 +4127,7 @@ describe("Keys MIDI input integration", () => {
     };
     keys.hexOn = vi.fn(() => newHex);
 
-    keys._setHakenSpaceGlideFlip(true);
+    keys._setHakenPedalGlideFlip(true);
     keys._applyMpePitchBend(entry, 5, 12000);
 
     expect(keys.hexOn).not.toHaveBeenCalled();
@@ -4076,10 +4184,10 @@ describe("Keys MIDI input integration", () => {
     keys.hexOn = vi.fn();
     keys.coordResolver.coordForSteps = vi.fn((steps) => new Point(steps, 0));
 
-    keys._setHakenSpaceGlideFlip(true);
+    keys._setHakenPedalGlideFlip(true);
     expect(oldHex._continuumRasterPendingHandoff).toBe(true);
 
-    keys._setHakenSpaceGlideFlip(false);
+    keys._setHakenPedalGlideFlip(false);
 
     expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("pitch_bending");
     expect(oldHex._continuumRasterPendingHandoff).toBe(false);
@@ -4104,7 +4212,7 @@ describe("Keys MIDI input integration", () => {
         mpeInput: true,
         scaleBendRange: 8,
         hakenXGlideMode: "pitch_bending",
-        hakenSpaceGlideFlip: true,
+        hakenPedalGlideFlip: true,
         hakenRasterStability: 0,
         hakenRasterThrottleMs: 0,
         hakenRasterFilterMode: "filter",
@@ -4145,7 +4253,7 @@ describe("Keys MIDI input integration", () => {
     };
     keys.hexOn = vi.fn(() => newHex);
 
-    keys._setHakenSpaceGlideFlip(false);
+    keys._setHakenPedalGlideFlip(false);
 
     expect(resolveHakenXGlideMode(keys.inputRuntime)).toBe("pitch_bending");
     expect(oldHex._continuumRasterPendingExitHandoff).toBe(true);
@@ -4202,7 +4310,7 @@ describe("Keys MIDI input integration", () => {
     keys.coordResolver.rememberCoordsForInputAddress = vi.fn();
     keys.hexOn = vi.fn();
 
-    keys._setHakenSpaceGlideFlip(true);
+    keys._setHakenPedalGlideFlip(true);
     keys._applyMpePitchBend(entry, 5, 8500);
 
     expect(oldHex.retune).toHaveBeenCalledTimes(1);

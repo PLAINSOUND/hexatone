@@ -364,10 +364,24 @@ export function noteOff(keys, hex, release_velocity) {
   keys._emitLiveNoteDisplayState();
 }
 
-export function sustainOff(keys, force = false) {
+export function sustainOff(keys, force = false, { releaseShiftLatches = false } = {}) {
+  if (keys.state.spaceSustainHeld) return;
   if (keys.state.latch && !force) return;
   if (keys.state.latch) keys.state.latch = false;
   keys.state.sustain = false;
+  if (releaseShiftLatches) {
+    for (const code of keys.state.shiftSustainedKeys) {
+      // Keep physically depressed keys owned until their normal key-up.
+      if (!keys.state.pressedKeys.has(code)) keys.state.activeKeyboard.delete(code);
+    }
+    keys.state.shiftSustainedKeys.clear();
+  }
+  // Shift latches are independent of the global pedal. Their keyboard owners
+  // survive pedal-up, so retain their sustained entries too: the next explicit
+  // keyboard/canvas toggle needs those entries to send the matching note-off.
+  const shiftLatchedHexes = new Set(
+    [...keys.state.shiftSustainedKeys].map((code) => keys.state.activeKeyboard.get(code)),
+  );
   const notesToRelease = clearSustainedHexes(keys.state);
   if (
     keys._deferredBulkMapRefresh &&
@@ -379,6 +393,11 @@ export function sustainOff(keys, force = false) {
   for (let note = 0; note < notesToRelease.length; note++) {
     const hex = notesToRelease[note][0];
     const [cents, pressed_interval] = keys.hexCoordsToCents(hex.coords);
+    if (shiftLatchedHexes.has(hex)) {
+      addSustainedHex(keys.state, hex, notesToRelease[note][1]);
+      keys._drawSoundingHex(hex);
+      continue;
+    }
     if (keys._isHexActivelyHeld(hex)) {
       keys._drawSoundingHex(hex);
       continue;

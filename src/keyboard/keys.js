@@ -2005,7 +2005,6 @@ class Keys {
     });
     if (previousRouteKey !== nextRouteKey) this.allnotesOff({ disconnect: true });
     if (nextRuntime) {
-      nextRuntime.hakenSpaceGlideFlip = !!this.inputRuntime?.hakenSpaceGlideFlip;
       nextRuntime.hakenPedalGlideFlip = !!this.inputRuntime?.hakenPedalGlideFlip;
       this.inputRuntime = nextRuntime;
       if (this.coordResolver) this.coordResolver.inputRuntime = nextRuntime;
@@ -2523,7 +2522,7 @@ class Keys {
       const bend14 = this._mpeInputBendByChannel.get(channel);
       if (!entry?.hex || entry.hex.release || bend14 == null || !entry.hex.coords) continue;
       // Both selected modes are effectively pitch-bending during attack
-      // suppression. Pedal/space changes must not initiate a raster exit here.
+      // suppression. Pedal changes must not initiate a raster exit here.
       if (Date.now() < entry.hex._rasterAttackSuppressionUntil) {
         entry.hex._continuumRasterPendingHandoff = false;
         entry.hex._continuumRasterPendingExitHandoff = false;
@@ -2549,20 +2548,6 @@ class Keys {
       entry.hex._continuumRasterEntryTargetFloat = null;
       entry.hex._continuumRasterPendingExitHandoff = true;
       entry.hex._continuumRasterExitTargetSteps = null;
-    }
-  }
-
-  _setHakenSpaceGlideFlip(active) {
-    if (this.controller?.id !== "hakenaudio" || !this.inputRuntime.mpeInput) {
-      this.inputRuntime.hakenSpaceGlideFlip = active;
-      return;
-    }
-    const previousMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
-    this.inputRuntime.hakenSpaceGlideFlip = active;
-    const nextMode = InputExpressionRuntime.resolveHakenXGlideMode(this.inputRuntime);
-    this._handleHakenGlideModeTransition(previousMode, nextMode);
-    if (!(previousMode !== "raster_to_notes" && nextMode === "raster_to_notes")) {
-      this._refreshHakenGlideModeForActiveNotes();
     }
   }
 
@@ -2605,8 +2590,8 @@ class Keys {
     return LiveHexRuntime.noteOff(this, hex, release_velocity);
   }
 
-  sustainOff(force = false) {
-    return LiveHexRuntime.sustainOff(this, force);
+  sustainOff(force = false, options = {}) {
+    return LiveHexRuntime.sustainOff(this, force, options);
   }
 
   sustainOn() {

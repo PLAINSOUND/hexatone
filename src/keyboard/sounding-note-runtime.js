@@ -19,6 +19,7 @@ export function createSoundingNoteState() {
     sustainedNotes: [],
     sustainedCoords: new Set(),
     escHeld: false,
+    spaceSustainHeld: false,
     isTuneDragging: false,
     pressedKeys: new Set(),
     shiftSustainedKeys: new Set(),
