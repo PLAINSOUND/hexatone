@@ -57,6 +57,7 @@ export default defineConfig([
       globals: {
         AudioWorkletProcessor: 'readonly',
         sampleRate: 'readonly',
+        currentFrame: 'readonly',
         registerProcessor: 'readonly',
       },
     },

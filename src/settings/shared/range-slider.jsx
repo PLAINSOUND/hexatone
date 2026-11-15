@@ -13,6 +13,7 @@ function clamp(value, min, max) {
 }
 
 function snapToStep(value, min, step) {
+  if (typeof step === "function") step = step(value);
   if (!Number.isFinite(step) || step <= 0) return value;
   const steps = Math.round((value - min) / step);
   return min + steps * step;
@@ -26,6 +27,8 @@ export default function CustomRangeSlider({
   value,
   disabled = false,
   defaultValue,
+  exponent = 1,
+  knee,
   onInputValue,
   onCommitValue,
 }) {
@@ -37,7 +40,10 @@ export default function CustomRangeSlider({
 
   const safeMin = Number(min);
   const safeMax = Number(max);
-  const safeStep = Number(step);
+  const safeStep = typeof step === "function" ? step : Number(step);
+  const safeExponent = Number.isFinite(exponent) && exponent > 0 ? exponent : 1;
+  const hasKnee = knee && knee.value > safeMin && knee.value < safeMax &&
+    knee.position > 0 && knee.position < 1;
   const clampedValue = useMemo(
     () => clamp(Number.isFinite(defaultValue) && Number(value) === defaultValue
       ? defaultValue : snapToStep(Number(value), safeMin, safeStep), safeMin, safeMax),
@@ -57,7 +63,11 @@ export default function CustomRangeSlider({
     const rect = trackRef.current?.getBoundingClientRect?.();
     if (!rect || rect.width <= 0) return clampedValue;
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const raw = safeMin + ratio * (safeMax - safeMin);
+    const raw = hasKnee
+      ? ratio <= knee.position
+        ? safeMin + ratio / knee.position * (knee.value - safeMin)
+        : knee.value + (ratio - knee.position) / (1 - knee.position) * (safeMax - knee.value)
+      : safeMin + ratio ** safeExponent * (safeMax - safeMin);
     if (!Number.isFinite(defaultValue)) return raw;
     const offset = raw - defaultValue;
     const extent = offset < 0 ? defaultValue - safeMin : safeMax - defaultValue;
@@ -102,8 +112,10 @@ export default function CustomRangeSlider({
   const handleKeyDown = (event) => {
     if (disabled) return;
     let nextValue = clampedValue;
-    if (event.key === "ArrowLeft" || event.key === "ArrowDown") nextValue -= safeStep || 1;
-    else if (event.key === "ArrowRight" || event.key === "ArrowUp") nextValue += safeStep || 1;
+    const direction = event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1 : 1;
+    const keyStep = typeof safeStep === "function" ? safeStep(clampedValue + direction * 1e-6) : safeStep;
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") nextValue -= keyStep || 1;
+    else if (event.key === "ArrowRight" || event.key === "ArrowUp") nextValue += keyStep || 1;
     else if (event.key === "Home") nextValue = safeMin;
     else if (event.key === "End") nextValue = safeMax;
     else return;
@@ -112,7 +124,12 @@ export default function CustomRangeSlider({
     commitNumericValue(nextValue, true);
   };
 
-  const percent = ((clampedValue - safeMin) / (safeMax - safeMin)) * 100;
+  const position = hasKnee
+    ? clampedValue <= knee.value
+      ? (clampedValue - safeMin) / (knee.value - safeMin) * knee.position
+      : knee.position + (clampedValue - knee.value) / (safeMax - knee.value) * (1 - knee.position)
+    : ((clampedValue - safeMin) / (safeMax - safeMin)) ** (1 / safeExponent);
+  const percent = position * 100;
 
   return (
     <div
@@ -145,10 +162,12 @@ CustomRangeSlider.propTypes = {
   ariaLabel: PropTypes.string,
   min: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
   max: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-  step: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  step: PropTypes.oneOfType([PropTypes.number, PropTypes.string, PropTypes.func]),
   value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
   disabled: PropTypes.bool,
   defaultValue: PropTypes.number,
+  exponent: PropTypes.number,
+  knee: PropTypes.shape({ value: PropTypes.number.isRequired, position: PropTypes.number.isRequired }),
   onInputValue: PropTypes.func,
   onCommitValue: PropTypes.func,
 };

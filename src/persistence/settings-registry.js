@@ -373,6 +373,19 @@ export const SETTINGS_REGISTRY = [
   // { key: '${controllerId}_anchor',         tier: 'local', type: 'int' },
   // { key: '${controllerId}_anchor_channel', tier: 'local', type: 'int' },
 
+  // ── Polyphonic DSF oscillator ─────────────────────────────────────────────
+  { key: "output_dsf", tier: "session", type: "bool", default: true},
+  { key: "dsf_partials", tier: "local", type: "int", default: 1024, perController: false },
+  { key: "dsf_timbre", tier: "local", type: "float", default: 0.25, perController: false },
+  { key: "dsf_attack", tier: "local", type: "float", default: 10, perController: false },
+  { key: "dsf_release", tier: "local", type: "float", default: 120, perController: false },
+  { key: "dsf_volume", tier: "local", type: "float", default: 0.25, perController: false },
+  { key: "dsf_velocity", tier: "local", type: "bool", default: true, perController: false },
+  { key: "dsf_pressure", tier: "local", type: "bool", default: true, perController: false },
+  { key: "dsf_timbreResponse", tier: "local", type: "bool", default: true, perController: false },
+  { key: "dsf_generateYZ", tier: "local", type: "bool", default: false, perController: false },
+  { key: "dsf_iso226", tier: "local", type: "bool", default: true, perController: false },
+
   // ── Sample synth ─────────────────────────────────────────────────────────────
   { key: "output_sample", tier: "url", type: "bool", default: true },
   { key: "instrument", tier: "url", type: "string", default: "WMRIByzantineST" },

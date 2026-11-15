@@ -21,6 +21,7 @@ import { create_composite_synth } from "../composite_synth";
 import { create_osc_synth } from "../osc_synth";
 import { peekFluidSynthEngine } from "../fluidsynth_synth/index.js";
 import { traceAudioImport } from "../audio/runtime-diagnostics.js";
+import { dsfControlsFromSettings } from "../dsf_synth/controls.js";
 import { readSampleVolume } from "../audio/sample-volume.js";
 import { detectController, getControllerById } from "../controllers/registry.js";
 import {
@@ -95,6 +96,12 @@ const midiAccessRank = {
   sysex: 2,
 };
 let sampleSynthModulePromise = null;
+let dsfSynthModulePromise = null;
+const loadDsfSynthModule = () => {
+  dsfSynthModulePromise ??= traceAudioImport("dsf-backend", "module:src/dsf_synth/index.js",
+    () => import("../dsf_synth/index.js")).catch(error => { dsfSynthModulePromise = null; throw error; });
+  return dsfSynthModulePromise;
+};
 
 const loadSampleSynthModule = async () => {
   sampleSynthModulePromise ??= traceAudioImport("samples-backend", "module:src/sample_synth/index.js",
@@ -526,6 +533,8 @@ const useSynthWiring = (
       audioRetryGenerationRef.current += 1;
       // Abandon pending candidate requests; stale builds cannot publish them.
       oscRequestsRef.current.cancelAll();
+      dsfRequestsRef.current.cancelAll();
+      dsfRequestsRef.current = createOutputCandidateRequests();
       sampleRequestsRef.current = createOutputCandidateRequests();
       midiRequestsRef.current = createOutputCandidateRequests();
       fluidRequestsRef.current = createOutputCandidateRequests();
@@ -541,6 +550,15 @@ const useSynthWiring = (
   const [octaveDeferred, setOctaveDeferred] = useState(
     () => sessionStorage.getItem("octave_deferred") !== "false",
   );
+  const dsfSynthRef = useRef({ key: null, synth: null });
+  const dsfControlsRef = useRef(null);
+  dsfControlsRef.current = dsfControlsFromSettings(settings);
+  const dsfRequestsRef = useRef(null);
+  if (!dsfRequestsRef.current) dsfRequestsRef.current = createOutputCandidateRequests();
+  useEffect(() => { dsfSynthRef.current.synth?.setControls(dsfControlsRef.current); }, [
+    settings.dsf_partials, settings.dsf_timbre, settings.dsf_attack, settings.dsf_release,
+    settings.dsf_volume, settings.dsf_velocity, settings.dsf_iso226, settings.dsf_pressure, settings.dsf_timbreResponse, settings.dsf_generateYZ,
+  ]);
   const sampleSynthRef = useRef({ key: null, synth: null });
   const retiringSampleSynthsRef = useRef(new Set());
   const mpeSynthRef = useRef({ key: null, synth: null });
@@ -576,6 +594,7 @@ const useSynthWiring = (
 
   const clearAllOutputSynthRefs = useCallback((preserveWarm = false) => {
     oscRequestsRef.current.cancelAll();
+    dsfRequestsRef.current.cancelAll();
     if (!preserveWarm) {
       clearOutputRef(warmSampleSynthRef, { panic: true });
       clearOutputRef(warmFluidSynthRef, { panic: true });
@@ -583,7 +602,7 @@ const useSynthWiring = (
       if (oscSynthRef.current.synth?.pauseOutput) clearOutputRef(oscSynthRef, { panic: true });
     }
     clearOutputSynthRefs({
-      activeRefs: [sampleSynthRef, oscSynthRef, mpeSynthRef, monoSynthRef],
+      activeRefs: [dsfSynthRef, sampleSynthRef, oscSynthRef, mpeSynthRef, monoSynthRef],
       mapRefs: [mtsSynthsRef, fluidSynthsRef],
       retiringSamplesRef: retiringSampleSynthsRef,
     });
@@ -918,6 +937,11 @@ const useSynthWiring = (
       fundamental: Number.isFinite(playbackFundamental) && playbackFundamental > 0
         ? playbackFundamental : 440,
     };
+    const wantDsf = !!settings.output_dsf;
+    if (!wantDsf) {
+      dsfRequestsRef.current.cancelAll();
+      clearOutputRef(dsfSynthRef);
+    }
     const wantSample =
       !deferSampleActivation &&
       settings.output_sample &&
@@ -1013,6 +1037,7 @@ const useSynthWiring = (
       park(oscSynthRef, warmOscSynthRef);
     }
     if (
+      !wantDsf &&
       !wantSample &&
       !wantMts &&
       !wantFluidsynth &&
@@ -1083,6 +1108,20 @@ const useSynthWiring = (
       if (mountedRef.current) setEnginesLoading(signal);
     };
     const promises = [];
+    if (wantDsf) {
+      if (dsfSynthRef.current.synth) promises.push(Promise.resolve(dsfSynthRef.current.synth));
+      else promises.push(dsfRequestsRef.current("dsf", signal =>
+        loadDsfSynthModule().then(({ createDsfSynth }) => createDsfSynth({
+          controls: dsfControlsRef.current, signal,
+        })), {
+          isCurrent: isCurrentBuild,
+          adopt: synth => {
+            synth.setControls(dsfControlsRef.current);
+            dsfSynthRef.current = { key: "dsf", synth };
+          },
+        }));
+    }
+
     if (monoOutput) {
       const { key, args } = monoOutputConfig(
         playbackSettings,
@@ -1331,6 +1370,10 @@ const useSynthWiring = (
         }
       },
       install: (validSynths) => {
+        if (validSynths.includes(dsfSynthRef.current.synth)) {
+          dsfSynthRef.current.synth.setTuningReference?.(
+            playbackSettings.fundamental, internalPlaybackTuning.degree0toRefAsArray[0]);
+        }
         if (validSynths.includes(oscSynthRef.current.synth))
           oscSynthRef.current.synth.setTuningReference?.(playbackSettings.fundamental);
         // Even an entirely failed build publishes an empty composite: logical
@@ -1397,6 +1440,7 @@ const useSynthWiring = (
     settings.midiin_scale_bend_range,
     settings.device_id,
     settings.tuning_map_number,
+    settings.output_dsf,
     settings.output_sample,
     settings.output_fluidsynth,
     settings.fluidsynth_runtime_revision,

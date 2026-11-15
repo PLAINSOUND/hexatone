@@ -73,10 +73,10 @@ Hexatone also supports:
 - OSC -> SuperCollider output through a local bridge in a cloned repo
 - Experimental browser-local SuperSonic + DFM1 in **Built-in scsynth**, sharing layer controls with the external OSC backend
 
-The I/O tab presents **Built-in Samples**, **Built-in SoundFont Player**, and
+The I/O tab presents **Built-in DSF Synthesis**, then **Built-in Samples**, **Built-in SoundFont Player**, and
 **Built-in scsynth**, followed by **MIDI Setup**, **MIDI Input**, and **MIDI Output**.
 These outputs are enabled by default and can be used independently or layered. Saved I/O choices take precedence when restored. The built-in audio backends
-are still being developed; the planned DSF synth is not yet available.
+are still being developed. The polyphonic DSF oscillator provides partial count, timbre, attack and release controls, with optional velocity, pressure and timbre response.
 
 Enable **Use FluidSynth Sounds** to load a Hexatone SoundFont or choose a local
 `.sf2` / `.sf3` file, then select its preset and volume. Downloads can be cancelled.

@@ -4,6 +4,7 @@
  * own connection and playback state so changing tabs does not recreate the transport.
  */
 
+import DsfSettings from "./dsf-settings.jsx";
 import SampleSynth from "./sample";
 import { useState } from "preact/hooks";
 import { IO_RESTORE_KEY, restoreIOOnReload } from "../persistence/io-reload-policy.js";
@@ -73,6 +74,7 @@ const IOSettings = ({
       {/* Pages is a production-optimised preview build, so DEV alone is false.
           Opt in at build time only; normal production builds keep this hidden. */}
       {(import.meta.env.DEV || import.meta.env.VITE_AUDIO_DIAGNOSTICS === "true") && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} onRecreateContexts={onRecreateAudioContexts} onCycleContexts={onCycleAudioContexts} onRestartFluidSynthWorklet={onRestartFluidSynthWorklet} />}
+      <DsfSettings settings={settings} onChange={onChange} />
       <SampleSynth
         showActivateAudioContext={showActivateAudioContext}
         activateAudioContext={activateAudioContext}

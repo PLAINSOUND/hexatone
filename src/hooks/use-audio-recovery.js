@@ -334,6 +334,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
         ([key]) =>
           key.startsWith("output_") ||
           key.startsWith("osc_") ||
+          key.startsWith("dsf_") ||
           key.startsWith("fluidsynth_") ||
           ["volume", "instrument"].includes(key),
       ),

@@ -1,132 +1,147 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-
 let Processor;
-
+const neutral = { partials: 1024, timbre: 0, attack: 0, release: 80, volume: 0.2,
+  velocity: false, pressure: false, timbreResponse: false, iso226: false };
 beforeEach(async () => {
   vi.resetModules();
-
   vi.stubGlobal("sampleRate", 48000);
-
-  vi.stubGlobal("AudioWorkletProcessor", class {
-    constructor() {
-      this.port = { onmessage: null };
-    }
-  });
-
-  vi.stubGlobal("registerProcessor", (name, processorClass) => {
-    if (name === "hexatone-dsf") {
-      Processor = processorClass;
-    }
-  });
-
+  vi.stubGlobal("currentFrame", 0);
+  vi.stubGlobal("AudioWorkletProcessor", class { constructor() { this.port = { onmessage: null, postMessage: vi.fn() }; } });
+  vi.stubGlobal("registerProcessor", (_name, type) => { Processor = type; });
   await import("./dsf-processor.js");
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
-it("starts silent", () => {
-  const processor = new Processor();
-  const channels = [
-    new Float32Array(128),
-    new Float32Array(128),
-  ];
-
-  const running = processor.process([], [channels]);
-
-  expect(running).toBe(true);
-  expect(channels[0].every(sample => sample === 0)).toBe(true);
-  expect(channels[1].every(sample => sample === 0)).toBe(true);
-});
-
-it("reaches its target gain after the attack duration", () => {
-  const processor = new Processor();
-
-  processor.port.onmessage({
-    data: { command: "start", frequency: 440 },
-  });
-
-  const render = (frames) => {
-    const channels = [
-      new Float32Array(frames),
-      new Float32Array(frames),
-    ];
-
-    processor.process([], [channels]);
+  const Base = Processor;
+  Processor = class extends Base {
+    constructor() { super(); this.controls = { ...neutral }; this.volume = neutral.volume; }
   };
-
-  render(288);
-
-  expect(processor.gain).toBeCloseTo(0.025, 10);
-  expect(processor.gainStepsRemaining).toBe(288);
-
-  render(288);
-
-  expect(processor.gain).toBeCloseTo(0.05, 10);
-  expect(processor.gainStepsRemaining).toBe(0);
-
-  render(128);
-
-  expect(processor.gain).toBeCloseTo(0.05, 10);
 });
-
-it("releases to silence over 80 ms", () => {
-  const processor = new Processor();
-  processor.gain = 0.05;
-
-  processor.port.onmessage({
-    data: { command: "stop" },
-  });
-
-  expect(processor.gain).toBe(0.05);
-  expect(processor.gainStepsRemaining).toBe(3840);
-
-  const render = (frames) => {
-    processor.process([], [[new Float32Array(frames)]]);
-  };
-
-  render(1920);
-  expect(processor.gain).toBeCloseTo(0.025, 10);
-
-  render(1920);
-  expect(processor.gain).toBe(0);
-  expect(processor.gainStepsRemaining).toBe(0);
+afterEach(() => vi.unstubAllGlobals());
+const send = (p, data) => p.port.onmessage({ data: data.command === "controls"
+  ? { ...data, controls: { ...neutral, ...data.controls } } : data });
+const render = (p, frames = 128) => {
+  const channels = [new Float32Array(frames), new Float32Array(frames)];
+  expect(p.process([], [channels])).toBe(true);
+  expect(channels[1]).toEqual(channels[0]);
+  return channels[0];
+};
+it("starts silent and advances its diagnostic render clock", () => {
+  const p = new Processor();
+  for (let n = 0; n < 32; n++) expect(render(p).every(x => x === 0)).toBe(true);
+  expect(p.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "stats", blocks: 32, frame: 4096 }));
 });
-
-it("starts a replacement ramp from the current gain", () => {
-  const processor = new Processor();
-
-  processor.ramp(0.012, 0.05);
-  processor.process([], [[new Float32Array(288)]]);
-
-  const currentGain = processor.gain;
-
-  processor.ramp(0.08, 0);
-
-  expect(processor.gain).toBe(currentGain);
-
-  processor.process([], [[new Float32Array(1)]]);
-
-  expect(processor.gain).toBeCloseTo(
-    currentGain - currentGain / 3840,
-    10,
-  );
+it("renders independently releasable voices, with sample-counted attack/release", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { attack: 12, release: 80 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  send(p, { command: "start", id: 2, frequency: 660 });
+  render(p, 288);
+  expect(p.voices.get(1).gain).toBeCloseTo(.5, 10);
+  render(p, 288);
+  expect(p.voices.get(1).gain).toBe(1);
+  send(p, { command: "stop", id: 1 });
+  render(p, 1920);
+  expect(p.voices.get(1).gain).toBeCloseTo(.5, 10);
+  render(p, 1920);
+  expect(p.voices.has(1)).toBe(false);
+  expect(p.voices.get(2).gain).toBe(1);
 });
-
-it("applies a zero-duration ramp immediately and clamps gain", () => {
-  const processor = new Processor();
-
-  processor.ramp(0.08, 0.05);
-  processor.ramp(0, 2);
-
-  expect(processor.gain).toBe(1);
-  expect(processor.targetGain).toBe(1);
-  expect(processor.gainStep).toBe(0);
-  expect(processor.gainStepsRemaining).toBe(0);
-
-  processor.process([], [[new Float32Array(128)]]);
-
-  expect(processor.gain).toBe(1);
+it("allows an immediate zero-millisecond attack at phase zero", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { attack: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  const samples = render(p, 2);
+  expect(p.voices.get(1).gain).toBe(1);
+  expect(p.voices.get(1).remaining).toBe(0);
+  expect(samples[0]).toBe(0);
+  expect(samples[1]).toBeCloseTo(.084375 * .2 * Math.sin(2 * Math.PI * 440 / 48000), 9);
 });
-
+it("allows an immediate zero-millisecond release", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { attack: 0, release: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 2);
+  send(p, { command: "stop", id: 1 });
+  expect(render(p, 2).every(x => x === 0)).toBe(true);
+  expect(p.voices.has(1)).toBe(false);
+});
+it("allows fixed level independent of velocity or chord size", () => {
+  const quiet = new Processor(), loud = new Processor();
+  send(quiet, { command: "start", id: 1, frequency: 440, velocity: 1 });
+  send(loud, { command: "start", id: 1, frequency: 440, velocity: 127 });
+  expect(render(quiet, 1000)).toEqual(render(loud, 1000));
+  send(loud, { command: "start", id: 2, frequency: 660, velocity: 127 });
+  render(loud);
+  expect(loud.voices.get(1).gain).toBe(1);
+});
+it("can opt into velocity response and limits ISO bass gain", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { velocity: true, iso226: true } });
+  send(p, { command: "start", id: 1, frequency: 50, velocity: 64 });
+  render(p, 576);
+  expect(p.voices.get(1).gain).toBeCloseTo(1, 10);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.1 * 64 / 127, 10);
+  expect(p.voices.get(1).compensation).toBeCloseTo(.85 * 10 ** (12 / 20), 10);
+});
+it("softens ISO output at its reference frequency and restores ordinary gain when disabled", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { iso226: true } });
+  send(p, { command: "start", id: 1, frequency: 1000 });
+  render(p);
+  expect(p.voices.get(1).compensation).toBeCloseTo(.85, 12);
+  send(p, { command: "controls", controls: { iso226: false } });
+  render(p, 480);
+  expect(p.voices.get(1).compensation).toBe(1);
+});
+it("starts/releases at scheduled sample frames and cancels old epochs", () => {
+  const p = new Processor();
+  send(p, { command: "start", id: 1, frequency: 440, frame: 128 });
+  expect(render(p).every(x => x === 0)).toBe(true);
+  expect(p.voices.size).toBe(0);
+  expect(render(p).some(x => x !== 0)).toBe(true);
+  send(p, { command: "start", id: 2, frequency: 660, frame: 10000 });
+  send(p, { command: "clear", epoch: 1, ack: 7 });
+  send(p, { command: "start", id: 3, frequency: 880, epoch: 0 });
+  expect(render(p, 11000).every(x => x === 0)).toBe(true);
+  expect(p.queue).toEqual([]);
+  expect(p.port.postMessage).toHaveBeenCalledWith({ type: "cleared", ack: 7 });
+});
+it("cancels a future voice without losing another note's release", () => {
+  const p = new Processor();
+  send(p, { command: "start", id: 1, frequency: 440 });
+  send(p, { command: "start", id: 2, frequency: 660, frame: 10000 });
+  send(p, { command: "cancel", id: 2 });
+  send(p, { command: "stop", id: 1, frame: 1024 });
+  render(p, 12000);
+  expect(p.voices.size).toBe(0);
+});
+it("smooths integer partial/timbre changes and retains oscillator phase", () => {
+  const p = new Processor();
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1000);
+  const voice = p.voices.get(1), phase = voice.osc.phase;
+  send(p, { command: "controls", controls: { partials: 17, timbre: .7 } });
+  expect(voice.osc.phase).toBe(phase);
+  expect(voice.osc.harmonics).toBe(17);
+  expect(voice.transitionRemaining).toBe(480);
+  expect([...render(p, 1000)].every(Number.isFinite)).toBe(true);
+  expect(voice.previous).toBeNull();
+});
+it("bounds polyphony, smooths stolen tails, and cannot release a replacement by an old id", () => {
+  const p = new Processor();
+  for (let id = 1; id <= 80; id++) send(p, { command: "start", id, frequency: 220 });
+  render(p);
+  expect(p.voices.size).toBe(64);
+  expect(p.stolenTails.length).toBeLessThanOrEqual(8);
+  send(p, { command: "stop", id: 1 });
+  render(p, 500);
+  expect(p.voices.get(80).released).toBe(false);
+});
+it("bounds the queue and never drops a release when it is full", () => {
+  const p = new Processor();
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p);
+  for (let id = 2; id <= 4100; id++) send(p, { command: "start", id, frequency: 660, frame: 100000 });
+  expect(p.queue).toHaveLength(4096);
+  send(p, { command: "stop", id: 1 });
+  expect(p.voices.get(1).released).toBe(true);
+  expect(p.droppedEvents).toBeGreaterThan(0);
+});
