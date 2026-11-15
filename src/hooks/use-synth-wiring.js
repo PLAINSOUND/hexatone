@@ -142,7 +142,7 @@ export const deriveOscQuickReleaseTime = (settings) =>
   Math.max(
     0.001,
     Math.min(
-      2.5,
+      4,
       localFloat(
         REGISTRY_BY_KEY.osc_quick_release_time.key,
         settings.osc_quick_release_time ?? 0.25,

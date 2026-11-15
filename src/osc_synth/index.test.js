@@ -857,7 +857,7 @@ describe("osc_synth pooled slot allocation", () => {
     );
 
     expect(latestSNew.args[quickReleaseArgIndex + 1].value).toBeCloseTo(0.75, 5);
-    expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(2.5, 5);
+    expect(latestSNew.args[quickReleaseTimeArgIndex + 1].value).toBeCloseTo(4, 5);
   });
 
   it("ignores legacy sustain and applies retrigger only to Buzz and Formant", async () => {

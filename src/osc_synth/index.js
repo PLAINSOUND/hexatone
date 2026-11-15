@@ -361,7 +361,7 @@ export const create_osc_synth = async (
   const _mod = { value: 1.0 };
   const _quickRelease = { value: Math.max(0, Math.min(1, quickRelease)) };
   socket.setTailPruning?.(_quickRelease.value);
-  const _quickReleaseTime = { value: Math.max(0.001, Math.min(2.5, quickReleaseTime)) };
+  const _quickReleaseTime = { value: Math.max(0.001, Math.min(4, quickReleaseTime)) };
   const _quickReleaseRasterOnly = { value: quickReleaseRasterOnly === true };
   const _retriggerBuzzFormant = { value: performanceOptions.retriggerBuzzFormant === true };
   const _pool = new VoicePool(Array.from({ length: MAX_NOTE_SLOTS }, (_, i) => i));
@@ -461,7 +461,7 @@ export const create_osc_synth = async (
   };
 
   const setQuickReleaseTime = (value) => {
-    const next = Math.max(0.001, Math.min(2.5, value));
+    const next = Math.max(0.001, Math.min(4, value));
     _quickReleaseTime.value = next;
     for (let i = 0; i < _slotState.length; i++) {
       if (synthNames[i] === "tone") continue;

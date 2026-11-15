@@ -9,7 +9,7 @@ import CustomRangeSlider from "./shared/range-slider.jsx";
 
 const clampVolume = (value) => Math.max(0, Math.min(1, value));
 const clampRelease = (value) => Math.max(0, Math.min(1, value));
-const clampReleaseTime = (value) => Math.max(0.001, Math.min(2, value));
+const clampReleaseTime = (value) => Math.max(0.001, Math.min(4, value));
 
 const readNumber = (key, fallback, clamp) => {
   const stored = parseFloat(localStorage.getItem(key) ?? "");
@@ -257,7 +257,7 @@ const SuperColliderSettings = ({
                 ariaLabel="Release Time"
                 defaultValue={0.25}
                 min={0.01}
-                max={2}
+                max={4}
                 step={0.005}
                 value={releaseTime}
                 onInputValue={(nextValue) => {

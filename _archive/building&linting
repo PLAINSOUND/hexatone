@@ -1,0 +1,19 @@
+building and testing:
+
+cmake -S plugin -B plugin/build-mac-dev -DRYSUM_BUILD_TESTS=ON &&
+cmake --build plugin/build-mac-dev --parallel 4 &&
+ctest --test-dir plugin/build-mac-dev --output-on-failure
+
+single test:
+cmake --build plugin/build-mac-dev --target RysumDsfRendererTest --parallel 4 &&
+ctest --test-dir plugin/build-mac-dev -R '^dsf_renderer$' --output-on-failure --no-tests=error
+
+
+linting:
+
+find plugin/source plugin/tests -type f \
+  \( -name '*.h' -o -name '*.cpp' \) \
+  -exec xcrun clang-format --style=file --dry-run --Werror {} +
+
+single file:
+xcrun clang-format --style=file -i plugin/tests/... plugin/source/...
