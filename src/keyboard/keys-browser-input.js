@@ -148,11 +148,23 @@ export function onKeyDown(e) {
 }
 
 function keyDown(e) {
+  if (e.code === "Space") {
+    // Own the entire press, even after opening the sidebar clears the pedal.
+    // Otherwise repeats/key-up can activate the newly focused sidebar button.
+    if (e.repeat && this.state.spaceSustainReleasePending) {
+      e.preventDefault();
+      return;
+    }
+    // A fresh key-down also recovers from a key-up lost outside the browser.
+    if (!e.repeat) this.state.spaceSustainReleasePending = false;
+  }
   if (this.inputIsFocused()) return;
 
   if (e.code === "Space" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    if (!this.typing) return;
     e.preventDefault();
     if (!e.repeat && !this.state.spaceSustainHeld) {
+      this.state.spaceSustainReleasePending = true;
       this.state.spaceSustainHeld = true;
       this.sustainOn();
       this.onLatchChange?.(true);
@@ -240,10 +252,14 @@ function keyDown(e) {
 
 export function onKeyUp(e) {
   // Release a pedal we started even if focus, modifiers or input mode changed.
-  if (e.code === "Space" && this.state.spaceSustainHeld) {
+  if (e.code === "Space" &&
+      (this.state.spaceSustainReleasePending || this.state.spaceSustainHeld)) {
     e.preventDefault();
-    this.state.spaceSustainHeld = false;
-    this.sustainOff(true, { releaseShiftLatches: true });
+    this.state.spaceSustainReleasePending = false;
+    if (this.state.spaceSustainHeld) {
+      this.state.spaceSustainHeld = false;
+      this.sustainOff(true, { releaseShiftLatches: true });
+    }
     return;
   }
   if ((e.code === "Escape" || e.code === "F8") && this.state.escHeld) {

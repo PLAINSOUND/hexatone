@@ -93,6 +93,10 @@ export function releaseAllKeyboardNotes(keys) {
     if (!keys.state.sustain) keys.hexOff(coords);
   }
   keys.state.pressedKeys.clear();
+  if (keys.state.spaceSustainHeld) {
+    keys.state.spaceSustainHeld = false;
+    keys.sustainOff(true, { releaseShiftLatches: true });
+  }
 }
 
 export function resetLatch(keys) {

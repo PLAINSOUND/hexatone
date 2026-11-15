@@ -122,7 +122,7 @@ Buttons along the bottom of the app, also mapped to key commands:
   - press *SHIFT + up / down arrow* to change octaves
   - click the word `OCT` or press *SHIFT + left / right arrow* to toggle between two states: retune the next played note or (darker colour) retune all sounds immediately
 - `SUSTAIN` (*SHIFT+ESC* / *F8*): toggle to sustain notes hands-free; play a note again to remove it
-  - hold *SPACE* for momentary sustain; the on-screen control lights while pressed. Release SPACE to clear sustained notes, including individual Shift latches. Physically held notes continue until released.
+  - with the sidebar closed, hold *SPACE* for momentary sustain; the on-screen control lights while pressed. Release SPACE to clear sustained notes, including individual Shift latches. Physically held notes continue until released.
   - *SHIFT+note key* sustains one note independently; play it again or click its hex to release it
 - `MOD` (*SHIFT+BACKQUOTE / °*): toggle to activate or deactivate modulation mode (see detailed description below)
     - a single played or already playing note is treated as the source degree

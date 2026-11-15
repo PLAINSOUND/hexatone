@@ -1020,6 +1020,7 @@ describe("Keys MIDI input integration", () => {
 
   it("releases Space sustain and its indicator when browser input is interrupted", () => {
     const keys = createKeys();
+    keys.typing = true;
     keys.onLatchChange = vi.fn();
     keys.onKeyDown({ code: "Space", preventDefault: vi.fn() });
     keys.releaseActiveBrowserNotes();
@@ -1028,8 +1029,27 @@ describe("Keys MIDI input integration", () => {
     expect(keys.onLatchChange).toHaveBeenLastCalledWith(false);
   });
 
+  it("keeps a released mouse note sustained until Space is lifted", () => {
+    const keys = createKeys();
+    keys.typing = true;
+    const hex = { coords: new Point(0, 0), cents: 0, noteOff: vi.fn() };
+    keys.drawHex = vi.fn();
+    keys.hexOff = vi.fn();
+    const space = { code: "Space", preventDefault: vi.fn() };
+    keys.onKeyDown(space);
+    keys.state.activeMouse = hex;
+    keys.state.isMouseDown = true;
+    keys.mouseUp({});
+    expect(keys.state.sustain).toBe(true);
+    expect(hex.noteOff).not.toHaveBeenCalled();
+    keys.onKeyUp(space);
+    expect(hex.noteOff).toHaveBeenCalledExactlyOnceWith(0);
+    expect(keys.state.sustainedNotes).toEqual([]);
+  });
+
   it("leaves focused text fields and modified Space shortcuts alone", () => {
     const keys = createKeys();
+    keys.typing = true;
     const space = { code: "Space", preventDefault: vi.fn() };
     keys.inputIsFocused = () => true;
     keys.onKeyDown(space);
@@ -1040,6 +1060,60 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.spaceSustainHeld).toBe(false);
     expect(keys.state.sustain).toBe(false);
     expect(space.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("disables Space sustain when the sidebar is open and clears an active pedal on opening", () => {
+    const keys = createKeys();
+    keys.onLatchChange = vi.fn();
+    const space = { code: "Space", preventDefault: vi.fn() };
+    keys.typing = false;
+    keys.onKeyDown(space);
+    expect(keys.state.spaceSustainHeld).toBe(false);
+    expect(keys.state.sustain).toBe(false);
+    expect(space.preventDefault).not.toHaveBeenCalled();
+    expect(keys.onLatchChange).not.toHaveBeenCalled();
+
+    keys.typing = true;
+    keys.onKeyDown(space);
+    expect(keys.state.spaceSustainHeld).toBe(true);
+    // Keyboard's active-prop effect does this when the sidebar opens.
+    keys.typing = false;
+    keys.releaseAllKeyboardNotes();
+    expect(keys.state.spaceSustainHeld).toBe(false);
+    expect(keys.state.sustain).toBe(false);
+    expect(keys.onLatchChange).toHaveBeenLastCalledWith(false);
+    keys.onKeyUp(space);
+    expect(keys.state.sustain).toBe(false);
+  });
+
+  it("consumes the original Space repeat and key-up after the sidebar button gains focus", () => {
+    const keys = createKeys();
+    keys.typing = true;
+    keys.onKeyDown(new KeyboardEvent("keydown", { code: "Space", cancelable: true }));
+    keys.typing = false;
+    keys.releaseAllKeyboardNotes();
+    const button = document.createElement("button");
+    document.body.append(button);
+    button.focus();
+    try {
+      const repeat = new KeyboardEvent("keydown", {
+        code: "Space", repeat: true, cancelable: true,
+      });
+      keys.onKeyDown(repeat);
+      expect(repeat.defaultPrevented).toBe(true);
+      const up = new KeyboardEvent("keyup", { code: "Space", cancelable: true });
+      keys.onKeyUp(up);
+      expect(up.defaultPrevented).toBe(true);
+      expect(keys.state.spaceSustainReleasePending).toBe(false);
+      expect(keys.state.sustain).toBe(false);
+
+      // A separate Space press in the sidebar keeps normal button behaviour.
+      const next = new KeyboardEvent("keydown", { code: "Space", cancelable: true });
+      keys.onKeyDown(next);
+      expect(next.defaultPrevented).toBe(false);
+    } finally {
+      button.remove();
+    }
   });
 
   it("lets a canvas click release a note latched with Shift on the computer keyboard", () => {
@@ -3722,6 +3796,7 @@ describe("Keys MIDI input integration", () => {
       { target: "hex_layout", mpeInput: true, hakenXGlideMode: "pitch_bending" },
     );
     keys.controller = { id: "hakenaudio" };
+    keys.typing = true;
     const event = { code: "Space", preventDefault: vi.fn() };
     keys.onKeyDown(event);
     expect(keys.state.sustain).toBe(true);

@@ -20,6 +20,7 @@ export function createSoundingNoteState() {
     sustainedCoords: new Set(),
     escHeld: false,
     spaceSustainHeld: false,
+    spaceSustainReleasePending: false,
     isTuneDragging: false,
     pressedKeys: new Set(),
     shiftSustainedKeys: new Set(),
