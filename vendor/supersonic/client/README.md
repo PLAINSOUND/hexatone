@@ -1,4 +1,4 @@
-# SuperSonic 0.94.0
+# SuperSonic 0.97.0
 
 > A scsynth-compatible synth powered by Clockwork, for the browser as an AudioWorklet and natively as a server.
 >
@@ -674,6 +674,7 @@ if (loaded.some(b => b.hash === info.hash)) {
 | <a id="numinputbuschannels"></a> `numInputBusChannels?` | `number` | Input channels read from the device (0 disables input). Default: 2. | 2 | 0+ |
 | <a id="numoutputbuschannels"></a> `numOutputBusChannels?` | `number` | Output channels opened on the audio graph (1–128). Default: 2. | 2 | 1–128 |
 | <a id="numrgens"></a> `numRGens?` | `number` | Random number generators. Default: 64. | 64 | 1–65536 |
+| <a id="randomseed"></a> `randomSeed?` | `number` | Seed for the random number generators; 0 seeds from the clock. Default: 0. | 0 | 0–2147483647 |
 | <a id="preferredsamplerate"></a> `preferredSampleRate?` | `number` | Preferred sample rate: 0, or 8000–384000. The rate the engine runs at is the AudioContext's: set it with `audioContextOptions.sampleRate` (default 48000), or by passing your own `audioContext`. | 0 | 0, 8000–384000 |
 | <a id="realtime"></a> `realTime?` | `boolean` | scsynth's real-time flag. Always false here: the AudioWorklet drives the engine. | false | — |
 | <a id="realtimememorysize"></a> `realTimeMemorySize?` | `number` | Real-time memory pool in KB for synthesis allocations. Default: 8192 (8MB). | 8192 | 1–4194304 |

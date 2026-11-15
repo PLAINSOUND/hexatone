@@ -52,7 +52,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
   let phase = "creating-context";
   let gestureAt = null;
   const startupSince = performance.now();
-  const startupDiagnostic = () => ({ backend: "supersonic", version: "0.94", phase,
+  const startupDiagnostic = () => ({ backend: "supersonic", version: "0.97", phase,
     elapsedMs: performance.now() - startupSince,
     gestureReceived: gestureAt != null,
     contexts: [...pendingContexts].map((candidate) => ({ state: candidate.state, currentTime: candidate.currentTime })),
@@ -267,6 +267,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       if (currentTransport.getDiagnostics().transport?.closed) throw new Error("SuperSonic purge failed");
     };
     const diagnostics = synth.getDiagnostics;
+    synth.prepareDiagnostics = () => currentTransport.prepareDiagnostics();
     synth.getDiagnostics = () => ({
       ...diagnostics(),
       audioContext: {
@@ -274,6 +275,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
         currentTime: context?.currentTime,
         sampleRate: context?.sampleRate,
         baseLatency: context?.baseLatency,
+        outputLatency: context?.outputLatency ?? null,
       },
     });
     const shutdown = synth.shutdown;

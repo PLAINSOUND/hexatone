@@ -5,6 +5,7 @@
 import { warnLog } from "../debug/logging.js";
 import { audioAttackAllowed } from "../audio/attack-gate.js";
 import { recordTouchAudio, recordTouchRender } from "../audio/runtime-diagnostics.js";
+import { createOutputDiagnostics } from "./output-diagnostics.js";
 
 // Retiring engines no longer belong to the active output graph, but PANIC
 // must still reach them. Bound overlap during repeated output toggles.
@@ -14,6 +15,7 @@ export function stopRetiredSuperSonicOutputs() {
 }
 
 export function createLocalOscTransport(sonic, encodeBundle, dispose) {
+  const outputDiagnostics = createOutputDiagnostics(sonic);
   const groups = new Map([57101, 57102, 57103, 57104].map((port, i) => [port, 9100 + i]));
   const nodes = new Map();
   const tails = new Map();
@@ -110,6 +112,15 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     // Teardown must let an in-flight upstream purge release its port listener.
     // SuperSonic bounds this acknowledgement even when its worklet is gone.
     pendingPurge: () => purgePromise,
+    prepareDiagnostics: async () => {
+      if (typeof sonic.getDeviceScope !== "function" || closed) return;
+      outputDiagnostics();
+      // Two observations allow the report to distinguish silence from a
+      // frozen scope, including the initial postMessage copy request.
+      await new Promise(resolve => setTimeout(resolve, 50));
+      outputDiagnostics();
+      await new Promise(resolve => setTimeout(resolve, 50));
+    },
     setTailPruning(percentage) {
       // 64 tails per layer at 0%, 16 at 100%; held voices are never counted.
       tailLimit = Math.round(64 - 48 * Math.max(0, Math.min(1, percentage)));
@@ -123,6 +134,7 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
           metrics,
           nodes: { count: tree.nodeCount, droppedCount: tree.droppedCount, trackedLayerNodes: nodes.size },
           outputPeak: tree.nodes?.reduce((peak, node) => Math.max(peak, node.outPeak || 0), 0),
+          deviceOutput: outputDiagnostics(),
           transport: { pending: pending.length, purging, draining, closed },
           dispatch: { scheduledMessages, immediateMessages,
             recentAttacks: recentAttacks.map(attack => ({ ...attack, controls: { ...attack.controls },

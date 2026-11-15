@@ -8,7 +8,7 @@ const dest = new URL("vendor/supersonic/", root);
 await mkdir(new URL("sources/", dest), { recursive: true });
 // Distribute the client built from the same pinned checkout as the custom
 // core, including its sources. Remove old chunks when replacing a bundle.
-const upstream = new URL("tools/supersonic/upstream-094/", root);
+const upstream = new URL("tools/supersonic/upstream-097/", root);
 const client = new URL("client/", dest);
 await rm(new URL("dist/", client), { recursive: true, force: true });
 await mkdir(new URL("dist/", client), { recursive: true });
@@ -33,13 +33,13 @@ for (const name of ["pluck", "string", "formant", "tone"]) {
   await cp(new URL(`tools/supersonic/generated/hexlab_${name}.scsyndef`, root), new URL(`synthdefs/hexlab_${name}.scsyndef`, dest));
 }
 for (const [directory, revision, name] of [
-  ["upstream-094", "7af16e099e7fed76255bad1f41267cd7ed0d7f0b", "supersonic"],
-  ["upstream-094/clockwork", "7d664bbb644ffefd68562ee5200b0cc4b74f114d", "clockwork"],
+  ["upstream-097", "590f8a276229679e7007caea4d935228da7468b4", "supersonic"],
+  ["upstream-097/clockwork", "1887876ce84e8fdc0ca18c6154cddf8ae8561fad", "clockwork"],
   ["sc3-plugins", "fa926d6b554acef35b2fd9deb2f996085fa86bd7", "sc3-plugins"],
 ]) {
   execFileSync("git", ["-C", fileURLToPath(new URL(`tools/supersonic/${directory}`, root)), "archive", "--format=tar.gz", `--output=${fileURLToPath(new URL(`sources/${name}.tar.gz`, dest))}`, revision]);
 }
-for (const name of ["build-dfm1.sh", "dfm1-registration.patch", "compile.scd", "TOOLCHAIN.md"]) {
+for (const name of ["build-dfm1.sh", "dfm1-registration.patch", "dfm1-interface.patch", "compile.scd", "TOOLCHAIN.md"]) {
   await cp(new URL(`tools/supersonic/${name}`, root), new URL(`sources/${name}`, dest));
 }
 await cp(new URL("synths/SuperCollider-OSC/LumatoneSynths.scd", root), new URL("sources/LumatoneSynths.scd", dest));
@@ -53,4 +53,4 @@ async function hashDirectory(directory, prefix = "") {
   }
 }
 await hashDirectory(dest);
-await writeFile(new URL("manifest.json", dest), JSON.stringify({ version: "0.94.0-dfm1", files }, null, 2) + "\n");
+await writeFile(new URL("manifest.json", dest), JSON.stringify({ version: "0.97.0-dfm1", files }, null, 2) + "\n");

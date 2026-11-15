@@ -12,6 +12,14 @@ const backend = (name, forceAudioRebuild = vi.fn(async () => {})) => ({
 });
 
 describe("built-in audio recovery", () => {
+  it("prepares diagnostic copies without letting a failed output block the report", async () => {
+    const sonic = { ...backend("supersonic"), prepareDiagnostics: vi.fn(async () => {}) };
+    const failed = { ...backend("fluidsynth"), prepareDiagnostics: () => { throw new Error("closed"); } };
+    const log = createAudioRecovery();
+    await expect(log.prepareReport(graph(sonic, failed))).resolves.toBeUndefined();
+    expect(sonic.prepareDiagnostics).toHaveBeenCalledOnce();
+    expect(log.report(graph(sonic, failed)).outputs).toHaveLength(2);
+  });
   it("rejects a frozen engine even when its context reports running", async () => {
     vi.useFakeTimers();
     const synth = { getDiagnostics: () => ({ engine: { metrics: { engineProcessCount: 84519 } } }) };

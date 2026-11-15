@@ -281,6 +281,9 @@ export function createAudioRecovery({ timeoutMs = 45000, historyLimit = 180,
         });
       return pending;
     },
+    async prepareReport(synth) {
+      await Promise.allSettled(outputs(synth).map(async s => s.prepareDiagnostics?.()));
+    },
     report(synth, settings = {}) {
       return {
         schema: "hexatone-audio-recovery/v1",

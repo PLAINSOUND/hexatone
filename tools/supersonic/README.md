@@ -1,6 +1,6 @@
 # SuperSonic / native SuperCollider comparison
 
-Comparison laboratory using pinned SuperSonic 0.94.0 packages. The separate lab
+Comparison laboratory using pinned SuperSonic 0.97.0 packages. The separate lab
 does not modify Hexatone's audio context or routing. An experimental integrated
 output is now available separately in I/O (see below).
 Use one laboratory tab at a time; its dedicated group/node range is shared by
@@ -16,6 +16,29 @@ Both packages are local file dependencies on the committed vendor distribution,
 keeping the client matched to the custom DFM1 core.
 After regenerating the vendor bundle, run `yarn install` to refresh those file
 dependencies and the lockfile before staging or building.
+
+### 0.97 upgrade (2026-11-15)
+
+Pinned SuperSonic `590f8a276229679e7007caea4d935228da7468b4` and Clockwork
+`1887876ce84e8fdc0ca18c6154cddf8ae8561fad`. The engine module is now
+`clockwork-scsynth.wasm`. DFM1 registration uses the World's interface table;
+`dfm1-interface.patch` changes only plugin dispatch-table ownership, leaving
+its filter calculations unchanged. Keep client, core, sources and manifest together.
+
+Diagnostics include a bounded device-output scope summary (peak, RMS,
+non-finite samples and sample-clock progress) in both postMessage and SAB modes.
+Saving a report requests a fresh scope copy and waits 100 ms, without delaying
+note playback. This measures the engine output before Hexatone's recovery gate;
+it does not measure browser buffering or audible speaker latency. The new
+native device-dropout counters are unavailable in browser builds.
+The acknowledged purge plus explicit `/clearSched` barrier remains in place.
+
+Verification passed: custom DFM1 output, timed attacks, cancellation and device
+scopes in postMessage and SAB modes; dev and production adapter suspend/resume,
+two hard rebuilds, PANIC cancellation, fresh attacks and natural release shutdown.
+The production report confirms an advancing scope clock. All 3,097 unit tests,
+ESLint for the changed code and the production build passed. Browser probes used
+headless Brave; Safari/iOS audible latency still requires manual testing.
 
 ### 0.94 upgrade (2026-11-02)
 
@@ -137,14 +160,14 @@ from node_modules or the ignored generated directory, not bundled into the appli
 Toolchain versions are recorded in `TOOLCHAIN.md`. Fetch the pinned sources once:
 
 ```sh
-git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-094
-git -C tools/supersonic/upstream-094 checkout 7af16e099e7fed76255bad1f41267cd7ed0d7f0b
-git -C tools/supersonic/upstream-094 submodule update --init --recursive
+git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-097
+git -C tools/supersonic/upstream-097 checkout 590f8a276229679e7007caea4d935228da7468b4
+git -C tools/supersonic/upstream-097 submodule update --init --recursive
 git clone https://github.com/supercollider/sc3-plugins.git tools/supersonic/sc3-plugins
 git -C tools/supersonic/sc3-plugins checkout fa926d6b554acef35b2fd9deb2f996085fa86bd7
 ```
 
-Run `npm ci` inside `tools/supersonic/upstream-094`. Activate the installed Emscripten
+Run `npm ci` inside `tools/supersonic/upstream-097`. Activate the installed Emscripten
 SDK in the build shell (`source /Users/marcsabat/Dev/emsdk/emsdk_env.sh` on this
 machine), with Rust/Cargo on PATH. Before applying the extension, the optional
 unmodified comparison core can be built and saved from the upstream directory:
@@ -164,8 +187,7 @@ node tools/supersonic/browser-smoke.mjs dfm1 sab
 ```
 
 The script checks source revisions, applies `dfm1-registration.patch`, and copies
-the eight original TJUGens/DFM1 source files into the static plugin build. No DSP
-substitution or source alteration is made. The resulting core is saved under
+the eight original TJUGens/DFM1 source files into the static plugin build. The interface adapter is then applied; no filter DSP is substituted or changed. The resulting core is saved under
 `generated/dfm1-core`; the npm-installed core remains untouched. The build can be
 repeated with the patch already applied. Do not overwrite the baseline with a
 patched build. Source checkouts and binaries are ignored by Git.
@@ -259,6 +281,6 @@ Three adapter tests, ESLint for the prototype, credits check and production buil
 
 See ../../codex/planning/SUPERSONIC_SYNTHDEF_IMPLEMENTATION_NOTES.md for the DSP
 comparison and articulation recommendations. The client and core dependency
-licences are supplied in their installed packages. The 0.94 distribution is
+licences are supplied in their installed packages. The 0.97 distribution is
 AGPL-3.0-or-later; the linked scsynth and original DFM1 also retain their supplied
 GPL licences. Corresponding source archives are included in the vendor bundle.

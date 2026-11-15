@@ -3,11 +3,11 @@
 # Fetch sources and install upstream npm dependencies first (see README).
 set -euo pipefail
 LAB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-UPSTREAM_DIR="${HEXATONE_SUPERSONIC_UPSTREAM:-$LAB_DIR/upstream-094}"
+UPSTREAM_DIR="${HEXATONE_SUPERSONIC_UPSTREAM:-$LAB_DIR/upstream-097}"
 PLUGIN_DIR="$LAB_DIR/sc3-plugins"
-test "$(git -C "$UPSTREAM_DIR" rev-parse HEAD)" = 7af16e099e7fed76255bad1f41267cd7ed0d7f0b
+test "$(git -C "$UPSTREAM_DIR" rev-parse HEAD)" = 590f8a276229679e7007caea4d935228da7468b4
 test "$(git -C "$PLUGIN_DIR" rev-parse HEAD)" = fa926d6b554acef35b2fd9deb2f996085fa86bd7
-test "$(git -C "$UPSTREAM_DIR/clockwork" rev-parse HEAD)" = 7d664bbb644ffefd68562ee5200b0cc4b74f114d
+test "$(git -C "$UPSTREAM_DIR/clockwork" rev-parse HEAD)" = 1887876ce84e8fdc0ca18c6154cddf8ae8561fad
 
 if git -C "$UPSTREAM_DIR" apply --check "$LAB_DIR/dfm1-registration.patch"; then
   git -C "$UPSTREAM_DIR" apply "$LAB_DIR/dfm1-registration.patch"
@@ -22,8 +22,10 @@ mkdir -p "$DEST"
 for file in TJUGens.cpp TJUGens.h Dfm1.cpp Dfm1.h Dfm1Lut.cpp Dfm1Lut.h NoiseGen.cpp NoiseGen.h; do
   cp "$PLUGIN_DIR/source/TJUGens/$file" "$DEST/$file"
 done
+patch -d "$DEST" -p1 < "$LAB_DIR/dfm1-interface.patch"
 cd "$UPSTREAM_DIR"
 bash scripts/build-web.sh --release
+rm -rf "$LAB_DIR/generated/dfm1-core"
 mkdir -p "$LAB_DIR/generated/dfm1-core"
 cp -R packages/supersonic-scsynth-core/. "$LAB_DIR/generated/dfm1-core/"
 # Retain the plugin's own licence as well as the core licence in the output.

@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { chromium } from "./upstream-094/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-097/node_modules/playwright/index.mjs";
 
 const core = process.argv[2] ?? "dfm1";
 const mode = process.argv[3] ?? "postMessage";
@@ -83,6 +83,15 @@ try {
         }
         sonic.send("/n_set", node, "freq", 330, "expressionY", 0.7, "pressure", 0.5);
         await new Promise(resolve => setTimeout(resolve, 100));
+        if (name === "tone" && core === "dfm1") {
+          sonic.getDeviceScope(0, 512);
+          await new Promise(resolve => setTimeout(resolve, 100));
+          const scope = sonic.getDeviceScope(0, 512);
+          if (!scope) throw new Error("Device output scope copy was not available");
+          result.deviceOutput = { frames: scope.frames, channels: scope.channels,
+            writePosition: scope.writePosition.toString(),
+            peak: Math.max(...scope.interleaved.map(Math.abs)) };
+        }
         if (name === "formant") {
           const deadline = performance.now() + 8000;
           while (!ended.has(node) && performance.now() < deadline) {
@@ -167,7 +176,8 @@ try {
     } finally { await sonic.destroy(); }
   }, { core, mode, envelopes, cycles });
   console.log(JSON.stringify(result, null, 2));
-  if (core === "dfm1") assert.equal(result.version, "0.94.0");
+  if (core === "dfm1") assert.equal(result.version, "0.97.0");
+  if (core === "dfm1") assert(result.deviceOutput?.peak > 0 && result.deviceOutput.peak < 1);
   for (const instrument of result.instruments) {
     if (core === "baseline" && ["pluck", "tone"].includes(instrument.name)) {
       assert(!instrument.loaded && instrument.errors.some(msg => msg.join(" ").includes("DFM1")));

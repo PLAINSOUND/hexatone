@@ -1,0 +1,19 @@
+--- a/TJUGens.cpp
++++ b/TJUGens.cpp
+@@ -20,7 +20,8 @@
+ #include "Dfm1.h"
+ #include <iostream>
+ 
+-static InterfaceTable *ft;
++// SuperSonic 0.97: immutable dispatch table; registration uses inTable's World.
++static const InterfaceTable* const ft = &gInterfaceTable;
+ 
+ struct DFM1 : public Unit
+ {
+@@ -131,6 +132,5 @@
+ 
+ PluginLoad(TJUgens)
+ {
+-  ft = inTable;
+   DefineSimpleUnit(DFM1);
+ }

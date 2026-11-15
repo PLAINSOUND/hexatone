@@ -1,5 +1,5 @@
 /** Exercises Hexatone's real local OSC adapter against a running Vite server. */
-import { chromium } from "./upstream-094/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-097/node_modules/playwright/index.mjs";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 const production = process.argv.includes("--production");
@@ -46,6 +46,8 @@ try {
     const data = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(data);
     const peak = Math.max(...data.map(Math.abs));
+    await synth.prepareDiagnostics();
+    const deviceOutput = synth.getDiagnostics().engine.deviceOutput;
     await context.suspend();
     await synth.prepare();
     const resumedState = context.state;
@@ -113,12 +115,16 @@ try {
     while (context.state !== "closed" && performance.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    return { peak, resumedState, resumedScheduledPeak, resumedScheduledStarted,
+    return { peak, deviceOutput, resumedState, resumedScheduledPeak, resumedScheduledStarted,
       recoveryPeaks, retiredStates, panicPeak, panicDiagnostics, postPanicPeak, contextState,
       releasePeak, releaseState, drainedState: context.state };
   }, production ? `${base}/assets/${productionChunk}` : "/src/supersonic_synth/index.js");
   console.log(JSON.stringify(result, null, 2));
   assert(result.peak > 0 && result.peak < 1);
+  assert.equal(result.deviceOutput.status, "ready");
+  assert(result.deviceOutput.peak > 0 && result.deviceOutput.peak < 1);
+  assert.equal(result.deviceOutput.nonFiniteSamples, 0);
+  assert.equal(result.deviceOutput.clockAdvanced, true);
   assert.equal(result.resumedState, "running");
   assert(result.resumedScheduledPeak > 0 && result.resumedScheduledStarted);
   assert(result.recoveryPeaks.every(peak => peak > 0 && peak < 1));

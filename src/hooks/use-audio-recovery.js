@@ -338,6 +338,7 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           ["volume", "instrument"].includes(key),
       ),
     );
+    await recorder.current.prepareReport(synthRef.current);
     const report = { ...recorder.current.report(synthRef.current, audioSettings),
       canvas: keysRef.current?.getCanvasDiagnostics?.() ?? null,
       pending: getPendingSuperSonicDiagnostics() };
