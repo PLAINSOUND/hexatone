@@ -48,7 +48,7 @@
     "core/wasm/clockwork_midi_bg.wasm": "49652a5c1721cb27e7a22a49cc9b03a95d9196d742fb0abcb4294228cca314ae",
     "core/workers/clockwork_audio_worklet.js": "4f8b018f5d42b39e9bfcab2c5ff7cd094eb285522615e652e278ca1f598f41e7",
     "sources/LumatoneSynths.scd": "8b97f9c9a8d3af0dffe3f909c3b59c9f4728dcbc09e115921afaacf318b267b1",
-    "sources/TOOLCHAIN.md": "4e61786c3ded84809e3bc96f8e29eff485e09378199c77239390cf10108d5674",
+    "sources/TOOLCHAIN.md": "c415d08d794291e6a13efa046a0cb6f96d66a4388c97a8503a4b8348e6fe9480",
     "sources/build-dfm1.sh": "8ce5fd0c41ab8ebedb19ed3a1a43457ae617be52ec61d20ee2072346e9bd7124",
     "sources/clockwork.tar.gz": "b319c0391f4bbfeddb6e41e4708a609ce7276c20a721d1406aeccd80ea4fdb44",
     "sources/compile.scd": "28ee90651febf7b04fce32bd1196fa0b7130bd7fcc17bb9f75d4a020921789cf",
