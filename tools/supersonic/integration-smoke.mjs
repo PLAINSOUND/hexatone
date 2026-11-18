@@ -131,6 +131,9 @@ try {
   assert.deepEqual(result.retiredStates, ["closed", "closed"]);
   assert(result.panicPeak < 0.00001);
   assert.equal(result.panicDiagnostics.engine.nodes.count, 5);
+  assert.equal(result.panicDiagnostics.engine.info.version, "0.99.0");
+  assert.deepEqual(result.panicDiagnostics.engine.dispatch.queueRefusals.counts, {});
+  assert.equal(result.panicDiagnostics.engine.dispatch.queueRefusals.sendErrorCount, 0);
   assert(result.postPanicPeak > 0 && result.postPanicPeak < 1);
   assert.equal(result.contextState, "closed");
   assert(result.releasePeak > 0);
