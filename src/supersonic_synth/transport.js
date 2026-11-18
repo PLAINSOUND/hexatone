@@ -22,6 +22,10 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
   const touchStarts = new Map();
   const recentAttacks = [];
   const serverFailures = [];
+  const queueRefusals = [];
+  const sendErrors = [];
+  let sendErrorCount = 0;
+  const refusalCounts = {};
   let scheduledMessages = 0;
   let immediateMessages = 0;
   const remember = (list, value, limit) => {
@@ -70,8 +74,15 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     }
     if (delay > 0) scheduledMessages++;
     else immediateMessages++;
-    if (delay > 0) sonic.sendOSC(encodeBundle(sonic.clock.now() + delay, [[address, ...args]]));
-    else sonic.send(address, ...args);
+    try {
+      if (delay > 0) sonic.sendOSC(encodeBundle(sonic.clock.now() + delay, [[address, ...args]]));
+      else sonic.send(address, ...args);
+    } catch (error) {
+      sendErrorCount++;
+      remember(sendErrors, { receivedAtMs: performance.now(), address,
+        message: String(error?.message ?? error), scheduled: delay > 0 }, 12);
+      throw error;
+    }
   };
   for (const group of groups.values()) sonic.send("/g_new", group, 0, 0);
   const pruneTails = (port, timestamp) => {
@@ -83,6 +94,15 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
     }
   };
   sonic.on("in", message => {
+    if (message[0] === "/clockwork/error") {
+      const [, address, reason, generation] = message;
+      const category = reason === "ring full" ? "ring full" :
+        reason === "too big" ? "too big" : reason === "no instance" ? "no instance" : "other";
+      refusalCounts[category] = (refusalCounts[category] || 0) + 1;
+      remember(queueRefusals, { receivedAtMs: performance.now(), address, reason, generation,
+        transient: reason === "ring full" }, 24);
+      // Refusals are observations, not permission to replay stale notes.
+    }
     if (message[0] === "/fail") {
       remember(serverFailures, { receivedAtMs: performance.now(), command: message[1],
         details: message.slice(2) }, 12);
@@ -127,16 +147,25 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
       for (const port of groups.keys()) pruneTails(port);
     },
     getDiagnostics() {
+      const queueDiagnostics = {
+        counts: { ...refusalCounts },
+        recent: queueRefusals.map(refusal => ({ ...refusal })),
+        sendErrorCount,
+        sendErrors: sendErrors.map(error => ({ ...error })),
+        meaning: "Clockwork refused these messages. Ring full is transient; too big requires a smaller message. No automatic retries.",
+      };
       try {
         const metrics = sonic.getMetrics();
         const tree = sonic.getRawTree();
         return {
+          info: sonic.getInfo?.() ?? null,
           metrics,
           nodes: { count: tree.nodeCount, droppedCount: tree.droppedCount, trackedLayerNodes: nodes.size },
           outputPeak: tree.nodes?.reduce((peak, node) => Math.max(peak, node.outPeak || 0), 0),
           deviceOutput: outputDiagnostics(),
           transport: { pending: pending.length, purging, draining, closed },
           dispatch: { scheduledMessages, immediateMessages,
+            queueRefusals: queueDiagnostics,
             recentAttacks: recentAttacks.map(attack => ({ ...attack, controls: { ...attack.controls },
               nonFiniteControls: [...attack.nonFiniteControls] })),
             serverFailures: serverFailures.map(failure => ({ ...failure, details: [...failure.details] })),
@@ -149,7 +178,8 @@ export function createLocalOscTransport(sonic, encodeBundle, dispose) {
             outputLatency: sonic.audioContext?.outputLatency ?? null,
           },
         };
-      } catch (error) { return { metricsError: error.message, trackedLayerNodes: nodes.size }; }
+      } catch (error) { return { metricsError: error.message, trackedLayerNodes: nodes.size,
+        dispatch: { queueRefusals: queueDiagnostics } }; }
     },
     prepare: () => sonic.audioContext.resume(),
     send(address, typedArgs, port, timestamp) {

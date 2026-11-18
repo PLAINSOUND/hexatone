@@ -1,10 +1,10 @@
 # Local build toolchain
 
 Installed on Marc's Apple Silicon Mac, 2026-09-26; reused for the
-SuperSonic 0.97.0/DFM1 rebuild on 2026-11-15.
+SuperSonic 0.99.0/DFM1 rebuild on 2026-11-15.
 
-Versions follow SuperSonic 0.97.0 source revision
-`590f8a276229679e7007caea4d935228da7468b4`, whose Dockerfile and Clockwork build configuration
+Versions follow SuperSonic 0.99.0 source revision
+`ddf37085585a0aa6df6cbc4bb36689ae02b75330`, whose Dockerfile and Clockwork build configuration
 specify the nightly, Emscripten and wasm-bindgen versions below.
 
 | Tool | Version | Location / ownership |

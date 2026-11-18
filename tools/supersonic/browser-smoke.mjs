@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import assert from "node:assert/strict";
-import { chromium } from "./upstream-097/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-099/node_modules/playwright/index.mjs";
 
 const core = process.argv[2] ?? "dfm1";
 const mode = process.argv[3] ?? "postMessage";
@@ -176,7 +176,7 @@ try {
     } finally { await sonic.destroy(); }
   }, { core, mode, envelopes, cycles });
   console.log(JSON.stringify(result, null, 2));
-  if (core === "dfm1") assert.equal(result.version, "0.97.0");
+  if (core === "dfm1") assert.equal(result.version, "0.99.0");
   if (core === "dfm1") assert(result.deviceOutput?.peak > 0 && result.deviceOutput.peak < 1);
   for (const instrument of result.instruments) {
     if (core === "baseline" && ["pluck", "tone"].includes(instrument.name)) {

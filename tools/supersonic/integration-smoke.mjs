@@ -1,5 +1,5 @@
 /** Exercises Hexatone's real local OSC adapter against a running Vite server. */
-import { chromium } from "./upstream-097/node_modules/playwright/index.mjs";
+import { chromium } from "./upstream-099/node_modules/playwright/index.mjs";
 import assert from "node:assert/strict";
 import { readdir } from "node:fs/promises";
 const production = process.argv.includes("--production");

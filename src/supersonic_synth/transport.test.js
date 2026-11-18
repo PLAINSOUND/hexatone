@@ -18,6 +18,32 @@ function setup() {
     started: id => incoming(["/n_go", id]) };
 }
 describe("local OSC transport", () => {
+  it("records synchronous send failures without swallowing or retrying them", () => {
+    const { sonic, transport } = setup();
+    sonic.send.mockImplementationOnce(() => { throw new Error("OSC message too large to send"); });
+    expect(() => transport.send("/s_new", typed("tone", 100, 1, 1), 57104)).toThrow("too large");
+    expect(transport.getDiagnostics().dispatch.queueRefusals).toMatchObject({
+      sendErrorCount: 1,
+      sendErrors: [{ address: "/s_new", message: "OSC message too large to send", scheduled: false }],
+    });
+    transport.release();
+  });
+  it("bounds queue refusals, preserves totals and reports them when metrics fail", () => {
+    const { transport, incoming } = setup();
+    for (let i = 0; i < 30; i++) incoming(["/clockwork/error", "/s_new", "ring full", i]);
+    incoming(["/clockwork/error", "/d_recv", "too big", 30]);
+    incoming(["/clockwork/error", "/n_set", "no instance", 31]);
+    const report = transport.getDiagnostics().dispatch.queueRefusals;
+    expect(report.counts).toEqual({ "ring full": 30, "too big": 1, "no instance": 1 });
+    expect(report.recent).toHaveLength(24);
+    expect(report.recent[0]).toMatchObject({ generation: 8, transient: true });
+    expect(report.recent.at(-2)).toMatchObject({ address: "/d_recv", reason: "too big", transient: false });
+    report.counts["ring full"] = 0;
+    report.recent[0].reason = "changed";
+    expect(transport.getDiagnostics().dispatch.queueRefusals.recent[0].reason).toBe("ring full");
+    expect(transport.getDiagnostics().dispatch.queueRefusals.counts["ring full"]).toBe(30);
+    transport.release();
+  });
   it("captures bounded scheduled attacks, lifecycle replies and server failures for audio reports", () => {
     const { sonic, transport, incoming, started, ended } = setup();
     sonic.getMetrics = () => ({});

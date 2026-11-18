@@ -8,7 +8,7 @@ const dest = new URL("vendor/supersonic/", root);
 await mkdir(new URL("sources/", dest), { recursive: true });
 // Distribute the client built from the same pinned checkout as the custom
 // core, including its sources. Remove old chunks when replacing a bundle.
-const upstream = new URL("tools/supersonic/upstream-097/", root);
+const upstream = new URL("tools/supersonic/upstream-099/", root);
 const client = new URL("client/", dest);
 await rm(new URL("dist/", client), { recursive: true, force: true });
 await mkdir(new URL("dist/", client), { recursive: true });
@@ -33,8 +33,8 @@ for (const name of ["pluck", "string", "formant", "tone"]) {
   await cp(new URL(`tools/supersonic/generated/hexlab_${name}.scsyndef`, root), new URL(`synthdefs/hexlab_${name}.scsyndef`, dest));
 }
 for (const [directory, revision, name] of [
-  ["upstream-097", "590f8a276229679e7007caea4d935228da7468b4", "supersonic"],
-  ["upstream-097/clockwork", "1887876ce84e8fdc0ca18c6154cddf8ae8561fad", "clockwork"],
+  ["upstream-099", "ddf37085585a0aa6df6cbc4bb36689ae02b75330", "supersonic"],
+  ["upstream-099/clockwork", "d6f7b25e37cdaea9c0570e779b9b7a9fdb717965", "clockwork"],
   ["sc3-plugins", "fa926d6b554acef35b2fd9deb2f996085fa86bd7", "sc3-plugins"],
 ]) {
   execFileSync("git", ["-C", fileURLToPath(new URL(`tools/supersonic/${directory}`, root)), "archive", "--format=tar.gz", `--output=${fileURLToPath(new URL(`sources/${name}.tar.gz`, dest))}`, revision]);
@@ -53,4 +53,4 @@ async function hashDirectory(directory, prefix = "") {
   }
 }
 await hashDirectory(dest);
-await writeFile(new URL("manifest.json", dest), JSON.stringify({ version: "0.97.0-dfm1", files }, null, 2) + "\n");
+await writeFile(new URL("manifest.json", dest), JSON.stringify({ version: "0.99.0-dfm1", files }, null, 2) + "\n");

@@ -1,4 +1,4 @@
-# SuperSonic 0.97.0
+# SuperSonic 0.99.0
 
 > A scsynth-compatible synth powered by Clockwork, for the browser as an AudioWorklet and natively as a server.
 >

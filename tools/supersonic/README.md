@@ -1,6 +1,6 @@
 # SuperSonic / native SuperCollider comparison
 
-Comparison laboratory using pinned SuperSonic 0.97.0 packages. The separate lab
+Comparison laboratory using pinned SuperSonic 0.99.0 packages. The separate lab
 does not modify Hexatone's audio context or routing. An experimental integrated
 output is now available separately in I/O (see below).
 Use one laboratory tab at a time; its dedicated group/node range is shared by
@@ -16,6 +16,22 @@ Both packages are local file dependencies on the committed vendor distribution,
 keeping the client matched to the custom DFM1 core.
 After regenerating the vendor bundle, run `yarn install` to refresh those file
 dependencies and the lockfile before staging or building.
+
+### 0.99 upgrade (2026-11-18)
+
+The client and DFM1 core are built together from SuperSonic
+`ddf37085585a0aa6df6cbc4bb36689ae02b75330` and Clockwork
+`d6f7b25e37cdaea9c0570e779b9b7a9fdb717965`. Audio reports include bounded
+`dispatch.queueRefusals` records and cumulative counts for `/clockwork/error`
+(`ring full`, `too big`, `no instance`). These messages are not retried automatically.
+The existing SynthDef reload and acknowledged purge/clearSched recovery remain.
+
+For Windows comparisons, export an Audio diagnostics report before and after
+live playing, Snap playback, PANIC, and switching away from/back to the browser.
+Compare device output progress, engine metrics, attack acknowledgements, server
+failures, and queue refusals. A node acknowledgement measures a server reply,
+not speaker latency. Test both SharedArrayBuffer and postMessage where available;
+record browser/version and the transport actually selected.
 
 ### 0.97 upgrade (2026-11-15)
 
@@ -160,14 +176,14 @@ from node_modules or the ignored generated directory, not bundled into the appli
 Toolchain versions are recorded in `TOOLCHAIN.md`. Fetch the pinned sources once:
 
 ```sh
-git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-097
-git -C tools/supersonic/upstream-097 checkout 590f8a276229679e7007caea4d935228da7468b4
-git -C tools/supersonic/upstream-097 submodule update --init --recursive
+git clone https://github.com/samaaron/supersonic.git tools/supersonic/upstream-099
+git -C tools/supersonic/upstream-099 checkout ddf37085585a0aa6df6cbc4bb36689ae02b75330
+git -C tools/supersonic/upstream-099 submodule update --init --recursive
 git clone https://github.com/supercollider/sc3-plugins.git tools/supersonic/sc3-plugins
 git -C tools/supersonic/sc3-plugins checkout fa926d6b554acef35b2fd9deb2f996085fa86bd7
 ```
 
-Run `npm ci` inside `tools/supersonic/upstream-097`. Activate the installed Emscripten
+Run `npm ci` inside `tools/supersonic/upstream-099`. Activate the installed Emscripten
 SDK in the build shell (`source /Users/marcsabat/Dev/emsdk/emsdk_env.sh` on this
 machine), with Rust/Cargo on PATH. Before applying the extension, the optional
 unmodified comparison core can be built and saved from the upstream directory:
@@ -281,6 +297,6 @@ Three adapter tests, ESLint for the prototype, credits check and production buil
 
 See ../../codex/planning/SUPERSONIC_SYNTHDEF_IMPLEMENTATION_NOTES.md for the DSP
 comparison and articulation recommendations. The client and core dependency
-licences are supplied in their installed packages. The 0.97 distribution is
+licences are supplied in their installed packages. The 0.99 distribution is
 AGPL-3.0-or-later; the linked scsynth and original DFM1 also retain their supplied
 GPL licences. Corresponding source archives are included in the vendor bundle.
