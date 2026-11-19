@@ -9,11 +9,12 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { buildSync } from "esbuild";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
-const entryFile = path.join(__dirname, "index.js");
+let entryFile = path.join(__dirname, "index.js");
 const distDir = path.join(__dirname, "dist");
 const sentinelFuse = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
 
@@ -69,8 +70,8 @@ function defaultOutputPath() {
 
 function ensureSupportedNode() {
   const major = Number.parseInt(process.versions.node.split(".")[0], 10);
-  if (!Number.isFinite(major) || major < 20) {
-    fail(`Node ${process.versions.node} is too old for this SEA build. Use Node 20+.`);
+  if (!Number.isFinite(major) || major < 24) {
+    fail(`Node ${process.versions.node} is too old for this SEA build. Use Node 24+.`);
   }
 }
 
@@ -174,8 +175,19 @@ function build() {
   const args = parseArgs(process.argv.slice(2));
   const outputPath = path.resolve(args.output ?? defaultOutputPath());
   const useDirectBuildSea = supportsDirectBuildSea();
+  // SEA can load Node built-ins, but not unbundled local/npm modules.
+  // Bundle ws and our validation/diagnostics into the executable's entry point.
+  const bundleDir = fs.mkdtempSync(path.join(os.tmpdir(), "osc-bridge-bundle-"));
+  const bundledEntry = path.join(bundleDir, "bridge.cjs");
+  buildSync({ entryPoints: [entryFile], outfile: bundledEntry, bundle: true,
+    platform: "node", format: "cjs", target: "node24",
+    external: ["bufferutil", "utf-8-validate"] });
+  entryFile = bundledEntry;
 
-  if (!args.dryRun) fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  if (!args.dryRun) {
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.copyFileSync(path.join(rootDir, "node_modules/ws/LICENSE"), path.join(path.dirname(outputPath), "ws-LICENSE"));
+  }
   else console.log(`[osc-bridge:sea] mkdir -p ${path.dirname(outputPath)}`);
 
   if (useDirectBuildSea) {

@@ -511,7 +511,7 @@ File and storage controls appear below `Volume` when applicable:
 
 ### Built-in scsynth
 
-Enable `Use SuperCollider Sounds`. With `SuperSonic` selected, the Pluck, Buzz, Formant, and Saw layers run directly in the browser, without an OSC bridge. With it unselected, `Bridge URL` selects an external SuperCollider connection. Both modes share the layer and articulation controls described under **OSC** below.
+Enable `Use SuperCollider Sounds`. With `SuperSonic` selected, the Pluck, Buzz, Formant, and Saw layers run directly in the browser, without an OSC bridge. Select `Local via OSC Bridge` under `scsynth Server` to use an external SuperCollider connection through `Bridge URL`. Both modes share the layer and articulation controls described under **OSC** below.
 
 A layer volume of **0** greys its label and turns that layer off, freeing synth nodes to save processing. Raising the fader above zero restores that layer for held or sequencer notes, using their current pitch and expression.
 
@@ -547,7 +547,7 @@ This mode requires a local clone of the repo and a locally running bridge:
      ```
 
 3. Load the matching SuperCollider patch/responders locally.
-4. Enable `Use SuperCollider Sounds` in Hexatone, uncheck `SuperSonic`, and set `Bridge URL` to the running bridge.
+4. Enable `Use SuperCollider Sounds` in Hexatone, select `Local via OSC Bridge` under `scsynth Server`, and set `Bridge URL` to the running bridge. Paste the token printed in the bridge terminal into `Bridge pairing token`, then leave the field to connect. The token lasts for this tab session and is not included in presets or shared links. Restarting the bridge generates a new token.
 
 This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
 

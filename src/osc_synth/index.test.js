@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { create_osc_synth } from "./index.js";
 import { playSnapshot } from "../sequencer/snapshots.js";
+import { setBridgeToken } from "./bridge-auth.js";
 
 class MockWebSocket {
   static instances = [];
   static OPEN = 1;
 
-  constructor(url) {
+  constructor(url, protocols) {
     this.url = url;
+    this.protocols = protocols;
     this.readyState = MockWebSocket.OPEN;
     this.sent = [];
     this.close = vi.fn(() => {
@@ -78,6 +80,22 @@ describe("osc_synth pooled slot allocation", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("authenticates the shared socket and reconnects when its session token changes", async () => {
+    const url = "ws://127.0.0.1:18089";
+    setBridgeToken(url, "a".repeat(64));
+    const synth = await create_osc_synth(url);
+    const first = MockWebSocket.instances.at(-1);
+    expect(first.protocols).toEqual(["hexatone-osc", `hexatone-token.${"a".repeat(64)}`]);
+    setBridgeToken(url, "b".repeat(64));
+    const next = MockWebSocket.instances.at(-1);
+    expect(first.close).toHaveBeenCalledOnce();
+    expect(next.protocols).toEqual(["hexatone-osc", `hexatone-token.${"b".repeat(64)}`]);
+    synth.shutdown({ panic: true });
+    const count = MockWebSocket.instances.length;
+    setBridgeToken(url, "");
+    expect(MockWebSocket.instances).toHaveLength(count);
   });
 
   it("updates the reference for new notes without retuning or releasing queued voices", async () => {

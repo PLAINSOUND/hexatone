@@ -6,6 +6,7 @@
 import { COMPARISON_GROUP, COMPARISON_INSTRUMENTS, createComparisonVoice,
   nativeComparisonMessage } from "./supersonic-comparison.js";
 import { createPerformanceCapture, downloadPerformanceReport } from "./performance-capture.js";
+import { bridgeProtocols, getBridgeToken, setBridgeToken } from "../osc_synth/bridge-auth.js";
 
 const el = id => document.getElementById(id);
 const log = text => { el("log").textContent = `${text}\n${el("log").textContent}`.slice(0, 12000); };
@@ -209,7 +210,13 @@ el("connect").onclick = protect(async () => {
   }
   el("connect").disabled = true;
   el("port").disabled = true;
-  socket = new WebSocket("ws://127.0.0.1:8089");
+  const bridgeUrl = "ws://127.0.0.1:8089";
+  if (!getBridgeToken(bridgeUrl)) {
+    const token = window.prompt("Pairing token printed by osc-bridge:");
+    if (!token) throw new Error("A bridge pairing token is required");
+    setBridgeToken(bridgeUrl, token);
+  }
+  socket = new WebSocket(bridgeUrl, bridgeProtocols(bridgeUrl));
   socket.onclose = () => {
     nativeVoice = null;
     el("connect").disabled = false;

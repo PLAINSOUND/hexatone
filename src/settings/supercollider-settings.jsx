@@ -6,6 +6,7 @@
 import { useEffect, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import CustomRangeSlider from "./shared/range-slider.jsx";
+import { getBridgeToken, setBridgeToken } from "../osc_synth/bridge-auth.js";
 
 const clampVolume = (value) => Math.max(0, Math.min(1, value));
 const clampRelease = (value) => Math.max(0, Math.min(1, value));
@@ -31,6 +32,13 @@ const SuperColliderSettings = ({
   onOscQuickReleaseTimeChange,
   onOscQuickReleaseRasterOnlyChange,
 }) => {
+  const bridgeUrl = settings.osc_bridge_url || "ws://localhost:8089";
+  const [bridgeToken, changeBridgeToken] = useState(() => getBridgeToken(bridgeUrl));
+  const [bridgeError, setBridgeError] = useState("");
+  useEffect(() => {
+    changeBridgeToken(getBridgeToken(bridgeUrl));
+    setBridgeError("");
+  }, [bridgeUrl]);
   const [layerVolumes, setLayerVolumes] = useState(() => ({
     osc_volume_pluck: readNumber("osc_volume_pluck", settings.osc_volume_pluck ?? 0.5, clampVolume),
     osc_volume_buzz: readNumber("osc_volume_buzz", settings.osc_volume_buzz ?? 0.5, clampVolume),
@@ -123,6 +131,7 @@ const SuperColliderSettings = ({
             </em>
           </p>
           {!settings.osc_local && (
+            <>
             <label>
               Bridge URL
               <input
@@ -138,6 +147,19 @@ const SuperColliderSettings = ({
                 }}
               />
             </label>
+            <label>
+              Bridge pairing token
+              <input type="password" class="sidebar-input" autoComplete="off" spellCheck={false}
+                value={bridgeToken} placeholder="Paste the token printed by osc-bridge"
+                onInput={event => changeBridgeToken(event.currentTarget.value)}
+                onBlur={() => {
+                  try { setBridgeToken(bridgeUrl, bridgeToken); setBridgeError(""); }
+                  catch (error) { setBridgeError(error.message); }
+                }} />
+            </label>
+            <p class="setting-help">Stored for this tab session; excluded from presets and shared links.</p>
+            {bridgeError && <p role="alert">{bridgeError}</p>}
+            </>
           )}
 
           {[

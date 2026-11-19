@@ -166,3 +166,5 @@ Before finishing work:
 yarn lint
 yarn build
 ```
+
+The Vite development server now binds to `127.0.0.1` by default. For deliberate LAN/phone testing, use `yarn start --host 0.0.0.0` (or set `VITE_DEV_HOST`); expose it only on a trusted network. The OSC bridge requires pairing; see `osc-bridge/README.md`.

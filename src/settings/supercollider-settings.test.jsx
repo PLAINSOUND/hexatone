@@ -3,6 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import SuperColliderSettings from "./supercollider-settings.jsx";
 
 describe("SuperCollider scsynth settings", () => {
+  it("pairs the bridge without putting its secret in exported settings", () => {
+    const onChange = vi.fn();
+    render(<SuperColliderSettings settings={{ output_osc: true, osc_local: false }} onChange={onChange} />);
+    const input = screen.getByLabelText("Bridge pairing token");
+    const token = "a".repeat(64);
+    fireEvent.input(input, { target: { value: token } });
+    fireEvent.blur(input);
+    expect(input.type).toBe("password");
+    expect(sessionStorage.getItem("hexatone_bridge_token:ws://127.0.0.1:8089")).toBe(token);
+    expect(onChange).not.toHaveBeenCalled();
+  });
   it("greys layer labels at zero and restores them immediately above zero", () => {
     render(<SuperColliderSettings
       settings={{ output_osc: true, osc_local: true }} onChange={vi.fn()}

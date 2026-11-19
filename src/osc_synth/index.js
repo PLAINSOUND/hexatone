@@ -17,6 +17,7 @@
  * Requires the osc-bridge Node.js process to be running locally:
  *   node osc-bridge/index.js
  */
+import { bridgeProtocols, subscribeBridgeToken } from "./bridge-auth.js";
 
 import { outputTimestamp } from "../midi/output-transaction.js";
 import { silentOutputHex } from "../audio/output-lifecycle.js";
@@ -118,6 +119,16 @@ class OscSocket {
     this._reconnectTimer = null;
     this._pendingBundles = new Map();
     this._bundleFlushScheduled = false;
+    this._unsubscribeToken = subscribeBridgeToken(url, () => {
+      if (this._reconnectTimer != null) clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+      if (this._ws) {
+        this._ws.onopen = this._ws.onclose = this._ws.onerror = null;
+        this._ws.close();
+        this._ws = null;
+      }
+      this._connect();
+    });
     this._connect();
   }
 
@@ -141,6 +152,7 @@ class OscSocket {
   shutdown() {
     if (this._disposed) return;
     this._disposed = true;
+    this._unsubscribeToken?.();
     this.clearQueue();
     if (this._reconnectTimer != null) {
       clearTimeout(this._reconnectTimer);
@@ -161,7 +173,8 @@ class OscSocket {
 
   _connect() {
     if (this._disposed) return;
-    const ws = new WebSocket(this._url);
+    const ws = new WebSocket(this._url, bridgeProtocols(this._url));
+    this._ws = ws;
 
     ws.onopen = () => {
       if (this._disposed) {

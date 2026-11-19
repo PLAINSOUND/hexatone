@@ -1,3 +1,4 @@
+import { checkTextImportFiles } from "../persistence/import-limits.js";
 // SequenceLibrary owns the built-in and user sequence pickers.
 // It mirrors the Hexatone tuning-library workflow inside the Sequencer tab:
 // recall, save, save-as-copy, import, delete, and dirty-state confirmation for
@@ -550,6 +551,8 @@ const SequenceLibrary = ({
       return;
     }
 
+    try { checkTextImportFiles(files); }
+    catch (error) { setError(error.message); if (input) input.value = ""; return; }
     const parsedLists = await Promise.all(
       files.map(
         (file) =>

@@ -1,3 +1,4 @@
+import { checkTextImportFiles } from "../persistence/import-limits.js";
 /**
  * src/hexatone/tuning-library.jsx
  *
@@ -330,6 +331,8 @@ const TuningLibrary = ({
       return;
     }
 
+    try { checkTextImportFiles(files); }
+    catch (error) { setError(error.message); return; }
     const imported = [];
     for (const file of files) {
       const parsed = await parseImportedFile(file);
@@ -375,6 +378,8 @@ const TuningLibrary = ({
       return;
     }
 
+    try { checkTextImportFiles(files); }
+    catch (error) { setError(error.message); return; }
     const imported = [];
     for (const file of files) {
       const parsed = await parseImportedFile(file);

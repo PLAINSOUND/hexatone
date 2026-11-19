@@ -46,6 +46,9 @@ jobs:
       - name: Test
         run: yarn test
 
+      - name: Test OSC bridge security
+        run: yarn test:bridge
+
       - name: Lint CSS
         run: yarn lint:css
 
