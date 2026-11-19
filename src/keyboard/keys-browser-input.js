@@ -138,26 +138,29 @@ export function inputIsFocused() {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
-export function bindCanvasSpacePedal(keys) {
+export function bindCanvasInputFocus(keys) {
   const update = event => {
     const canvas = keys.state.canvas;
     if (event.target === canvas) {
-      keys.state.canvasSpacePedal = true;
+      keys.state.canvasInputFocused = true;
       // A previous button focus must not receive Space's native activation.
       document.activeElement?.blur?.();
       return;
     }
-    keys.state.canvasSpacePedal = false;
-    if (keys.state.spaceSustainHeld) {
-      keys.state.spaceSustainHeld = false;
-      keys.sustainOff(!keys.state.latch, { releaseShiftLatches: !keys.state.latch });
-    }
+    keys.state.canvasInputFocused = false;
+    keys.releaseAllKeyboardNotes();
   };
   const events = ["pointerdown", "mousedown", "touchstart", "focusin"];
   for (const type of events) document.addEventListener(type, update, true);
   return () => {
     for (const type of events) document.removeEventListener(type, update, true);
   };
+}
+
+function canvasKeyboardActive(keys) {
+  // Sidebar visibility supplies the initial default; subsequent clicks and
+  // keyboard focus changes own input independently of the sidebar layout.
+  return keys.state.canvasInputFocused ?? keys.typing;
 }
 
 export function setTuneDragging(active) {
@@ -183,8 +186,7 @@ function keyDown(e) {
   if (this.inputIsFocused()) return;
 
   if (e.code === "Space" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-    if (this.state.canvasSpacePedal === false ||
-        (!this.typing && !this.state.canvasSpacePedal)) return;
+    if (!canvasKeyboardActive(this)) return;
     e.preventDefault();
     if (!e.repeat && !this.state.spaceSustainHeld) {
       this.state.spaceSustainReleasePending = true;
@@ -228,7 +230,7 @@ function keyDown(e) {
     return;
   }
 
-  if (!this.typing) return;
+  if (!canvasKeyboardActive(this)) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
 
   e.preventDefault();
@@ -291,7 +293,7 @@ export function onKeyUp(e) {
   }
 
   if (isModulationToggleKeyCode(e.code)) return;
-  if (!this.typing) return;
+  if (!canvasKeyboardActive(this)) return;
   if (this.inputIsFocused()) return;
 
   if (!(e.code in this.settings.keyCodeToCoords)) return;

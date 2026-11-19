@@ -1086,6 +1086,43 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.sustain).toBe(false);
   });
 
+  it.each([false, true])("plays keyboard notes with the sidebar open and releases held keys on sidebar focus (latch: %s)", globalLatch => {
+    const keys = createKeys();
+    keys.typing = false;
+    keys.settings.keyCodeToCoords = { KeyH: new Point(0, 0) };
+    const canvas = document.createElement("canvas");
+    const input = document.createElement("input");
+    document.body.append(canvas, input);
+    keys.state.canvas = canvas;
+    const unbind = KeysBrowserInput.bindCanvasInputFocus(keys);
+    const hex = { coords: new Point(0, 0), cents: 0, noteOff: vi.fn() };
+    keys.hexOn = vi.fn(() => hex);
+    keys.hexOff = vi.fn();
+    keys.drawHex = vi.fn();
+    const note = { code: "KeyH", preventDefault: vi.fn() };
+    try {
+      canvas.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      keys.onKeyDown(note);
+      expect(keys.hexOn).toHaveBeenCalledOnce();
+      if (globalLatch) keys.latchToggle();
+      input.focus();
+      expect(keys.state.pressedKeys.size).toBe(0);
+      expect(keys.state.activeKeyboard.size).toBe(0);
+      expect(hex.noteOff).toHaveBeenCalledTimes(globalLatch ? 0 : 1);
+      keys.onKeyUp(note);
+      keys.onKeyDown(note);
+      expect(keys.hexOn).toHaveBeenCalledOnce();
+      expect(keys.state.latch).toBe(globalLatch);
+      if (globalLatch) keys.latchToggle();
+      expect(hex.noteOff).toHaveBeenCalledOnce();
+      canvas.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      keys.onKeyDown(note);
+      expect(keys.hexOn).toHaveBeenCalledTimes(2);
+      keys.onKeyUp(note);
+      expect(hex.noteOff).toHaveBeenCalledTimes(2);
+    } finally { unbind(); canvas.remove(); input.remove(); }
+  });
+
   it.each([false, true])("uses canvas focus for Space with the sidebar open, preserving toggle sustain: %s", globalLatch => {
     const keys = createKeys();
     keys.typing = false;
@@ -1093,7 +1130,7 @@ describe("Keys MIDI input integration", () => {
     const button = document.createElement("button");
     document.body.append(canvas, button);
     keys.state.canvas = canvas;
-    const unbind = KeysBrowserInput.bindCanvasSpacePedal(keys);
+    const unbind = KeysBrowserInput.bindCanvasInputFocus(keys);
     keys.hexOff = vi.fn();
     keys.drawHex = vi.fn();
     const hex = { coords: new Point(0, 0), cents: 0, noteOff: vi.fn() };

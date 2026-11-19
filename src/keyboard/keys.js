@@ -448,7 +448,7 @@ class Keys {
 
     // Set up keyboard, touch and mouse event handlers
     this._unbindCanvasRecovery = bindCanvasRecovery(this);
-    this._unbindCanvasSpacePedal = KeysBrowserInput.bindCanvasSpacePedal(this);
+    this._unbindCanvasInputFocus = KeysBrowserInput.bindCanvasInputFocus(this);
     // Key listeners always on window — ESC key sustain must work even when sidebar is closed.
     window.addEventListener("keydown", this.onKeyDown, false);
     window.addEventListener("keyup", this.onKeyUp, false);
@@ -2341,7 +2341,7 @@ class Keys {
 
     window.removeEventListener("resize", this.windowResizeHandler, false);
     this._unbindCanvasRecovery?.();
-    this._unbindCanvasSpacePedal?.();
+    this._unbindCanvasInputFocus?.();
     window.removeEventListener("orientationchange", this.orientationChangeHandler, false);
     if (window.visualViewport) {
       window.visualViewport.removeEventListener("resize", this.visualViewportResizeHandler, false);

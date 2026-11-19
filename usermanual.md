@@ -142,7 +142,7 @@ Hexatone supports various controllers and uses a 2D hexagonal layout to represen
 
 ### Mouse, Touch, Computer Keyboard
 
-Click or tap the on-screen hexes to play notes. When the sidebar is collapsed and the canvas fills the screen, the normal keyboard becomes a simple isomorphic controller. The H key is mapped automatically to play the central degree at the centre of the canvas. Pressing *SHIFT* and a note-triggering key alternately latches and releases that particular note, allowing note-by-note sustains.
+Click or tap the on-screen hexes to play notes. Click the canvas to use the computer keyboard as a simple isomorphic controller, even while the sidebar is open. Clicking or moving keyboard focus into the sidebar releases physically held keys and disables the note bindings until you click the canvas again. Toggle-sustained notes remain held. The H key is mapped automatically to play the central degree at the centre of the canvas. Pressing *SHIFT* and a note-triggering key alternately latches and releases that particular note, allowing note-by-note sustains.
 
 ### Presets
 

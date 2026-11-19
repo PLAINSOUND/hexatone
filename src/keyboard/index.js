@@ -181,7 +181,8 @@ const Keyboard = (props) => {
   useEffect(() => {
     if (keysRef.current) {
       keysRef.current.typing = props.active;
-      if (!props.active && typeof keysRef.current.releaseAllKeyboardNotes === "function")
+      if (!props.active && !keysRef.current.state?.canvasInputFocused &&
+          typeof keysRef.current.releaseAllKeyboardNotes === "function")
         keysRef.current.releaseAllKeyboardNotes();
     }
   }, [props.active]);
