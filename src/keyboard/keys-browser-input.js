@@ -138,6 +138,28 @@ export function inputIsFocused() {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
+export function bindCanvasSpacePedal(keys) {
+  const update = event => {
+    const canvas = keys.state.canvas;
+    if (event.target === canvas) {
+      keys.state.canvasSpacePedal = true;
+      // A previous button focus must not receive Space's native activation.
+      document.activeElement?.blur?.();
+      return;
+    }
+    keys.state.canvasSpacePedal = false;
+    if (keys.state.spaceSustainHeld) {
+      keys.state.spaceSustainHeld = false;
+      keys.sustainOff(!keys.state.latch, { releaseShiftLatches: !keys.state.latch });
+    }
+  };
+  const events = ["pointerdown", "mousedown", "touchstart", "focusin"];
+  for (const type of events) document.addEventListener(type, update, true);
+  return () => {
+    for (const type of events) document.removeEventListener(type, update, true);
+  };
+}
+
 export function setTuneDragging(active) {
   this.state.isTuneDragging = active;
 }
@@ -161,7 +183,8 @@ function keyDown(e) {
   if (this.inputIsFocused()) return;
 
   if (e.code === "Space" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-    if (!this.typing) return;
+    if (this.state.canvasSpacePedal === false ||
+        (!this.typing && !this.state.canvasSpacePedal)) return;
     e.preventDefault();
     if (!e.repeat && !this.state.spaceSustainHeld) {
       this.state.spaceSustainReleasePending = true;

@@ -1062,7 +1062,7 @@ describe("Keys MIDI input integration", () => {
     expect(space.preventDefault).not.toHaveBeenCalled();
   });
 
-  it("disables Space sustain when the sidebar is open and clears an active pedal on opening", () => {
+  it("leaves Space inactive without canvas focus in the sidebar and releases the pedal on opening", () => {
     const keys = createKeys();
     keys.onLatchChange = vi.fn();
     const space = { code: "Space", preventDefault: vi.fn() };
@@ -1084,6 +1084,44 @@ describe("Keys MIDI input integration", () => {
     expect(keys.onLatchChange).toHaveBeenLastCalledWith(false);
     keys.onKeyUp(space);
     expect(keys.state.sustain).toBe(false);
+  });
+
+  it.each([false, true])("uses canvas focus for Space with the sidebar open, preserving toggle sustain: %s", globalLatch => {
+    const keys = createKeys();
+    keys.typing = false;
+    const canvas = document.createElement("canvas");
+    const button = document.createElement("button");
+    document.body.append(canvas, button);
+    keys.state.canvas = canvas;
+    const unbind = KeysBrowserInput.bindCanvasSpacePedal(keys);
+    keys.hexOff = vi.fn();
+    keys.drawHex = vi.fn();
+    const hex = { coords: new Point(0, 0), cents: 0, noteOff: vi.fn() };
+    const space = { code: "Space", preventDefault: vi.fn() };
+    try {
+      button.focus();
+      keys.onKeyDown(space);
+      expect(keys.state.spaceSustainHeld).toBe(false);
+      canvas.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      expect(document.activeElement).not.toBe(button);
+      if (globalLatch) keys.latchToggle();
+      keys.onKeyDown(space);
+      expect(keys.state.spaceSustainHeld).toBe(true);
+      keys.state.activeMouse = hex;
+      keys.state.isMouseDown = true;
+      keys.mouseUp({});
+      expect(hex.noteOff).not.toHaveBeenCalled();
+      button.focus();
+      expect(keys.state.spaceSustainHeld).toBe(false);
+      expect(keys.state.latch).toBe(globalLatch);
+      expect(hex.noteOff).toHaveBeenCalledTimes(globalLatch ? 0 : 1);
+      keys.onKeyUp(space);
+      expect(hex.noteOff).toHaveBeenCalledTimes(globalLatch ? 0 : 1);
+      if (globalLatch) {
+        keys.latchToggle();
+        expect(hex.noteOff).toHaveBeenCalledOnce();
+      }
+    } finally { unbind(); canvas.remove(); button.remove(); }
   });
 
   it("consumes the original Space repeat and key-up after the sidebar button gains focus", () => {

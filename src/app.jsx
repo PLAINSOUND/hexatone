@@ -5655,6 +5655,8 @@ const App = () => {
       )}
       <button
         id="sidebar-button"
+        onKeyDown={e => { if (e.code === "Space") e.preventDefault(); }}
+        onKeyUp={e => { if (e.code === "Space") e.preventDefault(); }}
         className={[
           latch ? "latch-active" : "",
           landscapeSafeSide !== "none" ? `landscape-safe-${landscapeSafeSide}` : "",

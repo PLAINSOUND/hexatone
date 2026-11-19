@@ -122,7 +122,7 @@ Buttons along the bottom of the app, also mapped to key commands:
   - press *SHIFT + up / down arrow* to change octaves
   - click the word `OCT` or press *SHIFT + left / right arrow* to toggle between two states: retune the next played note or (darker colour) retune all sounds immediately
 - `SUSTAIN` (*SHIFT+ESC* / *F8*): the on-screen control toggles hands-free sustain; playing a sustained note again turns it off rather than adding another voice
-  - with the sidebar closed, hold *SPACE* for momentary pedal sustain; the on-screen control lights while pressed. Repeatedly playing a note adds new voices while its earlier voices keep sounding, allowing layers of the same pitch. Release SPACE to clear sustained notes, including individual Shift latches. Physically held notes continue until released.
+  - after clicking the canvas, hold *SPACE* for momentary pedal sustain, even with the sidebar open; the on-screen control lights while pressed. Repeatedly playing a note adds new voices while its earlier voices keep sounding, allowing layers of the same pitch. Release SPACE to clear sustained notes, including individual Shift latches. Physically held notes continue until released. Moving focus into the sidebar releases the Space pedal and its notes; toggle sustain remains active and keeps its notes. Click the canvas to use the pedal again.
   - *SHIFT+note key* sustains one note independently; play it again or click its hex to release it
 - `MOD` (*SHIFT+BACKQUOTE / °*): toggle to activate or deactivate modulation mode (see detailed description below)
     - a single played or already playing note is treated as the source degree

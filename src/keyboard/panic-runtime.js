@@ -95,7 +95,7 @@ export function releaseAllKeyboardNotes(keys) {
   keys.state.pressedKeys.clear();
   if (keys.state.spaceSustainHeld) {
     keys.state.spaceSustainHeld = false;
-    keys.sustainOff(true, { releaseShiftLatches: true });
+    keys.sustainOff(!keys.state.latch, { releaseShiftLatches: !keys.state.latch });
   }
 }
 
