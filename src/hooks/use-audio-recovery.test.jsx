@@ -12,6 +12,9 @@ it("checks enabled engine readiness rather than whether a gesture occurred", () 
   sonic.getAudioContext = () => ({ state: "running" });
   expect(needsInitialAudioStart(synth, settings)).toBe(false);
   expect(needsInitialAudioStart(null, { output_fluidsynth: true })).toBe(false);
+  expect(needsInitialAudioStart(synth, { output_dsf: true })).toBe(true);
+  synth.childSynths = () => [{ audioBackend: "dsf", getAudioContext: () => ({ state: "running" }) }];
+  expect(needsInitialAudioStart(synth, { output_dsf: true })).toBe(false);
 });
 
 afterEach(() => { cleanup(); setLatencyMeasurementEnabled(false); vi.useRealTimers(); });
@@ -190,6 +193,53 @@ it("checks installed engines for interruption while another engine loads", async
   test.lifecycle.current.loading = false;
   await test.tick();
   expect(screen.getByTestId("status").textContent).toContain("needs attention");
+});
+
+it("clears a stale warning when every engine resumes outside Retry", async () => {
+  const test = harness();
+  test.audio().state = "interrupted";
+  await test.tick();
+  expect(screen.getByTestId("status").textContent).toContain("needs attention");
+  test.audio().state = "running";
+  test.audio().currentTime = 1;
+  await test.tick();
+  expect(screen.getByTestId("status").textContent).toContain("needs attention");
+  test.audio().currentTime = 3;
+  await test.tick();
+  expect(screen.getByTestId("status").textContent).toBe("");
+});
+
+it("retains the warning until all renderers progress and startup finishes", async () => {
+  vi.useFakeTimers();
+  const context = { state: "interrupted", currentTime: 0 };
+  let count = 1;
+  const fluid = { audioBackend: "fluidsynth", getAudioContext: () => context,
+    getDiagnostics: () => ({ audioContext: { ...context } }) };
+  const sonic = { audioBackend: "supersonic", getAudioContext: () => context,
+    getDiagnostics: () => ({ engine: { audioContext: { ...context }, metrics: { engineProcessCount: count } } }) };
+  const synthRef = { current: { childSynths: () => [fluid, sonic] } };
+  const lifecycle = { current: { loading: false } };
+  function Harness() {
+    const recovery = useAudioRecovery(synthRef, { current: null }, {}, undefined, lifecycle);
+    return <span data-testid="status">{recovery.status}</span>;
+  }
+  render(<Harness />);
+  const tick = () => act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  await tick();
+  context.state = "running";
+  context.currentTime = 1;
+  await tick();
+  context.currentTime = 3;
+  await tick(); // Context moves, SuperSonic processing is still frozen.
+  expect(screen.getByTestId("status").textContent).toContain("needs attention");
+  lifecycle.current.loading = true;
+  context.currentTime = 5; count++;
+  await tick();
+  expect(screen.getByTestId("status").textContent).toContain("needs attention");
+  lifecycle.current.loading = false;
+  context.currentTime = 7; count++;
+  await tick();
+  expect(screen.getByTestId("status").textContent).toBe("");
 });
 
 it("restarts only FluidSynth on its existing context without startup or context cycling", async () => {

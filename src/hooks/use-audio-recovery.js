@@ -17,6 +17,7 @@ export function needsInitialAudioStart(synth, settings = {}) {
     } catch { return false; }
   });
   if (settings.output_sample && settings.instrument !== "OFF" && !ready("samples")) return true;
+  if (settings.output_dsf && !ready("dsf")) return true;
   if (settings.output_osc && !settings.osc_server_off && settings.osc_local && !ready("supersonic")) return true;
   // A remembered bank awaits activation/restoration, even before its worklet
   // appears in the live graph. A genuinely unselected bank needs a file picker.
@@ -34,6 +35,8 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
   const recorder = useRef(null);
   if (!recorder.current) recorder.current = createAudioRecovery();
   const [status, setStatus] = useState("");
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   const [restoring, setRestoring] = useState(false);
   const dismiss = useCallback(() => {
     recorder.current.record("alert-dismissed");
@@ -135,9 +138,10 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
       if (log.needsRestore(synthRef.current) && !busy.current)
         setStatus("Audio paused while away. Tap Retry to resume.");
       const next = new Map();
+      let allHealthy = outputs.length > 0;
       for (const output of outputs) {
         const context = output.audioContext ?? output.engine?.audioContext;
-        if (!context) continue;
+        if (!context) { allHealthy = false; continue; }
         const last = previous.get(`${output.backend}:${output.contextId}`);
         const processCount = output.engine?.metrics?.engineProcessCount;
         const stalled =
@@ -148,6 +152,14 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           context.state === "running" &&
           last?.state === "running" && Number.isFinite(processCount) &&
           last?.processCount === processCount;
+        // A canvas gesture can resume or replace engines without using Retry.
+        // Require observed progress from every output before clearing its warning.
+        if (output.error || output.processorFailed || output.engine?.metricsError ||
+            output.engine?.transport?.closed || context.state !== "running" ||
+            last?.state !== "running" || !Number.isFinite(context.currentTime) ||
+            !(context.currentTime > last.currentTime) ||
+            (Number.isFinite(processCount) && !(processCount > last.processCount)))
+          allHealthy = false;
         next.set(`${output.backend}:${output.contextId}`, { ...context, processCount });
         if (
           stalled ||
@@ -173,6 +185,11 @@ export default function useAudioRecovery(synthRef, keysRef, settings = {}, initi
           });
         }
       }
+      if (allHealthy && !busy.current && !log.needsRestore(synthRef.current) &&
+          !engineLifecycleRef?.current?.loading && !startupErrors &&
+          !initialiseRef?.current?.needed?.() &&
+          !needsInitialAudioStart(synthRef.current, settingsRef.current))
+        setStatus("");
       previous = next;
       log.record("sample", { outputs });
     }, 2000);
