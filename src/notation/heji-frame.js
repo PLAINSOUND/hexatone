@@ -1,8 +1,9 @@
+import { normalizeFractionToPitchClass } from "../tuning/fraction-utils.js";
 // This module owns HEJI-specific notation frame derivation and typed-label parsing.
 // It adapts the generic pitch/reference frame logic to HEJI anchoring, HEJI
 // glyph entry, and scale-wide HEJI spelling decisions.
 
-import { Fraction, monzoToCents } from "xen-dev-utils";
+import { monzoToCents } from "xen-dev-utils";
 import { scalaToCents } from "../settings/scale/parse-scale.js";
 import { addMonzos } from "./heji.js";
 import {
@@ -147,17 +148,6 @@ function deriveAbstractDReference({ pitchFrame = null, referenceFrame = null } =
     absoluteMonzo,
     ratioMonzo: addMonzos(absoluteMonzo, referenceFrame.globalOffsetMonzo),
   };
-}
-
-function fractionCompare(a, b) {
-  return a.s * a.n * b.d - b.s * b.n * a.d;
-}
-
-function normalizeFractionToPitchClass(ratio) {
-  let out = ratio;
-  while (fractionCompare(out, new Fraction(1, 1)) < 0) out = out.mul(2);
-  while (fractionCompare(out, new Fraction(2, 1)) >= 0) out = out.div(2);
-  return out;
 }
 
 function formatExactScaleTextFromMonzo(monzo) {

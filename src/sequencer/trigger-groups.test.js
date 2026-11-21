@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveSequenceCueGroups,
+  deriveSequenceNotesByCueGroups,
   deriveSequenceEvents,
   deriveSnapshotTriggerGroups,
-  sequenceNoteKeysAtCueIndex,
-  sequenceNotesAtCueIndex,
-  sequenceNotesAtCueTime,
 } from "./trigger-groups.js";
+
+const notesByCue = snapshots => deriveSequenceNotesByCueGroups(deriveSequenceCueGroups(snapshots));
+const notesAtTime = (snapshots, time) => {
+  const groups = deriveSequenceCueGroups(snapshots);
+  const index = groups.findLastIndex(group => group.time <= time);
+  return deriveSequenceNotesByCueGroups(groups)[index] ?? [];
+};
 
 describe("deriveSnapshotTriggerGroups", () => {
   it("groups by time and sorts old releases before new attacks, then by descending pitch", () => {
@@ -111,7 +116,7 @@ describe("deriveSnapshotTriggerGroups", () => {
   });
 
   it("derives the active note set after a shared cue position", () => {
-    const notes = sequenceNotesAtCueTime(
+    const notes = notesAtTime(
       [
         {
           id: 1,
@@ -127,7 +132,7 @@ describe("deriveSnapshotTriggerGroups", () => {
       2,
     );
 
-    expect(notes.map((note) => note.id)).toEqual(["second"]);
+    expect(notes.map((note) => note.noteId)).toEqual(["second"]);
   });
 
   it("recomputes cue numbering when edited positions create new shared cues", () => {
@@ -178,11 +183,11 @@ describe("deriveSnapshotTriggerGroups", () => {
       },
     ];
 
-    expect(sequenceNotesAtCueTime(snapshots, 1).map((note) => note.id)).toEqual(["a"]);
-    expect(sequenceNotesAtCueTime(snapshots, 1.5).map((note) => note.id)).toEqual(["a", "b"]);
-    expect(sequenceNotesAtCueTime(snapshots, 2).map((note) => note.id)).toEqual(["a"]);
-    expect(sequenceNotesAtCueTime(snapshots, 2.25).map((note) => note.id)).toEqual(["c"]);
-    expect(sequenceNotesAtCueTime(snapshots, 3).map((note) => note.id)).toEqual([]);
+    expect(notesAtTime(snapshots, 1).map((note) => note.noteId).sort()).toEqual(["a"]);
+    expect(notesAtTime(snapshots, 1.5).map((note) => note.noteId).sort()).toEqual(["a", "b"]);
+    expect(notesAtTime(snapshots, 2).map((note) => note.noteId).sort()).toEqual(["a"]);
+    expect(notesAtTime(snapshots, 2.25).map((note) => note.noteId).sort()).toEqual(["c"]);
+    expect(notesAtTime(snapshots, 3).map((note) => note.noteId).sort()).toEqual([]);
   });
 
   it("derives cue playback targets by applying note-on and note-off events cue by cue", () => {
@@ -203,12 +208,12 @@ describe("deriveSnapshotTriggerGroups", () => {
       },
     ];
 
-    expect(sequenceNotesAtCueIndex(snapshots, 0).map((note) => note.midicents)).toEqual([60]);
-    expect(sequenceNotesAtCueIndex(snapshots, 1).map((note) => note.midicents)).toEqual([64, 60]);
-    expect(sequenceNotesAtCueIndex(snapshots, 2).map((note) => note.midicents)).toEqual([
+    expect(notesByCue(snapshots)[0].map((note) => note.midicents)).toEqual([60]);
+    expect(notesByCue(snapshots)[1].map((note) => note.midicents)).toEqual([64, 60]);
+    expect(notesByCue(snapshots)[2].map((note) => note.midicents)).toEqual([
       67, 64, 60,
     ]);
-    expect(sequenceNotesAtCueIndex(snapshots, 3).map((note) => note.midicents)).toEqual([72]);
+    expect(notesByCue(snapshots)[3].map((note) => note.midicents)).toEqual([72]);
   });
 
   it("preserves same-pitch notes across same-time release and attack cue handoffs", () => {
@@ -225,10 +230,10 @@ describe("deriveSnapshotTriggerGroups", () => {
       },
     ];
 
-    expect(sequenceNotesAtCueIndex(snapshots, 0)).toMatchObject([
+    expect(notesByCue(snapshots)[0]).toMatchObject([
       { midicents: 60, pressure: 10, timbre: 20 },
     ]);
-    expect(sequenceNotesAtCueIndex(snapshots, 1)).toMatchObject([
+    expect(notesByCue(snapshots)[1]).toMatchObject([
       { midicents: 60, pressure: 55, timbre: 66 },
     ]);
   });
@@ -245,10 +250,10 @@ describe("deriveSnapshotTriggerGroups", () => {
       },
     ];
 
-    expect(sequenceNotesAtCueIndex(snapshots, 0)).toMatchObject([
+    expect(notesByCue(snapshots)[0]).toMatchObject([
       { midicents: 60, timbre: 20, reattack: true },
     ]);
-    expect(sequenceNotesAtCueIndex(snapshots, 1)).toMatchObject([
+    expect(notesByCue(snapshots)[1]).toMatchObject([
       { midicents: 60, timbre: 66, reattack: true },
     ]);
   });
@@ -273,7 +278,7 @@ describe("deriveSnapshotTriggerGroups", () => {
       },
     ];
 
-    expect(sequenceNotesAtCueIndex(snapshots, 0)).toMatchObject([
+    expect(notesByCue(snapshots)[0]).toMatchObject([
       {
         midicents: 69,
         pressure: 81,
@@ -302,13 +307,13 @@ describe("deriveSnapshotTriggerGroups", () => {
       },
     ];
 
-    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 0)).toEqual(["a"]);
-    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 1)).toEqual(
+    expect(notesByCue(snapshots)[0].map(note => note.noteKey)).toEqual(["a"]);
+    expect(notesByCue(snapshots)[1].map(note => note.noteKey)).toEqual(
       expect.arrayContaining(["a", "b"]),
     );
-    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 1)).toHaveLength(2);
-    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 2)).toEqual(["a"]);
-    expect(sequenceNoteKeysAtCueIndex(snapshots, [], [], 3)).toEqual(["c"]);
+    expect(notesByCue(snapshots)[1].map(note => note.noteKey)).toHaveLength(2);
+    expect(notesByCue(snapshots)[2].map(note => note.noteKey)).toEqual(["a"]);
+    expect(notesByCue(snapshots)[3].map(note => note.noteKey)).toEqual(["c"]);
   });
 
   it("attaches integer-position bars to the preceding snapshot and places them after carried releases but before new attacks", () => {

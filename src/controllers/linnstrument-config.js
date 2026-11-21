@@ -71,22 +71,6 @@ export function configureLinnStrument(output) {
 }
 
 /**
- * Restore LinnStrument factory defaults for the settings Hexatone overrides.
- * Call when the user deselects the LinnStrument or disables MIDI input,
- * so the device returns to stand-alone playable mode.
- *
- * Restores:
- *   NRPN 245 = 0
- *
- * @param {MIDIOutput} output  Raw Web MIDI output port.
- */
-export function unconfigureLinnStrument(output) {
-  if (!output) return;
-
-  sendNrpn(output, 245, 0); // Turn off User Firmware mode
-}
-
-/**
  * Enable 3D touch data streams for all 8 rows in User Firmware Mode.
  *
  * Must be called AFTER NRPN 245=1 (User Firmware Mode active).
@@ -106,14 +90,6 @@ export function enableLinnstrumentYZData(output) {
     const status = 0xb0 | (row - 1); // CC status byte for channel `row`
     output.send([status, 11, 1]); // CC 11 = enable Y data for this row
     output.send([status, 12, 1]); // CC 12 = enable Z data for this row
-  }
-}
-
-export function enableLinnstrumentRowSlide(output) {
-  if (!output) return;
-  for (let row = 1; row <= 8; row++) {
-    const status = 0xb0 | (row - 1);
-    output.send([status, 9, 1]); // CC 9 = enable X-axis row slide mode
   }
 }
 

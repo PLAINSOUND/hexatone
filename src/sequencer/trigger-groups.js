@@ -384,33 +384,6 @@ export function deriveSequenceCueGroups(
   );
 }
 
-export function sequenceNotesAtCueTime(snapshots, cueTime) {
-  const time = Number(cueTime);
-  if (!Number.isFinite(time)) return [];
-
-  return (snapshots ?? []).flatMap((snapshot, snapshotIndex) => {
-    const baseTime = snapshotBaseTime(snapshotIndex);
-    const length = Number.isFinite(Number(snapshot?.length)) ? Number(snapshot.length) : 1;
-
-    return (snapshot?.notes ?? []).filter((note) => {
-      const start = Number.isFinite(Number(note?.start)) ? Number(note.start) : 0;
-      const rawEnd = Number.isFinite(Number(note?.end)) ? Number(note.end) : length;
-      const end = Math.max(start, rawEnd);
-      const absoluteStart = normalizeTimeValue(baseTime + start);
-      const absoluteEnd = normalizeTimeValue(baseTime + end);
-      return absoluteStart <= time && absoluteEnd > time;
-    });
-  });
-}
-
-export function sequenceNotesAtCueIndex(snapshots, cueIndex, options = {}) {
-  const groups = deriveSequenceCueGroups(snapshots, [], [], [], options);
-  const index = Number(cueIndex);
-  if (!Number.isFinite(index) || index < 0 || index >= groups.length) return [];
-
-  return deriveSequenceNotesByCueGroups(groups)[index] ?? [];
-}
-
 export function deriveSequenceNotesByCueGroups(groups = []) {
   const cueGroups = Array.isArray(groups) ? groups : [];
 
@@ -455,57 +428,4 @@ export function deriveSequenceNotesByCueGroups(groups = []) {
   }
 
   return notesByCueIndex;
-}
-
-export function sequenceNoteKeysAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
-  const events = deriveSequenceEvents(snapshots, bars, tempi).filter(
-    (event) => event.type === "note",
-  );
-  const index = Number(cueIndex);
-  if (!Number.isFinite(index) || index < 0) return [];
-
-  const activeNoteKeys = new Set();
-  for (const event of events) {
-    if (!Number.isFinite(event.cueIndex) || event.cueIndex - 1 > index) break;
-    if (event.kind === "attack") activeNoteKeys.add(event.noteKey);
-    else activeNoteKeys.delete(event.noteKey);
-  }
-
-  return [...activeNoteKeys];
-}
-
-export function sequenceNoteInstanceKeysAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
-  const events = deriveSequenceEvents(snapshots, bars, tempi).filter(
-    (event) => event.type === "note",
-  );
-  const index = Number(cueIndex);
-  if (!Number.isFinite(index) || index < 0) return [];
-
-  const activeNoteKeys = new Set();
-  for (const event of events) {
-    if (!Number.isFinite(event.cueIndex) || event.cueIndex - 1 > index) break;
-    const instanceKey = `${event.snapshotId}:${event.noteKey}`;
-    if (event.kind === "attack") activeNoteKeys.add(instanceKey);
-    else activeNoteKeys.delete(instanceKey);
-  }
-
-  return [...activeNoteKeys];
-}
-
-export function sequenceAttackEventIdsAtCueIndex(snapshots, bars = [], tempi = [], cueIndex) {
-  const events = deriveSequenceEvents(snapshots, bars, tempi).filter(
-    (event) => event.type === "note",
-  );
-  const index = Number(cueIndex);
-  if (!Number.isFinite(index) || index < 0) return [];
-
-  const activeAttackIds = new Map();
-  for (const event of events) {
-    if (!Number.isFinite(event.cueIndex) || event.cueIndex - 1 > index) break;
-    const instanceKey = `${event.snapshotId}:${event.noteKey}`;
-    if (event.kind === "attack") activeAttackIds.set(instanceKey, event.eventId);
-    else activeAttackIds.delete(instanceKey);
-  }
-
-  return [...activeAttackIds.values()];
 }

@@ -1,3 +1,4 @@
+import { normalizeFractionToPitchClass as normalizeCandidateRatioToPitchClass } from "./fraction-utils.js";
 // This module owns the pure rationalisation search and scoring engine.
 // It enumerates candidate ratios/monzos around a target pitch and ranks them
 // using Hexatone's harmonic and contextual heuristics, without any UI code.
@@ -122,17 +123,6 @@ const DEFAULT_CONTEXTUAL_TOLERANCE_TABLE = {
   "11/8": 10.0,
   "13/8": 12.0,
 };
-
-function fractionCompare(a, b) {
-  return a.s * a.n * b.d - b.s * b.n * a.d;
-}
-
-function normalizeCandidateRatioToPitchClass(ratio) {
-  let out = ratio;
-  while (fractionCompare(out, new Fraction(1, 1)) < 0) out = out.mul(2);
-  while (fractionCompare(out, new Fraction(2, 1)) >= 0) out = out.div(2);
-  return out;
-}
 
 function normalizeCentsToOctavePitchClass(cents) {
   if (!Number.isFinite(cents)) return cents;

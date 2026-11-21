@@ -2,7 +2,6 @@
 // It turns normalized event and cue data into fast indexes used by playback,
 // scrolling, and row expansion logic, without mutating sequence state.
 
-import { deriveSelectedCueAbsoluteTime as deriveTransportSelectedCueAbsoluteTime } from "./transport-selection.js";
 
 export function buildSnapshotEventsById(sequenceEvents = []) {
   const groups = new Map();
@@ -35,17 +34,6 @@ export function buildSnapshotEventsById(sequenceEvents = []) {
   return groups;
 }
 
-export function buildFirstSnapshotEventIds(snapshotEventsById) {
-  const ids = new Map();
-
-  for (const [snapshotId, events] of snapshotEventsById.entries()) {
-    const firstNoteEvent = events.find((event) => event.type === "note");
-    if (firstNoteEvent) ids.set(snapshotId, firstNoteEvent.eventId);
-  }
-
-  return ids;
-}
-
 export function buildFirstSnapshotCueEventIds(snapshotEventsById) {
   const ids = new Map();
 
@@ -59,49 +47,6 @@ export function buildFirstSnapshotCueEventIds(snapshotEventsById) {
   }
 
   return ids;
-}
-
-export function buildSnapshotStartCueIndexes(firstSnapshotEventIds, sequenceEvents = []) {
-  const indexes = new Map();
-
-  for (const [snapshotId, eventId] of firstSnapshotEventIds.entries()) {
-    const firstEvent = sequenceEvents.find((event) => event.eventId === eventId);
-    if (firstEvent) indexes.set(snapshotId, firstEvent.cueIndex);
-  }
-
-  return indexes;
-}
-
-export function buildFirstEventIdByCueIndex(sequenceEvents = []) {
-  const ids = new Map();
-
-  for (const event of sequenceEvents) {
-    if (event.type !== "note") continue;
-    if (!Number.isFinite(event.cueIndex)) continue;
-    if (!ids.has(event.cueIndex)) ids.set(event.cueIndex, event.eventId);
-  }
-
-  return ids;
-}
-
-export function buildFirstCueIndexBySnapshotIndex(sequenceCueGroups = []) {
-  const indexes = new Map();
-
-  sequenceCueGroups.forEach((group, index) => {
-    if (!indexes.has(group.snapshotIndex)) indexes.set(group.snapshotIndex, index);
-  });
-
-  return indexes;
-}
-
-export function buildFirstCueTimeBySnapshotIndex(sequenceCueGroups = []) {
-  const times = new Map();
-
-  sequenceCueGroups.forEach((group) => {
-    if (!times.has(group.snapshotIndex)) times.set(group.snapshotIndex, group.time);
-  });
-
-  return times;
 }
 
 export function buildCueExpandedSnapshotIds(
@@ -121,20 +66,6 @@ export function buildCueExpandedSnapshotIds(
   }
 
   return ids;
-}
-
-export function deriveSelectedCueAbsoluteTime(
-  selectedMarker,
-  playheadMarkerIndex,
-  sequenceCueGroups,
-  snapshotIndexById,
-) {
-  return deriveTransportSelectedCueAbsoluteTime(
-    selectedMarker,
-    playheadMarkerIndex,
-    sequenceCueGroups,
-    snapshotIndexById,
-  );
 }
 
 function isWholeSequencePosition(time) {

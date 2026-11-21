@@ -1,3 +1,5 @@
+import { parseDegreeFilter as parseLumatoneDegreeFilter, formatDegreeFilter as formatLumatoneDegreeFilter } from "./degree-filter.js";
+export { parseLumatoneDegreeFilter, formatLumatoneDegreeFilter };
 /**
  * Parsing, normalisation and localStorage library for Lumatone LED degree filters.
  * The Lumatone settings panel and snapshot-filter generator supply lists; keyboard
@@ -9,32 +11,6 @@ export const LUMATONE_COLOR_FILTER_SELECTED_KEY = "hexatone_lumatone_color_filte
 export const LUMATONE_COLOR_FILTER_ALL = "all";
 export const LUMATONE_COLOR_FILTER_DARK = "dark";
 export const LUMATONE_COLOR_FILTER_CUSTOM = "__custom__";
-
-function uniqueSortedDegrees(values) {
-  return [...new Set(values)].sort((a, b) => a - b);
-}
-
-export function parseLumatoneDegreeFilter(raw) {
-  if (raw == null) return [];
-  const tokens = String(raw)
-    .split(/[,\s]+/)
-    .map((token) => token.trim())
-    .filter(Boolean);
-  const degrees = [];
-  for (const token of tokens) {
-    if (!/^\d+$/.test(token)) return null;
-    degrees.push(Number.parseInt(token, 10));
-  }
-  return uniqueSortedDegrees(degrees);
-}
-
-export function formatLumatoneDegreeFilter(degrees) {
-  return uniqueSortedDegrees(
-    (Array.isArray(degrees) ? degrees : [])
-      .map((value) => Number.parseInt(value, 10))
-      .filter((value) => Number.isInteger(value) && value >= 0),
-  ).join(",");
-}
 
 export function normalizeLumatoneColorFilterLibrary(library) {
   if (!Array.isArray(library)) return [];

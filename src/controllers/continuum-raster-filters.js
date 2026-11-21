@@ -1,3 +1,5 @@
+import { parseDegreeFilter as parseContinuumRasterFilter, formatDegreeFilter as formatContinuumRasterFilter } from "./degree-filter.js";
+export { parseContinuumRasterFilter, formatContinuumRasterFilter };
 /**
  * Parsing, normalisation and localStorage library for Continuum degree filters.
  * The Haken settings panel edits these records; input pitch/raster handling uses
@@ -8,32 +10,6 @@ export const CONTINUUM_RASTER_FILTER_LIBRARY_KEY = "hexatone_continuum_raster_fi
 export const CONTINUUM_RASTER_FILTER_SELECTED_KEY = "hexatone_continuum_raster_filter_selected";
 export const CONTINUUM_RASTER_FILTER_ALL = "all";
 export const CONTINUUM_RASTER_FILTER_CUSTOM = "__custom__";
-
-function uniqueSortedDegrees(values) {
-  return [...new Set(values)].sort((a, b) => a - b);
-}
-
-export function parseContinuumRasterFilter(raw) {
-  if (raw == null) return [];
-  const tokens = String(raw)
-    .split(/[,\s]+/)
-    .map((token) => token.trim())
-    .filter(Boolean);
-  const degrees = [];
-  for (const token of tokens) {
-    if (!/^\d+$/.test(token)) return null;
-    degrees.push(Number.parseInt(token, 10));
-  }
-  return uniqueSortedDegrees(degrees);
-}
-
-export function formatContinuumRasterFilter(degrees) {
-  return uniqueSortedDegrees(
-    (Array.isArray(degrees) ? degrees : [])
-      .map((value) => Number.parseInt(value, 10))
-      .filter((value) => Number.isInteger(value) && value >= 0),
-  ).join(",");
-}
 
 export function normalizeContinuumRasterFilterLibrary(library) {
   if (!Array.isArray(library)) return [];

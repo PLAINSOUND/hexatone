@@ -1,3 +1,4 @@
+import { normalizeFractionToPitchClass } from "../tuning/fraction-utils.js";
 // This module owns normalization and defaulting around HEJI text input.
 // It reconciles typed HEJI glyph strings, anchor defaults, and mixed tempered
 // vs HEJI spelling states so the notation UI can stay forgiving and consistent.
@@ -309,17 +310,6 @@ function centsDistanceToNearestOctave(hz, baseHz) {
   if (!hz || !baseHz || hz <= 0 || baseHz <= 0) return Infinity;
   const octaveShift = Math.round(Math.log2(hz / baseHz));
   return centsDistance(hz, baseHz * Math.pow(2, octaveShift));
-}
-
-function fractionCompare(a, b) {
-  return a.s * a.n * b.d - b.s * b.n * a.d;
-}
-
-function normalizeFractionToPitchClass(ratio) {
-  let out = ratio;
-  while (fractionCompare(out, new Fraction(1, 1)) < 0) out = out.mul(2);
-  while (fractionCompare(out, new Fraction(2, 1)) >= 0) out = out.div(2);
-  return out;
 }
 
 function formatPitchClassRatioFromMonzo(monzo) {

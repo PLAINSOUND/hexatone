@@ -1,3 +1,4 @@
+import { normalizeFractionToPitchClass } from "../tuning/fraction-utils.js";
 // This module owns reference-frame spelling for rational pitch classes.
 // It builds the diatonic/chromatic reference context used to spell a scale or
 // a pitch class coherently around a chosen anchor and harmonic frame.
@@ -15,17 +16,6 @@ function parseRatioText(text) {
   // (700.0), and bare integers (900) are not ratios — return null so the caller
   // knows the anchor is not rational.
   return null;
-}
-
-function fractionCompare(a, b) {
-  return a.s * a.n * b.d - b.s * b.n * a.d;
-}
-
-export function normalizeFractionToPitchClass(ratio) {
-  let out = ratio;
-  while (fractionCompare(out, new Fraction(1, 1)) < 0) out = out.mul(2);
-  while (fractionCompare(out, new Fraction(2, 1)) >= 0) out = out.div(2);
-  return out;
 }
 
 export function createReferenceFrame({ anchorLabel, anchorRatio, anchorOctave = 4 }) {
@@ -103,3 +93,5 @@ export function spellPitchClassFromReferenceFrame(frame, ratioText, options = {}
 export function spellScaleFromReferenceFrame(scale, frame, options = {}) {
   return scale.map((ratioText) => spellPitchClassFromReferenceFrame(frame, ratioText, options));
 }
+
+export { normalizeFractionToPitchClass };

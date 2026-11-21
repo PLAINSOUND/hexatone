@@ -124,13 +124,7 @@ function buildAxis49Map(anchorNote) {
  * TS41 MIDI keyboard Controller Mapping
  * https://tristanbay.com/gear/ts41-midi-keyboard/
  *
- * buildRawCoords(anchorNote) — used by keys.js buildAxis49Table.
- * Returns a Map<noteNumber, {x,y}> of coordinates relative to the anchor
- * note's position, using the AXIS-49 physical geometry.
- *
- * bestFitOffset(rawCoords, stepsTable, centerHexOffset) — finds the
- * (dx,dy) translation that maximises how many AXIS-49 keys land on
- * visible hexatone coordinates.
+ * The registry maps physical note positions relative to the configured anchor.
  */
 
 // ── Physical geometry ──────────────────────────────────────────────────────
@@ -1128,9 +1122,4 @@ export function getControllerById(id) {
 export function getAnchorNote(controller, settings) {
   if (settings.midiin_anchor_note != null) return settings.midiin_anchor_note;
   return controller.anchorDefault ?? 60;
-}
-
-/** Legacy alias */
-export function getAnchorParams(controller, settings) {
-  return { anchorNote: getAnchorNote(controller, settings) };
 }

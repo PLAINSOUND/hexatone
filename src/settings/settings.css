@@ -526,6 +526,7 @@
 
 /* Text inputs and selects share the same base appearance */
 #sidebar input[type="text"],
+#sidebar input[type="password"],
 #sidebar select {
   width: min(24em, 100%);
   max-width: 100%;
@@ -6625,6 +6626,7 @@ input.equiv-cell:disabled,
   }
 
   #sidebar input[type="text"],
+  #sidebar input[type="password"],
   #sidebar select,
   #sidebar textarea,
   .sidebar-input,

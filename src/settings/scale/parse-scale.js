@@ -334,9 +334,6 @@ export const settingsToAbletonScala = (settings) => {
   return lines.join("\n") + "\n";
 };
 
-// Legacy alias kept so existing internal call sites continue to work during migration.
-export const settingsToHexatonScala = (settings) => settingsToAbletonScala(settings);
-
 // Build a .kbm keyboard mapping file string from current settings.
 export const settingsToKbm = (settings) => {
   const equivSteps = settings.equivSteps || 12;
