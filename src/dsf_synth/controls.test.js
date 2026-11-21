@@ -3,7 +3,7 @@ import { DSF_DEFAULTS, dsfControlsFromSettings, normalizeDsfControls } from "./c
 import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 it("uses the requested DSF preset consistently in the engine and saved settings", () => {
   expect(DSF_DEFAULTS).toEqual({ volume: 0.25, partials: 1024, timbre: 0.25,
-    attack: 10, release: 120, velocity: true, pressure: true, timbreResponse: true, iso226: true, generateYZ: false });
+    attack: 10, decay: 0, sustain: 1, release: 120, velocity: true, pressure: true, timbreResponse: true, iso226: true, generateYZ: false });
   expect(normalizeDsfControls()).toEqual(DSF_DEFAULTS);
   expect(dsfControlsFromSettings()).toEqual(DSF_DEFAULTS);
   expect(REGISTRY_BY_KEY.output_dsf.default).toBe(true);
@@ -15,4 +15,9 @@ it("preserves saved zero times and disabled response options", () => {
     dsf_pressure: false, dsf_timbreResponse: false, dsf_iso226: false })).toMatchObject({
     attack: 0, release: 0, velocity: false, pressure: false, timbreResponse: false, iso226: false,
   });
+});
+it("bounds ADSR values and preserves a saved zero sustain", () => {
+  expect(normalizeDsfControls({ decay: 5000, sustain: -1 })).toMatchObject({ decay: 4000, sustain: 0 });
+  expect(normalizeDsfControls({ decay: -1, sustain: 3 })).toMatchObject({ decay: 0, sustain: 2 });
+  expect(dsfControlsFromSettings({ dsf_decay: 15, dsf_sustain: 0 })).toMatchObject({ decay: 15, sustain: 0 });
 });

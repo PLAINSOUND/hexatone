@@ -378,6 +378,8 @@ export const SETTINGS_REGISTRY = [
   { key: "dsf_partials", tier: "local", type: "int", default: 1024, perController: false },
   { key: "dsf_timbre", tier: "local", type: "float", default: 0.25, perController: false },
   { key: "dsf_attack", tier: "local", type: "float", default: 10, perController: false },
+  { key: "dsf_decay", tier: "local", type: "float", default: 0, perController: false },
+  { key: "dsf_sustain", tier: "local", type: "float", default: 1, perController: false },
   { key: "dsf_release", tier: "local", type: "float", default: 120, perController: false },
   { key: "dsf_volume", tier: "local", type: "float", default: 0.25, perController: false },
   { key: "dsf_velocity", tier: "local", type: "bool", default: true, perController: false },

@@ -42,17 +42,22 @@ export class DsfProcessor extends AudioWorkletProcessor {
     }
     if (data.epoch != null && data.epoch !== this.epoch) return;
     if (data.command === "controls") {
-      const velocityChanged = this.controls.velocity !== (data.controls?.velocity === true);
-      const generationChanged = this.controls.generateYZ !== (data.controls?.generateYZ === true);
-      this.controls = normalizeDsfControls(data.controls);
+      const controls = normalizeDsfControls(data.controls);
+      const sustainChanged = this.controls.sustain !== controls.sustain;
+      const velocityChanged = this.controls.velocity !== controls.velocity;
+      const generationChanged = this.controls.generateYZ !== controls.generateYZ;
+      this.controls = controls;
       this.volumeRemaining = Math.max(1, Math.round(sampleRate * TRANSITION_SECONDS));
       this.volumeStep = (this.controls.volume - this.volume) / this.volumeRemaining;
       for (const voice of this.voices.values()) {
         if (generationChanged && (!this.controls.generateYZ || !voice.released)) this.initGenerated(voice);
         this.transition(voice, voice.frequency);
         this.expressiveGain(voice);
-        if (!voice.released && velocityChanged) this.envelope(voice, this.attackLevel(voice),
-          voice.remaining > 0 ? voice.remaining * 1000 / sampleRate : TRANSITION_SECONDS * 1000);
+        if (!voice.released && (velocityChanged || (sustainChanged && voice.stage !== "attack"))) {
+          const target = this.attackLevel(voice) * (voice.stage === "attack" ? 1 : this.controls.sustain);
+          this.envelope(voice, target,
+            voice.remaining > 0 ? voice.remaining * 1000 / sampleRate : TRANSITION_SECONDS * 1000);
+        }
       }
       return;
     }
@@ -133,6 +138,18 @@ export class DsfProcessor extends AudioWorkletProcessor {
     voice.gainStep = (target - voice.gain) / voice.remaining;
   }
 
+  // Resolve zero-length stages immediately; timed stages advance on the audio clock.
+  advanceEnvelopeStage(voice) {
+    while (voice.remaining === 0) {
+      if (voice.stage === "attack") {
+        voice.stage = "decay";
+        this.envelope(voice, this.attackLevel(voice) * this.controls.sustain, this.controls.decay);
+      } else if (voice.stage === "decay") {
+        voice.stage = "sustain";
+      } else break;
+    }
+  }
+
   compensate(voice) {
     voice.compensationTarget = this.compensationFor(voice.frequency);
     voice.compensationRemaining = Math.max(1, Math.round(sampleRate * TRANSITION_SECONDS));
@@ -164,6 +181,7 @@ export class DsfProcessor extends AudioWorkletProcessor {
         const old = [...this.voices.values()].find(voice => voice.released) ?? this.voices.values().next().value;
         this.voices.delete(old.id);
         old.released = true;
+        old.stage = "release";
         this.envelope(old, 0, 5);
         if (this.stolenTails.length >= 8) this.stolenTails.shift();
         this.stolenTails.push(old);
@@ -173,12 +191,13 @@ export class DsfProcessor extends AudioWorkletProcessor {
       const osc = new DsfOscillator(sampleRate);
       const voice = { id: event.id, osc, frequency: event.frequency,
         pressure: this.normalized(event.pressure), timbre: this.normalized(event.timbre),
-        velocity: Math.max(0, Math.min(127, event.velocity ?? 72)), gain: 0, released: false };
+        velocity: Math.max(0, Math.min(127, event.velocity ?? 72)), gain: 0, released: false, stage: "attack" };
       this.initGenerated(voice);
       osc.configure(event.frequency, this.timbreFor(voice), this.controls.partials);
       voice.expressionGain = this.pressureGain((voice.generatedValues ?? voice).pressure);
       voice.compensation = this.compensationFor(event.frequency);
       this.envelope(voice, this.attackLevel(voice), this.envelopeTime(this.controls.attack, voice.velocity));
+      this.advanceEnvelopeStage(voice);
       this.voices.set(event.id, voice);
     } else {
       const voice = this.voices.get(event.id);
@@ -195,6 +214,7 @@ export class DsfProcessor extends AudioWorkletProcessor {
       if (event.command === "stop" && !voice.released) {
         voice.generated?.release(event.velocity ?? 0, this.frame * 1000 / sampleRate);
         voice.released = true;
+        voice.stage = "release";
         this.envelope(voice, 0, this.envelopeTime(this.controls.release, event.velocity));
       }
     }
@@ -222,7 +242,10 @@ export class DsfProcessor extends AudioWorkletProcessor {
     }
     if (voice.remaining > 0) {
       voice.gain += voice.gainStep;
-      if (--voice.remaining === 0) voice.gain = voice.targetGain;
+      if (--voice.remaining === 0) {
+        voice.gain = voice.targetGain;
+        this.advanceEnvelopeStage(voice);
+      }
     }
     let value = voice.osc.nextSample();
     if (voice.transitionRemaining > 0) {
@@ -267,7 +290,7 @@ export class DsfProcessor extends AudioWorkletProcessor {
       let value = 0;
       for (const [id, voice] of this.voices) {
         value += this.voiceSample(voice);
-        if (voice.released && voice.remaining === 0) {
+        if (voice.remaining === 0 && (voice.released || (voice.stage === "sustain" && voice.gain === 0))) {
           this.voices.delete(id);
           this.port.postMessage({ type: "ended", id });
         }

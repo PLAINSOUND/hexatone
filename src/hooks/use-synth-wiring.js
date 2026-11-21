@@ -556,7 +556,7 @@ const useSynthWiring = (
   const dsfRequestsRef = useRef(null);
   if (!dsfRequestsRef.current) dsfRequestsRef.current = createOutputCandidateRequests();
   useEffect(() => { dsfSynthRef.current.synth?.setControls(dsfControlsRef.current); }, [
-    settings.dsf_partials, settings.dsf_timbre, settings.dsf_attack, settings.dsf_release,
+    settings.dsf_partials, settings.dsf_timbre, settings.dsf_attack, settings.dsf_decay, settings.dsf_sustain, settings.dsf_release,
     settings.dsf_volume, settings.dsf_velocity, settings.dsf_iso226, settings.dsf_pressure, settings.dsf_timbreResponse, settings.dsf_generateYZ,
   ]);
   const sampleSynthRef = useRef({ key: null, synth: null });

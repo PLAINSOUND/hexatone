@@ -160,7 +160,7 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
   ],
   inputUiOnly: [],
   synthRuntimeOnly: [
-    "dsf_partials", "dsf_timbre", "dsf_attack", "dsf_release",
+    "dsf_partials", "dsf_timbre", "dsf_attack", "dsf_decay", "dsf_sustain", "dsf_release",
     "dsf_volume", "dsf_velocity", "dsf_iso226", "dsf_pressure", "dsf_timbreResponse", "dsf_generateYZ",
     "osc_volume_pluck",
     "osc_volume_buzz",

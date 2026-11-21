@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 let Processor;
-const neutral = { partials: 1024, timbre: 0, attack: 0, release: 80, volume: 0.2,
+const neutral = { partials: 1024, timbre: 0, attack: 0, decay: 0, sustain: 1, release: 80, volume: 0.2,
   velocity: false, pressure: false, timbreResponse: false, iso226: false };
 beforeEach(async () => {
   vi.resetModules();

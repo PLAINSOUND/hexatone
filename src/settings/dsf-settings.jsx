@@ -13,6 +13,8 @@ export default function DsfSettings({ settings, onChange }) {
     ["partials", "Number of harmonic partials", 1, 1024, 1, controls.partials],
     ["timbre", "Timbre", 0, 1, 0.001, `${Math.round(controls.timbre * 100)}%`],
     ["attack", "Attack", 0, 2000, dsfEnvelopeStep, `${controls.attack} ms`],
+    ["decay", "Decay", 0, 4000, dsfEnvelopeStep, `${controls.decay} ms`],
+    ["sustain", "Sustain", 0, 2, 0.01, `${Math.round(controls.sustain * 100)}%`],
     ["release", "Release", 0, 4000, dsfEnvelopeStep, `${controls.release} ms`],
   ];
   return <fieldset class="output-routing-fieldset">
@@ -26,8 +28,8 @@ export default function DsfSettings({ settings, onChange }) {
         {label}<span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider ariaLabel={`DSF ${label}`} min={min} max={max} step={step}
             exponent={key === "partials" ? 2 : 1}
-            knee={key === "attack" || key === "release" ? { value: 100, position: 0.4 } : undefined}
-            defaultValue={["attack", "release", "partials"].includes(key) ? undefined : DSF_DEFAULTS[key]} value={controls[key]}
+            knee={["attack", "decay", "release"].includes(key) ? { value: 100, position: 0.4 } : undefined}
+            defaultValue={["attack", "decay", "release", "partials"].includes(key) ? undefined : DSF_DEFAULTS[key]} value={controls[key]}
             onInputValue={value => save(`dsf_${key}`, value)} />
           <span class="settings-form__range-value">{display}</span>
         </span>

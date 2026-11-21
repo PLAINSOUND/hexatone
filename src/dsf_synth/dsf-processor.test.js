@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 let Processor;
-const neutral = { partials: 1024, timbre: 0, attack: 0, release: 80, volume: 0.2,
+const neutral = { partials: 1024, timbre: 0, attack: 0, decay: 0, sustain: 1, release: 80, volume: 0.2,
   velocity: false, pressure: false, timbreResponse: false, iso226: false };
 beforeEach(async () => {
   vi.resetModules();
@@ -56,7 +56,7 @@ it("allows an immediate zero-millisecond attack at phase zero", () => {
 });
 it("allows an immediate zero-millisecond release", () => {
   const p = new Processor();
-  send(p, { command: "controls", controls: { attack: 0, release: 0 } });
+  send(p, { command: "controls", controls: { attack: 0, decay: 0, sustain: 1, release: 0 } });
   send(p, { command: "start", id: 1, frequency: 440 });
   render(p, 2);
   send(p, { command: "stop", id: 1 });
@@ -144,4 +144,71 @@ it("bounds the queue and never drops a release when it is full", () => {
   send(p, { command: "stop", id: 1 });
   expect(p.voices.get(1).released).toBe(true);
   expect(p.droppedEvents).toBeGreaterThan(0);
+});
+it("advances through attack, decay and sustain at exact sample boundaries", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { attack: 10, decay: 20, sustain: .25 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 480);
+  const voice = p.voices.get(1);
+  expect(voice.stage).toBe("decay");
+  expect(voice.gain).toBe(1);
+  render(p, 480);
+  expect(voice.gain).toBeCloseTo(.625, 10);
+  render(p, 480);
+  expect(voice.stage).toBe("sustain");
+  expect(voice.gain).toBe(.25);
+  render(p, 960);
+  expect(voice.gain).toBe(.25);
+});
+it.each([240, 960])("releases from the current attack/decay level at frame %i", frames => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { attack: 10, decay: 20, sustain: .25, release: 10 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, frames);
+  const voice = p.voices.get(1), level = voice.gain;
+  send(p, { command: "stop", id: 1 });
+  render(p, 240);
+  expect(voice.stage).toBe("release");
+  expect(voice.gain).toBeCloseTo(level / 2, 10);
+  render(p, 240);
+  expect(p.voices.has(1)).toBe(false);
+});
+it("finishes a zero-sustain sound without waiting for note-off", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { attack: 0, decay: 10, sustain: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 240);
+  expect(p.voices.get(1).gain).toBeCloseTo(.5, 10);
+  render(p, 240);
+  expect(p.voices.has(1)).toBe(false);
+  expect(p.port.postMessage).toHaveBeenCalledWith({ type: "ended", id: 1 });
+  send(p, { command: "stop", id: 1 });
+  expect(render(p).every(value => value === 0)).toBe(true);
+});
+it("skips zero attack and decay and smoothly changes a held sustain level", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { attack: 0, decay: 0, sustain: .5 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1);
+  const voice = p.voices.get(1);
+  expect(voice.stage).toBe("sustain");
+  expect(voice.gain).toBe(.5);
+  send(p, { command: "controls", controls: { sustain: .25 } });
+  expect(voice.gain).toBe(.5);
+  render(p, 480);
+  expect(voice.gain).toBe(.25);
+});
+it("allows decay to rise above the attack peak to 200% sustain", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { attack: 10, decay: 20, sustain: 2 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 480);
+  const voice = p.voices.get(1);
+  expect(voice.gain).toBe(1);
+  render(p, 480);
+  expect(voice.gain).toBeCloseTo(1.5, 10);
+  render(p, 480);
+  expect(voice.stage).toBe("sustain");
+  expect(voice.gain).toBe(2);
 });
