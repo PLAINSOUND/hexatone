@@ -135,8 +135,10 @@ export class DsfProcessor extends AudioWorkletProcessor {
 
   timbreFor(voice) {
     const expression = voice.generatedValues ?? voice;
+    const envelopeTimbre = this.controls.timbreEnvelope && voice.timbreEnvelope
+      ? this.controls.timbreAmount * voice.timbreEnvelope.gain : 0;
     return Math.max(0, Math.min(1, this.controls.timbre +
-      (this.controls.timbreEnvelope && voice.timbreEnvelope ? this.controls.timbreAmount * voice.timbreEnvelope.gain : 0) +
+      envelopeTimbre +
       (this.controls.timbreResponse ? this.expressionYTimbre(expression.timbre) : 0) +
       (this.controls.pressure ? this.pressureBite(expression.pressure) : 0) +
       (this.controls.velocity ? 0.1 * voice.velocity / 127 : 0)));
@@ -167,8 +169,8 @@ export class DsfProcessor extends AudioWorkletProcessor {
     // hard threshold as pressure crosses this region in either direction.
     const smooth = t => t * t * (3 - 2 * t);
     if (pressure <= 0 || pressure >= 0.3) return 0;
-    if (pressure < 0.04) return 0.12 * smooth(pressure / 0.04);
-    return 0.12 * (1 - smooth((pressure - 0.04) / 0.26));
+    if (pressure < 0.04) return 0.06 * smooth(pressure / 0.04);
+    return 0.06 * (1 - smooth((pressure - 0.04) / 0.26));
   }
 
   expressiveGain(voice) {

@@ -23,16 +23,16 @@ it("adds a light-pressure bite that fades quickly and returns on falling pressur
   send(p, { command: "controls", controls: { timbre: 0.25, pressure: true } });
   send(p, { command: "start", id: 1, frequency: 440, pressure: 0.04 });
   render(p);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.37);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.31);
   send(p, { command: "expression", id: 1, pressure: 0.17 });
   render(p);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.31);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.28);
   send(p, { command: "expression", id: 1, pressure: 0.3 });
   render(p);
   expect(p.voices.get(1).osc.timbre).toBe(0.25);
   send(p, { command: "expression", id: 1, pressure: 0.04 });
   render(p);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.37);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.31);
   send(p, { command: "expression", id: 1, pressure: 0 });
   render(p);
   expect(p.voices.get(1).osc.timbre).toBe(0.25);
@@ -160,3 +160,52 @@ it.each([[0, .2], [.25, .225], [.5, .25], [.75, .3], [1, .35]])(
     expect(p.voices.get(1).osc.timbre).toBeCloseTo(expected, 12);
   },
 );
+it.each([[0, .31], [.3, .61], [.6, .91], [-.1, .21]])(
+  "retains full pressure bite during a held timbre envelope of amount %f", (amount, expected) => {
+    const p = new Processor();
+    send(p, { command: "controls", controls: { timbre: .25, pressure: true,
+      timbreAmount: amount, timbreAttack: 0, timbreDecay: 0, timbreSustain: 1 } });
+    send(p, { command: "start", id: 1, frequency: 440, pressure: .04 });
+    render(p);
+    expect(p.voices.get(1).osc.timbre).toBeCloseTo(expected, 12);
+    expect(p.voices.get(1).expressionGain).toBeCloseTo(1 + 3 * .04 ** 3, 12);
+  },
+);
+it("retains the pressure bite as the held timbre envelope decays to zero", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbre: .25, pressure: true,
+    timbreAmount: .6, timbreAttack: 0, timbreDecay: 100, timbreSustain: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440, pressure: .04 });
+  render(p, 1);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(.91, 12);
+  render(p, 6000);
+  expect(p.voices.get(1).timbreEnvelope.gain).toBe(0);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(.31, 12);
+});
+it.each([-.2, .2])("retains additive pressure bite at release with timbre envelope amount %f", amount => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbre: .5, pressure: true, release: 300,
+    timbreAmount: amount, timbreAttack: 0, timbreDecay: 0, timbreSustain: 1, timbreRelease: 100 } });
+  send(p, { command: "start", id: 1, frequency: 440, pressure: .04 });
+  render(p, 1);
+  const voice = p.voices.get(1), pressureGain = voice.expressionGain;
+  const held = .5 + amount + .06;
+  expect(voice.osc.timbre).toBeCloseTo(held, 12);
+  p.apply({ command: "stop", id: 1, velocity: 64, frame: p.frame });
+  expect(voice.osc.timbre).toBeCloseTo(held, 12);
+  render(p, 6000);
+  expect(voice.timbreEnvelope.gain).toBe(0);
+  expect(voice.osc.timbre).toBeCloseTo(.56, 12);
+  expect(voice.expressionGain).toBe(pressureGain);
+  expect(p.voices.has(1)).toBe(true);
+});
+it("keeps release pressure bite available when timbre ADSR is bypassed", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbre: .5, pressure: true,
+    timbreAmount: -.2, timbreEnvelope: false, release: 300 } });
+  send(p, { command: "start", id: 1, frequency: 440, pressure: .04 });
+  render(p, 1);
+  send(p, { command: "stop", id: 1 });
+  render(p, 1000);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(.56, 12);
+});

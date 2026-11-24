@@ -71,7 +71,7 @@ export default function DsfSettings({ settings, onChange }) {
           onChange={event => save("dsf_releaseVelocity", event.currentTarget.checked)} />
         Release Velocity
       </label>
-      <label class="settings-form__checkbox-row" title="Pressure adds up to 12 dB, mostly toward full pressure. Light pressure adds a small timbre bite, fading along an S-curve by 30% pressure.">
+      <label class="settings-form__checkbox-row" title="Pressure adds up to 12 dB, mostly toward full pressure. Light pressure adds up to 6 percentage points of timbre bite, fading along an S-curve by 30% pressure.">
         <input type="checkbox" name="dsf_pressure" checked={controls.pressure}
           onChange={event => save("dsf_pressure", event.currentTarget.checked)} />
         Pressure (Z)
