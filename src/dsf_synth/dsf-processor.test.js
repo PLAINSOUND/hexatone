@@ -326,3 +326,238 @@ it("scales ISO compensation in decibels and smoothly updates held voices", () =>
   render(p, 480);
   expect(voice.compensation).toBeCloseTo(Math.sqrt(.85), 12);
 });
+it("keeps volume and envelope controls out of spectral and compensation updates", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: {} });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 100);
+  const voice = p.voices.get(1);
+  const configure = vi.spyOn(voice.osc, "configure");
+  const transition = vi.spyOn(p, "transition");
+  const compensation = vi.spyOn(p, "compensationFor");
+  const expressiveGain = vi.spyOn(p, "expressiveGain");
+  send(p, { command: "controls", controls: { volume: .4, attack: 40, decay: 80, release: 200 } });
+  render(p, 480);
+  expect(p.volume).toBe(.4);
+  expect(transition).not.toHaveBeenCalled();
+  expect(configure).not.toHaveBeenCalled();
+  expect(compensation).not.toHaveBeenCalled();
+  expect(expressiveGain).not.toHaveBeenCalled();
+  send(p, { command: "controls", controls: { volume: .4, sustain: .5 } });
+  render(p, 480);
+  expect(voice.gain).toBe(.5);
+  expect(transition).not.toHaveBeenCalled();
+});
+it("does not restart pressure ramps on timbre updates or repeated expression values", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { pressure: true, timbreResponse: true } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1);
+  send(p, { command: "expression", id: 1, pressure: .8 });
+  render(p, 120);
+  const voice = p.voices.get(1);
+  expect(voice.expressionRemaining).toBe(360);
+  send(p, { command: "expression", id: 1, timbre: .5 });
+  render(p, 120);
+  expect(voice.expressionRemaining).toBe(240);
+  send(p, { command: "expression", id: 1, timbre: .5, pressure: .8 });
+  render(p, 240);
+  expect(voice.expressionRemaining).toBe(0);
+  expect(voice.expressionGain).toBeCloseTo(1 + 3 * .8 ** 3, 12);
+});
+it("reuses the crossfade oscillator and evaluates ISO only for pitch or ISO changes", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { iso226: 1, timbreResponse: true } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1);
+  const voice = p.voices.get(1), compensation = vi.spyOn(p, "compensationFor");
+  send(p, { command: "expression", id: 1, timbre: .5 });
+  render(p, 480);
+  const spare = voice.spareOscillator;
+  send(p, { command: "expression", id: 1, timbre: 1 });
+  render(p, 480);
+  expect(voice.spareOscillator).toBe(spare);
+  expect(voice.osc.timbre).toBe(.2);
+  expect(compensation).not.toHaveBeenCalled();
+  send(p, { command: "frequency", id: 1, frequency: 660 });
+  render(p, 480);
+  expect(compensation).toHaveBeenCalledTimes(1);
+  expect(compensation).toHaveBeenLastCalledWith(660);
+  send(p, { command: "controls", controls: { ...p.controls, iso226: .5 } });
+  expect(compensation).toHaveBeenCalledTimes(2);
+});
+it("cancels a superseded pending spectral change when expression returns to the current target", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbreResponse: true } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1);
+  send(p, { command: "expression", id: 1, timbre: .5 });
+  render(p, 1);
+  const voice = p.voices.get(1);
+  send(p, { command: "expression", id: 1, timbre: 1 });
+  render(p, 1);
+  expect(voice.pendingTransition).toBe(true);
+  send(p, { command: "expression", id: 1, timbre: .5 });
+  render(p, 478);
+  expect(voice.pendingTransition).toBe(false);
+  expect(voice.previous).toBeNull();
+  expect(voice.osc.timbre).toBe(.1);
+});
+it("runs timbre ADSR independently of volume and releases from its current value", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbreAmount: .5, timbreAttack: 10,
+    timbreDecay: 20, timbreSustain: .5, timbreRelease: 10, release: 80 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 480);
+  const voice = p.voices.get(1), env = voice.timbreEnvelope;
+  expect(env.stage).toBe("decay");
+  expect(env.gain).toBe(1);
+  expect(voice.gain).toBe(1);
+  render(p, 480);
+  expect(env.gain).toBeGreaterThan(.5);
+  expect(env.gain).toBeLessThan(.6);
+  const level = env.gain;
+  p.apply({ command: "stop", id: 1, frame: p.frame });
+  expect(env.gain).toBe(level);
+  expect(env.stage).toBe("release");
+  render(p, 480);
+  expect(env.gain).toBe(0);
+  expect(voice.gain).toBeGreaterThan(0);
+  expect(p.voices.has(1)).toBe(true);
+  render(p, 3360);
+  expect(p.voices.has(1)).toBe(false);
+});
+it.each([[.25, .5, .75], [.25, -.5, 0], [.75, .5, 1], [.75, -.5, .25]])(
+  "combines base timbre %f with envelope amount %f and clamps to %f", (base, amount, expected) => {
+    const p = new Processor();
+    send(p, { command: "controls", controls: { timbre: base, timbreAmount: amount,
+      timbreAttack: 0, timbreDecay: 0, timbreSustain: 1 } });
+    send(p, { command: "start", id: 1, frequency: 440 });
+    expect([...render(p, 1)].every(Number.isFinite)).toBe(true);
+    const voice = p.voices.get(1);
+    expect(voice.timbreEnvelope.stage).toBe("sustain");
+    expect(voice.osc.timbre).toBe(expected);
+    expect(voice.gain).toBe(1);
+  },
+);
+it("leaves disabled timbre envelopes inert and smooths enabling/disabling on held notes", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbreAmount: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 480);
+  const voice = p.voices.get(1), transition = vi.spyOn(p, "transition");
+  expect(voice.timbreEnvelope).toBeUndefined();
+  render(p, 1000);
+  expect(transition).not.toHaveBeenCalled();
+  send(p, { command: "controls", controls: { timbreAmount: .5, timbreAttack: 0,
+    timbreDecay: 0, timbreSustain: 1 } });
+  expect(voice.timbreEnvelope.gain).toBe(1);
+  expect(voice.transitionRemaining).toBe(480);
+  render(p, 480);
+  expect(voice.osc.timbre).toBe(.5);
+  send(p, { command: "controls", controls: { timbreAmount: 0 } });
+  expect(voice.timbreEnvelope).toBeNull();
+  render(p, 480);
+  expect(voice.osc.timbre).toBe(0);
+  expect(voice.previous).toBeNull();
+});
+it("samples timbre targets at a bounded rate without touching ISO or pressure ramps", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbreAmount: .5, timbreAttack: 100,
+    timbreDecay: 100, timbreSustain: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1);
+  const voice = p.voices.get(1), compensation = vi.spyOn(p, "compensationFor");
+  const expressiveGain = vi.spyOn(p, "expressiveGain"), configure = vi.spyOn(voice.osc, "configure");
+  render(p, 4799);
+  expect(voice.timbreEnvelope.gain).toBe(1);
+  expect(voice.timbreEnvelope.stage).toBe("decay");
+  expect(configure.mock.calls.length).toBeGreaterThan(0);
+  expect(configure.mock.calls.length).toBeLessThanOrEqual(12);
+  expect(compensation).not.toHaveBeenCalled();
+  expect(expressiveGain).not.toHaveBeenCalled();
+});
+it("updates timbre sustain without restarting volume or affecting other notes' envelope clocks", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbreAmount: .5, timbreAttack: 10,
+    timbreDecay: 20, timbreSustain: 1 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1440);
+  const first = p.voices.get(1);
+  send(p, { command: "start", id: 2, frequency: 660 });
+  render(p, 240);
+  const second = p.voices.get(2);
+  expect(second.timbreEnvelope.gain).toBeCloseTo(.75, 10);
+  send(p, { command: "controls", controls: { ...p.controls, timbreSustain: .5 } });
+  expect(second.timbreEnvelope.remaining).toBe(240);
+  expect(first.gain).toBe(1);
+  render(p, 480);
+  expect(first.timbreEnvelope.gain).toBe(.5);
+  expect(first.gain).toBe(1);
+});
+it("cleans up a voice at the volume endpoint even with a longer timbre release", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbreAmount: .5, timbreAttack: 0,
+    timbreDecay: 0, timbreSustain: 1, timbreRelease: 4000, release: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1);
+  send(p, { command: "stop", id: 1 });
+  expect(render(p, 1)[0]).toBe(0);
+  expect(p.voices.size).toBe(0);
+  expect(p.port.postMessage).toHaveBeenCalledWith({ type: "ended", id: 1 });
+});
+it("bypasses volume ADSR without losing its saved settings or disabling timbre ADSR", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { volumeEnvelope: false, attack: 2000,
+    decay: 4000, sustain: 0, release: 4000, timbreAmount: .5, timbreAttack: 10 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 24);
+  const voice = p.voices.get(1);
+  expect(voice.remaining).toBe(24);
+  expect(voice.gain).toBeCloseTo(.5, 10);
+  render(p, 216);
+  expect(voice.gain).toBe(1);
+  expect(voice.stage).toBe("sustain");
+  expect(voice.timbreEnvelope.gain).toBeCloseTo(.75, 10);
+  expect(p.controls.attack).toBe(2000);
+  expect(p.controls.release).toBe(4000);
+  send(p, { command: "stop", id: 1 });
+  render(p, 1);
+  expect(voice.remaining).toBe(191);
+  expect(voice.gain).toBeGreaterThan(0);
+  render(p, 191);
+  expect(p.voices.size).toBe(0);
+});
+it("smoothly bypasses volume ADSR on a held note and restores it from the current level", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { sustain: .25, attack: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1);
+  const voice = p.voices.get(1);
+  expect(voice.gain).toBe(.25);
+  send(p, { command: "controls", controls: { ...p.controls, volumeEnvelope: false } });
+  expect(voice.gain).toBe(.25);
+  render(p, 480);
+  expect(voice.gain).toBe(1);
+  send(p, { command: "controls", controls: { ...p.controls, volumeEnvelope: true } });
+  render(p, 1);
+  expect(voice.gain).toBe(.25);
+});
+it("bypasses timbre ADSR while preserving its amount and the volume envelope", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbreEnvelope: false, timbreAmount: .75,
+    timbreAttack: 0, timbreDecay: 0, timbreSustain: 1, attack: 10 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 240);
+  const voice = p.voices.get(1);
+  expect(voice.timbreEnvelope).toBeUndefined();
+  expect(voice.osc.timbre).toBe(0);
+  expect(voice.gain).toBeCloseTo(.75, 10);
+  send(p, { command: "controls", controls: { ...p.controls, timbreEnvelope: true } });
+  render(p, 480);
+  expect(voice.osc.timbre).toBe(.75);
+  send(p, { command: "controls", controls: { ...p.controls, timbreEnvelope: false } });
+  render(p, 480);
+  expect(voice.osc.timbre).toBe(0);
+  expect(p.controls.timbreAmount).toBe(.75);
+});

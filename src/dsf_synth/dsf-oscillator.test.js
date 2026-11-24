@@ -99,3 +99,37 @@ it("caps partials below output Nyquist even though integration is oversampled", 
   expect(osc.harmonics).toBe(21);
   for (let i = 0; i < 10000; i++) expect(Number.isFinite(osc.nextSample())).toBe(true);
 });
+it.each([44100, 48000, 96000])("preserves the integrated waveform through cached timbre changes at %i Hz", rate => {
+  const osc = new DsfOscillator(rate);
+  osc.configure(55, .5, 1024);
+  for (let n = 0; n < 137; n++) osc.nextSample();
+  const kernel = osc.pitchKernel;
+  for (const timbre of [.95, 1, .25, .8]) {
+    const phase = osc.phase;
+    osc.configure(55, timbre, 1024);
+    expect(osc.pitchKernel).toBe(kernel);
+    expect(osc.phase).toBe(phase);
+    const step = 2 * Math.PI * 55 / (rate * 4), r = 1 - (1 - timbre) ** 2;
+    for (let i = 0; i < 80; i++) {
+      let expected = 0;
+      for (let n = 1; n <= osc.harmonics; n++) expected += r ** (n - 1) *
+        Math.tan(step / 2) / Math.tan(n * step / 2) * Math.sin(n * osc.phase);
+      expect(osc.nextSample()).toBeCloseTo(expected, 8);
+    }
+  }
+});
+it("shares immutable pitch coefficients between copies and replaces them on retuning", () => {
+  const osc = new DsfOscillator(48000), copy = new DsfOscillator(48000);
+  osc.configure(110, .8, 128);
+  for (let n = 0; n < 97; n++) osc.nextSample();
+  copy.copyFrom(osc);
+  const kernel = copy.pitchKernel;
+  for (let n = 0; n < 100; n++) expect(copy.nextSample()).toBe(osc.nextSample());
+  osc.configure(220, .8, 128);
+  expect(osc.pitchKernel).not.toBe(kernel);
+  expect(copy.pitchKernel).toBe(kernel);
+  expect(copy.frequency).toBe(110);
+  const state = { ...copy };
+  expect(copy.configure(110, .8, 128)).toBe(true);
+  expect({ ...copy }).toEqual(state);
+});

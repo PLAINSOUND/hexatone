@@ -3,6 +3,8 @@ import { DSF_DEFAULTS, dsfControlsFromSettings, normalizeDsfControls } from "./c
 import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 it("uses the requested DSF preset consistently in the engine and saved settings", () => {
   expect(DSF_DEFAULTS).toEqual({ volume: 0.25, partials: 1024, timbre: 0.25,
+    volumeEnvelope: true, timbreEnvelope: true,
+    timbreAmount: 0, timbreAttack: 10, timbreDecay: 100, timbreSustain: 0, timbreRelease: 120,
     attack: 10, decay: 0, sustain: 1, release: 120, velocity: true, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
   expect(normalizeDsfControls()).toEqual(DSF_DEFAULTS);
   expect(dsfControlsFromSettings()).toEqual(DSF_DEFAULTS);
@@ -24,4 +26,11 @@ it("bounds ADSR values and preserves a saved zero sustain", () => {
 it("accepts ISO amounts and the previous checkbox values", () => {
   for (const [value, expected] of [[true, 1], [false, 0], ["true", 1], ["false", 0], [.35, .35], [-1, 0], [2, 1]])
     expect(normalizeDsfControls({ iso226: value }).iso226).toBe(expected);
+});
+it("bounds and restores the independent timbre ADSR", () => {
+  expect(normalizeDsfControls({ timbreAmount: -2, timbreAttack: -1, timbreDecay: 5000,
+    timbreSustain: 3, timbreRelease: -1 })).toMatchObject({ timbreAmount: -1, timbreAttack: 0,
+    timbreDecay: 4000, timbreSustain: 2, timbreRelease: 0 });
+  expect(dsfControlsFromSettings({ dsf_timbreAmount: -.4, dsf_timbreAttack: 0,
+    dsf_timbreSustain: 0 })).toMatchObject({ timbreAmount: -.4, timbreAttack: 0, timbreSustain: 0 });
 });

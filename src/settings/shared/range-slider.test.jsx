@@ -78,8 +78,8 @@ it("maps partial counts smoothly without losing integer resolution", () => {
   pointer(slider, "pointerup", 1000);
   expect(input).toHaveBeenLastCalledWith(1024);
 });
-function pointer(slider, type, clientX) {
-  const event = new MouseEvent(type.replace("pointer", "Pointer").replace(/(down|move|up)$/, part => part[0].toUpperCase() + part.slice(1)), { bubbles: true, clientX });
+function pointer(slider, type, clientX, options = {}) {
+  const event = new MouseEvent(type.replace("pointer", "Pointer").replace(/(down|move|up)$/, part => part[0].toUpperCase() + part.slice(1)), { bubbles: true, clientX, ...options });
   Object.defineProperty(event, "pointerId", { value: 1 });
   fireEvent(slider, event);
 }
@@ -114,4 +114,44 @@ it("retains full travel and precise keyboard steps", () => {
   expect(input).toHaveBeenLastCalledWith(127);
   fireEvent.keyDown(slider, { key: "ArrowRight" });
   expect(input).toHaveBeenLastCalledWith(65);
+});
+it.each([2000, 4000])("gives medium envelope times more travel with a %i ms maximum", max => {
+  const input = vi.fn();
+  const middle = 100 + (max - 100) / 4;
+  render(<CustomRangeSlider min={0} max={max} step={1} value={middle}
+    knee={{ value: 100, position: .4, exponent: 2 }} onInputValue={input} />);
+  const slider = screen.getByRole("slider");
+  slider.getBoundingClientRect = () => ({ left: 0, width: 1000 });
+  expect(parseFloat(slider.querySelector(".settings-range-slider__thumb").style.left)).toBeCloseTo(70, 10);
+  pointer(slider, "pointerdown", 200);
+  expect(input).toHaveBeenLastCalledWith(50);
+  pointer(slider, "pointermove", 400);
+  expect(input).toHaveBeenLastCalledWith(100);
+  pointer(slider, "pointermove", 700);
+  expect(input).toHaveBeenLastCalledWith(middle);
+  pointer(slider, "pointerup", 1000);
+  expect(input).toHaveBeenLastCalledWith(max);
+});
+it("supports tenfold fine dragging without jumps when Shift changes or the pointer is released", () => {
+  const input = vi.fn(), commit = vi.fn();
+  render(<CustomRangeSlider min={0} max={1000} step={1} value={200} fineDrag
+    onInputValue={input} onCommitValue={commit} />);
+  const slider = screen.getByRole("slider");
+  slider.getBoundingClientRect = () => ({ left: 0, width: 1000 });
+  pointer(slider, "pointerdown", 800, { shiftKey: true });
+  expect(input).toHaveBeenLastCalledWith(200);
+  pointer(slider, "pointermove", 900, { shiftKey: true });
+  expect(input).toHaveBeenLastCalledWith(210);
+  pointer(slider, "pointermove", 900);
+  expect(input).toHaveBeenLastCalledWith(210);
+  pointer(slider, "pointermove", 910);
+  expect(input).toHaveBeenLastCalledWith(220);
+  pointer(slider, "pointerup", 910, { shiftKey: true });
+  expect(commit).toHaveBeenLastCalledWith(220);
+  pointer(slider, "pointerdown", 500);
+  expect(input).toHaveBeenLastCalledWith(500);
+  pointer(slider, "pointermove", 510, { shiftKey: true });
+  expect(input).toHaveBeenLastCalledWith(501);
+  pointer(slider, "pointerup", 510);
+  expect(commit).toHaveBeenLastCalledWith(501);
 });

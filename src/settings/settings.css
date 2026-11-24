@@ -1556,6 +1556,14 @@ td.scale-color-col .color-input {
   white-space: nowrap;
 }
 
+/* Reach both fieldset borders across its default inline padding. */
+.output-routing-fieldset .dsf-envelope-divider {
+  border: 0;
+  border-top: 1px solid var(--color-border-ui);
+  margin: 0.75em calc(-0.75em - 1px);
+  width: calc(100% + 1.5em + 2px);
+}
+
 /* Keep the nested frame, without adding a second inset to its fader rows. */
 #sidebar .output-routing-fieldset .eagan-matrix-fieldset {
   border-bottom: 0;

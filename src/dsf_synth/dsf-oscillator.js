@@ -47,27 +47,47 @@ export class DsfOscillator {
     if (!Number.isFinite(frequency) || frequency <= 0 || frequency >= this.sampleRate / 2 ||
         !Number.isFinite(timbre) || timbre < 0 || timbre > 1 || !Number.isInteger(partials) || partials < 1 || partials > 1024)
       return false;
+    if (this.frequency === frequency && this.timbre === timbre && this.partials === partials) return true;
     this.frequency = frequency;
     this.timbre = timbre;
     this.partials = partials;
     this.balance = 1 - (1 - timbre) ** 2;
     this.harmonics = Math.max(1, Math.min(partials, Math.floor(this.sampleRate * 0.45 / frequency)));
     this.factor = this.balance === 0 || this.harmonics === 1 ? 1 : 4;
-    this.phaseStep = TWO_PI * frequency / (this.sampleRate * this.factor);
     this.endWeight = this.balance ** this.harmonics;
-    this.gain = Math.tan(this.phaseStep / 2);
-    this.cosStep = Math.cos(this.phaseStep);
-    this.sinStep = Math.sin(this.phaseStep);
-    this.cosEndStep = Math.cos(this.harmonics * this.phaseStep);
-    this.sinEndStep = Math.sin(this.harmonics * this.phaseStep);
+    if (!this.pitchKernel || this.pitchKernel.frequency !== frequency ||
+        this.pitchKernel.factor !== this.factor || this.pitchKernel.harmonics !== this.harmonics) {
+      const step = TWO_PI * frequency / (this.sampleRate * this.factor);
+      const gain = Math.tan(step / 2);
+      const harmonicGains = new Float64Array(this.factor > 1 ? this.harmonics : 0);
+      // Shared by crossfade copies. Pitch values stay fixed; harmonic gains
+      // are filled lazily so a dark note need not prepare inaudible partials.
+      this.pitchKernel = { frequency, factor: this.factor, harmonics: this.harmonics,
+        step, gain, harmonicGains, cosStep: Math.cos(step), sinStep: Math.sin(step),
+        cosEndStep: Math.cos(this.harmonics * step), sinEndStep: Math.sin(this.harmonics * step) };
+    }
+    const kernel = this.pitchKernel;
+    this.phaseStep = kernel.step;
+    this.gain = kernel.gain;
+    this.cosStep = kernel.cosStep;
+    this.sinStep = kernel.sinStep;
+    this.cosEndStep = kernel.cosEndStep;
+    this.sinEndStep = kernel.sinEndStep;
     // Reconstruct the integration constant at the existing phase, rather than
     // resetting the waveform or carrying a DC error into the new spectrum.
     this.output = 0;
     if (this.factor > 1) {
       let weight = 1;
+      const phase = this.phase - this.phaseStep;
+      const x = Math.cos(phase), y = Math.sin(phase);
+      let real = x, imaginary = y;
       for (let n = 1; n <= this.harmonics && weight > 1e-14; n++) {
-        this.output += weight * this.gain / Math.tan(n * this.phaseStep / 2) *
-          Math.sin(n * (this.phase - this.phaseStep));
+        const harmonicGain = kernel.harmonicGains[n - 1] ||
+          (kernel.harmonicGains[n - 1] = this.gain / Math.tan(n * this.phaseStep / 2));
+        this.output += weight * harmonicGain * imaginary;
+        const next = real * x - imaginary * y;
+        imaginary = imaginary * x + real * y;
+        real = next;
         weight *= this.balance;
       }
     }
@@ -83,7 +103,9 @@ export class DsfOscillator {
     this.v = Math.sin(this.harmonics * this.phase);
   }
 
-  clone() { return Object.assign(new DsfOscillator(this.sampleRate), this); }
+  copyFrom(oscillator) { return Object.assign(this, oscillator); }
+
+  clone() { return new DsfOscillator(this.sampleRate).copyFrom(this); }
 
   nextSample() {
     if (!this.frequency) return 0;

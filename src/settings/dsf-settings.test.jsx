@@ -17,3 +17,46 @@ it("replaces the ISO checkbox with a persisted percentage fader", () => {
   fireEvent.keyDown(slider, { key: "End" });
   expect(onChange).toHaveBeenLastCalledWith("dsf_iso226", 1);
 });
+it("persists signed timbre envelope amount and independent zero-time stages", () => {
+  const onChange = vi.fn();
+  render(<DsfSettings settings={{ output_dsf: true }} onChange={onChange} />);
+  const amount = screen.getByRole("slider", { name: "DSF Timbre envelope amount" });
+  expect(amount.getAttribute("aria-valuenow")).toBe("0");
+  fireEvent.keyDown(amount, { key: "Home" });
+  expect(onChange).toHaveBeenLastCalledWith("dsf_timbreAmount", -1);
+  expect(localStorage.getItem("dsf_timbreAmount")).toBe("-1");
+  for (const [label, key] of [["Timbre attack", "timbreAttack"], ["Timbre decay", "timbreDecay"], ["Timbre release", "timbreRelease"]]) {
+    fireEvent.keyDown(screen.getByRole("slider", { name: `DSF ${label}` }), { key: "Home" });
+    expect(onChange).toHaveBeenLastCalledWith(`dsf_${key}`, 0);
+    expect(localStorage.getItem(`dsf_${key}`)).toBe("0");
+    localStorage.removeItem(`dsf_${key}`);
+  }
+  const sustain = screen.getByRole("slider", { name: "DSF Timbre sustain" });
+  fireEvent.keyDown(sustain, { key: "End" });
+  expect(onChange).toHaveBeenLastCalledWith("dsf_timbreSustain", 2);
+  localStorage.removeItem("dsf_timbreSustain");
+  localStorage.removeItem("dsf_timbreAmount");
+});
+it("places each envelope under its fader and hides bypassed controls without erasing them", () => {
+  const onChange = vi.fn();
+  const settings = { output_dsf: true, dsf_attack: 75, dsf_timbreAmount: .4 };
+  const view = render(<DsfSettings settings={settings} onChange={onChange} />);
+  const sliders = screen.getAllByRole("slider").map(node => node.getAttribute("aria-label"));
+  expect(sliders.slice(0, 6)).toEqual(["DSF Volume", "DSF ISO-226 compensation amount", "DSF Attack", "DSF Decay", "DSF Sustain", "DSF Release"]);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Volume Envelope" }));
+  expect(onChange).toHaveBeenLastCalledWith("dsf_volumeEnvelope", false);
+  expect(localStorage.getItem("dsf_volumeEnvelope")).toBe("false");
+  view.rerender(<DsfSettings settings={{ ...settings, dsf_volumeEnvelope: false }} onChange={onChange} />);
+  expect(screen.queryByRole("slider", { name: "DSF Attack" })).toBeNull();
+  expect(screen.getByRole("slider", { name: "DSF Timbre attack" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("checkbox", { name: "Timbre ADSR" }));
+  expect(onChange).toHaveBeenLastCalledWith("dsf_timbreEnvelope", false);
+  view.rerender(<DsfSettings settings={{ ...settings, dsf_volumeEnvelope: false, dsf_timbreEnvelope: false }} onChange={onChange} />);
+  expect(screen.queryByRole("slider", { name: "DSF Timbre envelope amount" })).toBeNull();
+  expect(screen.getByRole("slider", { name: "DSF Timbre" })).toBeTruthy();
+  view.rerender(<DsfSettings settings={settings} onChange={onChange} />);
+  expect(screen.getByRole("slider", { name: "DSF Attack" }).getAttribute("aria-valuenow")).toBe("75");
+  expect(Number(screen.getByRole("slider", { name: "DSF Timbre envelope amount" }).getAttribute("aria-valuenow"))).toBeCloseTo(.4, 12);
+  localStorage.removeItem("dsf_volumeEnvelope");
+  localStorage.removeItem("dsf_timbreEnvelope");
+});
