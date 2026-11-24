@@ -6,9 +6,18 @@ import { createDsfYzEnvelope } from "./generated-yz.js";
 const MAX_VOICES = 64;
 const MAX_QUEUE = 4096;
 const TRANSITION_SECONDS = 0.01;
-const NOTE_GAIN = 0.084375;
+const NOTE_GAIN = 0.125;
 // Keep the ISO contour intact, with a gentler overall listening level.
 const ISO_OUTPUT_GAIN = 0.85;
+// Subtract the exponential's endpoint tangent so falling segments arrive with
+// zero slope, rather than cutting off a residual tail at their time limit.
+const fallingCurve = curvature => {
+  const end = Math.exp(-curvature);
+  return Object.freeze({ curvature, end, normalization: 1 - end * (1 + curvature) });
+};
+const RELEASE_CURVE = fallingCurve(3);
+// More immediate peak-to-sustain contrast without shortening the segment.
+const DECAY_CURVE = fallingCurve(5);
 
 export class DsfProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -134,8 +143,41 @@ export class DsfProcessor extends AudioWorkletProcessor {
   envelope(voice, target, durationMs) {
     voice.targetGain = target;
     voice.remaining = Math.max(0, Math.round(durationMs * sampleRate / 1000));
-    if (voice.remaining === 0) { voice.gain = target; voice.gainStep = 0; return; }
-    voice.gainStep = (target - voice.gain) / voice.remaining;
+    if (voice.remaining === 0) { voice.gain = target; return; }
+    voice.envelopeLength = voice.remaining;
+    voice.envelopeStart = voice.gain;
+    voice.envelopeCurve = voice.stage === "attack" ? "attack" : target < voice.gain ? "fall" : "swell";
+    voice.envelopeFall = voice.stage === "decay" ? DECAY_CURVE : RELEASE_CURVE;
+    voice.envelopeExponential = 1;
+    // One exponential per segment; the per-sample path uses multiplication.
+    voice.envelopeMultiplier = Math.exp(-voice.envelopeFall.curvature / voice.remaining);
+  }
+
+  advanceEnvelope(voice) {
+    if (voice.remaining === 0) return;
+    if (--voice.remaining === 0) {
+      voice.gain = voice.targetGain;
+      this.advanceEnvelopeStage(voice);
+      return;
+    }
+    const t = 1 - voice.remaining / voice.envelopeLength;
+    let progress;
+    if (voice.envelopeCurve === "attack") {
+      // Prompt onset, gently flattening into the peak: no added onset delay.
+      progress = t * (2 - t);
+    } else if (voice.envelopeCurve === "swell") {
+      progress = t * t * (3 - 2 * t);
+    } else {
+      voice.envelopeExponential *= voice.envelopeMultiplier;
+      const { curvature, end, normalization } = voice.envelopeFall;
+      const remaining = (voice.envelopeExponential - end *
+        (1 + curvature * (1 - t))) / normalization;
+      progress = 1 - Math.max(0, Math.min(1, remaining));
+      // Ease out of the peak with zero initial slope, retaining a little more
+      // tone before the brisk decay. Keep release's existing shape intact.
+      if (voice.envelopeFall === DECAY_CURVE) progress = progress * progress * (2 - progress);
+    }
+    voice.gain = voice.envelopeStart + (voice.targetGain - voice.envelopeStart) * progress;
   }
 
   // Resolve zero-length stages immediately; timed stages advance on the audio clock.
@@ -240,13 +282,7 @@ export class DsfProcessor extends AudioWorkletProcessor {
         this.transition(voice, voice.frequency);
       }
     }
-    if (voice.remaining > 0) {
-      voice.gain += voice.gainStep;
-      if (--voice.remaining === 0) {
-        voice.gain = voice.targetGain;
-        this.advanceEnvelopeStage(voice);
-      }
-    }
+    this.advanceEnvelope(voice);
     let value = voice.osc.nextSample();
     if (voice.transitionRemaining > 0) {
       const blend = 1 - voice.transitionRemaining / voice.transitionLength;
