@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 let Processor;
 const neutral = { partials: 1024, timbre: 0, attack: 0, decay: 0, sustain: 1, release: 80, volume: 0.2,
-  velocity: false, pressure: false, timbreResponse: false, iso226: false };
+  velocity: false, releaseVelocity: false, pressure: false, timbreResponse: false, iso226: false };
 beforeEach(async () => {
   vi.resetModules();
   vi.stubGlobal("sampleRate", 48000);
@@ -66,9 +66,9 @@ it("adds pressure gain and a small timbre boost independently per voice", () => 
   send(p, { command: "expression", id: 1, pressure: 1, timbre: 1 });
   render(p);
   expect(p.voices.get(1).expressionGain).toBe(4);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.6);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.5);
   expect(p.voices.get(2).expressionGain).toBe(1);
-  expect(p.voices.get(2).osc.timbre).toBe(0.4);
+  expect(p.voices.get(2).osc.timbre).toBeCloseTo(0.35);
   send(p, { command: "controls", controls: { timbre: 0.4 } });
   render(p);
   expect(p.voices.get(1).expressionGain).toBe(1);
@@ -88,12 +88,12 @@ it("remembers expression while disabled and caps brightness at one", () => {
 });
 it("makes fast attacks and releases four times quicker only when velocity is enabled", () => {
   const p = new Processor();
-  send(p, { command: "controls", controls: { attack: 100, release: 100, velocity: true } });
+  send(p, { command: "controls", controls: { attack: 100, release: 100, velocity: true, releaseVelocity: true } });
   send(p, { command: "start", id: 1, frequency: 440, velocity: 127 });
   render(p, 1);
   expect(p.voices.get(1).remaining).toBe(1199);
   render(p, 1199);
-  expect(p.voices.get(1).gain).toBe(1.25);
+  expect(p.voices.get(1).gain).toBe(2);
   expect(p.voices.get(1).osc.timbre).toBe(0.1);
   send(p, { command: "stop", id: 1, velocity: 127 });
   render(p, 1199);
@@ -113,32 +113,32 @@ it("curves velocity effects toward the extremes while retaining the central enve
   expect(p.envelopeTime(100, 127)).toBe(25);
   expect(p.envelopeTime(100, 32)).toBe(112.5);
   expect(p.envelopeTime(100, 96)).toBeGreaterThan(90);
-  expect(p.attackLevel({ velocity: 0 })).toBeCloseTo(0.4);
+  expect(p.attackLevel({ velocity: 0 })).toBeCloseTo(0.25);
   expect(p.attackLevel({ velocity: 64 })).toBe(1);
-  expect(p.attackLevel({ velocity: 127 })).toBe(1.25);
+  expect(p.attackLevel({ velocity: 127 })).toBe(2);
   expect(p.envelopeTime(0, 0)).toBe(0);
-  send(p, { command: "controls", controls: { attack: 100, release: 100, velocity: true } });
+  send(p, { command: "controls", controls: { attack: 100, release: 100, velocity: true, releaseVelocity: true } });
   send(p, { command: "start", id: 1, frequency: 440, velocity: 0 });
   render(p, 9600);
-  expect(p.voices.get(1).gain).toBe(0.4);
+  expect(p.voices.get(1).gain).toBe(0.25);
   send(p, { command: "stop", id: 1, velocity: 0 });
-  render(p, 9599);
+  render(p, 19199);
   expect(p.voices.has(1)).toBe(true);
   render(p, 1);
   expect(p.voices.has(1)).toBe(false);
 });
 it("generates YZ per voice on the audio clock, ignores raw timbre, and clears with panic", () => {
   const p = new Processor();
-  send(p, { command: "controls", controls: { generateYZ: true, pressure: true, timbreResponse: true, timbre: 0.25 } });
+  send(p, { command: "controls", controls: { generateYZ: true, velocity: true, pressure: true, timbreResponse: true, timbre: 0.25 } });
   send(p, { command: "start", id: 1, frequency: 220, velocity: 100 });
   send(p, { command: "start", id: 2, frequency: 440, velocity: 127 });
   render(p, 2000);
   expect(p.voices.get(1).generatedValues.timbre).toBeCloseTo(69 / 127);
   expect(p.voices.get(2).generatedValues.timbre).toBeCloseTo(83 / 127);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127 - 0.1 + 0.1 * 100 / 127);
   send(p, { command: "expression", id: 1, timbre: 1 });
   render(p, 2000);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127 - 0.1 + 0.1 * 100 / 127);
   send(p, { command: "expression", id: 1, pressure: 1 });
   render(p, 4000);
   expect(p.voices.get(1).generatedValues.timbre).toBe(1);
@@ -151,3 +151,12 @@ it("generates YZ per voice on the audio clock, ignores raw timbre, and clears wi
   render(p);
   expect(p.voices.size).toBe(0);
 });
+it.each([[0, .2], [.25, .225], [.5, .25], [.75, .3], [1, .35]])(
+  "maps Expression Y %f to timbre %f around a quarter-scale base", (timbre, expected) => {
+    const p = new Processor();
+    send(p, { command: "controls", controls: { timbre: .25, timbreResponse: true } });
+    send(p, { command: "start", id: 1, frequency: 440, timbre });
+    render(p);
+    expect(p.voices.get(1).osc.timbre).toBeCloseTo(expected, 12);
+  },
+);

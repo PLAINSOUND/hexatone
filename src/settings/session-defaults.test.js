@@ -162,3 +162,22 @@ it.each([["true", 1], ["false", 0], ["0", 0], ["0.37", .37], ["1", 1]])(
     }
   },
 );
+it.each([["false", null, false], ["true", null, true], ["false", "true", true], ["true", "false", false]])(
+  "restores independent release velocity with old velocity %s and new value %s", async (velocity, release, expected) => {
+    const previousVelocity = localStorage.getItem("dsf_velocity");
+    const previousRelease = localStorage.getItem("dsf_releaseVelocity");
+    try {
+      localStorage.setItem("dsf_velocity", velocity);
+      if (release === null) localStorage.removeItem("dsf_releaseVelocity");
+      else localStorage.setItem("dsf_releaseVelocity", release);
+      vi.resetModules();
+      const { default: defaults } = await import("./session-defaults.js");
+      expect(defaults.dsf_releaseVelocity).toBe(expected);
+    } finally {
+      if (previousVelocity === null) localStorage.removeItem("dsf_velocity");
+      else localStorage.setItem("dsf_velocity", previousVelocity);
+      if (previousRelease === null) localStorage.removeItem("dsf_releaseVelocity");
+      else localStorage.setItem("dsf_releaseVelocity", previousRelease);
+    }
+  },
+);

@@ -390,6 +390,7 @@ export const SETTINGS_REGISTRY = [
   { key: "dsf_timbreRelease", tier: "local", type: "float", default: 120, perController: false },
   { key: "dsf_volume", tier: "local", type: "float", default: 0.25, perController: false },
   { key: "dsf_velocity", tier: "local", type: "bool", default: true, perController: false },
+  { key: "dsf_releaseVelocity", tier: "local", type: "bool", default: true, perController: false },
   { key: "dsf_pressure", tier: "local", type: "bool", default: true, perController: false },
   { key: "dsf_timbreResponse", tier: "local", type: "bool", default: true, perController: false },
   { key: "dsf_generateYZ", tier: "local", type: "bool", default: false, perController: false },

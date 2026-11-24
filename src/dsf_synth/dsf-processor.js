@@ -130,16 +130,21 @@ export class DsfProcessor extends AudioWorkletProcessor {
   attackLevel(voice) {
     if (!this.controls.velocity) return 1;
     const curve = this.velocityCurve(voice.velocity);
-    return 1 + curve * (curve < 0 ? 0.6 : 0.25);
+    return 1 + curve * (curve < 0 ? 0.75 : 1);
   }
 
   timbreFor(voice) {
     const expression = voice.generatedValues ?? voice;
     return Math.max(0, Math.min(1, this.controls.timbre +
       (this.controls.timbreEnvelope && voice.timbreEnvelope ? this.controls.timbreAmount * voice.timbreEnvelope.gain : 0) +
-      (this.controls.timbreResponse ? 0.2 * expression.timbre : 0) +
+      (this.controls.timbreResponse ? this.expressionYTimbre(expression.timbre) : 0) +
       (this.controls.pressure ? this.pressureBite(expression.pressure) : 0) +
       (this.controls.velocity ? 0.1 * voice.velocity / 127 : 0)));
+  }
+
+  expressionYTimbre(value) {
+    // Neutral halfway; a gentler darkening range below than brightening above.
+    return (value - 0.5) * (value < 0.5 ? 0.1 : 0.2);
   }
 
   setTimbreEnvelopeControls() {
@@ -327,10 +332,10 @@ export class DsfProcessor extends AudioWorkletProcessor {
         voice.released = true;
         voice.stage = "release";
         this.envelope(voice, 0, this.controls.volumeEnvelope === false
-          ? 4 : this.envelopeTime(this.controls.release, event.velocity));
+          ? 4 : this.volumeReleaseTime(event.velocity));
         if (voice.timbreEnvelope) {
           voice.timbreEnvelope.stage = "release";
-          this.envelope(voice.timbreEnvelope, 0, this.controls.timbreRelease);
+          this.envelope(voice.timbreEnvelope, 0, this.timbreReleaseTime(event.velocity));
           this.transition(voice, voice.frequency);
         }
       }
@@ -343,6 +348,18 @@ export class DsfProcessor extends AudioWorkletProcessor {
     if (!this.controls.velocity) return milliseconds;
     const curve = this.velocityCurve(velocity);
     return milliseconds * (1 - curve * (curve < 0 ? 1 : 0.75));
+  }
+
+  volumeReleaseTime(velocity) {
+    if (!this.controls.releaseVelocity) return this.controls.release;
+    const curve = this.velocityCurve(velocity);
+    return this.controls.release * (1 - curve * (curve < 0 ? 3 : 0.75));
+  }
+
+  timbreReleaseTime(velocity) {
+    if (!this.controls.releaseVelocity) return this.controls.timbreRelease;
+    const curve = this.velocityCurve(velocity);
+    return this.controls.timbreRelease * (1 - curve * (curve < 0 ? 1 : 0.975));
   }
 
   voiceSample(voice) {

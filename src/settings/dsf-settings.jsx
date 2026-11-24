@@ -61,23 +61,29 @@ export default function DsfSettings({ settings, onChange }) {
         {((fader[0] === "iso226" && !controls.volumeEnvelope) ||
           (fader[0] === "timbre" && !controls.timbreEnvelope)) && <hr class="dsf-envelope-divider" />}
       </Fragment>)}
-      <label class="settings-form__checkbox-row" title="Curved velocity response: gentle notes are softer and slower; fast notes brighter and crisper. Attack and release range from twice to one-quarter of the fader time, with MIDI 64 unchanged.">
+      <label class="settings-form__checkbox-row" title="Note-on velocity changes volume and timbre. Volume attack ranges from twice to one-quarter of the fader time, with MIDI 64 unchanged.">
         <input type="checkbox" name="dsf_velocity" checked={controls.velocity}
           onChange={event => save("dsf_velocity", event.currentTarget.checked)} />
-        Velocity response
+        Velocity
+      </label>
+      <label class="settings-form__checkbox-row" title="Release velocity scales volume release from four times to one-quarter of its fader time, and timbre release from twice to 0.025 times. MIDI 64 leaves both unchanged. When off, both use their fader times.">
+        <input type="checkbox" name="dsf_releaseVelocity" checked={controls.releaseVelocity}
+          onChange={event => save("dsf_releaseVelocity", event.currentTarget.checked)} />
+        Release Velocity
       </label>
       <label class="settings-form__checkbox-row" title="Pressure adds up to 12 dB, mostly toward full pressure. Light pressure adds a small timbre bite, fading along an S-curve by 30% pressure.">
         <input type="checkbox" name="dsf_pressure" checked={controls.pressure}
           onChange={event => save("dsf_pressure", event.currentTarget.checked)} />
-        Pressure response (Y)
+        Pressure (Z)
       </label>
-      <label class="settings-form__checkbox-row" title="Adds up to 0.2 to the current timbre setting, limited to 1.">
+      <label class="settings-form__checkbox-row" title="Expression Y shifts timbre by −5 percentage points at minimum, 0 at halfway and +10 at maximum. The total is limited to 0–100%.">
         <input type="checkbox" name="dsf_timbreResponse" checked={controls.timbreResponse}
           onChange={event => save("dsf_timbreResponse", event.currentTarget.checked)} />
-        Timbre response (Z/Mod/Foot)
+        Expression (Y)
       </label>
-      <label class="settings-form__checkbox-row" title="Generate timbre and pressure from velocity and aftertouch using the Eagan Matrix output mapping. Overrides incoming timbre while enabled.">
+      <label class={`settings-form__checkbox-row${!controls.velocity || !controls.pressure ? " settings-form__dimmed" : ""}`} title="Requires Velocity and Pressure. Generates timbre and pressure from velocity and aftertouch using the Eagan Matrix output mapping. Overrides incoming timbre while enabled.">
         <input type="checkbox" name="dsf_generateYZ" checked={controls.generateYZ}
+          disabled={!controls.velocity || !controls.pressure}
           onChange={event => save("dsf_generateYZ", event.currentTarget.checked)} />
         Generate YZ
       </label>

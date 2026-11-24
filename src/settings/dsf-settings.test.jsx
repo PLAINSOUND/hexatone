@@ -60,3 +60,23 @@ it("places each envelope under its fader and hides bypassed controls without era
   localStorage.removeItem("dsf_volumeEnvelope");
   localStorage.removeItem("dsf_timbreEnvelope");
 });
+it("saves release velocity independently from velocity", () => {
+  const onChange = vi.fn();
+  render(<DsfSettings settings={{ output_dsf: true, dsf_velocity: false, dsf_releaseVelocity: true }} onChange={onChange} />);
+  expect(screen.getByRole("checkbox", { name: "Velocity" }).checked).toBe(false);
+  const release = screen.getByRole("checkbox", { name: "Release Velocity" });
+  expect(release.checked).toBe(true);
+  fireEvent.click(release);
+  expect(onChange).toHaveBeenCalledExactlyOnceWith("dsf_releaseVelocity", false);
+  expect(localStorage.getItem("dsf_releaseVelocity")).toBe("false");
+  localStorage.removeItem("dsf_releaseVelocity");
+});
+it.each([[false, true], [true, false], [false, false], [true, true]])(
+  "makes Generate YZ available only with velocity %s and pressure %s", (velocity, pressure) => {
+    render(<DsfSettings settings={{ output_dsf: true, dsf_velocity: velocity,
+      dsf_pressure: pressure, dsf_generateYZ: true }} onChange={vi.fn()} />);
+    const checkbox = screen.getByRole("checkbox", { name: "Generate YZ" });
+    expect(checkbox.disabled).toBe(!(velocity && pressure));
+    expect(checkbox.checked).toBe(velocity && pressure);
+  },
+);

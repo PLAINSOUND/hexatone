@@ -5,7 +5,7 @@ it("uses the requested DSF preset consistently in the engine and saved settings"
   expect(DSF_DEFAULTS).toEqual({ volume: 0.25, partials: 1024, timbre: 0.25,
     volumeEnvelope: true, timbreEnvelope: true,
     timbreAmount: 0, timbreAttack: 10, timbreDecay: 100, timbreSustain: 0, timbreRelease: 120,
-    attack: 10, decay: 0, sustain: 1, release: 120, velocity: true, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
+    attack: 10, decay: 0, sustain: 1, release: 120, velocity: true, releaseVelocity: true, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
   expect(normalizeDsfControls()).toEqual(DSF_DEFAULTS);
   expect(dsfControlsFromSettings()).toEqual(DSF_DEFAULTS);
   expect(REGISTRY_BY_KEY.output_dsf.default).toBe(true);
@@ -34,3 +34,8 @@ it("bounds and restores the independent timbre ADSR", () => {
   expect(dsfControlsFromSettings({ dsf_timbreAmount: -.4, dsf_timbreAttack: 0,
     dsf_timbreSustain: 0 })).toMatchObject({ timbreAmount: -.4, timbreAttack: 0, timbreSustain: 0 });
 });
+it.each([[false, false, false], [true, false, false], [false, true, false], [true, true, true]])(
+  "requires velocity %s and pressure %s for Generate YZ", (velocity, pressure, enabled) => {
+    expect(normalizeDsfControls({ generateYZ: true, velocity, pressure }).generateYZ).toBe(enabled);
+  },
+);

@@ -163,7 +163,7 @@ export const SETTINGS_IMPACT_IGNORED_FIELDS = {
     "dsf_partials", "dsf_timbre", "dsf_attack", "dsf_decay", "dsf_sustain", "dsf_release",
     "dsf_volumeEnvelope", "dsf_timbreEnvelope",
     "dsf_timbreAmount", "dsf_timbreAttack", "dsf_timbreDecay", "dsf_timbreSustain", "dsf_timbreRelease",
-    "dsf_volume", "dsf_velocity", "dsf_iso226", "dsf_pressure", "dsf_timbreResponse", "dsf_generateYZ",
+    "dsf_volume", "dsf_velocity", "dsf_releaseVelocity", "dsf_iso226", "dsf_pressure", "dsf_timbreResponse", "dsf_generateYZ",
     "osc_volume_pluck",
     "osc_volume_buzz",
     "osc_volume_formant",

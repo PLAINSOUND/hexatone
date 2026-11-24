@@ -3,7 +3,7 @@ export const dsfEnvelopeStep = value => value <= 100 ? 1 : value <= 500 ? 5 : va
 export const DSF_DEFAULTS = Object.freeze({ partials: 1024, timbre: 0.25, attack: 10, decay: 0, sustain: 1, release: 120,
   volumeEnvelope: true, timbreEnvelope: true,
   timbreAmount: 0, timbreAttack: 10, timbreDecay: 100, timbreSustain: 0, timbreRelease: 120,
-  volume: 0.25, velocity: true, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
+  volume: 0.25, velocity: true, releaseVelocity: true, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
 const bounded = (value, fallback, low, high) => Number.isFinite(Number(value))
   ? Math.max(low, Math.min(high, Number(value))) : fallback;
 export function normalizeDsfControls(values = {}) {
@@ -24,13 +24,14 @@ export function normalizeDsfControls(values = {}) {
     timbreRelease: bounded(values.timbreRelease, DSF_DEFAULTS.timbreRelease, 0, 4000),
     volume: bounded(values.volume, DSF_DEFAULTS.volume, 0, 1),
     velocity: values.velocity === true,
+    releaseVelocity: values.releaseVelocity === true,
     pressure: values.pressure === true,
     timbreResponse: values.timbreResponse === true,
     iso226: bounded(values.iso226 === "true" ? 1 : values.iso226 === "false" ? 0 : values.iso226, DSF_DEFAULTS.iso226, 0, 1),
-    generateYZ: values.generateYZ === true,
+    generateYZ: values.generateYZ === true && values.velocity === true && values.pressure === true,
   };
 }
 export function dsfControlsFromSettings(settings = {}) {
   return normalizeDsfControls(Object.fromEntries(Object.keys(DSF_DEFAULTS)
-    .map(key => [key, settings[`dsf_${key}`] ?? DSF_DEFAULTS[key]])));
+    .map(key => [key, settings[`dsf_${key}`] ?? (key === "releaseVelocity" ? settings.dsf_velocity ?? DSF_DEFAULTS[key] : DSF_DEFAULTS[key])])));
 }

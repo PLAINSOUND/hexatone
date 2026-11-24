@@ -75,6 +75,9 @@ function restoreSession(entry) {
 
 // Read one cross-controller local key from localStorage.
 function restoreLocal(entry) {
+  // Preserve the old combined switch until release velocity is set separately.
+  if (entry.key === "dsf_releaseVelocity" && localStorage.getItem(entry.key) === null)
+    return localBool("dsf_velocity", entry.default);
   // ISO compensation was an on/off switch before becoming a 0–1 amount.
   if (entry.key === "dsf_iso226") {
     const raw = localStorage.getItem(entry.key);
