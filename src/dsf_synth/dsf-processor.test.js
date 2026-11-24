@@ -307,3 +307,22 @@ it("rounds the falling decay at the peak without adding a hold stage", () => {
   expect(voice.gain).toBeLessThan(.95);
   expect(voice.remaining).toBe(4560);
 });
+it("scales ISO compensation in decibels and smoothly updates held voices", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { iso226: 1 } });
+  for (const frequency of [50, 1000, 4000]) {
+    const full = p.compensationFor(frequency);
+    send(p, { command: "controls", controls: { iso226: .5 } });
+    expect(p.compensationFor(frequency)).toBeCloseTo(Math.sqrt(full), 12);
+    send(p, { command: "controls", controls: { iso226: 0 } });
+    expect(p.compensationFor(frequency)).toBe(1);
+    send(p, { command: "controls", controls: { iso226: 1 } });
+  }
+  send(p, { command: "start", id: 1, frequency: 1000 });
+  render(p);
+  const voice = p.voices.get(1);
+  send(p, { command: "controls", controls: { iso226: .5 } });
+  expect(voice.compensation).toBe(.85);
+  render(p, 480);
+  expect(voice.compensation).toBeCloseTo(Math.sqrt(.85), 12);
+});

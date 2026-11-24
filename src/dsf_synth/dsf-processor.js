@@ -199,7 +199,10 @@ export class DsfProcessor extends AudioWorkletProcessor {
   }
 
   compensationFor(frequency) {
-    return this.controls.iso226 ? ISO_OUTPUT_GAIN * dsfLoudnessGain(frequency) : 1;
+    // Interpolate in decibels: 0 is neutral, 1 retains the existing contour
+    // and its overall level trim. Half amount applies half the dB adjustment.
+    return this.controls.iso226 > 0
+      ? (ISO_OUTPUT_GAIN * dsfLoudnessGain(frequency)) ** this.controls.iso226 : 1;
   }
 
   transition(voice, frequency) {

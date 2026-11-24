@@ -1,7 +1,7 @@
 // Saved sound controls, shared by the UI, adapter and worklet.
 export const dsfEnvelopeStep = value => value <= 100 ? 1 : value <= 500 ? 5 : value <= 1000 ? 10 : 20;
 export const DSF_DEFAULTS = Object.freeze({ partials: 1024, timbre: 0.25, attack: 10, decay: 0, sustain: 1, release: 120,
-  volume: 0.25, velocity: true, pressure: true, timbreResponse: true, iso226: true, generateYZ: false });
+  volume: 0.25, velocity: true, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
 const bounded = (value, fallback, low, high) => Number.isFinite(Number(value))
   ? Math.max(low, Math.min(high, Number(value))) : fallback;
 export function normalizeDsfControls(values = {}) {
@@ -17,7 +17,7 @@ export function normalizeDsfControls(values = {}) {
     velocity: values.velocity === true,
     pressure: values.pressure === true,
     timbreResponse: values.timbreResponse === true,
-    iso226: values.iso226 === true,
+    iso226: bounded(values.iso226 === "true" ? 1 : values.iso226 === "false" ? 0 : values.iso226, DSF_DEFAULTS.iso226, 0, 1),
     generateYZ: values.generateYZ === true,
   };
 }

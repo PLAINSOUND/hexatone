@@ -16,6 +16,7 @@ export default function DsfSettings({ settings, onChange }) {
     ["decay", "Decay", 0, 4000, dsfEnvelopeStep, `${controls.decay} ms`],
     ["sustain", "Sustain", 0, 2, 0.01, `${Math.round(controls.sustain * 100)}%`],
     ["release", "Release", 0, 4000, dsfEnvelopeStep, `${controls.release} ms`],
+    ["iso226", "ISO-226 compensation amount", 0, 1, 0.01, `${Math.round(controls.iso226 * 100)}%`],
   ];
   return <fieldset class="output-routing-fieldset">
     <legend><b>Built-in DSF Synthesis</b></legend>
@@ -24,7 +25,8 @@ export default function DsfSettings({ settings, onChange }) {
         onChange={event => save("output_dsf", event.currentTarget.checked)} />
     </label>
     {settings.output_dsf && <>
-      {faders.map(([key, label, min, max, step, display]) => <label key={key}>
+      {faders.map(([key, label, min, max, step, display]) => <label key={key}
+        title={key === "iso226" ? "Relative level compensation by note fundamental, based on the ISO 226:2023 60-phon contour with a gentle 80–200 Hz reduction. 0% is off; 100% applies the full contour and level trim. Intermediate amounts scale the adjustment in decibels. Not calibrated SPL or a per-harmonic EQ." : undefined}>
         {label}<span class="sidebar-input settings-form__range-row">
           <CustomRangeSlider ariaLabel={`DSF ${label}`} min={min} max={max} step={step}
             exponent={key === "partials" ? 2 : 1}
@@ -54,12 +56,7 @@ export default function DsfSettings({ settings, onChange }) {
           onChange={event => save("dsf_generateYZ", event.currentTarget.checked)} />
         Generate YZ
       </label>
-      <label class="settings-form__checkbox-row"
-        title="Relative level compensation by note fundamental, based on the ISO 226:2023 60-phon contour with a gentle 80–200 Hz reduction. Boost is limited to 12 dB. Not calibrated SPL or a per-harmonic EQ.">
-        <input type="checkbox" name="dsf_iso226" checked={controls.iso226}
-          onChange={event => save("dsf_iso226", event.currentTarget.checked)} />
-        ISO-226 loudness compensation
-      </label>
+
     </>}
   </fieldset>;
 }

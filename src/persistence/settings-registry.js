@@ -386,7 +386,7 @@ export const SETTINGS_REGISTRY = [
   { key: "dsf_pressure", tier: "local", type: "bool", default: true, perController: false },
   { key: "dsf_timbreResponse", tier: "local", type: "bool", default: true, perController: false },
   { key: "dsf_generateYZ", tier: "local", type: "bool", default: false, perController: false },
-  { key: "dsf_iso226", tier: "local", type: "bool", default: true, perController: false },
+  { key: "dsf_iso226", tier: "local", type: "float", default: 1, perController: false },
 
   // ── Sample synth ─────────────────────────────────────────────────────────────
   { key: "output_sample", tier: "url", type: "bool", default: true },

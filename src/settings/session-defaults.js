@@ -75,6 +75,11 @@ function restoreSession(entry) {
 
 // Read one cross-controller local key from localStorage.
 function restoreLocal(entry) {
+  // ISO compensation was an on/off switch before becoming a 0–1 amount.
+  if (entry.key === "dsf_iso226") {
+    const raw = localStorage.getItem(entry.key);
+    if (raw === "true" || raw === "false") return raw === "true" ? 1 : 0;
+  }
   switch (entry.type) {
     case "int":
       return localInt(entry.key, entry.default);

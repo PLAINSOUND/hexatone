@@ -148,3 +148,17 @@ describe("session-defaults fallback when key absent", () => {
     expect(sessionDefaults.midi_velocity).toBe(72);
   });
 });
+it.each([["true", 1], ["false", 0], ["0", 0], ["0.37", .37], ["1", 1]])(
+  "restores ISO compensation from saved %s", async (raw, expected) => {
+    const previous = localStorage.getItem("dsf_iso226");
+    try {
+      localStorage.setItem("dsf_iso226", raw);
+      vi.resetModules();
+      const { default: defaults } = await import("./session-defaults.js");
+      expect(defaults.dsf_iso226).toBe(expected);
+    } finally {
+      if (previous === null) localStorage.removeItem("dsf_iso226");
+      else localStorage.setItem("dsf_iso226", previous);
+    }
+  },
+);

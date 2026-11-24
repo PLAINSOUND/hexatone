@@ -72,11 +72,12 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          name: github-pages
+          # Re-runs keep earlier artifacts; use a distinct name per attempt.
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: build
 
       - name: Deploy to GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v5
         with:
-          artifact_name: github-pages
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
