@@ -1,5 +1,5 @@
 // Keep controller layout preferences separate from the tuning's saved geometry.
-export const EXQUIS_LAYOUT_DEFAULTS = Object.freeze({ exquis_rSteps: 7, exquis_drSteps: 4 });
+export const EXQUIS_LAYOUT_DEFAULTS = Object.freeze({ exquis_rSteps: 5, exquis_drSteps: 6 });
 export const EXQUIS_LAYOUT_FIELDS = ["exquis_layout_override", "exquis_rSteps", "exquis_drSteps"];
 
 export function exquisLayoutStep(value, fallback) {

@@ -11,9 +11,9 @@ it("overrides only the active Exquis geometry and restores saved steps without m
   expect(effectiveExquisLayout({ ...settings, rSteps: 7, drSteps: 5, exquis_layout_override: false }, "exquis"))
     .toEqual({ rSteps: 7, drSteps: 5 });
 });
-it("defaults unspecified steps to 7 and 4 and validates signed integer edits", () => {
+it("defaults unspecified steps to 5 and 6 and validates signed integer edits", () => {
   expect(effectiveExquisLayout({ rSteps: 2, drSteps: 1, exquis_layout_override: true }, "exquis"))
-    .toEqual({ rSteps: 7, drSteps: 4 });
+    .toEqual({ rSteps: 5, drSteps: 6 });
   for (const invalid of [null, "", "3x", 1.2, Infinity, 1221]) expect(exquisLayoutStep(invalid, 7)).toBe(7);
   expect(exquisLayoutStep(0, 7)).toBe(0);
   expect(exquisLayoutStep(-1220, 7)).toBe(-1220);

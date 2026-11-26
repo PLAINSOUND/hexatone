@@ -129,8 +129,8 @@ describe("ExquisSettings", () => {
     expect(onChange).toHaveBeenCalledWith("exquis_layout_override", true);
     view.rerender(<ExquisSettings {...baseProps} settings={{ ...settings, exquis_layout_override: true }} onChange={onChange} />);
     const right = screen.getByLabelText("Right-Facing Steps");
-    expect(right.value).toBe("7");
-    expect(screen.getByLabelText("Right-Downward Steps").value).toBe("4");
+    expect(right.value).toBe("5");
+    expect(screen.getByLabelText("Right-Downward Steps").value).toBe("6");
     fireEvent.input(right, { target: { value: "3" } });
     fireEvent.blur(right);
     expect(onChange).toHaveBeenCalledWith("exquis_rSteps", 3);
