@@ -4,7 +4,7 @@ Updated: 2026-10-27
 
 ## About
 
-`HEXATONE` is a microtonal workspace based on a two-dimensional hexagonal pitch layout invented by Erv Wilson. `SEQUENCER` is for editing and performing chords captured in Hexatone. `I/O` has settings for built-in sounds and MIDI input/output. `CALCULATOR` is a tool for JI calculations (HEJI spelling, frequency, cents deviation, and rationalisation). `MANUAL` provides documentation.  
+`HEXATONE` is a microtonal workspace based on a two-dimensional hexagonal pitch layout invented by Erv Wilson. `SEQUENCER` is for editing and performing chords captured in Hexatone. `SOUNDS` and `MIDI` have settings for built-in sounds and MIDI input/output. `CALCULATOR` is a tool for JI calculations (HEJI spelling, frequency, cents deviation, and rationalisation). `MANUAL` provides documentation.
 
 ## Features
 
@@ -38,7 +38,7 @@ To explore scales, compare tunings, build and recall chords:
 - open `SEQUENCER` tab to edit, navigate, and play the snapshots
 - choose a built-in sequence, scroll down to `Edit & Play`
 - use `PLAY FROM` to step through sounds or the `TIMED PLAYBACK` transport for automation
-- change to the `I/O` tab; try different sound combinations while the sequencer is playing
+- change to the `SOUNDS` tab; try different sound combinations while the sequencer is playing
     - under `Built-in Samples` change `Instrument`
     - under `Built-in SoundFont Player`, in the menu `Hexatone SoundFonts` choose a sound and download it by tapping `Load Hexatone SoundFont`
     - under `Built-in scsynth` try mixing the layers and adjusting `Brightness`
@@ -94,10 +94,13 @@ and system power-saving restrictions can still interrupt audio.
   - Snapshots
   - Copy & Insert
   - Edit & Play / Sequence Event List
-`I/O`
+`SOUNDS`
+  - User Sounds
+  - Built-in DSF Synthesis
   - Built-in Samples
   - Built-in SoundFont Player (based on FluidSynth)
   - Built-in scsynth (SuperSonic / external OSC)
+`MIDI`
   - MIDI Setup
   - MIDI Input
   - MIDI Output (Monophonic Single-Channel / MTS / MPE)
@@ -134,11 +137,11 @@ Buttons along the bottom of the app, also mapped to key commands:
     - `MODULATION HISTORY` palette appears indicating
         - `1/1 Shift` in cents (total of all transpositions)
         - list of captured modulations: Source — Target, cents deviation, step buttons to modulate, x to delete (visible only when modulation has returned back to starting pitch)
-- `PANIC` (*SHIFT+BACKSPACE / DELETE*): kills sounding notes as nicely as possible 
+- `PANIC` (*SHIFT+BACKSPACE / DELETE*): kills sounding notes as nicely as possible
 
 ## HEXATONE tab
 
-Hexatone supports various controllers and uses a 2D hexagonal layout to represent tunings. It acts as a bridge for devices connected in the `I/O` tab, allowing multiple software tools and instruments to receive coordinated tuning and expression data from multichannel and MPE devices.
+Hexatone supports various controllers and uses a 2D hexagonal layout to represent tunings. It acts as a bridge for devices connected in the `MIDI` tab, allowing multiple software tools and instruments to receive coordinated tuning and expression data from multichannel and MPE devices.
 
 ### Mouse, Touch, Computer Keyboard
 
@@ -158,7 +161,7 @@ Hexatone includes built-in tunings and supports user presets. You may import a S
 
 ### Scale Settings / Hexatone Layout
 
-`Scale Settings` toggles to reveal `HEJI Spelling` controls, a table layout of the scale degrees, and additional features. 
+`Scale Settings` toggles to reveal `HEJI Spelling` controls, a table layout of the scale degrees, and additional features.
 
 `Hexatone Layout` toggles to reveal scale to canvas mapping parameters and rotation, in addition to `Central Scale Degree` and `Hex Size`.
 
@@ -391,7 +394,7 @@ The whole snapshot is considered intentionally: later entries or replacement not
 
 Chord choices are prepared in the background, favouring upcoming snapshots. If a choice is not ready, or a formation exceeds the search limits, ordinary nearest-note Snap keeps playback on time. A late result does not change an arpeggio midway; it can be used on the next trigger. Explicit fader changes retune the sounding formation live within the search limits.
 
-A manually triggered SNAPSHOT keeps sounding when you switch to `HEXATONE`, `I/O`, `CALCULATOR` or `MANUAL`, with the active snapshot highlighted in the floating palette. You can stop it there. CUES or timed playback of notes are only active in `SEQUENCER` and `I/O` tabs, where transport controls are provided.
+A manually triggered SNAPSHOT keeps sounding when you switch to `HEXATONE`, `SOUNDS` and `MIDI`, `CALCULATOR` or `MANUAL`, with the active snapshot highlighted in the floating palette. You can stop it there. CUES or timed playback of notes are only active in `SEQUENCER` and `SOUNDS` and `MIDI` tabs, where transport controls are provided.
 
 `Sequencer Timbre Control` is enabled by default and allows the selected timbre controller to shape recorded sequence timbre while playing. The scsynth `Brightness` fader can also shape sequence timbre through this option. For Lumatone this follows the enabled `Mod Wheel` and/or `Foot Controller` timbre assignments, including soft pickup when both are selected. Disable it to retain the recorded sequence timbre unchanged.
 
@@ -467,9 +470,13 @@ A repeat row shows:
 
 Repeat markers participate directly in cue playback. When cue stepping crosses an end-repeat boundary, Hexatone jumps back to the associated start-repeat position and restarts the cue range as many times as the repeat count requires. Any carried note-offs that need to occur before the repeat bounce are preserved by the event-ordering rules. Users can bypass repeat playback with the `Play Repeats` setting.
 
-## I/O tab
+## SOUNDS and MIDI tabs
 
-Switching to the `I/O` tab does not interrupt live or sequenced playback. Snapshots and Modulation history remain available in floating palettes.
+Switching to either the `SOUNDS` or `MIDI` tab does not interrupt live or sequenced playback. Snapshots and Modulation history remain available in floating palettes.
+
+SOUNDS contains User Sounds and the four built-in engines. MIDI contains MIDI Setup, MIDI Input and MIDI Output. Both tabs keep sequence playback running and show the shared transport when a sequence is loaded.
+
+The User Sounds menu always offers Default (the factory sound defaults) and Test Tone (DSF alone, timbre 0, envelopes and expression mappings off), followed by saved sounds. User Sounds saves a named snapshot of all four built-in engines, including their enabled states, DSF envelopes and expression amounts, sample instrument and level, SoundFont bank/preset, level, reverb and smoothing, and scsynth layer and release settings. Save updates the selected user sound, including a changed name; Save as copy keeps the original and makes a new entry. Built-in sounds can only be saved as copies. Choose an entry to recall it. Open File(s) imports sound JSON, and Export .json exports the current settings under the entered name. SoundFont files are separate: recall uses an available local copy or asks you to provide the bank. Tuning, controller connections and bridge credentials are unchanged.
 
 The options are grouped under `Built-in DSF Synthesis`, `Built-in Samples`, `Built-in SoundFont Player`, and `Built-in scsynth`, followed by `MIDI Setup`, `MIDI Input`, and `MIDI Output`. Sound outputs may be enabled independently or layered. The built-in audio backends are under active development.
 
@@ -480,11 +487,11 @@ The Timbre curve brings brightness forward, with a gentle sinusoidal correction 
 `Timbre ADSR`, below Timbre, enables the independent envelope and reveals its controls. The main Timbre fader displays 0.00–1.00. `Timbre peak offset` and `Timbre sustain offset` each range from −100% to +100%, relative to that base setting: −100% reaches 0, +100% reaches 1, and 0% leaves timbre unchanged. Negative offsets scale the available range toward 0; positive offsets scale the range toward 1. For example, with Timbre at 0.25, −50% gives 0.125 and +50% gives 0.625. The envelope starts at the base setting, attacks toward the peak offset, decays toward the independent sustain offset, and releases back to base. Sustain can be above or below the peak, including on the opposite side of base. The timbre envelope defaults to a −30% peak offset, 500 ms attack, 2400 ms decay, −75% sustain offset and 2 ms release, with ADSR enabled. Only when both offsets are zero does the envelope have no effect. Unchecking ADSR bypasses it while retaining its settings. Attack, decay and release have independent times, including 0 ms, and use the same transition curves as the volume envelope. Velocity → Attack and Release Velocity → Release scale the corresponding times for both enabled envelopes. Pressure bite and other expression contributions are added after the relative envelope offset, and final timbre is limited to 0–1. Spectral changes are smoothed, so very short stages are softened. The volume envelope determines when the note ends.
 
 
-`Restore I/O settings on reload`, at the top of the tab, is independent of `Restore on reload`. It is enabled by default. Disable it to return to default sound and `I/O` settings, with external connections disabled, on the next browser reload. Changing the checkbox does not interrupt the current session.
+`Restore SOUND settings on reload` and `Restore MIDI settings on reload`, at the top of their respective tabs, work independently and default to on. Disable SOUND restoration to return the built-in engines to their defaults on the next reload. Disable MIDI restoration to reset MIDI connections and routing. Saved User Sounds, cached SoundFont files and controller profiles are retained. These choices are independent of tuning/sequence `Restore on reload` and do not interrupt the current session.
 
-Restoring `I/O` remembers the requested setup, not browser permission: MIDI/SysEx access must still be granted and the selected ports must be available.
+Restoring `SOUNDS` and `MIDI` remembers the requested setup, not browser permission: MIDI/SysEx access must still be granted and the selected ports must be available.
 
-All four built-in backends are enabled by default; saved `I/O` choices override these defaults. FluidSynth remains silent until a SoundFont is loaded. On audio activation, Hexatone tries to restore the last SoundFont and its preset from an available offline browser copy, without downloading it again. When activation or recovery is needed, a shared audio popup shows status separately from three actions: `Retry` prepares or restores audio, `Report` saves diagnostics, and `Dismiss` hides the popup.
+All four built-in backends are enabled by default; saved `SOUNDS` and `MIDI` choices override these defaults. FluidSynth remains silent until a SoundFont is loaded. On audio activation, Hexatone tries to restore the last SoundFont and its preset from an available offline browser copy, without downloading it again. When activation or recovery is needed, a shared audio popup shows status separately from three actions: `Retry` prepares or restores audio, `Report` saves diagnostics, and `Dismiss` hides the popup.
 
 For latency testing, enable `Measure audio latency` in `Audio Diagnostics`. Mark each comparison stage and play using mouse clicks or drags, computer keys, or touch. The report records input and backend timing, with browser playback-clock and output-latency estimates. FluidSynth also reports rendered attacks and, for notes played from silence, the first non-silent output block. Let release tails fade between isolated notes. These measurements precede browser/device output buffering; recording physical key clicks and speaker sound is needed to check the audible delay. Safari's reported playback clock may not reveal that delay. SuperSonic reports recent rendered output level and whether its output-scope clock is advancing. These can remain normal while browser or device buffering delays the audible sound.
 

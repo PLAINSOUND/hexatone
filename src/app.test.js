@@ -403,13 +403,20 @@ describe("reload workspace tab", () => {
     },
   );
 
+  it("migrates the old I/O tab to SOUNDS and restores MIDI independently", () => {
+    sessionStorage.setItem("hexatone_reload_workspace_tab", "io");
+    expect(loadReloadWorkspaceTab()).toBe("sounds");
+    saveReloadWorkspaceTab("midi");
+    expect(loadReloadWorkspaceTab()).toBe("midi");
+  });
+
   it("retains the I/O tab independently of its settings restore preference", () => {
-    saveReloadWorkspaceTab("io");
-    expect(loadReloadWorkspaceTab()).toBe("io");
+    saveReloadWorkspaceTab("sounds");
+    expect(loadReloadWorkspaceTab()).toBe("sounds");
     localStorage.setItem("hexatone_restore_io_on_reload", "false");
-    expect(loadReloadWorkspaceTab()).toBe("io");
+    expect(loadReloadWorkspaceTab()).toBe("sounds");
     localStorage.setItem("hexatone_restore_io_on_reload", "true");
-    expect(loadReloadWorkspaceTab()).toBe("io");
+    expect(loadReloadWorkspaceTab()).toBe("sounds");
     localStorage.removeItem("hexatone_restore_io_on_reload");
   });
 
@@ -1134,7 +1141,7 @@ describe("App workspace tabs", () => {
     const keys = { playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
     await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
     act(() => lastKeyboardProps.onKeysReady(keys));
-    fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+    fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
     fireEvent.click(await screen.findByLabelText("Play snapshot 1"));
     expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(false);
     const attacks = keys.playSnapshot.mock.calls.length;
@@ -1162,11 +1169,11 @@ describe("App workspace tabs", () => {
   it.each([
     ["sequencer", "SEQUENCER"],
     ["calculator", "CALCULATOR"],
-    ["io", "I/O"],
+    ["sounds", "SOUNDS"],
     ["manual", "MANUAL"],
   ])("opens the restored %s workspace on startup", async (storedTab, tabName) => {
     sessionStorage.setItem(RELOAD_WORKSPACE_TAB_KEY, storedTab);
-    if (storedTab === "io") {
+    if (storedTab === "sounds") {
       localStorage.setItem("hexatone_persist_on_reload", "true");
       sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
         snapshots: [{ id: 1, notes: [{ id: "a", midicents: 60, start: 0, end: 1 }] }],
@@ -1179,7 +1186,7 @@ describe("App workspace tabs", () => {
     await waitFor(() =>
       expect(screen.getByRole("tab", { name: tabName }).getAttribute("aria-selected")).toBe("true"),
     );
-    if (storedTab === "io") {
+    if (storedTab === "sounds") {
       const play = await screen.findByLabelText("play timed transport");
       expect(document.getElementById("io-sequencer-transport-host").contains(play)).toBe(true);
     }
@@ -1239,7 +1246,7 @@ describe("App workspace tabs", () => {
     await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
     act(() => lastKeyboardProps.onKeysReady({ _snapshotHexes: [hex],
       _soundingSnapshotHexes: new Set([hex]) }));
-    fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+    fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
     polyTimbre.mockClear();
     fireEvent.click(await screen.findByText("Test Brightness"));
     expect(polyTimbre).toHaveBeenCalledWith(enabled ? 127 : 80);
@@ -1580,13 +1587,13 @@ describe("App workspace tabs", () => {
       const sidebar = view.container.querySelector("#sidebar");
       sidebar.scrollTop = 670;
       fireEvent.scroll(sidebar);
-      fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+      fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
       expect(sidebar.scrollTop).toBe(0);
       sidebar.scrollTop = 230;
       fireEvent.scroll(sidebar);
       fireEvent.click(screen.getByRole("tab", { name: "HEXATONE" }));
       expect(sidebar.scrollTop).toBe(670);
-      fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+      fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
       expect(sidebar.scrollTop).toBe(230);
     } finally {
       view.unmount();
@@ -1626,7 +1633,7 @@ describe("App workspace tabs", () => {
       fireEvent.click(screen.getByLabelText("restore snapshot 1 attack captured pitch and name"));
       await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalledTimes(3));
       expect(keys.playSnapshot.mock.calls.at(-1)[0][0].midicents).toBeCloseTo(69, 6);
-      fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+      fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
       fireEvent.click(screen.getByLabelText("Stop snapshot 1"));
       fireEvent.click(screen.getByRole("tab", { name: "SEQUENCER" }));
       const stopped = screen.getByLabelText("snapshot 1 attack name");
@@ -1670,7 +1677,7 @@ describe("App workspace tabs", () => {
         expect(document.querySelector(highlights)).toBeNull();
         expect(keys.playSnapshot).toHaveBeenCalledTimes(attackCount);
         expect(screen.queryByLabelText("pause timed transport")).toBeNull();
-        fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+        fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
         expect((await screen.findByLabelText("Stop snapshot 1")).disabled).toBe(true);
       } finally {
         view.unmount();
@@ -1723,7 +1730,7 @@ describe("App workspace tabs", () => {
       await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
       act(() => lastKeyboardProps.onKeysReady(keys));
       fireEvent.click(screen.getByLabelText("Play snapshot 1"));
-      fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+      fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
       settings = { ...settings, instrument: "hammond" };
       view.rerender(<App />);
       expect(keys.playSnapshot).toHaveBeenCalledTimes(1);
@@ -2028,14 +2035,14 @@ describe("App workspace tabs", () => {
       "SEQUENCER Tab",
     );
 
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
     await waitFor(() => {
       expect(screen.queryByTestId("manual-sidebar")).toBeNull();
     });
 
     await user.click(screen.getByText("… more"));
     expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
-      "I/O tab",
+      "SOUNDS and MIDI tabs",
     );
 
     await user.click(screen.getByRole("tab", { name: "CALCULATOR" }));
@@ -2091,12 +2098,14 @@ describe("App workspace tabs", () => {
 
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     const timedPlayButton = await screen.findByLabelText("play timed transport");
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
 
     expect(await screen.findByTestId("io-settings")).not.toBeNull();
     // Timed playback is owned by the Sequencer component. It must remain the
     // same mounted instance while I/O is visible or its transport cleanup will
     // cancel the running schedule.
+    expect(timedPlayButton.isConnected).toBe(true);
+    await user.click(screen.getByRole("tab", { name: "MIDI" }));
     expect(timedPlayButton.isConnected).toBe(true);
     expect(keys.stopSnapshot).not.toHaveBeenCalled();
     expect(keys.panic).not.toHaveBeenCalled();
@@ -2116,7 +2125,7 @@ describe("App workspace tabs", () => {
       finishLoading = resolve;
     });
     try {
-      await user.click(screen.getByRole("tab", { name: "I/O" }));
+      await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
       // Suspense detaches its subtree and invokes hook cleanups, including the
       // timed scheduler cleanup. The sequencer must stay attached throughout.
       expect(screen.queryByTestId("io-settings")).toBeNull();
@@ -2140,7 +2149,7 @@ describe("App workspace tabs", () => {
     let finishLoading;
     pendingIOSettingsLoad = new Promise(resolve => { finishLoading = resolve; });
     try {
-      await user.click(screen.getByRole("tab", { name: "I/O" }));
+      await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
       expect(screen.queryByTestId("io-settings")).toBeNull();
       expect(document.getElementById("io-sequencer-transport-host")).toBe(host);
       expect(host.isConnected).toBe(true);
@@ -2151,7 +2160,7 @@ describe("App workspace tabs", () => {
       });
     }
     await screen.findByTestId("io-settings");
-    for (const name of ["SEQUENCER", "I/O", "HEXATONE", "I/O"]) {
+    for (const name of ["SEQUENCER", "SOUNDS", "MIDI", "HEXATONE", "MIDI"]) {
       await user.click(screen.getByRole("tab", { name }));
       expect(document.getElementById("io-sequencer-transport-host")).toBe(host);
       expect(host.isConnected).toBe(true);
@@ -2177,7 +2186,7 @@ describe("App workspace tabs", () => {
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     await user.click(await screen.findByLabelText("play timed transport"));
     expect(await screen.findByLabelText("pause timed transport")).not.toBeNull();
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
     const transport = await screen.findByRole("group", { name: "Sequencer Transport" });
     expect(transport.contains(screen.getByLabelText("pause timed transport"))).toBe(true);
     const speed = screen.getByLabelText("sequence playback speed");
@@ -2198,7 +2207,7 @@ describe("App workspace tabs", () => {
     const pausedSnapshot = screen.getByLabelText("next snapshot target").value;
     const stopCount = keys.stopSnapshot.mock.calls.length;
     const attackCount = keys.playSnapshot.mock.calls.length;
-    for (const tab of ["I/O", "SEQUENCER", "I/O", "SEQUENCER"]) {
+    for (const tab of ["SOUNDS", "MIDI", "SEQUENCER", "MIDI", "SOUNDS", "SEQUENCER"]) {
       await user.click(screen.getByRole("tab", { name: tab }));
       expect(screen.getByLabelText("play timed transport")).not.toBeNull();
       expect(screen.getByLabelText("next cue target").value).toBe(pausedCue);
@@ -2215,13 +2224,13 @@ describe("App workspace tabs", () => {
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     expect(screen.getByLabelText("play timed transport")).not.toBeNull();
     expect(screen.queryByLabelText("pause timed transport")).toBeNull();
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
     await user.click(screen.getByLabelText("play timed transport"));
     expect(screen.getByLabelText("pause timed transport")).not.toBeNull();
     await user.click(screen.getByLabelText("stop timed transport"));
     expect(screen.getByLabelText("play timed transport")).not.toBeNull();
     await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
     const restoredTransport = await screen.findByRole("group", { name: "Sequencer Transport" });
     expect(restoredTransport.contains(screen.getByLabelText("play timed transport"))).toBe(true);
     await user.click(screen.getByLabelText("play timed transport"));
@@ -2250,7 +2259,7 @@ describe("App workspace tabs", () => {
     const keys = { playSnapshot: vi.fn(), stopSnapshot: vi.fn(), panic: vi.fn() };
     await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
     act(() => lastKeyboardProps.onKeysReady(keys));
-    fireEvent.click(screen.getByRole("tab", { name: "I/O" }));
+    fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
     fireEvent.click(await screen.findByLabelText("Play snapshot 1"));
     expect(screen.getByLabelText("Stop snapshot 1").disabled).toBe(false);
     const attacks = keys.playSnapshot.mock.calls.length;
@@ -2288,7 +2297,7 @@ describe("App workspace tabs", () => {
     act(() => lastKeyboardProps.onKeysReady(keys));
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
     await user.click(await screen.findByLabelText("play timed transport"));
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
     await waitFor(() => {
       if (screen.getByLabelText("Stop snapshot 2").disabled) clock += 0.1;
       expect(screen.getByLabelText("Stop snapshot 2").disabled).toBe(false);
@@ -2325,7 +2334,7 @@ describe("App workspace tabs", () => {
     const keys = { stopSnapshot: vi.fn(), playSnapshot: vi.fn() };
     await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
     act(() => lastKeyboardProps.onKeysReady(keys));
-    for (const tab of ["SEQUENCER", "I/O"]) {
+    for (const tab of ["SEQUENCER", "SOUNDS"]) {
       await user.click(screen.getByRole("tab", { name: tab }));
       for (const label of [
         "next sequence step",
@@ -2367,7 +2376,7 @@ describe("App workspace tabs", () => {
     fireEvent.input(pitch, { target: { value: "5/4" } });
     fireEvent.blur(pitch);
 
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
     expect(pitch.isConnected).toBe(true);
     expect(pitch.closest(".calculator-tab").hidden).toBe(true);
 
@@ -2409,7 +2418,7 @@ describe("App workspace tabs", () => {
       });
     });
 
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
 
     expect(document.querySelector("#snapshot-palette")).not.toBeNull();
     expect(document.querySelector("#modulation-palette")).not.toBeNull();
@@ -2483,7 +2492,7 @@ describe("App workspace tabs", () => {
     await user.click(await screen.findByLabelText("play timed transport"));
     await waitFor(() => expect(keys.playSnapshot).toHaveBeenCalledTimes(1));
 
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
     const stopCallsBeforePalettePlay = keys.stopSnapshot.mock.calls.length;
     await user.click(await screen.findByLabelText("Play snapshot 1"));
 
@@ -2501,7 +2510,7 @@ describe("App workspace tabs", () => {
     sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
   });
 
-  it.each(["HEXATONE", "I/O", "CALCULATOR", "MANUAL"].flatMap(
+  it.each(["HEXATONE", "SOUNDS", "MIDI", "CALCULATOR", "MANUAL"].flatMap(
     (destination) => ["snapshot", "cue"].map((target) => [destination, target]),
   ))(
     "handles a switch to %s after manual %s playback",
@@ -2546,7 +2555,7 @@ describe("App workspace tabs", () => {
         // Switch before the 300 ms manual presentation commit.
         fireEvent.click(screen.getByRole("tab", { name: destination }));
         if (target === "cue") {
-          expect(keys.stopSnapshot).toHaveBeenCalledTimes(stops + (destination === "I/O" ? 0 : 1));
+          expect(keys.stopSnapshot).toHaveBeenCalledTimes(stops + (["SOUNDS", "MIDI"].includes(destination) ? 0 : 1));
           expect(keys.playSnapshot).toHaveBeenCalledTimes(2);
           return;
         }
@@ -2585,7 +2594,7 @@ describe("App workspace tabs", () => {
     act(() => lastKeyboardProps.onKeysReady(keys));
 
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
-    await user.click(screen.getByRole("tab", { name: "I/O" }));
+    await user.click(screen.getByRole("tab", { name: "SOUNDS" }));
     await user.click(screen.getByRole("tab", { name: "HEXATONE" }));
 
     expect(keys.stopSnapshot).toHaveBeenCalledTimes(1);

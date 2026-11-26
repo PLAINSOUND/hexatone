@@ -77,7 +77,7 @@ async function readResponseWithProgress(response, onProgress) {
   return combined.buffer;
 }
 
-const FluidSynthSettings = ({ settings, onChange }) => {
+const FluidSynthSettings = ({ settings, onChange, soundRecall }) => {
   const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem("hexatone_fluidsynth_collapsed") !== "false");
   const [presets, setPresets] = useState(() => peekFluidSynthEngine()?.presets ?? []);
   const [soundfontName, setSoundfontName] = useState("");
@@ -213,11 +213,11 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     peekFluidSynthEngine()?.setSmoothing?.(next);
   };
 
-  const loadSoundFont = async (source, signal) => {
+  const loadSoundFont = async (source, signal, presetOverride) => {
     if (!source) return;
     const generation = ++loadGenerationRef.current;
     const current = () => generation === loadGenerationRef.current;
-    const preferredPreset = readSavedPreset(soundfontStorageKey(source)) ??
+    const preferredPreset = presetOverride ?? (soundRecall?.name === source.name ? soundRecall.preset : undefined) ?? readSavedPreset(soundfontStorageKey(source)) ??
       (source.name === localStorage.getItem(LAST_BANK_KEY) ? settings.fluidsynth_preset : undefined);
     setBusy(true);
     setStatus(source.url ? "" : `${loaded ? "Replacing" : "Loading"} ${source.name}…`);
@@ -389,6 +389,50 @@ const FluidSynthSettings = ({ settings, onChange }) => {
       if (current()) setStatus("Stored copy unavailable. Click Load to download, or choose a local file.");
     }
   };
+
+  // Recall bank references through the existing cache/load path; never download implicitly.
+  const recallLoaderRef = useRef(null);
+  recallLoaderRef.current = loadSoundFont;
+  useEffect(() => {
+    if (!soundRecall) return;
+    setVolume(soundRecall.volume);
+    setReverb(soundRecall.reverb);
+    setSmoothing(soundRecall.smoothing);
+    smoothingRef.current = soundRecall.smoothing;
+    setPresetValue(soundRecall.preset);
+    if (!settings.output_fluidsynth || !soundRecall.name) return;
+    let cancelled = false;
+    const generation = ++loadGenerationRef.current;
+    ++menuSelectionRef.current;
+    downloadControllerRef.current?.abort();
+    const current = () => !cancelled && loadGenerationRef.current === generation;
+    const active = peekFluidSynthEngine();
+    const [bank, program] = soundRecall.preset.split(":").map(Number);
+    if (active?.soundfontSource?.name === soundRecall.name && !active.pendingSoundfont) {
+      active.selectPreset?.({ bank, program });
+      setStatus("");
+      return;
+    }
+    setHostedSoundfont(HOSTED_SOUNDFONTS.includes(soundRecall.name) ? soundRecall.name : "");
+    const key = soundfontStorageKey({ name: soundRecall.name,
+      ...(HOSTED_SOUNDFONTS.includes(soundRecall.name) ? { url: hostedUrl(soundRecall.name) } : {}) });
+    void readWorkingSoundfont(key).then(cached => {
+      if (!current()) return;
+      const resident = peekFluidSynthEngine()?.soundfontCache?.keys.includes(key);
+      if (!cached?.blob && !resident) {
+        setStatus(`Choose ${soundRecall.name} locally, or select it and click Load.`);
+        return;
+      }
+      return recallLoaderRef.current({
+        name: soundRecall.name, url: key, storedOfflineKey: key,
+        arrayBuffer: () => {
+          if (!cached?.blob) throw new Error("Stored copy unavailable. Choose the SoundFont locally.");
+          return cached.blob.arrayBuffer();
+        },
+      }, undefined, soundRecall.preset);
+    }).catch(error => { if (current()) setStatus(`SoundFont recall failed: ${error.message}`); });
+    return () => { cancelled = true; };
+  }, [soundRecall, settings.output_fluidsynth]);
 
   const selectPreset = (event) => {
     const [bank, program] = event.currentTarget.value.split(":").map(Number);
@@ -689,6 +733,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
 FluidSynthSettings.propTypes = {
   settings: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
+  soundRecall: PropTypes.object,
 };
 
 export default FluidSynthSettings;

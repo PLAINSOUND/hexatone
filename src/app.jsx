@@ -241,11 +241,12 @@ export function applyReloadPersistencePolicy({
 }
 
 export const RELOAD_WORKSPACE_TAB_KEY = "hexatone_reload_workspace_tab";
-const RELOADABLE_WORKSPACE_TABS = new Set(["sequencer", "calculator", "io", "manual"]);
+const RELOADABLE_WORKSPACE_TABS = new Set(["sequencer", "calculator", "sounds", "midi", "manual"]);
 
 export function loadReloadWorkspaceTab(storage = globalThis.sessionStorage) {
   try {
-    const storedTab = storage?.getItem(RELOAD_WORKSPACE_TAB_KEY);
+    const savedTab = storage?.getItem(RELOAD_WORKSPACE_TAB_KEY);
+    const storedTab = savedTab === "io" ? "sounds" : savedTab;
     // Tab navigation is independent of settings restoration. I/O may reset its
     // settings on reload without sending the user to a different workspace.
     return RELOADABLE_WORKSPACE_TABS.has(storedTab) ? storedTab : "hexatone";
@@ -651,7 +652,8 @@ const MANUAL_VIEW_DEFAULT_SECTIONS = {
   main: "About",
   hexatone: "HEXATONE Tab",
   sequencer: "SEQUENCER Tab",
-  io: "I/O tab",
+  sounds: "SOUNDS and MIDI tabs",
+  midi: "SOUNDS and MIDI tabs",
   calculator: "CALCULATOR tab",
 };
 
@@ -680,7 +682,7 @@ const App = () => {
   // Keeping the underlying workspace separate lets a running sequence continue
   // while sound/routing controls or pitch calculations are visible.
   const [performanceWorkspaceTab, setPerformanceWorkspaceTab] = useState(() =>
-    workspaceTab === "sequencer" || workspaceTab === "io" ? "sequencer" : "hexatone",
+    workspaceTab === "sequencer" || ["sounds", "midi"].includes(workspaceTab) ? "sequencer" : "hexatone",
   );
   const [inlineManualView, setInlineManualView] = useState(null);
   const [manualSectionTitles, setManualSectionTitles] = useState(MANUAL_VIEW_DEFAULT_SECTIONS);
@@ -689,7 +691,8 @@ const App = () => {
     main: 0,
     hexatone: 0,
     sequencer: 0,
-    io: 0,
+    sounds: 0,
+    midi: 0,
     calculator: 0,
   });
   const activeManualView = workspaceTab === "manual" ? "main" : inlineManualView;
@@ -1189,7 +1192,7 @@ const App = () => {
       setInlineManualView(null);
       if (nextTab === "hexatone" || nextTab === "sequencer") {
         setPerformanceWorkspaceTab(nextTab);
-      } else if (nextTab === "io" && snapshots.length > 0) {
+      } else if (["sounds", "midi"].includes(nextTab) && snapshots.length > 0) {
         // A loaded sequence is also available from I/O when arriving from
         // Hexatone. Keep its controller mounted for subsequent tab switches.
         setPerformanceWorkspaceTab("sequencer");
@@ -5464,12 +5467,14 @@ const App = () => {
     {exquisModePending && <span role="status">Release keys to apply mode change.</span>}
     <Suspense fallback={<SidebarLoadingFallback />}>
       <IOSettings
+        panel={workspaceTab === "midi" ? "midi" : "sounds"}
         exquisPendingSettings={exquisPendingSettings}
         onSaveAudioReport={audioRecovery.save}
         onRecreateAudioContexts={() => audioRecovery.restore({ forceRecreate: true })}
         onCycleAudioContexts={audioRecovery.cycleContexts}
         onRestartFluidSynthWorklet={audioRecovery.restartFluidSynthWorklet}
         onChange={onChange}
+        onAtomicChange={onAtomicChange}
         midiLearnActive={midiLearnActive}
         hakenPedalLearnActive={hakenPedalLearnActive}
         onVolumeChange={onVolumeChange}
@@ -6186,15 +6191,15 @@ const App = () => {
           >
             SEQUENCER
           </button>
-          <button
+          {["sounds", "midi"].map(tab => <button key={tab}
             type="button"
             role="tab"
-            aria-selected={workspaceTab === "io"}
-            class={`workspace-tab${workspaceTab === "io" ? " workspace-tab--active" : ""}`}
-            onClick={() => switchWorkspaceTab("io")}
+            aria-selected={workspaceTab === tab}
+            class={`workspace-tab${workspaceTab === tab ? " workspace-tab--active" : ""}`}
+            onClick={() => switchWorkspaceTab(tab)}
           >
-            I/O
-          </button>
+            {tab.toUpperCase()}
+          </button>)}
           <button
             type="button"
             role="tab"
@@ -6220,8 +6225,8 @@ const App = () => {
             ? "USER MANUAL"
             : workspaceTab === "calculator"
               ? "HEJI CALCULATOR"
-              : workspaceTab === "io"
-                ? "INPUT / OUTPUT"
+              : ["sounds", "midi"].includes(workspaceTab)
+                ? (workspaceTab === "midi" ? "MIDI" : "SOUNDS")
                 : workspaceTab === "sequencer"
                   ? "PLAINSOUND SEQUENCER"
                   : "PLAINSOUND HEXATONE"}
@@ -6240,16 +6245,17 @@ const App = () => {
               </button>
             </em>
           </p>
-        ) : workspaceTab === "io" ? (
+        ) : ["sounds", "midi"].includes(workspaceTab) ? (
           <p class="sidebar-intro">
             <em>
-              Choose built-in sounds, connect MIDI controllers, send controller colours, and route
-              MTS, MPE, and OSC output. These controls remain available while live input or a
-              sequence is sounding.{" "}
+              {workspaceTab === "midi"
+                ? "Connect MIDI controllers, send controller colours, and route MTS and MPE output."
+                : "Choose built-in sounds, mix layers and save your own sound settings."}
+              {" "}These controls remain available while live input or a sequence is sounding.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
-                onClick={() => openInlineManual("io")}
+                onClick={() => openInlineManual(workspaceTab)}
               >
                 … more
               </button>
@@ -6275,7 +6281,7 @@ const App = () => {
         ) : workspaceTab === "hexatone" ? (
           <p class="sidebar-intro">
             <em>
-              To play, choose a built-in tuning, click or touch notes. Build your own scale by opening the "Scale Settings" toggle and editing the table; try changing "Scale Size" or clicking on "Add Scale Degree"; drag to retune notes; rationalise; modulate. SHIFT+ESC or F8 toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in SEQUENCER. Visit the I/O tab to choose built-in sounds, connect a MIDI keyboard or an isomorphic controller like Lumatone or Exquis, or retune external synths.{" "}
+              To play, choose a built-in tuning, click or touch notes. Build your own scale by opening the "Scale Settings" toggle and editing the table; try changing "Scale Size" or clicking on "Add Scale Degree"; drag to retune notes; rationalise; modulate. SHIFT+ESC or F8 toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in SEQUENCER. Visit SOUNDS to choose built-in sounds, or MIDI to connect a keyboard or an isomorphic controller like Lumatone or Exquis, or retune external synths.{" "}
               <button
                 type="button"
                 className="app-shell__intro-more"
@@ -6310,7 +6316,7 @@ const App = () => {
                 >
                   <Sequencer
                     workspaceVisible={workspaceTab === "sequencer"}
-                    transportTarget={workspaceTab === "io" && snapshots.length > 0 ? ioTransportTargetRef.current : null}
+                    transportTarget={["sounds", "midi"].includes(workspaceTab) && snapshots.length > 0 ? ioTransportTargetRef.current : null}
                     snapshots={snapshots}
                     runtimeModel={sequenceRuntimeModel}
                     displaySnapshots={sequenceDisplaySnapshots}
@@ -6416,9 +6422,9 @@ const App = () => {
                     onResetSnapshotDescription={onResetSnapshotDescription}
                   />
                 </div>
-                {workspaceTab === "io" ? ioSettingsSidebar : null}
+                {["sounds", "midi"].includes(workspaceTab) ? ioSettingsSidebar : null}
               </>
-            ) : workspaceTab === "io" ? (
+            ) : ["sounds", "midi"].includes(workspaceTab) ? (
               ioSettingsSidebar
             ) : workspaceTab === "calculator" ? null : (
               <>
@@ -6470,7 +6476,7 @@ const App = () => {
         {/* Keep the portal host outside Suspense and mounted across tab changes.
             Ref detach/attach updates inside a suspending subtree can otherwise
             repeatedly set App state and rebuild that same subtree. */}
-        <fieldset className="io-sequencer-transport" hidden={workspaceTab !== "io" || snapshots.length === 0 || Boolean(activeManualView)}>
+        <fieldset className="io-sequencer-transport" hidden={!["sounds", "midi"].includes(workspaceTab) || snapshots.length === 0 || Boolean(activeManualView)}>
           <legend><b>Sequencer Transport</b></legend>
           <div id="io-sequencer-transport-host" ref={ioTransportTargetRef} />
         </fieldset>

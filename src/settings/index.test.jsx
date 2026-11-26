@@ -100,14 +100,16 @@ const baseProps = {
 describe("Settings MIDI Setup fieldset", () => {
   it("stores I/O restore independently without changing live settings", () => {
     localStorage.removeItem("hexatone_restore_io_on_reload");
+    localStorage.removeItem("hexatone_restore_sound_on_reload");
     const onChange = vi.fn();
     render(<IOSettings {...baseProps} onChange={onChange} />);
-    const checkbox = screen.getByLabelText("Restore I/O settings on reload");
+    const checkbox = screen.getByLabelText("Restore SOUND settings on reload");
     expect(checkbox.checked).toBe(true);
     fireEvent.click(checkbox);
-    expect(localStorage.getItem("hexatone_restore_io_on_reload")).toBe("false");
+    expect(localStorage.getItem("hexatone_restore_sound_on_reload")).toBe("false");
     expect(onChange).not.toHaveBeenCalled();
     localStorage.removeItem("hexatone_restore_io_on_reload");
+    localStorage.removeItem("hexatone_restore_sound_on_reload");
   });
   beforeEach(() => {
     scaleMockState.props.length = 0;
@@ -122,7 +124,7 @@ describe("Settings MIDI Setup fieldset", () => {
 
   it("places FluidSynth and SuperCollider fieldsets before MIDI Setup", () => {
     render(<IOSettings {...baseProps} />);
-    const legends = Array.from(document.querySelectorAll(".io-settings > fieldset > legend")).map(
+    const legends = Array.from(document.querySelectorAll(".io-settings > div > fieldset > legend")).map(
       (legend) => legend.textContent.trim(),
     );
     expect(legends.indexOf("Built-in Samples")).toBeLessThan(

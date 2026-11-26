@@ -25,6 +25,38 @@ vi.mock("../fluidsynth_synth/index.js", () => ({
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
 
 describe("FluidSynth settings", () => {
+  it("recalls a user sound preset on the current bank without loading it again", () => {
+    const selectPreset = vi.fn();
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "Organ.sf2" },
+      presets: [{ bank: 0, program: 4, name: "Stop" }], selectPreset };
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={{ name: "Organ.sf2", preset: "0:4", volume: 30, reverb: 15,
+        smoothing: { pressureMs: 100, expressionMs: 80, minimumMs: 10 } }} />);
+    expect(selectPreset).toHaveBeenCalledWith({ bank: 0, program: 4 });
+    expect(fluidsynthMock.load).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("FluidSynth volume").getAttribute("aria-valuenow")).toBe("30");
+  });
+
+  it("recalls a cached bank with the saved preset, overriding the last used preset", async () => {
+    storageMock.read.mockResolvedValue({ blob: new Blob([new Uint8Array([1])]) });
+    fluidsynthMock.load.mockResolvedValue({ presets: [{ bank: 0, program: 4 }] });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={{ name: "PlainsoundOrgan.sf2", preset: "0:4", volume: 30, reverb: 15,
+        smoothing: { pressureMs: 100, expressionMs: 80, minimumMs: 10 } }} />);
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalled());
+    expect(fluidsynthMock.load.mock.calls[0][1].preferredPreset).toBe("0:4");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("asks for a missing bank instead of downloading during user sound recall", async () => {
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={{ name: "Missing.sf2", preset: "0:4", volume: 30, reverb: 15,
+        smoothing: { pressureMs: 100, expressionMs: 80, minimumMs: 10 } }} />);
+    expect(await screen.findByText("Choose Missing.sf2 locally, or select it and click Load.")).toBeTruthy();
+    expect(fluidsynthMock.load).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("collapses only smoothing with the shared toggle and remembers the choice", () => {
     sessionStorage.removeItem("hexatone_fluidsynth_collapsed");
     localStorage.setItem("fluidsynth_internal_smoothing", JSON.stringify({ pressureMs: 100, expressionMs: 80, minimumMs: 20 }));

@@ -29,7 +29,7 @@ cc 2026 [PLAINSOUND MUSIC EDITION](https://www.plainsound.org)
 
 Hexatone **3.3.0-rc.5** is the current development release candidate, updated 27 October 2026. The [dev build](https://plainsound.github.io/hexatone) provides the latest development version.
 
-Five tabs organise the workspace: **HEXATONE** for tuning and keyboard layout, **SEQUENCER** for composing and playing sequences, **IO** for sound design and routing, **CALCULATOR** for HEJI pitch calculations, and **MANUAL** for documentation.
+Six tabs organise the workspace: **HEXATONE** for tuning and keyboard layout, **SEQUENCER** for composing and playing sequences, **SOUNDS** for the built-in engines and named User Sounds, **MIDI** for controllers and external routing, **CALCULATOR** for HEJI pitch calculations, and **MANUAL** for documentation. SOUNDS and MIDI share the sequence transport and keep playback running. User Sounds can be saved locally and imported or exported as JSON.
 
 Features include:
 
@@ -141,7 +141,7 @@ Hexatone 3.3 RC2 expands the Sequencer, adds I/O and CALCULATOR workspaces, and 
 - outputs can be enabled or disabled during playback; a newly selected sampled instrument takes over once loaded
 - Snapshots and Modulation History palettes remain accessible in the other applicable workspaces
 - selected built-in timbres use pitch-tracking mod-wheel filters for a more consistent response across registers
-- `Restore I/O settings on reload` controls I/O restoration independently of tuning/sequence restoration; MIDI permissions and available ports still determine which connections can be restored
+- `Restore SOUND settings on reload` and `Restore MIDI settings on reload` independently control sound and MIDI restoration, separately from tuning/sequence restoration; MIDI permissions and available ports still determine which connections can be restored
 - a shared audio popup offers Enable Audio or Restore Audio when needed, with diagnostic report export
 
 **Timbre controllers**

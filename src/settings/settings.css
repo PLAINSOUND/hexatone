@@ -138,7 +138,7 @@
   }
 
   #sidebar .workspace-tabs .workspace-tab {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-width: 0;
     min-height: 1.6rem;
     padding: 0.42em 0.18em 0.38em;
@@ -1617,14 +1617,20 @@ td.scale-color-col .color-input {
   transition: background-color 0.15s ease;
 }
 
-.preset-action-btn:hover,
-.preset-utility-btn:hover {
+.preset-action-btn:not(:disabled):hover,
+.preset-utility-btn:not(:disabled):hover {
   background: var(--color-bg-btn-alt-hover);
 }
 
-.preset-action-btn:active:hover,
-.preset-utility-btn:active:hover {
+.preset-action-btn:not(:disabled):active:hover,
+.preset-utility-btn:not(:disabled):active:hover {
   background: #ffdbcc;
+}
+
+.preset-action-btn:disabled,
+.preset-utility-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .section-collapse-toggle:active:hover {
