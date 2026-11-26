@@ -34,6 +34,8 @@ const ManualSidebar = ({
   const [showTopButton, setShowTopButton] = useState(false);
   const sectionsPanelRef = useRef(null);
   const manualRef = useRef(null);
+  const closeRef = useRef(null);
+  const closeAnchorRef = useRef(null);
 
   useLayoutEffect(() => {
     const sidebar = scrollContainerRef?.current ?? document.getElementById("sidebar");
@@ -44,9 +46,30 @@ const ManualSidebar = ({
       const deadzone = sidebar.querySelector(".workspace-tabs-deadzone")?.getBoundingClientRect().height ?? 0;
       const inset = tabs.getBoundingClientRect().height + top + deadzone;
       manualRef.current?.style.setProperty("--manual-anchor-inset", `${inset}px`);
+      const lastSection = [...(manualRef.current?.querySelectorAll(".manual-sidebar__section") ?? [])].at(-1);
+      if (lastSection) {
+        // The last heading must be able to reach the tab line even on tall
+        // displays, without adding a whole blank viewport on smaller screens.
+        const endSpace = Math.max(0, sidebar.clientHeight - inset - lastSection.getBoundingClientRect().height);
+        manualRef.current.style.setProperty("--manual-end-space", `${endSpace}px`);
+      }
+      const anchor = closeAnchorRef.current;
+      const button = closeRef.current;
+      const manual = manualRef.current;
+      if (anchor && button && manual) {
+        const anchorRect = anchor.getBoundingClientRect();
+        const manualRect = manual.getBoundingClientRect();
+        // Use the original control's rendered position, including the browser's
+        // fieldset/legend layout, instead of approximating the border location.
+        manual.style.setProperty("--manual-close-corner-y", `${anchorRect.top + anchorRect.height / 2 - manualRect.top}px`);
+        manual.style.setProperty("--manual-close-corner-x", `${anchorRect.left + anchorRect.width / 2 - manualRect.right}px`);
+        manual.style.setProperty("--manual-close-half-height", `${button.getBoundingClientRect().height / 2}px`);
+      }
     };
     const observer = typeof ResizeObserver === "function" ? new ResizeObserver(updateInset) : null;
     observer?.observe(tabs);
+    const lastSection = [...(manualRef.current?.querySelectorAll(".manual-sidebar__section") ?? [])].at(-1);
+    if (lastSection) observer?.observe(lastSection);
     window.addEventListener("resize", updateInset);
     updateInset();
     return () => {
@@ -56,18 +79,18 @@ const ManualSidebar = ({
   }, [scrollContainerRef]);
 
   useEffect(() => {
-    // Contextual help starts at its requested section; a returning manual view
-    // keeps the scroll position restored by App. Wait until parent effects finish.
+    // Every contextual opening jumps to its tab's section, even if the sidebar
+    // was scrolled. Only the standalone manual restores its reading position.
     const frame = window.requestAnimationFrame(() => {
       const sidebar = scrollContainerRef?.current ?? document.getElementById("sidebar");
-      if (sidebar?.scrollTop > 0) return;
+      if (!onClose && sidebar?.scrollTop > 0) return;
       const requestedId = getInitialSectionId(initialSectionTitle);
       const hashId = window.location.hash.slice(1);
       const useHash = requestedId === DEFAULT_SECTION_ID && hashId.startsWith("manual-");
       const target = [...(manualRef.current?.querySelectorAll("[id]") ?? [])]
         .find(element => element.id === (useHash ? hashId : requestedId));
       if (target && (useHash || requestedId !== DEFAULT_SECTION_ID)) {
-        target.scrollIntoView?.({ block: "start" });
+        target.scrollIntoView?.({ block: "start", behavior: "instant" });
       }
     });
     return () => window.cancelAnimationFrame(frame);
@@ -109,16 +132,16 @@ const ManualSidebar = ({
         onSectionChange?.(section.title);
       }
     }}>
+      {onClose ? <div class="manual-sidebar__close-track">
+        <button ref={closeRef} type="button" class="settings-panel__close manual-sidebar__close"
+          onClick={onClose} title="Close" aria-label="Close contextual manual">✕</button>
+      </div> : null}
       <fieldset class="settings-panel settings-panel--manual">
         <legend>
           <b>App</b>
         </legend>
-        {onClose ? (
-          <button type="button" class="settings-panel__close" onClick={onClose} title="Close">
-            ✕
-          </button>
-        ) : null}
-
+        {onClose ? <button ref={closeAnchorRef} type="button" tabIndex={-1} disabled aria-hidden="true"
+          class="settings-panel__close manual-sidebar__close-anchor">✕</button> : null}
         <p class="manual-sidebar__intro">{MANUAL_INTRO}</p>
         <div class="manual-sidebar__meta">
           {updated && (

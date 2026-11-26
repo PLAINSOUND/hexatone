@@ -1994,7 +1994,7 @@ describe("App workspace tabs", () => {
     vi.useRealTimers();
   });
 
-  it("keeps independent remembered positions for the main and contextual manuals", async () => {
+  it("remembers the main manual while resetting contextual help to each tab", async () => {
     render(<App />);
     const user = userEvent.setup();
 
@@ -2022,7 +2022,7 @@ describe("App workspace tabs", () => {
     await user.click(screen.getByRole("button", { name: "Close contextual manual" }));
     await user.click(screen.getByText("… more"));
     expect((await screen.findByTestId("manual-sidebar")).dataset.initialSectionTitle).toBe(
-      "Quick Start",
+      "HEXATONE Tab",
     );
 
     await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
@@ -2084,6 +2084,45 @@ describe("App workspace tabs", () => {
     expect(keys.panic).not.toHaveBeenCalled();
     expect(guardianPanicMock).not.toHaveBeenCalled();
   });
+
+  it.each(["SEQUENCER", "SOUNDS", "MIDI"])(
+    "keeps timed cues advancing while contextual help is open in %s", async tab => {
+      onTestFinished(() => {
+        localStorage.removeItem("hexatone_persist_on_reload");
+        sessionStorage.removeItem(SEQUENCE_WORKSPACE_STORAGE_KEY);
+      });
+      localStorage.setItem("hexatone_persist_on_reload", "true");
+      sessionStorage.setItem(SEQUENCE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+        snapshots: [
+          { id: 1, length: 0.1, notes: [{ id: "a", midicents: 60, start: 0, end: 0.1 }] },
+          { id: 2, length: 100, notes: [{ id: "b", midicents: 64, start: 0, end: 100 }] },
+        ], bars: [], tempi: [], repeats: [],
+      }));
+      render(<App />);
+      const user = userEvent.setup();
+      let clock = 0;
+      const keys = { stopSnapshot: vi.fn(), panic: vi.fn(), playSnapshot: vi.fn(),
+        synth: { currentTime: () => clock } };
+      await waitFor(() => expect(lastKeyboardProps).not.toBeNull());
+      act(() => lastKeyboardProps.onKeysReady(keys));
+      await user.click(screen.getByRole("tab", { name: "SEQUENCER" }));
+      await user.click(await screen.findByLabelText("play timed transport"));
+      await user.click(screen.getByRole("tab", { name: tab }));
+      const pause = await screen.findByLabelText("pause timed transport");
+      await user.click(screen.getByRole("button", { name: "… more" }));
+      expect(screen.queryByRole("button", { name: "… more" })).toBeNull();
+      expect(pause.isConnected).toBe(true);
+      clock = 0.2;
+      await waitFor(() => expect(keys.playSnapshot.mock.calls.some(
+        ([notes]) => notes.some(note => note.midicents === 64),
+      )).toBe(true));
+      const attacks = keys.playSnapshot.mock.calls.length;
+      await user.click(screen.getByRole("button", { name: "Close contextual manual" }));
+      expect(screen.getByRole("button", { name: "… more" })).toBeTruthy();
+      expect(screen.getByLabelText("pause timed transport")).toBe(pause);
+      expect(keys.playSnapshot).toHaveBeenCalledTimes(attacks);
+      expect(keys.panic).not.toHaveBeenCalled();
+    });
 
   it("keeps sequencer-owned playback running while the I/O panel is open", async () => {
     render(<App />);

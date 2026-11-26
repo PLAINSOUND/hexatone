@@ -38,8 +38,28 @@ describe("ManualSidebar", () => {
     </nav>);
     const scroll = vi.fn();
     container.querySelector("#manual-hexatone-tab").scrollIntoView = scroll;
-    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start" }));
+    await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "instant" }));
     expect(container.querySelector("#manual-about")).not.toBeNull();
+  });
+
+  it("jumps to the tab section on every contextual opening despite an old scroll position", async () => {
+    const sidebar = document.createElement("nav");
+    sidebar.id = "sidebar";
+    sidebar.scrollTop = 1200;
+    document.body.append(sidebar);
+    const props = { initialSectionTitle: "HEXATONE Tab", onClose: vi.fn() };
+    let view = render(<ManualSidebar {...props} />, { container: sidebar.appendChild(document.createElement("div")) });
+    const firstScroll = vi.fn();
+    sidebar.querySelector("#manual-hexatone-tab").scrollIntoView = firstScroll;
+    await waitFor(() => expect(firstScroll).toHaveBeenCalledOnce());
+    view.unmount();
+    sidebar.scrollTop = 3600;
+    view = render(<ManualSidebar {...props} />, { container: sidebar.appendChild(document.createElement("div")) });
+    const secondScroll = vi.fn();
+    sidebar.querySelector("#manual-hexatone-tab").scrollIntoView = secondScroll;
+    await waitFor(() => expect(secondScroll).toHaveBeenCalledOnce());
+    view.unmount();
+    sidebar.remove();
   });
 
   it("cross-links to earlier headings without removing the current section", () => {
@@ -70,6 +90,54 @@ describe("ManualSidebar", () => {
     expect(sidebar.querySelector(".manual-sidebar").style.getPropertyValue("--manual-anchor-inset")).toBe("56px");
     view.unmount();
     sidebar.remove();
+  });
+
+  it("adds only enough bottom space for the last help section to reach the tabs", () => {
+    const { container } = render(<nav id="sidebar">
+      <div class="workspace-tabs" style={{ top: "10px" }} />
+      <ManualSidebar />
+    </nav>);
+    const sidebar = container.querySelector("#sidebar");
+    Object.defineProperty(sidebar, "clientHeight", { configurable: true, value: 1500 });
+    container.querySelector(".workspace-tabs").getBoundingClientRect = () => ({ height: 40 });
+    [...container.querySelectorAll(".manual-sidebar__section")].at(-1).getBoundingClientRect = () => ({ height: 900 });
+    fireEvent(window, new Event("resize"));
+    const manual = container.querySelector(".manual-sidebar");
+    expect(manual.style.getPropertyValue("--manual-end-space")).toBe("550px");
+    Object.defineProperty(sidebar, "clientHeight", { configurable: true, value: 800 });
+    fireEvent(window, new Event("resize"));
+    expect(manual.style.getPropertyValue("--manual-end-space")).toBe("0px");
+  });
+
+  it("centres the close button on the fieldset corner and leaves scrolling to its sticky track", () => {
+    const onClose = vi.fn();
+    const { container } = render(<nav id="sidebar">
+      <div class="workspace-tabs" style={{ top: "10px" }} />
+      <ManualSidebar onClose={onClose} />
+    </nav>);
+    const sidebar = container.querySelector("#sidebar");
+    const tabs = container.querySelector(".workspace-tabs");
+    tabs.getBoundingClientRect = () => ({ height: 40 });
+    const manual = container.querySelector(".manual-sidebar");
+    manual.getBoundingClientRect = () => ({ top: 100, right: 400 });
+    const anchor = container.querySelector(".manual-sidebar__close-anchor");
+    anchor.getBoundingClientRect = () => ({ top: 98, left: 390, width: 24, height: 24 });
+    const button = screen.getByRole("button", { name: "Close contextual manual" });
+    button.getBoundingClientRect = () => ({ height: 24 });
+    expect(button.parentElement.className).toBe("manual-sidebar__close-track");
+    fireEvent(window, new Event("resize"));
+    expect(manual.style.getPropertyValue("--manual-close-corner-y")).toBe("10px");
+    expect(manual.style.getPropertyValue("--manual-close-corner-x")).toBe("2px");
+    expect(manual.style.getPropertyValue("--manual-close-half-height")).toBe("12px");
+    const geometry = manual.style.cssText;
+    for (const top of [50, 500, 1000, 0]) {
+      sidebar.scrollTop = top;
+      fireEvent.scroll(sidebar);
+      expect(manual.style.cssText).toBe(geometry);
+      expect(button.style.transform).toBe("");
+    }
+    fireEvent.click(button);
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("shows a Top button after the Sections fieldset has been scrolled past", () => {

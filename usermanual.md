@@ -472,7 +472,7 @@ Repeat markers participate directly in cue playback. When cue stepping crosses a
 
 ## SOUNDS and MIDI tabs
 
-Switching to either the `SOUNDS` or `MIDI` tab does not interrupt live or sequenced playback. Snapshots and Modulation history remain available in floating palettes.
+Switching to either the `SOUNDS` or `MIDI` tab does not interrupt live or sequenced playback. Snapshots and Modulation history remain available in floating palettes. Opening contextual help with `… more` also leaves timed playback running and returns to the current tab’s help section each time. Close help with the × in the opening fieldset’s corner. As you scroll, it stays below the tabs until the fieldset returns.
 
 SOUNDS contains User Sounds and the four built-in engines. MIDI contains MIDI Setup, MIDI Input and MIDI Output. Both tabs keep sequence playback running and show the shared transport when a sequence is loaded.
 

@@ -740,6 +740,12 @@ const App = () => {
   const openInlineManual = useCallback(
     (nextManualView) => {
       rememberManualScrollPosition();
+      // Contextual help is an entry point to this tab's documentation, not a
+      // continuation of the last place visited through its table of contents.
+      manualScrollPositionsRef.current[nextManualView] = 0;
+      setManualSectionTitles(current => ({
+        ...current, [nextManualView]: MANUAL_VIEW_DEFAULT_SECTIONS[nextManualView],
+      }));
       setInlineManualView(nextManualView);
     },
     [rememberManualScrollPosition],
@@ -870,9 +876,9 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (!activeManualView) return;
+    if (activeManualView !== "main") return;
     const sidebar = sidebarRef.current;
-    if (sidebar) sidebar.scrollTop = manualScrollPositionsRef.current[activeManualView] ?? 0;
+    if (sidebar) sidebar.scrollTop = manualScrollPositionsRef.current.main ?? 0;
   }, [activeManualView]);
 
   useEffect(() => {
@@ -6239,6 +6245,7 @@ const App = () => {
               <button
                 type="button"
                 className="app-shell__intro-more"
+                hidden={Boolean(activeManualView)}
                 onClick={() => openInlineManual("sequencer")}
               >
                 … more
@@ -6255,6 +6262,7 @@ const App = () => {
               <button
                 type="button"
                 className="app-shell__intro-more"
+                hidden={Boolean(activeManualView)}
                 onClick={() => openInlineManual(workspaceTab)}
               >
                 … more
@@ -6272,6 +6280,7 @@ const App = () => {
               <button
                 type="button"
                 className="app-shell__intro-more"
+                hidden={Boolean(activeManualView)}
                 onClick={() => openInlineManual("calculator")}
               >
                 … more
@@ -6285,6 +6294,7 @@ const App = () => {
               <button
                 type="button"
                 className="app-shell__intro-more"
+                hidden={Boolean(activeManualView)}
                 onClick={() => openInlineManual("hexatone")}
               >
                 … more
@@ -6298,24 +6308,26 @@ const App = () => {
           ? <SidebarLoadingFallback /> : null}>
           {calculatorSidebar}
         </Suspense>
-        <Suspense fallback={<SidebarLoadingFallback />}>
-          <>
-            {activeManualView ? (
-              <ManualSidebar
-                key={activeManualView}
-                initialSectionTitle={manualSectionTitles[activeManualView]}
-                onSectionChange={rememberManualSection}
-                onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
-                scrollContainerRef={sidebarRef}
-              />
-            ) : performanceWorkspaceTab === "sequencer" ? (
+        {activeManualView && (
+          <ManualSidebar
+            key={activeManualView}
+            initialSectionTitle={manualSectionTitles[activeManualView]}
+            onSectionChange={rememberManualSection}
+            onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
+            scrollContainerRef={sidebarRef}
+          />
+        )}
+        {/* Contextual help hides the workspace without disposing its transport. */}
+        <Suspense fallback={activeManualView ? null : <SidebarLoadingFallback />}>
+          <div hidden={Boolean(activeManualView)}>
+            {performanceWorkspaceTab === "sequencer" ? (
               <>
                 <div
                   hidden={workspaceTab !== "sequencer"}
                   aria-hidden={workspaceTab !== "sequencer"}
                 >
                   <Sequencer
-                    workspaceVisible={workspaceTab === "sequencer"}
+                    workspaceVisible={workspaceTab === "sequencer" && !activeManualView}
                     transportTarget={["sounds", "midi"].includes(workspaceTab) && snapshots.length > 0 ? ioTransportTargetRef.current : null}
                     snapshots={snapshots}
                     runtimeModel={sequenceRuntimeModel}
@@ -6471,7 +6483,7 @@ const App = () => {
                 <Credits />
               </>
             )}
-          </>
+          </div>
         </Suspense>
         {/* Keep the portal host outside Suspense and mounted across tab changes.
             Ref detach/attach updates inside a suspending subtree can otherwise

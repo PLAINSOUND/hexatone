@@ -1,3 +1,30 @@
+#sidebar .manual-sidebar {
+  padding-bottom: var(--manual-end-space, 0);
+}
+
+/* A zero-height sticky track spans the whole manual, rather than just the
+   opening fieldset. Native sticky scrolling keeps the close action steady. */
+#sidebar .manual-sidebar__close-track {
+  position: sticky;
+  top: calc(var(--manual-anchor-inset, 0px) + var(--manual-close-half-height, 0.8em) - var(--manual-close-corner-y, 0px));
+  height: 0;
+  z-index: 7;
+  pointer-events: none;
+}
+
+#sidebar .manual-sidebar__close {
+  top: var(--manual-close-corner-y, 0);
+  right: calc(var(--manual-close-corner-x, 0px) * -1);
+  transform: translate(50%, -50%);
+  pointer-events: auto;
+}
+
+/* Retain the original control's intrinsic size and fieldset-corner geometry. */
+#sidebar .manual-sidebar__close-anchor {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* Shared presentation for the inline and standalone manual surfaces. */
 .settings-panel--manual {
   margin-bottom: 0.5em;
@@ -64,7 +91,14 @@
 #sidebar .manual-sidebar__section,
 #sidebar .manual-sidebar__content [id] {
   /* Native hash links and scrollIntoView must clear the sticky workspace tabs. */
-  scroll-margin-top: calc(var(--manual-anchor-inset, 0px) + 1em);
+  scroll-margin-top: var(--manual-anchor-inset, 0);
+}
+
+#sidebar #manual-hexatone-tab,
+#sidebar #manual-sequencer-tab,
+#sidebar #manual-sounds-and-midi-tabs,
+#sidebar #manual-calculator-tab {
+  scroll-margin-top: calc(var(--manual-anchor-inset, 0px) + 0.2em);
 }
 
 #sidebar .manual-sidebar__footer {
