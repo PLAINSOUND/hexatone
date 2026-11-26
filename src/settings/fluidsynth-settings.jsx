@@ -34,6 +34,7 @@ const rememberPreset = (key, value) => {
     localStorage.setItem(PRESET_KEY, JSON.stringify({ ...saved, [key]: value }));
   } catch { /* Browser storage restrictions must not interrupt playback. */ }
 };
+const pendingBankNotice = name => `${name} is ready for the next note. The old sound will fade out over 40 ms before loading.`;
 const readVolume = () => {
   const stored = localStorage.getItem(VOLUME_KEY);
   const value = stored == null ? 100 : Number(stored);
@@ -77,6 +78,7 @@ async function readResponseWithProgress(response, onProgress) {
 }
 
 const FluidSynthSettings = ({ settings, onChange }) => {
+  const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem("hexatone_fluidsynth_collapsed") !== "false");
   const [presets, setPresets] = useState(() => peekFluidSynthEngine()?.presets ?? []);
   const [soundfontName, setSoundfontName] = useState("");
   const [hostedSoundfont, setHostedSoundfont] = useState(() => {
@@ -91,7 +93,10 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   const smoothingRef = useRef(smoothing);
   const [busy, setBusy] = useState(false);
   const [shuttingDown, setShuttingDown] = useState(false);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(() => {
+    const pending = peekFluidSynthEngine()?.pendingSoundfont;
+    return pending ? pendingBankNotice(pending.source.name) : "";
+  });
   const [loadingProgress, setLoadingProgress] = useState(null);
   const [offlineKey, setOfflineKey] = useState(null);
   const [menuOfflineKey, setMenuOfflineKey] = useState(null);
@@ -136,14 +141,16 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   useEffect(() => {
     const syncEngineState = (nextEngine = peekFluidSynthEngine()) => {
       setPresets(nextEngine?.presets ?? []);
+      if (!nextEngine?.pendingSoundfont && !nextEngine?.soundfontSwitchError) setStatus("");
       if (nextEngine?.selectedPreset) {
         setPresetValue(`${nextEngine.selectedPreset.bank}:${nextEngine.selectedPreset.program}`);
       }
+      if (nextEngine?.soundfontSwitchError) setStatus(`SoundFont load failed: ${nextEngine.soundfontSwitchError}`);
       if (nextEngine?.soundfontSource?.name) {
         setSoundfontName(nextEngine.soundfontSource.name);
         setHostedSoundfont(
-          HOSTED_SOUNDFONTS.includes(nextEngine.soundfontSource.name)
-            ? nextEngine.soundfontSource.name
+          HOSTED_SOUNDFONTS.includes(nextEngine.pendingSoundfont?.source.name ?? nextEngine.soundfontSource.name)
+            ? (nextEngine.pendingSoundfont?.source.name ?? nextEngine.soundfontSource.name)
             : "",
         );
       } else if (nextEngine?.soundfontId == null) {
@@ -156,10 +163,10 @@ const FluidSynthSettings = ({ settings, onChange }) => {
   // must reflect the playing engine, not a previously browsed menu candidate.
   }, [settings.output_fluidsynth]);
   const loaded = activeEngine?.soundfontId != null && presets.length > 0;
-  const presetControlsReady = loaded && loadedMenuMatches && !busy;
+  const presetControlsReady = loaded && loadedMenuMatches && !busy && !activeEngine?.pendingSoundfont;
   const selectedPreset = presetControlsReady ? presetValue : "";
   const quietOfflineLoad = busy && loadingProgress?.quiet;
-  const storageActionsReady = loaded && !!source && loadedMenuMatches;
+  const storageActionsReady = loaded && !!source && loadedMenuMatches && !activeEngine?.pendingSoundfont;
   // Compare keys during render so even the first frame after selection retains
   // the row, before the asynchronous cache-check effect starts.
   const offlineRowPending = !storageActionsReady && !!menuKey && checkedMenuKey !== menuKey;
@@ -255,6 +262,10 @@ const FluidSynthSettings = ({ settings, onChange }) => {
         },
       });
       if (!current()) return;
+      if (result.deferred) {
+        setStatus(pendingBankNotice(source.name));
+        return;
+      }
       const nextPresets = result.presets || [];
       setPresets(nextPresets);
       setSoundfontName(source.name);
@@ -366,6 +377,10 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     const current = () => outputEnabledRef.current && menuSelectionRef.current === selection &&
       loadGenerationRef.current === generation;
     try {
+      if (peekFluidSynthEngine()?.soundfontCache?.keys.includes(hostedUrl(name))) {
+        if (current()) loadHostedSoundFont(name, { allowDownload: false });
+        return;
+      }
       const cachedBank = await readWorkingSoundfont(hostedUrl(name));
       if (!current()) return;
       if (cachedBank?.blob) loadHostedSoundFont(name, { cachedBank, allowDownload: false });
@@ -390,6 +405,16 @@ const FluidSynthSettings = ({ settings, onChange }) => {
     <fieldset class="output-routing-fieldset">
       <legend>
         <b>Built-in SoundFont Player</b>
+        <button type="button" class="section-collapse-toggle"
+          aria-label={collapsed ? "Show SoundFont Player settings" : "Hide SoundFont Player settings"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Toggle to show SoundFont Player settings" : "Toggle to hide SoundFont Player settings"}
+          onClick={() => {
+            sessionStorage.setItem("hexatone_fluidsynth_collapsed", String(!collapsed));
+            setCollapsed(!collapsed);
+          }}>
+          <span aria-hidden="true" class={`disclosure-toggle-glyph disclosure-toggle-glyph--${collapsed ? "collapsed" : "expanded"}`} />
+        </button>
       </legend>
 
       <label>
@@ -437,7 +462,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
                 .finally(() => { setBusy(false); setShuttingDown(false); });
             } else {
               const playing = peekFluidSynthEngine();
-              if (playing?.soundfontId != null && playing.soundfontSource &&
+              if (playing?.soundfontId != null && !playing.pendingSoundfont && playing.soundfontSource &&
                   soundfontStorageKey(playing.soundfontSource) === hostedUrl(value)) return;
               void loadRememberedSelection(value, selection, generation);
             }
@@ -462,7 +487,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
           <button
             type="button"
             class="preset-action-btn"
-            disabled={!canCancelDownload && (busy || !hostedSoundfont)}
+            disabled={!canCancelDownload && (busy || !hostedSoundfont || activeEngine?.pendingSoundfont?.cacheKey === menuKey)}
             onClick={canCancelDownload ? cancelDownload : () => loadHostedSoundFont()}
           >
             {canCancelDownload ? "Cancel Download" : "Load Hexatone SoundFont"}
@@ -540,6 +565,7 @@ const FluidSynthSettings = ({ settings, onChange }) => {
             </span>
           </label>
 
+          {!collapsed && <>
           {[["pressureMs", "Pressure Smoothing (ms)"], ["expressionMs", "Expression Y Smoothing (ms)"]].map(([key, label]) => (
             <label key={key}>
               <span class={smoothing[key] === 0 ? "fluidsynth-settings__smoothing-off" : undefined}>{label}</span>
@@ -565,6 +591,8 @@ const FluidSynthSettings = ({ settings, onChange }) => {
               <span class="settings-form__range-value">{smoothing.minimumMs}</span>
             </span>
           </label>
+
+          </>}
 
       {showOfflineRow ? (
         <div class={`fluidsynth-settings__load-row${offlineRowPending ? " fluidsynth-settings__offline-row--pending" : ""}`} aria-hidden={offlineRowPending ? "true" : undefined}>

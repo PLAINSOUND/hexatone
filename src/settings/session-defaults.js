@@ -75,10 +75,12 @@ function restoreSession(entry) {
 
 // Read one cross-controller local key from localStorage.
 function restoreLocal(entry) {
-  if (entry.key === "dsf_releaseVelocityRelease" && localStorage.getItem(entry.key) === null)
-    return localBool("dsf_releaseVelocity", localBool("dsf_velocity", true)) ? 1 : 0;
+  if (entry.key === "dsf_releaseVelocityRelease" && localStorage.getItem(entry.key) === null) {
+    const legacyKey = localStorage.getItem("dsf_releaseVelocity") !== null ? "dsf_releaseVelocity" : "dsf_velocity";
+    return localStorage.getItem(legacyKey) === null ? entry.default : localBool(legacyKey, true) ? 1 : 0;
+  }
   if (["dsf_velocityVolume", "dsf_velocityTimbre", "dsf_velocityAttack"].includes(entry.key) && localStorage.getItem(entry.key) === null)
-    return localBool("dsf_velocity", true) ? 1 : 0;
+    return localStorage.getItem("dsf_velocity") === null ? entry.default : localBool("dsf_velocity", true) ? 1 : 0;
   // Preserve the old combined switch until release velocity is set separately.
   if (entry.key === "dsf_releaseVelocity" && localStorage.getItem(entry.key) === null)
     return localBool("dsf_velocity", entry.default);

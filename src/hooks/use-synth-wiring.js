@@ -559,7 +559,7 @@ const useSynthWiring = (
     settings.dsf_partials, settings.dsf_timbre, settings.dsf_attack, settings.dsf_decay, settings.dsf_sustain, settings.dsf_release,
     settings.dsf_volumeEnvelope, settings.dsf_timbreEnvelope,
     settings.dsf_timbreAmount, settings.dsf_timbreAttack, settings.dsf_timbreDecay, settings.dsf_timbreSustain, settings.dsf_timbreRelease,
-    settings.dsf_volume, settings.dsf_velocity, settings.dsf_velocityVolume, settings.dsf_velocityTimbre, settings.dsf_velocityAttack, settings.dsf_releaseVelocity, settings.dsf_releaseVelocityRelease, settings.dsf_iso226, settings.dsf_pressure, settings.dsf_timbreResponse, settings.dsf_generateYZ,
+    settings.dsf_volume, settings.dsf_velocity, settings.dsf_velocityVolume, settings.dsf_velocityTimbre, settings.dsf_velocityAttack, settings.dsf_releaseVelocity, settings.dsf_releaseVelocityRelease, settings.dsf_iso226, settings.dsf_pressure, settings.dsf_timbreResponse,
   ]);
   const sampleSynthRef = useRef({ key: null, synth: null });
   const retiringSampleSynthsRef = useRef(new Set());

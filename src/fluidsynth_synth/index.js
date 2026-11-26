@@ -12,9 +12,9 @@ import {
 import { warnLog } from "../debug/logging.js";
 import { createRecoveryGate } from "../audio/recovery-gate.js";
 import { createFluidMidiScheduler } from "./midi-scheduler.js";
-import { reattackFluidSynthSnapshots } from "./voices.js";
 import { readFluidSynthReverb } from "./reverb.js";
 import { normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "./smoothing.js";
+import { soundfontStorageKey } from "./soundfont-storage.js";
 import { readRecoverySoundfont } from "./recovery-source.js";
 import { recordAudioRuntime, registerFluidSynthLifecycleDiagnostics } from "../audio/runtime-diagnostics.js";
 import { getLatencyMeasurementEnabled, subscribeLatencyMeasurement } from "../audio/runtime-diagnostics.js";
@@ -39,6 +39,7 @@ let engine = null;
 let pendingLoad = null;
 let wasmBytesPromise = null;
 let rebindGeneration = 0;
+let nextSoundfontRequest = 0;
 const engineListeners = new Set();
 const failedNodes = new WeakSet();
 const recoveryGates = new WeakMap();
@@ -109,6 +110,29 @@ const waitForMessage = (node, predicate, failOnError = false, timeoutMs = 30000)
     node.port.start();
   });
 
+function adoptSoundfont(active, source, result, preferredPreset) {
+  active.soundfontId = result.soundfontId;
+  active.presets = result.presets || [];
+  active.soundfontSource = source;
+  active.pendingSoundfont = null;
+  active.soundfontSwitchError = null;
+  const requested = typeof preferredPreset === "string" ? preferredPreset.split(":").map(Number) : null;
+  const selected = active.presets.find(p => p.bank === result.selectedPreset?.bank && p.program === result.selectedPreset?.program) ??
+    active.presets.find(p => p.bank === requested?.[0] && p.program === requested?.[1]) ?? active.presets[0];
+  if (selected) active.selectPreset(selected);
+  active.setVolume(active.volume);
+  active.setReverb(active.reverb);
+  try {
+    localStorage.setItem("fluidsynth_last_soundfont_source", JSON.stringify({ name: source.name, url: source.url || "" }));
+    if (selected) {
+      const saved = JSON.parse(localStorage.getItem("fluidsynth_bank_presets") || "{}");
+      localStorage.setItem("fluidsynth_bank_presets", JSON.stringify({ ...saved,
+        [soundfontStorageKey(source)]: `${selected.bank}:${selected.program}` }));
+    }
+  } catch { /* Persistence must not interrupt playback. */ }
+  notifyEngineListeners();
+}
+
 async function createWorkletNode(context) {
   recordAudioRuntime("fluidsynth-worklet-module-start");
   wasmBytesPromise ??= (async () => {
@@ -147,7 +171,19 @@ async function createWorkletNode(context) {
   if (processorLifecycle.size > 24) processorLifecycle.delete(processorLifecycle.keys().next().value);
   recordAudioRuntime("fluidsynth-processor-created", { processorId });
   node.port.addEventListener("message", ({ data }) => {
-    if (!["ready", "processor-disposed", "processing-stopped", "soundfont-loaded", "release-complete", "memory-snapshot"].includes(data?.type)) return;
+    const active = engine?.node === node ? engine : null;
+    if (data?.type === "soundfont-cache" && active) active.soundfontCache = data;
+    if (data?.type === "soundfont-loaded" && data.deferredCommit &&
+        active?.pendingSoundfont?.requestId === data.requestId) {
+      const pending = active.pendingSoundfont;
+      adoptSoundfont(active, pending.source, data, pending.preferredPreset);
+    }
+    if (data?.type === "soundfont-switch-error" && active?.pendingSoundfont?.requestId === data.requestId) {
+      active.pendingSoundfont = null;
+      active.soundfontSwitchError = data.message;
+      notifyEngineListeners();
+    }
+    if (!["ready", "processor-disposed", "processing-stopped", "soundfont-loaded", "release-complete", "memory-snapshot", "soundfont-cache", "soundfont-staged", "soundfont-switch-fade"].includes(data?.type)) return;
     Object.assign(lifecycle, { state: data.type, updatedAt: new Date().toISOString() });
     if (data.type === "processor-disposed" && !lifecycle.disposedAt) {
       lifecycle.disposedAt = lifecycle.updatedAt;
@@ -192,7 +228,8 @@ async function installSoundFont(active, source, preset = null, { notify = true }
     true,
   );
   active.node.port.postMessage(
-    { type: replacing ? "replace-soundfont" : "load-soundfont", bytes, reverbSend: active.reverb },
+    { type: replacing ? "replace-soundfont" : "load-soundfont", bytes, reverbSend: active.reverb,
+      cacheKey: soundfontStorageKey(source) },
     [bytes],
   );
   const result = await loaded;
@@ -297,6 +334,8 @@ async function rebindEngineToContext(context, signal) {
     }
     engine.context = context;
     engine.node = nextNode;
+    engine.pendingSoundfont = null;
+    engine.soundfontCache = null;
     engine.soundfontId = candidate.soundfontId;
     engine.presets = candidate.presets;
     engine.selectedPreset = candidate.selectedPreset;
@@ -304,6 +343,8 @@ async function rebindEngineToContext(context, signal) {
   } else {
     engine.context = context;
     engine.node = nextNode;
+    engine.pendingSoundfont = null;
+    engine.soundfontCache = null;
   }
 
   signal?.removeEventListener("abort", discard);
@@ -374,6 +415,8 @@ export function getFluidSynthAudioDiagnostics() {
     sampleRate: engine.context.sampleRate, baseLatency: engine.context.baseLatency,
   } : null, soundfontLoaded: engine?.soundfontId != null,
   selectedPreset: engine?.selectedPreset ?? null, volume: engine?.volume ?? null,
+  soundfontCache: engine?.soundfontCache ?? null,
+  pendingSoundfont: engine?.pendingSoundfont?.source.name ?? null,
   processorFailed: engine?.node ? failedNodes.has(engine.node) : false };
 }
 
@@ -474,8 +517,6 @@ export async function getFluidSynthEngine() {
       };
       engine.selectPreset = (preset) => {
         if (!preset || engine.soundfontId == null) return;
-        const changed = engine.selectedPreset?.bank !== preset.bank ||
-          engine.selectedPreset?.program !== preset.program;
         engine.selectedPreset = { bank: preset.bank, program: preset.program };
         engine.node.port.postMessage({
           type: "select-program",
@@ -483,7 +524,6 @@ export async function getFluidSynthEngine() {
           bank: preset.bank,
           program: preset.program,
         });
-        if (changed) reattackFluidSynthSnapshots(engine.output);
       };
       return engine;
     })().catch((error) => {
@@ -510,60 +550,55 @@ export async function loadFluidSynthSoundFont(
     signal?.throwIfAborted();
   }
   pendingLoad = (async () => {
-    // Keep the File/hosted source object, not another copy of the potentially
-    // large bank bytes. iOS may replace the shared AudioContext on recovery,
-    // requiring a fresh worklet synth and SoundFont load.
     const source = file;
+    const cacheKey = soundfontStorageKey(source);
+    const requestId = ++nextSoundfontRequest;
+    if (active.pendingSoundfont) {
+      active.node.port.postMessage({ type: "cancel-pending-soundfont" });
+      active.pendingSoundfont = null;
+    }
+    const requestedPreset = preferredPreset ?? (active.soundfontSource?.name === source.name && active.selectedPreset
+      ? `${active.selectedPreset.bank}:${active.selectedPreset.program}` : undefined);
+    // Hosted/browser-copy selections can reuse a native bank. A freshly chosen
+    // local File is deliberately reread, so edits replace its previous version.
+    // A page may still own a processor created before a development update.
+    // Only query banks explicitly advertised by this worklet; older processors
+    // cannot acknowledge the cache protocol and would otherwise lock the UI.
+    if (active.soundfontId != null && source.url && active.soundfontCache?.keys.includes(cacheKey)) {
+      const cached = waitForMessage(active.node, data => data?.type === "soundfont-cache-result" && data.requestId === requestId, true);
+      active.node.port.postMessage({ type: "select-cached-soundfont", cacheKey, requestId,
+        preferredPreset: requestedPreset, reverbSend: active.reverb });
+      const result = await cached;
+      signal?.throwIfAborted();
+      if (engine !== active) throw new DOMException("FluidSynth was turned off", "AbortError");
+      if (result.hit) {
+        adoptSoundfont(active, source, result, requestedPreset);
+        return result;
+      }
+    }
     const bytes = await source.arrayBuffer(onDownloadProgress);
     recordAudioRuntime("fluidsynth-soundfont-bytes-ready", { inputBytes: bytes.byteLength });
     signal?.throwIfAborted();
     onDownloadComplete?.();
-    // Persist before transferring/detaching the ArrayBuffer into the worklet.
     await onBytesReady?.(source, bytes);
     signal?.throwIfAborted();
     if (engine !== active) throw new DOMException("FluidSynth was turned off", "AbortError");
     const replacing = active.soundfontId != null;
-    const requested = typeof preferredPreset === "string" ? preferredPreset.split(":").map(Number) : null;
-    const previousPreset = requested ? { bank: requested[0], program: requested[1] }
-      : active.soundfontSource?.name === source.name ? active.selectedPreset : null;
-    active.soundfontId = null;
-    active.presets = [];
-    active.selectedPreset = null;
-    const loaded = waitForMessage(
-      active.node,
-      (message) => message?.type === "soundfont-loaded",
-      true,
-    );
-    active.output.resetClock();
-    active.node.port.postMessage(
-      { type: replacing ? "replace-soundfont" : "load-soundfont", bytes, reverbSend: active.reverb },
-      [bytes],
-    );
-    try {
-      const result = await loaded;
-      if (engine !== active) throw new DOMException("FluidSynth was turned off", "AbortError");
-      active.soundfontId = result.soundfontId;
-      active.presets = result.presets || [];
-      active.soundfontSource = source;
-      try {
-        localStorage.setItem("fluidsynth_last_soundfont_source", JSON.stringify({ name: source.name, url: source.url || "" }));
-      } catch { /* Persistence restrictions must not interrupt playback. */ }
-      const selected = active.presets.find(
-        (item) => item.bank === previousPreset?.bank && item.program === previousPreset?.program,
-      ) ?? active.presets[0];
-      if (selected) active.selectPreset(selected);
-      active.setVolume(active.volume);
-      active.setReverb(active.reverb);
-      notifyEngineListeners();
+    active.soundfontSwitchError = null;
+    const loaded = waitForMessage(active.node, data =>
+      (data?.type === "soundfont-loaded" || data?.type === "soundfont-staged") &&
+      (data.requestId == null || data.requestId === requestId), true);
+    active.node.port.postMessage({ type: replacing ? "replace-soundfont" : "load-soundfont",
+      bytes, cacheKey, requestId, preferredPreset: requestedPreset,
+      deferWhenPlaying: replacing, reuseAllowed: !!source.url, reverbSend: active.reverb }, [bytes]);
+    const result = await loaded;
+    if (engine !== active) throw new DOMException("FluidSynth was turned off", "AbortError");
+    if (result.deferred) {
+      active.pendingSoundfont = { source, cacheKey, requestId, preferredPreset: requestedPreset };
       return result;
-    } catch (error) {
-      active.soundfontId = null;
-      active.presets = [];
-      active.selectedPreset = null;
-      active.soundfontSource = null;
-      notifyEngineListeners();
-      throw error;
     }
+    adoptSoundfont(active, source, result, requestedPreset);
+    return result;
   })().finally(() => {
     pendingLoad = null;
   });

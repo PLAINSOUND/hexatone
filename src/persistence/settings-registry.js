@@ -55,6 +55,8 @@
  *                     retuning held notes immediately.
  */
 
+import { DSF_DEFAULTS } from "../dsf_synth/controls.js";
+
 export const SETTINGS_REGISTRY = [
   // ── Preset metadata ─────────────────────────────────────────────────────────
   { key: "name", tier: "url", type: "string", default: "", presetSkip: true },
@@ -375,30 +377,29 @@ export const SETTINGS_REGISTRY = [
 
   // ── Polyphonic DSF oscillator ─────────────────────────────────────────────
   { key: "output_dsf", tier: "session", type: "bool", default: true},
-  { key: "dsf_partials", tier: "local", type: "int", default: 1024, perController: false },
-  { key: "dsf_timbre", tier: "local", type: "float", default: 0.25, perController: false },
-  { key: "dsf_attack", tier: "local", type: "float", default: 10, perController: false },
-  { key: "dsf_decay", tier: "local", type: "float", default: 0, perController: false },
-  { key: "dsf_sustain", tier: "local", type: "float", default: 1, perController: false },
-  { key: "dsf_release", tier: "local", type: "float", default: 120, perController: false },
-  { key: "dsf_volumeEnvelope", tier: "local", type: "bool", default: true, perController: false },
-  { key: "dsf_timbreEnvelope", tier: "local", type: "bool", default: true, perController: false },
-  { key: "dsf_timbreAmount", tier: "local", type: "float", default: 0, perController: false },
-  { key: "dsf_timbreAttack", tier: "local", type: "float", default: 10, perController: false },
-  { key: "dsf_timbreDecay", tier: "local", type: "float", default: 100, perController: false },
-  { key: "dsf_timbreSustain", tier: "local", type: "float", default: 0, perController: false },
-  { key: "dsf_timbreRelease", tier: "local", type: "float", default: 120, perController: false },
-  { key: "dsf_volume", tier: "local", type: "float", default: 0.25, perController: false },
-  { key: "dsf_velocity", tier: "local", type: "bool", default: true, perController: false },
-  { key: "dsf_velocityVolume", tier: "local", type: "float", default: 1, perController: false },
-  { key: "dsf_velocityTimbre", tier: "local", type: "float", default: 1, perController: false },
-  { key: "dsf_velocityAttack", tier: "local", type: "float", default: 1, perController: false },
-  { key: "dsf_releaseVelocity", tier: "local", type: "bool", default: true, perController: false },
-  { key: "dsf_releaseVelocityRelease", tier: "local", type: "float", default: 1, perController: false },
-  { key: "dsf_pressure", tier: "local", type: "bool", default: true, perController: false },
-  { key: "dsf_timbreResponse", tier: "local", type: "bool", default: true, perController: false },
-  { key: "dsf_generateYZ", tier: "local", type: "bool", default: false, perController: false },
-  { key: "dsf_iso226", tier: "local", type: "float", default: 1, perController: false },
+  { key: "dsf_partials", tier: "local", type: "int", default: DSF_DEFAULTS.partials, perController: false },
+  { key: "dsf_timbre", tier: "local", type: "float", default: DSF_DEFAULTS.timbre, perController: false },
+  { key: "dsf_attack", tier: "local", type: "float", default: DSF_DEFAULTS.attack, perController: false },
+  { key: "dsf_decay", tier: "local", type: "float", default: DSF_DEFAULTS.decay, perController: false },
+  { key: "dsf_sustain", tier: "local", type: "float", default: DSF_DEFAULTS.sustain, perController: false },
+  { key: "dsf_release", tier: "local", type: "float", default: DSF_DEFAULTS.release, perController: false },
+  { key: "dsf_volumeEnvelope", tier: "local", type: "bool", default: DSF_DEFAULTS.volumeEnvelope, perController: false },
+  { key: "dsf_timbreEnvelope", tier: "local", type: "bool", default: DSF_DEFAULTS.timbreEnvelope, perController: false },
+  { key: "dsf_timbreAmount", tier: "local", type: "float", default: DSF_DEFAULTS.timbreAmount, perController: false },
+  { key: "dsf_timbreAttack", tier: "local", type: "float", default: DSF_DEFAULTS.timbreAttack, perController: false },
+  { key: "dsf_timbreDecay", tier: "local", type: "float", default: DSF_DEFAULTS.timbreDecay, perController: false },
+  { key: "dsf_timbreSustain", tier: "local", type: "float", default: DSF_DEFAULTS.timbreSustain, perController: false },
+  { key: "dsf_timbreRelease", tier: "local", type: "float", default: DSF_DEFAULTS.timbreRelease, perController: false },
+  { key: "dsf_volume", tier: "local", type: "float", default: DSF_DEFAULTS.volume, perController: false },
+  { key: "dsf_velocity", tier: "local", type: "bool", default: DSF_DEFAULTS.velocity, perController: false },
+  { key: "dsf_velocityVolume", tier: "local", type: "float", default: DSF_DEFAULTS.velocityVolume, perController: false },
+  { key: "dsf_velocityTimbre", tier: "local", type: "float", default: DSF_DEFAULTS.velocityTimbre, perController: false },
+  { key: "dsf_velocityAttack", tier: "local", type: "float", default: DSF_DEFAULTS.velocityAttack, perController: false },
+  { key: "dsf_releaseVelocity", tier: "local", type: "bool", default: DSF_DEFAULTS.releaseVelocity, perController: false },
+  { key: "dsf_releaseVelocityRelease", tier: "local", type: "float", default: DSF_DEFAULTS.releaseVelocityRelease, perController: false },
+  { key: "dsf_pressure", tier: "local", type: "bool", default: DSF_DEFAULTS.pressure, perController: false },
+  { key: "dsf_timbreResponse", tier: "local", type: "bool", default: DSF_DEFAULTS.timbreResponse, perController: false },
+  { key: "dsf_iso226", tier: "local", type: "float", default: DSF_DEFAULTS.iso226, perController: false },
 
   // ── Sample synth ─────────────────────────────────────────────────────────────
   { key: "output_sample", tier: "url", type: "bool", default: true },

@@ -58,6 +58,16 @@ it.each([
           close: vi.fn(),
           postMessage: vi.fn((message) => {
             if (message.type === "dispose") queueMicrotask(() => emit({ type: "processor-disposed" }));
+            if (message.type === "select-cached-soundfont") queueMicrotask(() => emit({
+              type: "soundfont-cache-result", requestId: message.requestId, hit: !!this.cacheHit,
+              soundfontId: 1, presets: [{ bank: 0, program: 0 }, { bank: 2, program: 7 }],
+              selectedPreset: { bank: 2, program: 7 },
+            }));
+            if (["load-soundfont", "replace-soundfont"].includes(message.type) && this.deferNextLoad) {
+              this.deferNextLoad = false;
+              queueMicrotask(() => emit({ type: "soundfont-staged", requestId: message.requestId, deferred: true }));
+              return;
+            }
             if (["load-soundfont", "replace-soundfont"].includes(message.type))
               queueMicrotask(() =>
                 emit({
@@ -102,12 +112,19 @@ it.each([
     expect(nodes[0].port.postMessage).toHaveBeenCalledWith({ type: "clear-recovery-events" });
     expect(nodes[0].port.postMessage.mock.calls.filter(([message]) => message.type === "midi-batch")
       .flatMap(([message]) => message.events)).toEqual([]);
-    const source = { name: "retained.sf2", arrayBuffer: vi.fn(async () => new ArrayBuffer(8)) };
+    const source = { name: "retained.sf2", url: "https://example.com/retained.sf2", arrayBuffer: vi.fn(async () => new ArrayBuffer(8)) };
     engine.setReverb(17);
     expect(nodes[0].port.postMessage).toHaveBeenCalledWith({ type: "set-reverb", value: 17 });
     expect(engine.output.reverbSend).toBe(17);
     await loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
     expect(nodes[0].port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "load-soundfont", reverbSend: 17 }), expect.any(Array));
+    nodes[0].cacheHit = true;
+    engine.soundfontCache = { keys: [source.url] };
+    const beforeCachedLoad = source.arrayBuffer.mock.calls.length;
+    await loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
+    expect(source.arrayBuffer).toHaveBeenCalledTimes(beforeCachedLoad);
+    nodes[0].cacheHit = false;
+    engine.soundfontCache = null;
     const { createFluidSynth } = await import("./synth.js");
     const synth = await createFluidSynth({
       outputMode: { output: engine.output, velocity: 72 },
@@ -122,6 +139,28 @@ it.each([
     expect(gains[0].gain.setValueAtTime).toHaveBeenLastCalledWith(1, 1.04);
     expect(nodes[0].port.postMessage.mock.calls.filter(([message]) => message.type === "midi-batch")
       .flatMap(([message]) => message.events).some(event => event.command?.op === "on")).toBe(true);
+    const held = synth.makeHex("held-sequence", 0, 0, 0, 12, -100, 100, 60, 72, 0, 1,
+      { absoluteMidicents: 6000 });
+    held.noteOn();
+    await Promise.resolve();
+    nodes[0].port.postMessage.mockClear();
+    engine.selectPreset({ bank: 0, program: 0 });
+    engine.selectPreset({ bank: 2, program: 7 });
+    await Promise.resolve();
+    expect(nodes[0].port.postMessage.mock.calls.some(([message]) => message.type === "midi-batch")).toBe(false);
+    const sameSource = source.arrayBuffer.mock.calls.length;
+    const resetClock = vi.spyOn(engine.output, "resetClock");
+    nodes[0].deferNextLoad = true;
+    const staged = await loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
+    expect(staged.deferred).toBe(true);
+    expect(engine.pendingSoundfont.source).toBe(source);
+    nodes[0].emit({ type: "soundfont-loaded", requestId: engine.pendingSoundfont.requestId,
+      deferredCommit: true, soundfontId: 1, presets: [{ bank: 0, program: 0 }, { bank: 2, program: 7 }],
+      selectedPreset: { bank: 2, program: 7 } });
+    expect(engine.pendingSoundfont).toBeNull();
+    expect(resetClock).not.toHaveBeenCalled();
+    expect(held.sounding).toBe(true);
+    expect(source.arrayBuffer).toHaveBeenCalledTimes(sameSource + 1);
     synth.shutdown({ panic: true });
     engine.setVolume(81);
     engine.setSmoothing({ pressureMs: 120, expressionMs: 60 });
@@ -147,7 +186,7 @@ it.each([
     expect(engine.node).toBe(nodes[1]);
     expect(nodes[0].disconnect).toHaveBeenCalledOnce();
     expect(nodes[0].port.close).toHaveBeenCalledOnce();
-    expect(source.arrayBuffer).toHaveBeenCalledTimes(2);
+    expect(source.arrayBuffer).toHaveBeenCalledTimes(3);
     expect(engine.selectedPreset).toEqual({ bank: 2, program: 7 });
     expect(engine.volume).toBe(81);
     expect(getFluidSynthAudioDiagnostics().processorFailed).toBe(false);

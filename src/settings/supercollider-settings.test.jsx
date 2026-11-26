@@ -47,6 +47,7 @@ describe("SuperCollider scsynth settings", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    sessionStorage.setItem("hexatone_scsynth_collapsed", "false");
   });
 
   it("renders OSC and SuperSonic controls in its own fieldset", () => {
@@ -119,6 +120,38 @@ describe("SuperCollider scsynth settings", () => {
     ).toBeNull();
     fireEvent.click(screen.getByRole("checkbox", { name: "Retrigger Buzz + Formant while held" }));
     expect(onChange).toHaveBeenCalledWith("osc_retrigger_buzz_formant", true);
+  });
+
+  it("collapses release settings without changing audio and remembers the choice", () => {
+    sessionStorage.removeItem("hexatone_scsynth_collapsed");
+    const onChange = vi.fn();
+    const onOscQuickReleaseChange = vi.fn();
+    const props = {
+      settings: { output_osc: true, osc_local: true, osc_quick_release: 0.7, osc_quick_release_time: 0.6 },
+      onChange, onOscQuickReleaseChange,
+    };
+    const view = render(<SuperColliderSettings {...props} />);
+    const toggle = screen.getByRole("button", { name: "Show scsynth settings" });
+    expect(toggle.classList.contains("section-collapse-toggle")).toBe(true);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByLabelText("Release Override Amount")).toBeNull();
+    expect(screen.queryByLabelText("Release Time")).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Apply release envelope to Rastered Glissando only" })).toBeNull();
+    for (const name of ["Pluck volume", "Buzz volume", "Formant volume", "Saw volume", "Brightness"]) {
+      expect(screen.getByRole("slider", { name })).toBeTruthy();
+    }
+    expect(screen.getByLabelText("scsynth Server")).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Retrigger Buzz + Formant while held" })).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(Number(screen.getByLabelText("Release Override Amount").getAttribute("aria-valuenow"))).toBeCloseTo(0.7);
+    expect(Number(screen.getByLabelText("Release Time").getAttribute("aria-valuenow"))).toBeCloseTo(0.6);
+    expect(sessionStorage.getItem("hexatone_scsynth_collapsed")).toBe("false");
+    view.unmount();
+    render(<SuperColliderSettings {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Hide scsynth settings" }));
+    expect(screen.queryByLabelText("Release Time")).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onOscQuickReleaseChange).not.toHaveBeenCalled();
   });
 
   it("preserves the release controls", () => {

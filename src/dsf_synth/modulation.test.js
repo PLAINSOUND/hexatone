@@ -61,7 +61,7 @@ it("keeps relative envelope offsets within the base timbre's available range", (
 it("allows a different response profile without changing source or renderer code", () => {
   const profile = { ...DSF_RESPONSE_PROFILE, velocityVolume: { low: .5, high: 2 },
     velocityTimbre: { depth: .1, linearWeight: 1 }, velocityAttack: { low: 2, high: .5 } };
-  const c = compileDsfModulation(normalizeDsfControls(), profile);
+  const c = compileDsfModulation(normalizeDsfControls({ velocityVolume: 1, velocityTimbre: 1, velocityAttack: 1 }), profile);
   expect(velocityMultiplier(c.volume, velocityCurve(0))).toBe(.5);
   expect(velocityMultiplier(c.volume, velocityCurve(127))).toBe(2);
   expect(velocityMultiplier(c.attack, velocityCurve(0))).toBe(2);

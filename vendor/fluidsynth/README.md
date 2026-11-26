@@ -66,3 +66,22 @@ app build. To update the runtime, rebuild the engine, replace the corresponding
 files in this vendor directory, update source snapshots/license files as
 needed, then run the manifest generator and the browser/backend tests before
 committing the vendor bundle.
+
+SoundFont and preset changes preserve the native synth, held voices, tuning maps,
+and queued MIDI releases. New attacks use the newly selected bank/program.
+Recently used native banks and their virtual files are kept under an estimated
+256 MiB LRU budget (twice file bytes). The selected bank is always retained;
+playing voices temporarily pin other banks. Eviction runs only when native
+voices and the audible reverb tail are idle. Cache state and staged-byte counts are exposed in diagnostics.
+A resident bank switches immediately without parsing. A cold bank selected
+while voices play is staged until a new attack (or natural silence). A new
+attack first fades the mixed FluidSynth output to zero over 40 ms; only the
+following block installs the bank and dispatches queued events. Thus the first
+cold attack is delayed by fade plus native loading; no background loading is
+claimed. Staged requests may be replaced or canceled without locking the UI.
+Cached selections are queried only after the processor advertises that key,
+so older running worklets cannot strand the UI on an unsupported request.
+The adapter guards unloading against active voices to avoid FluidSynth's threaded
+lazy-unload path. A single-threaded Emscripten priority setter reports ENOTSUP;
+threaded runtimes retain their native implementation. The core source snapshot is
+unchanged; these lifecycle exports are supplied by the updated adapter.

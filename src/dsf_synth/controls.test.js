@@ -4,8 +4,8 @@ import { REGISTRY_BY_KEY } from "../persistence/settings-registry.js";
 it("uses the requested DSF preset consistently in the engine and saved settings", () => {
   expect(DSF_DEFAULTS).toEqual({ volume: 0.25, partials: 1024, timbre: 0.25,
     volumeEnvelope: true, timbreEnvelope: true,
-    timbreAmount: 0, timbreAttack: 10, timbreDecay: 100, timbreSustain: 0, timbreRelease: 120,
-    attack: 10, decay: 0, sustain: 1, release: 120, velocity: true, velocityVolume: 1, velocityTimbre: 1, velocityAttack: 1, releaseVelocity: true, releaseVelocityRelease: 1, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
+    timbreAmount: -0.3, timbreAttack: 500, timbreDecay: 2400, timbreSustain: -0.75, timbreRelease: 2,
+    attack: 12, decay: 1500, sustain: 2, release: 120, velocity: true, velocityVolume: .5, velocityTimbre: .5, velocityAttack: .5, releaseVelocity: true, releaseVelocityRelease: .5, pressure: true, timbreResponse: true, iso226: 0 });
   expect(normalizeDsfControls()).toEqual(DSF_DEFAULTS);
   expect(dsfControlsFromSettings()).toEqual(DSF_DEFAULTS);
   expect(REGISTRY_BY_KEY.output_dsf.default).toBe(true);
@@ -34,11 +34,9 @@ it("bounds and restores the independent timbre ADSR", () => {
   expect(dsfControlsFromSettings({ dsf_timbreAmount: -.4, dsf_timbreAttack: 0,
     dsf_timbreSustain: 0 })).toMatchObject({ timbreAmount: -.4, timbreAttack: 0, timbreSustain: 0 });
 });
-it.each([[false, false, false], [true, false, false], [false, true, false], [true, true, true]])(
-  "requires velocity %s and pressure %s for Generate YZ", (velocity, pressure, enabled) => {
-    expect(normalizeDsfControls({ generateYZ: true, velocity, pressure }).generateYZ).toBe(enabled);
-  },
-);
+it("ignores the obsolete DSF Generate YZ setting", () => {
+  expect(normalizeDsfControls({ generateYZ: true })).not.toHaveProperty("generateYZ");
+});
 
 it("migrates the release switch and bounds the independent release amount", () => {
   expect(dsfControlsFromSettings({ dsf_releaseVelocity: false }).releaseVelocityRelease).toBe(0);

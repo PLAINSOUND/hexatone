@@ -1,22 +1,23 @@
 // Saved sound controls, shared by the UI, adapter and worklet.
 export const dsfEnvelopeStep = value => value <= 100 ? 1 : value <= 500 ? 5 : value <= 1000 ? 10 : 20;
-export const DSF_DEFAULTS = Object.freeze({ partials: 1024, timbre: 0.25, attack: 10, decay: 0, sustain: 1, release: 120,
+export const DSF_DEFAULTS = Object.freeze({ partials: 1024, timbre: 0.25, attack: 12, decay: 1500, sustain: 2, release: 120,
   volumeEnvelope: true, timbreEnvelope: true,
-  timbreAmount: 0, timbreAttack: 10, timbreDecay: 100, timbreSustain: 0, timbreRelease: 120,
-  volume: 0.25, velocity: true, velocityVolume: 1, velocityTimbre: 1, velocityAttack: 1, releaseVelocity: true, releaseVelocityRelease: 1, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
+  timbreAmount: -0.3, timbreAttack: 500, timbreDecay: 2400, timbreSustain: -0.75, timbreRelease: 2,
+  volume: 0.25, velocity: true, velocityVolume: 0.5, velocityTimbre: 0.5, velocityAttack: 0.5, releaseVelocity: true, releaseVelocityRelease: 0.5, pressure: true, timbreResponse: true, iso226: 0 });
 const bounded = (value, fallback, low, high) => Number.isFinite(Number(value))
   ? Math.max(low, Math.min(high, Number(value))) : fallback;
+const legacyAmount = (value, fallback) => value === false ? 0 : value === true ? 1 : fallback;
 export function normalizeDsfControls(values = {}) {
-  const legacyRelease = values.releaseVelocity === false ? 0 : 1;
+  const legacyRelease = legacyAmount(values.releaseVelocity, DSF_DEFAULTS.releaseVelocityRelease);
   const releaseVelocityRelease = bounded(values.releaseVelocityRelease ?? legacyRelease, legacyRelease, 0, 1);
-  const legacyVelocity = values.velocity === false ? 0 : 1;
+  const legacyVelocity = values.velocity;
   values = { ...DSF_DEFAULTS, ...values,
-    velocityVolume: values.velocityVolume ?? legacyVelocity,
-    velocityTimbre: values.velocityTimbre ?? legacyVelocity,
-    velocityAttack: values.velocityAttack ?? legacyVelocity };
-  const velocityVolume = bounded(values.velocityVolume, legacyVelocity, 0, 1);
-  const velocityTimbre = bounded(values.velocityTimbre, legacyVelocity, 0, 1);
-  const velocityAttack = bounded(values.velocityAttack, legacyVelocity, 0, 1);
+    velocityVolume: values.velocityVolume ?? legacyAmount(legacyVelocity, DSF_DEFAULTS.velocityVolume),
+    velocityTimbre: values.velocityTimbre ?? legacyAmount(legacyVelocity, DSF_DEFAULTS.velocityTimbre),
+    velocityAttack: values.velocityAttack ?? legacyAmount(legacyVelocity, DSF_DEFAULTS.velocityAttack) };
+  const velocityVolume = bounded(values.velocityVolume, legacyAmount(legacyVelocity, DSF_DEFAULTS.velocityVolume), 0, 1);
+  const velocityTimbre = bounded(values.velocityTimbre, legacyAmount(legacyVelocity, DSF_DEFAULTS.velocityTimbre), 0, 1);
+  const velocityAttack = bounded(values.velocityAttack, legacyAmount(legacyVelocity, DSF_DEFAULTS.velocityAttack), 0, 1);
   const velocity = velocityVolume > 0 || velocityTimbre > 0 || velocityAttack > 0;
   return {
     partials: Math.round(bounded(values.partials, DSF_DEFAULTS.partials, 1, 1024)),
@@ -33,14 +34,13 @@ export function normalizeDsfControls(values = {}) {
     timbreSustain: bounded(values.timbreSustain, DSF_DEFAULTS.timbreSustain, -1, 1),
     timbreRelease: bounded(values.timbreRelease, DSF_DEFAULTS.timbreRelease, 0, 4000),
     volume: bounded(values.volume, DSF_DEFAULTS.volume, 0, 1),
-    // Aggregate flags serve legacy settings and Generate YZ eligibility only;
+    // Aggregate flags serve legacy settings only;
     // each sound destination uses its independent compiled route amount.
     velocity, velocityVolume, velocityTimbre, velocityAttack,
     releaseVelocity: releaseVelocityRelease > 0, releaseVelocityRelease,
     pressure: values.pressure === true,
     timbreResponse: values.timbreResponse === true,
     iso226: bounded(values.iso226 === "true" ? 1 : values.iso226 === "false" ? 0 : values.iso226, DSF_DEFAULTS.iso226, 0, 1),
-    generateYZ: values.generateYZ === true && velocity && values.pressure === true,
   };
 }
 // Keep migration at the settings boundary; rendering only sees normalized amounts.
@@ -48,9 +48,9 @@ function savedControl(settings, key) {
   const saved = settings[`dsf_${key}`];
   if (saved != null) return saved;
   if (["velocityVolume", "velocityTimbre", "velocityAttack"].includes(key))
-    return settings.dsf_velocity === false ? 0 : 1;
+    return legacyAmount(settings.dsf_velocity, DSF_DEFAULTS[key]);
   if (key === "releaseVelocityRelease")
-    return (settings.dsf_releaseVelocity ?? settings.dsf_velocity) === false ? 0 : 1;
+    return legacyAmount(settings.dsf_releaseVelocity ?? settings.dsf_velocity, DSF_DEFAULTS[key]);
   if (key === "releaseVelocity") return settings.dsf_velocity ?? DSF_DEFAULTS[key];
   return DSF_DEFAULTS[key];
 }

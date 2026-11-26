@@ -25,6 +25,37 @@ vi.mock("../fluidsynth_synth/index.js", () => ({
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
 
 describe("FluidSynth settings", () => {
+  it("collapses only smoothing with the shared toggle and remembers the choice", () => {
+    sessionStorage.removeItem("hexatone_fluidsynth_collapsed");
+    localStorage.setItem("fluidsynth_internal_smoothing", JSON.stringify({ pressureMs: 100, expressionMs: 80, minimumMs: 20 }));
+    const setSmoothing = vi.fn(), onChange = vi.fn();
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "MyOrgan.sf2" },
+      presets: [{ bank: 0, program: 0, name: "Organ" }], setSmoothing };
+    const settings = { output_fluidsynth: true };
+    const view = render(<FluidSynthSettings settings={settings} onChange={onChange} />);
+    const toggle = screen.getByRole("button", { name: "Show SoundFont Player settings" });
+    expect(toggle.classList.contains("section-collapse-toggle")).toBe(true);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.querySelector(".disclosure-toggle-glyph--collapsed")).toBeTruthy();
+    expect(screen.queryByRole("slider", { name: "Pressure Smoothing (ms)" })).toBeNull();
+    expect(screen.queryByRole("slider", { name: "Expression Y Smoothing (ms)" })).toBeNull();
+    expect(screen.queryByRole("slider", { name: "Minimum Smoothing (ms)" })).toBeNull();
+    expect(screen.getByRole("slider", { name: "FluidSynth volume" })).toBeTruthy();
+    expect(screen.getByRole("slider", { name: "FluidSynth reverb" })).toBeTruthy();
+    expect(screen.getByLabelText("Hexatone FluidSynth SoundFont")).toBeTruthy();
+    expect(screen.getByLabelText("FluidSynth preset")).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(screen.getByRole("slider", { name: "Pressure Smoothing (ms)" }).getAttribute("aria-valuenow")).toBe("100");
+    expect(sessionStorage.getItem("hexatone_fluidsynth_collapsed")).toBe("false");
+    view.unmount();
+    render(<FluidSynthSettings settings={settings} onChange={onChange} />);
+    expect(screen.getByRole("slider", { name: "Minimum Smoothing (ms)" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hide SoundFont Player settings" }));
+    expect(screen.queryByRole("slider", { name: "Pressure Smoothing (ms)" })).toBeNull();
+    expect(setSmoothing).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("limits the shared minimum to enabled smoothing times and persists it", () => {
     localStorage.setItem("fluidsynth_internal_smoothing", JSON.stringify({ pressureMs: 100, expressionMs: 0, minimumMs: 20 }));
     const setSmoothing = vi.fn();
@@ -190,6 +221,7 @@ describe("FluidSynth settings", () => {
     })));
     localStorage.clear();
     sessionStorage.clear();
+    sessionStorage.setItem("hexatone_fluidsynth_collapsed", "false");
     fluidsynthMock.engine = null;
     fluidsynthMock.load.mockReset();
     fluidsynthMock.listeners.clear();
@@ -341,6 +373,43 @@ describe("FluidSynth settings", () => {
     else view.unmount();
     await act(async () => { finish({ offline: true, blob: new Blob(["font"]) }); });
     expect(fluidsynthMock.load).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("keeps the menu and local picker usable while a cold bank waits for the next note", async () => {
+    const presets = [{ bank: 0, program: 0, name: "Organ" }];
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "PlainsoundOrgan.sf2" }, presets };
+    storageMock.read.mockResolvedValue({ blob: new Blob(["font"]) });
+    fluidsynthMock.load.mockImplementation(async source => {
+      fluidsynthMock.engine.pendingSoundfont = { source, cacheKey: source.url };
+      return { deferred: true };
+    });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    const menu = screen.getByLabelText("Hexatone FluidSynth SoundFont");
+    fireEvent.change(menu, { target: { value: "PlainsoundSrutibox.sf2" } });
+    await screen.findByText(/PlainsoundSrutibox.sf2 is ready for the next note/);
+    expect(menu.disabled).toBe(false);
+    expect(screen.getByRole("button", { name: "Choose Local File" }).disabled).toBe(false);
+    expect(screen.getByLabelText("FluidSynth SoundFont").disabled).toBe(false);
+    expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+    fluidsynthMock.engine.pendingSoundfont = null;
+    fluidsynthMock.engine.soundfontSource = { name: "PlainsoundSrutibox.sf2" };
+    fluidsynthMock.engine.selectedPreset = presets[0];
+    await act(async () => { for (const listener of fluidsynthMock.listeners) listener(fluidsynthMock.engine); });
+    expect(screen.queryByText(/ready for the next note/)).toBeNull();
+    expect(screen.getByLabelText("FluidSynth preset").disabled).toBe(false);
+  });
+
+  it("can select a native resident bank even when its browser file copy is missing", async () => {
+    const key = "https://soundfonts.plainsound.org/PlainsoundSrutibox.sf2";
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "PlainsoundOrgan.sf2" },
+      presets: [{ bank: 0, program: 0 }], soundfontCache: { keys: [key] } };
+    fluidsynthMock.load.mockResolvedValue({ presets: [] });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), { target: { value: "PlainsoundSrutibox.sf2" } });
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalledTimes(1));
+    expect(fluidsynthMock.load.mock.calls[0][0].url).toBe(key);
     expect(fetch).not.toHaveBeenCalled();
   });
 

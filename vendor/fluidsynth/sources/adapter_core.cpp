@@ -3,6 +3,17 @@
 #include <cstdio>
 #include <cmath>
 
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+#include <pthread.h>
+#include <cerrno>
+// SoundFont unloading links FluidSynth's optional timer support. Emscripten's
+// single-threaded libc has no priority setter; report that it is unsupported.
+extern "C" int pthread_setschedparam(pthread_t, int, const struct sched_param *)
+{
+    return ENOTSUP;
+}
+#endif
+
 struct PlainsoundSynth {
     fluid_settings_t *settings;
     fluid_synth_t *synth;
@@ -76,6 +87,21 @@ int ps_load_soundfont(void *handle, const char *path)
 
     auto *ps = static_cast<PlainsoundSynth *>(handle);
     return fluid_synth_sfload(ps->synth, path, 0);
+}
+
+int ps_active_voice_count(void *handle)
+{
+    if (!handle) return FLUID_FAILED;
+    return fluid_synth_get_active_voice_count(static_cast<PlainsoundSynth *>(handle)->synth);
+}
+
+int ps_unload_soundfont(void *handle, int soundfont_id)
+{
+    if (!handle) return FLUID_FAILED;
+    auto *ps = static_cast<PlainsoundSynth *>(handle);
+    // Do not enter FluidSynth's threaded lazy-unload path in this runtime.
+    if (fluid_synth_get_active_voice_count(ps->synth) != 0) return FLUID_FAILED;
+    return fluid_synth_sfunload(ps->synth, soundfont_id, 0);
 }
 
 int ps_select_first_program(void *handle, int soundfont_id)

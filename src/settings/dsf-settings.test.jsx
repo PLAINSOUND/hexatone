@@ -1,15 +1,16 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import DsfSettings from "./dsf-settings.jsx";
 
-afterEach(() => { cleanup(); localStorage.removeItem("dsf_iso226"); });
+beforeEach(() => sessionStorage.setItem("hexatone_dsf_collapsed", "false"));
+afterEach(() => { cleanup(); localStorage.removeItem("dsf_iso226"); sessionStorage.removeItem("hexatone_dsf_collapsed"); });
 it("replaces the ISO checkbox with a persisted percentage fader", () => {
   const onChange = vi.fn();
   const view = render(<DsfSettings settings={{ output_dsf: true, dsf_iso226: .5 }} onChange={onChange} />);
   expect(screen.queryByRole("checkbox", { name: /ISO/ })).toBeNull();
   const slider = screen.getByRole("slider", { name: "DSF ISO-226 compensation amount" });
   expect(slider.getAttribute("aria-valuenow")).toBe("0.5");
-  expect(screen.getByText("50%")).toBeTruthy();
+  expect(screen.getAllByText("50%").length).toBeGreaterThan(0);
   fireEvent.keyDown(slider, { key: "Home" });
   expect(onChange).toHaveBeenLastCalledWith("dsf_iso226", 0);
   expect(localStorage.getItem("dsf_iso226")).toBe("0");
@@ -21,7 +22,7 @@ it("persists signed timbre envelope amount and independent zero-time stages", ()
   const onChange = vi.fn();
   render(<DsfSettings settings={{ output_dsf: true }} onChange={onChange} />);
   const amount = screen.getByRole("slider", { name: "DSF Timbre peak offset" });
-  expect(amount.getAttribute("aria-valuenow")).toBe("0");
+  expect(Number(amount.getAttribute("aria-valuenow"))).toBeCloseTo(-.3, 12);
   fireEvent.keyDown(amount, { key: "Home" });
   expect(onChange).toHaveBeenLastCalledWith("dsf_timbreAmount", -1);
   expect(localStorage.getItem("dsf_timbreAmount")).toBe("-1");
@@ -71,15 +72,12 @@ it("saves release velocity independently from velocity", () => {
   expect(localStorage.getItem("dsf_releaseVelocityRelease")).toBe("0");
   localStorage.removeItem("dsf_releaseVelocityRelease");
 });
-it.each([[false, true], [true, false], [false, false], [true, true]])(
-  "makes Generate YZ available only with velocity %s and pressure %s", (velocity, pressure) => {
-    render(<DsfSettings settings={{ output_dsf: true, dsf_velocity: velocity,
-      dsf_pressure: pressure, dsf_generateYZ: true }} onChange={vi.fn()} />);
-    const checkbox = screen.getByRole("checkbox", { name: "Generate YZ" });
-    expect(checkbox.disabled).toBe(!(velocity && pressure));
-    expect(checkbox.checked).toBe(velocity && pressure);
-  },
-);
+it("uses direct expression controls without the Eagan-specific generator", () => {
+  render(<DsfSettings settings={{ output_dsf: true, dsf_generateYZ: true }} onChange={vi.fn()} />);
+  expect(screen.queryByRole("checkbox", { name: "Generate YZ" })).toBeNull();
+  expect(screen.getByRole("checkbox", { name: "Pressure (Z)" })).toBeTruthy();
+  expect(screen.getByRole("checkbox", { name: /Expression/ })).toBeTruthy();
+});
 
 it("persists separate 0–100% velocity amounts", () => {
   const onChange = vi.fn();
@@ -99,7 +97,7 @@ it("persists separate 0–100% velocity amounts", () => {
 it("shows decimal base timbre and independent signed peak and sustain offsets", () => {
   const onChange = vi.fn();
   render(<DsfSettings settings={{ output_dsf: true, dsf_timbre: .25 }} onChange={onChange} />);
-  expect(screen.getByText("0.25")).toBeTruthy();
+  expect(screen.getAllByText("0.25")).toHaveLength(2);
   for (const [label, key] of [["Timbre peak offset", "timbreAmount"], ["Timbre sustain offset", "timbreSustain"]]) {
     const slider = screen.getByRole("slider", { name: `DSF ${label}` });
     expect(slider.getAttribute("aria-valuemin")).toBe("-1");
@@ -110,4 +108,51 @@ it("shows decimal base timbre and independent signed peak and sustain offsets", 
     expect(onChange).toHaveBeenLastCalledWith(`dsf_${key}`, 1);
     localStorage.removeItem(`dsf_${key}`);
   }
+});
+
+it("shows the requested default sound and decimal volume range", () => {
+  render(<DsfSettings settings={{ output_dsf: true }} onChange={vi.fn()} />);
+  const volume = screen.getByRole("slider", { name: "DSF Volume" });
+  expect(volume.getAttribute("aria-valuemin")).toBe("0");
+  expect(volume.getAttribute("aria-valuemax")).toBe("1");
+  const expected = { Volume: .25, "ISO-226 compensation amount": 0,
+    Attack: 12, Decay: 1500, Sustain: 2, Release: 120,
+    "Number of harmonic partials": 1024, Timbre: .25,
+    "Timbre peak offset": -.3, "Timbre attack": 500, "Timbre decay": 2400,
+    "Timbre sustain offset": -.75, "Timbre release": 2,
+    "Velocity → Volume": .5, "Velocity → Timbre": .5, "Velocity → Attack": .5,
+    "Release Velocity → Release": .5 };
+  for (const [label, value] of Object.entries(expected))
+    expect(Number(screen.getByRole("slider", { name: `DSF ${label}` }).getAttribute("aria-valuenow"))).toBeCloseTo(value, 12);
+  expect(screen.getByRole("checkbox", { name: "Volume Envelope" }).checked).toBe(true);
+  expect(screen.getByRole("checkbox", { name: "Timbre ADSR" }).checked).toBe(true);
+});
+
+it("defaults to the compact controls, uses the shared animated toggle and remembers expansion", () => {
+  sessionStorage.removeItem("hexatone_dsf_collapsed");
+  const onChange = vi.fn();
+  const settings = { output_dsf: true, dsf_attack: 75, dsf_timbreAmount: -.4 };
+  const view = render(<DsfSettings settings={settings} onChange={onChange} />);
+  const toggle = screen.getByRole("button", { name: "Show DSF settings" });
+  expect(toggle.classList.contains("section-collapse-toggle")).toBe(true);
+  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(toggle.querySelector(".disclosure-toggle-glyph--collapsed")).toBeTruthy();
+  expect(screen.getAllByRole("slider").map(node => node.getAttribute("aria-label"))).toEqual([
+    "DSF Volume", "DSF ISO-226 compensation amount", "DSF Number of harmonic partials", "DSF Timbre",
+  ]);
+  expect(screen.getByRole("checkbox", { name: "Pressure (Z)" })).toBeTruthy();
+  expect(screen.getByRole("checkbox", { name: /Expression/ })).toBeTruthy();
+  expect(screen.queryByRole("checkbox", { name: "Volume Envelope" })).toBeNull();
+  fireEvent.click(toggle);
+  expect(screen.getByRole("button", { name: "Hide DSF settings" }).getAttribute("aria-expanded")).toBe("true");
+  expect(toggle.querySelector(".disclosure-toggle-glyph--expanded")).toBeTruthy();
+  expect(screen.getByRole("slider", { name: "DSF Attack" }).getAttribute("aria-valuenow")).toBe("75");
+  expect(Number(screen.getByRole("slider", { name: "DSF Timbre peak offset" }).getAttribute("aria-valuenow"))).toBeCloseTo(-.4, 12);
+  expect(sessionStorage.getItem("hexatone_dsf_collapsed")).toBe("false");
+  view.unmount();
+  render(<DsfSettings settings={settings} onChange={onChange} />);
+  expect(screen.getByRole("slider", { name: "DSF Attack" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Hide DSF settings" }));
+  expect(screen.queryByRole("slider", { name: "DSF Attack" })).toBeNull();
+  expect(onChange).not.toHaveBeenCalled();
 });

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 let Processor;
 const neutral = { partials: 1024, timbre: 0, attack: 0, decay: 0, sustain: 1, release: 80, volume: 0.2,
-  velocity: false, releaseVelocity: false, pressure: false, timbreResponse: false, iso226: false };
+  timbreAmount: 0, timbreSustain: 0, velocity: false, releaseVelocity: false, pressure: false, timbreResponse: false, iso226: false };
 beforeEach(async () => {
   vi.resetModules();
   vi.stubGlobal("sampleRate", 48000);
@@ -593,7 +593,7 @@ it("keeps timbre release independent of release velocity when velocity response 
 });
 it("allows release velocity with note-on velocity disabled", () => {
   const p = new Processor();
-  send(p, { command: "controls", controls: { velocity: false, releaseVelocity: true,
+  send(p, { command: "controls", controls: { timbreAmount: 0, timbreSustain: 0, velocity: false, releaseVelocity: true,
     attack: 10, release: 100, timbreRelease: 100, timbreAmount: .5,
     timbreAttack: 0, timbreDecay: 0, timbreSustain: 1 } });
   send(p, { command: "start", id: 1, frequency: 440, velocity: 0 });

@@ -1,4 +1,5 @@
 import { Fragment } from "preact";
+import { useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import CustomRangeSlider from "./shared/range-slider.jsx";
 import { DSF_AMOUNT_ROUTES, modulationRouteDescription } from "../dsf_synth/modulation.js";
@@ -13,12 +14,13 @@ const FADER_HELP = Object.freeze({
 
 export default function DsfSettings({ settings, onChange }) {
   const controls = dsfControlsFromSettings(settings);
+  const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem("hexatone_dsf_collapsed") !== "false");
   const save = (key, value) => {
     (key === "output_dsf" ? sessionStorage : localStorage).setItem(key, String(value));
     onChange(key, value);
   };
   const faders = [
-    ["volume", "Volume", 0, 1, 0.01, `${Math.round(controls.volume * 100)}%`],
+    ["volume", "Volume", 0, 1, 0.01, controls.volume.toFixed(2)],
     ["iso226", "ISO-226 compensation amount", 0, 1, 0.01, `${Math.round(controls.iso226 * 100)}%`],
     ["attack", "Attack", 0, 2000, dsfEnvelopeStep, `${controls.attack} ms`],
     ["decay", "Decay", 0, 5000, dsfEnvelopeStep, `${controls.decay} ms`],
@@ -54,22 +56,33 @@ export default function DsfSettings({ settings, onChange }) {
     {label}
   </label>;
   return <fieldset class="output-routing-fieldset">
-    <legend><b>Built-in DSF Synthesis</b></legend>
+    <legend><b>Built-in DSF Synthesis</b>
+      <button type="button" class="section-collapse-toggle"
+        aria-label={collapsed ? "Show DSF settings" : "Hide DSF settings"}
+        aria-expanded={!collapsed}
+        title={collapsed ? "Toggle to show DSF settings" : "Toggle to hide DSF settings"}
+        onClick={() => {
+          sessionStorage.setItem("hexatone_dsf_collapsed", String(!collapsed));
+          setCollapsed(!collapsed);
+        }}>
+        <span aria-hidden="true" class={`disclosure-toggle-glyph disclosure-toggle-glyph--${collapsed ? "collapsed" : "expanded"}`} />
+      </button>
+    </legend>
     <label>Use Oscillator
       <input name="output_dsf" type="checkbox" checked={!!settings.output_dsf}
         onChange={event => save("output_dsf", event.currentTarget.checked)} />
     </label>
     {settings.output_dsf && <>
-      {faders.filter(([key]) => (!volumeKeys.includes(key) || controls.volumeEnvelope) &&
-        (!timbreKeys.includes(key) || controls.timbreEnvelope)).map(fader => <Fragment key={fader[0]}>
+      {faders.filter(([key]) => (!volumeKeys.includes(key) || (!collapsed && controls.volumeEnvelope)) &&
+        (!timbreKeys.includes(key) || (!collapsed && controls.timbreEnvelope))).map(fader => <Fragment key={fader[0]}>
         {renderFader(fader)}
         {["release", "timbreRelease"].includes(fader[0]) && <hr class="dsf-envelope-divider" />}
-        {fader[0] === "iso226" && envelopeToggle("volumeEnvelope", "ADSR")}
-        {fader[0] === "timbre" && envelopeToggle("timbreEnvelope", "ADSR")}
-        {((fader[0] === "iso226" && !controls.volumeEnvelope) ||
-          (fader[0] === "timbre" && !controls.timbreEnvelope)) && <hr class="dsf-envelope-divider" />}
+        {!collapsed && fader[0] === "iso226" && envelopeToggle("volumeEnvelope", "ADSR")}
+        {!collapsed && fader[0] === "timbre" && envelopeToggle("timbreEnvelope", "ADSR")}
+        {((fader[0] === "iso226" && (collapsed || !controls.volumeEnvelope)) ||
+          (fader[0] === "timbre" && (collapsed || !controls.timbreEnvelope))) && <hr class="dsf-envelope-divider" />}
       </Fragment>)}
-      {DSF_AMOUNT_ROUTES.map(({ control, label }) => <Fragment key={control}>
+      {!collapsed && DSF_AMOUNT_ROUTES.map(({ control, label }) => <Fragment key={control}>
         {renderFader([control, label, 0, 1, 0.01, `${Math.round(controls[control] * 100)}%`])}
       </Fragment>)}
       <label class="settings-form__checkbox-row" title={modulationRouteDescription("pressure")}>
@@ -80,15 +93,8 @@ export default function DsfSettings({ settings, onChange }) {
       <label class="settings-form__checkbox-row" title={modulationRouteDescription("timbreResponse")}>
         <input type="checkbox" name="dsf_timbreResponse" checked={controls.timbreResponse}
           onChange={event => save("dsf_timbreResponse", event.currentTarget.checked)} />
-        Expression (Y)
+        Expression (Y/Mod/Foot)
       </label>
-      <label class={`settings-form__checkbox-row${!controls.velocity || !controls.pressure ? " settings-form__dimmed" : ""}`} title="Requires a nonzero velocity amount and Pressure. Generates timbre and pressure from velocity and aftertouch using the Eagan Matrix output mapping. Overrides incoming timbre while enabled.">
-        <input type="checkbox" name="dsf_generateYZ" checked={controls.generateYZ}
-          disabled={!controls.velocity || !controls.pressure}
-          onChange={event => save("dsf_generateYZ", event.currentTarget.checked)} />
-        Generate YZ
-      </label>
-
     </>}
   </fieldset>;
 }

@@ -205,7 +205,7 @@ it.each(["fluidsynth", "mpe", "mts"])("retains a sounding %s output through an i
   expect(selected.allSoundOff).not.toHaveBeenCalled();
 });
 
-it("publishes a fresh FluidSynth child after loading or selecting a sound on the same transport", async () => {
+it("keeps the FluidSynth child and held notes when selecting a sound on the same transport", async () => {
   const first = { ...engine(), audioBackend: "fluidsynth" };
   const reloaded = { ...engine(), audioBackend: "fluidsynth" };
   fluid.engine = { soundfontId: 1, output: { id: "internal-fluid" } };
@@ -214,9 +214,10 @@ it("publishes a fresh FluidSynth child after loading or selecting a sound on the
   const view = render(<Harness settings={settings} />);
   await waitFor(() => expect(current.synth?.children).toEqual([first]));
   view.rerender(<Harness settings={{ ...settings, fluidsynth_runtime_revision: 1 }} />);
-  await waitFor(() => expect(current.synth?.children).toEqual([reloaded]));
-  expect(factories.fluid).toHaveBeenCalledTimes(2);
-  expect(keysRef.current.updateLiveOutputState.mock.calls.at(-1)[1].children).toEqual([reloaded]);
+  await waitFor(() => expect(current.synth?.children).toEqual([first]));
+  expect(factories.fluid).toHaveBeenCalledTimes(1);
+  expect(first.shutdown).not.toHaveBeenCalled();
+  expect(first.allSoundOff).not.toHaveBeenCalled();
 });
 
 it("keeps built-in FluidSynth when MIDI access closes and releases both maps on unmount", async () => {

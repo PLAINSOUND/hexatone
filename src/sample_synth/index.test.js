@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { create_sample_synth } from "./index.js";
+import { instruments } from "./instruments.js";
 import { create_composite_synth } from "../composite_synth/index.js";
 
 class MockAudioContext {
@@ -252,6 +253,19 @@ describe("sample_synth modwheel", () => {
     },
   );
 
+  it.each(instruments[0].instruments)("softens only the upper filter endpoint of $fileName", async instrument => {
+    const synth = await create_sample_synth(instrument.fileName, 400, 0, [0, 100, 200]);
+    await synth.prepare();
+    const hex = synth.makeHex(null, 0, 0, 0, 12, null, null, 60, 96, 0, 1);
+    hex.noteOn();
+    hex.cc74(0); hex.cc74(64); hex.cc74(127);
+    const targets = hex.filterNode.frequency.setTargetAtTime.mock.calls.map(call => call[0]);
+    expect(targets[0]).toBeCloseTo(instrument.filter_low, 8);
+    expect(targets[1]).toBeCloseTo(instrument.filter_mid, 8);
+    const topScale = ["WMRI7LST", "WMRI11LST"].includes(instrument.fileName) ? .65 : .75;
+    expect(targets[2]).toBeCloseTo(instrument.filter_high * topScale, 8);
+  });
+
   it("distributes the Hammond wheel across its audible harmonic range", async () => {
     const synth = await create_sample_synth("hammond", 400, 0, [0, 100, 200]);
     await synth.prepare();
@@ -263,7 +277,7 @@ describe("sample_synth modwheel", () => {
     hex.cc74(127);
 
     expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[0][0]).toBeCloseTo(2400, 8);
-    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[1][0]).toBeCloseTo(6000, 8);
+    expect(hex.filterNode.frequency.setTargetAtTime.mock.calls[1][0]).toBeCloseTo(4500, 8);
   });
 
   it("keeps the Srutibox wheel top while using a brighter minimum", async () => {

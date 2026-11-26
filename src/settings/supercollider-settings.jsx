@@ -32,6 +32,9 @@ const SuperColliderSettings = ({
   onOscQuickReleaseTimeChange,
   onOscQuickReleaseRasterOnlyChange,
 }) => {
+  const [collapsed, setCollapsed] = useState(
+    () => sessionStorage.getItem("hexatone_scsynth_collapsed") !== "false"
+  );
   const bridgeUrl = settings.osc_bridge_url || "ws://localhost:8089";
   const [bridgeToken, changeBridgeToken] = useState(() => getBridgeToken(bridgeUrl));
   const [bridgeError, setBridgeError] = useState("");
@@ -96,6 +99,16 @@ const SuperColliderSettings = ({
     <fieldset class="output-routing-fieldset">
       <legend>
         <b>Built-in scsynth</b>
+        <button type="button" class="section-collapse-toggle"
+          aria-label={collapsed ? "Show scsynth settings" : "Hide scsynth settings"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "Toggle to show scsynth settings" : "Toggle to hide scsynth settings"}
+          onClick={() => {
+            sessionStorage.setItem("hexatone_scsynth_collapsed", String(!collapsed));
+            setCollapsed(!collapsed);
+          }}>
+          <span aria-hidden="true" class={`disclosure-toggle-glyph disclosure-toggle-glyph--${collapsed ? "collapsed" : "expanded"}`} />
+        </button>
       </legend>
       <label>
         Use SuperCollider Sounds
@@ -225,6 +238,7 @@ const SuperColliderSettings = ({
             </span>
           </label>
 
+          {!collapsed && <>
           <label>
             Release Envelope
             <span class="sidebar-input settings-form__range-row">
@@ -296,6 +310,7 @@ const SuperColliderSettings = ({
               <span class="settings-form__range-value">{Math.round(releaseTime * 1000)} ms</span>
             </span>
           </label>
+          </>}
         </>
       )}
     </fieldset>

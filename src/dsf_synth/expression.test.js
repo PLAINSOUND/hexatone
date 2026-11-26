@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 let Processor;
 const neutral = { partials: 1024, timbre: 0, attack: 0, decay: 0, sustain: 1, release: 80, volume: 0.2,
-  velocity: false, releaseVelocity: false, pressure: false, timbreResponse: false, iso226: false };
+  timbreAmount: 0, timbreSustain: 0, velocity: false, releaseVelocity: false, pressure: false, timbreResponse: false, iso226: false };
 beforeEach(async () => {
   vi.resetModules();
   vi.stubGlobal("sampleRate", 48000);
@@ -126,30 +126,6 @@ it("curves velocity effects toward the extremes while retaining the central enve
   expect(p.voices.has(1)).toBe(true);
   render(p, 1);
   expect(p.voices.has(1)).toBe(false);
-});
-it("generates YZ per voice on the audio clock, ignores raw timbre, and clears with panic", () => {
-  const p = new Processor();
-  send(p, { command: "controls", controls: { generateYZ: true, velocity: true, pressure: true, timbreResponse: true, timbre: 0.25 } });
-  send(p, { command: "start", id: 1, frequency: 220, velocity: 100 });
-  send(p, { command: "start", id: 2, frequency: 440, velocity: 127 });
-  render(p, 2000);
-  expect(p.voices.get(1).generatedValues.timbre).toBeCloseTo(69 / 127);
-  expect(p.voices.get(2).generatedValues.timbre).toBeCloseTo(83 / 127);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127 - 0.1 + 0.25 * ((100 - 64) / 63) * (.5 + .5 * (100 - 64) / 63));
-  send(p, { command: "expression", id: 1, timbre: 1 });
-  render(p, 2000);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127 - 0.1 + 0.25 * ((100 - 64) / 63) * (.5 + .5 * (100 - 64) / 63));
-  send(p, { command: "expression", id: 1, pressure: 1 });
-  render(p, 4000);
-  expect(p.voices.get(1).generatedValues.timbre).toBe(1);
-  expect(p.voices.get(2).generatedValues.timbre).toBeCloseTo(83 / 127);
-  send(p, { command: "controls", controls: { timbre: 0.25 } });
-  render(p, 1000);
-  expect(p.voices.get(1).generated).toBeNull();
-  expect(p.voices.get(1).osc.timbre).toBe(0.25);
-  send(p, { command: "clear", epoch: 1 });
-  render(p);
-  expect(p.voices.size).toBe(0);
 });
 it.each([[0, .2], [.25, .225], [.5, .25], [.75, .3], [1, .35]])(
   "maps Expression Y %f to timbre %f around a quarter-scale base", (timbre, expected) => {

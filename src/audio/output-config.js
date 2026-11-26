@@ -146,12 +146,11 @@ export function fluidSynthOutputConfig(settings, tuningRuntime, output, portIden
       name: tuningRuntime?.name,
     },
   };
-  // A bank reload loses its voices even when the command transport is retained.
-  // Publish a fresh child so held/sustained notes can rejoin it.
+  // Bank and preset selections preserve voices on this transport. Runtime
+  // revisions refresh UI/readiness but must not replace or reattack its child.
   const { output: _output, ...mode } = args.outputMode;
   return {
-    key: JSON.stringify([portIdentity(output), mode, args.tuningContext,
-      Number(settings.fluidsynth_runtime_revision) || 0]),
+    key: JSON.stringify([portIdentity(output), mode, args.tuningContext]),
     args,
   };
 }

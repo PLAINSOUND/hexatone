@@ -1,7 +1,6 @@
 import { DsfOscillator } from "./dsf-oscillator.js";
 import { dsfLoudnessGain } from "./equal-loudness.js";
 import { normalizeDsfControls } from "./controls.js";
-import { createDsfYzEnvelope } from "./generated-yz.js";
 import { compileDsfModulation, velocityCurve, gentleVelocityCurve, velocityMultiplier,
   relativeTimbreOffset, expressionYTimbre, pressureGain, pressureBite, unitValue } from "./modulation.js";
 
@@ -57,15 +56,14 @@ export class DsfProcessor extends AudioWorkletProcessor {
       const controls = normalizeDsfControls(data.controls);
       const sustainChanged = this.controls.sustain !== controls.sustain;
       const velocityChanged = this.controls.velocityVolume !== controls.velocityVolume;
-      const generationChanged = this.controls.generateYZ !== controls.generateYZ;
       const volumeEnvelopeChanged = this.controls.volumeEnvelope !== controls.volumeEnvelope;
       const timbreAmountChanged = this.controls.timbreAmount !== controls.timbreAmount ||
         this.controls.timbreEnvelope !== controls.timbreEnvelope;
       const timbreSustainChanged = this.controls.timbreSustain !== controls.timbreSustain;
-      const spectrumChanged = generationChanged || this.controls.velocityTimbre !== controls.velocityTimbre || timbreAmountChanged || timbreSustainChanged ||
+      const spectrumChanged = this.controls.velocityTimbre !== controls.velocityTimbre || timbreAmountChanged || timbreSustainChanged ||
         this.controls.timbre !== controls.timbre || this.controls.partials !== controls.partials ||
         this.controls.pressure !== controls.pressure || this.controls.timbreResponse !== controls.timbreResponse;
-      const pressureChanged = generationChanged || this.controls.pressure !== controls.pressure;
+      const pressureChanged = this.controls.pressure !== controls.pressure;
       const compensationChanged = this.controls.iso226 !== controls.iso226;
       const volumeChanged = this.controls.volume !== controls.volume;
       this.controls = controls;
@@ -87,7 +85,6 @@ export class DsfProcessor extends AudioWorkletProcessor {
         if (timbreSustainChanged && timbreEnvelope && !voice.released && timbreEnvelope.stage !== "attack")
           this.envelope(timbreEnvelope, controls.timbreSustain,
             timbreEnvelope.remaining > 0 ? timbreEnvelope.remaining * 1000 / sampleRate : TRANSITION_SECONDS * 1000);
-        if (generationChanged && (!this.controls.generateYZ || !voice.released)) this.initGenerated(voice);
         if (spectrumChanged) this.transition(voice, voice.frequency);
         if (pressureChanged) this.expressiveGain(voice);
         if (compensationChanged) this.compensate(voice);
@@ -131,15 +128,14 @@ export class DsfProcessor extends AudioWorkletProcessor {
   }
 
   timbreFor(voice) {
-    const expression = voice.generatedValues ?? voice;
     const envelopeTimbre = this.controls.timbreEnvelope && voice.timbreEnvelope
       ? voice.timbreEnvelope.gain : 0;
     // Signed offsets span the available room on either side of the base timbre.
     const envelopeOffset = relativeTimbreOffset(this.controls.timbre, envelopeTimbre);
     return Math.max(0, Math.min(1, this.controls.timbre +
       envelopeOffset +
-      expressionYTimbre(this.modulation, expression.timbre) +
-      pressureBite(this.modulation, expression.pressure) +
+      expressionYTimbre(this.modulation, voice.timbre) +
+      pressureBite(this.modulation, voice.pressure) +
       (this.modulation.timbreDepth ? this.modulation.timbreDepth *
         gentleVelocityCurve(voice.velocity, this.modulation.timbreLinearWeight) : 0)));
   }
@@ -162,19 +158,11 @@ export class DsfProcessor extends AudioWorkletProcessor {
   }
 
   expressiveGain(voice) {
-    const target = pressureGain(this.modulation, (voice.generatedValues ?? voice).pressure);
+    const target = pressureGain(this.modulation, voice.pressure);
     if (target === voice.expressionTarget) return;
     voice.expressionTarget = target;
     voice.expressionRemaining = Math.max(1, Math.round(sampleRate * TRANSITION_SECONDS));
     voice.expressionStep = (voice.expressionTarget - voice.expressionGain) / voice.expressionRemaining;
-  }
-
-  initGenerated(voice) {
-    const time = this.frame * 1000 / sampleRate;
-    voice.generated = this.controls.generateYZ ? createDsfYzEnvelope(voice.velocity, time) : null;
-    if (voice.generated && voice.pressure > 0) voice.generated.pressure(voice.pressure, time);
-    voice.generatedValues = voice.generated?.sample(time) ?? null;
-    voice.nextGeneratedFrame = this.frame;
   }
 
   envelope(voice, target, durationMs) {
@@ -286,10 +274,9 @@ export class DsfProcessor extends AudioWorkletProcessor {
         velocity: Math.max(0, Math.min(127, event.velocity ?? 72)), gain: 0, released: false,
         stage: this.controls.volumeEnvelope === false ? "sustain" : "attack" };
       voice.velocityCurve = velocityCurve(voice.velocity);
-      this.initGenerated(voice);
       this.initTimbreEnvelope(voice);
       osc.configure(event.frequency, this.timbreFor(voice), this.controls.partials);
-      voice.expressionGain = pressureGain(this.modulation, (voice.generatedValues ?? voice).pressure);
+      voice.expressionGain = pressureGain(this.modulation, voice.pressure);
       voice.expressionTarget = voice.expressionGain;
       voice.compensation = this.compensationFor(event.frequency);
       voice.compensationTarget = voice.compensation;
@@ -308,13 +295,10 @@ export class DsfProcessor extends AudioWorkletProcessor {
         if (!pressureChanged && timbre === voice.timbre) return;
         voice.pressure = pressure;
         voice.timbre = timbre;
-        if (voice.generated && pressureChanged)
-          voice.generated.pressure(voice.pressure, this.frame * 1000 / sampleRate);
         this.expressiveGain(voice);
         this.transition(voice, voice.frequency);
       }
       if (event.command === "stop" && !voice.released) {
-        voice.generated?.release(event.velocity ?? 0, this.frame * 1000 / sampleRate);
         voice.released = true;
         voice.stage = "release";
         const releaseScale = velocityMultiplier(this.modulation.release, velocityCurve(event.velocity));
@@ -345,17 +329,6 @@ export class DsfProcessor extends AudioWorkletProcessor {
       this.advanceEnvelope(timbreEnvelope, this.timbreEnvelopeControls, this.controls.timbreAmount);
       if (moving && (this.frame >= voice.nextTimbreFrame || stage !== timbreEnvelope.stage || timbreEnvelope.remaining === 0)) {
         voice.nextTimbreFrame = this.frame + Math.max(1, Math.round(sampleRate * 0.002));
-        this.transition(voice, voice.frequency);
-      }
-    }
-    // Sample the shared expression ramps on the audio clock, without MIDI,
-    // browser timers, channel limits or main-thread heartbeat dependencies.
-    if (voice.generated && this.frame >= voice.nextGeneratedFrame) {
-      voice.nextGeneratedFrame = this.frame + Math.max(1, Math.round(sampleRate * 0.002));
-      const values = voice.generated.sample(this.frame * 1000 / sampleRate);
-      if (values.pressure !== voice.generatedValues.pressure || values.timbre !== voice.generatedValues.timbre) {
-        voice.generatedValues = values;
-        this.expressiveGain(voice);
         this.transition(voice, voice.frequency);
       }
     }

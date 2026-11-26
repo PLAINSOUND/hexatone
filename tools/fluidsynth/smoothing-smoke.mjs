@@ -45,7 +45,7 @@ for (const type of ["load-soundfont", "replace-soundfont"]) {
   }
   module._free(left); module._free(right);
 }
-assert.deepEqual(restored, [[150, 80, 20]]);
+assert.deepEqual(restored, [], "Bank replacement preserves the configured native synth");
 // Burst changes while real voices render, then simulate a long-idle return.
 const left = module._malloc(128 * 4), right = module._malloc(128 * 4);
 Object.assign(processor, { blockSize: 128, leftPointer: left, rightPointer: right });

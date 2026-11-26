@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { expect, it, vi } from "vitest";
 
-it("discards old-bank events and restores reverb before acknowledging SoundFont replacement", () => {
+it("preserves the synth, held keys and queued releases across SoundFont replacement", () => {
   let Processor;
   runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), {
     sampleRate: 48000, AudioWorkletProcessor: class {},
@@ -20,17 +20,27 @@ it("discards old-bank events and restores reverb before acknowledging SoundFont 
     port: { postMessage: vi.fn(message => {
       if (message.type === "soundfont-loaded") {
         expect(cc).toHaveBeenCalledTimes(128);
-        expect(cc).toHaveBeenLastCalledWith(2, 127, 91, 0);
+        expect(cc).toHaveBeenLastCalledWith(1, 127, 91, 0);
       }
     }) } });
   processor.handleMessage({ type: "replace-soundfont", bytes: new ArrayBuffer(8), reverbSend: 0 });
   expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "soundfont-loaded" }));
-  expect(processor.midiQueue).toEqual([]);
-  expect(processor.heldKeys.size).toBe(0);
-  expect(processor.usedChannels.size).toBe(0);
+  expect(processor.module._ps_destroy).not.toHaveBeenCalled();
+  expect(processor.synth).toBe(1);
+  expect(processor.midiQueue).toHaveLength(1);
+  expect(processor.heldKeys.get(0).has(60)).toBe(true);
+  expect(processor.usedChannels.has(0)).toBe(true);
   processor.handleMessage({ type: "set-reverb", value: 23 });
-  expect(cc).toHaveBeenLastCalledWith(2, 127, 91, 23);
+  expect(cc).toHaveBeenLastCalledWith(1, 127, 91, 23);
   expect(processor.reverbSend).toBe(23);
+  processor.module._ps_load_soundfont = () => -1;
+  processor.handleMessage({ type: "replace-soundfont", bytes: new ArrayBuffer(4) });
+  expect(processor.port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "error" }));
+  expect(processor.soundfontId).toBe(3);
+  expect(processor.synth).toBe(1);
+  expect(processor.heldKeys.get(0).has(60)).toBe(true);
+  expect(processor.midiQueue).toHaveLength(1);
+  expect(processor.module._ps_destroy).not.toHaveBeenCalled();
 });
 
 it("provides an elapsed clock only when the worklet has no Performance API", () => {
@@ -282,4 +292,26 @@ it("clears queued worklet MIDI and silences channels before acknowledging recove
   expect(processor.module._ps_cc).toHaveBeenCalledTimes(128);
   expect(processor.module._ps_cc).toHaveBeenLastCalledWith(1, 127, 120, 0);
   expect(processor.port.postMessage).toHaveBeenCalledWith({ type: "recovery-cleared", droppedEvents: 2 });
+});
+
+it("retires old bank memory only after all voices and release tails have ended", () => {
+  let Processor;
+  const scope = { currentFrame: 0, sampleRate: 48000, AudioWorkletProcessor: class {},
+    registerProcessor: (_, processor) => { Processor = processor; } };
+  runInNewContext(readFileSync("vendor/fluidsynth/processor.js", "utf8").replace(/^import[^\n]*\n/, ""), scope);
+  const processor = Object.create(Processor.prototype);
+  const count = vi.fn(() => 1), unload = vi.fn(() => 0), unlink = vi.fn();
+  Object.assign(processor, { synth: 1, soundfontId: 2, retiredSoundfonts: new Set([1]),
+    soundfontFileBytes: 30, soundfontFiles: new Map([[1, { path: "/old.sf2", bytes: 10 }], [2, { path: "/new.sf2", bytes: 20 }]]),
+    module: { _ps_active_voice_count: count, _ps_unload_soundfont: unload, FS: { unlink } } });
+  processor.collectRetiredSoundfonts();
+  expect(unload).not.toHaveBeenCalled();
+  count.mockReturnValue(0);
+  scope.currentFrame = 12000;
+  processor.collectRetiredSoundfonts();
+  expect(unload).toHaveBeenCalledExactlyOnceWith(1, 1);
+  expect(unlink).toHaveBeenCalledExactlyOnceWith("/old.sf2");
+  expect(processor.soundfontFiles.size).toBe(1);
+  expect(processor.soundfontFileBytes).toBe(20);
+  expect(processor.soundfontId).toBe(2);
 });

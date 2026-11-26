@@ -277,6 +277,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
       filter_low,
       filter_mid,
       filter_high,
+      filter_top_scale = 1,
       filter_tracking = 0,
       filter_reference_hz = 400,
     } = instrument;
@@ -296,6 +297,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
             A,
             B,
             C,
+            topLogScale: Math.log2(Math.max(0.01, Math.min(1, Number(filter_top_scale) || 1))),
             tracking: Math.max(0, Math.min(1, Number(filter_tracking) || 0)),
             referenceHz:
               Number.isFinite(Number(filter_reference_hz)) && Number(filter_reference_hz) > 0
@@ -692,8 +694,11 @@ function ActiveHex(
 
 function filterCutoffForVoice(filterCoeffs, position, playedFrequency, audioContext) {
   if (!filterCoeffs) return 20000;
-  const { A, B, C, tracking = 0, referenceHz = 400 } = filterCoeffs;
-  const baseCutoff = Math.pow(2, A * position * position + B * position + C);
+  const { A, B, C, topLogScale = 0, tracking = 0, referenceHz = 400 } = filterCoeffs;
+  // Keep the low/mid curve intact; gently reduce only the upper expression
+  // range, reaching the instrument's top scale at MIDI 127.
+  const upper = Math.max(0, (position * 127 - 64) / 63);
+  const baseCutoff = Math.pow(2, A * position * position + B * position + C + topLogScale * upper * upper);
   const trackingRatio =
     tracking > 0 && Number.isFinite(playedFrequency) && playedFrequency > 0
       ? Math.pow(playedFrequency / referenceHz, tracking)

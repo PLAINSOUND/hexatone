@@ -205,3 +205,18 @@ it("migrates the old velocity switch and restores independent amounts", async ()
     keys.forEach((key, i) => previous[i] === null ? localStorage.removeItem(key) : localStorage.setItem(key, previous[i]));
   }
 });
+
+it("uses the DSF sound defaults when no DSF settings or legacy switches are saved", async () => {
+  const { DSF_DEFAULTS } = await import("../dsf_synth/controls.js");
+  const keys = Object.keys(DSF_DEFAULTS).map(key => `dsf_${key}`);
+  const saved = keys.map(key => localStorage.getItem(key));
+  try {
+    keys.forEach(key => localStorage.removeItem(key));
+    vi.resetModules();
+    const defaults = (await import("./session-defaults.js")).default;
+    for (const [key, value] of Object.entries(DSF_DEFAULTS))
+      expect(defaults[`dsf_${key}`]).toBe(value);
+  } finally {
+    keys.forEach((key, i) => saved[i] === null ? localStorage.removeItem(key) : localStorage.setItem(key, saved[i]));
+  }
+});
