@@ -55,6 +55,7 @@
  *                     retuning held notes immediately.
  */
 
+import { EXQUIS_LAYOUT_DEFAULTS } from "../controllers/exquis-layout.js";
 import { DSF_DEFAULTS } from "../dsf_synth/controls.js";
 
 export const SETTINGS_REGISTRY = [
@@ -601,6 +602,9 @@ export const SETTINGS_REGISTRY = [
     perController: false,
     description: "Show auto-generated Lumatone colour filters derived from captured snapshots",
   },
+  { key: "exquis_layout_override", tier: "local", type: "bool", default: false, perController: false },
+  { key: "exquis_rSteps", tier: "local", type: "int", default: EXQUIS_LAYOUT_DEFAULTS.exquis_rSteps, perController: false },
+  { key: "exquis_drSteps", tier: "local", type: "int", default: EXQUIS_LAYOUT_DEFAULTS.exquis_drSteps, perController: false },
   {
     key: "exquis_led_sync",
     tier: "local",

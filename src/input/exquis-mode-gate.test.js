@@ -69,3 +69,16 @@ it("preserves the full quiet interval for requests arriving after the final rele
   vi.advanceTimersByTime(1);
   expect(commit).toHaveBeenCalledOnce();
 });
+
+
+it("defers layout override edits until held notes have released", () => {
+  vi.useFakeTimers();
+  const gate = createExquisModeGate(), commit = vi.fn();
+  gate.message({ data: [0x91, 60, 100] });
+  expect(gate.defer("exquis_rSteps", 3, 9, commit)).toBe(true);
+  vi.runAllTimers();
+  expect(commit).not.toHaveBeenCalled();
+  gate.message({ data: [0x81, 60, 0] });
+  vi.runAllTimers();
+  expect(commit).toHaveBeenCalledOnce();
+});

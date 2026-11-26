@@ -27,6 +27,9 @@ export const SETTINGS_IMPACT_FIELDS = {
     "fundamental_color",
     "prime_family_colors",
   ],
+  // App folds these preferences into effective rSteps/drSteps before comparing
+  // structural/reconstruction keys, so inactive edits do not rebuild the canvas.
+  layoutOverride: ["exquis_layout_override", "exquis_rSteps", "exquis_drSteps"],
   inputBinding: [],
   inputRuntime: [
     "midiin_device",

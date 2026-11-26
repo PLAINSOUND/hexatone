@@ -128,6 +128,15 @@ describe("mergePresetIntoSettings", () => {
     localStorage.clear();
   });
 
+  it("preserves Exquis layout preferences while loading a new tuning's own steps", () => {
+    const merged = mergePresetIntoSettings({
+      rSteps: 9, drSteps: 4, exquis_layout_override: true, exquis_rSteps: 3, exquis_drSteps: 1,
+    }, { name: "New tuning", rSteps: 7, drSteps: 5, exquis_layout_override: false });
+    expect(merged).toMatchObject({
+      rSteps: 7, drSteps: 5, exquis_layout_override: true, exquis_rSteps: 3, exquis_drSteps: 1,
+    });
+  });
+
   it.each([
     ["exquis", true, {}, false],
     ["exquis", true, { lumatone_anchor_note: 41 }, false],

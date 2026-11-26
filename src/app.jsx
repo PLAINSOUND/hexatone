@@ -98,6 +98,7 @@ import {
   defaultSequenceBars,
   defaultSequenceTempi,
 } from "./sequencer/workspace-runtime.js";
+import { effectiveExquisLayout } from "./controllers/exquis-layout.js";
 import { sequenceWorkspaceTransition } from "./sequencer/workspace-transition.js";
 import { presentSnapshotPalette, revealSnapshotPalette } from "./sequencer/snapshot-palette-presenter.js";
 import {
@@ -4328,21 +4329,36 @@ const App = () => {
     return hasLayout && hasScale && labelsValid && colorsValid;
   }, [settings]);
 
+  const connectedInput =
+    midi && settings.midiin_device && settings.midiin_device !== "OFF"
+      ? (midi.inputs.get(settings.midiin_device) ??
+        Array.from(midi.inputs.values()).find((input) => input.id === settings.midiin_device) ??
+        null)
+      : null;
+  const inputController = useMemo(() => {
+    const overrideId = settings.midiin_controller_override || "auto";
+    if (overrideId !== "auto") return getControllerById(overrideId);
+    return connectedInput?.name ? detectController(connectedInput.name.toLowerCase()) : null;
+  }, [connectedInput, settings.midiin_controller_override]);
+  const layoutSettings = useMemo(() => ({
+    ...settings, ...effectiveExquisLayout(settings, inputController?.id),
+  }), [settings, inputController?.id]);
+
   // Tuning/runtime derivation for the live Hexatone surface.
   const tuningImpactKey = useMemo(() => settingsImpactKey(settings, "tuning"), [settings]);
-  const structuralImpactKey = useMemo(() => settingsImpactKey(settings, "structural"), [settings]);
+  const structuralImpactKey = useMemo(() => settingsImpactKey(layoutSettings, "structural"), [layoutSettings]);
   const keysReconstructionImpactKey = useMemo(
     () =>
-      settingsImpactKey(settings, "keysReconstruction", {
+      settingsImpactKey(layoutSettings, "keysReconstruction", {
         midiAccess,
         midiTick,
         presetRuntimeResetRevision,
       }),
-    [settings, midiAccess, midiTick, presetRuntimeResetRevision],
+    [layoutSettings, midiAccess, midiTick, presetRuntimeResetRevision],
   );
   const musicalSurfaceResetImpactKey = useMemo(
-    () => settingsImpactKey(settings, "musicalSurfaceReset", { presetRuntimeResetRevision }),
-    [settings, presetRuntimeResetRevision],
+    () => settingsImpactKey(layoutSettings, "musicalSurfaceReset", { presetRuntimeResetRevision }),
+    [layoutSettings, presetRuntimeResetRevision],
   );
   const colorImpactKey = useMemo(() => settingsImpactKey(settings, "colors"), [settings]);
   const inputRuntimeImpactKey = useMemo(
@@ -4419,17 +4435,6 @@ const App = () => {
   // Input runtime: derived from settings, passed to Keys as the authoritative
   // source of truth for all input mode decisions. Keys reads from inputRuntime
   // rather than from settings directly for any input-related branch.
-  const connectedInput =
-    midi && settings.midiin_device && settings.midiin_device !== "OFF"
-      ? (midi.inputs.get(settings.midiin_device) ??
-        Array.from(midi.inputs.values()).find((input) => input.id === settings.midiin_device) ??
-        null)
-      : null;
-  const inputController = useMemo(() => {
-    const overrideId = settings.midiin_controller_override || "auto";
-    if (overrideId !== "auto") return getControllerById(overrideId);
-    return connectedInput?.name ? detectController(connectedInput.name.toLowerCase()) : null;
-  }, [connectedInput, settings.midiin_controller_override]);
   const effectiveMpeInput =
     controllerRequiresMpeInput(inputController) ||
     (getControllerMpeInputPolicy(inputController) !== "never" && !!settings.midiin_mpe_input);
@@ -4596,7 +4601,7 @@ const App = () => {
   // Structural settings: everything except colors. Memoized so Keys is only
   // reconstructed when scale/layout/MIDI changes — not on every color-picker drag.
   const structuralSettings = useMemo(
-    () => normalizeStructural(settings, { tuningRuntime }),
+    () => normalizeStructural(layoutSettings, { tuningRuntime }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- structuralImpactKey is the settings-impact registry key; input/output binding fields are intentionally excluded.
     [structuralImpactKey, tuningRuntime],
   );

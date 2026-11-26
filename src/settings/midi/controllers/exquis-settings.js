@@ -6,6 +6,8 @@
 
 import PropTypes from "prop-types";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { EXQUIS_LAYOUT_DEFAULTS, exquisLayoutStep } from "../../../controllers/exquis-layout.js";
+import { buildAutoSelectInputProps } from "../../../ui/input-selection.js";
 import { exquisOrientation } from "../../../controllers/exquis-orientation.js";
 import CustomRangeSlider from "../../shared/range-slider.jsx";
 
@@ -84,11 +86,42 @@ const ExquisSettings = ({
       ))}
     </>
   );
+  const layoutControls = <>
+    <label>
+      Hexatone Layout Override
+      <input type="checkbox" checked={!!settings.exquis_layout_override}
+        onChange={event => {
+          onChange("exquis_layout_override", event.currentTarget.checked);
+          localStorage.setItem("exquis_layout_override", String(event.currentTarget.checked));
+        }} />
+    </label>
+    {settings.exquis_layout_override && <>
+      {[["Right-Facing Steps", "exquis_rSteps"],
+        ["Right-Downward Steps", "exquis_drSteps"]].map(([label, key]) =>
+        <label key={key}>{label}
+          <input type="text" inputMode="numeric" class="sidebar-input"
+            key={settings[key] ?? EXQUIS_LAYOUT_DEFAULTS[key]}
+            defaultValue={exquisLayoutStep(settings[key], EXQUIS_LAYOUT_DEFAULTS[key])}
+            {...buildAutoSelectInputProps()}
+            onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }}
+            onBlur={event => {
+              const value = exquisLayoutStep(event.currentTarget.value, null);
+              if (value == null) {
+                event.currentTarget.value = exquisLayoutStep(settings[key], EXQUIS_LAYOUT_DEFAULTS[key]);
+                return;
+              }
+              onChange(key, value);
+              localStorage.setItem(key, String(value));
+            }} />
+        </label>)}
+      <p class="settings-form__stacked-helper"><em>Overrides the tuning layout while Exquis is selected. Switch off to restore the tuning’s saved steps.</em></p>
+    </>}
+  </>;
   useEffect(() => {
     setPendingOrientation(null);
   }, [appModeEnabled, rawPorts]);
   if (!appModeEnabled) {
-    return ccControls;
+    return <>{layoutControls}{ccControls}</>;
   }
 
   const portConnected = !!rawPorts;
@@ -102,6 +135,7 @@ const ExquisSettings = ({
 
   return (
     <>
+      {layoutControls}
       {ccControls}
       <label class="controller-inline-row">
         Orientation

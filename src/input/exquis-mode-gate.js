@@ -1,3 +1,9 @@
+import { EXQUIS_LAYOUT_FIELDS } from "../controllers/exquis-layout.js";
+
+const transitionKeys = ["midi_passthrough", "midiin_mapping_target", ...EXQUIS_LAYOUT_FIELDS];
+const transitionDefault = key => key === "midiin_mapping_target" ? "hex_layout"
+  : key === "midi_passthrough" || key === "exquis_layout_override" ? false : null;
+
 // Lives across Keys/App Mode reconstruction; observes the selected input only.
 export function createExquisModeGate(onPending = () => {}) {
   const held = new Set();
@@ -37,7 +43,7 @@ export function createExquisModeGate(onPending = () => {}) {
       schedule();
     },
     defer(key, value, current, commit) {
-      if (!["midi_passthrough", "midiin_mapping_target"].includes(key)) return false;
+      if (!transitionKeys.includes(key)) return false;
       if (ready()) {
         pending.delete(key);
         notify();
@@ -50,9 +56,9 @@ export function createExquisModeGate(onPending = () => {}) {
       return true;
     },
     deferBatch(updates, current, commit) {
-      if (!["midi_passthrough", "midiin_mapping_target"].some(key => key in updates)) return false;
-      const changesMode = ["midi_passthrough", "midiin_mapping_target"].some(key =>
-        key in updates && updates[key] !== (current[key] ?? (key === "midi_passthrough" ? false : "hex_layout")));
+      if (!transitionKeys.some(key => key in updates)) return false;
+      const changesMode = transitionKeys.some(key =>
+        key in updates && updates[key] !== (current[key] ?? transitionDefault(key)));
       pending.delete("@atomic");
       if (!changesMode || ready()) { notify(); schedule(); return false; }
       pending.set("@atomic", { updates, commit });

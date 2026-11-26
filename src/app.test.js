@@ -81,7 +81,9 @@ vi.mock("./manual/manual-sidebar.jsx", () => ({
 vi.mock("./sample_synth/instruments", () => ({ instruments: [] }));
 vi.mock("./keyboard/keycodes", () => ({ default: {} }));
 vi.mock("./settings/normalize-settings.js", () => ({
-  normalizeColors: (s) => s,
+  normalizeColors: (s) => Object.fromEntries([
+    "note_colors", "fundamental_color", "key_colors_mode", "auto_colors", "spectrum_colors", "prime_family_colors",
+  ].map(key => [key, s[key]])),
   normalizeStructural: (s) => s,
 }));
 
@@ -816,6 +818,33 @@ describe("autoSyncLumatoneSurface", () => {
 });
 
 describe("App input runtime", () => {
+  it("applies Exquis layout preferences to the runtime and restores saved tuning geometry", async () => {
+    const previous = settings;
+    settings = { ...settings, midiin_controller_override: "exquis", rSteps: 9, drSteps: 4,
+      exquis_layout_override: true, exquis_rSteps: 3, exquis_drSteps: 1 };
+    mockControllerById = { id: "exquis" };
+    const view = render(<App />);
+    onTestFinished(() => { view.unmount(); settings = previous; });
+    await waitFor(() => expect(lastKeyboardProps?.settings.rSteps).toBe(3));
+    expect(lastKeyboardProps.settings.drSteps).toBe(1);
+    const overriddenKey = lastKeyboardProps.reconstructionKey;
+    expect(settings.rSteps).toBe(9);
+    settings = { ...settings, rSteps: 7, drSteps: 5 };
+    view.rerender(<App />);
+    expect(lastKeyboardProps.settings.rSteps).toBe(3);
+    expect(lastKeyboardProps.settings.drSteps).toBe(1);
+    settings = { ...settings, exquis_layout_override: false };
+    view.rerender(<App />);
+    expect(lastKeyboardProps.settings.rSteps).toBe(7);
+    expect(lastKeyboardProps.settings.drSteps).toBe(5);
+    expect(lastKeyboardProps.reconstructionKey).not.toBe(overriddenKey);
+    settings = { ...settings, exquis_layout_override: true };
+    mockControllerById = { id: "lumatone" };
+    settings = { ...settings, midiin_controller_override: "lumatone" };
+    view.rerender(<App />);
+    expect(lastKeyboardProps.settings.rSteps).toBe(7);
+  });
+
   it("routes Exquis octave controls through the current onscreen octave action", async () => {
     const previousShift = synthWiringState.shiftOctave;
     const previousOctave = synthWiringState.octaveTranspose;

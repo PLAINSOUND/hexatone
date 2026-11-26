@@ -7,6 +7,7 @@
  * dirty-state tracking, and preset switching. App uses it as the owner of
  * "which tuning is active" and "what should happen when that source changes".
  */
+import { EXQUIS_LAYOUT_FIELDS } from "../controllers/exquis-layout.js";
 import { useState, useEffect, useMemo } from "preact/hooks";
 import { IO_SETTING_KEYS } from "../persistence/io-reload-policy.js";
 import {
@@ -256,6 +257,7 @@ export const mergePresetIntoSettings = (settings, preset) => {
     ...clearedPresetAnchorFields,
     ...presetWithoutControllerAnchors,
     ...keyColorFlags,
+    ...Object.fromEntries(EXQUIS_LAYOUT_FIELDS.map(key => [key, settings[key]])),
     midiin_mpe_input: mpeInput,
     midiin_anchor_note: presetAnchorNote,
     midiin_anchor_channel: presetAnchorChannel,
