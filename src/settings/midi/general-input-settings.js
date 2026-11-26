@@ -40,7 +40,7 @@ const GeneralInputSettings = ({
       >
         <option value="OFF">OFF</option>
         {midi &&
-          Array.from(midi.inputs.values()).map((m) => <option value={m.id}>{m.name}</option>)}
+          Array.from(midi.inputs.values()).map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
       </select>
     </label>
 
@@ -67,7 +67,7 @@ const GeneralInputSettings = ({
       >
         <option value="auto">Auto Detect</option>
         {manualControllerOptions.map((option) => (
-          <option value={option.id}>{option.label}</option>
+          <option key={option.id} value={option.id}>{option.label}</option>
         ))}
       </select>
     </label>

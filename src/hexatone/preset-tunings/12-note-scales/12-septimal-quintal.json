@@ -28,5 +28,8 @@
   "rSteps": 2,
   "drSteps": 1,
   "hexSize": 42,
-  "rotation": -16.102113751
+  "rotation": -16.102113751,
+  "exquis_anchor_note": 24,
+  "exquis_rsteps": 5,
+  "exquis_drsteps": 6
 }

@@ -114,7 +114,7 @@ const ExquisSettings = ({
               localStorage.setItem(key, String(value));
             }} />
         </label>)}
-      <p class="settings-form__stacked-helper"><em>Overrides the tuning layout while Exquis is selected. Switch off to restore the tuning’s saved steps.</em></p>
+      <p class="settings-form__stacked-helper"><em>Overrides the tuning layout while Exquis is selected. Switch off to use the tuning’s default layout.</em></p>
     </>}
   </>;
   useEffect(() => {

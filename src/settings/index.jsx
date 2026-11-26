@@ -11,11 +11,13 @@ import Layout from "./layout";
 import { normalizeColors } from "./normalize-settings.js";
 import { presetTuningGroups } from "../hexatone/preset-tunings/index.js";
 import TuningLibrary from "../hexatone/tuning-library.jsx";
+import { withCurrentExquisPresetLayout } from "../controllers/exquis-layout.js";
 import { withCurrentControllerPresetAnchor } from "../controllers/preset-anchors.js";
 
 const Settings = ({
   onLoadBuiltinPreset,
   settings,
+  layoutControllerId,
   onChange,
   onAtomicChange,
   onImport,
@@ -56,9 +58,11 @@ const Settings = ({
   });
   const [primaryTuningSaveVisible, setPrimaryTuningSaveVisible] = useState(false);
   const hasMusicalSurface = Array.isArray(settings.scale) && settings.scale.length > 0;
-  const activeControllerId = keysRef?.current?.controller?.id;
+  const activeControllerId = layoutControllerId ?? keysRef?.current?.controller?.id;
   const persistenceSettings = useMemo(
-    () => withCurrentControllerPresetAnchor(settings, activeControllerId),
+    () => withCurrentExquisPresetLayout(
+      withCurrentControllerPresetAnchor(settings, activeControllerId), activeControllerId,
+    ),
     [settings, activeControllerId],
   );
   const effectiveScaleSettings = useMemo(
@@ -128,6 +132,7 @@ const Settings = ({
         hasMusicalSurface={hasMusicalSurface}
       />
       <Layout
+        controllerId={layoutControllerId}
         onChange={onChange}
         settings={settings}
         hasMusicalSurface={hasMusicalSurface}

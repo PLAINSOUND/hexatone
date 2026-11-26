@@ -8,10 +8,11 @@
  * It defines which settings fields belong in a tuning record and normalizes
  * them into a stable, serializable format.
  */
+import { EXQUIS_PRESET_LAYOUT_FIELDS, exquisLayoutStep, withCurrentExquisPresetLayout } from "../controllers/exquis-layout.js";
 import { normalizeModulationHistory } from "../tuning/modulation-runtime.js";
 import { resolveKeyColorsMode } from "../settings/scale/key-colors-mode.js";
 import { derivePresetControllerAnchorFields } from "../settings/scale/parse-scale.js";
-import { CONTROLLER_PRESET_ANCHOR_FIELDS } from "../controllers/preset-anchors.js";
+import { CONTROLLER_PRESET_ANCHOR_FIELDS, withCurrentControllerPresetAnchor } from "../controllers/preset-anchors.js";
 import { cloneJsonValue } from "../persistence/clone-json-value.js";
 
 const CONTROLLER_ANCHOR_FIELDS = [
@@ -66,6 +67,7 @@ const PASSTHROUGH_BOOLEAN_FIELDS = [
 ];
 
 const SETTINGS_RECORD_FIELDS = [
+  ...EXQUIS_PRESET_LAYOUT_FIELDS,
   "name",
   "description",
   "short_description",
@@ -148,6 +150,10 @@ export function normalizeTuningRecord(record, options = {}) {
   for (const key of PASSTHROUGH_NUMBER_FIELDS) copyIfFinite(normalized, record, key);
   for (const key of PASSTHROUGH_BOOLEAN_FIELDS) copyIfBoolean(normalized, record, key);
   for (const key of CONTROLLER_ANCHOR_FIELDS) copyIfFinite(normalized, record, key);
+  for (const key of EXQUIS_PRESET_LAYOUT_FIELDS) {
+    const value = exquisLayoutStep(record[key], null);
+    if (value !== null) normalized[key] = value;
+  }
 
   if (!Number.isFinite(normalized.equivSteps)) {
     normalized.equivSteps = normalized.scale.length;
@@ -188,7 +194,11 @@ export function normalizeTuningGroup(group, options = {}) {
   return settings.length > 0 ? { name, settings } : null;
 }
 
-export function settingsToTuningRecord(settings = {}, extra = {}) {
+export function settingsToTuningRecord(settings = {}, extra = {}, options = {}) {
+  const controllerId = options.controllerId ?? settings.midiin_controller_override;
+  settings = withCurrentExquisPresetLayout(
+    withCurrentControllerPresetAnchor(settings, controllerId), controllerId,
+  );
   const raw = {};
   for (const key of SETTINGS_RECORD_FIELDS) {
     if (key === "key_colors_mode") {

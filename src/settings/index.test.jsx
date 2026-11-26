@@ -46,7 +46,11 @@ vi.mock("./scale", () => ({
     return <div>Scale Stub</div>;
   },
 }));
-vi.mock("./layout", () => ({ default: () => <div>Layout Stub</div> }));
+const layoutMockState = vi.hoisted(() => ({ props: [] }));
+vi.mock("./layout", () => ({ default: props => {
+  layoutMockState.props.push(props);
+  return <div>Layout Stub</div>;
+} }));
 vi.mock("./sample", () => ({
   default: () => (
     <fieldset>
@@ -120,6 +124,15 @@ describe("Settings MIDI Setup fieldset", () => {
     expect(screen.getByText("MIDI Setup")).not.toBeNull();
     expect(screen.getByLabelText("Enable MIDI")).not.toBeNull();
     expect(screen.getByLabelText("Enable Sysex")).not.toBeNull();
+  });
+
+  it("passes the selected controller to the active layout editor", () => {
+    sessionStorage.setItem("hexatone_layout_collapsed", "false");
+    render(<Settings {...baseProps} layoutControllerId="exquis" settings={{
+      ...baseProps.settings, rSteps: 5, drSteps: 3, exquis_rsteps: 5, exquis_drsteps: 6,
+    }} />);
+    expect(layoutMockState.props.at(-1)).toMatchObject({ controllerId: "exquis",
+      settings: { rSteps: 5, drSteps: 3, exquis_rsteps: 5, exquis_drsteps: 6 } });
   });
 
   it("places FluidSynth and SuperCollider fieldsets before MIDI Setup", () => {

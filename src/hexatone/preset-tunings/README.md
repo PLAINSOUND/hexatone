@@ -58,3 +58,38 @@ When editing a preset JSON by hand:
 
 New folders or preset files discovered by the generator fall through to the end
 unless manually reordered in the registry.
+
+## Exquis-specific layout
+
+Built-in and user tuning JSON may include these optional fields:
+
+```json
+{
+  "rSteps": 9,
+  "drSteps": 4,
+  "exquis_rsteps": 5,
+  "exquis_drsteps": 6,
+  "exquis_anchor_note": 35
+}
+```
+
+With Exquis selected as the MIDI input geometry, `exquis_rsteps` and
+`exquis_drsteps` replace the ordinary steps for the canvas and controller
+mapping. Loading a preset or switching to Exquis applies them automatically.
+Each missing Exquis step falls back to its ordinary counterpart. Other
+controllers always use `rSteps` and `drSteps`. Step values are integers
+from −1220 to 1220; zero is allowed.
+
+The manual **Hexatone Layout Override** takes precedence over either preset
+layout while enabled. Its saved preferences are separate from these JSON
+fields and are not exported with a tuning. Saving while Exquis is active captures
+the visible steps (including any enabled override) as `exquis_rsteps` and
+`exquis_drsteps`, together with the current anchor. The override toggle itself
+is never stored in the tuning.
+
+`exquis_anchor_note` selects the Exquis MIDI note aligned with the tuning's
+`center_degree`. Its existing preset-anchor handling applies on loading the
+tuning and when switching to Exquis.
+
+These optional fields survive user-tuning save/export/import. Loading another
+tuning without them clears the previous preset's Exquis-specific values.

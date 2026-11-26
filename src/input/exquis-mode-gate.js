@@ -1,6 +1,6 @@
-import { EXQUIS_LAYOUT_FIELDS } from "../controllers/exquis-layout.js";
+import { EXQUIS_LAYOUT_FIELDS, EXQUIS_PRESET_LAYOUT_FIELDS } from "../controllers/exquis-layout.js";
 
-const transitionKeys = ["midi_passthrough", "midiin_mapping_target", ...EXQUIS_LAYOUT_FIELDS];
+const transitionKeys = ["midi_passthrough", "midiin_mapping_target", ...EXQUIS_LAYOUT_FIELDS, ...EXQUIS_PRESET_LAYOUT_FIELDS];
 const transitionDefault = key => key === "midiin_mapping_target" ? "hex_layout"
   : key === "midi_passthrough" || key === "exquis_layout_override" ? false : null;
 

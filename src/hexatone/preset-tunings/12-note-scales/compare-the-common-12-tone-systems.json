@@ -160,7 +160,12 @@
   "reference_degree": 39,
   "center_degree": 0,
   "rSteps": 4,
-  "drSteps": -1,
+  "drSteps": 3,
   "hexSize": 42,
-  "rotation": 40.9
+  "rotation": -16.102113751,
+  "lumatone_anchor_channel": 3,
+  "lumatone_anchor_note": 16,
+  "exquis_anchor_note": 3,
+  "exquis_rsteps": 4,
+  "exquis_drsteps": 7
 }

@@ -181,5 +181,7 @@
   "rotation": -16.102113751,
   "lumatone_anchor_note": 27,
   "lumatone_anchor_channel": 3,
-  "exquis_anchor_note": 9
+  "exquis_anchor_note": 23,
+  "exquis_rsteps": 5,
+  "exquis_drsteps": 6
 }

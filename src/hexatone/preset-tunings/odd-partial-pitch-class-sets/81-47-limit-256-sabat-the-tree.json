@@ -263,5 +263,8 @@
   "hexSize": 38,
   "rotation": -16.102113751,
   "lumatone_anchor_note": 41,
-  "lumatone_anchor_channel": 2
+  "lumatone_anchor_channel": 2,
+  "exquis_anchor_note": 39,
+  "exquis_rsteps": 5,
+  "exquis_drsteps": 6
 }

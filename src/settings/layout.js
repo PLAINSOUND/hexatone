@@ -6,12 +6,20 @@
 
 import { useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { effectiveExquisLayout, exquisLayoutEditKeys, EXQUIS_LAYOUT_FIELDS } from "../controllers/exquis-layout.js";
 import { buildAutoSelectInputProps } from "../ui/input-selection.js";
 
 const Layout = (props) => {
   const [collapsed, setCollapsed] = useState(
     () => sessionStorage.getItem("hexatone_layout_collapsed") !== "false",
   );
+  const activeSteps = effectiveExquisLayout(props.settings, props.controllerId);
+  const editKeys = exquisLayoutEditKeys(props.settings, props.controllerId);
+  const saveStep = (axis, value) => {
+    const key = editKeys[axis];
+    props.onChange(key, value);
+    if (EXQUIS_LAYOUT_FIELDS.includes(key)) localStorage.setItem(key, String(value));
+  };
   const maxDegree = (props.settings.equivSteps || 1) - 1;
   const hasMusicalSurface = props.hasMusicalSurface ?? true;
 
@@ -106,8 +114,8 @@ const Layout = (props) => {
               type="text"
               inputMode="numeric"
               class="sidebar-input"
-              key={props.settings.rSteps}
-              defaultValue={props.settings.rSteps}
+              key={`${editKeys.rSteps}:${activeSteps.rSteps}`}
+              defaultValue={activeSteps.rSteps}
               min="-1220"
               max="1220"
               disabled={!hasMusicalSurface}
@@ -118,9 +126,9 @@ const Layout = (props) => {
               onBlur={(e) => {
                 const val = parseInt(e.target.value);
                 if (!isNaN(val) && val >= -1220 && val <= 1220) {
-                  props.onChange("rSteps", val);
+                  saveStep("rSteps", val);
                 } else {
-                  e.target.value = props.settings.rSteps;
+                  e.target.value = activeSteps.rSteps;
                 }
               }}
             />
@@ -132,8 +140,8 @@ const Layout = (props) => {
               type="text"
               inputMode="numeric"
               class="sidebar-input"
-              key={props.settings.drSteps}
-              defaultValue={props.settings.drSteps}
+              key={`${editKeys.drSteps}:${activeSteps.drSteps}`}
+              defaultValue={activeSteps.drSteps}
               min="-1220"
               max="1220"
               disabled={!hasMusicalSurface}
@@ -144,9 +152,9 @@ const Layout = (props) => {
               onBlur={(e) => {
                 const val = parseInt(e.target.value);
                 if (!isNaN(val) && val >= -1220 && val <= 1220) {
-                  props.onChange("drSteps", val);
+                  saveStep("drSteps", val);
                 } else {
-                  e.target.value = props.settings.drSteps;
+                  e.target.value = activeSteps.drSteps;
                 }
               }}
             />
@@ -193,6 +201,7 @@ Layout.propTypes = {
     equivSteps: PropTypes.number,
   }),
   hasMusicalSurface: PropTypes.bool,
+  controllerId: PropTypes.string,
 };
 
 export default Layout;

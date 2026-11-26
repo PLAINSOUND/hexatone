@@ -3,7 +3,7 @@
 // about controller semantics; callers provide the detected raw port, the full
 // output list, and the persistence callback for the chosen override id.
 
-import { useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 
 function OutputPortPicker({
@@ -16,6 +16,12 @@ function OutputPortPicker({
   inline = false,
 }) {
   const [picking, setPicking] = useState(false);
+  const pickerRef = useRef(null);
+  useLayoutEffect(() => {
+    // Open once without reclaiming focus on each port/status update. Inline
+    // callback refs run again on rerenders and used to repeatedly close menus.
+    if (picking) pickerRef.current?.focus();
+  }, [picking]);
   const portName = explicitPortName ?? rawPorts?.output?.name ?? null;
   const connected = !!portName;
   const isOverride = !!overridePortId;
@@ -34,7 +40,7 @@ function OutputPortPicker({
               setPicking(false);
             }}
             onBlur={() => setPicking(false)}
-            ref={(element) => element && setTimeout(() => element.focus(), 0)}
+            ref={pickerRef}
           >
             <option value="__auto__">Auto detect</option>
             {outputs &&
@@ -59,7 +65,7 @@ function OutputPortPicker({
             setPicking(false);
           }}
           onBlur={() => setPicking(false)}
-          ref={(el) => el && setTimeout(() => el.focus(), 0)}
+          ref={pickerRef}
         >
           <option value="__auto__">Auto detect</option>
           {outputs &&

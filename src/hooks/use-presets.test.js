@@ -128,6 +128,44 @@ describe("mergePresetIntoSettings", () => {
     localStorage.clear();
   });
 
+  it("uses the detected Exquis anchor rather than the first controller anchor in a preset", () => {
+    const current = { midiin_controller_override: "auto", midiin_anchor_note: 13,
+      midiin_anchor_channel: 1, exquis_anchor_note: 12 };
+    const preset = { name: "36ed2", lumatone_anchor_note: 13, lumatone_anchor_channel: 3,
+      exquis_anchor_note: 12 };
+    for (const merge of [mergePresetIntoSettings, mergeRestoredPresetIntoSettings]) {
+      const merged = merge(current, preset, "exquis");
+      expect(merged.midiin_anchor_note).toBe(12);
+      expect(merged.midiin_anchor_channel).toBe(1);
+      expect(merged.exquis_anchor_note).toBe(12);
+      expect(merged.midiin_controller_override).toBe("auto");
+      // Loading the companion preset with the same anchor must not depend on
+      // an anchor-metadata change to trigger correction in another hook.
+      expect(merge({ ...merged, midiin_anchor_note: 13 }, { ...preset, name: "36ed2 rationalised" }, "exquis")
+        .midiin_anchor_note).toBe(12);
+    }
+    expect(mergePresetIntoSettings(current, preset, "lumatone")).toMatchObject({
+      midiin_anchor_note: 13, midiin_anchor_channel: 3,
+    });
+  });
+
+  it("replaces preset Exquis steps and clears them when the next tuning omits them", () => {
+    const current = { rSteps: 9, drSteps: 4, exquis_rsteps: 1, exquis_drsteps: 2,
+      exquis_layout_override: true, exquis_rSteps: 5, exquis_drSteps: 6 };
+    const loaded = mergePresetIntoSettings(current, {
+      name: "Specific", rSteps: 7, drSteps: 3, exquis_rsteps: 4, exquis_drsteps: 5, exquis_anchor_note: 27,
+    });
+    expect(loaded).toMatchObject({
+      rSteps: 7, drSteps: 3, exquis_rsteps: 4, exquis_drsteps: 5, exquis_anchor_note: 27,
+      exquis_layout_override: true, exquis_rSteps: 5, exquis_drSteps: 6,
+    });
+    const next = mergePresetIntoSettings(loaded, { name: "Generic", rSteps: 2, drSteps: 1 });
+    expect(next.exquis_rsteps).toBeUndefined();
+    expect(next.exquis_drsteps).toBeUndefined();
+    expect(next.exquis_anchor_note).toBeUndefined();
+    expect(next.exquis_layout_override).toBe(true);
+  });
+
   it("preserves Exquis layout preferences while loading a new tuning's own steps", () => {
     const merged = mergePresetIntoSettings({
       rSteps: 9, drSteps: 4, exquis_layout_override: true, exquis_rSteps: 3, exquis_drSteps: 1,
@@ -370,7 +408,7 @@ describe("mergePresetIntoSettings", () => {
     expect(merged.linnstrument_anchor_note).toBe(12);
   });
 
-  it("lets an incoming preset anchor win even if the previous live controller differed", () => {
+  it("keeps another controller’s preset anchor as metadata without applying it to the active controller", () => {
     sessionStorage.setItem("midiin_anchor_note", "31");
     sessionStorage.setItem("midiin_anchor_channel", "2");
 
@@ -388,8 +426,8 @@ describe("mergePresetIntoSettings", () => {
       },
     );
 
-    expect(merged.midiin_anchor_note).toBe(26);
-    expect(merged.midiin_anchor_channel).toBe(3);
+    expect(merged.midiin_anchor_note).toBe(31);
+    expect(merged.midiin_anchor_channel).toBe(2);
     expect(merged.lumatone_anchor_note).toBe(26);
     expect(merged.lumatone_anchor_channel).toBe(3);
   });
@@ -515,6 +553,56 @@ describe("usePresets refresh ordering", () => {
   beforeEach(() => {
     sessionStorage.clear();
     localStorage.clear();
+  });
+
+  it("loads repeated Exquis anchors using the detected controller while Auto Detect stays selected", async () => {
+    let hook;
+    const Harness = () => {
+      const [settings, setSettings] = useState({ name: "Start", scale: ["2/1"],
+        midiin_controller_override: "auto", midiin_anchor_note: 13,
+        midiin_anchor_channel: 1, exquis_anchor_note: 12 });
+      hook = usePresets(settings, setSettings, { synthRef: { current: null },
+        getActiveControllerId: () => "exquis", onUserInteraction: vi.fn(),
+        setPresetModulationLibrary: vi.fn() });
+      return <span>{settings.midiin_anchor_note}:{settings.midiin_controller_override}</span>;
+    };
+    const view = render(<Harness />);
+    for (const name of ["36ed2", "36ed2-rationalised-to-7lim"]) {
+      await act(async () => hook.onLoadBuiltinPreset({ name, scale: ["2/1"],
+        lumatone_anchor_note: 13, lumatone_anchor_channel: 3, exquis_anchor_note: 12 }));
+      expect(view.container.textContent).toBe("12:auto");
+    }
+  });
+
+  it("adopts saved active Exquis geometry as preset metadata without saving the override", async () => {
+    let hook, current, setCurrent;
+    const reset = vi.fn();
+    const Harness = () => {
+      const [settings, setSettings] = useState({ name: "Active", scale: ["2/1"], rSteps: 9, drSteps: 4,
+        midiin_controller_override: "auto", midiin_anchor_note: 17,
+        exquis_layout_override: true, exquis_rSteps: 5, exquis_drSteps: 6,
+        exquis_rsteps: 7, exquis_drsteps: 3 });
+      current = settings; setCurrent = setSettings;
+      hook = usePresets(settings, setSettings, { synthRef: { current: null },
+        getActiveControllerId: () => "exquis", onUserInteraction: vi.fn(),
+        bumpPresetRuntimeReset: reset, currentModulationLibrary: [], setPresetModulationLibrary: vi.fn() });
+      return null;
+    };
+    render(<Harness />);
+    await act(async () => hook.onSaveCustomPreset({ name: "Active", scale: ["2/1"],
+      exquis_rsteps: 5, exquis_drsteps: 6, exquis_anchor_note: 17 }));
+    expect(current).toMatchObject({ rSteps: 9, drSteps: 4, exquis_rsteps: 5, exquis_drsteps: 6,
+      exquis_layout_override: true, exquis_rSteps: 5, exquis_drSteps: 6 });
+    expect(hook.isPresetDirty).toBe(false);
+    const saved = JSON.parse(sessionStorage.getItem("hexatone_restored_preset_payload")).preset;
+    expect(saved).toMatchObject({ exquis_rsteps: 5, exquis_drsteps: 6, exquis_anchor_note: 17 });
+    expect(saved).not.toHaveProperty("exquis_layout_override");
+    expect(saved).not.toHaveProperty("exquis_rSteps");
+    expect(reset).not.toHaveBeenCalled();
+    await act(async () => setCurrent(s => ({ ...s, exquis_drSteps: 8 })));
+    expect(hook.isPresetDirty).toBe(true);
+    await act(async () => setCurrent(s => ({ ...s, exquis_layout_override: false })));
+    expect(hook.isPresetDirty).toBe(false);
   });
 
   it("marks an edited anchored workspace saved without loading or resetting its runtime", async () => {

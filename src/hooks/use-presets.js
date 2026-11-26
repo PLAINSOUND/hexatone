@@ -7,7 +7,7 @@
  * dirty-state tracking, and preset switching. App uses it as the owner of
  * "which tuning is active" and "what should happen when that source changes".
  */
-import { EXQUIS_LAYOUT_FIELDS } from "../controllers/exquis-layout.js";
+import { EXQUIS_LAYOUT_FIELDS, EXQUIS_PRESET_LAYOUT_FIELDS } from "../controllers/exquis-layout.js";
 import { useState, useEffect, useMemo } from "preact/hooks";
 import { IO_SETTING_KEYS } from "../persistence/io-reload-policy.js";
 import {
@@ -160,16 +160,15 @@ function getPresetAnchorConfig(settings = {}, preferredControllerId = null) {
   const preferred = PRESET_ANCHOR_CONFIGS.find(
     (config) => config.controllerId === preferredControllerId && hasAnchor(config),
   );
-  return (
-    preferred ??
-    PRESET_ANCHOR_CONFIGS.find(
-      ({ noteKey, channelKey }) =>
-        Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
-    )
+  // A known active controller must never borrow another controller's anchor.
+  if (preferredControllerId && preferredControllerId !== "auto") return preferred;
+  return PRESET_ANCHOR_CONFIGS.find(
+    ({ noteKey, channelKey }) =>
+      Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
   );
 }
 
-function getAnchorFallback(settings = {}) {
+function getAnchorFallback(settings = {}, controllerId = settings.midiin_controller_override) {
   if (!hasPresetAnchor(settings)) {
     return {
       midiin_anchor_note: settings.midiin_anchor_note ?? 60,
@@ -177,7 +176,7 @@ function getAnchorFallback(settings = {}) {
     };
   }
 
-  const presetAnchorConfig = getPresetAnchorConfig(settings, settings.midiin_controller_override);
+  const presetAnchorConfig = getPresetAnchorConfig(settings, controllerId);
   if (!presetAnchorConfig?.controller) {
     return {
       midiin_anchor_note: settings.midiin_anchor_note ?? 60,
@@ -199,12 +198,12 @@ function getAnchorFallback(settings = {}) {
 // HEJI anchors may be auto-derived from the current preset's tuning/labels.
 // Reset them on preset load so an inferred anchor from the previous preset
 // cannot survive the merge unless the incoming preset explicitly defines one.
-export const mergePresetIntoSettings = (settings, preset) => {
-  const persistentAnchorFallback = getAnchorFallback(settings);
+export const mergePresetIntoSettings = (settings, preset, controllerId = settings.midiin_controller_override) => {
+  const persistentAnchorFallback = getAnchorFallback(settings, controllerId);
   const restoredAnchor = restorePersistentAnchorFields(persistentAnchorFallback);
   const activePresetAnchorConfig = getPresetAnchorConfig(
     preset,
-    settings.midiin_controller_override,
+    controllerId,
   );
   const presetAnchorNote =
     activePresetAnchorConfig && Number.isFinite(preset[activePresetAnchorConfig.noteKey])
@@ -241,7 +240,7 @@ export const mergePresetIntoSettings = (settings, preset) => {
   // metadata or legacy saved MPE flag. Auto detection is resolved by App;
   // preserve its current preference rather than treating an unknown device
   // here as a controller that forbids MPE.
-  const controller = getControllerById(settings.midiin_controller_override);
+  const controller = getControllerById(controllerId);
   const mpePolicy = controller ? getControllerMpeInputPolicy(controller) : null;
   const mpeInput = mpePolicy === "always" ? true
     : mpePolicy === "never" ? false : !!settings.midiin_mpe_input;
@@ -255,6 +254,7 @@ export const mergePresetIntoSettings = (settings, preset) => {
     auto_colors: undefined,
     spectrum_colors: undefined,
     ...clearedPresetAnchorFields,
+    ...Object.fromEntries(EXQUIS_PRESET_LAYOUT_FIELDS.map(key => [key, undefined])),
     ...presetWithoutControllerAnchors,
     ...keyColorFlags,
     ...Object.fromEntries(EXQUIS_LAYOUT_FIELDS.map(key => [key, settings[key]])),
@@ -267,23 +267,23 @@ export const mergePresetIntoSettings = (settings, preset) => {
   };
 };
 
-export function mergeRestoredPresetIntoSettings(settings, preset) {
-  const merged = mergePresetIntoSettings(settings, preset);
+export function mergeRestoredPresetIntoSettings(settings, preset, controllerId = settings.midiin_controller_override) {
+  const merged = mergePresetIntoSettings(settings, preset, controllerId);
   for (const key of IO_SETTING_KEYS) {
     if (key in settings) merged[key] = settings[key];
     else delete merged[key];
   }
   // Restore I/O must not undo explicit tuning anchors with stale session values.
-  const config = getPresetAnchorConfig(preset, settings.midiin_controller_override);
+  const config = getPresetAnchorConfig(preset, controllerId);
   return config ? { ...merged, ...applyControllerPresetAnchor(merged, config.controllerId) } : merged;
 }
 
-const snapshotOf = (s, modulationLibrary = []) => {
+const snapshotOf = (s, modulationLibrary = [], controllerId) => {
   return {
     tuningRecord: JSON.stringify(
       settingsToTuningRecord(s, {
         modulation_library: modulationLibrary,
-      }),
+      }, { controllerId }),
     ),
     modulationLibrary: JSON.stringify(
       normalizeModulationHistory(modulationLibrary, { zeroCounts: true }),
@@ -291,13 +291,13 @@ const snapshotOf = (s, modulationLibrary = []) => {
   };
 };
 
-const isDirty = (snap, s, modulationLibrary = []) => {
+const isDirty = (snap, s, modulationLibrary = [], controllerId) => {
   if (!snap) return false;
   if (
     JSON.stringify(
       settingsToTuningRecord(s, {
         modulation_library: modulationLibrary,
-      }),
+      }, { controllerId }),
     ) !== snap.tuningRecord
   )
     return true;
@@ -419,6 +419,7 @@ function adjustPresetForRestore(preset = {}) {
  * @param {function} setSettings      - Settings updater from useQuery
  * @param {object}   options
  * @param {object}   options.synthRef - Ref to the live synth (for prepare() on preset load)
+ * @param {function} options.getActiveControllerId - Current resolved input identity, including Auto Detect
  * @param {function} options.onUserInteraction - Called to mark the user as having interacted
  * @param {function} options.bumpImportCount - Bumps the scale reset token so TuneCell preview UI clears
  * @param {function} options.bumpPresetRuntimeReset - Forces a full musical-surface rebuild/reset
@@ -434,6 +435,7 @@ const usePresets = (
   setSettings,
   {
     synthRef,
+    getActiveControllerId,
     onUserInteraction,
     bumpImportCount,
     bumpPresetRuntimeReset,
@@ -442,6 +444,7 @@ const usePresets = (
     onPresetModulationLibraryLoaded,
   },
 ) => {
+  const persistenceControllerId = getActiveControllerId?.() ?? settings.midiin_controller_override;
   const [activeSource, setActiveSource] = useState(null);
   const [activePresetName, setActivePresetName] = useState(null);
   const [restoredOnMount, setRestoredOnMount] = useState(false);
@@ -539,13 +542,13 @@ const usePresets = (
       setActiveSource(savedSource);
       setActivePresetName(savedName);
       const adjustedPreset = adjustPresetForRestore(savedPayload.preset);
-      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
+      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
       const savedLibrary = normalizeModulationHistory(savedPayload.preset.modulation_library, {
         zeroCounts: true,
       });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
-      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
       bumpImportCount?.();
       setSettings(() => merged, { updateUrl: false });
       schedulePresetRuntimeReset(bumpPresetRuntimeReset);
@@ -556,13 +559,13 @@ const usePresets = (
       const presetData = findPreset(savedName);
       if (presetData) {
         const adjustedPreset = adjustPresetForRestore(presetData);
-        const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
+        const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
         const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
           zeroCounts: true,
         });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
-        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
         bumpImportCount?.();
         setSettings(() => merged, { updateUrl: false });
         schedulePresetRuntimeReset(bumpPresetRuntimeReset);
@@ -575,13 +578,13 @@ const usePresets = (
         setActiveSource("user");
         setActivePresetName(preset.name);
         const adjustedPreset = adjustPresetForRestore(preset);
-        const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
+        const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
         const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
           zeroCounts: true,
         });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
-        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
         bumpImportCount?.();
         setSettings(() => merged, { updateUrl: false });
         schedulePresetRuntimeReset(bumpPresetRuntimeReset);
@@ -604,40 +607,40 @@ const usePresets = (
     await onUserInteraction?.();
     if (pendingPreset) {
       const adjustedPreset = adjustPresetForRestore(pendingPreset);
-      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
+      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(pendingPreset.modulation_library, {
         zeroCounts: true,
       });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
-      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
       setSettings(() => merged);
     } else if (source === "builtin") {
       const presetData = findPreset(name);
       if (!presetData) return false;
       const adjustedPreset = adjustPresetForRestore(presetData);
-      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
+      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
         zeroCounts: true,
       });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
-      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
       setSettings(() => merged);
     } else if (source === "user") {
       const preset = loadUserTunings().find((p) => p.name === name);
       if (!preset) return false;
       const adjustedPreset = adjustPresetForRestore(preset);
-      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset);
+      const merged = mergeRestoredPresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
         zeroCounts: true,
       });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
-      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
       setSettings(() => merged);
     } else {
       return false;
@@ -657,14 +660,14 @@ const usePresets = (
     sessionStorage.setItem("hexatone_preset_source", "builtin");
     sessionStorage.setItem("hexatone_preset_name", presetName);
     const adjustedPreset = adjustPresetForRestore(presetData);
-    const merged = mergePresetIntoSettings(settings, adjustedPreset);
+    const merged = mergePresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
     bumpImportCount?.();
     const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
       zeroCounts: true,
     });
     setPresetModulationLibrary(savedLibrary);
     onPresetModulationLibraryLoaded?.(savedLibrary);
-    setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+    setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
     writeRestorablePresetPayload("builtin", merged, savedLibrary);
     setSettings(() => merged);
     schedulePresetRuntimeReset(bumpPresetRuntimeReset);
@@ -691,7 +694,7 @@ const usePresets = (
   // Saving the current workspace is not a preset load. In particular, do not
   // reset controller maps, held notes, modulation, or the learned anchor.
   const onSaveCustomPreset = (preset) => {
-    const savedAnchors = Object.fromEntries(CONTROLLER_PRESET_ANCHOR_FIELDS
+    const savedAnchors = Object.fromEntries([...CONTROLLER_PRESET_ANCHOR_FIELDS, ...EXQUIS_PRESET_LAYOUT_FIELDS]
       .filter(key => Number.isFinite(preset[key])).map(key => [key, preset[key]]));
     const savedSettings = { ...settings, ...savedAnchors, name: preset.name };
     setActiveSource("user");
@@ -700,9 +703,9 @@ const usePresets = (
     setPendingRestoredPreset(null);
     sessionStorage.setItem("hexatone_preset_source", "user");
     sessionStorage.setItem("hexatone_preset_name", preset.name);
-    setSavedPresetSnapshot(snapshotOf(savedSettings, currentModulationLibrary));
+    setSavedPresetSnapshot(snapshotOf(savedSettings, currentModulationLibrary, persistenceControllerId));
     writeRestorablePresetPayload("user", savedSettings, currentModulationLibrary);
-    // Save Copy changes only the workspace name, never its runtime settings.
+    // Adopt the saved metadata without reloading the tuning or overriding live preferences.
     if (settings.name !== preset.name || Object.entries(savedAnchors)
       .some(([key, value]) => settings[key] !== value)) {
       setSettings((current) => ({ ...current, ...savedAnchors, name: preset.name }));
@@ -722,14 +725,14 @@ const usePresets = (
       sessionStorage.removeItem("hexatone_preset_name");
     }
     const adjustedPreset = adjustPresetForRestore(preset);
-    const merged = mergePresetIntoSettings(settings, adjustedPreset);
+    const merged = mergePresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
     bumpImportCount?.();
     const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
       zeroCounts: true,
     });
     setPresetModulationLibrary(savedLibrary);
     onPresetModulationLibraryLoaded?.(savedLibrary);
-    setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+    setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
     writeRestorablePresetPayload("user", merged, savedLibrary);
     setSettings(() => merged);
     schedulePresetRuntimeReset(bumpPresetRuntimeReset);
@@ -753,13 +756,13 @@ const usePresets = (
       setActivePresetName(preset.name);
       sessionStorage.setItem("hexatone_preset_source", "user");
       sessionStorage.setItem("hexatone_preset_name", preset.name);
-      const merged = mergePresetIntoSettings(settings, preset);
+      const merged = mergePresetIntoSettings(settings, preset, getActiveControllerId?.());
       const savedLibrary = normalizeModulationHistory(preset.modulation_library, {
         zeroCounts: true,
       });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
-      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
       writeRestorablePresetPayload("user", merged, savedLibrary);
       setSettings(() => merged);
     } else {
@@ -767,7 +770,7 @@ const usePresets = (
       // preserving runtime/device settings from the current session.
       clearScaleSettings();
       clearRestorablePresetPayload();
-      const merged = mergePresetIntoSettings(settings, buildBlankPresetSettings());
+      const merged = mergePresetIntoSettings(settings, buildBlankPresetSettings(), getActiveControllerId?.());
       setSavedPresetSnapshot(null);
       bumpImportCount?.();
       setSettings(() => merged);
@@ -785,14 +788,14 @@ const usePresets = (
       const adjustedPreset = {
         ...adjustPresetForRestore(presetData),
       };
-      const merged = mergePresetIntoSettings(settings, adjustedPreset);
+      const merged = mergePresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
       bumpImportCount?.();
       const savedLibrary = normalizeModulationHistory(presetData.modulation_library, {
         zeroCounts: true,
       });
       setPresetModulationLibrary(savedLibrary);
       onPresetModulationLibraryLoaded?.(savedLibrary);
-      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+      setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
       writeRestorablePresetPayload("builtin", merged, savedLibrary);
       setSettings(() => merged);
       schedulePresetRuntimeReset(bumpPresetRuntimeReset);
@@ -807,14 +810,14 @@ const usePresets = (
       const saved = loadUserTunings().find((p) => p.name === activePresetName);
       if (saved) {
         const adjustedPreset = adjustPresetForRestore(saved);
-        const merged = mergePresetIntoSettings(settings, adjustedPreset);
+        const merged = mergePresetIntoSettings(settings, adjustedPreset, getActiveControllerId?.());
         bumpImportCount?.();
         const savedLibrary = normalizeModulationHistory(saved.modulation_library, {
           zeroCounts: true,
         });
         setPresetModulationLibrary(savedLibrary);
         onPresetModulationLibraryLoaded?.(savedLibrary);
-        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary));
+        setSavedPresetSnapshot(snapshotOf(merged, savedLibrary, persistenceControllerId));
         writeRestorablePresetPayload("user", merged, savedLibrary);
         setSettings(() => merged);
         schedulePresetRuntimeReset(bumpPresetRuntimeReset);
@@ -839,8 +842,8 @@ const usePresets = (
   };
 
   const isPresetDirty = useMemo(
-    () => isDirty(savedPresetSnapshot, settings, currentModulationLibrary),
-    [savedPresetSnapshot, settings, currentModulationLibrary],
+    () => isDirty(savedPresetSnapshot, settings, currentModulationLibrary, persistenceControllerId),
+    [savedPresetSnapshot, settings, currentModulationLibrary, persistenceControllerId],
   );
 
   return {

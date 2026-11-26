@@ -718,6 +718,8 @@ const App = () => {
   const [viewportKeyboardOpen, setViewportKeyboardOpen] = useState(false);
   const keysRef = useRef(null); // live Keys instance for imperative color updates
   const [keysReadyRevision, setKeysReadyRevision] = useState(0);
+  const activeInputControllerIdRef = useRef(null);
+  const getActiveControllerId = useCallback(() => activeInputControllerIdRef.current ?? undefined, []);
   const synthRef = useRef(null); // live synth instance for imperative volume/mute control
   const viewportBaselineRef = useRef(0);
   const audioNeedsHardRefreshRef = useRef(false);
@@ -1055,6 +1057,7 @@ const App = () => {
     onUserScaleEdit,
   } = usePresets(settings, setSettings, {
     synthRef,
+    getActiveControllerId,
     onUserInteraction: primeAudioFromUserInteraction,
     bumpImportCount,
     bumpPresetRuntimeReset: () => setPresetRuntimeResetRevision((revision) => revision + 1),
@@ -4340,6 +4343,7 @@ const App = () => {
     if (overrideId !== "auto") return getControllerById(overrideId);
     return connectedInput?.name ? detectController(connectedInput.name.toLowerCase()) : null;
   }, [connectedInput, settings.midiin_controller_override]);
+  activeInputControllerIdRef.current = inputController?.id ?? null;
   const layoutSettings = useMemo(() => ({
     ...settings, ...effectiveExquisLayout(settings, inputController?.id),
   }), [settings, inputController?.id]);
@@ -6446,6 +6450,7 @@ const App = () => {
             ) : workspaceTab === "calculator" ? null : (
               <>
                 <Settings
+                  layoutControllerId={inputController?.id}
                   onChange={onChange}
                   onAtomicChange={onAtomicChange}
                   onImport={onImport}

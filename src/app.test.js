@@ -821,15 +821,21 @@ describe("App input runtime", () => {
   it("applies Exquis layout preferences to the runtime and restores saved tuning geometry", async () => {
     const previous = settings;
     settings = { ...settings, midiin_controller_override: "exquis", rSteps: 9, drSteps: 4,
-      exquis_layout_override: true, exquis_rSteps: 3, exquis_drSteps: 1 };
+      exquis_layout_override: false, exquis_rSteps: 3, exquis_drSteps: 1,
+      exquis_rsteps: 11, exquis_drsteps: 8 };
     mockControllerById = { id: "exquis" };
     const view = render(<App />);
     onTestFinished(() => { view.unmount(); settings = previous; });
-    await waitFor(() => expect(lastKeyboardProps?.settings.rSteps).toBe(3));
+    await waitFor(() => expect(lastKeyboardProps?.settings.rSteps).toBe(11));
+    expect(lastUsePresetsOptions.getActiveControllerId()).toBe("exquis");
+    expect(lastKeyboardProps.settings.drSteps).toBe(8);
+    settings = { ...settings, exquis_layout_override: true };
+    view.rerender(<App />);
+    expect(lastKeyboardProps.settings.rSteps).toBe(3);
     expect(lastKeyboardProps.settings.drSteps).toBe(1);
     const overriddenKey = lastKeyboardProps.reconstructionKey;
     expect(settings.rSteps).toBe(9);
-    settings = { ...settings, rSteps: 7, drSteps: 5 };
+    settings = { ...settings, rSteps: 7, drSteps: 5, exquis_rsteps: undefined, exquis_drsteps: undefined };
     view.rerender(<App />);
     expect(lastKeyboardProps.settings.rSteps).toBe(3);
     expect(lastKeyboardProps.settings.drSteps).toBe(1);
@@ -843,6 +849,15 @@ describe("App input runtime", () => {
     settings = { ...settings, midiin_controller_override: "lumatone" };
     view.rerender(<App />);
     expect(lastKeyboardProps.settings.rSteps).toBe(7);
+    settings = { ...settings, exquis_layout_override: false, exquis_rsteps: 4, exquis_drsteps: 2 };
+    view.rerender(<App />);
+    expect(lastKeyboardProps.settings.rSteps).toBe(7);
+    expect(lastKeyboardProps.settings.drSteps).toBe(5);
+    mockControllerById = { id: "exquis" };
+    settings = { ...settings, midiin_controller_override: "exquis" };
+    view.rerender(<App />);
+    expect(lastKeyboardProps.settings.rSteps).toBe(4);
+    expect(lastKeyboardProps.settings.drSteps).toBe(2);
   });
 
   it("routes Exquis octave controls through the current onscreen octave action", async () => {

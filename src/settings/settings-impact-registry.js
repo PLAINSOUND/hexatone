@@ -29,7 +29,7 @@ export const SETTINGS_IMPACT_FIELDS = {
   ],
   // App folds these preferences into effective rSteps/drSteps before comparing
   // structural/reconstruction keys, so inactive edits do not rebuild the canvas.
-  layoutOverride: ["exquis_layout_override", "exquis_rSteps", "exquis_drSteps"],
+  layoutOverride: ["exquis_layout_override", "exquis_rSteps", "exquis_drSteps", "exquis_rsteps", "exquis_drsteps"],
   inputBinding: [],
   inputRuntime: [
     "midiin_device",

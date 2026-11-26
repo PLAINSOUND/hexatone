@@ -26,3 +26,16 @@ it("changes reconstruction only when effective geometry changes", () => {
   expect(key(on, "exquis")).not.toBe(key(settings, "exquis"));
   expect(key(on, "lumatone")).toBe(key(settings, "exquis"));
 });
+
+
+it("uses preset Exquis steps only for Exquis, with the manual override taking precedence", () => {
+  const tuning = { rSteps: 9, drSteps: 4, exquis_rsteps: 7, exquis_drsteps: 3,
+    exquis_rSteps: 5, exquis_drSteps: 6, exquis_anchor_note: 27 };
+  expect(effectiveExquisLayout(tuning, "exquis")).toEqual({ rSteps: 7, drSteps: 3 });
+  expect(effectiveExquisLayout(tuning, "lumatone")).toEqual({ rSteps: 9, drSteps: 4 });
+  expect(effectiveExquisLayout({ ...tuning, exquis_layout_override: true }, "exquis"))
+    .toEqual({ rSteps: 5, drSteps: 6 });
+  expect(effectiveExquisLayout({ ...tuning, exquis_drsteps: undefined }, "exquis"))
+    .toEqual({ rSteps: 7, drSteps: 4 });
+  expect(tuning).toMatchObject({ rSteps: 9, drSteps: 4, exquis_rsteps: 7, exquis_drsteps: 3 });
+});

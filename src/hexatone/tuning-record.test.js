@@ -190,3 +190,33 @@ describe("normalizeTuningGroup", () => {
     });
   });
 });
+
+
+it("round-trips preset Exquis geometry and anchor without exporting the manual override", () => {
+  const settings = { name: "Exquis tuning", scale: ["100.", "1200."],
+    rSteps: 9, drSteps: 4, exquis_rsteps: 5, exquis_drsteps: 6, exquis_anchor_note: 27,
+    exquis_layout_override: true, exquis_rSteps: 2, exquis_drSteps: 1 };
+  const record = settingsToTuningRecord(settings);
+  expect(record).toMatchObject({ rSteps: 9, drSteps: 4, exquis_rsteps: 5, exquis_drsteps: 6, exquis_anchor_note: 27 });
+  expect(record).not.toHaveProperty("exquis_layout_override");
+  expect(record).not.toHaveProperty("exquis_rSteps");
+  expect(normalizeTuningRecord(JSON.parse(serializeTuningRecord(record)))).toEqual(record);
+  const invalid = normalizeTuningRecord({ ...settings, exquis_rsteps: 1.5, exquis_drsteps: 1221 });
+  expect(invalid).not.toHaveProperty("exquis_rsteps");
+  expect(invalid).not.toHaveProperty("exquis_drsteps");
+});
+
+it.each([
+  [{}, 5, 3],
+  [{ exquis_rsteps: 7, exquis_drsteps: 4 }, 7, 4],
+  [{ exquis_rsteps: 7, exquis_drsteps: 4, exquis_layout_override: true, exquis_rSteps: 5, exquis_drSteps: 6 }, 5, 6],
+])("captures the active Exquis layout without serializing override preferences (%j)", (preferences, right, down) => {
+  const settings = { name: "Saved Exquis", scale: ["100.", "1200."], rSteps: 5, drSteps: 3,
+    midiin_controller_override: "auto", midiin_anchor_note: 17, exquis_anchor_note: 12, ...preferences };
+  const record = settingsToTuningRecord(settings, {}, { controllerId: "exquis" });
+  expect(record).toMatchObject({ rSteps: 5, drSteps: 3,
+    exquis_rsteps: right, exquis_drsteps: down, exquis_anchor_note: 17 });
+  for (const field of ["exquis_layout_override", "exquis_rSteps", "exquis_drSteps"])
+    expect(record).not.toHaveProperty(field);
+  expect(normalizeTuningRecord(JSON.parse(serializeTuningRecord(record)))).toEqual(record);
+});
