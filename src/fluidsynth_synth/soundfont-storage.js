@@ -1,4 +1,6 @@
 /** Disk-backed copies, with one best-effort memory copy if browser storage fails. */
+import { canonicalSoundfontKey, legacyLocalSoundfontKey } from "./soundfont-catalog.js";
+
 const DATABASE = "hexatone-soundfonts";
 const STORE = "banks";
 // A fresh page gets a fresh session: temporary banks are not an offline library.
@@ -44,14 +46,32 @@ async function access(mode, operation) {
   } finally { db.close(); }
 }
 
-export const soundfontStorageKey = (source) => source.url || `local:${source.name}`;
-export async function readOfflineSoundfont(key) {
+export const soundfontStorageKey = (source) => canonicalSoundfontKey(source.url || `local:${source.name}`);
+async function readBank(key) {
+  key = canonicalSoundfontKey(key);
   const bank = await access("readonly", (store) => store.get(key));
+  // An explicit temporary/removed record must take precedence over an old copy.
+  if (bank) return bank;
+  const legacyKey = legacyLocalSoundfontKey(key);
+  return legacyKey ? access("readonly", (store) => store.get(legacyKey)) : undefined;
+}
+async function writeBank(key, bank) {
+  key = canonicalSoundfontKey(key);
+  await access("readwrite", store => {
+    const request = store.put(bank, key);
+    const legacyKey = legacyLocalSoundfontKey(key);
+    if (legacyKey) store.delete(legacyKey);
+    return request;
+  });
+}
+export async function readOfflineSoundfont(key) {
+  const bank = await readBank(key);
   return bank?.offline === false ? undefined : bank;
 }
 export async function readWorkingSoundfont(key) {
+  key = canonicalSoundfontKey(key);
   let bank;
-  try { bank = await access("readonly", (store) => store.get(key)); }
+  try { bank = await readBank(key); }
   catch (error) {
     if (memoryBank?.key === key) return memoryBank.bank;
     throw error;
@@ -61,15 +81,15 @@ export async function readWorkingSoundfont(key) {
 }
 export async function removeOfflineSoundfont(key) {
   const bank = await readWorkingSoundfont(key);
-  if (bank) await access("readwrite", (store) => store.put({ ...bank,
-    offline: false, sessionId, savedAt: Date.now() }, key));
+  if (bank) await writeBank(key, { ...bank,
+    offline: false, sessionId, savedAt: Date.now() });
 }
 export async function storeOfflineSoundfont(source, bytes) {
   const bank = { name: source.name, url: source.url || "", blob: new Blob([bytes]),
     offline: true, sessionId, savedAt: Date.now() };
   const key = soundfontStorageKey(source);
   try {
-    await access("readwrite", (store) => store.put(bank, key));
+    await writeBank(key, bank);
     memoryBank = undefined;
   } catch (error) {
     // Blob construction above is the best-effort allocation; browsers expose no
@@ -83,7 +103,7 @@ export async function keepWorkingSoundfont(source) {
   const key = soundfontStorageKey(source);
   const bank = await readWorkingSoundfont(key);
   if (!bank) throw new Error("The temporary copy is no longer available. Load the SoundFont again.");
-  await access("readwrite", (store) => store.put({ ...bank, offline: true, savedAt: Date.now() }, key));
+  await writeBank(key, { ...bank, offline: true, savedAt: Date.now() });
   if (memoryBank?.key === key) memoryBank = undefined;
 }
 

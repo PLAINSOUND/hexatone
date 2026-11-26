@@ -5,7 +5,7 @@ it("uses the requested DSF preset consistently in the engine and saved settings"
   expect(DSF_DEFAULTS).toEqual({ volume: 0.25, partials: 1024, timbre: 0.25,
     volumeEnvelope: true, timbreEnvelope: true,
     timbreAmount: 0, timbreAttack: 10, timbreDecay: 100, timbreSustain: 0, timbreRelease: 120,
-    attack: 10, decay: 0, sustain: 1, release: 120, velocity: true, releaseVelocity: true, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
+    attack: 10, decay: 0, sustain: 1, release: 120, velocity: true, velocityVolume: 1, velocityTimbre: 1, velocityAttack: 1, releaseVelocity: true, releaseVelocityRelease: 1, pressure: true, timbreResponse: true, iso226: 1, generateYZ: false });
   expect(normalizeDsfControls()).toEqual(DSF_DEFAULTS);
   expect(dsfControlsFromSettings()).toEqual(DSF_DEFAULTS);
   expect(REGISTRY_BY_KEY.output_dsf.default).toBe(true);
@@ -19,7 +19,7 @@ it("preserves saved zero times and disabled response options", () => {
   });
 });
 it("bounds ADSR values and preserves a saved zero sustain", () => {
-  expect(normalizeDsfControls({ decay: 5000, sustain: -1 })).toMatchObject({ decay: 4000, sustain: 0 });
+  expect(normalizeDsfControls({ decay: 6000, sustain: -1 })).toMatchObject({ decay: 5000, sustain: 0 });
   expect(normalizeDsfControls({ decay: -1, sustain: 3 })).toMatchObject({ decay: 0, sustain: 2 });
   expect(dsfControlsFromSettings({ dsf_decay: 15, dsf_sustain: 0 })).toMatchObject({ decay: 15, sustain: 0 });
 });
@@ -28,9 +28,9 @@ it("accepts ISO amounts and the previous checkbox values", () => {
     expect(normalizeDsfControls({ iso226: value }).iso226).toBe(expected);
 });
 it("bounds and restores the independent timbre ADSR", () => {
-  expect(normalizeDsfControls({ timbreAmount: -2, timbreAttack: -1, timbreDecay: 5000,
+  expect(normalizeDsfControls({ timbreAmount: -2, timbreAttack: -1, timbreDecay: 6000,
     timbreSustain: 3, timbreRelease: -1 })).toMatchObject({ timbreAmount: -1, timbreAttack: 0,
-    timbreDecay: 4000, timbreSustain: 2, timbreRelease: 0 });
+    timbreDecay: 5000, timbreSustain: 1, timbreRelease: 0 });
   expect(dsfControlsFromSettings({ dsf_timbreAmount: -.4, dsf_timbreAttack: 0,
     dsf_timbreSustain: 0 })).toMatchObject({ timbreAmount: -.4, timbreAttack: 0, timbreSustain: 0 });
 });
@@ -39,3 +39,12 @@ it.each([[false, false, false], [true, false, false], [false, true, false], [tru
     expect(normalizeDsfControls({ generateYZ: true, velocity, pressure }).generateYZ).toBe(enabled);
   },
 );
+
+it("migrates the release switch and bounds the independent release amount", () => {
+  expect(dsfControlsFromSettings({ dsf_releaseVelocity: false }).releaseVelocityRelease).toBe(0);
+  expect(dsfControlsFromSettings({ dsf_velocity: false, dsf_releaseVelocity: true }).releaseVelocityRelease).toBe(1);
+  expect(dsfControlsFromSettings({ dsf_releaseVelocity: false, dsf_releaseVelocityRelease: .5 }))
+    .toMatchObject({ releaseVelocity: true, releaseVelocityRelease: .5 });
+  expect(normalizeDsfControls({ releaseVelocityRelease: -1 }).releaseVelocityRelease).toBe(0);
+  expect(normalizeDsfControls({ releaseVelocityRelease: 2 }).releaseVelocityRelease).toBe(1);
+});

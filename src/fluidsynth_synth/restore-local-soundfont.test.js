@@ -1,9 +1,9 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { LAST_SOUNDFONT_KEY, restoreLocalSoundfont } from "./restore-local-soundfont.js";
 const mocks = vi.hoisted(() => ({ read: vi.fn(), load: vi.fn(), peek: vi.fn() }));
-vi.mock("./soundfont-storage.js", () => ({
+vi.mock("./soundfont-storage.js", async importOriginal => ({
   readOfflineSoundfont: mocks.read,
-  soundfontStorageKey: (source) => source.url || `local:${source.name}`,
+  soundfontStorageKey: (await importOriginal()).soundfontStorageKey,
 }));
 vi.mock("./index.js", () => ({ loadFluidSynthSoundFont: mocks.load, peekFluidSynthEngine: mocks.peek }));
 beforeEach(() => {
@@ -31,4 +31,15 @@ it("does not replace a font already loaded manually", async () => {
   mocks.peek.mockReturnValue({ soundfontId: 1 });
   expect(await restoreLocalSoundfont()).toBeNull();
   expect(mocks.read).not.toHaveBeenCalled();
+});
+
+it("restores a local Hexatone bank using its shared identity and old local preset", async () => {
+  localStorage.setItem(LAST_SOUNDFONT_KEY, JSON.stringify({ name: "PlainsoundOrgan.sf2", url: "" }));
+  localStorage.setItem("fluidsynth_bank_presets", JSON.stringify({ "local:PlainsoundOrgan.sf2": "0:2" }));
+  mocks.read.mockResolvedValue({ blob: new Blob(["font"]) });
+  mocks.load.mockResolvedValue({ presets: [] });
+  await restoreLocalSoundfont();
+  expect(mocks.read).toHaveBeenCalledWith("https://soundfonts.plainsound.org/PlainsoundOrgan.sf2");
+  expect(mocks.load).toHaveBeenCalledWith(expect.objectContaining({ name: "PlainsoundOrgan.sf2" }),
+    expect.objectContaining({ preferredPreset: "0:2" }));
 });

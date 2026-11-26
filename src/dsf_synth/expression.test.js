@@ -11,7 +11,7 @@ beforeEach(async () => {
   await import("./dsf-processor.js");
   const Base = Processor;
   Processor = class extends Base {
-    constructor() { super(); this.controls = { ...neutral }; this.volume = neutral.volume; }
+    constructor() { super(); this.controls = { ...neutral }; this.prepareControls(); this.volume = neutral.volume; }
   };
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -93,8 +93,8 @@ it("makes fast attacks and releases four times quicker only when velocity is ena
   render(p, 1);
   expect(p.voices.get(1).remaining).toBe(1199);
   render(p, 1199);
-  expect(p.voices.get(1).gain).toBe(2);
-  expect(p.voices.get(1).osc.timbre).toBe(0.1);
+  expect(p.voices.get(1).gain).toBe(4);
+  expect(p.voices.get(1).osc.timbre).toBe(0.25);
   send(p, { command: "stop", id: 1, velocity: 127 });
   render(p, 1199);
   expect(p.voices.has(1)).toBe(true);
@@ -108,19 +108,19 @@ it("makes fast attacks and releases four times quicker only when velocity is ena
 it("curves velocity effects toward the extremes while retaining the central envelope times", () => {
   const p = new Processor();
   send(p, { command: "controls", controls: { velocity: true } });
-  expect(p.envelopeTime(100, 0)).toBe(200);
+  expect(p.envelopeTime(100, 0)).toBe(400);
   expect(p.envelopeTime(100, 64)).toBe(100);
   expect(p.envelopeTime(100, 127)).toBe(25);
-  expect(p.envelopeTime(100, 32)).toBe(112.5);
+  expect(p.envelopeTime(100, 32)).toBe(137.5);
   expect(p.envelopeTime(100, 96)).toBeGreaterThan(90);
-  expect(p.attackLevel({ velocity: 0 })).toBeCloseTo(0.25);
+  expect(p.attackLevel({ velocity: 0 })).toBeCloseTo(.25);
   expect(p.attackLevel({ velocity: 64 })).toBe(1);
-  expect(p.attackLevel({ velocity: 127 })).toBe(2);
+  expect(p.attackLevel({ velocity: 127 })).toBe(4);
   expect(p.envelopeTime(0, 0)).toBe(0);
   send(p, { command: "controls", controls: { attack: 100, release: 100, velocity: true, releaseVelocity: true } });
   send(p, { command: "start", id: 1, frequency: 440, velocity: 0 });
-  render(p, 9600);
-  expect(p.voices.get(1).gain).toBe(0.25);
+  render(p, 19200);
+  expect(p.voices.get(1).gain).toBeCloseTo(.25);
   send(p, { command: "stop", id: 1, velocity: 0 });
   render(p, 19199);
   expect(p.voices.has(1)).toBe(true);
@@ -135,10 +135,10 @@ it("generates YZ per voice on the audio clock, ignores raw timbre, and clears wi
   render(p, 2000);
   expect(p.voices.get(1).generatedValues.timbre).toBeCloseTo(69 / 127);
   expect(p.voices.get(2).generatedValues.timbre).toBeCloseTo(83 / 127);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127 - 0.1 + 0.1 * 100 / 127);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127 - 0.1 + 0.25 * ((100 - 64) / 63) * (.5 + .5 * (100 - 64) / 63));
   send(p, { command: "expression", id: 1, timbre: 1 });
   render(p, 2000);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127 - 0.1 + 0.1 * 100 / 127);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.25 + 0.2 * 69 / 127 - 0.1 + 0.25 * ((100 - 64) / 63) * (.5 + .5 * (100 - 64) / 63));
   send(p, { command: "expression", id: 1, pressure: 1 });
   render(p, 4000);
   expect(p.voices.get(1).generatedValues.timbre).toBe(1);
@@ -160,11 +160,11 @@ it.each([[0, .2], [.25, .225], [.5, .25], [.75, .3], [1, .35]])(
     expect(p.voices.get(1).osc.timbre).toBeCloseTo(expected, 12);
   },
 );
-it.each([[0, .31], [.3, .61], [.6, .91], [-.1, .21]])(
+it.each([[0, .31], [.3, .535], [.6, .76], [-.1, .285]])(
   "retains full pressure bite during a held timbre envelope of amount %f", (amount, expected) => {
     const p = new Processor();
     send(p, { command: "controls", controls: { timbre: .25, pressure: true,
-      timbreAmount: amount, timbreAttack: 0, timbreDecay: 0, timbreSustain: 1 } });
+      timbreAmount: amount, timbreAttack: 0, timbreDecay: 0, timbreSustain: amount } });
     send(p, { command: "start", id: 1, frequency: 440, pressure: .04 });
     render(p);
     expect(p.voices.get(1).osc.timbre).toBeCloseTo(expected, 12);
@@ -177,7 +177,7 @@ it("retains the pressure bite as the held timbre envelope decays to zero", () =>
     timbreAmount: .6, timbreAttack: 0, timbreDecay: 100, timbreSustain: 0 } });
   send(p, { command: "start", id: 1, frequency: 440, pressure: .04 });
   render(p, 1);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(.91, 12);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(.76, 12);
   render(p, 6000);
   expect(p.voices.get(1).timbreEnvelope.gain).toBe(0);
   expect(p.voices.get(1).osc.timbre).toBeCloseTo(.31, 12);
@@ -185,11 +185,11 @@ it("retains the pressure bite as the held timbre envelope decays to zero", () =>
 it.each([-.2, .2])("retains additive pressure bite at release with timbre envelope amount %f", amount => {
   const p = new Processor();
   send(p, { command: "controls", controls: { timbre: .5, pressure: true, release: 300,
-    timbreAmount: amount, timbreAttack: 0, timbreDecay: 0, timbreSustain: 1, timbreRelease: 100 } });
+    timbreAmount: amount, timbreAttack: 0, timbreDecay: 0, timbreSustain: amount, timbreRelease: 100 } });
   send(p, { command: "start", id: 1, frequency: 440, pressure: .04 });
   render(p, 1);
   const voice = p.voices.get(1), pressureGain = voice.expressionGain;
-  const held = .5 + amount + .06;
+  const held = .5 + amount * .5 + .06;
   expect(voice.osc.timbre).toBeCloseTo(held, 12);
   p.apply({ command: "stop", id: 1, velocity: 64, frame: p.frame });
   expect(voice.osc.timbre).toBeCloseTo(held, 12);

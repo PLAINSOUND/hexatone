@@ -1,7 +1,15 @@
 import { Fragment } from "preact";
 import PropTypes from "prop-types";
 import CustomRangeSlider from "./shared/range-slider.jsx";
+import { DSF_AMOUNT_ROUTES, modulationRouteDescription } from "../dsf_synth/modulation.js";
 import { DSF_DEFAULTS, dsfControlsFromSettings, dsfEnvelopeStep } from "../dsf_synth/controls.js";
+
+const FADER_HELP = Object.freeze({
+  ...Object.fromEntries(DSF_AMOUNT_ROUTES.map(route => [route.control, modulationRouteDescription(route.control)])),
+  timbreAmount: "Attack peak offset relative to the Timbre setting. −100% reaches 0, +100% reaches 1, and 0% stays at the base setting. Sustain is independent; release returns to base.",
+  timbreSustain: "Independent sustain offset relative to the Timbre setting: −100% reaches 0, +100% reaches 1, and 0% stays at base. Can lie above or below the peak.",
+  iso226: "Relative level compensation by note fundamental, based on the ISO 226:2023 60-phon contour with a gentle 80–200 Hz reduction. 0% is off; 100% applies the full contour and level trim. Intermediate amounts scale the adjustment in decibels. Not calibrated SPL or a per-harmonic EQ.",
+});
 
 export default function DsfSettings({ settings, onChange }) {
   const controls = dsfControlsFromSettings(settings);
@@ -13,22 +21,22 @@ export default function DsfSettings({ settings, onChange }) {
     ["volume", "Volume", 0, 1, 0.01, `${Math.round(controls.volume * 100)}%`],
     ["iso226", "ISO-226 compensation amount", 0, 1, 0.01, `${Math.round(controls.iso226 * 100)}%`],
     ["attack", "Attack", 0, 2000, dsfEnvelopeStep, `${controls.attack} ms`],
-    ["decay", "Decay", 0, 4000, dsfEnvelopeStep, `${controls.decay} ms`],
+    ["decay", "Decay", 0, 5000, dsfEnvelopeStep, `${controls.decay} ms`],
     ["sustain", "Sustain", 0, 2, 0.01, `${Math.round(controls.sustain * 100)}%`],
     ["release", "Release", 0, 4000, dsfEnvelopeStep, `${controls.release} ms`],
     ["partials", "Number of harmonic partials", 1, 1024, 1, controls.partials],
-    ["timbre", "Timbre", 0, 1, 0.001, `${Math.round(controls.timbre * 100)}%`],
-    ["timbreAmount", "Timbre envelope amount", -1, 1, 0.01, `${Math.round(controls.timbreAmount * 100)}%`],
+    ["timbre", "Timbre", 0, 1, 0.001, controls.timbre.toFixed(2)],
+    ["timbreAmount", "Timbre peak offset", -1, 1, 0.01, `${Math.round(controls.timbreAmount * 100)}%`],
     ["timbreAttack", "Timbre attack", 0, 2000, dsfEnvelopeStep, `${controls.timbreAttack} ms`],
-    ["timbreDecay", "Timbre decay", 0, 4000, dsfEnvelopeStep, `${controls.timbreDecay} ms`],
-    ["timbreSustain", "Timbre sustain", 0, 2, 0.01, `${Math.round(controls.timbreSustain * 100)}%`],
+    ["timbreDecay", "Timbre decay", 0, 5000, dsfEnvelopeStep, `${controls.timbreDecay} ms`],
+    ["timbreSustain", "Timbre sustain offset", -1, 1, 0.01, `${Math.round(controls.timbreSustain * 100)}%`],
     ["timbreRelease", "Timbre release", 0, 4000, dsfEnvelopeStep, `${controls.timbreRelease} ms`],
   ];
   const volumeKeys = ["attack", "decay", "sustain", "release"];
   const timbreKeys = ["timbreAmount", "timbreAttack", "timbreDecay", "timbreSustain", "timbreRelease"];
   const timeKeys = ["attack", "decay", "release", "timbreAttack", "timbreDecay", "timbreRelease"];
   const renderFader = ([key, label, min, max, step, display]) => <label
-    title={key === "timbreAmount" ? "Adds an independent ADSR envelope to the base timbre. Positive amounts brighten; negative amounts darken. 0% disables the envelope. The resulting timbre is limited to 0–100%." : key === "iso226" ? "Relative level compensation by note fundamental, based on the ISO 226:2023 60-phon contour with a gentle 80–200 Hz reduction. 0% is off; 100% applies the full contour and level trim. Intermediate amounts scale the adjustment in decibels. Not calibrated SPL or a per-harmonic EQ." : timeKeys.includes(key) ? "Hold Shift while dragging for fine adjustment." : undefined}>
+    title={FADER_HELP[key] ?? (timeKeys.includes(key) ? "Hold Shift while dragging for fine adjustment." : undefined)}>
     {label}<span class="sidebar-input settings-form__range-row">
       <CustomRangeSlider ariaLabel={`DSF ${label}`} min={min} max={max} step={step}
         exponent={key === "partials" ? 2 : 1}
@@ -61,27 +69,20 @@ export default function DsfSettings({ settings, onChange }) {
         {((fader[0] === "iso226" && !controls.volumeEnvelope) ||
           (fader[0] === "timbre" && !controls.timbreEnvelope)) && <hr class="dsf-envelope-divider" />}
       </Fragment>)}
-      <label class="settings-form__checkbox-row" title="Note-on velocity changes volume and timbre. Volume attack ranges from twice to one-quarter of the fader time, with MIDI 64 unchanged.">
-        <input type="checkbox" name="dsf_velocity" checked={controls.velocity}
-          onChange={event => save("dsf_velocity", event.currentTarget.checked)} />
-        Velocity
-      </label>
-      <label class="settings-form__checkbox-row" title="Release velocity scales volume release from four times to one-quarter of its fader time, and timbre release from twice to 0.025 times. MIDI 64 leaves both unchanged. When off, both use their fader times.">
-        <input type="checkbox" name="dsf_releaseVelocity" checked={controls.releaseVelocity}
-          onChange={event => save("dsf_releaseVelocity", event.currentTarget.checked)} />
-        Release Velocity
-      </label>
-      <label class="settings-form__checkbox-row" title="Pressure adds up to 12 dB, mostly toward full pressure. Light pressure adds up to 6 percentage points of timbre bite, fading along an S-curve by 30% pressure.">
+      {DSF_AMOUNT_ROUTES.map(({ control, label }) => <Fragment key={control}>
+        {renderFader([control, label, 0, 1, 0.01, `${Math.round(controls[control] * 100)}%`])}
+      </Fragment>)}
+      <label class="settings-form__checkbox-row" title={modulationRouteDescription("pressure")}>
         <input type="checkbox" name="dsf_pressure" checked={controls.pressure}
           onChange={event => save("dsf_pressure", event.currentTarget.checked)} />
         Pressure (Z)
       </label>
-      <label class="settings-form__checkbox-row" title="Expression Y shifts timbre by −5 percentage points at minimum, 0 at halfway and +10 at maximum. The total is limited to 0–100%.">
+      <label class="settings-form__checkbox-row" title={modulationRouteDescription("timbreResponse")}>
         <input type="checkbox" name="dsf_timbreResponse" checked={controls.timbreResponse}
           onChange={event => save("dsf_timbreResponse", event.currentTarget.checked)} />
         Expression (Y)
       </label>
-      <label class={`settings-form__checkbox-row${!controls.velocity || !controls.pressure ? " settings-form__dimmed" : ""}`} title="Requires Velocity and Pressure. Generates timbre and pressure from velocity and aftertouch using the Eagan Matrix output mapping. Overrides incoming timbre while enabled.">
+      <label class={`settings-form__checkbox-row${!controls.velocity || !controls.pressure ? " settings-form__dimmed" : ""}`} title="Requires a nonzero velocity amount and Pressure. Generates timbre and pressure from velocity and aftertouch using the Eagan Matrix output mapping. Overrides incoming timbre while enabled.">
         <input type="checkbox" name="dsf_generateYZ" checked={controls.generateYZ}
           disabled={!controls.velocity || !controls.pressure}
           onChange={event => save("dsf_generateYZ", event.currentTarget.checked)} />

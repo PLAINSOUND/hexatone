@@ -81,7 +81,7 @@ it("matches the finite cosine sum at the endpoints and near its singularity", as
 it("matches the compensated trapezoidal harmonic reference without DC drift", () => {
   const osc = new DsfOscillator(48000);
   osc.configure(250, .5, 8);
-  const r = 1 - (1 - .5) ** 2, step = 2 * Math.PI * 250 / (48000 * 4);
+  const r = osc.balance, step = 2 * Math.PI * 250 / (48000 * 4);
   let mean = 0;
   for (let i = 0; i < 192 * 20; i++) {
     let expected = 0;
@@ -109,7 +109,7 @@ it.each([44100, 48000, 96000])("preserves the integrated waveform through cached
     osc.configure(55, timbre, 1024);
     expect(osc.pitchKernel).toBe(kernel);
     expect(osc.phase).toBe(phase);
-    const step = 2 * Math.PI * 55 / (rate * 4), r = 1 - (1 - timbre) ** 2;
+    const step = 2 * Math.PI * 55 / (rate * 4), r = osc.balance;
     for (let i = 0; i < 80; i++) {
       let expected = 0;
       for (let n = 1; n <= osc.harmonics; n++) expected += r ** (n - 1) *
@@ -132,4 +132,64 @@ it("shares immutable pitch coefficients between copies and replaces them on retu
   const state = { ...copy };
   expect(copy.configure(110, .8, 128)).toBe(true);
   expect({ ...copy }).toEqual(state);
+});
+it("gently darkens the midpoint while preserving monotonic brightness and endpoints", () => {
+  const osc = new DsfOscillator(48000);
+  osc.configure(110, 0, 1024);
+  expect(osc.balance).toBe(0);
+  expect(osc.factor).toBe(1);
+  osc.configure(110, .5, 1024);
+  expect(osc.balance).toBeCloseTo(1 - .53 ** (2 * Math.log(.33) / Math.log(.5)), 14);
+  let previous = 0;
+  for (let n = 1; n <= 100; n++) {
+    osc.configure(110, n / 100, 1024);
+    expect(osc.balance).toBeGreaterThan(previous);
+    expect(osc.balance).toBeLessThanOrEqual(1);
+    if (n < 100) expect(osc.balance).toBeGreaterThan(1 - (1 - n / 100) ** 2);
+    previous = osc.balance;
+  }
+  expect(osc.balance).toBe(1);
+});
+it("retains the sinusoidal end correction alongside the gentle midpoint dip", () => {
+  const osc = new DsfOscillator(48000);
+  const exponent = 2 * Math.log(.33) / Math.log(.5);
+  osc.configure(110, .25, 1024);
+  expect(osc.balance).toBeGreaterThan(1 - .75 ** exponent);
+  osc.configure(110, .75, 1024);
+  expect(osc.balance).toBeLessThan(1 - .25 ** exponent);
+  osc.configure(110, .5, 1024);
+  expect(osc.balance).toBeCloseTo(1 - .53 ** exponent, 14);
+});
+it("spreads few-partial brightness across the timbre range and retains both endpoints", () => {
+  const osc = new DsfOscillator(48000);
+  let previousMidpoint = 0;
+  for (const partials of [2, 4, 8, 16]) {
+    osc.configure(110, .5, partials);
+    expect(osc.balance).toBeGreaterThan(previousMidpoint);
+    previousMidpoint = osc.balance;
+    if (partials === 2) {
+      expect(osc.balance).toBeGreaterThan(.32);
+      expect(osc.balance).toBeLessThan(.34);
+    }
+    osc.configure(110, 0, partials);
+    expect(osc.balance).toBe(0);
+    expect(osc.factor).toBe(1);
+    osc.configure(110, 1, partials);
+    expect(osc.balance).toBe(1);
+  }
+  osc.configure(110, .5, 64);
+  expect(osc.balance).toBe(previousMidpoint);
+});
+it("bases timbre adaptation on sounding partials after the Nyquist cap", () => {
+  const low = new DsfOscillator(48000), high = new DsfOscillator(48000);
+  low.configure(110, .5, 2);
+  high.configure(8000, .5, 1024);
+  expect(high.harmonics).toBe(2);
+  expect(high.balance).toBe(low.balance);
+});
+it("keeps a single partial independent of timbre", () => {
+  const sine = new DsfOscillator(48000), bright = new DsfOscillator(48000);
+  sine.configure(110, 0, 1);
+  bright.configure(110, 1, 1);
+  for (let n = 0; n < 1000; n++) expect(bright.nextSample()).toBe(sine.nextSample());
 });

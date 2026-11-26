@@ -181,3 +181,27 @@ it.each([["false", null, false], ["true", null, true], ["false", "true", true], 
     }
   },
 );
+
+it("migrates the old velocity switch and restores independent amounts", async () => {
+  const keys = ["dsf_velocity", "dsf_velocityVolume", "dsf_velocityTimbre", "dsf_velocityAttack"];
+  const previous = keys.map(key => localStorage.getItem(key));
+  try {
+    localStorage.setItem("dsf_velocity", "false");
+    localStorage.removeItem("dsf_velocityVolume");
+    localStorage.removeItem("dsf_velocityTimbre");
+    localStorage.removeItem("dsf_velocityAttack");
+    vi.resetModules();
+    let defaults = (await import("./session-defaults.js")).default;
+    expect(defaults.dsf_velocityVolume).toBe(0);
+    expect(defaults.dsf_velocityTimbre).toBe(0);
+    expect(defaults.dsf_velocityAttack).toBe(0);
+    localStorage.setItem("dsf_velocityVolume", "0.35");
+    localStorage.setItem("dsf_velocityTimbre", "1");
+    vi.resetModules();
+    defaults = (await import("./session-defaults.js")).default;
+    expect(defaults.dsf_velocityVolume).toBe(.35);
+    expect(defaults.dsf_velocityTimbre).toBe(1);
+  } finally {
+    keys.forEach((key, i) => previous[i] === null ? localStorage.removeItem(key) : localStorage.setItem(key, previous[i]));
+  }
+});

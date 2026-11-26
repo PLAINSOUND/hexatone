@@ -11,7 +11,7 @@ beforeEach(async () => {
   await import("./dsf-processor.js");
   const Base = Processor;
   Processor = class extends Base {
-    constructor() { super(); this.controls = { ...neutral }; this.volume = neutral.volume; }
+    constructor() { super(); this.controls = { ...neutral }; this.prepareControls(); this.volume = neutral.volume; }
   };
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -79,7 +79,7 @@ it("can opt into velocity response and limits ISO bass gain", () => {
   send(p, { command: "start", id: 1, frequency: 50, velocity: 64 });
   render(p, 576);
   expect(p.voices.get(1).gain).toBeCloseTo(1, 10);
-  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0.1 * 64 / 127, 10);
+  expect(p.voices.get(1).osc.timbre).toBeCloseTo(0, 10);
   expect(p.voices.get(1).compensation).toBeCloseTo(.85 * 10 ** (12 / 20), 10);
 });
 it("softens ISO output at its reference frequency and restores ordinary gain when disabled", () => {
@@ -406,16 +406,16 @@ it("cancels a superseded pending spectral change when expression returns to the 
 it("runs timbre ADSR independently of volume and releases from its current value", () => {
   const p = new Processor();
   send(p, { command: "controls", controls: { timbreAmount: .5, timbreAttack: 10,
-    timbreDecay: 20, timbreSustain: .5, timbreRelease: 10, release: 80 } });
+    timbreDecay: 20, timbreSustain: .25, timbreRelease: 10, release: 80 } });
   send(p, { command: "start", id: 1, frequency: 440 });
   render(p, 480);
   const voice = p.voices.get(1), env = voice.timbreEnvelope;
   expect(env.stage).toBe("decay");
-  expect(env.gain).toBe(1);
+  expect(env.gain).toBe(.5);
   expect(voice.gain).toBe(1);
   render(p, 480);
-  expect(env.gain).toBeGreaterThan(.5);
-  expect(env.gain).toBeLessThan(.6);
+  expect(env.gain).toBeGreaterThan(.25);
+  expect(env.gain).toBeLessThan(.3);
   const level = env.gain;
   p.apply({ command: "stop", id: 1, frame: p.frame });
   expect(env.gain).toBe(level);
@@ -427,11 +427,11 @@ it("runs timbre ADSR independently of volume and releases from its current value
   render(p, 3360);
   expect(p.voices.has(1)).toBe(false);
 });
-it.each([[.25, .5, .75], [.25, -.5, 0], [.75, .5, 1], [.75, -.5, .25]])(
-  "combines base timbre %f with envelope amount %f and clamps to %f", (base, amount, expected) => {
+it.each([[.25, .5, .625], [.25, -.5, .125], [.75, .5, .875], [.75, -.5, .375], [.25, -1, 0], [.25, 1, 1]])(
+  "maps base timbre %f and signed offset %f to %f", (base, amount, expected) => {
     const p = new Processor();
     send(p, { command: "controls", controls: { timbre: base, timbreAmount: amount,
-      timbreAttack: 0, timbreDecay: 0, timbreSustain: 1 } });
+      timbreAttack: 0, timbreDecay: 0, timbreSustain: amount } });
     send(p, { command: "start", id: 1, frequency: 440 });
     expect([...render(p, 1)].every(Number.isFinite)).toBe(true);
     const voice = p.voices.get(1);
@@ -450,8 +450,8 @@ it("leaves disabled timbre envelopes inert and smooths enabling/disabling on hel
   render(p, 1000);
   expect(transition).not.toHaveBeenCalled();
   send(p, { command: "controls", controls: { timbreAmount: .5, timbreAttack: 0,
-    timbreDecay: 0, timbreSustain: 1 } });
-  expect(voice.timbreEnvelope.gain).toBe(1);
+    timbreDecay: 0, timbreSustain: .5 } });
+  expect(voice.timbreEnvelope.gain).toBe(.5);
   expect(voice.transitionRemaining).toBe(480);
   render(p, 480);
   expect(voice.osc.timbre).toBe(.5);
@@ -470,7 +470,7 @@ it("samples timbre targets at a bounded rate without touching ISO or pressure ra
   const voice = p.voices.get(1), compensation = vi.spyOn(p, "compensationFor");
   const expressiveGain = vi.spyOn(p, "expressiveGain"), configure = vi.spyOn(voice.osc, "configure");
   render(p, 4799);
-  expect(voice.timbreEnvelope.gain).toBe(1);
+  expect(voice.timbreEnvelope.gain).toBe(.5);
   expect(voice.timbreEnvelope.stage).toBe("decay");
   expect(configure.mock.calls.length).toBeGreaterThan(0);
   expect(configure.mock.calls.length).toBeLessThanOrEqual(12);
@@ -487,7 +487,7 @@ it("updates timbre sustain without restarting volume or affecting other notes' e
   send(p, { command: "start", id: 2, frequency: 660 });
   render(p, 240);
   const second = p.voices.get(2);
-  expect(second.timbreEnvelope.gain).toBeCloseTo(.75, 10);
+  expect(second.timbreEnvelope.gain).toBeCloseTo(.375, 10);
   send(p, { command: "controls", controls: { ...p.controls, timbreSustain: .5 } });
   expect(second.timbreEnvelope.remaining).toBe(240);
   expect(first.gain).toBe(1);
@@ -518,7 +518,7 @@ it("bypasses volume ADSR without losing its saved settings or disabling timbre A
   render(p, 216);
   expect(voice.gain).toBe(1);
   expect(voice.stage).toBe("sustain");
-  expect(voice.timbreEnvelope.gain).toBeCloseTo(.75, 10);
+  expect(voice.timbreEnvelope.gain).toBeCloseTo(.375, 10);
   expect(p.controls.attack).toBe(2000);
   expect(p.controls.release).toBe(4000);
   send(p, { command: "stop", id: 1 });
@@ -546,7 +546,7 @@ it("smoothly bypasses volume ADSR on a held note and restores it from the curren
 it("bypasses timbre ADSR while preserving its amount and the volume envelope", () => {
   const p = new Processor();
   send(p, { command: "controls", controls: { timbreEnvelope: false, timbreAmount: .75,
-    timbreAttack: 0, timbreDecay: 0, timbreSustain: 1, attack: 10 } });
+    timbreAttack: 0, timbreDecay: 0, timbreSustain: .75, attack: 10 } });
   send(p, { command: "start", id: 1, frequency: 440 });
   render(p, 240);
   const voice = p.voices.get(1);
@@ -561,7 +561,7 @@ it("bypasses timbre ADSR while preserving its amount and the volume envelope", (
   expect(voice.osc.timbre).toBe(0);
   expect(p.controls.timbreAmount).toBe(.75);
 });
-it.each([[0, 9600], [64, 4800], [127, 120]])(
+it.each([[0, 19200], [64, 4800], [127, 1200]])(
   "scales timbre release with release velocity %i to %i samples", (velocity, samples) => {
     const p = new Processor();
     send(p, { command: "controls", controls: { velocity: true, releaseVelocity: true, release: 4000,
@@ -602,7 +602,7 @@ it("allows release velocity with note-on velocity disabled", () => {
   expect(voice.gain).toBe(1);
   p.apply({ command: "stop", id: 1, velocity: 127, frame: p.frame });
   expect(voice.remaining).toBe(1200);
-  expect(voice.timbreEnvelope.remaining).toBe(120);
+  expect(voice.timbreEnvelope.remaining).toBe(1200);
 });
 it("allows note-on velocity with release velocity disabled", () => {
   const p = new Processor();
@@ -612,8 +612,143 @@ it("allows note-on velocity with release velocity disabled", () => {
   send(p, { command: "start", id: 1, frequency: 440, velocity: 127 });
   render(p, 1);
   const voice = p.voices.get(1);
-  expect(voice.gain).toBe(2);
+  expect(voice.gain).toBe(4);
   p.apply({ command: "stop", id: 1, velocity: 127, frame: p.frame });
   expect(voice.remaining).toBe(4800);
   expect(voice.timbreEnvelope.remaining).toBe(4800);
+});
+
+it("scales velocity volume and timbre independently and updates held voices", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { velocityVolume: 1, velocityTimbre: 0 } });
+  expect(p.attackLevel({ velocity: 0 })).toBeCloseTo(.25, 12);
+  expect(p.attackLevel({ velocity: 64 })).toBe(1);
+  expect(p.attackLevel({ velocity: 127 })).toBe(4);
+  send(p, { command: "start", id: 1, frequency: 440, velocity: 127 });
+  render(p, 1);
+  const voice = p.voices.get(1);
+  expect(voice.gain).toBe(4);
+  expect(voice.osc.timbre).toBe(0);
+  const configure = vi.spyOn(voice.osc, "configure");
+  send(p, { command: "controls", controls: { velocityVolume: .5, velocityTimbre: 0 } });
+  render(p, 480);
+  expect(voice.gain).toBe(2.5);
+  expect(configure).not.toHaveBeenCalled();
+  send(p, { command: "controls", controls: { velocityVolume: 0, velocityTimbre: .5 } });
+  render(p, 480);
+  expect(voice.gain).toBe(1);
+  expect(voice.osc.timbre).toBe(.125);
+  send(p, { command: "controls", controls: { velocityVolume: 0, velocityTimbre: 1 } });
+  render(p, 480);
+  expect(voice.osc.timbre).toBe(.25);
+});
+
+it("centres velocity timbre at MIDI 64 and scales both signed endpoints", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbre: .5, velocityVolume: 0, velocityTimbre: 1 } });
+  for (const [velocity, expected] of [[0, .25], [32, .40625], [64, .5], [95.5, .59375], [127, .75]])
+    expect(p.timbreFor({ velocity, pressure: 0, timbre: .5 })).toBeCloseTo(expected, 12);
+  send(p, { command: "controls", controls: { timbre: .5, velocityVolume: 0, velocityTimbre: .5 } });
+  expect(p.timbreFor({ velocity: 0, pressure: 0, timbre: .5 })).toBeCloseTo(.375, 12);
+  expect(p.timbreFor({ velocity: 127, pressure: 0, timbre: .5 })).toBeCloseTo(.625, 12);
+});
+
+it.each([[0, 1, 4], [64, 1, 1], [127, 1, .25], [0, .5, 2.5], [127, .5, .625], [0, 0, 1], [127, 0, 1]])(
+  "scales both enabled ADSR attacks at velocity %i and amount %f by %f", (velocity, amount, factor) => {
+    const p = new Processor();
+    send(p, { command: "controls", controls: { velocityVolume: 0, velocityTimbre: 0,
+      velocityAttack: amount, attack: 10, timbreAttack: 20, timbreAmount: .5 } });
+    send(p, { command: "start", id: 1, frequency: 440, velocity });
+    render(p, 1);
+    const voice = p.voices.get(1);
+    expect(voice.remaining).toBe(480 * factor - 1);
+    expect(voice.timbreEnvelope.remaining).toBe(960 * factor - 1);
+    expect(p.attackLevel(voice)).toBe(1);
+  },
+);
+it("keeps zero attacks immediate and envelope bypass attacks fixed with velocity attack enabled", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { velocityAttack: 1, attack: 0,
+    timbreAttack: 0, timbreDecay: 0, timbreSustain: 1, timbreAmount: .5 } });
+  send(p, { command: "start", id: 1, frequency: 440, velocity: 0 });
+  render(p, 1);
+  expect(p.voices.get(1).stage).toBe("sustain");
+  expect(p.voices.get(1).timbreEnvelope.stage).toBe("sustain");
+  send(p, { command: "controls", controls: { velocityAttack: 1, volumeEnvelope: false,
+    timbreEnvelope: false } });
+  send(p, { command: "start", id: 2, frequency: 440, velocity: 0 });
+  render(p, 1);
+  expect(p.voices.get(2).remaining).toBe(47);
+  expect(p.voices.get(2).timbreEnvelope).toBeFalsy();
+});
+
+it.each([[0, 1, 4, 4], [64, 1, 1, 1], [127, 1, .25, .25],
+  [0, .5, 2.5, 2.5], [127, .5, .625, .625], [0, 0, 1, 1], [127, 0, 1, 1]])(
+  "scales both releases at velocity %i and amount %f", (velocity, amount, volumeFactor, timbreFactor) => {
+    const p = new Processor();
+    send(p, { command: "controls", controls: { releaseVelocityRelease: amount,
+      release: 100, timbreRelease: 100, timbreAttack: 0, timbreDecay: 0,
+      timbreSustain: 1, timbreAmount: .5 } });
+    send(p, { command: "start", id: 1, frequency: 440 });
+    render(p, 1);
+    p.apply({ command: "stop", id: 1, velocity, frame: p.frame });
+    const voice = p.voices.get(1);
+    expect(voice.remaining).toBe(Math.round(4800 * volumeFactor));
+    expect(voice.timbreEnvelope.remaining).toBe(Math.round(4800 * timbreFactor));
+  },
+);
+
+it.each([[-1, 1, 0, 1], [1, -1, 1, 0], [-.5, .5, .125, .625]])(
+  "runs signed timbre peak %f and independent sustain %f back to base", (peak, sustain, peakTimbre, sustainTimbre) => {
+    const p = new Processor();
+    send(p, { command: "controls", controls: { timbre: .25, timbreAmount: peak,
+      timbreSustain: sustain, timbreAttack: 10, timbreDecay: 20, timbreRelease: 10, release: 100 } });
+    send(p, { command: "start", id: 1, frequency: 440 });
+    render(p, 1);
+    const voice = p.voices.get(1);
+    expect(voice.osc.timbre).toBe(.25);
+    render(p, 479);
+    expect(voice.timbreEnvelope.gain).toBe(peak);
+    expect(p.timbreFor(voice)).toBeCloseTo(peakTimbre, 12);
+    render(p, 960);
+    expect(voice.timbreEnvelope.stage).toBe("sustain");
+    expect(p.timbreFor(voice)).toBeCloseTo(sustainTimbre, 12);
+    p.apply({ command: "stop", id: 1, frame: p.frame });
+    expect(voice.timbreEnvelope.gain).toBe(sustain);
+    render(p, 480);
+    expect(voice.timbreEnvelope.gain).toBe(0);
+    expect(p.timbreFor(voice)).toBe(.25);
+    expect(p.voices.has(1)).toBe(true);
+  },
+);
+it("allows sustain movement with a zero peak and enabling it on a held note", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { timbre: .25, timbreAmount: 0, timbreSustain: 0 } });
+  send(p, { command: "start", id: 1, frequency: 440 });
+  render(p, 1);
+  const voice = p.voices.get(1);
+  expect(voice.timbreEnvelope).toBeUndefined();
+  send(p, { command: "controls", controls: { timbre: .25, timbreAmount: 0,
+    timbreSustain: -1, timbreAttack: 0, timbreDecay: 10 } });
+  expect(voice.timbreEnvelope).toBeTruthy();
+  render(p, 480);
+  expect(voice.timbreEnvelope.gain).toBe(-1);
+  expect(p.timbreFor(voice)).toBe(0);
+  expect(voice.gain).toBe(1);
+});
+
+it("keeps time-route amount changes independent of active envelope and spectrum clocks", () => {
+  const p = new Processor();
+  send(p, { command: "controls", controls: { velocityVolume: 0, velocityTimbre: 0,
+    velocityAttack: 0, releaseVelocityRelease: 0, attack: 100, timbreAttack: 100, timbreAmount: .5 } });
+  send(p, { command: "start", id: 1, frequency: 440, velocity: 127 });
+  render(p, 128);
+  const voice = p.voices.get(1), volumeRemaining = voice.remaining;
+  const timbreRemaining = voice.timbreEnvelope.remaining;
+  const envelope = vi.spyOn(p, "envelope"), configure = vi.spyOn(voice.osc, "configure");
+  send(p, { command: "controls", controls: { ...p.controls, velocityAttack: 1, releaseVelocityRelease: 1 } });
+  expect(voice.remaining).toBe(volumeRemaining);
+  expect(voice.timbreEnvelope.remaining).toBe(timbreRemaining);
+  expect(envelope).not.toHaveBeenCalled();
+  expect(configure).not.toHaveBeenCalled();
 });

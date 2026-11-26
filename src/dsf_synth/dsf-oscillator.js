@@ -1,4 +1,7 @@
 const TWO_PI = 2 * Math.PI;
+// Bring brightness forward without a steep onset near zero. This exponent
+// anchors the curve before the gentle midpoint darkening below.
+const TIMBRE_EXPONENT = 2 * Math.log(1 - 0.67) / Math.log(0.5);
 
 // Finite cosine DSF: sum(r^(n-1) cos(n*phase)), n=1..partials.
 // The recurrence fallback avoids cancellation at the geometric singularity.
@@ -51,8 +54,17 @@ export class DsfOscillator {
     this.frequency = frequency;
     this.timbre = timbre;
     this.partials = partials;
-    this.balance = 1 - (1 - timbre) ** 2;
+    // Retain the gentle S correction, with a small dip concentrated around
+    // the midpoint (−3 points). The dip and its slope vanish at both ends.
+    const middle = timbre * (1 - timbre);
+    const shapedTimbre = timbre + 0.06 * Math.sin(TWO_PI * timbre) - 0.48 * middle * middle;
     this.harmonics = Math.max(1, Math.min(partials, Math.floor(this.sampleRate * 0.45 / frequency)));
+    const baseBalance = 1 - (1 - shapedTimbre) ** TIMBRE_EXPONENT;
+    // Few-partial spectra otherwise approach their brightest shape too early.
+    // Spread their harmonic weights over more travel, tapering the correction
+    // to zero at 16 sounding partials. The 0/1 endpoints remain exact.
+    const partialCurve = this.harmonics > 1 ? Math.max(1, 16 / this.harmonics) : 1;
+    this.balance = baseBalance ** partialCurve;
     this.factor = this.balance === 0 || this.harmonics === 1 ? 1 : 4;
     this.endWeight = this.balance ** this.harmonics;
     if (!this.pitchKernel || this.pitchKernel.frequency !== frequency ||

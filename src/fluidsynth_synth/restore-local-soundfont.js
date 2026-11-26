@@ -1,4 +1,5 @@
 import { readOfflineSoundfont, soundfontStorageKey } from "./soundfont-storage.js";
+import { hostedSoundfontUrl, legacyLocalSoundfontKey } from "./soundfont-catalog.js";
 import { loadFluidSynthSoundFont, peekFluidSynthEngine } from "./index.js";
 
 export const LAST_SOUNDFONT_KEY = "fluidsynth_last_soundfont_source";
@@ -11,7 +12,7 @@ export async function restoreLocalSoundfont({ signal, preferredPreset } = {}) {
     source = JSON.parse(localStorage.getItem(LAST_SOUNDFONT_KEY) || "null");
     if (!source) {
       const name = localStorage.getItem("fluidsynth_last_hosted_soundfont");
-      if (name) source = { name, url: new URL(encodeURIComponent(name), "https://soundfonts.plainsound.org/").href };
+      if (name) source = { name, url: hostedSoundfontUrl(name) };
     }
   } catch { return null; }
   if (!source?.name) return null;
@@ -22,7 +23,10 @@ export async function restoreLocalSoundfont({ signal, preferredPreset } = {}) {
   signal?.throwIfAborted();
   if (!bank?.blob || peekFluidSynthEngine()?.soundfontId != null) return null;
   let savedPreset;
-  try { savedPreset = JSON.parse(localStorage.getItem("fluidsynth_bank_presets") || "{}")[key]; }
+  try {
+    const saved = JSON.parse(localStorage.getItem("fluidsynth_bank_presets") || "{}");
+    savedPreset = saved[key] ?? saved[legacyLocalSoundfontKey(key)];
+  }
   catch { /* Use the current preset preference. */ }
   const result = await loadFluidSynthSoundFont({
     name: source.name, url: source.url || "", arrayBuffer: () => bank.blob.arrayBuffer(),

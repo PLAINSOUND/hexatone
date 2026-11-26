@@ -20,7 +20,7 @@ it("replaces the ISO checkbox with a persisted percentage fader", () => {
 it("persists signed timbre envelope amount and independent zero-time stages", () => {
   const onChange = vi.fn();
   render(<DsfSettings settings={{ output_dsf: true }} onChange={onChange} />);
-  const amount = screen.getByRole("slider", { name: "DSF Timbre envelope amount" });
+  const amount = screen.getByRole("slider", { name: "DSF Timbre peak offset" });
   expect(amount.getAttribute("aria-valuenow")).toBe("0");
   fireEvent.keyDown(amount, { key: "Home" });
   expect(onChange).toHaveBeenLastCalledWith("dsf_timbreAmount", -1);
@@ -31,9 +31,9 @@ it("persists signed timbre envelope amount and independent zero-time stages", ()
     expect(localStorage.getItem(`dsf_${key}`)).toBe("0");
     localStorage.removeItem(`dsf_${key}`);
   }
-  const sustain = screen.getByRole("slider", { name: "DSF Timbre sustain" });
+  const sustain = screen.getByRole("slider", { name: "DSF Timbre sustain offset" });
   fireEvent.keyDown(sustain, { key: "End" });
-  expect(onChange).toHaveBeenLastCalledWith("dsf_timbreSustain", 2);
+  expect(onChange).toHaveBeenLastCalledWith("dsf_timbreSustain", 1);
   localStorage.removeItem("dsf_timbreSustain");
   localStorage.removeItem("dsf_timbreAmount");
 });
@@ -52,24 +52,24 @@ it("places each envelope under its fader and hides bypassed controls without era
   fireEvent.click(screen.getByRole("checkbox", { name: "Timbre ADSR" }));
   expect(onChange).toHaveBeenLastCalledWith("dsf_timbreEnvelope", false);
   view.rerender(<DsfSettings settings={{ ...settings, dsf_volumeEnvelope: false, dsf_timbreEnvelope: false }} onChange={onChange} />);
-  expect(screen.queryByRole("slider", { name: "DSF Timbre envelope amount" })).toBeNull();
+  expect(screen.queryByRole("slider", { name: "DSF Timbre peak offset" })).toBeNull();
   expect(screen.getByRole("slider", { name: "DSF Timbre" })).toBeTruthy();
   view.rerender(<DsfSettings settings={settings} onChange={onChange} />);
   expect(screen.getByRole("slider", { name: "DSF Attack" }).getAttribute("aria-valuenow")).toBe("75");
-  expect(Number(screen.getByRole("slider", { name: "DSF Timbre envelope amount" }).getAttribute("aria-valuenow"))).toBeCloseTo(.4, 12);
+  expect(Number(screen.getByRole("slider", { name: "DSF Timbre peak offset" }).getAttribute("aria-valuenow"))).toBeCloseTo(.4, 12);
   localStorage.removeItem("dsf_volumeEnvelope");
   localStorage.removeItem("dsf_timbreEnvelope");
 });
 it("saves release velocity independently from velocity", () => {
   const onChange = vi.fn();
   render(<DsfSettings settings={{ output_dsf: true, dsf_velocity: false, dsf_releaseVelocity: true }} onChange={onChange} />);
-  expect(screen.getByRole("checkbox", { name: "Velocity" }).checked).toBe(false);
-  const release = screen.getByRole("checkbox", { name: "Release Velocity" });
-  expect(release.checked).toBe(true);
-  fireEvent.click(release);
-  expect(onChange).toHaveBeenCalledExactlyOnceWith("dsf_releaseVelocity", false);
-  expect(localStorage.getItem("dsf_releaseVelocity")).toBe("false");
-  localStorage.removeItem("dsf_releaseVelocity");
+  expect(screen.getByRole("slider", { name: "DSF Velocity → Volume" }).getAttribute("aria-valuenow")).toBe("0");
+  const release = screen.getByRole("slider", { name: "DSF Release Velocity → Release" });
+  expect(release.getAttribute("aria-valuenow")).toBe("1");
+  fireEvent.keyDown(release, { key: "Home" });
+  expect(onChange).toHaveBeenCalledExactlyOnceWith("dsf_releaseVelocityRelease", 0);
+  expect(localStorage.getItem("dsf_releaseVelocityRelease")).toBe("0");
+  localStorage.removeItem("dsf_releaseVelocityRelease");
 });
 it.each([[false, true], [true, false], [false, false], [true, true]])(
   "makes Generate YZ available only with velocity %s and pressure %s", (velocity, pressure) => {
@@ -80,3 +80,34 @@ it.each([[false, true], [true, false], [false, false], [true, true]])(
     expect(checkbox.checked).toBe(velocity && pressure);
   },
 );
+
+it("persists separate 0–100% velocity amounts", () => {
+  const onChange = vi.fn();
+  render(<DsfSettings settings={{ output_dsf: true }} onChange={onChange} />);
+  expect(screen.queryByRole("checkbox", { name: "Velocity" })).toBeNull();
+  for (const [label, key] of [["Volume", "velocityVolume"], ["Timbre", "velocityTimbre"], ["Attack", "velocityAttack"]]) {
+    const slider = screen.getByRole("slider", { name: `DSF Velocity → ${label}` });
+    fireEvent.keyDown(slider, { key: "Home" });
+    expect(onChange).toHaveBeenLastCalledWith(`dsf_${key}`, 0);
+    expect(localStorage.getItem(`dsf_${key}`)).toBe("0");
+    fireEvent.keyDown(slider, { key: "End" });
+    expect(onChange).toHaveBeenLastCalledWith(`dsf_${key}`, 1);
+    localStorage.removeItem(`dsf_${key}`);
+  }
+});
+
+it("shows decimal base timbre and independent signed peak and sustain offsets", () => {
+  const onChange = vi.fn();
+  render(<DsfSettings settings={{ output_dsf: true, dsf_timbre: .25 }} onChange={onChange} />);
+  expect(screen.getByText("0.25")).toBeTruthy();
+  for (const [label, key] of [["Timbre peak offset", "timbreAmount"], ["Timbre sustain offset", "timbreSustain"]]) {
+    const slider = screen.getByRole("slider", { name: `DSF ${label}` });
+    expect(slider.getAttribute("aria-valuemin")).toBe("-1");
+    expect(slider.getAttribute("aria-valuemax")).toBe("1");
+    fireEvent.keyDown(slider, { key: "Home" });
+    expect(onChange).toHaveBeenLastCalledWith(`dsf_${key}`, -1);
+    fireEvent.keyDown(slider, { key: "End" });
+    expect(onChange).toHaveBeenLastCalledWith(`dsf_${key}`, 1);
+    localStorage.removeItem(`dsf_${key}`);
+  }
+});
