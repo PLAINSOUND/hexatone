@@ -110,7 +110,7 @@ export default defineConfig({
   build: {
     outDir: 'build',
     sourcemap: true,
-    chunkSizeWarningLimit: 600,
+    chunkSizeWarningLimit: 750,
     rolldownOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
