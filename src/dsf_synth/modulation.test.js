@@ -37,12 +37,12 @@ it("keeps disabled routes neutral while other sources remain active", () => {
   }
 });
 
-it("retains the current Y/Z ranges and pressure bite shoulders", () => {
-  const c = compileDsfModulation(normalizeDsfControls());
+it("retains the pressure range and increases the Expression Y range and pressure bite shoulders", () => {
+  const c = compileDsfModulation(normalizeDsfControls({ pressure: 1, timbreResponse: 1 }));
   for (let i = 0; i <= 100; i++) {
     const p = i / 100;
     expect(pressureGain(c, p)).toBeCloseTo(1 + 3 * p ** 3, 14);
-    expect(expressionYTimbre(c, p)).toBeCloseTo((p - .5) * (p < .5 ? .1 : .2), 14);
+    expect(expressionYTimbre(c, p)).toBeCloseTo((p - 64 / 127) * (p < 64 / 127 ? .5 / (64 / 127) : .75 / (63 / 127)), 14);
     const smooth = t => t * t * (3 - 2 * t);
     const bite = p <= 0 || p >= .3 ? 0 : p < .04
       ? .06 * smooth(p / .04) : .06 * (1 - smooth((p - .04) / .26));
@@ -56,6 +56,14 @@ it("keeps relative envelope offsets within the base timbre's available range", (
     expect(base + relativeTimbreOffset(base, 0)).toBe(base);
     expect(base + relativeTimbreOffset(base, 1)).toBe(1);
   }
+});
+it.each([0, .25, .5, 1])("scales Y/Z contributions independently at amount %f", amount => {
+  const c = compileDsfModulation(normalizeDsfControls({ pressure: amount, timbreResponse: amount }));
+  expect(pressureGain(c, 1)).toBe(1 + 3 * amount);
+  expect(pressureBite(c, .04)).toBeCloseTo(.06 * amount, 14);
+  expect(expressionYTimbre(c, 0)).toBeCloseTo(-.5 * amount, 14);
+  expect(expressionYTimbre(c, 64 / 127)).toBe(0);
+  expect(expressionYTimbre(c, 1)).toBeCloseTo(.75 * amount, 14);
 });
 
 it("allows a different response profile without changing source or renderer code", () => {

@@ -1,6 +1,6 @@
 import createFluidSynth from "./fluidsynth.js";
 
-const SOUNDFONT_CACHE_BUDGET = 256 * 1024 * 1024; // Estimated file + native sample bytes.
+const SOUNDFONT_CACHE_BUDGET = 512 * 1024 * 1024; // Estimated file + native sample bytes.
 const BANK_FADE_SECONDS = 0.04;
 const isAttack = event => event.command
   ? event.command.op === "on" && event.command.b > 0
@@ -23,6 +23,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     this.blockSize = 128;
     this.midiQueue = [];
     this.midiSequence = 0;
+    this.soundfontCacheBudget = options.processorOptions.soundfontCacheBudget === 256 * 1024 * 1024
+      ? 256 * 1024 * 1024 : SOUNDFONT_CACHE_BUDGET;
     this.latencyDiagnostics = !!options.processorOptions.latencyDiagnostics;
     this.diagnosticSilentFrames = 0;
     this.diagnosticOnsets = [];

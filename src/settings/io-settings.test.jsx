@@ -4,7 +4,8 @@ import { useEffect } from "preact/hooks";
 import { captureUserSound, saveUserSounds } from "../persistence/user-sounds.js";
 
 const mocks = vi.hoisted(() => ({ engine: { setVolume: vi.fn(), setReverb: vi.fn(), setSmoothing: vi.fn() }, unmount: vi.fn() }));
-vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => mocks.engine }));
+vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => mocks.engine,
+  subscribeFluidSynthEngine: () => () => {} }));
 vi.mock("./audio-diagnostics.jsx", () => ({ default: () => <div>Diagnostics</div> }));
 vi.mock("./dsf-settings.jsx", () => ({ default: function MockDsfSettings() {
   useEffect(() => () => mocks.unmount(), []);

@@ -3,8 +3,9 @@ import { applyIOReloadPolicy, IO_RESTORE_KEY, SOUND_RESTORE_KEY, MIDI_RESTORE_KE
 import { SETTINGS_REGISTRY } from "./settings-registry.js";
 
 describe("independent I/O reload policy", () => {
-  it("enables all available built-in backends by default, using local scsynth", () => {
-    for (const key of ["output_sample", "output_fluidsynth", "output_osc", "osc_local"])
+  it("leaves samples off and enables the other built-in backends, using local scsynth", () => {
+    expect(SETTINGS_REGISTRY.find((entry) => entry.key === "output_sample").default).toBe(false);
+    for (const key of ["output_dsf", "output_fluidsynth", "output_osc", "osc_local"])
       expect(SETTINGS_REGISTRY.find((entry) => entry.key === key).default).toBe(true);
   });
   beforeEach(() => {

@@ -62,10 +62,12 @@ const IOSettings = ({
 }) => {
   const [soundRevision, setSoundRevision] = useState(0);
   const [soundRecall, setSoundRecall] = useState(null);
+  const [, setWorkingSoundRevision] = useState(0);
+  const refreshWorkingSound = () => setWorkingSoundRevision(value => value + 1);
   const [restoreSounds, setRestoreSounds] = useState(() => restoreSoundOnReload());
   const [restoreMidi, setRestoreMidi] = useState(() => restoreMidiOnReload());
   return (
-    <div class={`io-settings${snapshots?.length ? " io-settings--with-transport" : ""}`} autoComplete="off" role="group" aria-label={panel === "midi" ? "MIDI settings" : "Sound settings"}>
+    <div class={`io-settings${snapshots?.length ? " io-settings--with-transport" : ""}`} data-canvas-keyboard-controls autoComplete="off" role="group" aria-label={panel === "midi" ? "MIDI settings" : "Sound settings"}>
       <div class="settings-form__reload-row settings-form__checkbox-row--sm io-settings__reload-row">
         <label class="settings-form__checkbox-row settings-form__reload-checkbox">
           <input
@@ -86,7 +88,7 @@ const IOSettings = ({
       {/* Pages is a production-optimised preview build, so DEV alone is false.
           Opt in at build time only; normal production builds keep this hidden. */}
       {panel === "sounds" && (import.meta.env.DEV || import.meta.env.VITE_AUDIO_DIAGNOSTICS === "true") && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} onRecreateContexts={onRecreateAudioContexts} onCycleContexts={onCycleAudioContexts} onRestartFluidSynthWorklet={onRestartFluidSynthWorklet} />}
-      <UserSounds settings={settings} oscBrightness={oscBrightness} onApply={sound => {
+      <UserSounds settings={settings} onApply={sound => {
         const updates = { ...sound.settings, fluidsynth_preset: sound.soundfont.preset };
         for (const [key, value] of Object.entries(updates)) {
           sessionStorage.setItem(key, String(value));
@@ -118,13 +120,13 @@ const IOSettings = ({
         onChange={onChange}
         settings={settings}
         instruments={instruments}
-        onVolumeChange={onVolumeChange}
+        onVolumeChange={value => { onVolumeChange?.(value); refreshWorkingSound(); }}
       />
-      <FluidSynthSettings settings={settings} onChange={onChange} soundRecall={soundRecall} />
+      <FluidSynthSettings settings={settings} onChange={onChange} soundRecall={soundRecall} onWorkingChange={refreshWorkingSound} />
       <SuperColliderSettings key={`scsynth-${soundRevision}`}
         settings={settings}
         onChange={onChange}
-        onOscLayerVolumeChange={onOscLayerVolumeChange}
+        onOscLayerVolumeChange={(...args) => { onOscLayerVolumeChange?.(...args); refreshWorkingSound(); }}
         oscBrightness={oscBrightness}
         onOscBrightnessChange={onOscBrightnessChange}
         onOscQuickReleaseChange={onOscQuickReleaseChange}

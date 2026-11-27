@@ -130,7 +130,7 @@ const Scale = (props) => {
   };
 
   return (
-    <fieldset class={hasMusicalSurface ? undefined : "settings-fieldset--blank-surface"}>
+    <fieldset data-canvas-keyboard-controls class={hasMusicalSurface ? undefined : "settings-fieldset--blank-surface"}>
       <legend>
         <b>Scale Settings</b>
         <button

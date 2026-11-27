@@ -398,12 +398,12 @@ export const SETTINGS_REGISTRY = [
   { key: "dsf_velocityAttack", tier: "local", type: "float", default: DSF_DEFAULTS.velocityAttack, perController: false },
   { key: "dsf_releaseVelocity", tier: "local", type: "bool", default: DSF_DEFAULTS.releaseVelocity, perController: false },
   { key: "dsf_releaseVelocityRelease", tier: "local", type: "float", default: DSF_DEFAULTS.releaseVelocityRelease, perController: false },
-  { key: "dsf_pressure", tier: "local", type: "bool", default: DSF_DEFAULTS.pressure, perController: false },
-  { key: "dsf_timbreResponse", tier: "local", type: "bool", default: DSF_DEFAULTS.timbreResponse, perController: false },
+  { key: "dsf_pressure", tier: "local", type: "float", default: DSF_DEFAULTS.pressure, perController: false },
+  { key: "dsf_timbreResponse", tier: "local", type: "float", default: DSF_DEFAULTS.timbreResponse, perController: false },
   { key: "dsf_iso226", tier: "local", type: "float", default: DSF_DEFAULTS.iso226, perController: false },
 
   // ── Sample synth ─────────────────────────────────────────────────────────────
-  { key: "output_sample", tier: "url", type: "bool", default: true },
+  { key: "output_sample", tier: "url", type: "bool", default: false },
   { key: "instrument", tier: "url", type: "string", default: "WMRIByzantineST" },
 
   // ── In-browser FluidSynth ───────────────────────────────────────────────────

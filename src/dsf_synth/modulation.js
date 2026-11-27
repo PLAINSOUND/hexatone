@@ -8,15 +8,15 @@ export const DSF_RESPONSE_PROFILE = Object.freeze({
   releaseVelocityRelease: Object.freeze({ low: 4, high: 0.25 }),
   pressureVolume: Object.freeze({ boost: 3, exponent: 3 }),
   pressureTimbre: Object.freeze({ depth: 0.06, peak: 0.04, end: 0.3 }),
-  expressionYTimbre: Object.freeze({ center: 0.5, low: -0.05, high: 0.1 }),
+  expressionYTimbre: Object.freeze({ center: 64 / 127, low: -0.5, high: 0.75 }),
 });
 
 const route = (control, label, source, destinations, operation, curve, timing) => Object.freeze({
   control, label, source, destinations: Object.freeze(destinations), operation, curve, timing,
 });
 
-// Source/destination vocabulary for future matrix editing. Only the first four
-// routes expose amount faders today; Y/Z retain their existing shared switches.
+// Source/destination vocabulary for future matrix editing. Pressure's volume
+// and bite routes share one amount; every other control has its own amount.
 export const DSF_MODULATION_ROUTES = Object.freeze([
   route("velocityVolume", "Velocity → Volume", "velocity", ["volume"], "multiply", "cubic", "note-on/live"),
   route("velocityTimbre", "Velocity → Timbre", "velocity", ["timbre"], "add", "gentle", "note-on/live"),
@@ -51,13 +51,13 @@ export function compileDsfModulation(controls, profile = DSF_RESPONSE_PROFILE) {
     timbreLinearWeight: profile.velocityTimbre.linearWeight,
     attack: multiplier(profile.velocityAttack, amount(controls, "velocityAttack", "velocity")),
     release: multiplier(profile.releaseVelocityRelease, amount(controls, "releaseVelocityRelease", "releaseVelocity")),
-    pressureBoost: controls.pressure ? profile.pressureVolume.boost : 0,
+    pressureBoost: controls.pressure * profile.pressureVolume.boost,
     pressureExponent: profile.pressureVolume.exponent,
-    biteDepth: controls.pressure ? profile.pressureTimbre.depth : 0,
+    biteDepth: controls.pressure * profile.pressureTimbre.depth,
     bitePeak: profile.pressureTimbre.peak,
     biteEnd: profile.pressureTimbre.end,
-    yLowSlope: controls.timbreResponse ? -profile.expressionYTimbre.low / profile.expressionYTimbre.center : 0,
-    yHighSlope: controls.timbreResponse ? profile.expressionYTimbre.high / (1 - profile.expressionYTimbre.center) : 0,
+    yLowSlope: controls.timbreResponse * -profile.expressionYTimbre.low / profile.expressionYTimbre.center,
+    yHighSlope: controls.timbreResponse * profile.expressionYTimbre.high / (1 - profile.expressionYTimbre.center),
     yCenter: profile.expressionYTimbre.center,
   };
 }
@@ -81,11 +81,11 @@ export function modulationRouteDescription(control, profile = DSF_RESPONSE_PROFI
   if (control === "pressure") {
     const boostDb = (20 * Math.log10(1 + profile.pressureVolume.boost)).toFixed(0);
     const bite = profile.pressureTimbre;
-    return `Pressure adds up to ${boostDb} dB, mostly toward full pressure. Light pressure adds up to ${bite.depth * 100} percentage points of timbre bite, fading along an S-curve by ${bite.end * 100}% pressure.`;
+    return `At 100%, pressure adds up to ${boostDb} dB, mostly toward full pressure. Light pressure adds up to ${bite.depth * 100} percentage points of timbre bite, fading along an S-curve by ${bite.end * 100}% pressure. At 0%, both routes are off.`;
   }
   if (control === "timbreResponse") {
     const range = profile.expressionYTimbre;
-    return `Expression Y shifts timbre by ${range.low * 100} percentage points at minimum, 0 at ${range.center * 100}% and +${range.high * 100} at maximum. The total is limited to 0–1.`;
+    return `At 100%, Expression Y moves base timbre ${-range.low * 100}% of the available range toward 0 at MIDI 0, leaves it unchanged at MIDI ${Math.round(range.center * 127)}, and moves it ${range.high * 100}% toward 1 at MIDI 127. The timbre envelope uses this adjusted base. At 0%, this route is off.`;
   }
   if (control === "velocityTimbre") {
     const depth = profile.velocityTimbre.depth * 100;

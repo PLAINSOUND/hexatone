@@ -1,9 +1,9 @@
 // Saved sound controls, shared by the UI, adapter and worklet.
 export const dsfEnvelopeStep = value => value <= 100 ? 1 : value <= 500 ? 5 : value <= 1000 ? 10 : 20;
-export const DSF_DEFAULTS = Object.freeze({ partials: 1024, timbre: 0.25, attack: 12, decay: 1500, sustain: 2, release: 120,
+export const DSF_DEFAULTS = Object.freeze({ partials: 1024, timbre: 0.25, attack: 12, decay: 1500, sustain: 1.5, release: 120,
   volumeEnvelope: true, timbreEnvelope: true,
-  timbreAmount: -0.3, timbreAttack: 500, timbreDecay: 2400, timbreSustain: -0.75, timbreRelease: 2,
-  volume: 0.25, velocity: true, velocityVolume: 0.5, velocityTimbre: 0.5, velocityAttack: 0.5, releaseVelocity: true, releaseVelocityRelease: 0.5, pressure: true, timbreResponse: true, iso226: 0 });
+  timbreAmount: -0.5, timbreAttack: 750, timbreDecay: 5000, timbreSustain: -0.75, timbreRelease: 2,
+  volume: 0.25, velocity: true, velocityVolume: 0.5, velocityTimbre: 0.5, velocityAttack: 0.5, releaseVelocity: true, releaseVelocityRelease: 0.5, pressure: 0.5, timbreResponse: 0.5, iso226: 0 });
 const bounded = (value, fallback, low, high) => Number.isFinite(Number(value))
   ? Math.max(low, Math.min(high, Number(value))) : fallback;
 const legacyAmount = (value, fallback) => value === false ? 0 : value === true ? 1 : fallback;
@@ -38,8 +38,8 @@ export function normalizeDsfControls(values = {}) {
     // each sound destination uses its independent compiled route amount.
     velocity, velocityVolume, velocityTimbre, velocityAttack,
     releaseVelocity: releaseVelocityRelease > 0, releaseVelocityRelease,
-    pressure: values.pressure === true,
-    timbreResponse: values.timbreResponse === true,
+    pressure: bounded(values.pressure === "true" ? 1 : values.pressure === "false" ? 0 : values.pressure, DSF_DEFAULTS.pressure, 0, 1),
+    timbreResponse: bounded(values.timbreResponse === "true" ? 1 : values.timbreResponse === "false" ? 0 : values.timbreResponse, DSF_DEFAULTS.timbreResponse, 0, 1),
     iso226: bounded(values.iso226 === "true" ? 1 : values.iso226 === "false" ? 0 : values.iso226, DSF_DEFAULTS.iso226, 0, 1),
   };
 }

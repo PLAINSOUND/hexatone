@@ -23,6 +23,7 @@ import { peekFluidSynthEngine } from "../fluidsynth_synth/index.js";
 import { traceAudioImport } from "../audio/runtime-diagnostics.js";
 import { dsfControlsFromSettings } from "../dsf_synth/controls.js";
 import { readSampleVolume } from "../audio/sample-volume.js";
+import { blocksCanvasKeyboard } from "../ui/canvas-keyboard-focus.js";
 import { detectController, getControllerById } from "../controllers/registry.js";
 import {
   applyControllerPresetAnchor,
@@ -1677,8 +1678,8 @@ const useSynthWiring = (
 
   useEffect(() => {
     const inputIsFocused = () => {
-      const tag = document.activeElement?.tagName;
-      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+      // Arrow keys continue to edit focused faders and choice menus.
+      return blocksCanvasKeyboard() || !!document.activeElement?.matches?.("select, input[type=range], [role=slider]");
     };
 
     const handleOctaveKeys = (e) => {

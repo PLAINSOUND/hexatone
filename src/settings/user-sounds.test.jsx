@@ -1,14 +1,104 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
 import { beforeEach, expect, it, vi } from "vitest";
 import UserSounds from "./user-sounds.jsx";
-import { loadUserSounds } from "../persistence/user-sounds.js";
-vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => null }));
-beforeEach(() => localStorage.clear());
+import { BUILTIN_USER_SOUNDS, loadUserSounds } from "../persistence/user-sounds.js";
+import { useState } from "preact/hooks";
+const fluidMock = vi.hoisted(() => ({ engine: null }));
+vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => fluidMock.engine,
+  subscribeFluidSynthEngine: () => () => {} }));
+beforeEach(() => { localStorage.clear(); fluidMock.engine = null; });
+
+it("keeps live Mod wheel movement clean while saved brightness edits remain dirty", () => {
+  localStorage.setItem("osc_brightness", "0.2");
+  const props = { settings: {}, onApply: vi.fn() };
+  const view = render(<UserSounds {...props} oscBrightness={0.2} />);
+  fireEvent.input(screen.getByLabelText("Sound name"), { target: { value: "Harpsichord" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  view.rerender(<UserSounds {...props} oscBrightness={1} />);
+  expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Save as copy" }));
+  expect(loadUserSounds()[1].settings.osc_brightness).toBe(0.2);
+  localStorage.setItem("osc_brightness", "0.7");
+  view.rerender(<UserSounds {...props} oscBrightness={0.7} />);
+  expect(screen.getByLabelText("Unsaved sound changes")).toBeTruthy();
+  localStorage.setItem("osc_brightness", "0.2");
+  view.rerender(<UserSounds {...props} oscBrightness={1} />);
+  expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
+});
+
+it.each(["Hammond", "Test Tone"])("recalls and reloads %s cleanly with a different SoundFont kept warm", soundName => {
+  fluidMock.engine = { soundfontSource: { name: "PlainsoundSrutibox.sf2" },
+    selectedPreset: { bank: 0, program: 3 }, volume: 100, reverb: 20,
+    smoothing: { pressureMs: 0, expressionMs: 0, minimumMs: 0 } };
+  const soundIndex = BUILTIN_USER_SOUNDS.findIndex(sound => sound.name === soundName);
+  function WorkingSound() {
+    const [settings, setSettings] = useState({});
+    return <>
+      <UserSounds settings={settings} onApply={sound => setSettings(sound.settings)} />
+      <button onClick={() => setSettings(current => ({ ...current, dsf_attack: 73 }))}>Edit attack</button>
+    </>;
+  }
+  render(<WorkingSound />);
+  fireEvent.change(screen.getByLabelText("User sounds"), { target: { value: `builtin:${soundIndex}` } });
+  expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
+  expect(screen.getByRole("option", { name: soundName })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Edit attack" }));
+  expect(screen.getByRole("option", { name: `${soundName} *` })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Reload selected sound" }));
+  expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
+  expect(screen.getByRole("option", { name: soundName })).toBeTruthy();
+  expect(fluidMock.engine.selectedPreset).toEqual({ bank: 0, program: 3 });
+});
+
+it("marks edited sounds, clears the marker on revert, and saves the working state", () => {
+  const onApply = vi.fn();
+  const view = render(<UserSounds settings={{ dsf_attack: 37 }} onApply={onApply} />);
+  fireEvent.input(screen.getByLabelText("Sound name"), { target: { value: "Warm" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
+  view.rerender(<UserSounds settings={{ dsf_attack: 80 }} onApply={onApply} />);
+  expect(screen.getByRole("option", { name: "Warm *" })).toBeTruthy();
+  expect(screen.getByLabelText("Unsaved sound changes")).toBeTruthy();
+  view.rerender(<UserSounds settings={{ dsf_attack: 37 }} onApply={onApply} />);
+  expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
+  view.rerender(<UserSounds settings={{ dsf_attack: 80 }} onApply={onApply} />);
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
+  expect(loadUserSounds()[0].settings.dsf_attack).toBe(80);
+});
+
+it("reloads the saved sound and its text drafts without saving current changes", () => {
+  const onApply = vi.fn();
+  const view = render(<UserSounds settings={{ dsf_attack: 37 }} onApply={onApply} />);
+  const reload = screen.getByRole("button", { name: "Reload selected sound" });
+  expect(reload.disabled).toBe(true);
+  fireEvent.input(screen.getByLabelText("Sound name"), { target: { value: "Warm" } });
+  fireEvent.input(screen.getByLabelText("Sound description"), { target: { value: "A quiet organ\nWith a sine tone" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  const saved = loadUserSounds()[0];
+  expect(saved.description).toBe("A quiet organ\nWith a sine tone");
+  view.rerender(<UserSounds settings={{ dsf_attack: 200 }} onApply={onApply} />);
+  fireEvent.input(screen.getByLabelText("Sound name"), { target: { value: "Unsaved" } });
+  fireEvent.input(screen.getByLabelText("Sound description"), { target: { value: "Changed" } });
+  fireEvent.click(reload);
+  expect(onApply).toHaveBeenLastCalledWith(saved);
+  expect(screen.getByLabelText("Sound name").value).toBe("Warm");
+  expect(screen.getByLabelText("Sound description").value).toBe(saved.description);
+  expect(loadUserSounds()).toEqual([saved]);
+  fireEvent.change(screen.getByLabelText("User sounds"), { target: { value: "builtin:4" } });
+  fireEvent.click(reload);
+  expect(onApply).toHaveBeenCalledTimes(3);
+  expect(onApply.mock.calls[2][0].name).toBe("Test Tone");
+  expect(screen.getByLabelText("Sound description").value).toBe("");
+});
 
 it("saves, names, copies, recalls and deletes sound snapshots", () => {
   const onApply = vi.fn();
   render(<UserSounds settings={{ dsf_attack: 37 }} oscBrightness={0.4} onApply={onApply} />);
   expect(screen.getByRole("button", { name: "Save" }).disabled).toBe(true);
+  for (const name of ["Save", "Save as copy", "Export .json"])
+    expect(screen.getByRole("button", { name }).closest("fieldset").querySelector("legend").textContent).toBe("User Sounds");
+  expect(screen.getByLabelText("Sound description").closest("fieldset").querySelector("legend").textContent).toBe("Name and Description");
   fireEvent.input(screen.getByLabelText("Sound name"), { target: { value: "Warm" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   expect(loadUserSounds()[0].settings.dsf_attack).toBe(37);
@@ -46,18 +136,22 @@ it("always offers factory defaults and a fixed sine test tone above the user sou
   render(<UserSounds settings={{ dsf_timbre: 0.9 }} onApply={onApply} />);
   const menu = screen.getByLabelText("User sounds");
   expect([...menu.options].map(option => option.textContent)).toEqual([
-    "Choose a sound:", "Default", "Test Tone", "──────────",
+    "Choose a sound:", "Default", "Reed Organ", "Hammond", "Harpsichord", "Test Tone", "──────────",
   ]);
-  fireEvent.change(menu, { target: { value: "builtin:1" } });
+  fireEvent.change(menu, { target: { value: "builtin:4" } });
   expect(onApply.mock.calls[0][0].settings).toMatchObject({
     output_dsf: true, output_sample: false, output_fluidsynth: false, output_osc: false,
     dsf_volume: 0.5, dsf_timbre: 0, dsf_volumeEnvelope: false, dsf_timbreEnvelope: false,
-    dsf_velocityVolume: 0, dsf_velocityTimbre: 0, dsf_pressure: false, dsf_timbreResponse: false,
+    dsf_velocityVolume: 0, dsf_velocityTimbre: 0, dsf_pressure: 0, dsf_timbreResponse: 0,
   });
   expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
   fireEvent.change(menu, { target: { value: "builtin:0" } });
   expect(onApply.mock.calls[1][0].settings).toMatchObject({
-    dsf_timbre: 0.25, dsf_attack: 12, dsf_volumeEnvelope: true,
+    dsf_timbre: 0.25, dsf_attack: 12, dsf_volumeEnvelope: true, output_sample: false,
+  });
+  expect(onApply.mock.calls[1][0].soundfont).toMatchObject({
+    name: "PlainsoundOrgan.sf2", preset: "0:1",
+    fallback: { name: "PlainsoundOrganGedackt.sf2", preset: "0:0" },
   });
   expect(loadUserSounds()).toEqual([]);
 });

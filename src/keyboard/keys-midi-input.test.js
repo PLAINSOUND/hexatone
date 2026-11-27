@@ -1086,6 +1086,97 @@ describe("Keys MIDI input integration", () => {
     expect(keys.state.sustain).toBe(false);
   });
 
+  it.each(["checkbox", "range", "select", "button", "slider"])("keeps keyboard notes and sustain active while editing a SOUNDS/MIDI %s", kind => {
+    const keys = createKeys();
+    keys.typing = false;
+    keys.settings.keyCodeToCoords = { KeyH: new Point(0, 0) };
+    const canvas = document.createElement("canvas");
+    const panel = document.createElement("div");
+    panel.setAttribute("data-canvas-keyboard-controls", "");
+    const control = document.createElement(["checkbox", "range"].includes(kind) ? "input" : kind === "slider" ? "div" : kind);
+    if (control.tagName === "INPUT") control.type = kind;
+    if (kind === "slider") { control.setAttribute("role", "slider"); control.tabIndex = 0; }
+    panel.append(control);
+    document.body.append(canvas, panel);
+    keys.state.canvas = canvas;
+    const unbind = KeysBrowserInput.bindCanvasInputFocus(keys);
+    const hex = { coords: new Point(0, 0), cents: 0, noteOff: vi.fn() };
+    keys.hexOn = vi.fn(() => hex);
+    keys.hexOff = vi.fn();
+    keys.drawHex = vi.fn();
+    const note = { code: "KeyH", preventDefault: vi.fn() };
+    try {
+      control.focus();
+      keys.onKeyDown(note);
+      expect(keys.hexOn).not.toHaveBeenCalled();
+      canvas.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      keys.onKeyDown(note);
+      control.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      control.focus();
+      expect(keys.state.canvasInputFocused).toBe(true);
+      expect(hex.noteOff).not.toHaveBeenCalled();
+      expect(keys.inputIsFocused()).toBe(false);
+      for (const code of ["ArrowRight", "Home", "End", "Tab", "Enter"]) {
+        const navigation = new KeyboardEvent("keydown", { code, cancelable: true });
+        keys.onKeyDown(navigation);
+        expect(navigation.defaultPrevented).toBe(false);
+      }
+      keys.onKeyUp(note);
+      expect(hex.noteOff).toHaveBeenCalledOnce();
+      const space = new KeyboardEvent("keydown", { code: "Space", cancelable: true });
+      keys.onKeyDown(space);
+      expect(space.defaultPrevented).toBe(true);
+      expect(keys.state.spaceSustainHeld).toBe(true);
+      keys.onKeyDown(note);
+      keys.onKeyUp(note);
+      expect(keys.state.sustainedNotes).toHaveLength(1);
+      control.dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      expect(keys.state.spaceSustainHeld).toBe(true);
+      keys.onKeyUp(new KeyboardEvent("keyup", { code: "Space", cancelable: true }));
+      expect(keys.state.spaceSustainHeld).toBe(false);
+      expect(keys.state.sustainedNotes).toHaveLength(0);
+      expect(hex.noteOff).toHaveBeenCalledTimes(2);
+    } finally { unbind(); canvas.remove(); panel.remove(); }
+  });
+
+  it.each(["text", "number", "textarea", "contenteditable"].flatMap(kind =>
+    [false, true].map(shiftLatch => ({ kind, shiftLatch }))))("suspends playing and releases latched notes in a SOUNDS/MIDI $kind field (Shift latch: $shiftLatch)", ({ kind, shiftLatch }) => {
+    const keys = createKeys();
+    keys.settings.keyCodeToCoords = { KeyH: new Point(0, 0) };
+    const canvas = document.createElement("canvas");
+    const panel = document.createElement("div");
+    panel.setAttribute("data-canvas-keyboard-controls", "");
+    const field = document.createElement(kind === "contenteditable" ? "div" : kind === "textarea" ? "textarea" : "input");
+    if (field.tagName === "INPUT") field.type = kind;
+    if (kind === "contenteditable") {
+      field.tabIndex = 0;
+      Object.defineProperty(field, "isContentEditable", { value: true });
+    }
+    panel.append(field);
+    document.body.append(canvas, panel);
+    keys.state.canvas = canvas;
+    const unbind = KeysBrowserInput.bindCanvasInputFocus(keys);
+    const hex = { coords: new Point(0, 0), cents: 0, noteOff: vi.fn() };
+    keys.hexOn = vi.fn(() => hex);
+    keys.hexOff = vi.fn();
+    keys.drawHex = vi.fn();
+    const note = { code: "KeyH", preventDefault: vi.fn() };
+    try {
+      canvas.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      if (!shiftLatch) keys.latchToggle();
+      keys.onKeyDown({ ...note, shiftKey: shiftLatch });
+      keys.onKeyUp(note);
+      expect(keys.state.sustainedNotes).toHaveLength(1);
+      field.focus();
+      expect(keys.state.canvasInputFocused).toBe(false);
+      expect(keys.state.sustainedNotes).toHaveLength(0);
+      expect(hex.noteOff).toHaveBeenCalledOnce();
+      keys.onKeyDown(note);
+      expect(keys.hexOn).toHaveBeenCalledOnce();
+      expect(keys.inputIsFocused()).toBe(true);
+    } finally { unbind(); canvas.remove(); panel.remove(); }
+  });
+
   it.each([false, true])("plays keyboard notes with the sidebar open and releases held keys on sidebar focus (latch: %s)", globalLatch => {
     const keys = createKeys();
     keys.typing = false;

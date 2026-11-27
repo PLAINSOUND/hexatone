@@ -16,6 +16,7 @@ import { readFluidSynthReverb } from "./reverb.js";
 import { normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "./smoothing.js";
 import { soundfontStorageKey } from "./soundfont-storage.js";
 import { readRecoverySoundfont } from "./recovery-source.js";
+import { soundfontCacheBudget } from "./cache-budget.js";
 import { recordAudioRuntime, registerFluidSynthLifecycleDiagnostics } from "../audio/runtime-diagnostics.js";
 import { getLatencyMeasurementEnabled, subscribeLatencyMeasurement } from "../audio/runtime-diagnostics.js";
 
@@ -163,7 +164,8 @@ async function createWorkletNode(context) {
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { wasmBytes, latencyDiagnostics: getLatencyMeasurementEnabled() },
+    processorOptions: { wasmBytes, latencyDiagnostics: getLatencyMeasurementEnabled(),
+      soundfontCacheBudget: soundfontCacheBudget() },
   });
   const processorId = ++nextProcessorId;
   const lifecycle = { processorId, createdAt: new Date().toISOString(), state: "created" };

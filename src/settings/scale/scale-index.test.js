@@ -9,6 +9,7 @@
 
 import { render, screen, fireEvent } from "@testing-library/preact";
 import Scale from "./index";
+import { bindCanvasInputFocus } from "../../keyboard/keys-browser-input.js";
 
 beforeEach(() => sessionStorage.setItem("hexatone_scale_collapsed", "false"));
 
@@ -38,6 +39,33 @@ const minimalSettings = {
 };
 
 describe("Scale panel — default state", () => {
+  it("retains the activated canvas keyboard through TuneCell drags and suspends it for pitch typing", () => {
+    const canvas = document.createElement("canvas");
+    document.body.append(canvas);
+    const keys = { state: { canvas, canvasInputFocused: false },
+      releaseAllKeyboardNotes: vi.fn(), sustainOff: vi.fn(), setTuneDragging: vi.fn(),
+      updateScaleDegree: vi.fn(), previewDegree0: vi.fn() };
+    const unbind = bindCanvasInputFocus(keys);
+    try {
+      const { container } = render(<Scale settings={minimalSettings} onChange={() => {}}
+        onImport={() => {}} keysRef={{ current: keys }} />);
+      canvas.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      const handle = container.querySelectorAll(".tune-cell .tune-handle")[1];
+      fireEvent.pointerDown(handle, { pointerId: 1, clientX: 100 });
+      fireEvent.pointerMove(handle, { pointerId: 1, clientX: 105 });
+      fireEvent.pointerUp(handle, { pointerId: 1, clientX: 105 });
+      expect(keys.state.canvasInputFocused).toBe(true);
+      expect(keys.releaseAllKeyboardNotes).not.toHaveBeenCalled();
+      expect(keys.setTuneDragging).toHaveBeenCalledWith(true);
+      expect(keys.setTuneDragging).toHaveBeenCalledWith(false);
+      expect(keys.updateScaleDegree).toHaveBeenCalled();
+      screen.getByLabelText("pitch value 0").focus();
+      expect(keys.state.canvasInputFocused).toBe(false);
+      expect(keys.releaseAllKeyboardNotes).toHaveBeenCalled();
+      expect(keys.sustainOff).toHaveBeenCalledWith(true, { releaseShiftLatches: true });
+    } finally { unbind(); canvas.remove(); }
+  });
+
   it("renders the scale table with a remembered expanded state", () => {
     render(<Scale settings={minimalSettings} onChange={() => {}} onImport={() => {}} />);
     expect(document.querySelector("table")).not.toBeNull();

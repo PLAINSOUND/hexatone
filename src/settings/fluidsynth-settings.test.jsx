@@ -23,8 +23,68 @@ vi.mock("../fluidsynth_synth/index.js", () => ({
 }));
 
 import FluidSynthSettings from "./fluidsynth-settings.jsx";
+import { BUILTIN_USER_SOUNDS } from "../persistence/user-sounds.js";
 
 describe("FluidSynth settings", () => {
+  it("preserves edited patch and controls across off/on and still allows explicit recall", () => {
+    sessionStorage.setItem("hexatone_fluidsynth_collapsed", "false");
+    const selectPreset = vi.fn(preset => { fluidsynthMock.engine.selectedPreset = preset; });
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "Organ.sf2" },
+      presets: [{ bank: 0, program: 1, name: "One" }, { bank: 0, program: 2, name: "Two" }],
+      selectPreset, setVolume: vi.fn(), setReverb: vi.fn(), setSmoothing: vi.fn() };
+    const soundRecall = { name: "Organ.sf2", preset: "0:1", volume: 30, reverb: 15,
+      smoothing: { pressureMs: 80, expressionMs: 0, minimumMs: 20 } };
+    const props = { onChange: vi.fn(), soundRecall };
+    const view = render(<FluidSynthSettings {...props} settings={{ output_fluidsynth: true }} />);
+    fireEvent.change(screen.getByLabelText("FluidSynth preset"), { target: { value: "0:2" } });
+    for (const label of ["FluidSynth volume", "FluidSynth reverb", "Pressure Smoothing (ms)", "Minimum Smoothing (ms)"])
+      fireEvent.keyDown(screen.getByRole("slider", { name: label }), { key: "ArrowRight" });
+    view.rerender(<FluidSynthSettings {...props} settings={{ output_fluidsynth: false }} />);
+    view.rerender(<FluidSynthSettings {...props} settings={{ output_fluidsynth: true }} />);
+    expect(selectPreset).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("FluidSynth preset").value).toBe("0:2");
+    for (const [label, value] of [["FluidSynth volume", 31], ["FluidSynth reverb", 16],
+      ["Pressure Smoothing (ms)", 81], ["Minimum Smoothing (ms)", 21]])
+      expect(screen.getByRole("slider", { name: label }).getAttribute("aria-valuenow")).toBe(String(value));
+    view.rerender(<FluidSynthSettings {...props} soundRecall={{ ...soundRecall }} settings={{ output_fluidsynth: true }} />);
+    expect(selectPreset).toHaveBeenLastCalledWith({ bank: 0, program: 1 });
+    expect(screen.getByRole("slider", { name: "FluidSynth volume" }).getAttribute("aria-valuenow")).toBe("30");
+  });
+
+  it("uses the cached default Organ patch before the available Gedackt backup", async () => {
+    storageMock.read.mockResolvedValue({ blob: new Blob([new Uint8Array([1])]) });
+    const selectPreset = vi.fn();
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "PlainsoundOrganGedackt.sf2" }, selectPreset };
+    fluidsynthMock.load.mockResolvedValue({ presets: [{ bank: 0, program: 1 }] });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={BUILTIN_USER_SOUNDS[0].soundfont} />);
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalled());
+    expect(fluidsynthMock.load.mock.calls[0][0].name).toBe("PlainsoundOrgan.sf2");
+    expect(fluidsynthMock.load.mock.calls[0][1].preferredPreset).toBe("0:1");
+  });
+
+  it("recalls the cached Gedackt backup if the full default Organ bank is unavailable", async () => {
+    storageMock.read.mockImplementation(async key => key.endsWith("PlainsoundOrganGedackt.sf2")
+      ? { blob: new Blob([new Uint8Array([1])]) } : undefined);
+    fluidsynthMock.load.mockResolvedValue({ presets: [{ bank: 0, program: 0 }] });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={BUILTIN_USER_SOUNDS[0].soundfont} />);
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalled());
+    expect(fluidsynthMock.load.mock.calls[0][0].name).toBe("PlainsoundOrganGedackt.sf2");
+    expect(fluidsynthMock.load.mock.calls[0][1].preferredPreset).toBe("0:0");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("selects the active Gedackt backup's program when the full bank is unavailable", async () => {
+    const selectPreset = vi.fn(), onChange = vi.fn();
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "PlainsoundOrganGedackt.sf2" }, selectPreset };
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange}
+      soundRecall={BUILTIN_USER_SOUNDS[0].soundfont} />);
+    await vi.waitFor(() => expect(selectPreset).toHaveBeenCalledWith({ bank: 0, program: 0 }));
+    expect(onChange).toHaveBeenCalledWith("fluidsynth_preset", "0:0");
+    expect(fluidsynthMock.load).not.toHaveBeenCalled();
+  });
+
   it("recalls a user sound preset on the current bank without loading it again", () => {
     const selectPreset = vi.fn();
     fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "Organ.sf2" },
@@ -40,12 +100,15 @@ describe("FluidSynth settings", () => {
   it("recalls a cached bank with the saved preset, overriding the last used preset", async () => {
     storageMock.read.mockResolvedValue({ blob: new Blob([new Uint8Array([1])]) });
     fluidsynthMock.load.mockResolvedValue({ presets: [{ bank: 0, program: 4 }] });
-    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
-      soundRecall={{ name: "PlainsoundOrgan.sf2", preset: "0:4", volume: 30, reverb: 15,
-        smoothing: { pressureMs: 100, expressionMs: 80, minimumMs: 10 } }} />);
+    const props = { onChange: vi.fn(), soundRecall: { name: "PlainsoundOrgan.sf2", preset: "0:4", volume: 30, reverb: 15,
+      smoothing: { pressureMs: 100, expressionMs: 80, minimumMs: 10 } } };
+    const view = render(<FluidSynthSettings {...props} settings={{ output_fluidsynth: true }} />);
     await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalled());
     expect(fluidsynthMock.load.mock.calls[0][1].preferredPreset).toBe("0:4");
     expect(fetch).not.toHaveBeenCalled();
+    view.rerender(<FluidSynthSettings {...props} settings={{ output_fluidsynth: false }} />);
+    view.rerender(<FluidSynthSettings {...props} settings={{ output_fluidsynth: true }} />);
+    expect(fluidsynthMock.load).toHaveBeenCalledTimes(1);
   });
 
   it("asks for a missing bank instead of downloading during user sound recall", async () => {

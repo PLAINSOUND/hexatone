@@ -148,17 +148,18 @@ describe("session-defaults fallback when key absent", () => {
     expect(sessionDefaults.midi_velocity).toBe(72);
   });
 });
-it.each([["true", 1], ["false", 0], ["0", 0], ["0.37", .37], ["1", 1]])(
-  "restores ISO compensation from saved %s", async (raw, expected) => {
-    const previous = localStorage.getItem("dsf_iso226");
+it.each(["dsf_iso226", "dsf_pressure", "dsf_timbreResponse"].flatMap(key =>
+  [["true", 1], ["false", 0], ["0", 0], ["0.37", .37], ["1", 1]].map(([raw, expected]) => [key, raw, expected])))(
+  "restores %s from saved %s", async (key, raw, expected) => {
+    const previous = localStorage.getItem(key);
     try {
-      localStorage.setItem("dsf_iso226", raw);
+      localStorage.setItem(key, raw);
       vi.resetModules();
       const { default: defaults } = await import("./session-defaults.js");
-      expect(defaults.dsf_iso226).toBe(expected);
+      expect(defaults[key]).toBe(expected);
     } finally {
-      if (previous === null) localStorage.removeItem("dsf_iso226");
-      else localStorage.setItem("dsf_iso226", previous);
+      if (previous === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, previous);
     }
   },
 );

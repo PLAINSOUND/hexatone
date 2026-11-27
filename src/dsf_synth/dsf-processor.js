@@ -128,14 +128,17 @@ export class DsfProcessor extends AudioWorkletProcessor {
   }
 
   timbreFor(voice) {
+    const base = this.controls.timbreResponse > 0
+      ? this.controls.timbre + relativeTimbreOffset(this.controls.timbre, expressionYTimbre(this.modulation, voice.timbre))
+      : this.controls.timbre;
     const envelopeTimbre = this.controls.timbreEnvelope && voice.timbreEnvelope
       ? voice.timbreEnvelope.gain : 0;
-    // Signed offsets span the available room on either side of the base timbre.
-    const envelopeOffset = relativeTimbreOffset(this.controls.timbre, envelopeTimbre);
-    return Math.max(0, Math.min(1, this.controls.timbre +
+    // Expression shifts the base first; the envelope then spans the available
+    // room on either side of that base and releases back to it.
+    const envelopeOffset = relativeTimbreOffset(base, envelopeTimbre);
+    return Math.max(0, Math.min(1, base +
       envelopeOffset +
-      expressionYTimbre(this.modulation, voice.timbre) +
-      pressureBite(this.modulation, voice.pressure) +
+      (this.controls.pressure > 0 ? pressureBite(this.modulation, voice.pressure) : 0) +
       (this.modulation.timbreDepth ? this.modulation.timbreDepth *
         gentleVelocityCurve(voice.velocity, this.modulation.timbreLinearWeight) : 0)));
   }
@@ -292,11 +295,15 @@ export class DsfProcessor extends AudioWorkletProcessor {
         const pressure = Number.isFinite(event.pressure) ? this.normalized(event.pressure) : voice.pressure;
         const timbre = Number.isFinite(event.timbre) ? this.normalized(event.timbre) : voice.timbre;
         const pressureChanged = pressure !== voice.pressure;
-        if (!pressureChanged && timbre === voice.timbre) return;
+        const timbreChanged = timbre !== voice.timbre;
+        if (!pressureChanged && !timbreChanged) return;
+        // Retain controller positions for live enabling, but do no modulation
+        // or oscillator work for sources whose amount is zero.
         voice.pressure = pressure;
         voice.timbre = timbre;
-        this.expressiveGain(voice);
-        this.transition(voice, voice.frequency);
+        if (pressureChanged && this.controls.pressure > 0) this.expressiveGain(voice);
+        if ((pressureChanged && this.controls.pressure > 0) ||
+            (timbreChanged && this.controls.timbreResponse > 0)) this.transition(voice, voice.frequency);
       }
       if (event.command === "stop" && !voice.released) {
         voice.released = true;

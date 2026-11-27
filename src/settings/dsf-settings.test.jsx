@@ -18,11 +18,26 @@ it("replaces the ISO checkbox with a persisted percentage fader", () => {
   fireEvent.keyDown(slider, { key: "End" });
   expect(onChange).toHaveBeenLastCalledWith("dsf_iso226", 1);
 });
+it.each([["Pressure (Z)", "pressure"], ["Expression (Y/Mod/Foot)", "timbreResponse"]])(
+  "replaces %s with a persisted amount fader", (label, key) => {
+    const onChange = vi.fn();
+    render(<DsfSettings settings={{ output_dsf: true, [`dsf_${key}`]: .37 }} onChange={onChange} />);
+    expect(screen.queryByRole("checkbox", { name: label })).toBeNull();
+    const slider = screen.getByRole("slider", { name: `DSF ${label}` });
+    expect(Number(slider.getAttribute("aria-valuenow"))).toBeCloseTo(.37, 12);
+    fireEvent.keyDown(slider, { key: "Home" });
+    expect(onChange).toHaveBeenLastCalledWith(`dsf_${key}`, 0);
+    expect(localStorage.getItem(`dsf_${key}`)).toBe("0");
+    fireEvent.keyDown(slider, { key: "End" });
+    expect(onChange).toHaveBeenLastCalledWith(`dsf_${key}`, 1);
+    localStorage.removeItem(`dsf_${key}`);
+  },
+);
 it("persists signed timbre envelope amount and independent zero-time stages", () => {
   const onChange = vi.fn();
   render(<DsfSettings settings={{ output_dsf: true }} onChange={onChange} />);
   const amount = screen.getByRole("slider", { name: "DSF Timbre peak offset" });
-  expect(Number(amount.getAttribute("aria-valuenow"))).toBeCloseTo(-.3, 12);
+  expect(Number(amount.getAttribute("aria-valuenow"))).toBeCloseTo(-.5, 12);
   fireEvent.keyDown(amount, { key: "Home" });
   expect(onChange).toHaveBeenLastCalledWith("dsf_timbreAmount", -1);
   expect(localStorage.getItem("dsf_timbreAmount")).toBe("-1");
@@ -75,8 +90,8 @@ it("saves release velocity independently from velocity", () => {
 it("uses direct expression controls without the Eagan-specific generator", () => {
   render(<DsfSettings settings={{ output_dsf: true, dsf_generateYZ: true }} onChange={vi.fn()} />);
   expect(screen.queryByRole("checkbox", { name: "Generate YZ" })).toBeNull();
-  expect(screen.getByRole("checkbox", { name: "Pressure (Z)" })).toBeTruthy();
-  expect(screen.getByRole("checkbox", { name: /Expression/ })).toBeTruthy();
+  expect(screen.getByRole("slider", { name: "DSF Pressure (Z)" })).toBeTruthy();
+  expect(screen.getByRole("slider", { name: "DSF Expression (Y/Mod/Foot)" })).toBeTruthy();
 });
 
 it("persists separate 0–100% velocity amounts", () => {
@@ -116,12 +131,12 @@ it("shows the requested default sound and decimal volume range", () => {
   expect(volume.getAttribute("aria-valuemin")).toBe("0");
   expect(volume.getAttribute("aria-valuemax")).toBe("1");
   const expected = { Volume: .25, "ISO-226 compensation amount": 0,
-    Attack: 12, Decay: 1500, Sustain: 2, Release: 120,
+    Attack: 12, Decay: 1500, Sustain: 1.5, Release: 120,
     "Number of harmonic partials": 1024, Timbre: .25,
-    "Timbre peak offset": -.3, "Timbre attack": 500, "Timbre decay": 2400,
+    "Timbre peak offset": -.5, "Timbre attack": 750, "Timbre decay": 5000,
     "Timbre sustain offset": -.75, "Timbre release": 2,
     "Velocity → Volume": .5, "Velocity → Timbre": .5, "Velocity → Attack": .5,
-    "Release Velocity → Release": .5 };
+    "Release Velocity → Release": .5, "Pressure (Z)": .5, "Expression (Y/Mod/Foot)": .5 };
   for (const [label, value] of Object.entries(expected))
     expect(Number(screen.getByRole("slider", { name: `DSF ${label}` }).getAttribute("aria-valuenow"))).toBeCloseTo(value, 12);
   expect(screen.getByRole("checkbox", { name: "Volume Envelope" }).checked).toBe(true);
@@ -139,9 +154,10 @@ it("defaults to the compact controls, uses the shared animated toggle and rememb
   expect(toggle.querySelector(".disclosure-toggle-glyph--collapsed")).toBeTruthy();
   expect(screen.getAllByRole("slider").map(node => node.getAttribute("aria-label"))).toEqual([
     "DSF Volume", "DSF ISO-226 compensation amount", "DSF Number of harmonic partials", "DSF Timbre",
+    "DSF Pressure (Z)", "DSF Expression (Y/Mod/Foot)",
   ]);
-  expect(screen.getByRole("checkbox", { name: "Pressure (Z)" })).toBeTruthy();
-  expect(screen.getByRole("checkbox", { name: /Expression/ })).toBeTruthy();
+  expect(screen.getByRole("slider", { name: "DSF Pressure (Z)" })).toBeTruthy();
+  expect(screen.getByRole("slider", { name: "DSF Expression (Y/Mod/Foot)" })).toBeTruthy();
   expect(screen.queryByRole("checkbox", { name: "Volume Envelope" })).toBeNull();
   fireEvent.click(toggle);
   expect(screen.getByRole("button", { name: "Hide DSF settings" }).getAttribute("aria-expanded")).toBe("true");

@@ -7,6 +7,8 @@ import { DSF_DEFAULTS, dsfControlsFromSettings, dsfEnvelopeStep } from "../dsf_s
 
 const FADER_HELP = Object.freeze({
   ...Object.fromEntries(DSF_AMOUNT_ROUTES.map(route => [route.control, modulationRouteDescription(route.control)])),
+  pressure: modulationRouteDescription("pressure"),
+  timbreResponse: modulationRouteDescription("timbreResponse"),
   timbreAmount: "Attack peak offset relative to the Timbre setting. −100% reaches 0, +100% reaches 1, and 0% stays at the base setting. Sustain is independent; release returns to base.",
   timbreSustain: "Independent sustain offset relative to the Timbre setting: −100% reaches 0, +100% reaches 1, and 0% stays at base. Can lie above or below the peak.",
   iso226: "Relative level compensation by note fundamental, based on the ISO 226:2023 60-phon contour with a gentle 80–200 Hz reduction. 0% is off; 100% applies the full contour and level trim. Intermediate amounts scale the adjustment in decibels. Not calibrated SPL or a per-harmonic EQ.",
@@ -85,16 +87,8 @@ export default function DsfSettings({ settings, onChange }) {
       {!collapsed && DSF_AMOUNT_ROUTES.map(({ control, label }) => <Fragment key={control}>
         {renderFader([control, label, 0, 1, 0.01, `${Math.round(controls[control] * 100)}%`])}
       </Fragment>)}
-      <label class="settings-form__checkbox-row" title={modulationRouteDescription("pressure")}>
-        <input type="checkbox" name="dsf_pressure" checked={controls.pressure}
-          onChange={event => save("dsf_pressure", event.currentTarget.checked)} />
-        Pressure (Z)
-      </label>
-      <label class="settings-form__checkbox-row" title={modulationRouteDescription("timbreResponse")}>
-        <input type="checkbox" name="dsf_timbreResponse" checked={controls.timbreResponse}
-          onChange={event => save("dsf_timbreResponse", event.currentTarget.checked)} />
-        Expression (Y/Mod/Foot)
-      </label>
+      {renderFader(["pressure", "Pressure (Z)", 0, 1, 0.01, `${Math.round(controls.pressure * 100)}%`])}
+      {renderFader(["timbreResponse", "Expression (Y/Mod/Foot)", 0, 1, 0.01, `${Math.round(controls.timbreResponse * 100)}%`])}
     </>}
   </fieldset>;
 }

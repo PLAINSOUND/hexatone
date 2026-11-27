@@ -34,10 +34,15 @@ export function normalizeUserSound(record) {
   const fluid = record.soundfont ?? {};
   return {
     format: "hexatone-user-sound", version: 1, name: record.name.trim().slice(0, 200), settings,
+    description: typeof record.description === "string" ? record.description : "",
     sampleVolume: bounded(record.sampleVolume, 0.5, 0, 1),
     soundfont: {
       name: typeof fluid.name === "string" ? fluid.name.slice(0, 255) : "",
       preset: /^\d+:\d+$/.test(fluid.preset) ? fluid.preset : "0:0",
+      ...(typeof fluid.fallback?.name === "string" && fluid.fallback.name ? { fallback: {
+        name: fluid.fallback.name.slice(0, 255),
+        preset: /^\d+:\d+$/.test(fluid.fallback.preset) ? fluid.fallback.preset : "0:0",
+      } } : {}),
       volume: bounded(fluid.volume, 100, 0, 127),
       reverb: bounded(fluid.reverb, 20, 0, 127),
       smoothing: normalizeFluidSynthSmoothing(fluid.smoothing),
@@ -45,15 +50,14 @@ export function normalizeUserSound(record) {
   };
 }
 
-export function captureUserSound(name, settings, { engine, oscBrightness } = {}) {
+export function captureUserSound(name, settings, { engine, description = "" } = {}) {
   const values = { ...settings };
   for (const entry of entries) {
     if (entry.key.startsWith("osc_") && entry.type !== "bool")
       values[entry.key] = storedNumber(entry.key, values[entry.key] ?? entry.default);
   }
-  if (Number.isFinite(oscBrightness)) values.osc_brightness = oscBrightness;
   return normalizeUserSound({
-    format: "hexatone-user-sound", version: 1, name, settings: values,
+    format: "hexatone-user-sound", version: 1, name, description, settings: values,
     sampleVolume: readSampleVolume(),
     soundfont: {
       name: engine?.pendingSoundfont?.source?.name ?? engine?.soundfontSource?.name ??
@@ -86,11 +90,33 @@ export function saveUserSounds(records) {
 
 // Factory defaults stay independent of saved browser preferences.
 export const BUILTIN_USER_SOUNDS = [
-  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Default", settings: {} }),
+  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Default", settings: { output_sample: false },
+    soundfont: { name: "PlainsoundOrgan.sf2", preset: "0:1",
+      fallback: { name: "PlainsoundOrganGedackt.sf2", preset: "0:0" } } }),
+  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Reed Organ", settings: {
+    output_sample: true, instrument: "WMRIByzantineST",
+    osc_volume_pluck: 0,
+    dsf_attack: 70, dsf_decay: 500, dsf_sustain: 2, dsf_release: 4,
+    dsf_timbreAmount: 0.3, dsf_timbreAttack: 300, dsf_timbreDecay: 5000,
+    dsf_timbreSustain: 0.4, dsf_timbreRelease: 15,
+  }, soundfont: { name: "PlainsoundSrutibox.sf2", preset: "0:1",
+    smoothing: { pressureMs: 80, expressionMs: 0, minimumMs: 20 } } }),
+  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Hammond", settings: {
+    output_dsf: true, output_sample: true, instrument: "hammond",
+    output_fluidsynth: false, output_osc: false,
+    dsf_iso226: 0.75, dsf_partials: 9, dsf_timbre: 0.5,
+    dsf_attack: 1, dsf_decay: 3000, dsf_sustain: 1.5, dsf_release: 3,
+    dsf_timbreAmount: 1, dsf_timbreAttack: 0, dsf_timbreDecay: 5,
+    dsf_timbreSustain: 0.3, dsf_timbreRelease: 14, dsf_timbreResponse: 1,
+  } }),
+  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Harpsichord", settings: {
+    output_dsf: false, output_sample: false, output_fluidsynth: true, output_osc: true,
+    osc_volume_pluck: 0.65, osc_volume_buzz: 0, osc_volume_formant: 0, osc_volume_saw: 0,
+  }, soundfont: { name: "PlainsoundHarpsichord.sf2", preset: "0:3" } }),
   normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Test Tone", settings: {
     output_dsf: true, output_sample: false, output_fluidsynth: false, output_osc: false,
-    dsf_volume: 0.5, dsf_timbre: 0, dsf_volumeEnvelope: false, dsf_timbreEnvelope: false,
+    dsf_volume: 0.5, dsf_iso226: 0.5, dsf_partials: 24, dsf_timbre: 0, dsf_volumeEnvelope: false, dsf_timbreEnvelope: false,
     dsf_velocityVolume: 0, dsf_velocityTimbre: 0, dsf_velocityAttack: 0,
-    dsf_releaseVelocityRelease: 0, dsf_pressure: false, dsf_timbreResponse: false,
+    dsf_releaseVelocityRelease: 0, dsf_pressure: 0, dsf_timbreResponse: 0,
   } }),
 ];

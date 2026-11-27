@@ -84,8 +84,8 @@ function restoreLocal(entry) {
   // Preserve the old combined switch until release velocity is set separately.
   if (entry.key === "dsf_releaseVelocity" && localStorage.getItem(entry.key) === null)
     return localBool("dsf_velocity", entry.default);
-  // ISO compensation was an on/off switch before becoming a 0–1 amount.
-  if (entry.key === "dsf_iso226") {
+  // These amount controls previously used on/off switches.
+  if (["dsf_iso226", "dsf_pressure", "dsf_timbreResponse"].includes(entry.key)) {
     const raw = localStorage.getItem(entry.key);
     if (raw === "true" || raw === "false") return raw === "true" ? 1 : 0;
   }

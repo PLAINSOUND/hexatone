@@ -6192,6 +6192,7 @@ const App = () => {
             type="button"
             role="tab"
             aria-selected={workspaceTab === "hexatone"}
+            data-canvas-keyboard-controls
             class={`workspace-tab${workspaceTab === "hexatone" ? " workspace-tab--active" : ""}`}
             onClick={() => switchWorkspaceTab("hexatone")}
           >
@@ -6209,6 +6210,7 @@ const App = () => {
           {["sounds", "midi"].map(tab => <button key={tab}
             type="button"
             role="tab"
+            data-canvas-keyboard-controls
             aria-selected={workspaceTab === tab}
             class={`workspace-tab${workspaceTab === tab ? " workspace-tab--active" : ""}`}
             onClick={() => switchWorkspaceTab(tab)}

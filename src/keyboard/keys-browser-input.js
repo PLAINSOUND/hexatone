@@ -7,6 +7,7 @@ import Point from "./point";
 import { withTouchTiming, markInputHandler } from "../audio/runtime-diagnostics.js";
 import { getTouchInputMode, setTouchInputMode } from "./touch-input-mode.js";
 import { recordAudioRuntime } from "../audio/runtime-diagnostics.js";
+import { blocksCanvasKeyboard, isCanvasKeyboardControl } from "../ui/canvas-keyboard-focus.js";
 
 // Windows benefits from Pointer Events plus pointer capture: preventDefault and
 // touch-action:none keep the OS from interpreting multi-touch canvas gestures
@@ -134,8 +135,7 @@ function toggleLatchedAt(keys, coords) {
 }
 
 export function inputIsFocused() {
-  const tag = document.activeElement && document.activeElement.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  return blocksCanvasKeyboard();
 }
 
 export function bindCanvasInputFocus(keys) {
@@ -147,8 +147,13 @@ export function bindCanvasInputFocus(keys) {
       document.activeElement?.blur?.();
       return;
     }
+    if (keys.state.canvasInputFocused && isCanvasKeyboardControl(event.target)) return;
     keys.state.canvasInputFocused = false;
     keys.releaseAllKeyboardNotes();
+    if (event.target instanceof HTMLElement &&
+        event.target.closest("[data-canvas-keyboard-controls]") && blocksCanvasKeyboard(event.target)) {
+      keys.sustainOff(true, { releaseShiftLatches: true });
+    }
   };
   const events = ["pointerdown", "mousedown", "touchstart", "focusin"];
   for (const type of events) document.addEventListener(type, update, true);
@@ -184,6 +189,9 @@ function keyDown(e) {
     if (!e.repeat) this.state.spaceSustainReleasePending = false;
   }
   if (this.inputIsFocused()) return;
+  if (isCanvasKeyboardControl(document.activeElement) &&
+      (["Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.code) ||
+        (e.code === "Enter" && !e.shiftKey))) return;
 
   if (e.code === "Space" && !e.metaKey && !e.ctrlKey && !e.altKey) {
     if (!canvasKeyboardActive(this)) return;
