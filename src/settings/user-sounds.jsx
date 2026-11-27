@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BUILTIN_USER_SOUNDS, captureUserSound, loadUserSounds, parseUserSounds, saveUserSounds, userSoundHasChanges } from "../persistence/user-sounds.js";
+import { BUILTIN_USER_SOUNDS, availableUserSoundName, captureUserSound, loadUserSounds, parseUserSounds, saveUserSounds, userSoundHasChanges } from "../persistence/user-sounds.js";
 import { orderPresetsByName } from "../persistence/preset-name-order.js";
 import { exportFilename } from "../persistence/export-filename.js";
 import { peekFluidSynthEngine, subscribeFluidSynthEngine } from "../fluidsynth_synth/index.js";
@@ -35,11 +35,7 @@ export default function UserSounds({ settings, onApply, workingSoundChanges }) {
   const save = copy => attempt(() => {
     if (!copy && selected.startsWith("builtin:")) return;
     let record = capture();
-    if (copy) {
-      const base = record.name;
-      let suffix = 2;
-      while (sounds.some(sound => sound.name === record.name)) record = { ...record, name: `${base} ${suffix++}` };
-    }
+    if (copy) record = { ...record, name: availableUserSoundName(record.name, sounds) };
     const original = copy ? null : sounds.find(sound => `user:${sound.name}` === selected);
     if (!copy && sounds.some(sound => sound !== original && sound.name === record.name)) {
       throw new Error("A sound with this name already exists. Choose another name or use Save as copy.");
@@ -56,12 +52,9 @@ export default function UserSounds({ settings, onApply, workingSoundChanges }) {
         const input = event.currentTarget;
         try {
           const imported = (await Promise.all([...input.files].map(async file => parseUserSounds(await file.text())))).flat();
-          let next = loadUserSounds();
+          const next = loadUserSounds();
           for (const record of imported) {
-            const base = record.name;
-            let name = base, suffix = 2;
-            while (next.some(sound => sound.name === name)) name = `${base} ${suffix++}`;
-            next = [...next, { ...record, name }];
+            next.push({ ...record, name: availableUserSoundName(record.name, next) });
           }
           setSounds(saveUserSounds(next)); setError("");
         } catch (error) { setError(error.message); }

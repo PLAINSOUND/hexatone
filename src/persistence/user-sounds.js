@@ -7,6 +7,8 @@ import { normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "../fluids
 import { readFluidSynthReverb } from "../fluidsynth_synth/reverb.js";
 
 export const USER_SOUNDS_KEY = "hexatone_user_sounds";
+const MAX_SOUND_NAME_LENGTH = 200;
+const normalizeSoundName = name => name.trim().slice(0, MAX_SOUND_NAME_LENGTH).trimEnd();
 const entries = SETTINGS_REGISTRY.filter(({ key }) =>
   key.startsWith("osc_volume_") ||
   ["output_dsf", "output_sample", "output_fluidsynth", "output_osc", "instrument",
@@ -36,7 +38,7 @@ export function normalizeUserSound(record) {
   for (const [key, value] of Object.entries(dsf)) settings[`dsf_${key}`] = value;
   const fluid = record.soundfont ?? {};
   return {
-    format: "hexatone-user-sound", version: 1, name: record.name.trim().slice(0, 200), settings,
+    format: "hexatone-user-sound", version: 1, name: normalizeSoundName(record.name), settings,
     description: typeof record.description === "string" ? record.description : "",
     sampleVolume: bounded(record.sampleVolume, 0.5, 0, 1),
     soundfont: {
@@ -107,6 +109,17 @@ export function parseUserSounds(text) {
   const records = Array.isArray(value) ? value : [value];
   if (!records.length) throw new Error("No User Sounds found.");
   return records.map(normalizeUserSound);
+}
+
+export function availableUserSoundName(base, records) {
+  const name = normalizeSoundName(base);
+  const used = new Set(records.map(record => record.name));
+  if (!used.has(name)) return name;
+  for (let suffix = 2; ; suffix++) {
+    const ending = ` ${suffix}`;
+    const candidate = `${name.slice(0, MAX_SOUND_NAME_LENGTH - ending.length).trimEnd()}${ending}`;
+    if (!used.has(candidate)) return candidate;
+  }
 }
 
 export function loadUserSounds() {

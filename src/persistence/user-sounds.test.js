@@ -1,7 +1,23 @@
 import { beforeEach, expect, it } from "vitest";
-import { BUILTIN_USER_SOUNDS, captureUserSound, normalizeUserSound, parseUserSounds, loadUserSounds, saveUserSounds, userSoundHasChanges } from "./user-sounds.js";
+import { BUILTIN_USER_SOUNDS, availableUserSoundName, captureUserSound, normalizeUserSound, parseUserSounds, loadUserSounds, saveUserSounds, userSoundHasChanges } from "./user-sounds.js";
 import { builtinSoundDefinitions } from "./builtin-user-sounds.js";
 beforeEach(() => localStorage.clear());
+
+it("keeps copy names unique within the saved format's length limit", () => {
+  const base = "x".repeat(200);
+  const records = [{ name: base }, ...Array.from({ length: 8 }, (_, i) => ({ name: `${base.slice(0, 198)} ${i + 2}` }))];
+  const name = availableUserSoundName(base, records);
+  expect(name).toBe(`${base.slice(0, 197)} 10`);
+  expect(name).toHaveLength(200);
+  const sound = captureUserSound(name, {});
+  expect(normalizeUserSound(sound).name).toBe(name);
+});
+
+it("normalizes truncated names idempotently when the cutoff lands on whitespace", () => {
+  const sound = captureUserSound(`${"x".repeat(199)} more`, {});
+  expect(sound.name).toBe("x".repeat(199));
+  expect(normalizeUserSound(sound)).toEqual(sound);
+});
 
 it.each([
   ["Windows NT", "PlainsoundOrgan.sf2", "PlainsoundOrganPrincipal.sf2"],

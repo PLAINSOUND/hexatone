@@ -16,7 +16,7 @@ Design by [Siemen Terpstra](http://siementerpstra.com/) based on [Erv Wilson's m
 
 Initial development by James Fenn with additions and modifications from [Brandon Lewis](http://brandlew.com/), [Bo Constantinsen](http://whatmusicreallyis.com/), [Chengu Wang](https://sites.google.com/site/wangchengu/), [Ashton Snelgrove](https://ashton.snelgrove.science). Sampling credits to Scott Thompson, Tim Kahn, Carlos Vaquero, Dr. Ozan Yarman, Lars Palo, and Soni Musicae. Thanks to the open-source communities behind [SuperCollider](https://supercollider.github.io/), [SuperSonic](https://github.com/samaaron/supersonic), and [FluidSynth](https://www.fluidsynth.org/) for the audio engines used in Hexatone.
 
-Current version 3.3.0-rc.5 (27 October 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
+Current version 3.3.0-rc.6 (27 November 2026) made by [Marc Sabat](https://www.plainsound.org), released under [GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.en.html). Open source code at [github.com/PLAINSOUND/hexatone](https://github.com/PLAINSOUND/hexatone). Join the community on [discord](https://discord.gg/NGVTmDFPtf).
 
 *The text font with embedded HEJI accidentals (Plainsound Sans) is designed by Thomas Nicholson. Unicode data for copying/pasting may be found at [w3c-cg.github.io/smufl/latest/tables](https://w3c-cg.github.io/smufl/latest/tables/extended-helmholtz-ellis-accidentals-just-intonation.html).*
 
@@ -27,7 +27,7 @@ cc 2026 [PLAINSOUND MUSIC EDITION](https://www.plainsound.org)
 
 ## Current State
 
-Hexatone **3.3.0-rc.5** is the current development release candidate, updated 27 October 2026. The [dev build](https://plainsound.github.io/hexatone) provides the latest development version.
+Hexatone **3.3.0-rc.6** is the current development release candidate, updated 27 November 2026. The [dev build](https://plainsound.github.io/hexatone) provides the latest development version.
 
 Six tabs organise the workspace: **HEXATONE** for tuning and keyboard layout, **SEQUENCER** for composing and playing sequences, **SOUNDS** for the built-in engines and named User Sounds, **MIDI** for controllers and external routing, **CALCULATOR** for HEJI pitch calculations, and **MANUAL** for documentation. SOUNDS and MIDI share the sequence transport and keep playback running. User Sounds can be saved locally and imported or exported as JSON.
 
@@ -48,13 +48,14 @@ Features include:
 - a Sequencer tab for editing snapshots into cue-based event sequences with bars, tempo markers, repeats, manual arpeggiation, and timed playback
 - editable HEJI and Scala note pitches in the sequencer, resolved through each snapshot's stored notation and reference frame
 - an independent HEJI Calculator with spelling, octave, ratio/cents input, frequency, nearest MIDI note and nearby rational pitches
-- sound and output adjustments in IO while playing from a controller or running a sequence
+- sound and MIDI adjustments while playing from a controller or running a sequence
+- computer-keyboard playing and sustain retained while using non-typing SOUNDS, MIDI, and Scale Settings controls
 - Lumatone wheel/pedal timbre selection with soft pickup, sequencer timbre shaping, and optional Eagan Matrix Brightness / Tilt EQ control
 
 PLAINSOUND HEXATONE can be used entirely in the browser:
 
 - input with mouse / touch / computer keyboard
-- output using built-in samples, the FluidSynth SoundFont player, and SuperCollider sounds through SuperSonic
+- output using polyphonic DSF synthesis, built-in samples, the FluidSynth SoundFont player, and SuperCollider sounds through SuperSonic
 - SUSTAIN, OCT, MOD controls
 - retuning and scale editing using drag and drop
 - scale rationalisation to user chosen parameters
@@ -73,23 +74,11 @@ Hexatone also supports:
 - OSC -> SuperCollider output through a local bridge in a cloned repo
 - Experimental browser-local SuperSonic + DFM1 in **Built-in scsynth**, sharing layer controls with the external OSC backend
 
-The I/O tab presents **Built-in DSF Synthesis**, then **Built-in Samples**, **Built-in SoundFont Player**, and
-**Built-in scsynth**, followed by **MIDI Setup**, **MIDI Input**, and **MIDI Output**.
-These outputs are enabled by default and can be used independently or layered. Saved I/O choices take precedence when restored. The built-in audio backends
-are still being developed. The polyphonic DSF oscillator provides partial count, timbre, attack and release controls, with optional velocity, pressure and timbre response.
+The **SOUNDS** tab provides four independently enabled engines: **DSF Synthesis**, **Samples**, the **SoundFont Player**, and **scsynth**. Choose **Default**, **Reed Organ**, **Hammond**, **Baroque Organ**, **Harpsichord**, or **Test Tone**, then adjust and save your own sound. An asterisk marks unsaved edits; ⟳ reloads the selected sound. Toggling an engine off and on preserves its working settings.
 
-Enable **Use FluidSynth Sounds** to load a Hexatone SoundFont or choose a local
-`.sf2` / `.sf3` file, then select its preset and volume. Downloads can be cancelled.
-**Save SoundFont File…** exports the original file; **Keep for Offline Use** and
-**Remove Offline Copy** manage browser storage. Offline copies depend on browser
-storage availability and may be lost when site data is cleared or a private
-session ends. On audio activation, the last bank and its preset are restored from
-an available offline copy; no automatic download is made.
+DSF offers volume and timbre envelopes, harmonic partials, ISO-226 compensation, and expressive velocity/pressure controls. FluidSynth loads the supplied SoundFonts or local `.sf2` / `.sf3` files, with browser storage for reuse. Baroque Organ prefers the full Organ bank on desktop and the smaller Principal bank on phones and tablets. The scsynth section layers Pluck, Buzz, Formant, and Saw through browser-local **SuperSonic** or a local **OSC bridge**.
 
-Under **Built-in scsynth**, enable **Use SuperCollider Sounds** and select
-**SuperSonic** to run Pluck, Buzz, Formant, and Saw layers directly in the browser.
-Without SuperSonic, these controls use the local OSC bridge. Local-development
-asset preparation is described in [tools/supersonic/README.md](./tools/supersonic/README.md).
+The **MIDI** tab contains controller settings and external output routing. Haken Continuum's incoming MPE bend range follows the editable MIDI Input setting, including 0 for no bending. Sound and MIDI restoration can be controlled separately.
 
 Hexatone is a live performance and composition companion to [Scale Workshop](https://scaleworkshop.plainsound.org).
 
@@ -106,7 +95,17 @@ For local setup and development commands, see [DEVELOPER_QUICKSTART.md](./DEVELO
 
 ## Version history
 
-### 3.3 RC5 _(current release candidate, 27 October 2026)_
+### 3.3 RC6 _(current release candidate, 27 November 2026)_
+
+- separate SOUNDS and MIDI tabs, with named sound presets, save/copy/import/export, dirty indicators, and recall
+- expanded DSF synthesis with independent volume and timbre ADSRs, partial count, ISO-226 compensation, and expression amounts
+- cached SoundFont recall, preserved working settings across output toggles, and smaller-bank preference for mobile Baroque Organ
+- computer-keyboard playing and sustain continue during non-typing sound, MIDI, and TuneCell edits
+- tuning-specific Exquis layouts with a separate controller layout override
+- corrected FluidSynth pitch-bend scaling and Haken Continuum's editable incoming range, including zero
+- consolidated sound capture and loading, safer asynchronous state handling, and streamlined documentation
+
+### 3.3 RC5 _(27 October 2026)_
 
 - Snap playback highlights matching visible hexes, retaining legato and overlapping notes
 - FluidSynth pressure and Expression Y attenuation smoothing, with 0–500 ms controls and a shared minimum time

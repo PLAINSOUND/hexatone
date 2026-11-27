@@ -26,6 +26,65 @@ import FluidSynthSettings from "./fluidsynth-settings.jsx";
 import { BUILTIN_USER_SOUNDS } from "../persistence/user-sounds.js";
 
 describe("FluidSynth settings", () => {
+  it("keeps a newer recall busy when an earlier shutdown finishes", async () => {
+    let finishStop, finishLoad;
+    fluidsynthMock.stop.mockImplementationOnce(() => new Promise(resolve => { finishStop = resolve; }));
+    fluidsynthMock.load.mockImplementationOnce(() => new Promise(resolve => { finishLoad = resolve; }));
+    storageMock.read.mockResolvedValue({ blob: { arrayBuffer: async () => new ArrayBuffer(3) } });
+    const props = { settings: { output_fluidsynth: true }, onChange: vi.fn() };
+    const view = render(<FluidSynthSettings {...props} />);
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), { target: { value: "" } });
+    view.rerender(<FluidSynthSettings {...props} soundRecall={BUILTIN_USER_SOUNDS[0].soundfont} />);
+    await vi.waitFor(() => expect(finishLoad).toBeTypeOf("function"));
+    await act(async () => { finishStop(); });
+    expect(screen.getByLabelText("Hexatone FluidSynth SoundFont").disabled).toBe(true);
+    await act(async () => { finishLoad({ presets: [] }); });
+    expect(screen.getByLabelText("Hexatone FluidSynth SoundFont").disabled).toBe(false);
+    expect(screen.getByLabelText("FluidSynth preset").textContent).not.toContain("Shutting down");
+  });
+
+  it("aborts an unmounted download and ignores its late load result", async () => {
+    let finish, signal;
+    localStorage.setItem("fluidsynth_last_hosted_soundfont", "PlainsoundOrgan.sf2");
+    fluidsynthMock.load.mockImplementation((_source, options) => {
+      signal = options.signal;
+      return new Promise(resolve => { finish = resolve; });
+    });
+    const onChange = vi.fn();
+    const view = render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Load Hexatone SoundFont" }));
+    expect(signal.aborted).toBe(false);
+    view.unmount();
+    expect(signal.aborted).toBe(true);
+    await act(async () => { finish({ presets: [{ bank: 0, program: 1 }] }); });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("ignores a late shutdown result after its controls unmount", async () => {
+    let finish;
+    fluidsynthMock.stop.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const onChange = vi.fn();
+    const view = render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText("Hexatone FluidSynth SoundFont"), { target: { value: "" } });
+    view.unmount();
+    await act(async () => { finish(); });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("does not save a temporary working bank as offline again during recall", async () => {
+    const bytes = new ArrayBuffer(3);
+    storageMock.read.mockResolvedValue({ offline: false, blob: { size: 3, arrayBuffer: async () => bytes } });
+    fluidsynthMock.load.mockImplementation(async (source, options) => {
+      await options.onBytesReady(source, await source.arrayBuffer());
+      return { presets: [] };
+    });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={BUILTIN_USER_SOUNDS[0].soundfont} />);
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveResolved());
+    expect(storageMock.store).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("retains the latest volume when an asynchronous recalled bank finishes loading", async () => {
     let finishLoad;
     storageMock.read.mockResolvedValue({ blob: new Blob([new Uint8Array([1])]) });

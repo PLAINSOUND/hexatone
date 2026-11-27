@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import PropTypes from "prop-types";
 import CustomRangeSlider from "./shared/range-slider.jsx";
+import { createSoundfontSource } from "../fluidsynth_synth/soundfont-source.js";
 import { soundfontStorageKey, readOfflineSoundfont, readWorkingSoundfont, keepWorkingSoundfont, storeOfflineSoundfont,
   removeOfflineSoundfont, saveSoundfontFile } from "../fluidsynth_synth/soundfont-storage.js";
 import {
@@ -40,43 +41,6 @@ const readVolume = () => {
   const value = stored == null ? 100 : Number(stored);
   return Number.isFinite(value) ? Math.max(0, Math.min(127, value)) : 100;
 };
-
-async function readResponseWithProgress(response, onProgress) {
-  const reader = response.body?.getReader?.();
-  if (!reader) return response.arrayBuffer();
-
-  const contentLength = Number(response.headers.get("content-length"));
-  const total = Number.isFinite(contentLength) && contentLength > 0 ? contentLength : null;
-  const target = total ? new Uint8Array(total) : null;
-  const chunks = target ? null : [];
-  let loaded = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (target) target.set(value, loaded);
-    else chunks.push(value);
-    loaded += value.byteLength;
-    onProgress?.({ loaded, total });
-  }
-
-  if (target) {
-    if (loaded !== target.byteLength) {
-      throw new Error(
-        `SoundFont download was incomplete (${loaded} of ${target.byteLength} bytes)`,
-      );
-    }
-    return target.buffer;
-  }
-
-  const combined = new Uint8Array(loaded);
-  let offset = 0;
-  for (const chunk of chunks) {
-    combined.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return combined.buffer;
-}
-
 const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }) => {
   const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem("hexatone_fluidsynth_collapsed") !== "false");
   const [presets, setPresets] = useState(() => peekFluidSynthEngine()?.presets ?? []);
@@ -113,7 +77,11 @@ const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }
   const menuSelectionRef = useRef(0);
   const outputEnabledRef = useRef(!!settings.output_fluidsynth);
   outputEnabledRef.current = !!settings.output_fluidsynth;
-  useEffect(() => () => { ++menuSelectionRef.current; }, []);
+  useEffect(() => () => {
+    ++menuSelectionRef.current;
+    ++loadGenerationRef.current;
+    downloadControllerRef.current?.abort();
+  }, []);
   const activeEngine = peekFluidSynthEngine();
   const source = activeEngine?.soundfontSource;
   const localSoundfontLoaded = activeEngine?.soundfontId != null && !!source && !source.url;
@@ -228,6 +196,7 @@ const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }
       : soundRecall?.fallback?.name === source.name ? soundRecall.fallback.preset : undefined;
     const preferredPreset = presetOverride ?? recalledPreset ?? readSavedPreset(soundfontStorageKey(source)) ??
       (source.name === localStorage.getItem(LAST_BANK_KEY) ? settings.fluidsynth_preset : undefined);
+    setShuttingDown(false);
     setBusy(true);
     setStatus(source.url ? "" : `${loaded ? "Replacing" : "Loading"} ${source.name}…`);
     setStorageStatus("");
@@ -257,10 +226,11 @@ const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }
             const key = soundfontStorageKey(bankSource);
             // A retained Blob already supplied these bytes; don't rewrite a
             // potentially large bank just to switch back to it.
-            if (bankSource.storedOfflineKey !== key) await storeOfflineSoundfont(bankSource, bytes);
+            if (bankSource.cachedBankKey !== key) await storeOfflineSoundfont(bankSource, bytes);
+            const availableOffline = bankSource.cachedBankKey !== key || bankSource.offline !== false;
             if (current()) {
-              setOfflineKey(soundfontStorageKey(bankSource));
-              if (key === menuKey) setMenuOfflineKey(key);
+              setOfflineKey(availableOffline ? key : null);
+              if (key === menuKey) setMenuOfflineKey(availableOffline ? key : null);
               setStorageStatus("");
             }
             // Persistence is best effort; denial must never interrupt playback.
@@ -344,42 +314,16 @@ const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }
     const url = hostedUrl(name);
     const controller = new AbortController();
     downloadControllerRef.current = controller;
-    const bankSource = {
-      name,
-      url,
-      async arrayBuffer(onProgress) {
-        const updatePhase = (phase) => {
-          if (downloadControllerRef.current === controller) setLoadingProgress((progress) => ({ ...progress, phase, quiet: phase !== "Downloading" }));
-        };
-        controller.signal.throwIfAborted();
-        bankSource.storedOfflineKey = null;
-        try {
-          const cached = cachedBank ?? await readWorkingSoundfont(url);
-          controller.signal.throwIfAborted();
-          if (cached) {
-            updatePhase("Loading offline copy");
-            onProgress?.({ loaded: cached.blob.size, total: cached.blob.size });
-            const bytes = await cached.blob.arrayBuffer();
-            controller.signal.throwIfAborted();
-            bankSource.storedOfflineKey = cached.offline === false ? null : url;
-            return bytes;
-          }
-        } catch (error) {
-          if (error.name === "AbortError") throw error;
-          if (!allowDownload) throw new Error("Stored copy unavailable. Click Load to download, or choose a local file.", { cause: error });
-          if (downloadControllerRef.current === controller) {
-            setStorageStatus("Couldn’t read the stored copy. Downloading instead…");
-          }
-        }
-        if (!allowDownload) throw new Error("No stored copy. Click Load to download, or choose a local file.");
-        updatePhase("Downloading");
-        // The soundfonts subdomain's document root already maps to the
-        // webspace /soundfonts directory, so the URL path starts at /.
-        const response = await fetch(url, { mode: "cors", signal: controller.signal });
-        if (!response.ok) throw new Error(`SoundFont download failed (${response.status})`);
-        return readResponseWithProgress(response, onProgress);
+    const bankSource = createSoundfontSource({ name, url, cachedBank, allowDownload, signal: controller.signal,
+      onPhase: phase => {
+        if (downloadControllerRef.current === controller)
+          setLoadingProgress(progress => ({ ...progress, phase, quiet: phase !== "Downloading" }));
       },
-    };
+      onCacheError: () => {
+        if (downloadControllerRef.current === controller)
+          setStorageStatus("Couldn’t read the stored copy. Downloading instead…");
+      },
+    });
     void loadSoundFont(bankSource, controller.signal);
   };
 
@@ -421,6 +365,10 @@ const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }
     const generation = ++loadGenerationRef.current;
     ++menuSelectionRef.current;
     downloadControllerRef.current?.abort();
+    downloadControllerRef.current = null;
+    setBusy(false);
+    setShuttingDown(false);
+    setLoadingProgress(null);
     const current = () => !cancelled && loadGenerationRef.current === generation;
     const active = peekFluidSynthEngine();
     setHostedSoundfont(HOSTED_SOUNDFONTS.includes(soundRecall.name) ? soundRecall.name : "");
@@ -443,13 +391,8 @@ const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }
         const resident = peekFluidSynthEngine()?.soundfontCache?.keys.includes(key);
         if (!cached?.blob && !resident) continue;
         setHostedSoundfont(HOSTED_SOUNDFONTS.includes(candidate.name) ? candidate.name : "");
-        const applied = await recallLoaderRef.current({
-          name: candidate.name, url: key, storedOfflineKey: key,
-          arrayBuffer: () => {
-            if (!cached?.blob) throw new Error("Stored copy unavailable. Choose the SoundFont locally.");
-            return cached.blob.arrayBuffer();
-          },
-        }, undefined, candidate.preset, generation);
+        const bankSource = createSoundfontSource({ name: candidate.name, url: key, cachedBank: cached });
+        const applied = await recallLoaderRef.current(bankSource, undefined, candidate.preset, generation);
         if (current() && applied) appliedRecallRef.current = soundRecall;
         return;
       }
@@ -518,6 +461,7 @@ const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }
             if (value === "local") return;
             const selection = ++menuSelectionRef.current;
             const generation = ++loadGenerationRef.current;
+            const current = () => generation === loadGenerationRef.current;
             setHostedSoundfont(value);
             setStatus("");
             setStorageStatus("");
@@ -526,10 +470,11 @@ const FluidSynthSettings = ({ settings, onChange, soundRecall, onWorkingChange }
               setShuttingDown(true);
               setStatus("Releasing FluidSynth sounds…");
               void stopFluidSynthEngine({ naturalRelease: true }).then(() => {
+                if (!current()) return;
                 setStatus("");
                 onChange("fluidsynth_runtime_revision", (Number(settings.fluidsynth_runtime_revision) || 0) + 1);
-              }).catch(error => setStatus(`FluidSynth release failed: ${error.message}`))
-                .finally(() => { setBusy(false); setShuttingDown(false); });
+              }).catch(error => { if (current()) setStatus(`FluidSynth release failed: ${error.message}`); })
+                .finally(() => { if (current()) { setBusy(false); setShuttingDown(false); } });
             } else {
               const playing = peekFluidSynthEngine();
               if (playing?.soundfontId != null && !playing.pendingSoundfont && playing.soundfontSource &&

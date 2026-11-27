@@ -1,6 +1,6 @@
 # User Manual
 
-Updated: 2026-10-27
+Updated: 2026-11-27
 
 ## About
 
@@ -10,7 +10,7 @@ Updated: 2026-10-27
 
 - customisable keyboard layouts and tunings
 - play with touch, mouse, computer keyboard, and MIDI
-- high-resolution tuning across coordinated internal sound engines with 128-note polyphonic expression: built-in samples, a SoundFont player, and four SuperCollider/SuperSonic synth layers
+- polyphonic built-in sounds with tuning and expression: DSF synthesis, samples, a SoundFont player, and four SuperCollider/SuperSonic layers
 - a scale table for editing tunings: use any degree as a reference note, adjust any pitch to any frequency, use scales of any size across the full frequency range
 - JI tools for rationalisation of cents-based intervals, modulation to any scale degree, automatic HEJI Notation and key colours derived from a ratio’s prime exponents
 - MIDI input from standard keyboards, MPE devices, or multichannel controllers like Haken Continuum, Exquis, LinnStrument, Lumatone; known controller geometries are correlated with on-screen scale layouts and assigned specialised controls
@@ -472,134 +472,74 @@ Repeat markers participate directly in cue playback. When cue stepping crosses a
 
 ## SOUNDS and MIDI tabs
 
-Switching to either the `SOUNDS` or `MIDI` tab does not interrupt live or sequenced playback. Snapshots and Modulation history remain available in floating palettes. Opening contextual help with `… more` also leaves timed playback running and returns to the current tab’s help section each time. Close help with the × in the opening fieldset’s corner. As you scroll, it stays below the tabs until the fieldset returns.
+`SOUNDS` contains User Sounds and four built-in engines, which can be used independently or layered. `MIDI` contains MIDI Setup, MIDI Input, and MIDI Output. Switching between these tabs keeps live and sequenced playback running. A loaded sequence shares the same transport controls as the `SEQUENCER` tab.
 
-SOUNDS contains User Sounds and the four built-in engines. MIDI contains MIDI Setup, MIDI Input and MIDI Output. Both tabs keep sequence playback running and show the shared transport when a sequence is loaded.
+After clicking the canvas, you can keep playing the computer keyboard while moving faders or using other non-typing controls in SOUNDS, MIDI, and Scale Settings. Focusing a typing field suspends keyboard playing and releases sustained notes; click the canvas to resume.
 
-The User Sounds menu always offers Default (the factory sound defaults, with Built-in Samples off) and Test Tone (DSF alone, timbre 0, envelopes and expression mappings off), followed by saved sounds. User Sounds saves a named snapshot of all four built-in engines, including their enabled states, DSF envelopes and expression amounts, sample instrument and level, SoundFont bank/preset, level, reverb and smoothing, and scsynth layer and release settings. Save updates the selected user sound, including a changed name; Save as copy keeps the original and makes a new entry. Built-in sounds can only be saved as copies. Choose an entry to recall it. An asterisk after the selected sound name marks unsaved changes; it clears when you save or return to the saved settings. Switching an engine off and on preserves its current working sound, including edited SoundFont patches and controls. Use the reload button to restore the selected sound’s saved settings. Open File(s) imports sound JSON, and Export .json exports the current settings under the entered name. SoundFont files are separate: recall uses an available local copy or asks you to provide the bank. Default selects HwGedackt 8 in PlainsoundOrgan.sf2 (bank 0, program 1), falling back to an available PlainsoundOrganGedackt.sf2 (bank 0, program 0) if the full bank is unavailable. Recall does not download missing banks automatically. Tuning, controller connections and bridge credentials are unchanged.
+### User Sounds
 
-The options are grouped under `Built-in DSF Synthesis`, `Built-in Samples`, `Built-in SoundFont Player`, and `Built-in scsynth`, followed by `MIDI Setup`, `MIDI Input`, and `MIDI Output`. Sound outputs may be enabled independently or layered. The built-in audio backends are under active development.
+Choose **Default**, **Reed Organ**, **Hammond**, **Baroque Organ**, **Harpsichord**, or **Test Tone**, or recall one of your saved sounds. Each sound remembers the four engines' enabled states, instruments, levels, envelopes, and expression settings. Toggling an engine off and on keeps its current working settings.
 
-`Use Oscillator` enables polyphonic DSF synthesis. The fieldset starts collapsed, showing Volume, ISO-226 compensation, harmonic partial count, Timbre, Pressure and Expression. Its arrow button reveals the envelope and velocity-routing controls; this choice is remembered for the tab session and does not alter the sound. Adjust volume, harmonic partial count, timbre, and the ADSR envelope: attack, decay, sustain level and release. `Volume Envelope`, below Volume and ISO compensation, enables ADSR and reveals its controls. When unchecked, notes use a fixed 1 ms attack and 4 ms release to soften note-on and note-off; the saved ADSR settings are retained. All three times reach 0 ms. Envelope time faders give more travel to short and medium times; hold Shift while dragging for tenfold finer pointer control. Sustain ranges from 0–200%. Decay moves from the attack peak to the sustain level, rising when sustain exceeds 100%; a sustain level of 0% produces a short sound even while the key remains held. Releasing a key starts release from the current envelope level. Volume defaults to 0.25 on a 0.00–1.00 scale, with ADSR enabled: attack 12 ms, decay 1500 ms, sustain 150% and release 120 ms. Attack rises promptly and rounds into its peak; falling decay rounds gently out of the peak before a sharper drop, while release falls more gradually. Both use exponential-style curves that settle gently at their exact endpoints. A rising decay uses an S-curve. Envelopes advance per sample, with no minimum time added to a 0 ms setting. `Pressure (Z)` ranges from 0–100%. At 100%, it adds up to 12 dB above the current volume, with most of the boost near full pressure. Light pressure also adds a brightness bite of up to 6 percentage points, fading along an S-curve by 30% pressure. `Expression (Y/Mod/Foot)` ranges from 0–100%. At 100%, MIDI 0 moves base timbre 50% of its available range toward 0, MIDI 64 leaves it unchanged, and MIDI 127 moves it 75% of its available range toward 1, with linear segments on either side. For example, a base of 0.25 becomes 0.125, 0.25, or 0.8125 respectively. The timbre envelope operates relative to this adjusted base. Both amounts scale their response continuously; 0% turns the corresponding modulation off and skips its audio calculations. Both default to 50%. These changes are smoothed. `Velocity → Volume`, `Velocity → Timbre` and `Velocity → Attack` independently scale note-on response from 0–100%. Full volume response ranges from ×0.25 at minimum velocity through ×1 at MIDI 64 to ×4 at maximum, with a curve emphasizing the extremes. Full timbre response shifts brightness by −25 percentage points at minimum velocity, zero at MIDI 64, and +25 at maximum, with a gentle curve concentrating change toward the extremes. At 0%, the corresponding response is off. `Velocity → Attack` scales the attack time of both enabled ADSRs: at 100%, attack ranges from four times the fader time at minimum velocity to one-quarter at maximum, with MIDI 64 unchanged. At 0%, both attacks use their fader times. Zero-time attacks remain immediate. Changes apply to new attacks; volume release ranges from four times to one-quarter, with MIDI 64 retaining the fader time. `Release Velocity → Release` scales note-off velocity response from 0–100% for both envelopes. At 100%, both volume and timbre release range from ×4 at low velocity to ×0.25 at high velocity, with MIDI 64 unchanged. At 0%, both use their fader times. Changes apply to new releases. All four velocity-routing amounts default to 50%; ISO-226 compensation defaults to 0%. The ISO-226 compensation amount fader ranges from 0% (off) to 100% (full compensation), scaling the adjustment in decibels. It adjusts each note's level by its fundamental frequency, with a gentle 2 dB reduction around 80–200 Hz and a softer overall level.
+- **Save** updates the selected user sound; **Save as copy** creates a new entry. Built-in sounds can only be saved as copies.
+- An **asterisk** after the sound name marks unsaved edits. **⟳** restores the selected sound's saved settings.
+- **Open File(s)** imports sound JSON; **Export .json** saves the current named sound.
 
-The Timbre curve brings brightness forward, with a gentle sinusoidal correction giving more movement at both ends and a slight darkening around the midpoint. With fewer than 16 sounding partials, the curve spreads the approach to full brightness across more of the fader; one partial remains a sine throughout. 0% remains a sine and 100% retains the full spectrum.
+SoundFont files are stored separately. Recall uses an available browser copy or asks you to provide the bank; it never downloads a missing bank automatically. Baroque Organ prefers the full Organ bank on desktop and the smaller Principal bank on phones and tablets. Sound recall does not change tuning or MIDI connections.
 
-`Timbre ADSR`, below Timbre, enables the independent envelope and reveals its controls. The main Timbre fader displays 0.00–1.00. `Timbre peak offset` and `Timbre sustain offset` each range from −100% to +100%, relative to that base setting: −100% reaches 0, +100% reaches 1, and 0% leaves timbre unchanged. Negative offsets scale the available range toward 0; positive offsets scale the range toward 1. For example, with Timbre at 0.25, −50% gives 0.125 and +50% gives 0.625. The envelope starts at the base setting, attacks toward the peak offset, decays toward the independent sustain offset, and releases back to base. Sustain can be above or below the peak, including on the opposite side of base. The timbre envelope defaults to a −50% peak offset, 750 ms attack, 5000 ms decay, −75% sustain offset and 2 ms release, with ADSR enabled. Only when both offsets are zero does the envelope have no effect. Unchecking ADSR bypasses it while retaining its settings. Attack, decay and release have independent times, including 0 ms, and use the same transition curves as the volume envelope. Velocity → Attack and Release Velocity → Release scale the corresponding times for both enabled envelopes. Expression Y adjusts the base before the envelope; pressure bite and velocity timbre contributions are added after the relative envelope offset, and final timbre is limited to 0–1. Spectral changes are smoothed, so very short stages are softened. The volume envelope determines when the note ends.
+`Restore SOUND settings on reload` and `Restore MIDI settings on reload` work independently. Turning either off resets its active setup on the next reload, while keeping saved sounds, SoundFonts, and controller profiles. MIDI permissions must still be granted and the selected ports must be available.
 
+### Built-in DSF Synthesis
 
-`Restore SOUND settings on reload` and `Restore MIDI settings on reload`, at the top of their respective tabs, work independently and default to on. Disable SOUND restoration to return the built-in engines to their defaults on the next reload. Disable MIDI restoration to reset MIDI connections and routing. Saved User Sounds, cached SoundFont files and controller profiles are retained. These choices are independent of tuning/sequence `Restore on reload` and do not interrupt the current session.
+Enable `Use Oscillator` for a polyphonic additive sound. The fieldset arrow reveals the envelope and velocity controls.
 
-Restoring `SOUNDS` and `MIDI` remembers the requested setup, not browser permission: MIDI/SysEx access must still be granted and the selected ports must be available.
+- **Volume** sets the level. **ISO-226 compensation** adjusts loudness across registers; 0% is off.
+- **Partials** sets the number of harmonics. **Timbre** moves from a sine wave toward a brighter spectrum.
+- **Volume Envelope** enables attack, decay, sustain, and release (ADSR). Sustain can reach 200%; turning the envelope off keeps its saved settings.
+- **Timbre ADSR** shapes brightness independently. Peak and sustain offsets are relative to the main Timbre value: negative values darken the sound and positive values brighten it.
+- **Velocity → Volume**, **Velocity → Timbre**, **Velocity → Attack**, and **Release Velocity → Release** set how playing dynamics affect the sound.
+- **Pressure (Z)** adds level and brightness; **Expression (Y/Mod/Foot)** changes timbre. Set an amount to 0% to disable that response.
 
-All four built-in backends are enabled by default; saved `SOUNDS` and `MIDI` choices override these defaults. FluidSynth remains silent until a SoundFont is loaded. On audio activation, Hexatone tries to restore the last SoundFont and its preset from an available offline browser copy, without downloading it again. When activation or recovery is needed, a shared audio popup shows status separately from three actions: `Retry` prepares or restores audio, `Report` saves diagnostics, and `Dismiss` hides the popup.
-
-For latency testing, enable `Measure audio latency` in `Audio Diagnostics`. Mark each comparison stage and play using mouse clicks or drags, computer keys, or touch. The report records input and backend timing, with browser playback-clock and output-latency estimates. FluidSynth also reports rendered attacks and, for notes played from silence, the first non-silent output block. Let release tails fade between isolated notes. These measurements precede browser/device output buffering; recording physical key clicks and speaker sound is needed to check the audible delay. Safari's reported playback clock may not reveal that delay. SuperSonic reports recent rendered output level and whether its output-scope clock is advancing. These can remain normal while browser or device buffering delays the audible sound.
-
-`Suspend & Resume Audio` cycles the existing contexts without rebuilding engines or reloading SoundFonts. It releases notes and marks a `Contexts resumed` stage when measurement is enabled. Compare the same sound before and after. A failed cycle reports an error without attempting a rebuild. `Restart FluidSynth worklet` reloads the current bank and preset on the same running context, preserving volume and smoothing settings. It marks a separate stage and leaves the other engines intact. `Recreate audio contexts` is the separate, stronger recovery action.
-
-When working with a loaded sequence, the `Sequencer Transport` fieldset below `MIDI Output` provides the sequencer’s `PLAY FROM`, `TIMED PLAYBACK`, `SPEED`, and `PITCH` controls. These operate the same transport as the `SEQUENCER` tab, so you can stop, resume, or adjust playback while designing sounds.
+Times are in milliseconds. Hold Shift while dragging an envelope-time fader for finer adjustment.
 
 ### Built-in Samples
 
-Hexatone has a small built-in library of sampled sounds. These include several additive synthesis timbres with 1–16 harmonics, as well as some basic instruments (E Piano, Rhodes, Organ, Harpsichord, Harp, Qanun, Gayageum, Pizzicato, Vibraphone, Srutibox). The sounds are designed for testing and sketching, and may be changed dynamically while playing live or sequenced material. Sample volume defaults to 0.5; saved volume settings take precedence.
-
-When changing instruments, the current sound remains available while the new samples load. Held and legato notes keep their original sound until their normal release; new attacks use the newly loaded instrument. `Volume` and `PANIC` continue to affect voices from the previous sound.
+Enable the sample engine, choose an `Instrument`, and set its `Volume`. The library includes simple harmonic timbres and sampled instruments for testing and sketching. When changing instruments, held notes keep their original sound and new attacks use the replacement once it has loaded.
 
 ### Built-in SoundFont Player
 
-Enable `Use FluidSynth Sounds`, choose a bank from `Hexatone SoundFonts`. A remembered browser copy loads automatically; otherwise click `Load Hexatone SoundFont` to download it. Alternatively, `Choose Local File` opens a `.sf2` or `.sf3` file. Once loaded, select a `Preset` and adjust `Volume`. Preset changes and switches to an already resident SoundFont affect new notes; held notes and release tails keep their previous sound without reattack. The player supports per-note tuning, pitch bend, timbre, and pressure with up to 128-note polyphony; the response depends on the SoundFont’s own modulation settings. Performance depends on browser and local hardware setup.
+Enable `Use FluidSynth Sounds`, choose a bank from `Hexatone SoundFonts`, then select its `Preset`. An available browser copy loads automatically; otherwise click `Load Hexatone SoundFont` or use `Choose Local File` for a `.sf2` / `.sf3` file. Downloads can be cancelled.
 
-The player keeps recently used native SoundFonts in an estimated 512 MiB memory cache on desktop, reduced to 256 MiB on phones and tablets, distinct from browser offline storage. Resident banks switch without rereading or parsing their files. Least recently used banks are evicted when idle and over budget; the selected bank is always kept, and playing voices temporarily prevent eviction. If a selected bank still needs native loading while FluidSynth is playing, it waits for the next note. That note triggers a 40 ms fade of the old sound, then loading and the new attack. The first attack therefore waits for the fade plus load time. If the old voices finish first, preparation happens while idle. The menu and local-file picker remain available while a bank is waiting. Choosing another bank replaces the pending selection.
+**Volume** and **Reverb** set the mix. The fieldset arrow reveals **Pressure Smoothing**, **Expression Y Smoothing**, and **Minimum Smoothing**. Smoothing softens supported pressure/timbre loudness changes; 0 ms is off. Minimum Smoothing sets a lower time limit for small changes. The SoundFont determines how expression affects its sound.
 
-The fieldset arrow shows or hides the three smoothing controls, remembering the choice for the tab session. Collapsing leaves bank selection, presets, Volume and Reverb visible and does not disable smoothing.
+Recently used banks are cached for faster switching. Larger banks may take longer to load, especially on phones. Selecting a preset affects new attacks; held notes keep their sound. A bank that needs loading while notes are sounding waits for a new attack or silence and may briefly delay that attack.
 
-`Pressure Smoothing (ms)` and `Expression Y Smoothing (ms)` range from 0–500 ms; 0 is off. Pressure covers key and channel pressure; Expression Y covers CC1 and CC74. They smooth existing unipolar linear, concave, or convex attenuation modulators, with up to eight routes per voice. Other modulation remains immediate.
+- **Save SoundFont File…** saves the original file to your device.
+- **Keep for Offline Use** retains a browser copy.
+- **Remove Offline Copy** removes that retained copy without stopping playback. The current page can still reuse its temporary working copy.
 
-The time applies to a full 127-unit change; smaller changes take proportionally less time. The shared `Minimum Smoothing (ms)` gives small changes more time and cannot exceed the lowest enabled smoothing time. Setting minimum and smoothing to the same value gives fixed-duration transitions. New notes start at the current controller value.
-
-File and storage controls appear below `Volume` when applicable:
-
-- `Save SoundFont File…` saves the original file to your device.
-- `Remove Offline Copy` removes the retained browser copy without stopping playback. A temporary copy remains available for Save or `Keep for Offline Use` during the current page session, when storage permits.
-- `Keep for Offline Use` retains that copy in browser storage.
-
-When a local file has exactly the same filename as a bank in `Hexatone SoundFonts`, Hexatone remembers its browser copy for that menu entry. Selecting the bank again reuses that copy before downloading, including after a page reload. Files with other names remain separate. This restores the saved copy, not later edits to the original file; choose the local file again to update it.
-
-`Available offline in this browser.` means a stored file is available. Selecting its menu entry loads it automatically. Automatic loading never falls back to a download; if the copy is unavailable, click Load or choose a local file. Browser storage limits, clearing site data, or ending a private session may remove the copy. If storage fails, the player attempts to keep one temporary file in memory for saving or retrying storage; that fallback does not survive reload. Saving a file to your device is separate from keeping a browser offline copy.
+A local file matching a supplied bank's filename can be reused through that bank's menu entry. Choose the file again to pick up later edits. Browser copies can be lost when site data is cleared or a private session ends; saving a file to your device is separate from browser storage.
 
 ### Built-in scsynth
 
-The fieldset arrow shows or hides Release Envelope, its raster-only option and Release Time. The choice is remembered for the tab session and does not change the sound.
+Enable `Use SuperCollider Sounds` and select **SuperSonic** under `scsynth Server` to run **Pluck**, **Buzz**, **Formant**, and **Saw** in the browser. Each layer has its own level; 0 turns that layer off. **Brightness** also responds to the assigned wheel or pedal.
 
-Enable `Use SuperCollider Sounds`. With `SuperSonic` selected, the Pluck, Buzz, Formant, and Saw layers run directly in the browser, without an OSC bridge. Select `Local via OSC Bridge` under `scsynth Server` to use an external SuperCollider connection through `Bridge URL`. Both modes share the layer and articulation controls described under **OSC** below.
-
-A layer volume of **0** greys its label and turns that layer off, freeing synth nodes to save processing. Raising the fader above zero restores that layer for held or sequencer notes, using their current pitch and expression.
-
-`Brightness` defaults to 20%, retaining saved preferences; the assigned modulation wheel or pedal can update it. It also shapes sequence timbre when `Sequencer Timbre Control` is enabled. `Release Time` extends to **4000 ms** and applies to Pluck, Buzz, and Formant, not Saw. In SuperSonic, increasing `Release Envelope` also limits accumulated release tails to keep blended releases manageable. In case of sound performance issues, try adjusting these settings.
+The fieldset arrow reveals **Release Envelope**, **Release Time**, and **Apply release envelope to Rastered Glissando only**. These shorten or blend the release of Pluck, Buzz, and Formant. Uncheck the raster-only option to apply them to ordinary played notes. **Retrigger Buzz + Formant** creates repeating swells while notes are held.
 
 ### OSC
 
-OSC routing is configured in `Built-in scsynth`. Switching `SuperSonic` changes between the browser-local engine and the external bridge, stopping the old engine and retriggering held notes once the new one is ready. For local-development asset preparation, see `tools/supersonic/README.md`.
+For an external SuperCollider server, select **Local via OSC Bridge** under `scsynth Server`. This requires a local copy of Hexatone, the matching SuperCollider patch, and a running bridge:
 
-Hexatone also includes an OSC output path for users who want:
+```sh
+yarn osc-bridge
+```
 
-- a custom synthesis backend
-- direct control of a local SuperCollider setup
+Set `Bridge URL` and paste the token printed by the bridge into `Bridge pairing token`, then leave the field to connect. The token lasts for the current tab session; restarting the bridge generates a new one. To run Hexatone locally as well, use `yarn start` in another terminal. `yarn build-bridge` builds a standalone bridge app.
 
-### What it requires
+See the [Developer Quickstart](./DEVELOPER_QUICKSTART.md) for local setup and [the supplied SynthDefs](./Synths/SuperCollider-OSC/LumatoneSynths.scd) for custom SuperCollider controls.
 
-This mode requires a local clone of the repo and a locally running bridge:
+### Audio recovery
 
-1. Clone the repository locally.
-2. Choose one of these bridge workflows:
-
-   - Build a local `osc-bridge` app that runs on your architecture and translates incoming WebSocket data for SuperCollider:
-
-     ```sh
-     yarn build-bridge
-     ```
-
-   - To edit Hexatone code and work with custom OSC setups on localhost, run the development server and bridge separately:
-
-     ```sh
-     yarn start
-     yarn osc-bridge
-     ```
-
-3. Load the matching SuperCollider patch/responders locally.
-4. Enable `Use SuperCollider Sounds` in Hexatone, select `Local via OSC Bridge` under `scsynth Server`, and set `Bridge URL` to the running bridge. Paste the token printed in the bridge terminal into `Bridge pairing token`, then leave the field to connect. The token lasts for this tab session and is not included in presets or shared links. Restarting the bridge generates a new token.
-
-This feature also supports a fully local setup: run Hexatone on `localhost:5173` and the OSC bridge on the same machine, without relying on the hosted site. Users can also use this pathway to drive their own SynthDefs and patches, and support other OSC-compatible apps.
-
-#### Writing compatible SynthDefs
-
-Hexatone sends standard SuperCollider `/s_new` and `/n_set` messages. The following are SynthDef control names, not separate OSC addresses:
-
-| Control | Value / default | Purpose |
-| --- | --- | --- |
-| `freq` | Hz | Unbent note frequency; multiply by `bend` for sounding pitch. |
-| `bend` | Ratio, default `1` | Pitch expression; `2` raises pitch one octave. |
-| `pressure` | `0–1`, default `0` | Per-note pressure (Z), including recorded or generated expression. |
-| `expressionY` | `0–1`, default `0` | Y expression from CC74; its musical mapping is up to the SynthDef. |
-| `on_vel`, `off_vel` | `0–127`, default `64` | Attack and release velocity. |
-| `gate` | `1` held, `0` released | Start/release the envelope. |
-| `vol` | `0–1`, default `0` | Layer level. |
-
-For example, `/n_set 1001 "bend" 1.02 "pressure" 0.7 "expressionY" 0.4` updates one voice. Smooth expression inside the SynthDef as appropriate; Y need not control a filter or timbre. The existing modulation-wheel mapping is retained: CC1 also updates `expressionY`, globally across each layer.
-
-The supplied definitions are `pluck`, `string` (Buzz), `formant`, and `tone` (Saw), routed to layer ports 57101–57104. External replacements should use these names and compatible controls; the current interface does not offer arbitrary SynthDef name selection. Optional Hexatone articulation controls are `quick_release` (`0–1`), `quick_release_time` (seconds), and `retrigger_mode`. Formant also receives its vowel-filter controls. Define any additional controls you need with safe defaults and free voices after release. Use the supplied `Synths/SuperCollider-OSC/LumatoneSynths.scd` as a reference.
-
-Earlier definitions used `mod` and `filter` with values `1–2`. These are now `expressionY` and `pressure` with values `0–1`; the supplied definitions convert internally to preserve their sound. Reload the updated definitions on your external server when updating Hexatone.
-
-There are four faders for the four independently layered SynthDefs used in the custom SuperCollider patch made for PLAINSOUND `HEXATONE`. The resonance layers may be used in single-trigger mode (default) or retrigger mode. The release envelope may be shortened and blended with a velocity-driven release. The drier sound may be applied only to rastered glissandi generated from Haken Continuum or applied to all notes.
-
-`Retrigger Buzz + Formant` runs independent slow cycles for each held note and
-layer. Buzz receives fresh plucked-string excitation each cycle, with a 3–6 second
-swell, 1–3 second body, 3–6 second decay and 1–4 second pause, independently
-varied each time. Its non-retriggered attack is unchanged. Formant has an 8–16 second swell/decay,
-then a 1–9 second pause, choosing new vocal filters for the next cycle. These
-cycles run in the audio engine, not browser timers. Note-off stops recurrence and uses the natural release. `Release Envelope` blends toward `Release Time` only where the Raster-only setting permits it. To shorten ordinary played notes, uncheck `Apply release envelope to Rastered Glissando only` and increase
-the `Release Envelope` amount toward the chosen short `Release Time`.
+If audio needs activation or recovery, use **Retry** in the audio popup. **Report** saves diagnostics, and **Dismiss** hides the popup. Audio Diagnostics also offers **Suspend & Resume Audio**, **Restart FluidSynth worklet**, and **Recreate audio contexts** for troubleshooting.
 
 ### MIDI Setup
 

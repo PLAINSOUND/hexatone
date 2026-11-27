@@ -9,6 +9,22 @@ vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => flu
 beforeEach(() => { localStorage.clear(); fluidMock.engine = null; });
 const builtinValue = name => `builtin:${BUILTIN_USER_SOUNDS.findIndex(sound => sound.name === name)}`;
 
+it("keeps maximum-length copies and imported sounds distinct and selectable", async () => {
+  const { container } = render(<UserSounds settings={{}} onApply={vi.fn()} />);
+  fireEvent.input(screen.getByLabelText("Sound name"), { target: { value: "x".repeat(200) } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save as copy" }));
+  const copied = loadUserSounds()[1];
+  expect(copied.name).toBe(`${"x".repeat(198)} 2`);
+  expect(screen.getByLabelText("User sounds").value).toBe(`user:${copied.name}`);
+  fireEvent.change(container.querySelector('input[type="file"]'), {
+    target: { files: [{ text: async () => JSON.stringify(loadUserSounds()[0]) }] },
+  });
+  await waitFor(() => expect(loadUserSounds()).toHaveLength(3));
+  expect(loadUserSounds()[2].name).toBe(`${"x".repeat(198)} 3`);
+  expect(new Set(loadUserSounds().map(sound => sound.name)).size).toBe(3);
+});
+
 it("keeps live Mod wheel movement clean while saved brightness edits remain dirty", () => {
   localStorage.setItem("osc_brightness", "0.2");
   const props = { settings: {}, onApply: vi.fn() };
