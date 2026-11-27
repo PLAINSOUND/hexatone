@@ -100,6 +100,7 @@ export function builtinSoundDefinitions(device = globalThis.navigator) {
     {
       name: "Harpsichord",
       settings: {
+        osc_quick_release_time: 2,
         output_dsf: false,
         output_sample: false,
         output_fluidsynth: true,
