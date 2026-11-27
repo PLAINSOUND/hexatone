@@ -7,7 +7,6 @@
  * runtime modules so virtualization never becomes a second source of truth.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
-import SequenceInfo from "./sequence-info.jsx";
 import SequenceLibrary from "./sequence-library.jsx";
 import SequenceControls from "./sequence-controls.jsx";
 import SnapshotSequenceItem from "./snapshot-sequence-item.jsx";
@@ -3111,6 +3110,8 @@ const Sequencer = ({
         activeSequenceName={activeSequenceName ?? ""}
         activeSequenceSavedName={activeSequenceSavedName ?? ""}
         activeSequenceDescription={activeSequenceDescription ?? ""}
+        onNameChange={onSequenceNameChange}
+        onDescriptionChange={onSequenceDescriptionChange}
         onLoadSequence={onLoadSequence}
         onClearSequence={onClearSequence}
         onSequenceSaved={onSequenceSaved}
@@ -3118,13 +3119,6 @@ const Sequencer = ({
         onPrimarySaveVisibilityChange={setTopSequenceSaveVisible}
         showActivateAudioContext={showActivateAudioContext}
         activateAudioContext={onEnsureAudioReady}
-      />
-
-      <SequenceInfo
-        name={activeSequenceName ?? ""}
-        description={activeSequenceDescription ?? ""}
-        onNameChange={onSequenceNameChange}
-        onDescriptionChange={onSequenceDescriptionChange}
       />
 
       <fieldset class="sequencer-capture-fieldset">

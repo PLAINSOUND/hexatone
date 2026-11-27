@@ -1,10 +1,8 @@
-// SequenceInfo renders the editable name/description header for a sequence.
-// It keeps text-entry drafts local until commit so the larger app does not
-// rebuild the full sequencer workspace on every keystroke.
-
 import { useEffect, useState } from "preact/hooks";
 
-const SequenceInfo = ({ name, description, onNameChange, onDescriptionChange }) => {
+// Keep text drafts local until blur. The star is a display of buffer state.
+export default function PresetInfo({ name, description, dirty, label, placeholder, onNameChange, onDescriptionChange }) {
+  const [editing, setEditing] = useState(false);
   const [nameDraft, setNameDraft] = useState(name || "");
   const [descriptionDraft, setDescriptionDraft] = useState(description || "");
 
@@ -18,12 +16,12 @@ const SequenceInfo = ({ name, description, onNameChange, onDescriptionChange }) 
 
   const commitName = (value) => {
     if (value === (name || "")) return;
-    onNameChange(value);
+    onNameChange?.(value);
   };
 
   const commitDescription = (value) => {
     if (value === (description || "")) return;
-    onDescriptionChange(value);
+    onDescriptionChange?.(value);
   };
 
   return (
@@ -35,22 +33,27 @@ const SequenceInfo = ({ name, description, onNameChange, onDescriptionChange }) 
         <input
           name="name"
           type="text"
-          placeholder="User Sequence"
+          placeholder={placeholder}
+          aria-label={label}
+          aria-description={dirty ? "Unsaved changes" : undefined}
           width="100%"
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
           spellCheck={false}
-          value={nameDraft}
+          value={dirty && !editing ? (nameDraft ? nameDraft + " *" : "*") : nameDraft}
+          onFocus={() => setEditing(true)}
           onInput={(e) => setNameDraft(e.currentTarget.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              commitName(e.currentTarget.value);
               e.currentTarget.blur();
             }
           }}
-          onBlur={(e) => commitName(e.currentTarget.value)}
+          onBlur={() => {
+            setEditing(false);
+            commitName(nameDraft);
+          }}
         />
       </label>
       <label>
@@ -67,6 +70,4 @@ const SequenceInfo = ({ name, description, onNameChange, onDescriptionChange }) 
       </label>
     </fieldset>
   );
-};
-
-export default SequenceInfo;
+}

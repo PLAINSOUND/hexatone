@@ -209,11 +209,13 @@ describe("TuningLibrary", () => {
           name: "Built A",
           scale: ["100.", "1200."],
         }}
+        initialDirty
         initialSource="builtin"
         initialPresetName="Built A"
       />,
     );
 
+    expect(screen.getByLabelText("Tuning name").value).toBe("Built A *");
     expect(screen.getByText("Save current settings in user library")).toBeTruthy();
   });
 
@@ -245,7 +247,7 @@ describe("TuningLibrary", () => {
     expect(screen.getByRole("combobox", { name: "User tunings" }).value).toBe("Beta");
   });
 
-  it("marks the attached user tuning with * when only the name changes", () => {
+  it("marks the edited tuning name and keeps the saved menu label", () => {
     localStorage.setItem(
       USER_TUNINGS_STORAGE_KEY,
       JSON.stringify([
@@ -267,7 +269,13 @@ describe("TuningLibrary", () => {
       />,
     );
 
-    expect(screen.getByRole("option", { name: "Alpha *" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Alpha" })).toBeTruthy();
+    const input = screen.getByLabelText("Tuning name");
+    expect(input.value).toBe("Beta *");
+    fireEvent.focus(input);
+    expect(input.value).toBe("Beta");
+    fireEvent.blur(input);
+    expect(input.value).toBe("Beta *");
   });
 
   it("saves a copy with a unique numbered name", () => {

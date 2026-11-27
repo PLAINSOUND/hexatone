@@ -38,7 +38,6 @@ vi.mock("../hexatone/tuning-library.jsx", () => ({
     </div>
   ),
 }));
-vi.mock("./scale/info", () => ({ default: () => <div>Info Stub</div> }));
 const scaleMockState = vi.hoisted(() => ({ props: [] }));
 vi.mock("./scale", () => ({
   default: (props) => {

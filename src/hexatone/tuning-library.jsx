@@ -1,3 +1,4 @@
+import PresetInfo from "../settings/shared/preset-info.jsx";
 import { checkTextImportFiles } from "../persistence/import-limits.js";
 /**
  * src/hexatone/tuning-library.jsx
@@ -43,6 +44,7 @@ function safeName(name) {
 const TuningLibrary = ({
   presetGroups,
   settings,
+  onChange,
   currentModulationLibrary,
   activeSource,
   activePresetName,
@@ -107,12 +109,10 @@ const TuningLibrary = ({
           (!attachedUserTuning || existingUserTuning.name !== attachedUserTuning.name)
         ? "Save current settings and overwrite user preset"
         : "Save current settings";
-  const hasUnsavedWorkspace =
-    !!workspaceRecord &&
-    ((!activeSource && !!tuningName) ||
-      (activeSource === "builtin" && !!isPresetDirty) ||
-      (activeSource === "user" &&
-        ((activePresetName ? !!isPresetDirty : !!tuningName) || activePresetName !== tuningName)));
+  const dirtyBuffer = activeSource
+    ? !!isPresetDirty || tuningName !== activePresetName
+    : !!(hasWorkspace || tuningName || settings.description);
+  const hasUnsavedWorkspace = !!workspaceRecord && dirtyBuffer;
 
   const handleBuiltInSelect = (e) => {
     const nextName = e.currentTarget.value;
@@ -526,17 +526,7 @@ const TuningLibrary = ({
           <label class="preset-selector-row">
             <select aria-label="User tunings" value={userValue} onChange={handleUserSelect}>
               <option value="">Choose a user tuning:</option>
-              {orderedUserTunings.map((entry) => {
-                const isDirtyActivePreset =
-                  activeSource === "user" &&
-                  entry.name === activePresetName &&
-                  (isPresetDirty || tuningName !== activePresetName);
-                return (
-                  <option key={entry.name} value={entry.name}>
-                    {isDirtyActivePreset ? `${entry.name} *` : entry.name}
-                  </option>
-                );
-              })}
+              {orderedUserTunings.map(entry => <option key={entry.name} value={entry.name}>{entry.name}</option>)}
             </select>
             {activeSource === "user" && onRevertUser && (
               <button type="button" class="preset-refresh-btn" onClick={onRevertUser}>
@@ -620,11 +610,16 @@ const TuningLibrary = ({
 
         {error && <p class="preset-error">{error}</p>}
       </fieldset>
+      <PresetInfo label="Tuning name" name={settings.name} description={settings.description}
+        dirty={dirtyBuffer}
+        onNameChange={value => onChange?.("name", value)}
+        onDescriptionChange={value => onChange?.("description", value)} />
     </>
   );
 };
 
 TuningLibrary.propTypes = {
+  onChange: PropTypes.func,
   presetGroups: PropTypes.arrayOf(
     PropTypes.shape({
       name: PropTypes.string.isRequired,

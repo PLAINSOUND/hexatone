@@ -5,7 +5,6 @@
  */
 
 import { useMemo, useState } from "preact/hooks";
-import Info from "./scale/info";
 import Scale from "./scale";
 import Layout from "./layout";
 import { normalizeColors } from "./normalize-settings.js";
@@ -87,6 +86,7 @@ const Settings = ({
       <TuningLibrary
         presetGroups={presetTuningGroups}
         settings={effectiveTuningLibrarySettings}
+        onChange={onChange}
         currentModulationLibrary={currentModulationLibrary}
         activeSource={activeSource}
         activePresetName={activePresetName}
@@ -109,7 +109,6 @@ const Settings = ({
         onSaveActionStateChange={setTuningSaveActionState}
         onPrimarySaveVisibilityChange={setPrimaryTuningSaveVisible}
       />
-      <Info onChange={onChange} settings={settings} />
       <Scale
         onChange={onChange}
         onAtomicChange={onAtomicChange}

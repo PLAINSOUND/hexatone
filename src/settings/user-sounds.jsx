@@ -9,6 +9,7 @@ export default function UserSounds({ settings, onApply, workingSoundChanges, sou
   const workingSettings = useWorkingSoundSettings(soundSession, settings);
   const [sounds, setSounds] = useState(loadUserSounds);
   const [{ selection: selected, name, description }, setSelection] = useState(() => restoreSelection(sounds));
+  const [editingName, setEditingName] = useState(false);
   const updateSelection = (selection, name, description) => {
     const next = { selection, name, description };
     setSelection(next);
@@ -49,6 +50,7 @@ export default function UserSounds({ settings, onApply, workingSoundChanges, sou
   const capture = () => captureUserSound(name, soundSession?.settings(settings) ?? workingSettings, { engine: peekFluidSynthEngine(), description,
     mixer: soundSession?.mixerValues?.(), referenceSoundfont: selectedSound?.soundfont });
   const dirty = !!selectedSound && (!name.trim() || userSoundHasChanges(capture(), selectedSound));
+  const displayedName = dirty && name && !editingName ? name + " *" : name;
   const recall = value => {
     const record = findSound(value, sounds);
     return record && attempt(() => {
@@ -142,9 +144,14 @@ export default function UserSounds({ settings, onApply, workingSoundChanges, sou
   </fieldset>
   <fieldset>
     <legend><b>Name and Description</b></legend>
-    <label><input type="text" aria-label="Sound name" placeholder="User Sound"
-      autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} value={name}
-      onInput={event => updateSelection(selected, event.currentTarget.value, description)} />{dirty && <span aria-label="Unsaved sound changes" title="Unsaved sound changes"> *</span>}</label>
+    <label>
+      <input type="text" aria-label="Sound name" placeholder="User Sound"
+        aria-describedby={dirty ? "user-sound-unsaved" : undefined}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} value={displayedName}
+        onFocus={() => setEditingName(true)} onBlur={() => setEditingName(false)}
+        onInput={event => updateSelection(selected, event.currentTarget.value, description)} />
+    </label>
+    {dirty && <span hidden id="user-sound-unsaved" aria-label="Unsaved sound changes">Unsaved sound changes</span>}
     <label><textarea aria-label="Sound description" autoComplete="off" autoCorrect="off"
       autoCapitalize="off" spellCheck={false} value={description}
       onInput={event => updateSelection(selected, name, event.currentTarget.value)} /></label>

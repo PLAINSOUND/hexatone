@@ -1,3 +1,4 @@
+import PresetInfo from "../settings/shared/preset-info.jsx";
 import { checkTextImportFiles } from "../persistence/import-limits.js";
 // SequenceLibrary owns the built-in and user sequence pickers.
 // It mirrors the Hexatone tuning-library workflow inside the Sequencer tab:
@@ -165,6 +166,8 @@ const SequenceLibrary = ({
   activeSequenceName,
   activeSequenceSavedName,
   activeSequenceDescription,
+  onNameChange,
+  onDescriptionChange,
   onLoadSequence,
   onClearSequence,
   onSequenceSaved,
@@ -697,16 +700,7 @@ const SequenceLibrary = ({
             <select aria-label="User sequences" value={menuValue} onChange={handleSelect}>
               <option value="">Choose a user sequence:</option>
               {showDraftOption && <option value={DRAFT_SEQUENCE_VALUE}>Unsaved sequence</option>}
-              {orderedSavedSequences.map((sequence) => {
-                const isDirtyActiveSequence =
-                  sequence.name === savedSequenceName &&
-                  (hasUnsavedChanges || sequenceName !== savedSequenceName);
-                return (
-                  <option key={sequence.name} value={sequence.name}>
-                    {isDirtyActiveSequence ? `${sequence.name}*` : sequence.name}
-                  </option>
-                );
-              })}
+              {orderedSavedSequences.map(sequence => <option key={sequence.name} value={sequence.name}>{sequence.name}</option>)}
             </select>
             {savedSequenceName && (
               <button
@@ -792,11 +786,17 @@ const SequenceLibrary = ({
 
         {error && <p class="preset-error">{error}</p>}
       </fieldset>
+      <PresetInfo label="Sequence name" placeholder="User Sequence" name={activeSequenceName}
+        description={activeSequenceDescription} onNameChange={onNameChange} onDescriptionChange={onDescriptionChange}
+        dirty={hasUnsavedChanges || (activeSource === "builtin" ? sequenceName !== activeBuiltInName :
+          !!activeSavedSequence && sequenceName !== savedSequenceName)} />
     </>
   );
 };
 
 SequenceLibrary.propTypes = {
+  onNameChange: PropTypes.func,
+  onDescriptionChange: PropTypes.func,
   snapshots: PropTypes.arrayOf(PropTypes.object).isRequired,
   bars: PropTypes.arrayOf(PropTypes.object),
   repeats: PropTypes.arrayOf(PropTypes.object),

@@ -240,6 +240,7 @@ describe("SequenceLibrary", () => {
       />,
     );
 
+    await waitFor(() => expect(screen.getByLabelText("Sequence name").value).toBe("FALL *"));
     const refreshButtons = document.querySelectorAll(".preset-refresh-btn");
     fireEvent.click(refreshButtons[0]);
 
@@ -359,7 +360,7 @@ describe("SequenceLibrary", () => {
     expect(screen.getByRole("combobox", { name: "User sequences" }).value).toBe("Beta");
   });
 
-  it("marks the attached user sequence with * when only the name changes", () => {
+  it("marks the edited sequence name and keeps the saved menu label", () => {
     localStorage.setItem(
       "hexatone_user_sequences",
       JSON.stringify([
@@ -381,7 +382,13 @@ describe("SequenceLibrary", () => {
       />,
     );
 
-    expect(screen.getByRole("option", { name: "Alpha*" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Alpha" })).toBeTruthy();
+    const input = screen.getByLabelText("Sequence name");
+    expect(input.value).toBe("Beta *");
+    fireEvent.focus(input);
+    expect(input.value).toBe("Beta");
+    fireEvent.blur(input);
+    expect(input.value).toBe("Beta *");
   });
 
   it("loads a selected saved sequence immediately when the workspace is empty", () => {

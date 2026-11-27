@@ -101,6 +101,7 @@ it("reloads the saved sound and its text drafts without saving current changes",
   fireEvent.input(screen.getByLabelText("Sound description"), { target: { value: "Changed" } });
   fireEvent.click(reload);
   expect(onApply).toHaveBeenLastCalledWith(saved);
+  view.rerender(<UserSounds settings={saved.settings} onApply={onApply} />);
   expect(screen.getByLabelText("Sound name").value).toBe("Warm");
   expect(screen.getByLabelText("Sound description").value).toBe(saved.description);
   expect(loadUserSounds()).toEqual([saved]);
@@ -299,4 +300,23 @@ it("restores the active sound in the native picker when recall fails", () => {
   fireEvent.change(picker, { target: { value: builtinValue("Harpsichord") } });
   expect(picker.value).toBe(builtinValue("Default"));
   expect(screen.getByRole("alert").textContent).toBe("Sound unavailable");
+});
+
+it("shows the dirty star between edits and excludes it from saved names", () => {
+  const props = { settings: { dsf_attack: 37 }, onApply: vi.fn() };
+  const view = render(<UserSounds {...props} />);
+  const name = screen.getByLabelText("Sound name");
+  fireEvent.input(name, { target: { value: "Warm" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save as copy" }));
+  view.rerender(<UserSounds {...props} settings={{ dsf_attack: 80 }} />);
+  expect(name.value).toBe("Warm *");
+  fireEvent.focus(name);
+  expect(name.value).toBe("Warm");
+  fireEvent.blur(name);
+  expect(name.value).toBe("Warm *");
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(name.value).toBe("Warm");
+  view.rerender(<UserSounds {...props} settings={{ dsf_attack: 81 }} />);
+  fireEvent.click(screen.getByRole("button", { name: "Save as copy" }));
+  expect(loadUserSounds().map(sound => sound.name)).toEqual(["Warm", "Warm 2"]);
 });
