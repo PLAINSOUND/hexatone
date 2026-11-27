@@ -27,55 +27,30 @@ function OutputPortPicker({
   const isOverride = !!overridePortId;
 
   if (picking) {
-    if (inline) {
-      return (
-        <span class="settings-form__inline-label">
-          <span class="settings-form__label-nowrap">{label}</span>
-          <select
-            class="settings-form__value--compact settings-form__value--grow"
-            value={overridePortId ?? "__auto__"}
-            onChange={(event) => {
-              const value = event.target.value === "__auto__" ? null : event.target.value;
-              onChange(value);
-              setPicking(false);
-            }}
-            onBlur={() => setPicking(false)}
-            ref={pickerRef}
-          >
-            <option value="__auto__">Auto detect</option>
-            {outputs &&
-              Array.from(outputs.values()).map((output) => (
-                <option key={output.id} value={output.id}>
-                  {output.name}
-                </option>
-              ))}
-          </select>
-        </span>
-      );
-    }
-    return (
-      <label class="controller-inline-row controller-output-row">
-        {label}
-        <select
-          class="sidebar-input settings-form__value--compact"
-          value={overridePortId ?? "__auto__"}
-          onChange={(e) => {
-            const val = e.target.value === "__auto__" ? null : e.target.value;
-            onChange(val);
-            setPicking(false);
-          }}
-          onBlur={() => setPicking(false)}
-          ref={pickerRef}
-        >
-          <option value="__auto__">Auto detect</option>
-          {outputs &&
-            Array.from(outputs.values()).map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
-        </select>
-      </label>
+    const menu = (
+      <select
+        class={inline ? "settings-form__value--compact settings-form__value--grow" : "sidebar-input settings-form__value--compact"}
+        value={overridePortId ?? "__auto__"}
+        onChange={(event) => {
+          onChange(event.target.value === "__auto__" ? null : event.target.value);
+          setPicking(false);
+        }}
+        onBlur={() => setPicking(false)}
+        ref={pickerRef}
+      >
+        <option value="__auto__">Auto detect</option>
+        {outputs && Array.from(outputs.values()).map(output => (
+          <option key={output.id} value={output.id}>{output.name}</option>
+        ))}
+      </select>
+    );
+    return inline ? (
+      <span class="settings-form__inline-label">
+        <span class="settings-form__label-nowrap">{label}</span>
+        {menu}
+      </span>
+    ) : (
+      <label class="controller-inline-row controller-output-row">{label}{menu}</label>
     );
   }
 

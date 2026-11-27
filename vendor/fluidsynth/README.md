@@ -25,6 +25,14 @@ terms. The source archives retain their upstream license and notice files too.
 
 ## Build provenance
 
+The Hexatone adapter calibrates the default pitch-wheel modulator to 12800
+cents. FluidSynth normalizes pitch-wheel sensitivity over 128 steps, so the
+stock 12700-cent amount undershoots RPN bend ranges by 1/128 (9.375 cents per
+octave). SoundFont-specific modulation overrides and recorded samples are
+unchanged. `node tools/fluidsynth/pitch-smoke.mjs` checks the rendered WASM
+pitch using a generated sine SoundFont; an optional bank path and program
+number also check real instruments without a browser or MIDI device.
+
 The runtime was built with Emscripten SDK 4.0.21 and CMake 4.4.3 from the
 FluidSynth 2.6.1 source snapshot and the dependency revisions above. The
 FluidSynth library is single-threaded and does not use Wasm Workers,

@@ -1,49 +1,31 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { BUILTIN_USER_SOUNDS, captureUserSound, loadUserSounds, parseUserSounds, saveUserSounds } from "../persistence/user-sounds.js";
+import { BUILTIN_USER_SOUNDS, captureUserSound, loadUserSounds, parseUserSounds, saveUserSounds, userSoundHasChanges } from "../persistence/user-sounds.js";
 import { orderPresetsByName } from "../persistence/preset-name-order.js";
 import { exportFilename } from "../persistence/export-filename.js";
 import { peekFluidSynthEngine, subscribeFluidSynthEngine } from "../fluidsynth_synth/index.js";
 
-function soundState(sound) {
-  const { fallback: _fallback, ...soundfont } = sound.soundfont;
-  return JSON.stringify({ ...sound, soundfont });
-}
-
-export default function UserSounds({ settings, onApply }) {
+export default function UserSounds({ settings, onApply, workingSoundChanges }) {
   const [sounds, setSounds] = useState(loadUserSounds);
   const [selected, setSelected] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
   const [, setEngineRevision] = useState(0);
-  useEffect(() => subscribeFluidSynthEngine(() => setEngineRevision(value => value + 1)), []);
+  useEffect(() => {
+    const refresh = () => setEngineRevision(value => value + 1);
+    const unsubscribe = subscribeFluidSynthEngine(refresh);
+    workingSoundChanges?.addEventListener("change", refresh);
+    return () => { unsubscribe(); workingSoundChanges?.removeEventListener("change", refresh); };
+  }, [workingSoundChanges]);
   const fileInput = useRef(null);
   const attempt = action => {
     try { action(); setError(""); } catch (error) { setError(error.message); }
   };
-  const capture = () => captureUserSound(name, settings, { engine: peekFluidSynthEngine(), description });
   const selectedSound = selected.startsWith("builtin:") ? BUILTIN_USER_SOUNDS[Number(selected.slice(8))]
     : sounds.find(sound => `user:${sound.name}` === selected);
-  let dirty = false;
-  if (selectedSound && name.trim()) {
-    const current = capture();
-    const engine = peekFluidSynthEngine();
-    // Disabled FluidSynth keeps its previous bank warm. That bank is not part
-    // of the recalled sound until the output is enabled again.
-    if (!current.settings.output_fluidsynth) {
-      current.soundfont.name = selectedSound.soundfont.name;
-      current.soundfont.preset = selectedSound.soundfont.preset;
-    } else if (!engine?.soundfontSource && !engine?.pendingSoundfont) {
-      current.soundfont.name = selectedSound.soundfont.name;
-      current.soundfont.preset = settings.fluidsynth_preset ?? selectedSound.soundfont.preset;
-    }
-    const fallback = selectedSound.soundfont.fallback;
-    if (fallback?.name === current.soundfont.name && fallback.preset === current.soundfont.preset) {
-      current.soundfont.name = selectedSound.soundfont.name;
-      current.soundfont.preset = selectedSound.soundfont.preset;
-    }
-    dirty = soundState(current) !== soundState(selectedSound);
-  } else if (selectedSound) dirty = true;
+  const capture = () => captureUserSound(name, settings, { engine: peekFluidSynthEngine(), description,
+    referenceSoundfont: selectedSound?.soundfont });
+  const dirty = !!selectedSound && (!name.trim() || userSoundHasChanges(capture(), selectedSound));
   const recall = value => attempt(() => {
     const record = value.startsWith("builtin:") ? BUILTIN_USER_SOUNDS[Number(value.slice(8))]
       : sounds.find(sound => `user:${sound.name}` === value);

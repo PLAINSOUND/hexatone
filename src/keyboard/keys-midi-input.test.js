@@ -4,6 +4,7 @@ import * as KeysBrowserInput from "./keys-browser-input.js";
 import Point from "./point.js";
 import { WebMidi } from "webmidi";
 import { createMonoSynth } from "../mono_synth/index.js";
+import { create_composite_synth } from "../composite_synth/index.js";
 import { releaseExpiredExquisInput } from "../controllers/exquis-app-mode-lifecycle.js";
 import { createExquisModeGate } from "../input/exquis-mode-gate.js";
 import { ensureMidiInputBinding, rebuildControllerMap } from "../input/keys-midi-listeners.js";
@@ -3432,6 +3433,37 @@ describe("Keys MIDI input integration", () => {
       channel: 9,
       note: 60,
     });
+  });
+
+  it("rescales held Continuum bends across all four built-in outputs, including zero", () => {
+    const voices = [];
+    const layers = ["sample", "dsf", "mts", "osc"].map(family => ({ family,
+      makeHex: (coords, cents) => {
+        const hex = { coords, cents, release: false, noteOn: vi.fn(), noteOff: vi.fn(),
+          retune: vi.fn(function (value) { this.cents = value; }) };
+        voices.push(hex);
+        return hex;
+      } }));
+    const keys = createKeys({}, { target: "scale", mpeInput: true, scaleBendRange: 96,
+      hakenXGlideMode: "pitch_bending" }, create_composite_synth(layers));
+    keys.controller = { id: "hakenaudio" };
+    keys.hexOff = vi.fn();
+    keys.coordResolver.coordForSteps = vi.fn(() => new Point(0, 0));
+    keys._scaleModePreBend.set(9, 8192);
+    keys._mpeInputBendByChannel.set(9, 8192);
+    keys.midinoteOn(makeMidiEvent(60, 9));
+    const entry = keys.state.activeMidiByChannel.get(9);
+    const base = entry.hex._baseCents;
+    keys._applyMpePitchBend(entry, 9, 9216);
+    expect(voices).toHaveLength(4);
+    for (const voice of voices) expect(voice.retune.mock.calls.at(-1)[0]).toBeCloseTo(base + 1200);
+    keys.updateInputRuntime({ ...keys.inputRuntime, scaleBendRange: 48 });
+    for (const voice of voices) expect(voice.retune.mock.calls.at(-1)[0]).toBeCloseTo(base + 600);
+    keys.updateInputRuntime({ ...keys.inputRuntime, scaleBendRange: 0 });
+    for (const voice of voices) {
+      expect(voice.retune.mock.calls.at(-1)[0]).toBeCloseTo(base);
+      expect(voice.noteOn).toHaveBeenCalledOnce();
+    }
   });
 
   it("uses the dedicated MPE pitch-bend semitone range when resolving pre-bent MPE nearest-scale note-ons", () => {

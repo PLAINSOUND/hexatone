@@ -449,6 +449,18 @@ beforeEach(() => {
 });
 
 describe("Haken Continuum config", () => {
+  it.each([undefined, 0, 24, 48, 96])("honors the master incoming range %s for Continuum through UM-ONE", async range => {
+    const previous = settings;
+    onTestFinished(() => { settings = previous; });
+    settings = { ...settings, midiin_device: "um-one", midiin_controller_override: "hakenaudio",
+      midiin_mpe_input: true, midiin_mapping_target: "scale", midiin_scale_bend_range: range };
+    mockControllerById = { id: "hakenaudio", mpeInputPolicy: "always" };
+    synthWiringState.midi = { inputs: new Map([["um-one", { id: "um-one", name: "UM-ONE" }]]), outputs: new Map() };
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    render(<App />);
+    await waitFor(() => expect(lastKeyboardProps?.inputRuntime.scaleBendRange).toBe(range ?? 96));
+  });
+
   it("sends the Continuum MPE+ setup burst when a Haken output is available", async () => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false,

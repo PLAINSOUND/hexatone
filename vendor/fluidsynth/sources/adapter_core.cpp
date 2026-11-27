@@ -78,6 +78,32 @@ void *ps_create(double sample_rate)
         return nullptr;
     }
 
+    // FluidSynth maps pitch-wheel sensitivity over 128 steps, but its SF2
+    // default modulator uses 12700 cents. That makes every bend 127/128 of
+    // the RPN range (an octave lands 9.375 cents flat). Match our cents-to-
+    // bend conversion without changing CC sensitivity or the SoundFont data.
+    fluid_mod_t *pitch_bend = new_fluid_mod();
+    if (!pitch_bend) {
+        delete_fluid_synth(ps->synth);
+        delete_fluid_settings(ps->settings);
+        delete ps;
+        return nullptr;
+    }
+    fluid_mod_set_source1(pitch_bend, FLUID_MOD_PITCHWHEEL,
+        FLUID_MOD_GC | FLUID_MOD_LINEAR | FLUID_MOD_BIPOLAR | FLUID_MOD_POSITIVE);
+    fluid_mod_set_source2(pitch_bend, FLUID_MOD_PITCHWHEELSENS,
+        FLUID_MOD_GC | FLUID_MOD_LINEAR | FLUID_MOD_UNIPOLAR | FLUID_MOD_POSITIVE);
+    fluid_mod_set_dest(pitch_bend, GEN_FINETUNE);
+    fluid_mod_set_amount(pitch_bend, 12800.0);
+    const int pitch_bend_result = fluid_synth_add_default_mod(ps->synth, pitch_bend, FLUID_SYNTH_OVERWRITE);
+    delete_fluid_mod(pitch_bend);
+    if (pitch_bend_result != FLUID_OK) {
+        delete_fluid_synth(ps->synth);
+        delete_fluid_settings(ps->settings);
+        delete ps;
+        return nullptr;
+    }
+
     return ps;
 }
 

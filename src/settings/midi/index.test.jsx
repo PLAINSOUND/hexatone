@@ -367,6 +367,18 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByLabelText("MPE Pitch Bend Range").value).toBe("96");
   });
 
+  it("accepts zero for the Haken master MPE pitch-bend range", () => {
+    const props = makeProps({ midiin_controller_override: "hakenaudio",
+      midiin_mapping_target: "scale", midiin_mpe_input: true, midiin_scale_bend_range: 96 });
+    props.midi = { inputs: new Map([["input-1", { id: "input-1", name: "UM-ONE" }]]), outputs: new Map() };
+    render(<MIDIio {...props} />);
+    const input = screen.getByLabelText("MPE Pitch Bend Range");
+    fireEvent.input(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    expect(props.onChange).toHaveBeenCalledWith("midiin_scale_bend_range", 0);
+    expect(sessionStorage.getItem("midiin_scale_bend_range")).toBe("0");
+  });
+
   it("keeps the shared Continuum performance controls visible in Rastered Notes mode", () => {
     const props = makeProps({
       midiin_controller_override: "hakenaudio",

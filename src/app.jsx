@@ -1,4 +1,5 @@
 import { isTextEntryElement } from "./ui/text-entry.js";
+import { isAppleTouchDevice } from "./ui/device.js";
 /**
  * src/app.jsx
  *
@@ -622,7 +623,7 @@ const ua = navigator.userAgent;
 const isFirefoxIOS = /FxiOS/.test(ua);
 const isChromiumToken = /Chrome|Chromium|CriOS|EdgiOS|EdgA|Edg\/|OPiOS/.test(ua);
 const isSafariOnly = /Safari/.test(ua) && !isChromiumToken && !/Firefox/.test(ua) && !isFirefoxIOS; // Firefox on iOS uses FxiOS token, not "Firefox"
-const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.maxTouchPoints > 1 && /Mac/.test(ua)); // iPadOS 13+ desktop mode
+const isIOS = isAppleTouchDevice();
 const isMIDIWeb = /MIDIWeb/.test(ua);
 // Banner messages rendered in JSX (not alert()) so links are clickable.
 // showBanner: null = no banner, "ios" = iOS MIDI warning, "safari" = Safari warning.
@@ -4537,9 +4538,10 @@ const App = () => {
       bendRange: settings.midiin_bend_range ?? "28/27",
       bendFlip: !!settings.midiin_bend_flip,
       bypassBend: !!settings.midiin_bend_bypass,
-      // Haken Continuum MPE+ uses a 96-semitone pitch-bend range.
+      // The MIDI In field owns scaling. Continuum defaults to 96 semitones,
+      // but an explicit user setting must reach every output unchanged.
       scaleBendRange:
-        inputController?.id === "hakenaudio" ? 96 : (settings.midiin_scale_bend_range ?? 48),
+        settings.midiin_scale_bend_range ?? (inputController?.id === "hakenaudio" ? 96 : 48),
       hakenXGlideShaping: settings.hakenaudio_x_glide_shaping ?? 100,
       hakenXGlideMode: settings.hakenaudio_x_glide_mode ?? "pitch_bending",
       hakenPressureVelocity: settings.hakenaudio_pressure_velocity ?? 64,

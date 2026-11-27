@@ -147,25 +147,21 @@ const PRESET_ANCHOR_CONFIGS = CONTROLLER_PRESET_ANCHOR_CONFIGS.map((config) => (
   controller: getControllerById(config.controllerId),
 }));
 
+const hasPresetAnchorFields = (settings, { noteKey, channelKey }) =>
+  Number.isFinite(settings[noteKey]) || !!(channelKey && Number.isFinite(settings[channelKey]));
+
 function hasPresetAnchor(settings = {}) {
-  return PRESET_ANCHOR_CONFIGS.some(
-    ({ noteKey, channelKey }) =>
-      Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
-  );
+  return PRESET_ANCHOR_CONFIGS.some(config => hasPresetAnchorFields(settings, config));
 }
 
 function getPresetAnchorConfig(settings = {}, preferredControllerId = null) {
-  const hasAnchor = ({ noteKey, channelKey }) =>
-    Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey]));
+  const hasAnchor = config => hasPresetAnchorFields(settings, config);
   const preferred = PRESET_ANCHOR_CONFIGS.find(
-    (config) => config.controllerId === preferredControllerId && hasAnchor(config),
+    config => config.controllerId === preferredControllerId && hasAnchor(config),
   );
   // A known active controller must never borrow another controller's anchor.
   if (preferredControllerId && preferredControllerId !== "auto") return preferred;
-  return PRESET_ANCHOR_CONFIGS.find(
-    ({ noteKey, channelKey }) =>
-      Number.isFinite(settings[noteKey]) || (channelKey && Number.isFinite(settings[channelKey])),
-  );
+  return PRESET_ANCHOR_CONFIGS.find(hasAnchor);
 }
 
 function getAnchorFallback(settings = {}, controllerId = settings.midiin_controller_override) {

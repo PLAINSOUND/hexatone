@@ -2,6 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SuperColliderSettings from "./supercollider-settings.jsx";
 
+it("notifies sound edits after persisting a committed layer level", () => {
+  const onWorkingChange = vi.fn(() => expect(localStorage.getItem("osc_volume_pluck")).toBe("0.51"));
+  render(<SuperColliderSettings settings={{ output_osc: true }} onChange={vi.fn()} onWorkingChange={onWorkingChange} />);
+  fireEvent.keyDown(screen.getByRole("slider", { name: "Pluck volume" }), { key: "ArrowRight" });
+  expect(onWorkingChange).toHaveBeenCalledOnce();
+});
+
 describe("SuperCollider scsynth settings", () => {
   it("pairs the bridge without putting its secret in exported settings", () => {
     const onChange = vi.fn();

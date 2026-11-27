@@ -26,6 +26,7 @@ const SuperColliderSettings = ({
   settings,
   onChange,
   onOscLayerVolumeChange,
+  onWorkingChange,
   oscBrightness = 0.2,
   onOscBrightnessChange,
   onOscQuickReleaseChange,
@@ -200,6 +201,7 @@ const SuperColliderSettings = ({
                     const next = clampVolume(parseFloat(nextValue));
                     localStorage.setItem(key, String(next));
                     sessionStorage.setItem(key, String(next));
+                    onWorkingChange?.();
                   }}
                 />
                 <span class="settings-form__range-value">
@@ -321,6 +323,7 @@ SuperColliderSettings.propTypes = {
   settings: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
   onOscLayerVolumeChange: PropTypes.func,
+  onWorkingChange: PropTypes.func,
   oscBrightness: PropTypes.number,
   onOscBrightnessChange: PropTypes.func,
   onOscQuickReleaseChange: PropTypes.func,

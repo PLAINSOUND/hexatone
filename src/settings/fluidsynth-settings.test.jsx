@@ -26,6 +26,33 @@ import FluidSynthSettings from "./fluidsynth-settings.jsx";
 import { BUILTIN_USER_SOUNDS } from "../persistence/user-sounds.js";
 
 describe("FluidSynth settings", () => {
+  it("retains the latest volume when an asynchronous recalled bank finishes loading", async () => {
+    let finishLoad;
+    storageMock.read.mockResolvedValue({ blob: new Blob([new Uint8Array([1])]) });
+    fluidsynthMock.load.mockImplementation(() => new Promise(resolve => { finishLoad = resolve; }));
+    const setVolume = vi.fn();
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "Previous.sf2" },
+      presets: [{ bank: 0, program: 0 }], setVolume };
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={{ name: "PlainsoundOrgan.sf2", preset: "0:4", volume: 30, reverb: 15,
+        smoothing: { pressureMs: 0, expressionMs: 0, minimumMs: 0 } }} />);
+    await vi.waitFor(() => expect(finishLoad).toBeTypeOf("function"));
+    fireEvent.keyDown(screen.getByRole("slider", { name: "FluidSynth volume" }), { key: "ArrowRight" });
+    await act(async () => { finishLoad({ presets: [{ bank: 0, program: 4 }] }); });
+    expect(setVolume).toHaveBeenLastCalledWith(31);
+    expect(screen.getByRole("slider", { name: "FluidSynth volume" }).getAttribute("aria-valuenow")).toBe("31");
+  });
+
+  it("can recall the active backup bank even when browser storage fails", async () => {
+    storageMock.read.mockRejectedValue(new Error("Storage unavailable"));
+    const selectPreset = vi.fn();
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name: "PlainsoundOrganGedackt.sf2" }, selectPreset };
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={BUILTIN_USER_SOUNDS[0].soundfont} />);
+    await vi.waitFor(() => expect(selectPreset).toHaveBeenCalledWith({ bank: 0, program: 0 }));
+    expect(fluidsynthMock.load).not.toHaveBeenCalled();
+  });
+
   it("preserves edited patch and controls across off/on and still allows explicit recall", () => {
     sessionStorage.setItem("hexatone_fluidsynth_collapsed", "false");
     const selectPreset = vi.fn(preset => { fluidsynthMock.engine.selectedPreset = preset; });

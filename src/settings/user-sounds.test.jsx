@@ -7,6 +7,7 @@ const fluidMock = vi.hoisted(() => ({ engine: null }));
 vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => fluidMock.engine,
   subscribeFluidSynthEngine: () => () => {} }));
 beforeEach(() => { localStorage.clear(); fluidMock.engine = null; });
+const builtinValue = name => `builtin:${BUILTIN_USER_SOUNDS.findIndex(sound => sound.name === name)}`;
 
 it("keeps live Mod wheel movement clean while saved brightness edits remain dirty", () => {
   localStorage.setItem("osc_brightness", "0.2");
@@ -48,6 +49,8 @@ it.each(["Hammond", "Test Tone"])("recalls and reloads %s cleanly with a differe
   expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
   expect(screen.getByRole("option", { name: soundName })).toBeTruthy();
   expect(fluidMock.engine.selectedPreset).toEqual({ bank: 0, program: 3 });
+  fireEvent.click(screen.getByRole("button", { name: "Save as copy" }));
+  expect(loadUserSounds()[0].soundfont).toEqual(BUILTIN_USER_SOUNDS[soundIndex].soundfont);
 });
 
 it("marks edited sounds, clears the marker on revert, and saves the working state", () => {
@@ -85,7 +88,7 @@ it("reloads the saved sound and its text drafts without saving current changes",
   expect(screen.getByLabelText("Sound name").value).toBe("Warm");
   expect(screen.getByLabelText("Sound description").value).toBe(saved.description);
   expect(loadUserSounds()).toEqual([saved]);
-  fireEvent.change(screen.getByLabelText("User sounds"), { target: { value: "builtin:5" } });
+  fireEvent.change(screen.getByLabelText("User sounds"), { target: { value: builtinValue("Test Tone") } });
   fireEvent.click(reload);
   expect(onApply).toHaveBeenCalledTimes(3);
   expect(onApply.mock.calls[2][0].name).toBe("Test Tone");
@@ -138,14 +141,14 @@ it("always offers factory defaults and a fixed sine test tone above the user sou
   expect([...menu.options].map(option => option.textContent)).toEqual([
     "Choose a sound:", "Default", "Reed Organ", "Hammond", "Baroque Organ", "Harpsichord", "Test Tone", "──────────",
   ]);
-  fireEvent.change(menu, { target: { value: "builtin:5" } });
+  fireEvent.change(menu, { target: { value: builtinValue("Test Tone") } });
   expect(onApply.mock.calls[0][0].settings).toMatchObject({
     output_dsf: true, output_sample: false, output_fluidsynth: false, output_osc: false,
     dsf_volume: 0.5, dsf_timbre: 0, dsf_volumeEnvelope: false, dsf_timbreEnvelope: false,
     dsf_velocityVolume: 0, dsf_velocityTimbre: 0, dsf_pressure: 0, dsf_timbreResponse: 0,
   });
   expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-  fireEvent.change(menu, { target: { value: "builtin:0" } });
+  fireEvent.change(menu, { target: { value: builtinValue("Default") } });
   expect(onApply.mock.calls[1][0].settings).toMatchObject({
     dsf_timbre: 0.25, dsf_attack: 12, dsf_volumeEnvelope: true, output_sample: false,
   });
@@ -159,7 +162,7 @@ it("always offers factory defaults and a fixed sine test tone above the user sou
 it("requires a copy of built-in sounds before allowing Save", () => {
   render(<UserSounds settings={{}} onApply={vi.fn()} />);
   const menu = screen.getByLabelText("User sounds");
-  for (const value of ["builtin:0", "builtin:1"]) {
+  for (const value of ["Default", "Reed Organ"].map(builtinValue)) {
     fireEvent.change(menu, { target: { value } });
     expect(screen.getByRole("button", { name: "Save" }).disabled).toBe(true);
     expect(screen.getByRole("button", { name: "Save as copy" }).disabled).toBe(false);

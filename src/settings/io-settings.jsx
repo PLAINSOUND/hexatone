@@ -62,8 +62,8 @@ const IOSettings = ({
 }) => {
   const [soundRevision, setSoundRevision] = useState(0);
   const [soundRecall, setSoundRecall] = useState(null);
-  const [, setWorkingSoundRevision] = useState(0);
-  const refreshWorkingSound = () => setWorkingSoundRevision(value => value + 1);
+  const [workingSoundChanges] = useState(() => new EventTarget());
+  const refreshWorkingSound = () => workingSoundChanges.dispatchEvent(new Event("change"));
   const [restoreSounds, setRestoreSounds] = useState(() => restoreSoundOnReload());
   const [restoreMidi, setRestoreMidi] = useState(() => restoreMidiOnReload());
   return (
@@ -88,7 +88,7 @@ const IOSettings = ({
       {/* Pages is a production-optimised preview build, so DEV alone is false.
           Opt in at build time only; normal production builds keep this hidden. */}
       {panel === "sounds" && (import.meta.env.DEV || import.meta.env.VITE_AUDIO_DIAGNOSTICS === "true") && <AudioDiagnostics keysRef={keysRef} onSaveReport={onSaveAudioReport} onRecreateContexts={onRecreateAudioContexts} onCycleContexts={onCycleAudioContexts} onRestartFluidSynthWorklet={onRestartFluidSynthWorklet} />}
-      <UserSounds settings={settings} onApply={sound => {
+      <UserSounds settings={settings} workingSoundChanges={workingSoundChanges} onApply={sound => {
         const updates = { ...sound.settings, fluidsynth_preset: sound.soundfont.preset };
         for (const [key, value] of Object.entries(updates)) {
           sessionStorage.setItem(key, String(value));
@@ -126,7 +126,8 @@ const IOSettings = ({
       <SuperColliderSettings key={`scsynth-${soundRevision}`}
         settings={settings}
         onChange={onChange}
-        onOscLayerVolumeChange={(...args) => { onOscLayerVolumeChange?.(...args); refreshWorkingSound(); }}
+        onOscLayerVolumeChange={onOscLayerVolumeChange}
+        onWorkingChange={refreshWorkingSound}
         oscBrightness={oscBrightness}
         onOscBrightnessChange={onOscBrightnessChange}
         onOscQuickReleaseChange={onOscQuickReleaseChange}

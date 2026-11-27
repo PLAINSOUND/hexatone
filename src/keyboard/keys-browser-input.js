@@ -8,6 +8,7 @@ import { withTouchTiming, markInputHandler } from "../audio/runtime-diagnostics.
 import { getTouchInputMode, setTouchInputMode } from "./touch-input-mode.js";
 import { recordAudioRuntime } from "../audio/runtime-diagnostics.js";
 import { blocksCanvasKeyboard, isCanvasKeyboardControl } from "../ui/canvas-keyboard-focus.js";
+import { isAppleTouchDevice } from "../ui/device.js";
 
 // Windows benefits from Pointer Events plus pointer capture: preventDefault and
 // touch-action:none keep the OS from interpreting multi-touch canvas gestures
@@ -16,12 +17,7 @@ import { blocksCanvasKeyboard, isCanvasKeyboardControl } from "../ui/canvas-keyb
 export function shouldUsePointerTouchInput(windowObject, navigatorObject, mode = "auto") {
   if (typeof windowObject?.PointerEvent !== "function") return false;
   if (mode !== "auto") return mode === "pointer";
-  const platform = String(navigatorObject?.platform ?? "");
-  const userAgent = String(navigatorObject?.userAgent ?? "");
-  const isAppleTouchDevice =
-    /iPhone|iPad|iPod/i.test(userAgent) ||
-    (platform === "MacIntel" && Number(navigatorObject?.maxTouchPoints) > 1);
-  return !isAppleTouchDevice;
+  return !isAppleTouchDevice(navigatorObject);
 }
 
 export function removeTouchInputListeners(keys) {

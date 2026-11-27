@@ -75,7 +75,7 @@ const MpeInputSettings = ({ settings, memberChannels, defaultLo, defaultHi, onCh
         </select>
       </label>
 
-      <label title="Incoming MPE pitch bend range in semitones. Default 48 for generic controllers and 96 for Haken Continuum.">
+      <label title="Incoming MPE pitch bend range in semitones; 0 suppresses bending. Default 48 for generic controllers and 96 for Haken Continuum.">
         MPE Pitch Bend Range
         <input
           type="text"
@@ -89,7 +89,7 @@ const MpeInputSettings = ({ settings, memberChannels, defaultLo, defaultHi, onCh
           }}
           onBlur={(e) => {
             const parsed = parseInt(e.target.value, 10);
-            if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 96) {
+            if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 96) {
               onChange("midiin_scale_bend_range", parsed);
               sessionStorage.setItem("midiin_scale_bend_range", String(parsed));
             } else {

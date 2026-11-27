@@ -3,15 +3,18 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { useEffect } from "preact/hooks";
 import { captureUserSound, saveUserSounds } from "../persistence/user-sounds.js";
 
-const mocks = vi.hoisted(() => ({ engine: { setVolume: vi.fn(), setReverb: vi.fn(), setSmoothing: vi.fn() }, unmount: vi.fn() }));
+const mocks = vi.hoisted(() => ({ engine: { setVolume: vi.fn(), setReverb: vi.fn(), setSmoothing: vi.fn() }, unmount: vi.fn(), renderDsf: vi.fn() }));
 vi.mock("../fluidsynth_synth/index.js", () => ({ peekFluidSynthEngine: () => mocks.engine,
   subscribeFluidSynthEngine: () => () => {} }));
 vi.mock("./audio-diagnostics.jsx", () => ({ default: () => <div>Diagnostics</div> }));
 vi.mock("./dsf-settings.jsx", () => ({ default: function MockDsfSettings() {
+  mocks.renderDsf();
   useEffect(() => () => mocks.unmount(), []);
   return <div>DSF controls</div>;
 } }));
-vi.mock("./sample", () => ({ default: () => <div>Sample controls</div> }));
+vi.mock("./sample", () => ({ default: ({ onVolumeChange }) => <div>Sample controls
+  <button onClick={() => { localStorage.setItem("synth_volume", "0.3"); onVolumeChange?.(0.3); }}>Edit sample volume</button>
+</div> }));
 vi.mock("./fluidsynth-settings.jsx", () => ({ default: () => <div>SoundFont controls</div> }));
 vi.mock("./supercollider-settings.jsx", () => ({ default: () => <div>scsynth controls</div> }));
 vi.mock("./midi/webmidi-settings.jsx", () => ({ default: () => <div>MIDI setup</div> }));
@@ -19,6 +22,19 @@ vi.mock("./midi", () => ({ default: () => <div>MIDI input</div> }));
 vi.mock("./midi/midioutputs", () => ({ default: () => <div>MIDI output</div> }));
 import IOSettings from "./io-settings.jsx";
 beforeEach(() => { localStorage.clear(); vi.clearAllMocks(); });
+
+it("updates the dirty marker for imperative faders without rerendering the whole panel", () => {
+  const onVolumeChange = vi.fn();
+  render(<IOSettings settings={{}} onChange={vi.fn()} onAtomicChange={vi.fn()} onVolumeChange={onVolumeChange} />);
+  fireEvent.input(screen.getByLabelText("Sound name"), { target: { value: "Warm" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(screen.queryByLabelText("Unsaved sound changes")).toBeNull();
+  const renders = mocks.renderDsf.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Edit sample volume" }));
+  expect(onVolumeChange).toHaveBeenCalledWith(0.3);
+  expect(screen.getByLabelText("Unsaved sound changes")).toBeTruthy();
+  expect(mocks.renderDsf).toHaveBeenCalledTimes(renders);
+});
 
 it("switches visible panels while keeping sound controls mounted", () => {
   const props = { settings: {}, onChange: vi.fn(), onAtomicChange: vi.fn() };

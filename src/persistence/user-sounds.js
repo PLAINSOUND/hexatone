@@ -2,13 +2,13 @@
 import { SETTINGS_REGISTRY } from "./settings-registry.js";
 import { dsfControlsFromSettings } from "../dsf_synth/controls.js";
 import { readSampleVolume } from "../audio/sample-volume.js";
-import { needsMobileBackgroundRecovery } from "../audio/background-policy.js";
+import { builtinSoundDefinitions } from "./builtin-user-sounds.js";
 import { normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "../fluidsynth_synth/smoothing.js";
 import { readFluidSynthReverb } from "../fluidsynth_synth/reverb.js";
 
 export const USER_SOUNDS_KEY = "hexatone_user_sounds";
 const entries = SETTINGS_REGISTRY.filter(({ key }) =>
-  key.startsWith("dsf_") || key.startsWith("osc_volume_") ||
+  key.startsWith("osc_volume_") ||
   ["output_dsf", "output_sample", "output_fluidsynth", "output_osc", "instrument",
     "osc_brightness", "osc_quick_release", "osc_quick_release_time",
     "osc_quick_release_raster_only", "osc_retrigger_buzz_formant"].includes(key));
@@ -18,6 +18,8 @@ const storedNumber = (key, fallback) => {
   const raw = localStorage.getItem(key);
   return raw === null ? fallback : Number(raw);
 };
+const matchesSoundfontReference = (current, reference) =>
+  !!reference && current.name === reference.name && current.preset === reference.preset;
 
 export function normalizeUserSound(record) {
   if (record?.format !== "hexatone-user-sound" || record.version !== 1 ||
@@ -51,25 +53,53 @@ export function normalizeUserSound(record) {
   };
 }
 
-export function captureUserSound(name, settings, { engine, description = "" } = {}) {
+export function captureUserSound(name, settings, { engine, description = "", referenceSoundfont } = {}) {
   const values = { ...settings };
   for (const entry of entries) {
     if (entry.key.startsWith("osc_") && entry.type !== "bool")
       values[entry.key] = storedNumber(entry.key, values[entry.key] ?? entry.default);
   }
-  return normalizeUserSound({
-    format: "hexatone-user-sound", version: 1, name, description, settings: values,
-    sampleVolume: readSampleVolume(),
-    soundfont: {
-      name: engine?.pendingSoundfont?.source?.name ?? engine?.soundfontSource?.name ??
+  const source = engine?.pendingSoundfont?.source ?? engine?.soundfontSource;
+  const soundfont = {
+      name: source?.name ??
         localStorage.getItem("fluidsynth_last_hosted_soundfont") ?? "",
       preset: engine?.pendingSoundfont?.preferredPreset ?? (engine?.selectedPreset
         ? `${engine.selectedPreset.bank}:${engine.selectedPreset.program}` : settings.fluidsynth_preset),
       volume: engine?.volume ?? storedNumber("fluidsynth_internal_volume", 100),
       reverb: engine?.reverb ?? readFluidSynthReverb(),
       smoothing: engine?.smoothing ?? readFluidSynthSmoothing(),
-    },
+  };
+  // A disabled engine keeps its previous bank warm. Capture the selected
+  // sound's intended bank instead, for dirty checks, saving and export alike.
+  if (referenceSoundfont && (settings.output_fluidsynth === false || !source)) {
+    soundfont.name = referenceSoundfont.name;
+    soundfont.preset = settings.output_fluidsynth === false ? referenceSoundfont.preset
+      : settings.fluidsynth_preset ?? referenceSoundfont.preset;
+  }
+  if (referenceSoundfont?.fallback &&
+      (matchesSoundfontReference(soundfont, referenceSoundfont) ||
+        matchesSoundfontReference(soundfont, referenceSoundfont.fallback))) {
+    soundfont.name = referenceSoundfont.name;
+    soundfont.preset = referenceSoundfont.preset;
+    soundfont.fallback = referenceSoundfont.fallback;
+  }
+  return normalizeUserSound({
+    format: "hexatone-user-sound", version: 1, name, description, settings: values,
+    sampleVolume: readSampleVolume(), soundfont,
   });
+}
+
+const sameFields = (left, right) => Object.keys(right).every(key => Object.is(left[key], right[key]));
+
+// Compare musical state, accepting the selected sound's equivalent backup
+// bank. No serialization or property-order dependency on the fader path.
+export function userSoundHasChanges(current, saved) {
+  if (!sameFields(current.settings, saved.settings) || current.name !== saved.name ||
+      current.description !== saved.description || current.sampleVolume !== saved.sampleVolume) return true;
+  const referenceMatches = matchesSoundfontReference(current.soundfont, saved.soundfont) ||
+    matchesSoundfontReference(current.soundfont, saved.soundfont.fallback);
+  return !referenceMatches || !sameFields(current.soundfont.smoothing, saved.soundfont.smoothing) ||
+    ["volume", "reverb"].some(key => current.soundfont[key] !== saved.soundfont[key]);
 }
 
 export function parseUserSounds(text) {
@@ -89,47 +119,5 @@ export function saveUserSounds(records) {
   return normalized;
 }
 
-// Factory defaults stay independent of saved browser preferences.
-const preferCompactSoundfont = needsMobileBackgroundRecovery();
-export const BUILTIN_USER_SOUNDS = [
-  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Default", settings: { output_sample: false },
-    soundfont: { name: "PlainsoundOrgan.sf2", preset: "0:1",
-      fallback: { name: "PlainsoundOrganGedackt.sf2", preset: "0:0" } } }),
-  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Reed Organ", settings: {
-    output_sample: true, instrument: "WMRIByzantineST",
-    osc_volume_pluck: 0,
-    dsf_attack: 70, dsf_decay: 500, dsf_sustain: 2, dsf_release: 4,
-    dsf_timbreAmount: 0.3, dsf_timbreAttack: 300, dsf_timbreDecay: 5000,
-    dsf_timbreSustain: 0.4, dsf_timbreRelease: 15,
-  }, soundfont: { name: "PlainsoundSrutibox.sf2", preset: "0:1",
-    smoothing: { pressureMs: 80, expressionMs: 0, minimumMs: 20 } } }),
-  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Hammond", settings: {
-    output_dsf: true, output_sample: true, instrument: "hammond",
-    output_fluidsynth: false, output_osc: false,
-    dsf_iso226: 0.75, dsf_partials: 9, dsf_timbre: 0.5,
-    dsf_attack: 1, dsf_decay: 3000, dsf_sustain: 1.5, dsf_release: 3,
-    dsf_timbreAmount: 1, dsf_timbreAttack: 0, dsf_timbreDecay: 5,
-    dsf_timbreSustain: 0.3, dsf_timbreRelease: 14, dsf_timbreResponse: 1,
-  } }),
-  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Baroque Organ", settings: {
-    output_dsf: true, output_sample: false, output_fluidsynth: true, output_osc: true,
-    dsf_iso226: 0.5, dsf_attack: 60, dsf_decay: 1500, dsf_sustain: 1.5, dsf_release: 120,
-    dsf_partials: 1024, dsf_timbre: 0.25,
-    dsf_timbreAmount: 0.15, dsf_timbreAttack: 60, dsf_timbreDecay: 200,
-    dsf_timbreSustain: -0.5, dsf_timbreRelease: 30,
-    dsf_velocityVolume: 0, dsf_velocityTimbre: 0, dsf_velocityAttack: 0.5,
-    dsf_releaseVelocityRelease: 0.5, dsf_pressure: 0.35, dsf_timbreResponse: 0,
-    osc_volume_pluck: 0, osc_volume_buzz: 0, osc_volume_formant: 0.5, osc_volume_saw: 0.2,
-  }, soundfont: { name: preferCompactSoundfont ? "PlainsoundOrganPrincipal.sf2" : "PlainsoundOrgan.sf2", preset: "0:3",
-    fallback: { name: preferCompactSoundfont ? "PlainsoundOrgan.sf2" : "PlainsoundOrganPrincipal.sf2", preset: "0:3" } } }),
-  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Harpsichord", settings: {
-    output_dsf: false, output_sample: false, output_fluidsynth: true, output_osc: true,
-    osc_volume_pluck: 0.65, osc_volume_buzz: 0, osc_volume_formant: 0, osc_volume_saw: 0,
-  }, soundfont: { name: "PlainsoundHarpsichord.sf2", preset: "0:3" } }),
-  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Test Tone", settings: {
-    output_dsf: true, output_sample: false, output_fluidsynth: false, output_osc: false,
-    dsf_volume: 0.5, dsf_iso226: 0.5, dsf_partials: 24, dsf_timbre: 0, dsf_volumeEnvelope: false, dsf_timbreEnvelope: false,
-    dsf_velocityVolume: 0, dsf_velocityTimbre: 0, dsf_velocityAttack: 0,
-    dsf_releaseVelocityRelease: 0, dsf_pressure: 0, dsf_timbreResponse: 0,
-  } }),
-];
+export const BUILTIN_USER_SOUNDS = builtinSoundDefinitions().map(record =>
+  normalizeUserSound({ format: "hexatone-user-sound", version: 1, ...record }));
