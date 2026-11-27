@@ -135,6 +135,29 @@ describe("osc_synth pooled slot allocation", () => {
     synth.shutdown({ panic: true });
   });
 
+  it("keeps the organ nodes and starts pluck only for attacks made after patch recall", async () => {
+    const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn(),
+      hasNode: id => id != null };
+    const synth = await create_osc_synth("ws://patch-handoff", ["pluck", "tone"], [0, 0.2],
+      0.25, 0.3, false, 440, 0, [0], 1, { transport });
+    const held = synth.makeHex({ x: 0, y: 0 }, 0, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    held.noteOn();
+    transport.send.mockClear();
+
+    synth.setPatchControls({ volumes: [0.65, 0], quickRelease: 0.5, quickReleaseTime: 2 });
+    expect(transport.send).not.toHaveBeenCalled();
+    expect(held.needsRetainedVoiceRecovery()).toBe(false);
+
+    const newNote = synth.makeHex({ x: 1, y: 0 }, 100, 0, 0, 1, 0, 0, undefined, 72, 1, 1);
+    newNote.noteOn();
+    expect(transport.send.mock.calls.filter(([address]) => address === "/s_new").map(([, args]) => args[0].value))
+      .toEqual(["pluck"]);
+    transport.send.mockClear();
+    held.noteOff(64);
+    expect(transport.send).toHaveBeenCalledWith("/n_set", expect.any(Array), 57102, undefined);
+    synth.shutdown({ panic: true });
+  });
+
   it("restores only an unmuted layer with current held-note pitch and expression", async () => {
     const transport = { send: vi.fn(), _flushBundles: vi.fn(), release: vi.fn() };
     const synth = await create_osc_synth("ws://layer-restore", ["pluck", "tone"], [0, 0.5],

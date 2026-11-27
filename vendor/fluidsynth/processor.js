@@ -1,7 +1,7 @@
 import createFluidSynth from "./fluidsynth.js";
 
-const SOUNDFONT_CACHE_BUDGET = 512 * 1024 * 1024; // Estimated file + native sample bytes.
-const BANK_FADE_SECONDS = 0.04;
+const SOUNDFONT_CACHE_BUDGET = 2048 * 1024 * 1024; // Estimated file + native sample bytes.
+const MIDI_CHANNELS = 256;
 const isAttack = event => event.command
   ? event.command.op === "on" && event.command.b > 0
   : event.data?.[0] >> 4 === 9 && event.data?.[2] > 0;
@@ -23,8 +23,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     this.blockSize = 128;
     this.midiQueue = [];
     this.midiSequence = 0;
-    this.soundfontCacheBudget = options.processorOptions.soundfontCacheBudget === 256 * 1024 * 1024
-      ? 256 * 1024 * 1024 : SOUNDFONT_CACHE_BUDGET;
+    const budget = options.processorOptions.soundfontCacheBudget;
+    this.soundfontCacheBudget = Number.isSafeInteger(budget) && budget > 0 ? budget : SOUNDFONT_CACHE_BUDGET;
     this.latencyDiagnostics = !!options.processorOptions.latencyDiagnostics;
     this.diagnosticSilentFrames = 0;
     this.diagnosticOnsets = [];
@@ -55,10 +55,9 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   }
 
   initializeChannelTunings() {
-    // First internal layer: channel N owns tuning bank 0, program N.
-    // Reserve channels 128–255 for a possible second layer.
-    for (let channel = 0; channel < 128; channel++) {
-      const result = this.module._ps_activate_tuning(this.synth, channel, 0, channel, 0);
+    // MTS tuning programs are seven-bit; the upper 128 channels use bank 1.
+    for (let channel = 0; channel < MIDI_CHANNELS; channel++) {
+      const result = this.module._ps_activate_tuning(this.synth, channel, channel >> 7, channel & 127, 0);
       if (result !== 0) throw new Error(`Activating MTS tuning map ${channel} failed: ${result}`);
     }
   }
@@ -73,7 +72,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
 
   setReverbSend(value) {
     this.reverbSend = Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
-    for (let channel = 0; channel < 128; channel++) {
+    for (const channel of this.usedChannels ?? []) {
       this.module._ps_cc(this.synth, channel, 91, this.reverbSend);
     }
   }
@@ -90,7 +89,6 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       this.disposed = true;
       this.midiQueue = [];
       this.pendingSoundfont = null;
-      this.bankSwitchFade = null;
       this.diagnosticOnsets = [];
       const before = this.memorySizes();
       if (this.synth) this.module._ps_destroy(this.synth);
@@ -142,7 +140,6 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       }
       if (message.type === "release-for-shutdown") {
         this.pendingSoundfont = null;
-        this.bankSwitchFade = null;
         this.releasing = true;
         this.silentReleaseFrames = 0;
         this.midiQueue = [];
@@ -151,7 +148,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         for (const channel of this.usedChannels ?? []) {
           this.module._ps_cc(this.synth, channel, 64, 0);
           this.module._ps_cc(this.synth, channel, 66, 0);
-          // Release only rendered attacks. Scanning all 16,384 possible keys
+          // Release only rendered attacks. Scanning all possible channel/key pairs
           // blocks the audio thread and can interrupt the very tail we need.
           for (const key of this.heldKeys?.get(channel) ?? []) this.module._ps_note_off(this.synth, channel, key);
         }
@@ -164,7 +161,6 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           (message.scope == null || (event.scope === message.scope && event.generation === message.generation)) &&
           (message.voice == null || event.voice === message.voice) &&
           !(message.scope != null && event.command?.op === "off")));
-        if (this.bankSwitchFade && !this.midiQueue.some(isAttack)) this.restoreBankGain();
         return;
       }
       if (message.type === "clear-recovery-events") {
@@ -172,25 +168,37 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         this.midiQueue = [];
         this.diagnosticOnsets = [];
         this.diagnosticSilentFrames = 0;
-        for (let channel = 0; channel < 128; channel++) this.module._ps_cc(this.synth, channel, 120, 0);
-        this.bankSwitchFade = null;
-        this.bankOutputGain = 1;
+        for (let channel = 0; channel < MIDI_CHANNELS; channel++) this.module._ps_cc(this.synth, channel, 120, 0);
+        this.heldKeys?.clear();
         this.port.postMessage({ type: "recovery-cleared", droppedEvents });
         return;
       }
       if (message.type === "cancel-pending-soundfont") {
+        if (message.requestId != null && this.pendingSoundfont?.requestId !== message.requestId) return;
         this.pendingSoundfont = null;
-        this.restoreBankGain();
         this.notifySoundfontCache();
+        return;
+      }
+      if (message.type === "unpin-soundfonts") {
+        for (const bank of this.soundfontFiles?.values() ?? []) {
+          if ((!message.cacheKey || bank.cacheKey === message.cacheKey) && bank.pinned) {
+            bank.pinned = false;
+            bank.evictOnIdle = true;
+          }
+        }
+        if (!this.collectRetiredSoundfonts(true)) this.notifySoundfontCache();
         return;
       }
       if (message.type === "select-cached-soundfont") {
         this.pendingSoundfont = null;
-        this.restoreBankGain();
         const id = this.soundfontCache?.get(message.cacheKey);
         const bank = this.soundfontFiles?.get(id);
         if (bank) {
-          this.activateBank(id, bank, message);
+          if (message.prepareOnly) {
+            bank.pinned = true;
+            bank.evictOnIdle = false;
+          }
+          else this.activateBank(id, bank, message);
         }
         this.notifySoundfontCache();
         this.port.postMessage({ type: "soundfont-cache-result", requestId: message.requestId,
@@ -203,30 +211,32 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         const resident = this.soundfontFiles?.get(residentId);
         if (resident) {
           this.pendingSoundfont = null;
-          this.restoreBankGain();
-          this.activateBank(residentId, resident, message);
+          if (message.prepareOnly) {
+            resident.pinned = true;
+            resident.evictOnIdle = false;
+          }
+          else this.activateBank(residentId, resident, message);
+          this.notifySoundfontCache();
           this.port.postMessage({ type: "soundfont-loaded", requestId: message.requestId,
             cacheKey: message.cacheKey, soundfontId: residentId, presets: resident.presets, selectedPreset: this.selectedProgram, cached: true });
-          this.notifySoundfontCache();
           return;
         }
-        if (message.deferWhenPlaying && this.soundfontId != null &&
-            (this.lastOutputSounding || this.module._ps_active_voice_count(this.synth) > 0)) {
+        if (message.waitForSilence) {
           this.pendingSoundfont = message;
           this.port.postMessage({ type: "soundfont-staged", cacheKey: message.cacheKey, requestId: message.requestId, deferred: true });
           this.notifySoundfontCache();
         } else {
           this.pendingSoundfont = null;
-          this.restoreBankGain();
           this.loadSoundfont(message);
         }
         return;
       }
 
       if (message.type === "select-program") {
-        const result = this.selectProgram(this.soundfontId, message.bank, message.program);
+        const result = this.soundfontFiles?.get(this.soundfontId)?.presets.some(
+          preset => preset.bank === message.bank && preset.program === message.program) ? 0 : -1;
         if (result === 0) this.selectedProgram = { bank: message.bank, program: message.program };
-        this.port.postMessage({ type: "program-selected", ...message, result });
+        this.port.postMessage({ ...message, type: "program-selected", result });
         return;
       }
 
@@ -246,32 +256,32 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     }
   }
 
-  selectProgram(soundfontId, bank, program) {
-    let result = 0;
-    for (let channel = 0; channel < 128; channel++) result |= this.module._ps_select_program(
-      this.synth, channel, soundfontId, bank, program,
-    );
-    return result;
-  }
-
   notifySoundfontCache() {
     const keys = [];
+    const preparedKeys = [];
     let estimatedBytes = 0;
+    let preparedBytes = 0;
     for (const [id, bank] of this.soundfontFiles ?? []) {
       estimatedBytes += bank.bytes * 2;
-      if (bank.cacheKey && this.soundfontCache?.get(bank.cacheKey) === id) keys.push(bank.cacheKey);
+      if (bank.cacheKey && this.soundfontCache?.get(bank.cacheKey) === id) {
+        keys.push(bank.cacheKey);
+        if (bank.pinned) {
+          preparedKeys.push(bank.cacheKey);
+          preparedBytes += bank.bytes * 2;
+        }
+      }
     }
-    this.port?.postMessage({ type: "soundfont-cache", keys: [...new Set(keys)], estimatedBytes,
+    this.port?.postMessage({ type: "soundfont-cache", keys, preparedKeys, estimatedBytes, preparedBytes,
       budgetBytes: this.soundfontCacheBudget ?? SOUNDFONT_CACHE_BUDGET,
-      stagedBytes: this.pendingSoundfont?.bytes.byteLength ?? 0 });
+      stagedBytes: this.pendingSoundfont?.bytes.byteLength ?? 0, ...this.memorySizes() });
   }
 
   activateBank(id, bank, message) {
     const requested = typeof message.preferredPreset === "string" ? message.preferredPreset.split(":").map(Number) : null;
     const preset = bank.presets.find(p => p.bank === requested?.[0] && p.program === requested?.[1]) ?? bank.presets[0];
-    const result = this.selectProgram(id, preset.bank, preset.program);
-    if (result !== 0) throw new Error(`Selecting SoundFont preset failed: ${result}`);
-    this.setReverbSend(message.reverbSend ?? this.reverbSend ?? 20);
+    if (!message.retainSoundingVoices) {
+      this.setReverbSend(message.reverbSend ?? this.reverbSend ?? 20);
+    }
     this.retiredSoundfonts ??= new Set();
     if (this.soundfontId != null && this.soundfontId !== id) this.retiredSoundfonts.add(this.soundfontId);
     this.retiredSoundfonts.delete(id);
@@ -280,23 +290,10 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     bank.lastUsed = this.bankUseCounter = (this.bankUseCounter ?? 0) + 1;
   }
 
-  restoreBankGain() {
-    this.bankSwitchFade = null;
-    const gain = this.bankOutputGain ?? 1;
-    if (gain < 1) this.bankFadeIn = { start: gain, remaining: Math.round(sampleRate * BANK_FADE_SECONDS), total: Math.round(sampleRate * BANK_FADE_SECONDS) };
-  }
-
   commitPendingBank() {
     const message = this.pendingSoundfont;
     if (!message) return;
     this.pendingSoundfont = null;
-    if (this.bankSwitchFade) {
-      for (let channel = 0; channel < 128; channel++) this.module._ps_cc(this.synth, channel, 120, 0);
-      this.heldKeys?.clear();
-    }
-    this.bankSwitchFade = null;
-    this.bankOutputGain = 1;
-    this.lastOutputSounding = false;
     try {
       this.loadSoundfont({ ...message, deferredCommit: true });
       this.collectRetiredSoundfonts(true);
@@ -308,8 +305,20 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   loadSoundfont(message) {
     if (this.soundfontId != null && message.type !== "replace-soundfont")
       throw new Error("Use replace-soundfont to change the loaded SoundFont");
+    const allowEvictPrepared = message.waitForSilence && !message.prepareOnly;
+    if (message.prepareOnly || allowEvictPrepared) {
+      const extra = message.bytes.byteLength * 2;
+      const budget = this.soundfontCacheBudget ?? SOUNDFONT_CACHE_BUDGET;
+      if (message.prepareOnly) this.collectRetiredSoundfonts(true, extra);
+      const required = extra + (message.prepareOnly ? (this.soundfontFileBytes ?? 0) * 2 : 0);
+      if (required > budget) {
+        const mib = 1024 * 1024;
+        throw new Error(`SoundFont memory budget exceeded (${Math.ceil(required / mib)} MiB estimated, ` +
+          `${Math.floor(budget / mib)} MiB allowed). Unload banks or choose a smaller bank.`);
+      }
+      if (allowEvictPrepared) this.collectRetiredSoundfonts(true, extra, true);
+    }
     const previousId = this.soundfontId;
-    const previousProgram = this.selectedProgram;
     const previousBytes = this.soundfontFileBytes ?? 0;
     // Unique paths prevent FluidSynth's sample cache from confusing two banks.
     const path = `/hexatone-soundfont-${this.soundfontSequence = (this.soundfontSequence ?? 0) + 1}.sf2`;
@@ -328,12 +337,20 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       const bankReadyAt = Date.now();
       const presets = this.readPresets(soundfontId);
       if (!presets.length) throw new Error("The selected SoundFont contains no presets");
-      const bank = { path, bytes: message.bytes.byteLength, presets, cacheKey: message.cacheKey };
-      this.activateBank(soundfontId, bank, message);
+      const bank = { path, bytes: message.bytes.byteLength, presets, cacheKey: message.cacheKey,
+        pinned: message.prepareOnly === true };
+      if (message.prepareOnly) {
+        this.retiredSoundfonts ??= new Set();
+        this.retiredSoundfonts.add(soundfontId);
+        bank.lastUsed = this.bankUseCounter = (this.bankUseCounter ?? 0) + 1;
+      } else this.activateBank(soundfontId, bank, message);
       this.soundfontFiles ??= new Map();
       this.soundfontFiles.set(soundfontId, bank);
       this.soundfontCache ??= new Map();
       if (message.cacheKey) this.soundfontCache.set(message.cacheKey, soundfontId);
+      // Publish residency and pin state before acknowledging this load. In
+      // particular, restoring the next bank must see the bank just loaded.
+      if (!message.cacheKey || !this.collectRetiredSoundfonts(true, 0, allowEvictPrepared)) this.notifySoundfontCache();
       // Keep the synth, tuning maps, held keys and queued releases intact.
       // Program selection affects only future note-ons in FluidSynth.
       this.port.postMessage({ type: "soundfont-loaded", soundfontId, presets,
@@ -341,11 +358,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           nativeLoad: bankReadyAt - fileReadyAt, presetSetup: Date.now() - bankReadyAt },
         memory: this.memorySizes(), selectedPreset: this.selectedProgram,
         cacheKey: message.cacheKey, requestId: message.requestId, deferredCommit: !!message.deferredCommit });
-      this.notifySoundfontCache();
-      if (message.cacheKey) this.collectRetiredSoundfonts(true);
     } catch (error) {
-      if (previousId != null && previousProgram)
-        this.selectProgram(previousId, previousProgram.bank, previousProgram.program);
       // Even an unused failed bank waits for an idle synth: native lazy unload
       // uses threads, so the adapter deliberately refuses it while voices play.
       if (soundfontId >= 0 && this.module._ps_unload_soundfont(this.synth, soundfontId) !== 0) {
@@ -361,20 +374,23 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     }
   }
 
-  collectRetiredSoundfonts(force = false) {
+  collectRetiredSoundfonts(force = false, extra = 0, allowEvictPrepared = false) {
     if (!this.retiredSoundfonts?.size || (!force && currentFrame < (this.nextBankCleanupFrame ?? 0))) return;
     this.nextBankCleanupFrame = currentFrame + Math.ceil(sampleRate / 4);
     // Wait for release tails too. This conservative test avoids the native
     // lazy-unload timer, which requires threads unavailable in this WASM build.
     if (this.lastOutputSounding || this.module._ps_active_voice_count(this.synth) !== 0) return;
-    let estimate = this.soundfontFileBytes * 2;
+    let estimate = this.soundfontFileBytes * 2 + extra;
     let changed = false;
     const candidates = [...this.retiredSoundfonts].sort((a, b) =>
+      Number(Boolean(this.soundfontFiles?.get(a)?.pinned)) - Number(Boolean(this.soundfontFiles?.get(b)?.pinned)) ||
       (this.soundfontFiles?.get(a)?.lastUsed ?? 0) - (this.soundfontFiles?.get(b)?.lastUsed ?? 0));
     for (const id of candidates) {
       const cached = this.soundfontFiles?.get(id);
-      if (cached?.cacheKey && this.soundfontCache?.get(cached.cacheKey) === id &&
+      if (cached?.pinned && !allowEvictPrepared) continue;
+      if (!cached?.evictOnIdle && cached?.cacheKey && this.soundfontCache?.get(cached.cacheKey) === id &&
           estimate <= (this.soundfontCacheBudget ?? SOUNDFONT_CACHE_BUDGET)) continue;
+      if (this.midiQueue?.some(event => event.command?.patchProgram?.soundfontId === id)) continue;
       if (this.module._ps_unload_soundfont(this.synth, id) !== 0) continue;
       this.retiredSoundfonts.delete(id);
       changed = true;
@@ -390,6 +406,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       }
     }
     if (changed) this.notifySoundfontCache();
+    return changed;
   }
 
   memorySizes() {
@@ -448,9 +465,25 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     else if (status === 0xe0) this.module._ps_pitch_bend(this.synth, channel, (a & 127) | ((b & 127) << 7));
   }
 
-  dispatchCommand({ channel, op, a = 0, b = 0 }) {
-    if (!Number.isInteger(channel) || channel < 0 || channel >= 128) return;
+  dispatchCommand({ channel, op, a = 0, b = 0, patchProgram }) {
+    if (op === "volume") {
+      // Include channels in their release tail. New attacks initialize their own CC7.
+      for (const used of this.usedChannels ?? []) this.module._ps_cc(this.synth, used, 7, b);
+      return;
+    }
+    if (!Number.isInteger(channel) || channel < 0 || channel >= MIDI_CHANNELS) return;
     if (op === "on" && b > 0) {
+      const program = patchProgram ?? (this.selectedProgram && { soundfontId: this.soundfontId, ...this.selectedProgram });
+      if (program) {
+        if (!this.soundfontFiles?.has(program.soundfontId)) return;
+        this.channelPrograms ??= [];
+        const current = this.channelPrograms[channel];
+        if (current?.soundfontId !== program.soundfontId || current.bank !== program.bank || current.program !== program.program) {
+          const result = this.module._ps_select_program(this.synth, channel, program.soundfontId, program.bank, program.program);
+          if (result !== 0) throw new Error(`Selecting SoundFont preset failed: ${result}`);
+          this.channelPrograms[channel] = program;
+        }
+      }
       this.usedChannels ??= new Set();
       this.usedChannels.add(channel);
       this.heldKeys ??= new Map();
@@ -489,21 +522,23 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         this.port.postMessage({ type: "error", message: String(error) });
       }
     }
-    if (this.pendingSoundfont && (this.bankSwitchFade?.remaining === 0 ||
-        (!this.bankSwitchFade && !this.lastOutputSounding && this.module._ps_active_voice_count(this.synth) === 0))) this.commitPendingBank();
+    const pending = this.pendingSoundfont;
+    // Leave near-term attacks on the current patch. A named cold recall can
+    // wait for a gap without fading, cutting notes or holding the MIDI queue.
+    let attackDue = false;
+    if (pending) {
+      for (const event of this.midiQueue) {
+        if (event.frame > currentFrame + frames) break;
+        if (isAttack(event)) { attackDue = true; break; }
+      }
+    }
+    if (pending && !attackDue && !this.lastOutputSounding &&
+        this.module._ps_active_voice_count(this.synth) === 0) this.commitPendingBank();
     let consumed = 0;
     const touchTraces = [];
     while (consumed < this.midiQueue.length && this.midiQueue[consumed].frame <= currentFrame) {
       try {
         const event = this.midiQueue[consumed];
-        if (this.bankSwitchFade) break;
-        if (this.pendingSoundfont && isAttack(event)) {
-          const total = Math.max(1, Math.round(sampleRate * BANK_FADE_SECONDS));
-          this.bankSwitchFade = { total, remaining: total, start: this.bankOutputGain ?? 1 };
-          this.bankFadeIn = null;
-          this.port.postMessage({ type: "soundfont-switch-fade", requestId: this.pendingSoundfont.requestId, milliseconds: 40 });
-          break;
-        }
         if (event.command) this.dispatchCommand(event.command);
         else this.dispatchMidi(event.data);
         if (event.touchTrace != null) touchTraces.push({ type: "touch-rendered", id: event.touchTrace,
@@ -525,22 +560,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     const right = this.rightPointer >>> 2;
     channels[0].set(this.module.HEAPF32.subarray(left, left + frames));
     if (channels[1]) channels[1].set(this.module.HEAPF32.subarray(right, right + frames));
-    if (this.bankSwitchFade || this.bankFadeIn) {
-      for (let i = 0; i < frames; i++) {
-        if (this.bankSwitchFade) {
-          const fade = this.bankSwitchFade;
-          fade.remaining = Math.max(0, fade.remaining - 1);
-          this.bankOutputGain = fade.start * fade.remaining / fade.total;
-        } else if (this.bankFadeIn) {
-          const fade = this.bankFadeIn;
-          this.bankOutputGain = 1 - (1 - fade.start) * --fade.remaining / fade.total;
-          if (fade.remaining === 0) this.bankFadeIn = null;
-        }
-        for (const channel of channels) channel[i] *= this.bankOutputGain;
-      }
-    }
     // Voice count excludes reverb tails. Cold loading and cache eviction must
-    // also wait for the audible output to settle (or the explicit bank fade).
+    // also wait for the audible output to settle.
     this.lastOutputSounding = false;
     outputScan: for (const channel of channels) {
       for (let i = 0; i < frames; i++) if (Math.abs(channel[i]) > 0.000001) {

@@ -1,4 +1,4 @@
-/** Real-WASM continuity and retirement check. Usage: node tools/fluidsynth/held-voices-smoke.mjs /path/to/sustaining.sf2 */
+/** Real-WASM continuity and retirement check. Usage: node tools/fluidsynth/held-voices-smoke.mjs /path/to/sustaining.sf2 [next-bank.sf2] */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createContext, runInContext } from "node:vm";
@@ -12,9 +12,16 @@ runInContext(readFileSync("vendor/fluidsynth/fluidsynth.js", "utf8")
   .replace("export default createFluidSynth;", ""), scope);
 const module = await scope.createFluidSynth({ wasmBinary: readFileSync("vendor/fluidsynth/fluidsynth.wasm"), locateFile: () => "" });
 const bytes = readFileSync(process.argv[2]);
+const nextBytes = process.argv[3] ? readFileSync(process.argv[3]) : bytes;
 const loadNative = module._ps_load_soundfont;
 let nativeLoads = 0;
 module._ps_load_soundfont = (...args) => { nativeLoads++; return loadNative(...args); };
+const selectNative = module._ps_select_program;
+const programSelections = [];
+module._ps_select_program = (synth, channel, bankId, bank, program) => {
+  programSelections.push({ synth, channel, bankId, bank, program });
+  return selectNative(synth, channel, bankId, bank, program);
+};
 const errors = [];
 const loadTimings = [];
 function make(sequence) {
@@ -36,6 +43,16 @@ const render = p => {
   assert.equal(p.process([], [channels]), true);
   return channels[0];
 };
+const originalBank = processor.soundfontId;
+processor.handleMessage({ type: "replace-soundfont", bytes: nextBytes, cacheKey: "bank-prepared",
+  prepareOnly: true, waitForSilence: true });
+render(processor);
+render(reference);
+scope.currentFrame += 128;
+const preparedBank = processor.soundfontCache.get("bank-prepared");
+assert.ok(preparedBank != null && preparedBank !== originalBank);
+assert.equal(processor.soundfontId, originalBank, "Preparation must leave the selected bank alone");
+assert.equal(processor.soundfontFiles.get(preparedBank).pinned, true);
 for (const p of [processor, reference]) p.dispatchCommand({ channel: 0, op: "on", a: 60, b: 100 });
 for (let i = 0; i < 32; i++) { render(processor); render(reference); scope.currentFrame += 128; }
 const synth = processor.synth, first = processor.soundfontId;
@@ -43,6 +60,14 @@ const oldPath = processor.soundfontFiles.get(first).path;
 const voices = module._ps_active_voice_count(synth);
 assert.ok(voices > 0, "Use a fixture with a sustaining first preset");
 assert.notEqual(module._ps_unload_soundfont(synth, first), 0, "Adapter must reject unloading while voices play");
+const beforePreparedSwitch = nativeLoads;
+programSelections.length = 0;
+processor.handleMessage({ type: "select-cached-soundfont", cacheKey: "bank-prepared",
+  retainSoundingVoices: true });
+assert.equal(processor.soundfontId, preparedBank);
+assert.equal(nativeLoads, beforePreparedSwitch);
+assert.equal(module._ps_active_voice_count(synth), voices);
+assert.deepEqual(programSelections, [], "Recall must leave every existing channel assignment alone");
 processor.handleMessage({ type: "replace-soundfont", bytes, cacheKey: "bank-B", reverbSend: 0 });
 assert.deepEqual(errors, []);
 assert.equal(processor.synth, synth);
@@ -60,7 +85,12 @@ for (let block = 0; block < 32; block++) {
 assert.ok(peak > 1e-5, "Continuity comparison must contain audible signal");
 assert.ok(maximumDifference < 1e-6, `Held waveform changed: ${maximumDifference}`);
 assert.ok(processor.retiredSoundfonts.has(first));
-processor.dispatchCommand({ channel: 1, op: "on", a: 64, b: 100 });
+programSelections.length = 0;
+processor.handleMessage({ type: "select-cached-soundfont", cacheKey: "bank-prepared", retainSoundingVoices: true });
+const { bank, program } = processor.selectedProgram;
+processor.dispatchCommand({ channel: 192, op: "on", a: 64, b: 100,
+  patchProgram: { soundfontId: preparedBank, bank, program } });
+assert.deepEqual(programSelections, [{ synth, channel: 192, bankId: preparedBank, bank, program }]);
 render(processor);
 assert.ok(module._ps_active_voice_count(synth) > voices, "New attacks must join the retained voices");
 const beforeWarmSwitch = nativeLoads;
@@ -68,28 +98,23 @@ const activeBeforeWarmSwitch = module._ps_active_voice_count(synth);
 for (const cacheKey of ["bank-0", "bank-B"]) processor.handleMessage({ type: "select-cached-soundfont", cacheKey });
 assert.equal(nativeLoads, beforeWarmSwitch, "Resident switches must not parse the SoundFont again");
 assert.equal(module._ps_active_voice_count(synth), activeBeforeWarmSwitch);
-processor.handleMessage({ type: "replace-soundfont", bytes, cacheKey: "bank-C", deferWhenPlaying: true, requestId: 99 });
+processor.handleMessage({ type: "replace-soundfont", bytes, cacheKey: "bank-C", waitForSilence: true, requestId: 99 });
 assert.equal(nativeLoads, beforeWarmSwitch, "Cold loading must wait while old notes play");
 processor.handleMessage({ type: "midi-batch", events: [{ command: { channel: 2, op: "on", a: 67, b: 100 } }] });
-let finalFade;
-for (let block = 0; block < 15; block++) {
-  finalFade = render(processor);
-  scope.currentFrame += 128;
-}
-assert.equal(nativeLoads, beforeWarmSwitch, "All 40 ms of fade must render before native loading");
-assert.equal(Math.abs(finalFade.at(-1)), 0);
 render(processor);
-assert.equal(nativeLoads, beforeWarmSwitch + 1);
-assert.ok(module._ps_active_voice_count(synth) > 0, "The triggering note must play after loading");
-processor.soundfontCacheBudget = 0; // Exercise LRU eviction after release.
+assert.equal(nativeLoads, beforeWarmSwitch, "An incoming attack must not force a load or fade");
+assert.ok(module._ps_active_voice_count(synth) > activeBeforeWarmSwitch, "The next note must play on the current bank");
+processor.handleMessage({ type: "unpin-soundfonts" });
 processor.dispatchCommand({ channel: 2, op: "off", a: 67 });
 processor.dispatchCommand({ channel: 0, op: "off", a: 60 });
-processor.dispatchCommand({ channel: 1, op: "off", a: 64 });
-for (let block = 0; block < 6000 && (module._ps_active_voice_count(synth) || processor.retiredSoundfonts.size); block++) {
+processor.dispatchCommand({ channel: 192, op: "off", a: 64 });
+for (let block = 0; block < 6000 && (processor.pendingSoundfont || module._ps_active_voice_count(synth) || processor.retiredSoundfonts.size); block++) {
   scope.currentFrame += 128;
   render(processor);
+  if (!processor.pendingSoundfont) processor.soundfontCacheBudget = 0; // Exercise LRU eviction after loading.
 }
 assert.equal(module._ps_active_voice_count(synth), 0);
+assert.equal(nativeLoads, beforeWarmSwitch + 1, "The bank must load after the old release tails finish");
 assert.equal(processor.retiredSoundfonts.size, 0);
 assert.equal(module.FS.analyzePath(oldPath).exists, false);
 assert.ok(module._ps_get_preset_count(synth, first) < 0, "Retired native bank must be unloaded");
@@ -99,7 +124,7 @@ for (const p of [processor, reference]) {
   module._free(p.leftPointer); module._free(p.rightPointer);
   for (const file of p.soundfontFiles.values()) module.FS.unlink(file.path);
 }
-console.log(`Real WASM: held waveform preserved (max difference ${maximumDifference}), resident switches avoid loading, cold switches fade 40 ms, banks/files evicted`);
+console.log(`Real WASM: prepared patch assigned only to the next attack channel; held waveform preserved (max difference ${maximumDifference}); cold bank waited for silence; unpinned banks/files evicted`);
 
 // Waveform continuity is distinct from meeting the real-time render deadline.
 // The current synchronous bank loader can exceed this budget despite matching

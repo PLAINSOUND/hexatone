@@ -185,9 +185,12 @@ function keyDown(e) {
     if (!e.repeat) this.state.spaceSustainReleasePending = false;
   }
   if (this.inputIsFocused()) return;
-  if (isCanvasKeyboardControl(document.activeElement) &&
+  const control = isCanvasKeyboardControl(e.target) ? e.target : document.activeElement;
+  if (isCanvasKeyboardControl(control) &&
       (["Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(e.code) ||
         (e.code === "Enter" && !e.shiftKey))) return;
+  const nativeSelect = control?.tagName === "SELECT";
+  if (nativeSelect && e.code === "Escape" && !e.shiftKey) return;
 
   if (e.code === "Space" && !e.metaKey && !e.ctrlKey && !e.altKey) {
     if (!canvasKeyboardActive(this)) return;
@@ -237,11 +240,10 @@ function keyDown(e) {
   if (!canvasKeyboardActive(this)) return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
 
+  const mappedKey = Object.hasOwn(this.settings?.keyCodeToCoords ?? {}, e.code);
+  if (nativeSelect && !mappedKey) return;
   e.preventDefault();
-  if (e.repeat) return;
-  if (!this.settings?.keyCodeToCoords) return;
-
-  if (!(e.code in this.settings.keyCodeToCoords)) return;
+  if (e.repeat || !mappedKey) return;
 
   if (e.shiftKey) {
     const coords = keyboardCoordsForCode(this, e.code);

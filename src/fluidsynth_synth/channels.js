@@ -1,0 +1,2 @@
+export const FLUID_CHANNEL_COUNT = 256;
+export const FLUID_CHANNEL_GROUP_SIZE = 64;

@@ -116,7 +116,12 @@ export async function createDsfSynth({ controls = {}, fundamental = 440, referen
         clear(ack);
       });
     },
-    setControls(values) { parameters = normalizeDsfControls(values); post({ command: "controls", controls: parameters }); },
+    setControls(values) {
+      const next = normalizeDsfControls(values);
+      if (Object.keys(next).every(key => next[key] === parameters[key])) return;
+      parameters = next;
+      post({ command: "controls", controls: parameters });
+    },
     setMod(value) { globalTimbre = normalized(value - 1); },
     applyZoneModwheel(value) {
       globalTimbre = midiExpression(value);

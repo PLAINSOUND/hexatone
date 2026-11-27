@@ -3,15 +3,17 @@ import { isMobileDevice } from "../ui/device.js";
 // Factory definitions are data, independent of browser sound preferences.
 export function builtinSoundDefinitions(device = globalThis.navigator) {
   const preferCompactSoundfont = isMobileDevice(device);
+  const soundfontVariants = (full, compact) => preferCompactSoundfont
+    ? { ...compact, fallback: full }
+    : { ...full, fallback: compact };
   return [
     {
       name: "Default",
       settings: { output_sample: false },
-      soundfont: {
-        name: "PlainsoundOrgan.sf2",
-        preset: "0:1",
-        fallback: { name: "PlainsoundOrganGedackt.sf2", preset: "0:0" },
-      },
+      soundfont: soundfontVariants(
+        { name: "PlainsoundOrgan.sf2", preset: "0:1" },
+        { name: "PlainsoundOrganGedackt.sf2", preset: "0:1" },
+      ),
     },
     {
       name: "Reed Organ",
@@ -88,14 +90,10 @@ export function builtinSoundDefinitions(device = globalThis.navigator) {
         osc_volume_formant: 0.5,
         osc_volume_saw: 0.2,
       },
-      soundfont: {
-        name: preferCompactSoundfont ? "PlainsoundOrganPrincipal.sf2" : "PlainsoundOrgan.sf2",
-        preset: "0:3",
-        fallback: {
-          name: preferCompactSoundfont ? "PlainsoundOrgan.sf2" : "PlainsoundOrganPrincipal.sf2",
-          preset: "0:3",
-        },
-      },
+      soundfont: soundfontVariants(
+        { name: "PlainsoundOrgan.sf2", preset: "0:3" },
+        { name: "PlainsoundOrganPrincipal.sf2", preset: "0:3" },
+      ),
     },
     {
       name: "Harpsichord",
@@ -110,7 +108,10 @@ export function builtinSoundDefinitions(device = globalThis.navigator) {
         osc_volume_formant: 0,
         osc_volume_saw: 0,
       },
-      soundfont: { name: "PlainsoundHarpsichord.sf2", preset: "0:3" },
+      soundfont: soundfontVariants(
+        { name: "PlainsoundHarpsichord.sf2", preset: "0:3" },
+        { name: "PlainsoundHarpsichordLute.sf2", preset: "0:0" },
+      ),
     },
     {
       name: "Test Tone",

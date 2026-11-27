@@ -1,11 +1,14 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { LAST_SOUNDFONT_KEY, restoreLocalSoundfont } from "./restore-local-soundfont.js";
-const mocks = vi.hoisted(() => ({ read: vi.fn(), load: vi.fn(), peek: vi.fn() }));
+import { LAST_SOUNDFONT_KEY, restoreLocalSoundfont, restorePerformanceSoundfonts, restoreSoundfontSession } from "./restore-local-soundfont.js";
+import { rememberPerformanceBanks } from "./performance-banks.js";
+import { SOUND_RESTORE_KEY } from "../persistence/io-reload-policy.js";
+const mocks = vi.hoisted(() => ({ read: vi.fn(), load: vi.fn(), peek: vi.fn(), unpin: vi.fn() }));
 vi.mock("./soundfont-storage.js", async importOriginal => ({
   readOfflineSoundfont: mocks.read,
   soundfontStorageKey: (await importOriginal()).soundfontStorageKey,
 }));
-vi.mock("./index.js", () => ({ loadFluidSynthSoundFont: mocks.load, peekFluidSynthEngine: mocks.peek }));
+vi.mock("./index.js", () => ({ loadFluidSynthSoundFont: mocks.load, peekFluidSynthEngine: mocks.peek,
+  clearPreparedSoundfonts: mocks.unpin }));
 beforeEach(() => {
   localStorage.clear();
   vi.resetAllMocks();
@@ -42,4 +45,80 @@ it("restores a local Hexatone bank using its shared identity and old local prese
   expect(mocks.read).toHaveBeenCalledWith("https://soundfonts.plainsound.org/PlainsoundOrgan.sf2");
   expect(mocks.load).toHaveBeenCalledWith(expect.objectContaining({ name: "PlainsoundOrgan.sf2" }),
     expect.objectContaining({ preferredPreset: "0:2" }));
+});
+
+it("restores the remembered preload set in order, skipping budget failures and unpinned banks", async () => {
+  const banks = rememberPerformanceBanks([], [{ name: "Organ.sf2" }, { name: "Big.sf2" }, { name: "Lute.sf2" }], true);
+  rememberPerformanceBanks(banks, [{ name: "Unpinned.sf2" }], false);
+  mocks.read.mockResolvedValue({ blob: new Blob(["font"]) });
+  mocks.load.mockImplementation(async source => {
+    if (source.name === "Big.sf2") throw new Error("SoundFont memory budget exceeded");
+  });
+  const result = await restorePerformanceSoundfonts();
+  expect(mocks.load.mock.calls.map(([source, options]) => [source.name, options.prepareOnly]))
+    .toEqual([["Organ.sf2", true], ["Big.sf2", true], ["Lute.sf2", true]]);
+  expect(result).toEqual({ phase: "complete", prepared: 2,
+    unavailable: [{ name: "Big.sf2", reason: "SoundFont memory budget exceeded" }] });
+});
+
+it("finishes session restore only after the worklet confirms the saved banks", async () => {
+  rememberPerformanceBanks([], [{ name: "Organ.sf2" }, { name: "Lute.sf2" }, { name: "Missing.sf2" }], true);
+  mocks.read.mockImplementation(async key => key.endsWith("Missing.sf2") ? null : { blob: new Blob(["font"]) });
+  const engine = { selectedPreset: { bank: 0, program: 3 }, setVolume: vi.fn() };
+  mocks.peek.mockReturnValue(engine);
+  let finishLute;
+  mocks.load.mockImplementation(async (source, options) => {
+    if (!options.prepareOnly) engine.soundfontCache = { keys: ["local:Organ.sf2"] };
+    if (source.name === "Lute.sf2") {
+      options.onWaitingForSilence();
+      await new Promise(resolve => { finishLute = resolve; });
+    }
+    return { presets: [engine.selectedPreset] };
+  });
+  const onProgress = vi.fn(), complete = vi.fn();
+  const restoring = restoreSoundfontSession({ onProgress }).then(complete);
+  await vi.waitFor(() => expect(finishLute).toBeTypeOf("function"));
+  expect(complete).not.toHaveBeenCalled();
+  expect(onProgress).toHaveBeenLastCalledWith({ phase: "waiting", name: "Lute.sf2", index: 2, total: 3 });
+  expect(mocks.read.mock.calls.map(([key]) => key)).toEqual(["local:Organ.sf2", "local:Lute.sf2"]);
+  finishLute();
+  await restoring;
+  expect(onProgress).toHaveBeenLastCalledWith({ phase: "complete", prepared: 2,
+    unavailable: [{ name: "Missing.sf2", reason: "No saved browser copy" }] });
+  expect(complete).toHaveBeenCalledWith(expect.objectContaining({ selectedPreset: engine.selectedPreset }));
+});
+
+it("retains library references with Restore SOUND settings off and does not read the files", async () => {
+  rememberPerformanceBanks([], [{ name: "Organ.sf2" }], true);
+  localStorage.setItem(SOUND_RESTORE_KEY, "false");
+  expect(await restoreLocalSoundfont()).toBeNull();
+  await restorePerformanceSoundfonts();
+  expect(mocks.read).not.toHaveBeenCalled();
+  expect(mocks.load).not.toHaveBeenCalled();
+});
+
+it("lets an explicit recall supersede active-bank restore while completing saved preparation", async () => {
+  rememberPerformanceBanks([], [{ name: "Lute.sf2" }], true);
+  mocks.read.mockResolvedValue({ blob: new Blob(["font"]) });
+  const controller = new AbortController();
+  let finishActive;
+  const engine = { setVolume: vi.fn() };
+  mocks.peek.mockReturnValue(engine);
+  mocks.load.mockImplementation(async (source, options) => {
+    if (!options.prepareOnly) {
+      expect(source.name).toBe("Organ.sf2");
+      expect(options.signal).toBe(controller.signal);
+      await new Promise(resolve => { finishActive = resolve; });
+    }
+    return { presets: [] };
+  });
+
+  const restores = restoreSoundfontSession({ activeSignal: controller.signal });
+  await vi.waitFor(() => expect(finishActive).toBeTypeOf("function"));
+  controller.abort();
+  finishActive();
+  expect(await restores).toBeUndefined();
+  expect(engine.setVolume).not.toHaveBeenCalled();
+  expect(mocks.load.mock.calls.map(([source, options]) => [source.name, !!options.prepareOnly]))
+    .toEqual([["Organ.sf2", false], ["Lute.sf2", true]]);
 });

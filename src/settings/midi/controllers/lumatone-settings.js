@@ -365,7 +365,7 @@ const LumatoneSettings = ({
         <label>
           SysEx Connection Test
           <span class="settings-form__control-row settings-form__control-row--inline lumatone-settings__probe-row">
-            <span class="settings-form__helper-text settings-form__description-value lumatone-settings__probe-status" role="status" aria-live="polite">
+            <span class="settings-form__feedback settings-form__description-value lumatone-settings__probe-status" role="status" aria-live="polite">
               {probeStatus.message}
             </span>
             <button

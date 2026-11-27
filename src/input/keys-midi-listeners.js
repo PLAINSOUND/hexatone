@@ -3,6 +3,7 @@
 // and controller-specific behaviors such as LinnStrument UF X glide. It does
 // not own harmonic frame derivation or canvas rendering directly.
 
+import { countAudioTestEvent } from "../audio/runtime-diagnostics.js";
 import Point from "../keyboard/point.js";
 import { applyInputBend } from "./bend-bypass.js";
 import { exquisBendBypassControl } from "./exquis-control-bindings.js";
@@ -589,7 +590,30 @@ export function rebuildControllerMap() {
   return true;
 }
 
+// Persist only the last CC1 in a burst. Teardown and pagehide retain the
+// originating device even if the selected input changes before the timer fires.
+function rememberModwheel(input, source, value) {
+  if (!input._pendingModwheel) {
+    const flush = () => {
+      const pending = input._pendingModwheel;
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      window.removeEventListener("pagehide", flush);
+      input._pendingModwheel = null;
+      try {
+        sessionStorage.setItem("midiin_modwheel_value", String(pending.value));
+        sessionStorage.setItem("midiin_modwheel_source", pending.source);
+      } catch { /* Live MIDI also works without storage. */ }
+    };
+    input._pendingModwheel = { flush, timer: setTimeout(flush, 200) };
+    window.addEventListener("pagehide", flush);
+  }
+  input._pendingModwheel.source = source;
+  input._pendingModwheel.value = value;
+}
+
 export function teardownMidiInput() {
+  this._pendingModwheel?.flush();
   this._midiInputGeneration = (this._midiInputGeneration ?? 0) + 1;
   if (this.midiin_data) {
     for (const eventName of MIDI_INPUT_EVENT_NAMES) {
@@ -780,6 +804,7 @@ export function setupMidiInput() {
       });
 
       this.midiin_data.addListener("keyaftertouch", (e) => {
+        countAudioTestEvent("midiPressureMessages");
         withMidiJitterInput(
           "keyAftertouchIn",
           {
@@ -823,6 +848,7 @@ export function setupMidiInput() {
       this._linnUfXReleaseState = new Map(); // low-pressure release tracking to avoid snap-back before note-off
       this._linnUfXInitPending = new Set();
       this.midiin_data.addListener("controlchange", (e) => {
+        if (e.message.dataBytes[0] === 74) countAudioTestEvent("midiTimbreMessages");
         withMidiJitterInput(
           "ccIn",
           { channel: e.message.channel, cc: e.message.dataBytes[0], value: e.message.dataBytes[1] },
@@ -890,16 +916,14 @@ export function setupMidiInput() {
             if (linnstrumentUfInputActive) {
               const isDocumentedMsb = cc >= 0 && cc <= 25;
               const isDocumentedLsb = cc >= 32 && cc <= 57;
-              const isObservedMsb = cc >= 1 && cc <= 25;
-              const isObservedLsb = cc >= 33 && cc <= 57;
 
-              if (isDocumentedLsb || isObservedLsb) {
-                const col = cc >= 32 ? cc - 32 : cc - 32;
+              if (isDocumentedLsb) {
+                const col = cc - 32;
                 const key = `${e.message.channel}.${col}`;
                 this._linnUfXLsb.set(key, value);
                 maybeApplyLinnstrumentUfX.call(this, e.message.channel, col);
                 return;
-              } else if (isDocumentedMsb || isObservedMsb) {
+              } else if (isDocumentedMsb) {
                 const col = cc;
                 const key = `${e.message.channel}.${col}`;
                 this._linnUfXMsb.set(key, value);
@@ -962,12 +986,12 @@ export function setupMidiInput() {
               // Mod Wheel is zone-wide for every controller. Optional Eagan
               // Brightness mirroring is handled independently by passthroughCC.
               if (this.settings.midiin_device && this.settings.midiin_device !== "OFF") {
-                sessionStorage.setItem("midiin_modwheel_value", String(value));
-                sessionStorage.setItem("midiin_modwheel_source", this.settings.midiin_device);
+                rememberModwheel(this, this.settings.midiin_device, value);
               }
               // External MIDI/MPE outputs received CC1 once through
               // _passthroughCC above. Local synthesis receives one synth-level
               // update, never one update per sounding note.
+              countAudioTestEvent("zoneModwheelUpdates");
               this.synth?.applyZoneModwheel?.(value);
               this.onModWheelChange?.(value);
             } else if (cc === 11) {
@@ -1013,6 +1037,7 @@ export function setupMidiInput() {
 
       // Universal channel-pressure (aftertouch) listener.
       this.midiin_data.addListener("channelaftertouch", (e) => {
+        countAudioTestEvent("midiPressureMessages");
         withMidiJitterInput(
           "channelAftertouchIn",
           { channel: e.message.channel, value: e.message.dataBytes[0] },
@@ -1094,6 +1119,7 @@ export function setupMidiInput() {
 
       // Universal pitch-wheel listener — runs for ALL midi_mapping modes.
       this.midiin_data.addListener("pitchbend", (e) => {
+        countAudioTestEvent("midiPitchBendMessages");
         if (ignoresIncomingPitchBend(this.controller, this.inputRuntime)) return;
         withMidiJitterInput(
           "pitchbendIn",

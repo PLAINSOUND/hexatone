@@ -1,9 +1,11 @@
 /** Versioned sound-only snapshots. No tuning, MIDI ports, bridge credentials or sample bytes. */
+import { ACTIVE_SOUND_KEY } from "./io-reload-policy.js";
 import { SETTINGS_REGISTRY } from "./settings-registry.js";
 import { dsfControlsFromSettings } from "../dsf_synth/controls.js";
 import { readSampleVolume } from "../audio/sample-volume.js";
 import { builtinSoundDefinitions } from "./builtin-user-sounds.js";
 import { normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "../fluidsynth_synth/smoothing.js";
+import { readRememberedSoundfont } from "../fluidsynth_synth/soundfont-catalog.js";
 import { readFluidSynthReverb } from "../fluidsynth_synth/reverb.js";
 
 export const USER_SOUNDS_KEY = "hexatone_user_sounds";
@@ -55,28 +57,31 @@ export function normalizeUserSound(record) {
   };
 }
 
-export function captureUserSound(name, settings, { engine, description = "", referenceSoundfont } = {}) {
+export function captureUserSound(name, settings, { engine, description = "", referenceSoundfont, mixer = {} } = {}) {
   const values = { ...settings };
   for (const entry of entries) {
+    if (Object.hasOwn(mixer, entry.key)) {
+      values[entry.key] = mixer[entry.key];
+      continue;
+    }
+    if (entry.key === "osc_brightness" && values[entry.key] != null) continue;
     if (entry.key.startsWith("osc_") && entry.type !== "bool")
       values[entry.key] = storedNumber(entry.key, values[entry.key] ?? entry.default);
   }
-  const source = engine?.pendingSoundfont?.source ?? engine?.soundfontSource;
+  const source = engine?.pendingSoundfont?.source ?? engine?.soundfontSource ?? readRememberedSoundfont();
   const soundfont = {
-      name: source?.name ??
-        localStorage.getItem("fluidsynth_last_hosted_soundfont") ?? "",
+      name: source?.name ?? "",
       preset: engine?.pendingSoundfont?.preferredPreset ?? (engine?.selectedPreset
         ? `${engine.selectedPreset.bank}:${engine.selectedPreset.program}` : settings.fluidsynth_preset),
-      volume: engine?.volume ?? storedNumber("fluidsynth_internal_volume", 100),
-      reverb: engine?.reverb ?? readFluidSynthReverb(),
+      volume: mixer.fluidsynth_internal_volume ?? engine?.volume ?? storedNumber("fluidsynth_internal_volume", 100),
+      reverb: mixer.fluidsynth_internal_reverb ?? engine?.reverb ?? readFluidSynthReverb(),
       smoothing: engine?.smoothing ?? readFluidSynthSmoothing(),
   };
   // A disabled engine keeps its previous bank warm. Capture the selected
   // sound's intended bank instead, for dirty checks, saving and export alike.
   if (referenceSoundfont && (settings.output_fluidsynth === false || !source)) {
     soundfont.name = referenceSoundfont.name;
-    soundfont.preset = settings.output_fluidsynth === false ? referenceSoundfont.preset
-      : settings.fluidsynth_preset ?? referenceSoundfont.preset;
+    soundfont.preset = referenceSoundfont.preset;
   }
   if (referenceSoundfont?.fallback &&
       (matchesSoundfontReference(soundfont, referenceSoundfont) ||
@@ -87,7 +92,7 @@ export function captureUserSound(name, settings, { engine, description = "", ref
   }
   return normalizeUserSound({
     format: "hexatone-user-sound", version: 1, name, description, settings: values,
-    sampleVolume: readSampleVolume(), soundfont,
+    sampleVolume: mixer.synth_volume ?? readSampleVolume(), soundfont,
   });
 }
 
@@ -134,3 +139,33 @@ export function saveUserSounds(records) {
 
 export const BUILTIN_USER_SOUNDS = builtinSoundDefinitions().map(record =>
   normalizeUserSound({ format: "hexatone-user-sound", version: 1, ...record }));
+
+export const defaultSound = BUILTIN_USER_SOUNDS.find(sound => sound.name === "Default");
+export const defaultSelection = `builtin:${BUILTIN_USER_SOUNDS.indexOf(defaultSound)}`;
+export const findSound = (selection, sounds) => selection?.startsWith("builtin:")
+  ? BUILTIN_USER_SOUNDS[Number(selection.slice(8))]
+  : sounds.find(sound => `user:${sound.name}` === selection);
+
+export function restoreSelection(sounds) {
+  try {
+    const stored = JSON.parse(sessionStorage.getItem(ACTIVE_SOUND_KEY));
+    const selection = typeof stored?.builtinName === "string"
+      ? `builtin:${BUILTIN_USER_SOUNDS.findIndex(sound => sound.name === stored.builtinName)}`
+      : stored?.selection;
+    const record = typeof selection === "string" && findSound(selection, sounds);
+    if (record) return {
+      selection,
+      name: typeof stored.name === "string" ? stored.name : record.name,
+      description: typeof stored.description === "string" ? stored.description : record.description,
+    };
+  } catch { /* Missing or invalid selection falls back to Default. */ }
+  return { selection: defaultSelection, name: defaultSound.name, description: defaultSound.description };
+}
+
+export function storeSoundSelection({ selection, name, description }) {
+  const record = selection.startsWith("builtin:")
+    ? { builtinName: findSound(selection, [])?.name, name, description }
+    : { selection, name, description };
+  try { sessionStorage.setItem(ACTIVE_SOUND_KEY, JSON.stringify(record)); }
+  catch { /* The working sound is still available in this tab. */ }
+}

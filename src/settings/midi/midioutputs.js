@@ -735,7 +735,7 @@ const MidiOutputs = (props) => {
               </label>
 
               <label>
-                <span class="sidebar-input settings-form__helper-text settings-form__description-value">
+                <span class="sidebar-input settings-form__feedback settings-form__description-value">
                   {loCh}–{hiCh} ({hiCh - loCh + 1} voices)
                 </span>
               </label>

@@ -19,6 +19,7 @@ const WebMIDISettings = ({
   midiAccessError,
   enableWebMidi,
   disableWebMidi,
+  children,
 }) => {
   const midiEnabled = !!settings.webmidi_enabled;
   const sysexEnabled = !!settings.webmidi_sysex_enabled;
@@ -66,10 +67,9 @@ const WebMIDISettings = ({
         />
       </label>
       {midiAccessError && (
-        <p class="settings-form__stacked-helper">
-          <em>{midiAccessError}</em>
-        </p>
+        <p class="settings-form__warning-copy">{midiAccessError}</p>
       )}
+      {children}
     </fieldset>
   );
 };
@@ -83,6 +83,7 @@ WebMIDISettings.propTypes = {
   midiAccessError: PropTypes.string,
   enableWebMidi: PropTypes.func,
   disableWebMidi: PropTypes.func,
+  children: PropTypes.node,
 };
 
 export default WebMIDISettings;

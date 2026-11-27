@@ -114,7 +114,7 @@ it("collapses MIDI Input to its port, geometry feedback and input mode, retainin
   const props = makeProps({ midiin_controller_override: "lumatone", wheel_to_recent: true });
   const view = render(<MIDIio {...props} />);
   expect(screen.getByLabelText("Pitch Wheel Handoff Portamento")).toBeTruthy();
-  const feedback = view.container.querySelector(".settings-form__description-label");
+  const feedback = view.container.querySelector("label.settings-form__feedback");
   expect(feedback).not.toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Hide MIDI Input settings" }));
   expect(screen.getByRole("button", { name: "Show MIDI Input settings" }).getAttribute("aria-expanded")).toBe("false");

@@ -4,10 +4,10 @@ import { isTextEntryElement } from "./text-entry.js";
 // Select menus are choices here; text and numeric fields still own typing.
 export function isCanvasKeyboardControl(element) {
   if (!(element instanceof HTMLElement) || !element.closest("[data-canvas-keyboard-controls]")) return false;
-  return element.tagName === "SELECT" || !isTextEntryElement(element);
+  return !isTextEntryElement(element);
 }
 
 export function blocksCanvasKeyboard(element = document.activeElement) {
   if (isCanvasKeyboardControl(element)) return false;
-  return isTextEntryElement(element) || element?.tagName === "INPUT";
+  return isTextEntryElement(element) || element?.tagName === "INPUT" || element?.tagName === "SELECT";
 }

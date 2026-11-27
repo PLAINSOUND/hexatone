@@ -14,6 +14,7 @@ import { expressionToMidi, MIDI_EXPRESSION_14_MAX, readSnapshotExpression, snaps
 
 const expressionStateBySynths = new WeakMap();
 const pitchReferenceBySynth = new WeakMap();
+const isExternalMidi = synth => !synth.audioBackend && ["mts", "mpe", "mono"].includes(synth.family);
 
 function snapshotCents(synth, midicents, fallback, reference = pitchReferenceBySynth.get(synth)) {
   if (!reference || !Number.isFinite(midicents)) return fallback;
@@ -112,23 +113,35 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
       // child voices in-place so a newly enabled output joins sounding notes.
       // Sample changes replace only sequencer-owned sample children; held input
       // notes keep their old sample until release. Other outputs never reattack.
-      reconcileSynths(nextSynths, timestamp) {
+      reconcileSynths(nextSynths, timestamp, patchTransition) {
         const desired = Array.isArray(nextSynths) ? nextSynths.filter(Boolean) : [];
         // A held input sample keeps its instrument until its musical release.
         // Snapshots adopt the decoded replacement here, without replaying the
         // snapshot or cancelling its sequencer gestures/other backend voices.
         // Store the newest graph for a later attack on this same wrapper.
         this._nextSynths = desired;
+        const attackPending = Number.isFinite(timestamp) && this._compositeAttackTimestamp > timestamp;
+        if (patchTransition === "preserve" && this._compositeSounding && !attackPending) this._preservePatch = true;
+        if (patchTransition === "rearticulate" || !this._compositeSounding || attackPending) this._preservePatch = false;
+        if (this._preservePatch && this._compositeSounding) return;
+        const rearticulate = (patchTransition === "rearticulate" || (patchTransition && attackPending)) &&
+          this._compositeSounding;
+        const attackAt = attackPending && patchTransition ? this._compositeAttackTimestamp : timestamp;
+        if (rearticulate) this._attackGroup = outputAttackGroup();
         const keepSample =
+          !rearticulate &&
           this._compositeSounding &&
           !Number.isFinite(args[11]?.absoluteMidicents) &&
           !Number.isFinite(this._snapshotMidicents) &&
           hexSynths.some((s) => s.family === "sample") &&
           desired.some((s) => s.family === "sample");
         for (let index = hexSynths.length - 1; index >= 0; index -= 1) {
-          if (desired.includes(hexSynths[index])) continue;
+          if (desired.includes(hexSynths[index]) && (!rearticulate || isExternalMidi(hexSynths[index]))) continue;
           if (keepSample && hexSynths[index].family === "sample") continue;
-          if (this._compositeSounding) hexes[index]?.noteOff?.(0, timestamp);
+          if (this._compositeSounding) {
+            if (rearticulate) hexes[index]?.cancelPendingEvents?.();
+            hexes[index]?.noteOff?.(0, timestamp);
+          }
           hexSynths.splice(index, 1);
           hexPitchReferences.splice(index, 1);
           hexes.splice(index, 1);
@@ -148,7 +161,7 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
           hexes.push(child);
           if (!this._compositeSounding) continue;
           child._attackGroup = this._attackGroup;
-          child.noteOn?.(timestamp);
+          child.noteOn?.(attackAt);
           if (this._compositeLastPressure != null || this._compositeLastPressure14 != null) {
             const pressure = this._compositeLastPressure ?? this._compositeLastPressure14 >> 7;
             if (this._compositeNormalizedPressure != null && child.applyNormalizedSnapshotPressure)
@@ -186,7 +199,12 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
           hexPitchReferences.splice(i, 1);
           hexes.splice(i, 1);
         }
+        const preservePatch = this._preservePatch;
+        const nextSynths = this._nextSynths;
+        this._preservePatch = false;
         this.reconcileSynths(desired, timestamp);
+        this._preservePatch = preservePatch;
+        if (preservePatch) this._nextSynths = nextSynths;
       },
 
       recoverRetainedVoice(note, timestamp) {
@@ -246,6 +264,7 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
           this.reconcileSynths(this._nextSynths, timestamp);
         }
         this._compositeSounding = true;
+        this._compositeAttackTimestamp = timestamp;
         this.release = false;
         this._attackGroup = outputAttackGroup();
         hexes.forEach((h) => {
@@ -506,13 +525,14 @@ export const create_composite_synth = (synths, retiringSynths = new Set(), pitch
   },
 
   cancelSequenceEvents() {
-    synths.forEach((s) => s.cancelSequenceEvents?.());
+    for (const synth of this.getRecoveryOutputs?.() ?? synths) synth.cancelSequenceEvents?.();
   },
 
   allSoundOff() {
     stopFadingOutputToggles();
     stopRetiredSuperSonicOutputs();
-    controlledSynths(synths, retiringSynths).forEach((s) => s.allSoundOff && s.allSoundOff());
+    const outputs = new Set([...controlledSynths(synths, retiringSynths), ...(this.getRecoveryOutputs?.() ?? [])]);
+    outputs.forEach(s => s.allSoundOff?.());
     retiringSynths.clear();
   },
 });

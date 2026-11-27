@@ -41,7 +41,7 @@ To explore scales, compare tunings, build and recall chords:
 - change to the `SOUNDS` tab; try different sound combinations while the sequencer is playing
     - under `Built-in DSF Synthesis` adjust envelopes for volume and timbre
     - under `Built-in Samples` change `Instrument`
-    - under `Built-in SoundFont Player`, in the menu `Hexatone SoundFonts` choose a sound and download it by tapping `Load Hexatone SoundFont`
+    - under `Built-in SoundFont Player`, add a bank with `Load SoundFonts`, then choose it in `Current SoundFont`
     - under `Built-in scsynth` try mixing the layers and adjusting `Brightness`
 - open `MANUAL` for complete documentation, or use *… more* for contextual help
 
@@ -77,7 +77,7 @@ To explore scales, compare tunings, build and recall chords:
 
 ### Sidebar Settings
 
-In the `HEXATONE` tab, `Keep screen awake`, below `Restore on reload`, prevents
+In the `HEXATONE` tab, `Keep screen awake`, below `Restore Tuning and Sequence on reload`, prevents
 automatic screen locking during playback or held notes when the browser permits
 it. The preference is saved independently of tuning restoration. Manual locking
 and system power-saving restrictions can still interrupt audio.
@@ -508,15 +508,15 @@ Enable the sample engine, choose an `Instrument`, and set its `Volume`. The libr
 
 ### Built-in SoundFont Player
 
-Enable `Use FluidSynth Sounds`, choose a bank from `Hexatone SoundFonts`, then select its `Preset`. An available browser copy loads automatically; otherwise click `Load Hexatone SoundFont` or use `Choose Local File` for a `.sf2` / `.sf3` file. Downloads can be cancelled.
+Use `Load SoundFonts` to download banks or add local `.sf2` and `.sf3` files. Its memory readout shows the preload budget. With `Restore SOUND settings on reload` enabled, Hexatone keeps browser copies and uses them to restore the selected bank and load the remembered set when audio starts. With Restore disabled, Hexatone clears previous browser copies on reload. The current page can still use the banks you loaded. The `(loaded)` label appears when a bank is ready in memory. `Unload Bank` frees memory once the bank is inactive and the player is silent. The bank stays in the library for manual selection.
+
+Enable `Use FluidSynth Sounds`, choose a bank in `Current SoundFont`, then select its `Preset`. Banks marked `load on selection` wait for silence to load. Resident banks switch on the next note while existing notes keep their original sound.
 
 **Volume** and **Reverb** set the mix. The fieldset arrow reveals **Pressure Smoothing**, **Expression Y Smoothing**, and **Minimum Smoothing**. Smoothing softens supported pressure/timbre loudness changes; 0 ms is off. Minimum Smoothing sets a lower time limit for small changes. The SoundFont determines how expression affects its sound.
 
 Recently used banks are cached for faster switching. Larger banks may take longer to load, especially on phones. Selecting a preset affects new attacks; held notes keep their sound. A bank that needs loading while notes are sounding waits for a new attack or silence and may briefly delay that attack.
 
-- **Save SoundFont File…** saves the original file to your device.
-- **Keep for Offline Use** retains a browser copy.
-- **Remove Offline Copy** removes that retained copy without stopping playback. The current page can still reuse its temporary working copy.
+**Save SoundFont File…** saves the original file to your device regardless of the Restore setting.
 
 A local file matching a supplied bank's filename can be reused through that bank's menu entry. Choose the file again to pick up later edits. Browser copies can be lost when site data is cleared or a private session ends; saving a file to your device is separate from browser storage.
 

@@ -31,10 +31,18 @@ it.each([
     fallback: { name: fallback, preset: "0:3" } });
 });
 
-it("captures equivalent backup banks consistently and drops stale backups after a patch edit", () => {
-  const saved = BUILTIN_USER_SOUNDS[0];
+it.each(["Windows NT", "iPhone", "Android"])("uses the corresponding Lute program in either Harpsichord bank on %s", userAgent => {
+  const { soundfont } = builtinSoundDefinitions({ userAgent }).find(sound => sound.name === "Harpsichord");
+  const full = { name: "PlainsoundHarpsichord.sf2", preset: "0:3" };
+  const slim = { name: "PlainsoundHarpsichordLute.sf2", preset: "0:0" };
+  expect(soundfont).toEqual(userAgent === "Windows NT" ? { ...full, fallback: slim } : { ...slim, fallback: full });
+});
+
+it.each(["Default", "Harpsichord"])("captures the equivalent %s bank and drops its fallback after a patch edit", name => {
+  const saved = BUILTIN_USER_SOUNDS.find(sound => sound.name === name);
+  const [bank, program] = saved.soundfont.fallback.preset.split(":").map(Number);
   const engine = { soundfontSource: { name: saved.soundfont.fallback.name },
-    selectedPreset: { bank: 0, program: 0 } };
+    selectedPreset: { bank, program } };
   const options = { engine, referenceSoundfont: saved.soundfont };
   const captured = captureUserSound(saved.name, saved.settings, options);
   expect(captured).toEqual(saved);

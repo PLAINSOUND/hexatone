@@ -76,17 +76,17 @@ needed, then run the manifest generator and the browser/backend tests before
 committing the vendor bundle.
 
 SoundFont and preset changes preserve the native synth, held voices, tuning maps,
-and queued MIDI releases. New attacks use the newly selected bank/program.
-Recently used native banks and their virtual files are kept under an estimated
-256 MiB LRU budget (twice file bytes). The selected bank is always retained;
+and queued MIDI releases. New attacks select their bank and program on the
+allocated channel. Four groups of 64 channels can lend unused channels to one
+another, with independent MTS tuning in banks 0 and 1.
+Recently used native banks and their virtual files share an estimated memory
+budget of 2 GiB on desktop and 256 MiB on phones and tablets (twice file bytes).
+The selected bank is always retained;
 playing voices temporarily pin other banks. Eviction runs only when native
 voices and the audible reverb tail are idle. Cache state and staged-byte counts are exposed in diagnostics.
-A resident bank switches immediately without parsing. A cold bank selected
-while voices play is staged until a new attack (or natural silence). A new
-attack first fades the mixed FluidSynth output to zero over 40 ms; only the
-following block installs the bank and dispatches queued events. Thus the first
-cold attack is delayed by fade plus native loading; no background loading is
-claimed. Staged requests may be replaced or canceled without locking the UI.
+A resident bank switches immediately without parsing. A cold bank waits until
+the worklet is silent and has no imminent attack. Notes continue to use the
+current bank during that wait. Staged requests can be replaced or canceled.
 Cached selections are queried only after the processor advertises that key,
 so older running worklets cannot strand the UI on an unsupported request.
 The adapter guards unloading against active voices to avoid FluidSynth's threaded

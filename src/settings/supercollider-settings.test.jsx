@@ -1,13 +1,15 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import SuperColliderSettings from "./supercollider-settings.jsx";
+import { applyMixerParameter } from "../audio/sound-mixer.js";
+import { useSoundSession } from "../hooks/use-sound-session.js";
+import SuperColliderSettingsView from "./supercollider-settings.jsx";
 
-it("notifies sound edits after persisting a committed layer level", () => {
-  const onWorkingChange = vi.fn(() => expect(localStorage.getItem("osc_volume_pluck")).toBe("0.51"));
-  render(<SuperColliderSettings settings={{ output_osc: true }} onChange={vi.fn()} onWorkingChange={onWorkingChange} />);
-  fireEvent.keyDown(screen.getByRole("slider", { name: "Pluck volume" }), { key: "ArrowRight" });
-  expect(onWorkingChange).toHaveBeenCalledOnce();
-});
+function SuperColliderSettings(props) {
+  const session = useSoundSession(props.settings, props.onChange, null, {
+    applyMixer: (key, value) => applyMixerParameter(key, value, { layer: props.onOscLayerVolumeChange }),
+  });
+  return <SuperColliderSettingsView {...props} soundSession={session} />;
+}
 
 describe("SuperCollider scsynth settings", () => {
   it("pairs the bridge without putting its secret in exported settings", () => {
@@ -97,7 +99,7 @@ describe("SuperCollider scsynth settings", () => {
     expect(onChange).toHaveBeenCalledWith("osc_server_off", false);
   });
 
-  it("updates and persists layer volume", () => {
+  it("updates and persists layer volume", async () => {
     const onOscLayerVolumeChange = vi.fn();
     render(
       <SuperColliderSettings
@@ -109,8 +111,7 @@ describe("SuperCollider scsynth settings", () => {
 
     fireEvent.keyDown(screen.getByRole("slider", { name: "Pluck volume" }), { key: "ArrowRight" });
     expect(onOscLayerVolumeChange).toHaveBeenCalledWith(0, 0.73);
-    expect(localStorage.getItem("osc_volume_pluck")).toBe("0.73");
-    expect(sessionStorage.getItem("osc_volume_pluck")).toBe("0.73");
+    await vi.waitFor(() => expect(localStorage.getItem("osc_volume_pluck")).toBe("0.73"));
   });
 
   it("preserves the Buzz and Formant retrigger option", () => {

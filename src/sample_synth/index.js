@@ -3,6 +3,8 @@
 // in the browser AudioContext, while exposing the same makeHex/note lifecycle
 // interface as the other synth backends. It does not resolve controller input.
 
+import { createSampleBufferCache } from "./buffer-cache.js";
+import { isMobileDevice } from "../ui/device.js";
 import { sharedAudioContext, ensureSharedAudioContext, discardSharedAudioContext } from "../audio/shared-context.js";
 import { outputAudioTime } from "../midi/output-transaction.js";
 import { installAudioGestureRecovery } from "./gesture-recovery.js";
@@ -30,9 +32,13 @@ import { debugLog, errorLog, warnLog } from "../debug/logging.js";
 // sample synth instance would leave decodedBuffers = null until prepare()
 // resolves, causing the first note to be silent (the user would only hear the
 // previous note's decaying release tail — a short "peep").
-let decodedBufferCache = {};
+const MiB = 1024 * 1024;
+const mobile = isMobileDevice();
+const decodedBufferCache = createSampleBufferCache((mobile ? 48 : 128) * MiB,
+  buffers => buffers.reduce((total, buffer) => total + buffer.length * buffer.numberOfChannels * 4, 0));
 let decodedBufferCacheContext = null; // the AudioContext the cache was built for
-let rawSampleBufferCache = {};
+const rawSampleBufferCache = createSampleBufferCache((mobile ? 8 : 24) * MiB,
+  buffers => buffers.reduce((total, buffer) => total + buffer.byteLength, 0));
 let rawSampleBufferPromises = {};
 let keepAliveSource = null;
 let keepAliveGain = null;
@@ -93,7 +99,7 @@ export const recoverSharedAudioContext = async ({ forceRecreate = false } = {}) 
     const staleContext = sharedAudioContext;
     discardSharedAudioContext(staleContext);
     clearKeepAliveNode();
-    decodedBufferCache = {};
+    decodedBufferCache.clear();
     decodedBufferCacheContext = null;
     try {
       Promise.resolve(staleContext?.close()).catch((error) => {
@@ -105,7 +111,7 @@ export const recoverSharedAudioContext = async ({ forceRecreate = false } = {}) 
   }
   if (!sharedAudioContext || sharedAudioContext.state === "closed") {
     createSharedAudioContext();
-    decodedBufferCache = {};
+    decodedBufferCache.clear();
     decodedBufferCacheContext = null;
   }
   if (sharedAudioContext.state === "suspended" || sharedAudioContext.state === "interrupted") {
@@ -241,7 +247,8 @@ const findInstrument = (fileName) => {
 };
 
 const fetchRawSampleBuffers = async (fileName) => {
-  if (rawSampleBufferCache[fileName]) return rawSampleBufferCache[fileName];
+  const cached = rawSampleBufferCache.get(fileName);
+  if (cached) return cached;
   if (!rawSampleBufferPromises[fileName]) {
     rawSampleBufferPromises[fileName] = Promise.all([
       fetch(`sounds/${fileName}110.mp3`).then((r) => r.arrayBuffer()),
@@ -250,7 +257,7 @@ const fetchRawSampleBuffers = async (fileName) => {
       fetch(`sounds/${fileName}880.mp3`).then((r) => r.arrayBuffer()),
     ])
       .then((buffers) => {
-        rawSampleBufferCache[fileName] = buffers;
+        rawSampleBufferCache.set(fileName, buffers);
         return buffers;
       })
       .finally(() => {
@@ -397,11 +404,12 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         }
         ensureKeepAliveNode();
         if (decodedBufferCacheContext !== sharedAudioContext) {
-          decodedBufferCache = {};
+          decodedBufferCache.clear();
           decodedBufferCacheContext = sharedAudioContext;
         }
-        if (decodedBufferCache[fileName]) {
-          decodedBuffers = decodedBufferCache[fileName];
+        const cached = decodedBufferCache.get(fileName);
+        if (cached) {
+          decodedBuffers = cached;
         } else {
           const rawBuffers = await fetchRawSampleBuffers(fileName);
           checkEpoch();
@@ -410,7 +418,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
           );
           checkEpoch();
           decodedBuffers = decoded;
-          decodedBufferCache[fileName] = decodedBuffers;
+          decodedBufferCache.set(fileName, decodedBuffers);
         }
       })();
       const currentPrepare = preparePromise;
@@ -431,6 +439,7 @@ export const create_sample_synth = async (fileName, fundamental, reference_degre
         if (!synth.isOutputPaused?.()) return recoveryGate?.fadeIn();
       },
       getDiagnostics: () => ({
+        sampleCache: { raw: rawSampleBufferCache.diagnostics(), decoded: decodedBufferCache.diagnostics() },
         family: "sample", retainedHexes: knownHexes.size,
         audioContext: {
           state: sharedAudioContext?.state, sampleRate: sharedAudioContext?.sampleRate,

@@ -432,7 +432,7 @@ const HakenContinuumSettings = ({
             });
           }}
         />
-        <em class="settings-form__helper-text">Apply Raster in Pitch Bending Mode</em>
+        <span class="settings-form__checkbox-label">Apply Raster in Pitch Bending Mode</span>
       </label>
       <label
         class="settings-form__checkbox-row settings-form__checkbox-row--tight"
@@ -447,7 +447,7 @@ const HakenContinuumSettings = ({
             });
           }}
         />
-        <em class="settings-form__helper-text">Shape X Glide to Raster</em>
+        <span class="settings-form__checkbox-label">Shape X Glide to Raster</span>
       </label>
       <label class="settings-form__inline-label-row">
         <span class="settings-form__fixed-label">Scale degrees</span>

@@ -69,7 +69,7 @@ const Keyboard = (props) => {
     }
     keys.lumatoneLEDs = props.lumatoneLedsRef?.current ?? null;
     keys.exquisLEDs = props.exquisLedsRef?.current ?? null;
-    keys.exquisExpressionYCenter = props.expressionYCenter;
+    keys.exquisExpressionYCenter = props.expressionYCenter?.value ?? props.expressionYCenter;
     keys.linnstrumentLEDs = props.linnstrumentLedsRef?.current ?? null;
     keysRef.current = keys;
     const highlights = createSnapshotHighlights(keys, playbackCanvas.current);
@@ -132,14 +132,20 @@ const Keyboard = (props) => {
   }, [props.inputRuntime, props.liveInputSettings]);
 
   useEffect(() => {
-    const keys = keysRef.current;
-    if (!keys) return;
-    keys.exquisExpressionYCenter = props.expressionYCenter;
-    if (keys.controller?.id !== "exquis") return;
-    for (const hex of keys._allActiveHexes?.() ?? []) {
-      if (!hex.release && hex._exquisRawCC74 != null)
-        keys._applyTimbreCC74(hex, hex._exquisRawCC74);
-    }
+    const center = props.expressionYCenter;
+    const update = () => {
+      const keys = keysRef.current;
+      if (!keys) return;
+      keys.exquisExpressionYCenter = center?.value ?? center;
+      if (keys.controller?.id !== "exquis") return;
+      for (const hex of keys._allActiveHexes?.() ?? []) {
+        if (!hex.release && hex._exquisRawCC74 != null)
+          keys._applyTimbreCC74(hex, hex._exquisRawCC74);
+      }
+    };
+    update();
+    center?.changes?.addEventListener("change", update);
+    return () => center?.changes?.removeEventListener("change", update);
   }, [props.expressionYCenter]);
 
   useEffect(() => {
@@ -293,7 +299,7 @@ Keyboard.propTypes = {
   onModulationArmChange: PropTypes.func,
   onModulationStateChange: PropTypes.func,
   onModWheelChange: PropTypes.func,
-  expressionYCenter: PropTypes.number,
+  expressionYCenter: PropTypes.oneOfType([PropTypes.number, PropTypes.object]),
   onTakeSnapshot: PropTypes.func,
   midiLearnActive: PropTypes.bool,
   onAnchorLearn: PropTypes.func,

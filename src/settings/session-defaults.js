@@ -17,9 +17,12 @@
 
 import { SETTINGS_REGISTRY, CROSS_CONTROLLER_ENTRIES } from "../persistence/settings-registry.js";
 import { applyIOReloadPolicy } from "../persistence/io-reload-policy.js";
+import { initializeSoundfontStorage } from "../fluidsynth_synth/soundfont-storage.js";
 
 // Run before reading any persisted defaults, not after App imports this module.
 applyIOReloadPolicy();
+// Copy disposal is best effort. A later storage operation retries the cleanup.
+void initializeSoundfontStorage().catch(() => {});
 import {
   sessionInt,
   sessionFloat,

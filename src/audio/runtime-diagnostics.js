@@ -12,7 +12,7 @@ export function registerFluidSynthLifecycleDiagnostics(provider) {
 export function markAudioTestStage(label) {
   if (!latencyEnabled) return;
   currentStage = { id: stages.length ? stages.at(-1).id + 1 : 1,
-    label, at: new Date().toISOString() };
+    label, at: new Date().toISOString(), counts: {}, maxEventLoopDelayMs: 0 };
   stages.push(currentStage);
   if (stages.length > 6) stages.shift();
   recordAudioRuntime("audio-test-stage", currentStage);
@@ -49,10 +49,16 @@ export function markInputHandler(event) {
   stages.handlerAt ??= performance.now();
   eventStages.set(event, stages);
 }
+export function countAudioTestEvent(kind) {
+  if (!currentStage) return;
+  const counts = currentStage.counts;
+  counts[kind] = (counts[kind] ?? 0) + 1;
+}
 export function recordEventLoopGap(expectedAt, observedAt) {
   if (!latencyEnabled) return;
-  eventLoopGaps.push({ expectedAtMs: expectedAt, observedAtMs: observedAt,
-    delayMs: Math.max(0, observedAt - expectedAt) });
+  const delayMs = Math.max(0, observedAt - expectedAt);
+  if (currentStage) currentStage.maxEventLoopDelayMs = Math.max(currentStage.maxEventLoopDelayMs, delayMs);
+  eventLoopGaps.push({ expectedAtMs: expectedAt, observedAtMs: observedAt, delayMs });
   if (eventLoopGaps.length > 120) eventLoopGaps.shift();
 }
 let touch = null;
@@ -180,7 +186,7 @@ export function audioRuntimeReport() {
   }));
   return { latencyMeasurementEnabled: latencyEnabled,
     fluidSynthLifecycle: fluidSynthLifecycleProvider?.() ?? null,
-    testStages: stages.map(stage => ({ ...stage, backends: Object.fromEntries(
+    testStages: stages.map(stage => ({ ...stage, counts: { ...stage.counts }, backends: Object.fromEntries(
       [...new Set(latency.filter(row => row.stageId === stage.id).map(row => row.backend))]
         .map(backend => [backend, summarize(latency.filter(row => row.stageId === stage.id && row.backend === backend))])) })),
     events: [...events], pendingImports: [...imports].map(({ backend, url, started }) =>

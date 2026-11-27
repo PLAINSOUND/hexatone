@@ -142,7 +142,7 @@ const ManualSidebar = ({
         </legend>
         {onClose ? <button ref={closeAnchorRef} type="button" tabIndex={-1} disabled aria-hidden="true"
           class="settings-panel__close manual-sidebar__close-anchor">✕</button> : null}
-        <p class="manual-sidebar__intro">{MANUAL_INTRO}</p>
+        <p class="manual-sidebar__intro settings-form__helper-text">{MANUAL_INTRO}</p>
         <div class="manual-sidebar__meta">
           {updated && (
             <p class="manual-sidebar__updated">

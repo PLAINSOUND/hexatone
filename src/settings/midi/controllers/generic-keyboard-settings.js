@@ -77,7 +77,7 @@ const GenericKeyboardSettings = ({
 
     {showGeometryInfo && <label>
       2D Geometry
-      <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
+      <span class="sidebar-input settings-form__feedback">
         2D geometry is bypassed
       </span>
     </label>}

@@ -247,6 +247,7 @@ export async function createSuperSonicOutput(SuperSonic, base, args) {
       _flushBundles: () => currentTransport._flushBundles(),
       panic: () => currentTransport.panic(),
       prepare: () => context.resume(),
+      hasVoices: () => currentTransport.hasVoices(),
       getDiagnostics: () => currentTransport.getDiagnostics(),
       setTailPruning: (value) => {
         pruning = value;

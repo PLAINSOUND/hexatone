@@ -303,7 +303,7 @@ const isDirty = (snap, s, modulationLibrary = [], controllerId) => {
   );
 };
 
-// localStorage key for the "restore on reload" preference
+// localStorage key for the "restore Tuning and Sequence on reload" preference
 const PERSIST_ON_RELOAD_KEY = "hexatone_persist_on_reload";
 const RESTORED_PRESET_PAYLOAD_KEY = "hexatone_restored_preset_payload";
 

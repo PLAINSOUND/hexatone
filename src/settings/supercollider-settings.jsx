@@ -8,7 +8,8 @@ import PropTypes from "prop-types";
 import CustomRangeSlider from "./shared/range-slider.jsx";
 import { getBridgeToken, setBridgeToken } from "../osc_synth/bridge-auth.js";
 
-const clampVolume = (value) => Math.max(0, Math.min(1, value));
+import MixerFader from "./mixer-fader.jsx";
+import { OSC_LAYER_KEYS } from "../audio/sound-mixer.js";
 const clampRelease = (value) => Math.max(0, Math.min(1, value));
 const clampReleaseTime = (value) => Math.max(0.001, Math.min(4, value));
 
@@ -22,12 +23,36 @@ const save = (key, value, onChange) => {
   sessionStorage.setItem(key, String(value));
 };
 
+function BrightnessControl({ brightness, onInputValue }) {
+  const [live, setLive] = useState(() => brightness.value ?? brightness);
+  useEffect(() => {
+    const update = () => setLive(brightness.value ?? brightness);
+    brightness.changes?.addEventListener("change", update);
+    update();
+    return () => brightness.changes?.removeEventListener("change", update);
+  }, [brightness]);
+  return <label>
+    Brightness
+    <span class="sidebar-input settings-form__range-row">
+      <CustomRangeSlider
+        ariaLabel="Brightness"
+        defaultValue={0.2}
+        min={0}
+        max={1}
+        step={1 / 127}
+        value={live}
+        onInputValue={value => onInputValue?.(Number(value))}
+      />
+      <span class="settings-form__range-value">{Math.round(live * 100)}%</span>
+    </span>
+  </label>;
+}
+
 const SuperColliderSettings = ({
   settings,
   onChange,
-  onOscLayerVolumeChange,
-  onWorkingChange,
-  oscBrightness = 0.2,
+  soundSession,
+  oscBrightness: brightness = 0.2,
   onOscBrightnessChange,
   onOscQuickReleaseChange,
   onOscQuickReleaseTimeChange,
@@ -43,44 +68,12 @@ const SuperColliderSettings = ({
     changeBridgeToken(getBridgeToken(bridgeUrl));
     setBridgeError("");
   }, [bridgeUrl]);
-  const [layerVolumes, setLayerVolumes] = useState(() => ({
-    osc_volume_pluck: readNumber("osc_volume_pluck", settings.osc_volume_pluck ?? 0.5, clampVolume),
-    osc_volume_buzz: readNumber("osc_volume_buzz", settings.osc_volume_buzz ?? 0.5, clampVolume),
-    osc_volume_formant: readNumber(
-      "osc_volume_formant",
-      settings.osc_volume_formant ?? 0.5,
-      clampVolume,
-    ),
-    osc_volume_saw: readNumber("osc_volume_saw", settings.osc_volume_saw ?? 0.5, clampVolume),
-  }));
   const [release, setRelease] = useState(() =>
     readNumber("osc_quick_release", settings.osc_quick_release ?? 0.5, clampRelease),
   );
   const [releaseTime, setReleaseTime] = useState(() =>
     readNumber("osc_quick_release_time", settings.osc_quick_release_time ?? 0.25, clampReleaseTime),
   );
-
-  useEffect(() => {
-    setLayerVolumes({
-      osc_volume_pluck: readNumber(
-        "osc_volume_pluck",
-        settings.osc_volume_pluck ?? 0.5,
-        clampVolume,
-      ),
-      osc_volume_buzz: readNumber("osc_volume_buzz", settings.osc_volume_buzz ?? 0.5, clampVolume),
-      osc_volume_formant: readNumber(
-        "osc_volume_formant",
-        settings.osc_volume_formant ?? 0.5,
-        clampVolume,
-      ),
-      osc_volume_saw: readNumber("osc_volume_saw", settings.osc_volume_saw ?? 0.5, clampVolume),
-    });
-  }, [
-    settings.osc_volume_pluck,
-    settings.osc_volume_buzz,
-    settings.osc_volume_formant,
-    settings.osc_volume_saw,
-  ]);
 
   useEffect(() => {
     setRelease(readNumber("osc_quick_release", settings.osc_quick_release ?? 0.5, clampRelease));
@@ -171,45 +164,14 @@ const SuperColliderSettings = ({
                   catch (error) { setBridgeError(error.message); }
                 }} />
             </label>
-            <p class="setting-help">Stored for this tab session; excluded from presets and shared links.</p>
+            <p class="settings-form__helper-text">Stored for this tab session; excluded from presets and shared links.</p>
             {bridgeError && <p role="alert">{bridgeError}</p>}
             </>
           )}
 
-          {[
-            ["osc_volume_pluck", "Pluck"],
-            ["osc_volume_buzz", "Buzz"],
-            ["osc_volume_formant", "Formant"],
-            ["osc_volume_saw", "Saw"],
-          ].map(([key, label], index) => (
-            <label key={key}>
-              <span class={layerVolumes[key] === 0 ? "scsynth-layer-label scsynth-layer-label--muted" : "scsynth-layer-label"}>{label}</span>
-              <span class="sidebar-input settings-form__range-row">
-                <CustomRangeSlider
-                  ariaLabel={`${label} volume`}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={layerVolumes[key] ?? 0.5}
-                  defaultValue={0.5}
-                  onInputValue={(nextValue) => {
-                    const next = clampVolume(parseFloat(nextValue));
-                    setLayerVolumes((current) => ({ ...current, [key]: next }));
-                    onOscLayerVolumeChange?.(index, next);
-                  }}
-                  onCommitValue={(nextValue) => {
-                    const next = clampVolume(parseFloat(nextValue));
-                    localStorage.setItem(key, String(next));
-                    sessionStorage.setItem(key, String(next));
-                    onWorkingChange?.();
-                  }}
-                />
-                <span class="settings-form__range-value">
-                  {(layerVolumes[key] ?? 0.5).toFixed(2)}
-                </span>
-              </span>
-            </label>
-          ))}
+          {["Pluck", "Buzz", "Formant", "Saw"].map((label, index) =>
+            <MixerFader key={label} session={soundSession} parameter={OSC_LAYER_KEYS[index]}
+              label={label} ariaLabel={label + " volume"} layer />)}
 
           <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
             <input
@@ -221,24 +183,10 @@ const SuperColliderSettings = ({
                 save("osc_retrigger_buzz_formant", event.target.checked, onChange);
               }}
             />
-            <em class="settings-form__helper-text">Retrigger Buzz + Formant while held</em>
+            <span class="settings-form__checkbox-label">Retrigger Buzz + Formant while held</span>
           </label>
 
-          <label>
-            Brightness
-            <span class="sidebar-input settings-form__range-row">
-              <CustomRangeSlider
-                ariaLabel="Brightness"
-                defaultValue={0.2}
-                min={0}
-                max={1}
-                step={1 / 127}
-                value={oscBrightness}
-                onInputValue={(value) => onOscBrightnessChange?.(Number(value))}
-              />
-              <span class="settings-form__range-value">{Math.round(oscBrightness * 100)}%</span>
-            </span>
-          </label>
+          <BrightnessControl brightness={brightness} onInputValue={onOscBrightnessChange} />
 
           {!collapsed && <>
           <label>
@@ -283,9 +231,9 @@ const SuperColliderSettings = ({
                 onChange("osc_quick_release_raster_only", event.target.checked);
               }}
             />
-            <em class="settings-form__helper-text">
+            <span class="settings-form__checkbox-label">
               Apply release envelope to Rastered Glissando only
-            </em>
+            </span>
           </label>
 
           <label>
@@ -322,9 +270,8 @@ const SuperColliderSettings = ({
 SuperColliderSettings.propTypes = {
   settings: PropTypes.object.isRequired,
   onChange: PropTypes.func.isRequired,
-  onOscLayerVolumeChange: PropTypes.func,
-  onWorkingChange: PropTypes.func,
-  oscBrightness: PropTypes.number,
+  soundSession: PropTypes.object,
+  oscBrightness: PropTypes.oneOfType([PropTypes.number, PropTypes.object]),
   onOscBrightnessChange: PropTypes.func,
   onOscQuickReleaseChange: PropTypes.func,
   onOscQuickReleaseTimeChange: PropTypes.func,

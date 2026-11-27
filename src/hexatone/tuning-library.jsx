@@ -467,7 +467,7 @@ const TuningLibrary = ({
                 checked={persistOnReload}
                 onChange={(e) => setPersistOnReload(e.target.checked)}
               />
-              <em class="settings-form__helper-text">Restore on reload</em>
+              <em class="settings-form__global-preference">Restore Tuning and Sequence on reload</em>
             </label>
           )}
         </div>
@@ -475,7 +475,7 @@ const TuningLibrary = ({
           <label class="settings-form__checkbox-row settings-form__reload-checkbox">
             <input type="checkbox" checked={keepScreenAwake}
               onChange={(e) => setKeepScreenAwake?.(e.target.checked)} />
-            <em class="settings-form__helper-text">Keep screen awake</em>
+            <em class="settings-form__global-preference">Keep screen awake</em>
           </label>
         </div>
       </fieldset>

@@ -9,7 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("persists enabled and disabled preferences across remounts independently of Restore on reload", () => {
+it("persists enabled and disabled preferences across remounts independently of Restore Tuning and Sequence on reload", () => {
   let enabled;
   let toggle;
   function Harness() { [enabled, toggle] = useScreenWakeLock(() => false); return null; }

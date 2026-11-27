@@ -130,23 +130,6 @@ export default defineConfig({
               test: /node_modules[\\/]webmidi[\\/]/,
               priority: 2,
             },
-            {
-              // Keep the large tuning and controller editors out of the shared
-              // settings chunk. Imports remain static, preserving startup order.
-              name: 'settings-scale',
-              test: /src[\\/]settings[\\/]scale[\\/]/,
-              priority: 2,
-            },
-            {
-              name: 'settings-midi',
-              test: /src[\\/]settings[\\/]midi[\\/]/,
-              priority: 2,
-            },
-            {
-              name: 'settings',
-              test: /src[\\/]settings[\\/]/,
-              priority: 1,
-            },
           ],
         },
       },

@@ -659,6 +659,28 @@ export const create_osc_synth = async (
       // call after rebuild) must not overwrite the per-layer fader values.
     },
 
+    hasVoices: () => _heldVoices.size > 0 || socket.hasVoices?.() === true,
+
+    setPatchControls({ volumes, quickRelease, quickReleaseTime, rasterOnly, retrigger, brightness }) {
+      // Keep the already-created nodes as they were. A live fader still
+      // uses setLayerVolume and can explicitly manipulate those nodes.
+      for (const voice of _heldVoices.values()) {
+        if (voice._volumes !== _volumes) continue;
+        voice._volumes = [..._volumes];
+        voice._modRef = { ..._mod };
+        voice._quickReleaseRef = { ..._quickRelease };
+        voice._quickReleaseTimeRef = { ..._quickReleaseTime };
+        voice._quickReleaseRasterOnlyRef = { ..._quickReleaseRasterOnly };
+        voice._retriggerBuzzFormantRef = { ..._retriggerBuzzFormant };
+      }
+      volumes.forEach((value, index) => { _volumes[index] = value; });
+      _quickRelease.value = quickRelease;
+      _quickReleaseTime.value = quickReleaseTime;
+      _quickReleaseRasterOnly.value = rasterOnly;
+      _retriggerBuzzFormant.value = retrigger;
+      if (Number.isFinite(brightness)) _mod.value = midiCcToScParam(brightness);
+    },
+
     setLayerVolume(index, value) {
       setLayerVolume(index, value);
     },

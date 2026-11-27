@@ -2,6 +2,51 @@ import { describe, it, expect, vi } from "vitest";
 import { create_composite_synth } from "./index.js";
 
 describe("composite_synth controller-state replay", () => {
+  it("keeps sounding patch voices through release and uses the new patch on attack", () => {
+    const oldVoice = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const nextVoice = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const next = { makeHex: vi.fn(() => nextVoice) };
+    const note = create_composite_synth([{ makeHex: () => oldVoice }]).makeHex(null, 300);
+    note.noteOn(100);
+    note.reconcileSynths([next], 200, "preserve");
+    expect(oldVoice.noteOff).not.toHaveBeenCalled();
+    expect(next.makeHex).not.toHaveBeenCalled();
+    note.noteOff(64, 250);
+    expect(oldVoice.noteOff).toHaveBeenCalledExactlyOnceWith(64, 250);
+    note.noteOn(300);
+    expect(nextVoice.noteOn).toHaveBeenCalledExactlyOnceWith(300);
+  });
+
+  it("rearticulates on the same engine and reapplies current per-note expression", () => {
+    const oldVoice = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const nextVoice = { noteOn: vi.fn(), noteOff: vi.fn(), retune: vi.fn(), polyTimbre: vi.fn() };
+    const engine = { makeHex: vi.fn().mockReturnValueOnce(oldVoice).mockReturnValueOnce(nextVoice) };
+    const note = create_composite_synth([engine]).makeHex(null, 300);
+    note.noteOn(100);
+    note.retune(420);
+    note.polyTimbre(92);
+    note.reconcileSynths([engine], 200, "rearticulate");
+    expect(oldVoice.noteOff).toHaveBeenCalledExactlyOnceWith(0, 200);
+    expect(nextVoice.retune).toHaveBeenCalledExactlyOnceWith(420, true);
+    expect(nextVoice.noteOn).toHaveBeenCalledExactlyOnceWith(200);
+    expect(nextVoice.polyTimbre).toHaveBeenCalledExactlyOnceWith(92, null);
+  });
+
+  it("uses the new patch for a future sequence attack at its original time", () => {
+    const oldVoice = { noteOn: vi.fn(), noteOff: vi.fn(), cancelPendingEvents: vi.fn() };
+    const nextVoice = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const midiVoice = { noteOn: vi.fn(), noteOff: vi.fn() };
+    const midi = { family: "mpe", makeHex: () => midiVoice };
+    const note = create_composite_synth([{ makeHex: () => oldVoice }, midi]).makeHex(null, 300);
+    note.noteOn(800);
+    note.reconcileSynths([{ makeHex: () => nextVoice }, midi], 500, "preserve");
+    expect(oldVoice.cancelPendingEvents).toHaveBeenCalledOnce();
+    expect(oldVoice.noteOff).toHaveBeenCalledExactlyOnceWith(0, 500);
+    expect(nextVoice.noteOn).toHaveBeenCalledExactlyOnceWith(800);
+    expect(midiVoice.noteOn).toHaveBeenCalledExactlyOnceWith(800);
+    expect(midiVoice.noteOff).not.toHaveBeenCalled();
+  });
+
   it("rejoins held notes after recovery even when the engine identity is unchanged", () => {
     const voices = [];
     const recovered = { family: "sample", makeHex: vi.fn(() => {

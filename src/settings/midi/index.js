@@ -473,7 +473,7 @@ const MIDIio = (props) => {
                 !configurableMpeMemberChannelBounds && (
                   <label title="Hexatone currently accepts MPE voice data on all channels.">
                     Voice channels
-                    <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
+                    <span class="sidebar-input settings-form__feedback">
                       all channels
                     </span>
                   </label>
@@ -481,7 +481,7 @@ const MIDIio = (props) => {
               {mpeInputEnabled && !linnstrumentBypassMpeUi && ctrl?.mpeVoiceChannels && (
                 <label title="Controller range is informational; Hexatone currently accepts MPE voice data on all channels.">
                   Voice channels
-                  <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
+                  <span class="sidebar-input settings-form__feedback">
                     {ctrl.mpeVoiceChannels.lo}–{ctrl.mpeVoiceChannels.hi} typical; listening on all
                   </span>
                 </label>
@@ -595,7 +595,7 @@ const MIDIio = (props) => {
                       sequential path uses the same midiin_anchor_note field
                       across the full 0–127 range. */}
                       {lumatoneBypassAnchorUi ? (
-                        <span class="settings-form__inline-note-hint settings-form__helper-text settings-form__helper-text--muted">
+                        <span class="settings-form__inline-note-hint settings-form__feedback">
                           MIDI Note 60 plays Central Degree ({center_degree})
                         </span>
                       ) : ctrl?.multiChannel ? (
@@ -655,14 +655,14 @@ const MIDIio = (props) => {
                     (genericBypassesGeometry ? (
                       <label>
                         2D Geometry
-                        <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
+                        <span class="sidebar-input settings-form__feedback">
                           2D geometry is bypassed
                         </span>
                       </label>
                     ) : tonalPlexus41Mode ? (
                       <label>
                         2D Geometry
-                        <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
+                        <span class="sidebar-input settings-form__feedback">
                           41 notes per block mode uses grouped block-slot translation
                         </span>
                       </label>

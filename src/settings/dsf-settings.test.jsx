@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
+import { useSoundSession } from "../hooks/use-sound-session.js";
+import { loadUserSounds, USER_SOUNDS_KEY } from "../persistence/user-sounds.js";
+import UserSounds from "./user-sounds.jsx";
 import DsfSettings from "./dsf-settings.jsx";
 
 beforeEach(() => sessionStorage.setItem("hexatone_dsf_collapsed", "false"));
@@ -171,4 +174,36 @@ it("defaults to the compact controls, uses the shared animated toggle and rememb
   fireEvent.click(screen.getByRole("button", { name: "Hide DSF settings" }));
   expect(screen.queryByRole("slider", { name: "DSF Attack" })).toBeNull();
   expect(onChange).not.toHaveBeenCalled();
+});
+
+it("plays fader edits immediately and saves the working value before the drag commits", () => {
+  sessionStorage.setItem("hexatone_dsf_collapsed", "false");
+  localStorage.removeItem("dsf_iso226");
+  const applyDsf = vi.fn();
+  const commit = vi.fn();
+  const settings = { output_dsf: true, dsf_iso226: 0 };
+  function Harness() {
+    const session = useSoundSession(settings, commit, applyDsf);
+    return <>
+      <DsfSettings settings={settings} onChange={vi.fn()} soundSession={session} />
+      <UserSounds settings={settings} soundSession={session} onApply={vi.fn()} />
+    </>;
+  }
+  render(<Harness />);
+  const slider = screen.getByRole("slider", { name: "DSF ISO-226 compensation amount" });
+  slider.getBoundingClientRect = () => ({ left: 0, width: 100 });
+  // Use MouseEvent to supply pointer coordinates in jsdom.
+  fireEvent(slider, new MouseEvent("PointerDown", { bubbles: true, clientX: 51 }));
+  expect(applyDsf).toHaveBeenCalledWith(expect.objectContaining({ iso226: 0.5 }));
+  expect(commit).not.toHaveBeenCalled();
+  expect(localStorage.getItem("dsf_iso226")).toBeNull();
+
+  fireEvent.input(screen.getByLabelText("Sound name"), { target: { value: "Live fader test" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save as copy" }));
+  expect(loadUserSounds().find(sound => sound.name === "Live fader test")?.settings.dsf_iso226).toBe(0.5);
+  fireEvent(slider, new MouseEvent("PointerUp", { bubbles: true, clientX: 51 }));
+  expect(applyDsf).toHaveBeenCalledTimes(1);
+  expect(commit).toHaveBeenCalledExactlyOnceWith({ dsf_iso226: 0.5 });
+  expect(localStorage.getItem("dsf_iso226")).toBe("0.5");
+  localStorage.removeItem(USER_SOUNDS_KEY);
 });

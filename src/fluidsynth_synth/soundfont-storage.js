@@ -1,14 +1,16 @@
 /** Disk-backed copies, with one best-effort memory copy if browser storage fails. */
 import { canonicalSoundfontKey, legacyLocalSoundfontKey } from "./soundfont-catalog.js";
+import { restoreSoundOnReload } from "../persistence/io-reload-policy.js";
 
 const DATABASE = "hexatone-soundfonts";
 const STORE = "banks";
 // A fresh page gets a fresh session: temporary banks are not an offline library.
 const sessionId = crypto.randomUUID();
-let cleanupStarted = false;
+let cleanupPromise;
+let discardPreviousCopies = false;
 let memoryBank;
 
-async function access(mode, operation) {
+async function withDatabase(operation) {
   if (!globalThis.indexedDB) throw new Error("Offline storage is unavailable in this browser.");
   const db = await new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE, 1);
@@ -17,33 +19,49 @@ async function access(mode, operation) {
     request.onerror = () => reject(request.error);
     request.onblocked = () => reject(new Error("Offline storage is blocked by another tab."));
   });
-  try {
-    if (!cleanupStarted) {
-      cleanupStarted = true;
-      await new Promise((resolve, reject) => {
-        const transaction = db.transaction(STORE, "readwrite");
-        const request = transaction.objectStore(STORE).openCursor();
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor) return;
-          // Crashed/closed sessions cannot reliably clean up during unload.
-          // Reclaim abandoned temporary copies on a later visit, after 24 hours.
-          if (cursor.value.offline === false && cursor.value.sessionId !== sessionId &&
-            cursor.value.savedAt < Date.now() - 24 * 60 * 60 * 1000) cursor.delete();
-          cursor.continue();
-        };
-        transaction.oncomplete = resolve;
-        transaction.onerror = transaction.onabort = () => reject(transaction.error);
-      });
-    }
-    return await new Promise((resolve, reject) => {
+  try { return await operation(db); }
+  finally { db.close(); }
+}
+
+function cleanUpCopies(db) {
+  cleanupPromise ??= new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE, "readwrite");
+    const request = transaction.objectStore(STORE).openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      const bank = cursor.value;
+      // Old versions allowed individually removing an offline copy. Keep those
+      // temporary records out of future sessions until this cleanup removes them.
+      if (bank.sessionId !== sessionId && (discardPreviousCopies || bank.offline === false)) cursor.delete();
+      cursor.continue();
+    };
+    transaction.oncomplete = resolve;
+    transaction.onerror = transaction.onabort = () => reject(transaction.error);
+  }).catch(error => {
+    cleanupPromise = null;
+    throw error;
+  });
+  return cleanupPromise;
+}
+
+export function initializeSoundfontStorage() {
+  if (restoreSoundOnReload()) return Promise.resolve();
+  discardPreviousCopies = true;
+  return withDatabase(cleanUpCopies);
+}
+
+function access(mode, operation) {
+  return withDatabase(async db => {
+    await cleanUpCopies(db);
+    return new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE, mode);
       const request = operation(transaction.objectStore(STORE));
       transaction.oncomplete = () => resolve(request.result);
       transaction.onerror = () => reject(transaction.error || request.error);
       transaction.onabort = () => reject(transaction.error || new Error("Offline storage operation aborted."));
     });
-  } finally { db.close(); }
+  });
 }
 
 export const soundfontStorageKey = (source) => canonicalSoundfontKey(source.url || `local:${source.name}`);
@@ -79,14 +97,9 @@ export async function readWorkingSoundfont(key) {
   if (!bank && memoryBank?.key === key) return memoryBank.bank;
   return bank && (bank.offline !== false || bank.sessionId === sessionId) ? bank : undefined;
 }
-export async function removeOfflineSoundfont(key) {
-  const bank = await readWorkingSoundfont(key);
-  if (bank) await writeBank(key, { ...bank,
-    offline: false, sessionId, savedAt: Date.now() });
-}
-export async function storeOfflineSoundfont(source, bytes) {
+export async function storeSoundfontCopy(source, bytes) {
   const bank = { name: source.name, url: source.url || "", blob: new Blob([bytes]),
-    offline: true, sessionId, savedAt: Date.now() };
+    offline: true, sessionId };
   const key = soundfontStorageKey(source);
   try {
     await writeBank(key, bank);
@@ -97,14 +110,6 @@ export async function storeOfflineSoundfont(source, bytes) {
     memoryBank = { key, bank: { ...bank, offline: false } };
     throw error;
   }
-}
-
-export async function keepWorkingSoundfont(source) {
-  const key = soundfontStorageKey(source);
-  const bank = await readWorkingSoundfont(key);
-  if (!bank) throw new Error("The temporary copy is no longer available. Load the SoundFont again.");
-  await writeBank(key, { ...bank, offline: true, savedAt: Date.now() });
-  if (memoryBank?.key === key) memoryBank = undefined;
 }
 
 export function saveSoundfontFile(name, blob) {

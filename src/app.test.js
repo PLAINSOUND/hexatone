@@ -49,6 +49,8 @@ vi.mock("./settings/io-settings.jsx", () => ({
     if (pendingIOSettingsLoad) throw pendingIOSettingsLoad;
     return <div data-testid="io-settings">I/O Settings Stub
       <button onClick={() => onOscBrightnessChange(1)}>Test Brightness</button>
+      <select aria-label="Test User Sounds"><option>Default</option><option>Harpsichord</option></select>
+      <input aria-label="Test Sound Name" />
     </div>;
   },
 }));
@@ -2784,4 +2786,34 @@ describe("App keyboard lifecycle", () => {
     expect(screen.queryByText("1/1 → 2/1[-1eq]")).toBeNull();
     expect(screen.queryByText("1/1 →")).toBeNull();
   });
+});
+
+it("keeps a native Sound selector visible when its popup changes the visual viewport", async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(window, "visualViewport");
+  onTestFinished(() => {
+    if (descriptor) Object.defineProperty(window, "visualViewport", descriptor);
+    else delete window.visualViewport;
+  });
+  const viewport = new EventTarget();
+  viewport.height = 800;
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: viewport });
+
+  const { container } = render(<App />);
+  fireEvent.click(screen.getByRole("tab", { name: "SOUNDS" }));
+  const picker = await screen.findByLabelText("Test User Sounds");
+  act(() => {
+    picker.focus();
+    viewport.height = 550;
+    viewport.dispatchEvent(new Event("resize"));
+  });
+  expect(document.activeElement).toBe(picker);
+  expect(container.firstElementChild.classList.contains("text-entry-active")).toBe(false);
+  fireEvent.change(picker, { target: { value: "Harpsichord" } });
+  expect(picker.value).toBe("Harpsichord");
+
+  act(() => {
+    screen.getByLabelText("Test Sound Name").focus();
+    viewport.dispatchEvent(new Event("resize"));
+  });
+  expect(container.firstElementChild.classList.contains("text-entry-active")).toBe(true);
 });

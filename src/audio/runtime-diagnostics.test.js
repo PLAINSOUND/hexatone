@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
 import { audioRuntimeReport, beginTouchTiming, recordTouchAudio, recordTouchRender,
   traceAudioImport, withTouchTiming, captureInputTiming, markInputHandler,
-  recordEventLoopGap, setLatencyMeasurementEnabled, recordAudioRuntime, markAudioTestStage } from "./runtime-diagnostics.js";
+  countAudioTestEvent, recordEventLoopGap, setLatencyMeasurementEnabled, recordAudioRuntime, markAudioTestStage } from "./runtime-diagnostics.js";
 
 beforeEach(() => setLatencyMeasurementEnabled(true));
 afterEach(() => setLatencyMeasurementEnabled(false));
@@ -149,4 +149,26 @@ it("preserves five bounded passes and summarizes late acknowledgements by stage"
   expect(report.testStages.map(stage => stage.backends.supersonic.nodeStartAcknowledgementMs.median)).toEqual([4, 10, 10, 10, 10]);
   setLatencyMeasurementEnabled(false);
   expect(audioRuntimeReport().testStages).toEqual([]);
+});
+
+
+it("keeps expressive event counts and timer delays separate by test pass", () => {
+  setLatencyMeasurementEnabled(true);
+  try {
+    markAudioTestStage("Steady playing");
+    recordEventLoopGap(25, 27);
+    markAudioTestStage("Expressive glides");
+    countAudioTestEvent("midiPitchBendMessages");
+    countAudioTestEvent("midiPitchBendMessages");
+    countAudioTestEvent("midiPressureMessages");
+    recordEventLoopGap(50, 63);
+    recordEventLoopGap(75, 79);
+    expect(audioRuntimeReport().testStages).toMatchObject([
+      { label: "Steady playing", counts: {}, maxEventLoopDelayMs: 2 },
+      { label: "Expressive glides", counts: { midiPitchBendMessages: 2, midiPressureMessages: 1 },
+        maxEventLoopDelayMs: 13 },
+    ]);
+  } finally {
+    setLatencyMeasurementEnabled(false);
+  }
 });

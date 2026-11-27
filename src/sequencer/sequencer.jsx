@@ -3131,7 +3131,7 @@ const Sequencer = ({
         <legend>
           <b>Snapshots</b>
         </legend>
-        <p>
+        <p class="settings-form__helper-text">
           <em>
             SHIFT+ENTER captures currently sounding notes. Add an Empty Snapshot to create a rest.
             The panels below allow snapshots to be played, re-ordered, copied, and edited into a
@@ -3533,9 +3533,7 @@ const Sequencer = ({
           }}
         >
           {snapshots.length === 0 ? (
-            <p>
-              <em>No snapshots captured yet.</em>
-            </p>
+            <p class="settings-form__feedback">No snapshots captured yet.</p>
           ) : (
             <div class="sequencer-list">
               {(structuralMarkersByDisplayBucket.get(-1) ?? []).map((marker) => (

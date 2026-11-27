@@ -582,7 +582,7 @@ const CalculatorTab = ({
         class={`calculator-palette-fieldset${querySource === "spelling" ? " calculator-input-source--active" : ""}`}
       >
         <legend>Palette Input</legend>
-        <p class="calculator-field-hint">Spell a note using HEJI Notation</p>
+        <p class="calculator-field-hint settings-form__helper-text">Spell a note using HEJI Notation</p>
         <HejiPalette
           anchorLabel={anchorLabel}
           anchorRatio={anchorInterval}
@@ -599,7 +599,7 @@ const CalculatorTab = ({
 
       <fieldset class="calculator-lookup">
         <legend>Ratio/Cents Input</legend>
-        <p class="calculator-field-hint">Choose an offset and a pitch as ratio or cents</p>
+        <p class="calculator-field-hint settings-form__helper-text">Choose an offset and a pitch as ratio or cents</p>
         <label>
           Offset (from HEJI Notation Anchor)
           <CommitTextInput
@@ -930,7 +930,7 @@ const CalculatorTab = ({
               : "—"}
           </output>
         </label>
-        <label class="settings-form__checkbox-row calculator-results__midi-accidentals">
+        <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
           <input
             type="checkbox"
             aria-label="Calculator include tempered accidentals in deviation"
@@ -939,7 +939,7 @@ const CalculatorTab = ({
           />
           Include tempered accidentals in Deviation
         </label>
-        <label class="settings-form__checkbox-row calculator-results__midi-accidentals">
+        <label class="settings-form__checkbox-row settings-form__checkbox-row--tight">
           <input
             type="checkbox"
             aria-label="Calculator use traditional accidentals"
@@ -985,7 +985,7 @@ const CalculatorTab = ({
               </button>
             ))
           ) : (
-            <p class="calculator-field-hint">No rational values within the current search.</p>
+            <p class="calculator-field-hint settings-form__feedback">No rational values within the current search.</p>
           )}
         </div>
       </fieldset>

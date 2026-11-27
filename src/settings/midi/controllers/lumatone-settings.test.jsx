@@ -64,7 +64,7 @@ describe("LumatoneSettings", () => {
     const button = screen.getByRole("button", { name: "Test Lumatone SysEx connection" });
     expect(response.parentElement).toBe(button.parentElement);
     expect(response.nextElementSibling).toBe(button);
-    expect(response.classList.contains("settings-form__helper-text")).toBe(true);
+    expect(response.classList.contains("settings-form__feedback")).toBe(true);
   });
 
   it("keeps the connection test disabled until the lazy driver is ready", () => {

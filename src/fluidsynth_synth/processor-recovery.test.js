@@ -19,8 +19,8 @@ it("preserves the synth, held keys and queued releases across SoundFont replacem
       stringToNewUTF8: () => 4, _free: vi.fn(), FS: { unlink: vi.fn(), writeFile: vi.fn() } },
     port: { postMessage: vi.fn(message => {
       if (message.type === "soundfont-loaded") {
-        expect(cc).toHaveBeenCalledTimes(128);
-        expect(cc).toHaveBeenLastCalledWith(1, 127, 91, 0);
+        expect(cc).toHaveBeenCalledTimes(1);
+        expect(cc).toHaveBeenLastCalledWith(1, 0, 91, 0);
       }
     }) } });
   processor.handleMessage({ type: "replace-soundfont", bytes: new ArrayBuffer(8), reverbSend: 0 });
@@ -31,7 +31,11 @@ it("preserves the synth, held keys and queued releases across SoundFont replacem
   expect(processor.heldKeys.get(0).has(60)).toBe(true);
   expect(processor.usedChannels.has(0)).toBe(true);
   processor.handleMessage({ type: "set-reverb", value: 23 });
-  expect(cc).toHaveBeenLastCalledWith(1, 127, 91, 23);
+  expect(cc).toHaveBeenLastCalledWith(1, 0, 91, 23);
+  processor.usedChannels.add(190); // Released voice with an audible tail.
+  cc.mockClear();
+  processor.dispatchCommand({ op: "volume", b: 48 });
+  expect(cc.mock.calls).toEqual([[1, 0, 7, 48], [1, 190, 7, 48]]);
   expect(processor.reverbSend).toBe(23);
   processor.module._ps_load_soundfont = () => -1;
   processor.handleMessage({ type: "replace-soundfont", bytes: new ArrayBuffer(4) });
@@ -289,8 +293,8 @@ it("clears queued worklet MIDI and silences channels before acknowledging recove
   processor.port = { postMessage: vi.fn() };
   processor.handleMessage({ type: "clear-recovery-events" });
   expect(processor.midiQueue).toHaveLength(0);
-  expect(processor.module._ps_cc).toHaveBeenCalledTimes(128);
-  expect(processor.module._ps_cc).toHaveBeenLastCalledWith(1, 127, 120, 0);
+  expect(processor.module._ps_cc).toHaveBeenCalledTimes(256);
+  expect(processor.module._ps_cc).toHaveBeenLastCalledWith(1, 255, 120, 0);
   expect(processor.port.postMessage).toHaveBeenCalledWith({ type: "recovery-cleared", droppedEvents: 2 });
 });
 

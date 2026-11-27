@@ -4,20 +4,10 @@
  * an AudioContext or release sounding voices itself.
  */
 
-import { useState } from "preact/hooks";
+import MixerFader from "../mixer-fader.jsx";
 import PropTypes from "prop-types";
-import CustomRangeSlider from "../shared/range-slider.jsx";
-import { readSampleVolume } from "../../audio/sample-volume.js";
 
 const Sample = (props) => {
-  const [volume, setVolume] = useState(readSampleVolume);
-
-  const handleVolume = (e) => {
-    const val = parseFloat(e.target.value);
-    setVolume(val);
-    localStorage.setItem("synth_volume", val);
-    if (props.onVolumeChange) props.onVolumeChange(val, false);
-  };
   return (
     <>
       <label>
@@ -28,35 +18,14 @@ const Sample = (props) => {
           onChange={props.onChange}
         />
       </label>
-      <label>
-        <span>Volume</span>
-        <span class="sidebar-input settings-form__range-row">
-          <CustomRangeSlider
-            ariaLabel="Volume"
-            defaultValue={0.5}
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onInputValue={(nextValue) => {
-              handleVolume({ target: { value: String(nextValue) } });
-            }}
-            onCommitValue={(nextValue) => {
-              handleVolume({ target: { value: String(nextValue) } });
-            }}
-          />
-          <span class="settings-form__range-value">
-            {Number.isInteger(volume) ? volume.toFixed(0) : volume.toFixed(2)}
-          </span>
-        </span>
-      </label>
+      <MixerFader session={props.soundSession} parameter="synth_volume" label="Volume" />
     </>
   );
 };
 
 Sample.propTypes = {
   onChange: PropTypes.func.isRequired,
-  onVolumeChange: PropTypes.func,
+  soundSession: PropTypes.object,
   instruments: PropTypes.array,
   settings: PropTypes.shape({
     instrument: PropTypes.string,

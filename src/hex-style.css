@@ -60,6 +60,7 @@
   --color-border: #c0aaaa; /* floating button border */
   --color-border-ui: #c8b8b8; /* sidebar input / fieldset border */
   --color-text: #330000; /* primary dark text */
+  --color-text-help: #666666; /* sidebar instructions */
   --color-accent: #990000; /* links, active states, destructive */
   --color-accent-hot: #ff0000; /* hover on links */
   --color-latch: #ff3333; /* latch-active buttons */

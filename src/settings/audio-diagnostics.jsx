@@ -47,6 +47,11 @@ export default function AudioDiagnostics({ keysRef, onSaveReport, onRecreateCont
       <button key={label} type="button" disabled={!measureLatency} onClick={() => {
         markAudioTestStage(label); setStage(label);
       }}>Mark {label}</button>)}
+    <p class="settings-form__helper-text">For a live performance comparison, use the same sound and play for the same duration in each pass. Sustain notes, then repeat with glides, pressure and timbre, then repeat while moving sound faders. The report includes MIDI message counts and the largest observed timer delay per pass.</p>
+    {["Steady playing", "Expressive glides", "Playing while editing"].map(label =>
+      <button key={label} type="button" disabled={!measureLatency} onClick={() => {
+        markAudioTestStage(label); setStage(label);
+      }}>Mark {label}</button>)}
     {stage && <p role="status">Recording stage: {stage}</p>}
     <p class="settings-form__helper-text">Suspend and resume the existing audio contexts to check whether output delay clears. This releases notes but keeps engines and SoundFonts loaded. A failed cycle reports an error without rebuilding them.</p>
     <button type="button" disabled={recreating || !onCycleContexts} onClick={async () => {

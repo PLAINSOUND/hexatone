@@ -1,6 +1,7 @@
 import { Fragment } from "preact";
 import { useState } from "preact/hooks";
 import PropTypes from "prop-types";
+import { useWorkingSoundSettings } from "../hooks/use-sound-session.js";
 import CustomRangeSlider from "./shared/range-slider.jsx";
 import { DSF_AMOUNT_ROUTES, modulationRouteDescription } from "../dsf_synth/modulation.js";
 import { DSF_DEFAULTS, dsfControlsFromSettings, dsfEnvelopeStep } from "../dsf_synth/controls.js";
@@ -14,8 +15,8 @@ const FADER_HELP = Object.freeze({
   iso226: "Relative level compensation by note fundamental, based on the ISO 226:2023 60-phon contour with a gentle 80–200 Hz reduction. 0% is off; 100% applies the full contour and level trim. Intermediate amounts scale the adjustment in decibels. Not calibrated SPL or a per-harmonic EQ.",
 });
 
-export default function DsfSettings({ settings, onChange }) {
-  const controls = dsfControlsFromSettings(settings);
+export default function DsfSettings({ settings, onChange, soundSession }) {
+  const controls = dsfControlsFromSettings(useWorkingSoundSettings(soundSession, settings, "dsf_"));
   const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem("hexatone_dsf_collapsed") !== "false");
   const save = (key, value) => {
     (key === "output_dsf" ? sessionStorage : localStorage).setItem(key, String(value));
@@ -47,7 +48,8 @@ export default function DsfSettings({ settings, onChange }) {
         fineDrag={timeKeys.includes(key)}
         knee={timeKeys.includes(key) ? { value: 100, position: 0.4, exponent: 2 } : undefined}
         defaultValue={["attack", "decay", "release", "timbreAttack", "timbreDecay", "timbreRelease", "partials"].includes(key) ? undefined : DSF_DEFAULTS[key]} value={controls[key]}
-        onInputValue={value => save(`dsf_${key}`, value)} />
+        onInputValue={value => soundSession ? soundSession.setParameter(`dsf_${key}`, value) : save(`dsf_${key}`, value)}
+        onCommitValue={soundSession?.flush} />
       <span class="settings-form__range-value">{display}</span>
     </span>
   </label>;
@@ -92,4 +94,4 @@ export default function DsfSettings({ settings, onChange }) {
     </>}
   </fieldset>;
 }
-DsfSettings.propTypes = { settings: PropTypes.object.isRequired, onChange: PropTypes.func.isRequired };
+DsfSettings.propTypes = { settings: PropTypes.object.isRequired, onChange: PropTypes.func.isRequired, soundSession: PropTypes.object };

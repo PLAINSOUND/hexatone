@@ -75,7 +75,7 @@ const LinnstrumentSettings = ({
         {channelAllocation === "single_channel" && (
           <label title="Single Channel mode keeps all notes on one MIDI channel. Pitch bend here is mainly useful for monophonic playing, and the user can configure the device bend behaviour as preferred.">
             Pitch Bend
-            <span class="sidebar-input settings-form__helper-text settings-form__helper-text--muted">
+            <span class="sidebar-input settings-form__feedback">
               Monophonic response
             </span>
           </label>

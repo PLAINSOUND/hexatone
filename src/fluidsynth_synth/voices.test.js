@@ -58,7 +58,7 @@ it("reserves a channel until its scheduled release instead of reusing it for an 
   const first = voice();
   first.noteOn();
   first.noteOff(0, performance.now() + 1000);
-  const held = Array.from({ length: 127 }, voice);
+  const held = Array.from({ length: 255 }, voice);
   held.forEach(h => h.noteOn());
   const replacement = voice();
   replacement.noteOn();
@@ -108,8 +108,8 @@ it("does not silence channels already handed to a replacement output", () => {
   const voice = old.makeHex("old", 0, 0, 0, 12, -100, 100, null, null, null, 1);
   voice.noteOn(); voice.noteOff();
   const replacement = createInternalVoiceSynth(options);
-  for (let i = 0; i < 128; i++) {
-    replacement.makeHex(String(i), 0, 0, 0, 12, -100, 100, null, null, null, 1).noteOn();
+  for (let i = 0; i < 256; i++) {
+    replacement.makeHex(String(i), 0, 0, 0, 12, -100, 100, null, null, null, 1).noteOn(performance.now() + 1100);
   }
   output.sendCommand.mockClear();
   old.shutdown();
@@ -135,23 +135,24 @@ it.each([48, 96, 12.5])("matches the channel RPN and bend conversion for ±%s se
   expect(output.send).not.toHaveBeenCalled();
 });
 
-it("gives 128 voices independent channels/maps, then bends without further MTS", () => {
+it("gives 256 voices independent channels/maps, then bends without further MTS", () => {
   const output = { send: vi.fn(), sendCommand: vi.fn() };
   const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
     tuningContext: { fundamental: 261.6255653 } });
-  const voices = Array.from({ length: 128 }, (_, i) => {
+  const voices = Array.from({ length: 256 }, (_, i) => {
     const hex = synth.makeHex(String(i), 0, 0, 0, 12, -100, 100, null, null, null, 1);
     hex.noteOn(); return hex;
   });
-  expect(voices.map(hex => hex.channel)).toEqual(Array.from({ length: 128 }, (_, i) => i));
-  expect(output.send.mock.calls.map(([data]) => data[5])).toEqual(voices.map(hex => hex.channel));
+  expect(voices.map(hex => hex.channel)).toEqual(Array.from({ length: 256 }, (_, i) => i));
+  expect(output.send.mock.calls.map(([data]) => data[4] === 7 ? data[5] * 128 + data[6] : data[5]))
+    .toEqual(voices.map(hex => hex.channel));
   output.send.mockClear(); output.sendCommand.mockClear();
-  voices[127].retune(100);
+  voices[255].retune(100);
   voices[126].pressure(70);
   voices[127].cc74(90);
   expect(output.send).not.toHaveBeenCalled();
   expect(output.sendCommand.mock.calls.map(([command]) => command)).toEqual([
-    { channel: 127, op: "bend", a: 8363, b: undefined },
+    { channel: 255, op: "bend", a: 8363, b: undefined },
     { channel: 126, op: "pressure", a: 70, b: 0 },
     { channel: 127, op: "cc", a: 74, b: 90 },
   ]);
@@ -162,6 +163,26 @@ it("gives 128 voices independent channels/maps, then bends without further MTS",
   expect(output.sendCommand).not.toHaveBeenCalled();
   synth.releaseAll();
   expect(replacement.release).toBe(true);
+});
+
+it("starts four banks in separate groups and borrows idle channels without touching held notes", () => {
+  const output = { send: vi.fn(), sendCommand: vi.fn() };
+  const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 72 },
+    tuningContext: { fundamental: 261.6255653 } });
+  const attack = soundfontId => {
+    output.attackProgram = { soundfontId, bank: 0, program: 0 };
+    const hex = synth.makeHex(null, 0, 0, 0, 12, -100, 100, null, 72, null, 1);
+    hex.noteOn();
+    expect(output.sendCommand.mock.lastCall[0]).toMatchObject({ channel: hex.channel, op: "on", patchProgram: { soundfontId } });
+    return hex;
+  };
+  const held = [1, 2, 3, 4].map(attack);
+  expect(held.map(hex => hex.channel)).toEqual([0, 64, 128, 192]);
+  for (let i = 1; i < 64; i++) attack(1);
+  expect(attack(1).channel).toBe(65);
+  expect(held.every(hex => !hex.release)).toBe(true);
+  held[0].noteOff();
+  expect(attack(1).channel).toBeGreaterThan(64);
 });
 
 it("external MTS suppresses the post-attack duplicate but keeps changed real-time tunings", async () => {

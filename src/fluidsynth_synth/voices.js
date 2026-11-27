@@ -2,6 +2,7 @@ import { centsToMTS } from "../tuning/mts-format.js";
 import { allowsPerformanceCC } from "../midi/performance-cc-policy.js";
 import { silentOutputHex } from "../audio/output-lifecycle.js";
 import { readSnapshotExpression, expressionToMidi } from "../sequencer/snapshot-expression.js";
+import { FLUID_CHANNEL_COUNT, FLUID_CHANNEL_GROUP_SIZE } from "./channels.js";
 
 // Allocation belongs to the transport, so replacing a keyboard graph cannot
 // accidentally allocate channels still owned by its previous graph.
@@ -9,6 +10,38 @@ const pools = new WeakMap();
 let nextOwner = 0;
 let nextVoice = 0;
 const clamp = (value, max = 127) => Math.max(0, Math.min(max, Math.round(value)));
+const GROUP_COUNT = FLUID_CHANNEL_COUNT / FLUID_CHANNEL_GROUP_SIZE;
+const RELEASE_GRACE_MS = 1000;
+
+function allocateChannel(pool, soundfontId, time) {
+  let group = pool.groups.indexOf(soundfontId);
+  if (group < 0) {
+    group = pool.nextGroup;
+    pool.groups[group] = soundfontId;
+    pool.nextGroup = (group + 1) % GROUP_COUNT;
+  }
+  let oldestTail = -1;
+  let firstHeld = -1;
+  let nextAvailable = -1;
+  for (let i = 0; i < FLUID_CHANNEL_COUNT; i++) {
+    const candidateGroup = (group + Math.floor(i / FLUID_CHANNEL_GROUP_SIZE)) % GROUP_COUNT;
+    const offset = (pool.cursors[group] + i) % FLUID_CHANNEL_GROUP_SIZE;
+    const candidate = candidateGroup * FLUID_CHANNEL_GROUP_SIZE + offset;
+    if (pool.owners[candidate]) {
+      if (firstHeld < 0) firstHeld = candidate;
+      continue;
+    }
+    if (pool.availableAt[candidate] > time) {
+      if (nextAvailable < 0 || pool.availableAt[candidate] < pool.availableAt[nextAvailable]) nextAvailable = candidate;
+      continue;
+    }
+    if (pool.availableAt[candidate] + RELEASE_GRACE_MS <= time) return candidate;
+    if (oldestTail < 0 || pool.availableAt[candidate] < pool.availableAt[oldestTail]) oldestTail = candidate;
+  }
+  if (oldestTail >= 0) return oldestTail;
+  if (firstHeld >= 0) return firstHeld;
+  return nextAvailable;
+}
 
 export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwake, forceAudioRebuild }) {
   const output = outputMode.output;
@@ -18,8 +51,9 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
     ? Math.max(1, Math.min(12700, Math.round(requestedRange * 100))) : 4800;
   let pool = pools.get(output);
   if (!pool) {
-    pool = { owners: Array(128).fill(null), lastOwners: Array(128).fill(null),
-      availableAt: Array(128).fill(-Infinity), cursor: 0 };
+    pool = { owners: Array(FLUID_CHANNEL_COUNT).fill(null), lastOwners: Array(FLUID_CHANNEL_COUNT).fill(null),
+      availableAt: Array(FLUID_CHANNEL_COUNT).fill(-Infinity), groups: Array(GROUP_COUNT).fill(undefined),
+      cursors: Array(GROUP_COUNT).fill(0), nextGroup: 0 };
     pools.set(output, pool);
   }
   const active = new Set();
@@ -41,6 +75,11 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
         scope: Number.isFinite(playbackOptions.absoluteMidicents) ? "sequence" : "live",
         generation: sequenceGeneration };
       const voiceSend = (channel, op, a, b, timestamp) => send(channel, op, a, b, timestamp, metadata);
+      const tune = (channel, key, pitch, timestamp) => {
+        const tuning = channel < 128 ? [2, channel] : [7, 1, channel - 128];
+        output.send([0xf0, 0x7f, 0x7f, 8, ...tuning, 1, key, ...centsToMTS(60 + (pitch + offset) / 100, 0), 0xf7],
+          timestamp, owner, metadata);
+      };
       const expressionTimestamp = () => Number.isFinite(hex.attackTimestamp) &&
         hex.attackTimestamp > performance.now() ? hex.attackTimestamp : undefined;
       const hex = {
@@ -55,22 +94,10 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
         },
         noteOn(timestamp) {
           if (closed || this.release || this.sounding) return;
-          let channel = pool.cursor;
-          let foundFree = false;
           const attackAt = Number.isFinite(timestamp) ? timestamp : performance.now();
-          for (let i = 0; i < 128; i++) {
-            const candidate = (pool.cursor + i) % 128;
-            if (!pool.owners[candidate] && pool.availableAt[candidate] <= attackAt) {
-              channel = candidate; foundFree = true; break;
-            }
-          }
-          if (!foundFree) {
-            // Steal a held channel before delaying behind a free-but-reserved
-            // channel. If all channels are reserved, use the earliest release.
-            const held = Array.from({ length: 128 }, (_, i) => (pool.cursor + i) % 128)
-              .find(candidate => pool.owners[candidate]);
-            channel = held ?? pool.availableAt.indexOf(Math.min(...pool.availableAt));
-          }
+          const program = output.attackProgram;
+          const soundfontId = program?.soundfontId ?? null;
+          const channel = allocateChannel(pool, soundfontId, attackAt);
           const stolen = pool.owners[channel];
           if (stolen) {
             this._stolenCoords = stolen.coords;
@@ -80,7 +107,8 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
           // A release reserved in the future must not kill an earlier live
           // attack. Prefer another channel; if exhausted, defer its reuse.
           if (pool.availableAt[channel] > attackAt) timestamp = pool.availableAt[channel];
-          pool.cursor = (channel + 1) % 128;
+          const group = pool.groups.indexOf(soundfontId);
+          pool.cursors[group] = (channel + 1) % FLUID_CHANNEL_GROUP_SIZE;
           pool.owners[channel] = this;
           pool.lastOwners[channel] = owner;
           usedChannels.add(channel);
@@ -93,19 +121,21 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
           voiceSend(channel, "cc", 121, 0, timestamp);
           // Reset All Controllers also resets CC91. Restore the fader's send
           // before every attack, including reused channels and sequence cues.
+          if (output.volume != null) voiceSend(channel, "cc", 7, output.volume, timestamp);
           if (output.reverbSend != null) voiceSend(channel, "cc", 91, output.reverbSend, timestamp);
           for (const [cc, value] of [[101, 0], [100, 0], [6, Math.floor(rangeCents / 100)],
             [38, rangeCents % 100], [101, 127], [100, 127]]) {
             voiceSend(channel, "cc", cc, value, timestamp);
           }
-          output.send([0xf0, 0x7f, 0x7f, 8, 2, channel, 1, this.steps,
-            ...centsToMTS(60 + (this.cents + offset) / 100, 0), 0xf7], timestamp, owner, metadata);
+          tune(channel, this.steps, this.cents, timestamp);
           voiceSend(channel, "bend", 8192, 0, timestamp);
           this.lastBend = 8192;
           voiceSend(channel, "pressure", this.initialPressure ?? 0, 0, timestamp);
           for (const [cc, value] of Object.entries(controllerState.ccValues)) voiceSend(channel, "cc", Number(cc), value, timestamp);
           if (this.initialTimbre != null) voiceSend(channel, "cc", 74, this.initialTimbre, timestamp);
-          voiceSend(channel, "on", this.steps, this.velocity, timestamp);
+          if (program) output.sendCommand({ channel, op: "on", a: this.steps, b: this.velocity, patchProgram: program },
+            timestamp, owner, metadata);
+          else voiceSend(channel, "on", this.steps, this.velocity, timestamp);
           this.sounding = true;
           this._hasAttacked = true;
           active.add(this);
@@ -124,8 +154,7 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
           // Sequence tuning is exact MTS, not the quantized performance wheel.
           const timestamp = Number.isFinite(this.attackTimestamp) && this.attackTimestamp > performance.now()
             ? this.attackTimestamp : undefined;
-          output.send([0xf0, 0x7f, 0x7f, 8, 2, this.channel, 1, this.steps,
-            ...centsToMTS(60 + (value + offset) / 100, 0), 0xf7], timestamp, owner, metadata);
+          tune(this.channel, this.steps, value, timestamp);
           this.baseCents = value;
           voiceSend(this.channel, "bend", 8192, 0, timestamp);
           this.lastBend = 8192;
@@ -173,7 +202,7 @@ export function createInternalVoiceSynth({ outputMode, tuningContext, ensureAwak
     },
     allSoundOff() {
       if (output.panic) output.panic();
-      else for (let channel = 0; channel < 128; channel++) send(channel, "cc", 120, 0);
+      else for (let channel = 0; channel < FLUID_CHANNEL_COUNT; channel++) send(channel, "cc", 120, 0);
       for (const hex of pool.owners) if (hex) { hex.release = true; hex.sounding = false; }
       pool.owners.fill(null);
       pool.lastOwners.fill(null);

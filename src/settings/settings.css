@@ -200,9 +200,6 @@
 
 .calculator-field-hint {
   margin: 0.15em 0 0.5em;
-  color: #8e7070;
-  font-size: 0.88em;
-  font-style: italic;
 }
 
 #sidebar .calculator-input-source--active {
@@ -267,10 +264,6 @@
 
 .calculator-palette-fieldset .heji-palette-builder {
   margin-top: 0;
-}
-
-#sidebar .calculator-results > .settings-form__checkbox-row {
-  margin: 0.45em 0 0;
 }
 
 @media (max-width: 480px) {
@@ -942,6 +935,16 @@ td.scale-color-col .color-input {
   margin-bottom: 0.25em;
 }
 
+.fluidsynth-settings__prepare-actions {
+  width: 100%;
+  gap: 0.25rem;
+}
+
+.fluidsynth-settings__prepare-actions > .preset-action-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .lumatone-settings__probe-row {
   flex-wrap: nowrap;
 }
@@ -959,51 +962,6 @@ td.scale-color-col .color-input {
   white-space: nowrap;
 }
 
-.fluidsynth-settings__load-actions {
-  width: 50%;
-  margin-left: auto;
-  flex-wrap: nowrap;
-  gap: 0.25rem;
-}
-
-.fluidsynth-settings__load-actions > .preset-action-btn:first-of-type {
-  flex: 1.35 1 0;
-  padding-right: 0.1em;
-  padding-left: 0.1em;
-}
-
-.fluidsynth-settings__load-actions > .preset-action-btn:last-of-type {
-  flex: 1 1 0;
-  padding-right: 0.01em;
-  padding-left: 0.01em;
-}
-
-.fluidsynth-settings__load-actions > .preset-action-btn {
-  min-width: 0;
-}
-
-.fluidsynth-settings__offline-actions > .preset-action-btn:first-of-type,
-.fluidsynth-settings__offline-actions > .preset-action-btn:last-of-type {
-  flex: 1 1 0;
-  padding-right: 0;
-  padding-left: 0;
-  white-space: nowrap;
-}
-
-.fluidsynth-settings__loaded-name {
-  flex: 0 1 50%;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: left;
-}
-
-/* Keep the actual controls in layout so both offline states align identically. */
-.fluidsynth-settings__offline-actions--hidden,
-.fluidsynth-settings__offline-row--pending {
-  visibility: hidden;
-  pointer-events: none;
-}
-
 @media (max-width: 480px) and (orientation: portrait) {
   .fluidsynth-settings__download-status,
   .fluidsynth-settings__download-status p,
@@ -1019,19 +977,6 @@ td.scale-color-col .color-input {
     align-items: stretch;
     gap: 0.2em;
   }
-
-  .fluidsynth-settings__load-actions {
-    order: 1;
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .fluidsynth-settings__loaded-name {
-    order: 2;
-    flex-basis: auto;
-    width: 100%;
-  }
-
 }
 
 .fluidsynth-settings__mts-hint {
@@ -1140,13 +1085,23 @@ td.scale-color-col .color-input {
   margin-top: 0.4em;
 }
 
-.settings-form__helper-text {
-  color: #996666;
+/* Instructions explain the controls. Feedback reports the app's current state. */
+.settings-form__helper-text,
+.settings-form__stacked-helper,
+.settings-form__intro-copy {
+  color: var(--color-text-help);
+  font-size: inherit;
   font-style: italic;
 }
 
-.settings-form__helper-text--muted {
-  color: #888888;
+.settings-form__checkbox-label {
+  color: #333333;
+}
+
+.settings-form__feedback,
+.settings-form__global-preference {
+  color: #996666;
+  font-style: italic;
 }
 
 .settings-form__reload-row {
@@ -1167,13 +1122,6 @@ td.scale-color-col .color-input {
 
 .settings-form__reload-row--compact + .settings-form__reload-row--compact {
   margin-top: 0;
-}
-
-.io-settings__reload-row {
-  /* Match a fieldset's 2px margin, 1px border and .75em inline padding. */
-  margin-inline: 2px;
-  margin-bottom: 1em;
-  padding-inline: calc(0.75em + 1px);
 }
 
 .settings-form__activate-audio-btn {
@@ -1224,12 +1172,6 @@ td.scale-color-col .color-input {
 
 .settings-form__section-top {
   margin-top: 1em;
-}
-
-.settings-form__description-label {
-  font-style: italic;
-  color: #996666;
-  /* Use the standard label-row spacing, including before Input Mode. */
 }
 
 .settings-form__description-value {
@@ -1425,8 +1367,6 @@ td.scale-color-col .color-input {
 
 .settings-form__stacked-helper {
   margin: 0.25em 0 0.5em;
-  color: #996666;
-  font-size: 0.85em;
 }
 
 .settings-form__stacked-helper--tight {
@@ -5086,6 +5026,12 @@ td.scale-color-col .color-input {
   flex: 0 1 22em;
   width: 22em;
   max-width: 100%;
+}
+
+#sidebar .user-sounds-selector-row {
+  box-sizing: border-box;
+  margin-top: 0.25em;
+  line-height: 1.5em;
 }
 
 @media (max-width: 550px) {

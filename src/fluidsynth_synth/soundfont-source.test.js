@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Blob } from "node:buffer";
 const storage = vi.hoisted(() => ({ read: vi.fn() }));
-vi.mock("./soundfont-storage.js", () => ({ readWorkingSoundfont: storage.read }));
-import { createSoundfontSource } from "./soundfont-source.js";
+vi.mock("./soundfont-storage.js", async importOriginal => ({
+  soundfontStorageKey: (await importOriginal()).soundfontStorageKey,
+  readWorkingSoundfont: storage.read,
+}));
+import { createSoundfontSource, resolveSoundfontRecall } from "./soundfont-source.js";
 
 const url = "https://soundfonts.plainsound.org/PlainsoundOrgan.sf2";
 const make = (options) => createSoundfontSource({ name: "PlainsoundOrgan.sf2", url, ...options });
@@ -78,4 +81,34 @@ it("rejects incomplete downloads and releases their stream reader", async () => 
     "download was incomplete",
   );
   expect(response.body.locked).toBe(false);
+});
+
+it("uses the prepared compact fallback without reading a cold primary bank", async () => {
+  const fallback = { name: "PlainsoundOrganPrincipal.sf2", preset: "0:3" };
+  const key = "https://soundfonts.plainsound.org/PlainsoundOrganPrincipal.sf2";
+  const engine = { soundfontCache: { keys: [key], preparedKeys: [key] } };
+  const result = await resolveSoundfontRecall({ name: "PlainsoundOrgan.sf2", preset: "0:3", fallback },
+    () => engine, () => true);
+  expect(result).toMatchObject({ candidate: fallback, source: { name: fallback.name, url: key } });
+  expect(storage.read).not.toHaveBeenCalled();
+});
+
+it("prefers a resident Principal bank even when the full Organ is playing", async () => {
+  const fallback = { name: "PlainsoundOrganPrincipal.sf2", preset: "0:3" };
+  const principalKey = "https://soundfonts.plainsound.org/PlainsoundOrganPrincipal.sf2";
+  const engine = { soundfontSource: { name: "PlainsoundOrgan.sf2" }, soundfontCache: { keys: [url, principalKey] } };
+  const result = await resolveSoundfontRecall({ name: "PlainsoundOrgan.sf2", preset: "0:3", fallback },
+    () => engine, () => true);
+  expect(result).toMatchObject({ candidate: fallback, source: { url: principalKey } });
+  expect(storage.read).not.toHaveBeenCalled();
+});
+
+it("reuses a resident full bank before reading a slim bank from disk", async () => {
+  const preset = { name: "PlainsoundOrganPrincipal.sf2", preset: "0:3",
+    fallback: { name: "PlainsoundOrgan.sf2", preset: "0:3" } };
+  storage.read.mockResolvedValue({ blob: new Blob([1]) });
+  const engine = { soundfontCache: { keys: [url] } };
+  const result = await resolveSoundfontRecall(preset, () => engine, () => true);
+  expect(result).toMatchObject({ candidate: preset.fallback, source: { url } });
+  expect(storage.read).not.toHaveBeenCalled();
 });

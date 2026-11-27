@@ -17,13 +17,13 @@
     "workingTreeSnapshot": "sources/fluidsynth-smoothing.tar.gz"
   },
   "files": {
-    "README.md": "d819778400f2ef3d080b5f42e1405ed0890cd8a6c86d437c424da3d52fd28a0d",
+    "README.md": "4b6a17c418346d1c779d0b5567f74ee1da0449ebd861a4aba5ea01799ab25944",
     "fluidsynth.js": "2a0c8726f4ee97c2ceba61a37154651a062783461dbe5f31f0bf4cd5dccd0fa3",
     "fluidsynth.wasm": "75721070d021bb52bd4d113b82ced2b9fea65c59fcfb7bebf06f84b772e7761f",
     "licenses/FLUIDSYNTH-LGPL-2.1.txt": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95",
     "licenses/GCEM-APACHE-2.0.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
     "licenses/SIGNALSMITH-MIT.txt": "b81eab3abab58e20eb74c74e70b8f3cbf7160ae3b3f1951b8f5e6692b52d10b5",
-    "processor.js": "d7e1cd199fa471b58bc5254fe2a492d33e56af5465f3f44cd42b4d578448d43d",
+    "processor.js": "8a871eb5603d7a7ee71326fab5153e06c71801bb3938d85872ed12ca8a764dda",
     "sources/adapter_core.cpp": "4d4c8831fdfb30a695b8f265ed81ba05e8a85c6a259e2ed8807d75aadd7dcc6e",
     "sources/emscripten-cxx17.patch": "71b1b33e85e1fb8c54cf9436fc98dacd0e7116f7eed6f6d03b46612f020b134a",
     "sources/fluidsynth-2.6.1-71e85b2.tar.gz": "188840c6bb017405e596f0e9dc09f55684559e3fe00ce255652bae2951a619cc",

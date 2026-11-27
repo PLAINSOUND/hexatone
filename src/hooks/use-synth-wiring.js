@@ -497,7 +497,7 @@ export const resolveOctaveShortcutAction = (event, inputFocused = false) => {
 const useSynthWiring = (
   settings,
   setSettings,
-  { ready, userHasInteracted, keysRef, synthRef, deferSampleActivation = false },
+  { ready, userHasInteracted, keysRef, synthRef, soundSessionRef, patchTransitionRef, patchRevision, deferSampleActivation = false },
 ) => {
   const settingsRef = useRef(settings);
   useEffect(() => {
@@ -551,12 +551,20 @@ const useSynthWiring = (
   const [octaveDeferred, setOctaveDeferred] = useState(
     () => sessionStorage.getItem("octave_deferred") !== "false",
   );
+  const patchUpdate = patchTransitionRef?.current;
   const dsfSynthRef = useRef({ key: null, synth: null });
   const dsfControlsRef = useRef(null);
-  dsfControlsRef.current = dsfControlsFromSettings(settings);
+  dsfControlsRef.current ??= dsfControlsFromSettings(settings);
+  const applyDsfControls = useCallback((controls) => {
+    dsfControlsRef.current = controls;
+    dsfSynthRef.current.synth?.setControls(controls);
+  }, []);
   const dsfRequestsRef = useRef(null);
   if (!dsfRequestsRef.current) dsfRequestsRef.current = createOutputCandidateRequests();
-  useEffect(() => { dsfSynthRef.current.synth?.setControls(dsfControlsRef.current); }, [
+  useEffect(() => {
+    if (!patchUpdate) applyDsfControls(dsfControlsFromSettings(soundSessionRef?.current?.settings(settings) ?? settings));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only committed DSF controls affect the engine.
+  }, [
     settings.dsf_partials, settings.dsf_timbre, settings.dsf_attack, settings.dsf_decay, settings.dsf_sustain, settings.dsf_release,
     settings.dsf_volumeEnvelope, settings.dsf_timbreEnvelope,
     settings.dsf_timbreAmount, settings.dsf_timbreAttack, settings.dsf_timbreDecay, settings.dsf_timbreSustain, settings.dsf_timbreRelease,
@@ -564,6 +572,26 @@ const useSynthWiring = (
   ]);
   const sampleSynthRef = useRef({ key: null, synth: null });
   const retiringSampleSynthsRef = useRef(new Set());
+  const retiringPatchSynthsRef = useRef(new Set());
+  const retirementTimerRef = useRef(null);
+  const retirePatchOutput = (ref) => {
+    const synth = ref.current.synth;
+    if (!synth) return;
+    ref.current = { key: null, synth: null };
+    retiringPatchSynthsRef.current.add(synth);
+    if (retirementTimerRef.current != null) return;
+    retirementTimerRef.current = setInterval(() => {
+      for (const retired of retiringPatchSynthsRef.current) {
+        if (synthRef.current?.childSynths?.().includes(retired) || retired.hasVoices?.()) continue;
+        retiringPatchSynthsRef.current.delete(retired);
+        retired.shutdown?.();
+      }
+      if (!retiringPatchSynthsRef.current.size) {
+        clearInterval(retirementTimerRef.current);
+        retirementTimerRef.current = null;
+      }
+    }, 500);
+  };
   const mpeSynthRef = useRef({ key: null, synth: null });
   const monoSynthRef = useRef({ key: null, synth: null });
   const mtsSynthsRef = useRef(new Map());
@@ -571,6 +599,7 @@ const useSynthWiring = (
   const oscSynthRef = useRef({ key: null, synth: null });
   const warmOscSynthRef = useRef({ key: null, synth: null });
   const warmSampleSynthRef = useRef({ key: null, synth: null });
+  const unavailablePatchBankRef = useRef(null);
   const warmFluidSynthRef = useRef({ key: null, synth: null });
   const midiRequestRef = useRef(null);
   const midiDisableRef = useRef(null);
@@ -586,10 +615,15 @@ const useSynthWiring = (
   const oscRequestsRef = useRef(null);
   if (!oscRequestsRef.current) oscRequestsRef.current = createOutputCandidateRequests();
   const oscRuntimeControlsRef = useRef(null);
-  const [oscBrightness, setOscBrightness] = useState(() =>
-    Math.max(0, Math.min(1, localFloat("osc_brightness", 0.2))),
-  );
-  const oscBrightnessRef = useRef(Math.round(oscBrightness * 127));
+  const [oscBrightness] = useState(() => ({
+    value: Math.max(0, Math.min(1, localFloat("osc_brightness", 0.2))),
+    changes: new EventTarget(),
+  }));
+  const updateOscBrightnessDisplay = useCallback(value => {
+    if (oscBrightness.value === value) return;
+    oscBrightness.value = value;
+    oscBrightness.changes.dispatchEvent(new Event("change"));
+  }, [oscBrightness]);
   if (!oscRuntimeControlsRef.current)
     oscRuntimeControlsRef.current = readOscRuntimeControls(settings);
   const outputPortIdentityRef = useRef(null);
@@ -599,6 +633,10 @@ const useSynthWiring = (
     oscRequestsRef.current.cancelAll();
     dsfRequestsRef.current.cancelAll();
     if (!preserveWarm) {
+      clearInterval(retirementTimerRef.current);
+      retirementTimerRef.current = null;
+      for (const retired of retiringPatchSynthsRef.current) retired.shutdown?.({ panic: true });
+      retiringPatchSynthsRef.current.clear();
       clearOutputRef(warmSampleSynthRef, { panic: true });
       clearOutputRef(warmFluidSynthRef, { panic: true });
       clearOutputRef(warmOscSynthRef, { panic: true });
@@ -940,7 +978,17 @@ const useSynthWiring = (
       fundamental: Number.isFinite(playbackFundamental) && playbackFundamental > 0
         ? playbackFundamental : 440,
     };
+    const patch = patchTransitionRef?.current;
+    const preservePatch = patch?.policy === "preserve";
     const wantDsf = !!settings.output_dsf;
+    if (patch && !patch.prepared) {
+      patch.prepared = true;
+      if ((!wantDsf || preservePatch) && dsfSynthRef.current.synth?.hasVoices?.()) retirePatchOutput(dsfSynthRef);
+      dsfControlsRef.current = dsfControlsFromSettings(settings);
+      oscRuntimeControlsRef.current = readOscRuntimeControls(settings);
+      if ((preservePatch || !settings.output_sample) && sampleSynthRef.current.synth?.hasVoices?.()) retirePatchOutput(sampleSynthRef);
+      if (!settings.output_osc) retirePatchOutput(oscSynthRef);
+    }
     if (!wantDsf) {
       dsfRequestsRef.current.cancelAll();
       clearOutputRef(dsfSynthRef);
@@ -1001,7 +1049,7 @@ const useSynthWiring = (
     const monoOutput = settings.output_mono && midi?.outputs.get(settings.mono_device);
     const includeWarmRecoveryOutputs = s => {
       s.getRecoveryOutputs = () => [...new Set([
-        ...(s.childSynths?.() ?? []), warmOscSynthRef.current.synth,
+        ...(s.childSynths?.() ?? []), ...retiringPatchSynthsRef.current, warmOscSynthRef.current.synth,
         warmSampleSynthRef.current.synth, warmFluidSynthRef.current.synth,
       ].filter(Boolean))];
       return s;
@@ -1029,7 +1077,10 @@ const useSynthWiring = (
       for (const [key, synth] of fluidSynthsRef.current) {
         if (!synth.pauseOutput) continue;
         fluidSynthsRef.current.delete(key);
-        if (fluidSynthEngine) park({ current: { key, synth } }, warmFluidSynthRef);
+        if (fluidSynthEngine && patch) {
+          clearOutputRef(warmFluidSynthRef, { panic: true });
+          warmFluidSynthRef.current = { key, synth };
+        } else if (fluidSynthEngine) park({ current: { key, synth } }, warmFluidSynthRef);
         else synth.shutdown?.({ panic: true });
       }
     }
@@ -1040,6 +1091,7 @@ const useSynthWiring = (
       park(oscSynthRef, warmOscSynthRef);
     }
     if (
+      !patch &&
       !wantDsf &&
       !wantSample &&
       !wantMts &&
@@ -1052,7 +1104,10 @@ const useSynthWiring = (
     ) {
       clearAllOutputSynthRefs(true);
       const silentSynth = includeWarmRecoveryOutputs(create_composite_synth([]));
-      keysRef.current?.updateLiveOutputState?.(null, silentSynth);
+      if (patch) {
+        keysRef.current?.updateLiveOutputState?.(null, silentSynth, patch.policy);
+        if (patchTransitionRef.current === patch) patchTransitionRef.current = null;
+      } else keysRef.current?.updateLiveOutputState?.(null, silentSynth);
       setSynth(silentSynth);
       synthRef.current = silentSynth;
       return () => {
@@ -1080,7 +1135,7 @@ const useSynthWiring = (
         oscSynthRef.current = warmOscSynthRef.current;
         warmOscSynthRef.current = { key: null, synth: null };
         applyOscRuntimeControls(oscSynthRef.current.synth, oscRuntimeControlsRef.current);
-        oscSynthRef.current.synth.applyZoneModwheel?.(oscBrightnessRef.current);
+        oscSynthRef.current.synth.applyZoneModwheel?.(Math.round(oscBrightness.value * 127));
       } else if (!settings.osc_local && warmOscSynthRef.current.synth.local) {
         // Move the parked local engine into the same reversible retirement
         // cache used by an active local-to-bridge handoff.
@@ -1226,15 +1281,19 @@ const useSynthWiring = (
       pruneOutputMap(mtsSynthsRef);
     }
 
-    const desiredFluidKeys = new Set();
-    if (wantInternalFluidSynth && fluidSynthEngine?.output) {
+    const prepareFluidOutput = (engine) => {
+      if (!isCurrentBuild()) return null;
+      if (!settings.output_fluidsynth || engine?.soundfontId == null || !engine.output) {
+        pruneOutputMap(fluidSynthsRef);
+        return null;
+      }
       const { key: fluidKey, args } = fluidSynthOutputConfig(
         playbackSettings,
         internalPlaybackTuning,
-        fluidSynthEngine.output,
+        engine.output,
         outputPortIdentityRef.current,
       );
-      desiredFluidKeys.add(fluidKey);
+      pruneOutputMap(fluidSynthsRef, new Set([fluidKey]));
       if (warmFluidSynthRef.current.synth) {
         if (warmFluidSynthRef.current.key === fluidKey) {
           fluidSynthsRef.current.set(fluidKey, warmFluidSynthRef.current.synth);
@@ -1246,22 +1305,26 @@ const useSynthWiring = (
         if (fading) fluidSynthsRef.current.set(fluidKey, fading);
       }
       const existing = fluidSynthsRef.current.get(fluidKey);
-      if (existing) {
-        promises.push(Promise.resolve(existing.resumeOutput?.()).then(() => existing));
-      } else {
-        promises.push(
-          fluidRequestsRef.current(
-            JSON.stringify(["internal-fluidsynth", fluidKey]),
-            () => createFluidSynth(args),
-            {
-              isCurrent: isCurrentBuild,
-              adopt: (synth) => fluidSynthsRef.current.set(fluidKey, synth),
-            },
-          ),
-        );
-      }
+      if (existing) return Promise.resolve(existing.resumeOutput?.()).then(() => existing);
+      return fluidRequestsRef.current(
+        JSON.stringify(["internal-fluidsynth", fluidKey]),
+        () => createFluidSynth(args),
+        {
+          isCurrent: isCurrentBuild,
+          adopt: (synth) => fluidSynthsRef.current.set(fluidKey, synth),
+        },
+      );
+    };
+    if (patch?.bankReady) {
+      promises.push(patch.bankReady.then(loaded => {
+        if (!isCurrentBuild()) return null;
+        patch.bankUnavailable = !loaded;
+        // The first bank can create an engine after this build started.
+        return loaded ? prepareFluidOutput(peekFluidSynthEngine()) : null;
+      }));
+    } else {
+      promises.push(prepareFluidOutput(fluidSynthEngine));
     }
-    pruneOutputMap(fluidSynthsRef, desiredFluidKeys);
 
     if (wantOsc) {
       const oscKey = oscConfig.key;
@@ -1292,7 +1355,7 @@ const useSynthWiring = (
               isCurrent: isCurrentBuild,
               adopt: (s) => {
                 applyOscRuntimeControls(s, oscRuntimeControlsRef.current);
-                if (oscBrightnessRef.current != null) s.applyZoneModwheel?.(oscBrightnessRef.current);
+                s.applyZoneModwheel?.(Math.round(oscBrightness.value * 127));
                 oscSynthRef.current = { key: oscKey, synth: s };
               },
             },
@@ -1373,6 +1436,16 @@ const useSynthWiring = (
         }
       },
       install: (validSynths) => {
+        const engine = peekFluidSynthEngine();
+        if (patch?.bankReady) unavailablePatchBankRef.current = patch.bankUnavailable && engine
+          ? { engine, bank: engine.soundfontId } : null;
+        const unavailable = unavailablePatchBankRef.current;
+        if (unavailable && engine === unavailable.engine && engine.soundfontId === unavailable.bank) {
+          // New attacks stay off the old bank while the user locates the
+          // requested one. Existing notes still own their original voices.
+          const adapters = new Set(fluidSynthsRef.current.values());
+          validSynths = validSynths.filter(synth => !adapters.has(synth));
+        } else unavailablePatchBankRef.current = null;
         if (validSynths.includes(dsfSynthRef.current.synth)) {
           dsfSynthRef.current.synth.setTuningReference?.(
             playbackSettings.fundamental, internalPlaybackTuning.degree0toRefAsArray[0]);
@@ -1381,6 +1454,18 @@ const useSynthWiring = (
           oscSynthRef.current.synth.setTuningReference?.(playbackSettings.fundamental);
         // Even an entirely failed build publishes an empty composite: logical
         // held notes detach obsolete children instead of retaining a dead graph.
+        if (patch) {
+          const fluid = peekFluidSynthEngine();
+          if (patch.bankMix && fluid) {
+            fluid.setPatchMix?.(patch.bankMix);
+            fluid.setSmoothing?.(patch.bankMix.smoothing);
+          }
+          updateOscBrightnessDisplay(
+            (soundSessionRef?.current?.settings(settings) ?? settings).osc_brightness ?? 0.2,
+          );
+          dsfSynthRef.current.synth?.setControls(dsfControlsRef.current);
+          oscSynthRef.current.synth?.setPatchControls?.({ ...oscRuntimeControlsRef.current, brightness: Math.round(oscBrightness.value * 127) });
+        }
         const s = create_composite_synth(validSynths, retiringSampleSynthsRef.current, {
           fundamental: playbackSettings.fundamental,
           cents: internalPlaybackTuning.degree0toRefAsArray[0],
@@ -1388,12 +1473,17 @@ const useSynthWiring = (
         });
         includeWarmRecoveryOutputs(s);
         if (s.setVolume) {
-          const volume = readSampleVolume();
+          const volume = soundSessionRef?.current?.readMixer?.("synth_volume") ?? readSampleVolume();
           s.setVolume(volume);
         }
         // Reconcile before publishing React state. No await may separate these
         // steps: another build must not interleave with this handoff.
-        keysRef.current?.updateLiveOutputState?.(null, s);
+        if (patch) {
+          keysRef.current?.updateLiveOutputState?.(null, s, patch.policy);
+          if (patchTransitionRef.current === patch) patchTransitionRef.current = null;
+        } else {
+          keysRef.current?.updateLiveOutputState?.(null, s);
+        }
         setSynth(s);
         synthRef.current = s;
         if (audioRetryRef.current) {
@@ -1479,6 +1569,7 @@ const useSynthWiring = (
     midiTick,
     ready,
     audioRetryRevision,
+    patchRevision,
     deferSampleActivation,
     userHasInteracted,
     // keysRef and settings (whole object) intentionally omitted — keysRef is a stable ref,
@@ -1506,6 +1597,7 @@ const useSynthWiring = (
   }, [settings.mpe_auto_generate_yz]);
 
   useEffect(() => {
+    if (patchUpdate) return;
     const volumes = [...deriveOscVolumes(settings)];
     oscRuntimeControlsRef.current.volumes = volumes;
     volumes.forEach((value, index) => oscSynthRef.current.synth?.setLayerVolume?.(index, value));
@@ -1520,24 +1612,28 @@ const useSynthWiring = (
   ]);
 
   useEffect(() => {
+    if (patchUpdate) return;
     const value = deriveOscQuickRelease(settings);
     oscRuntimeControlsRef.current.quickRelease = value;
     oscSynthRef.current.synth?.setQuickRelease?.(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
   }, [settings.osc_quick_release]);
   useEffect(() => {
+    if (patchUpdate) return;
     const value = deriveOscQuickReleaseTime(settings);
     oscRuntimeControlsRef.current.quickReleaseTime = value;
     oscSynthRef.current.synth?.setQuickReleaseTime?.(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
   }, [settings.osc_quick_release_time]);
   useEffect(() => {
+    if (patchUpdate) return;
     const value = deriveOscQuickReleaseRasterOnly(settings);
     oscRuntimeControlsRef.current.rasterOnly = value;
     oscSynthRef.current.synth?.setQuickReleaseRasterOnly?.(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- this control only
   }, [settings.osc_quick_release_raster_only]);
   useEffect(() => {
+    if (patchUpdate) return;
     const value = deriveOscRetriggerBuzzFormant(settings);
     oscRuntimeControlsRef.current.retrigger = value;
     oscSynthRef.current.synth?.setRetriggerBuzzFormant?.(value);
@@ -1551,7 +1647,7 @@ const useSynthWiring = (
   useEffect(() => {
     synthRef.current = synth;
     if (synth?.setVolume) {
-      const volume = readSampleVolume();
+      const volume = soundSessionRef?.current?.readMixer?.("synth_volume") ?? readSampleVolume();
       synth.setVolume(volume);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1758,17 +1854,10 @@ const useSynthWiring = (
 
   const onOscBrightnessChange = useCallback((value, send = true) => {
     const brightness = Math.max(0, Math.min(1, Number(value) || 0));
-    const midiValue = Math.round(brightness * 127);
-    oscBrightnessRef.current = midiValue;
-    setOscBrightness(brightness);
-    // Save the user's fader preference, not a connected controller's live value.
-    // The live override remains in the ref so rebuilt engines inherit it.
-    if (send) {
-      try { localStorage.setItem("osc_brightness", String(brightness)); } catch { /* Storage may be unavailable in private mode. */ }
-    }
-    // Controller input already broadcasts CC1; the fader targets scsynth only.
-    if (send) oscSynthRef.current.synth?.applyZoneModwheel?.(midiValue);
-  }, []);
+    // Controller input has already broadcast CC1.
+    if (send) oscSynthRef.current.synth?.applyZoneModwheel?.(Math.round(brightness * 127));
+    updateOscBrightnessDisplay(brightness);
+  }, [updateOscBrightnessDisplay]);
 
   const onOscQuickReleaseChange = useCallback((value) => {
     oscRuntimeControlsRef.current.quickRelease = value;
@@ -1981,6 +2070,7 @@ const useSynthWiring = (
     resetOctave,
     toggleOctaveDeferred,
     onVolumeChange,
+    applyDsfControls,
     onOscLayerVolumeChange,
     oscBrightness,
     onOscBrightnessChange,

@@ -73,7 +73,7 @@ const GeneralInputSettings = ({
     </label>
 
     {controllerInfo && (
-      <label class="settings-form__description-label">
+      <label class="settings-form__feedback">
         {controllerInfo.name}
         <span class="sidebar-input settings-form__description-value">
           {controllerInfo.description}

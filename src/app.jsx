@@ -12,6 +12,8 @@ import { isAppleTouchDevice } from "./ui/device.js";
  */
 import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "preact/hooks";
+import { canLoadColdSoundfont, readPerformanceBanks } from "./fluidsynth_synth/performance-banks.js";
+import { restoreSoundOnReload } from "./persistence/io-reload-policy.js";
 
 import Keyboard from "./keyboard";
 import { createExquisAppModeLifecycle, releaseExpiredExquisInput } from "./controllers/exquis-app-mode-lifecycle.js";
@@ -66,6 +68,8 @@ import {
 } from "./persistence/settings-registry.js";
 import { settingsImpactKey, settingsImpactSnapshot } from "./settings/settings-impact-registry.js";
 import useImport from "./hooks/use-import.js";
+import { applyMixerParameter } from "./audio/sound-mixer.js";
+import { useSoundRecall, useSoundSession } from "./hooks/use-sound-session.js";
 import useSettingsChange from "./hooks/use-settings-change.js";
 import sessionDefaults from "./settings/session-defaults.js";
 import {
@@ -76,7 +80,6 @@ import {
 } from "./controllers/registry.js";
 import Credits from "./credits";
 import LoadingIcon from "./loading-icon.jsx";
-import ManualSidebar from "./manual/manual-sidebar.jsx";
 import {
   addBarsBeforeSnapshots,
   addSequenceBarMarker,
@@ -186,6 +189,25 @@ import {
   retuneSnapshotHexes,
 } from "./sequencer/snapshots.js";
 
+const APP_QUERY_SPEC = buildQuerySpec({
+  int: ExtractInt,
+  float: ExtractFloat,
+  bool: ExtractBool,
+  string: ExtractString,
+  joined: ExtractJoinedString,
+});
+const APP_SETTINGS_DEFAULTS = {
+  ...buildRegistryDefaults(),
+  ...sessionDefaults,
+  // A musical surface only exists after a tuning is loaded or created.
+  name: "",
+  description: "",
+  scale: null,
+  note_names: null,
+  note_colors: null,
+};
+
+const ManualSidebar = lazy(() => import("./manual/manual-sidebar.jsx"));
 const Settings = lazy(() => import("./settings/index.jsx"));
 const IOSettings = lazy(() => import("./settings/io-settings.jsx"));
 const CalculatorTab = lazy(() => import("./calculator/tab.jsx"));
@@ -990,34 +1012,11 @@ const App = () => {
     };
   }, [noteRotationEvent]);
 
-  const [settings, setSettings] = useQuery(
-    buildQuerySpec({
-      int: ExtractInt,
-      float: ExtractFloat,
-      bool: ExtractBool,
-      string: ExtractString,
-      joined: ExtractJoinedString,
-    }),
-    {
-      // 1. Registry url/runtime defaults — blank-slate values for all keys.
-      //    scale/note_names/note_colors are null so the table starts empty.
-      ...buildRegistryDefaults(),
-      // 2. Session defaults — restore device/output choices from sessionStorage.
-      ...sessionDefaults,
-      // 3. Preset-specific fields always start empty — populated only when a
-      //    preset is explicitly loaded. null is handled gracefully everywhere.
-      name: "",
-      description: "",
-      scale: null,
-      note_names: null,
-      note_colors: null,
-    },
-    [],
-    PRESET_SKIP_KEYS,
-  );
+  const [settings, setSettings] = useQuery(APP_QUERY_SPEC, APP_SETTINGS_DEFAULTS, [], PRESET_SKIP_KEYS);
   const initialiseAudioRef = useRef(null);
   const engineLifecycleRef = useRef({ loading: true });
   const [restoringLocalSoundfont, setRestoringLocalSoundfont] = useState(false);
+  const [soundfontRestoreProgress, setSoundfontRestoreProgress] = useState(null);
   const audioRecovery = useAudioRecovery(synthRef, keysRef, settings, initialiseAudioRef, engineLifecycleRef);
   const stopInterruptedManualPlaybackRef = useRef(null);
   const restoreAudioEngines = audioRecovery.restore;
@@ -1071,6 +1070,9 @@ const App = () => {
       setModulationArmed(false);
     },
   });
+  const soundSessionRef = useRef(null);
+  const patchTransitionRef = useRef(null);
+  const [patchRevision, setPatchRevision] = useState(0);
   const deferRestoredSampleActivation = isIOS && restoredOnMount && !userHasInteracted;
 
   const {
@@ -1095,6 +1097,7 @@ const App = () => {
     resetOctave,
     toggleOctaveDeferred,
     onVolumeChange,
+    applyDsfControls,
     onOscLayerVolumeChange,
     oscBrightness,
     onOscBrightnessChange,
@@ -1112,6 +1115,7 @@ const App = () => {
     userHasInteracted,
     keysRef,
     synthRef,
+    soundSessionRef, patchTransitionRef, patchRevision,
     deferSampleActivation: deferRestoredSampleActivation,
   });
   engineLifecycleRef.current = { loading: !ready || enginesLoading > 0 || restoringLocalSoundfont,
@@ -1119,18 +1123,30 @@ const App = () => {
   const localSoundfontAttemptedRef = useRef(false);
   const localSoundfontRestorePromiseRef = useRef(null);
   const localSoundfontRestoreControllerRef = useRef(null);
-  useEffect(() => () => localSoundfontRestoreControllerRef.current?.abort(), []);
+  const [activeSoundfontRestore] = useState(() => new AbortController());
+  useEffect(() => () => {
+    localSoundfontRestoreControllerRef.current?.abort();
+    activeSoundfontRestore.abort();
+  }, [activeSoundfontRestore]);
   const restoreRememberedSoundfont = () => {
-    if (!settings.output_fluidsynth) return Promise.resolve();
     if (localSoundfontAttemptedRef.current) return localSoundfontRestorePromiseRef.current;
     localSoundfontAttemptedRef.current = true;
     const controller = new AbortController();
     localSoundfontRestoreControllerRef.current = controller;
     setRestoringLocalSoundfont(true);
-    localSoundfontRestorePromiseRef.current = import("./fluidsynth_synth/restore-local-soundfont.js")
-      .then(({ restoreLocalSoundfont }) => restoreLocalSoundfont({
-        signal: controller.signal, preferredPreset: settings.fluidsynth_preset,
-      }))
+    if (restoreSoundOnReload() && readPerformanceBanks().some(bank => bank.preload)) {
+      setSoundfontRestoreProgress({ phase: "starting" });
+    }
+    const restoreOptions = { readMixer: key => soundSessionRef.current?.readMixer(key),
+      signal: controller.signal, activeSignal: activeSoundfontRestore.signal, preferredPreset: settings.fluidsynth_preset,
+      canLoadColdBank: () => canLoadColdSoundfont(keysRef.current),
+      onActiveError: error => audioRecovery.startupFailed("FluidSynth", error),
+      onProgress: progress => { if (!controller.signal.aborted) setSoundfontRestoreProgress(progress); } };
+    // The gesture sets userHasInteracted before context recovery has finished.
+    // Prepare against the worklet that survives that wake-up.
+    localSoundfontRestorePromiseRef.current = Promise.resolve(audioWakePromiseRef.current)
+      .then(() => import("./fluidsynth_synth/restore-local-soundfont.js"))
+      .then(({ restoreSoundfontSession }) => restoreSoundfontSession(restoreOptions))
       .then((result) => {
         if (controller.signal.aborted || !result) return;
         setSettings((current) => ({ ...current,
@@ -1140,16 +1156,36 @@ const App = () => {
         }));
       })
       .catch((error) => {
-        if (!controller.signal.aborted) audioRecovery.startupFailed("FluidSynth", error);
+        if (!controller.signal.aborted) {
+          localSoundfontAttemptedRef.current = false;
+          setSoundfontRestoreProgress(null);
+          audioRecovery.startupFailed("FluidSynth", error);
+        }
       })
-      .finally(() => { if (!controller.signal.aborted) setRestoringLocalSoundfont(false); });
+      .finally(() => {
+        if (controller.signal.aborted) return;
+        setRestoringLocalSoundfont(false);
+        setSoundfontRestoreProgress(progress => progress?.phase === "starting" ? null : progress);
+      });
     return localSoundfontRestorePromiseRef.current;
   };
   useEffect(() => {
-    if (ready && userHasInteracted && settings.output_fluidsynth) void restoreRememberedSoundfont();
+    if (ready && userHasInteracted) void restoreRememberedSoundfont();
     // One local-only attempt on first activation; preset changes must not cancel it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, userHasInteracted, settings.output_fluidsynth]);
+  }, [ready, userHasInteracted]);
+  useEffect(() => {
+    if (!ready || userHasInteracted || !restoreSoundOnReload() || !readPerformanceBanks().some(bank => bank.preload)) return;
+    const wake = event => {
+      if (event.isTrusted) void primeAudioFromUserInteraction();
+    };
+    window.addEventListener("click", wake, true);
+    window.addEventListener("keydown", wake, true);
+    return () => {
+      window.removeEventListener("click", wake, true);
+      window.removeEventListener("keydown", wake, true);
+    };
+  }, [ready, userHasInteracted, primeAudioFromUserInteraction]);
   initialiseAudioRef.current = async (signal) => {
     // Begin shared-context activation on the original Restore gesture.
     const activation = primeAudioFromUserInteraction();
@@ -4286,6 +4322,48 @@ const App = () => {
     onUserScaleEdit,
   });
 
+  const applySequenceModWheelChange = useCallback((value) => {
+    const nextValue = clampSequenceTimbreModWheel(value);
+    sequenceTimbreModWheelValueRef.current = nextValue;
+    // The synth-level CC1 route runs first so live/non-sequence voices still
+    // follow the physical wheel. Sequence voices then assert their intended
+    // timbre: either the wheel-shaped value or the unmodified stored value.
+    applySequenceTimbreModWheelToActiveSnapshotHexes(
+      keysRef.current,
+      sequenceTimbreModWheelEnabledRef.current ? nextValue : NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
+    );
+  }, []);
+  const applyBrightness = useCallback(value => {
+    onOscBrightnessChange(value);
+    applySequenceModWheelChange(Math.round(value * 127));
+  }, [onOscBrightnessChange, applySequenceModWheelChange]);
+  const soundSession = useSoundSession(settings, onAtomicChange, applyDsfControls, {
+    oscBrightness, applyBrightness,
+    applyMixer: (key, value) => applyMixerParameter(key, value, {
+      sample: onVolumeChange, layer: onOscLayerVolumeChange, recall: soundRecall,
+    }),
+  });
+  soundSessionRef.current = soundSession;
+  const editBrightness = useCallback(value => {
+    soundSession.setParameter("osc_brightness", value);
+  }, [soundSession]);
+  const soundRecall = useSoundRecall({
+    discardEdits: soundSession.discardEdits,
+    beginPatch(updates, policy, bankReady, bankMix) {
+      activeSoundfontRestore.abort();
+      patchTransitionRef.current = { policy, bankReady, bankMix };
+      onAtomicChange(updates);
+      setPatchRevision(previous => previous + 1);
+    },
+    updateBank(preset, replaced) {
+      onAtomicChange({
+        fluidsynth_preset: preset,
+        ...(replaced ? { fluidsynth_runtime_revision: (Number(settings.fluidsynth_runtime_revision) || 0) + 1 } : {}),
+      });
+    },
+    canLoadColdBank: () => canLoadColdSoundfont(keysRef.current),
+  }, settings.output_fluidsynth);
+
   // Validate that all required settings are present and consistent.
   // This prevents Keys from being constructed with invalid state that would crash.
   const isValid = useMemo(() => {
@@ -5244,17 +5322,6 @@ const App = () => {
   // Stable callbacks for Keyboard props — must be declared unconditionally
   // outside JSX so they don't violate the rules of hooks when the Keyboard
   // is conditionally rendered.
-  const applySequenceModWheelChange = useCallback((value) => {
-    const nextValue = clampSequenceTimbreModWheel(value);
-    sequenceTimbreModWheelValueRef.current = nextValue;
-    // The synth-level CC1 route runs first so live/non-sequence voices still
-    // follow the physical wheel. Sequence voices then assert their intended
-    // timbre: either the wheel-shaped value or the unmodified stored value.
-    applySequenceTimbreModWheelToActiveSnapshotHexes(
-      keysRef.current,
-      sequenceTimbreModWheelEnabledRef.current ? nextValue : NEUTRAL_SEQUENCE_TIMBRE_MOD_WHEEL,
-    );
-  }, []);
   const onKeysModWheelChange = useCallback((value) => {
     onOscBrightnessChange(clampSequenceTimbreModWheel(value) / 127, false);
     applySequenceModWheelChange(value);
@@ -5262,13 +5329,6 @@ const App = () => {
   const onKeysBendBypassChange = useCallback((enabled) => {
     onChange("midiin_bend_bypass", enabled);
   }, [onChange]);
-  const onBrightnessFaderChange = useCallback((value) => {
-    onOscBrightnessChange(value);
-    // Like physical CC1, shape stored sequence timbre only when its preference
-    // is enabled. Keep the value for future attacks and subsequent re-enabling.
-    applySequenceModWheelChange(Math.round(Math.max(0, Math.min(1, Number(value) || 0)) * 127));
-  }, [onOscBrightnessChange, applySequenceModWheelChange]);
-
   const onKeysReady = useCallback(
     (keys) => {
       keysRef.current = keys;
@@ -5490,14 +5550,14 @@ const App = () => {
         onRecreateAudioContexts={() => audioRecovery.restore({ forceRecreate: true })}
         onCycleAudioContexts={audioRecovery.cycleContexts}
         onRestartFluidSynthWorklet={audioRecovery.restartFluidSynthWorklet}
+        soundfontRestoreProgress={soundfontRestoreProgress}
         onChange={onChange}
-        onAtomicChange={onAtomicChange}
+        soundSession={soundSession}
+        soundRecall={soundRecall}
         midiLearnActive={midiLearnActive}
         hakenPedalLearnActive={hakenPedalLearnActive}
-        onVolumeChange={onVolumeChange}
-        onOscLayerVolumeChange={onOscLayerVolumeChange}
         oscBrightness={oscBrightness}
-        onOscBrightnessChange={onBrightnessFaderChange}
+        onOscBrightnessChange={editBrightness}
         onOscQuickReleaseChange={onOscQuickReleaseChange}
         onOscQuickReleaseTimeChange={onOscQuickReleaseTimeChange}
         onOscQuickReleaseRasterOnlyChange={onOscQuickReleaseRasterOnlyChange}
@@ -6251,7 +6311,7 @@ const App = () => {
                   : "PLAINSOUND HEXATONE"}
         </h1>
         {workspaceTab === "sequencer" ? (
-          <p class="sidebar-intro">
+          <p class="sidebar-intro settings-form__helper-text">
             <em>
               To play, choose a built-in sequence; step through CUES or start TIMED PLAYBACK. Capture SNAPSHOTS of chords and momentary expression data (velocity, pressure, timbre)
               while playing or sustaining. Trigger snapshots with arpeggiation. Use the event list to edit start and stop times and generate cues that sound a melody. Create bars, repeats, and tempo markers to make a score with automated timed playback.{" "}
@@ -6266,7 +6326,7 @@ const App = () => {
             </em>
           </p>
         ) : ["sounds", "midi"].includes(workspaceTab) ? (
-          <p class="sidebar-intro">
+          <p class="sidebar-intro settings-form__helper-text">
             <em>
               {workspaceTab === "midi"
                 ? "Connect MIDI controllers, send controller colours, and route MTS and MPE output."
@@ -6283,7 +6343,7 @@ const App = () => {
             </em>
           </p>
         ) : workspaceTab === "calculator" ? (
-          <p class="sidebar-intro">
+          <p class="sidebar-intro settings-form__helper-text">
             <em>Choose a tuning reference (for example, </em>*nA = 440 Hz
             <em>
               ), then input a HEJI spelling, ratio or cents value to determine its staff notation,
@@ -6301,7 +6361,7 @@ const App = () => {
             </em>
           </p>
         ) : workspaceTab === "hexatone" ? (
-          <p class="sidebar-intro">
+          <p class="sidebar-intro settings-form__helper-text">
             <em>
               To play, choose a built-in tuning, click or touch notes. Build your own scale by opening the "Scale Settings" toggle and editing the table; try changing "Scale Size" or clicking on "Add Scale Degree"; drag to retune notes; rationalise; modulate. SHIFT+ESC or F8 toggles sustain. SHIFT+ENTER captures notes into snapshots you can edit in SEQUENCER. Visit SOUNDS to choose built-in sounds, or MIDI to connect a keyboard or an isomorphic controller like Lumatone or Exquis, or retune external synths.{" "}
               <button
@@ -6322,13 +6382,15 @@ const App = () => {
           {calculatorSidebar}
         </Suspense>
         {activeManualView && (
-          <ManualSidebar
-            key={activeManualView}
-            initialSectionTitle={manualSectionTitles[activeManualView]}
-            onSectionChange={rememberManualSection}
-            onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
-            scrollContainerRef={sidebarRef}
-          />
+          <Suspense fallback={<SidebarLoadingFallback />}>
+            <ManualSidebar
+              key={activeManualView}
+              initialSectionTitle={manualSectionTitles[activeManualView]}
+              onSectionChange={rememberManualSection}
+              onClose={workspaceTab === "manual" ? undefined : closeInlineManual}
+              scrollContainerRef={sidebarRef}
+            />
+          </Suspense>
         )}
         {/* Contextual help hides the workspace without disposing its transport. */}
         <Suspense fallback={activeManualView ? null : <SidebarLoadingFallback />}>

@@ -67,12 +67,12 @@ const ScalaImport = (props) => {
         <button type="button" class="settings-panel__close" onClick={props.onCancel} title="Close">
           ✕
         </button>
-        <p>
+        <p class="settings-form__helper-text">
           copy/paste or type below using the Scala file format:&nbsp;
           <a href="http://www.huygens-fokker.org/scala/scl_format.html">[Scala format]</a>&nbsp;
           <a href="https://scaleworkshop.plainsound.org">[Scale Workshop]</a>
         </p>
-        <p>
+        <p class="settings-form__helper-text">
           <b>Name</b> <em>(optional):</em> "!" followed by scala file name, e.g. "! myScale.scl"
           <br />
           <b>!</b> precedes a comment or empty line
@@ -126,7 +126,7 @@ const ScalaImport = (props) => {
             export are disabled until those values are removed.
           </p>
         ) : null}
-        <p>
+        <p class="settings-form__helper-text">
           <b>Plain Scala</b> — standard .scl format, compatible with all Scala-aware software
         </p>
         <button
@@ -143,7 +143,7 @@ const ScalaImport = (props) => {
         >
           Save .kbm
         </button>
-        <p>
+        <p class="settings-form__helper-text">
           <b>Ableton Scala</b> — .ascl format, embeds the .kbm data in comments
         </p>
         <button
@@ -153,7 +153,7 @@ const ScalaImport = (props) => {
         >
           Save .ascl
         </button>
-        <p>
+        <p class="settings-form__helper-text">
           <b>User Preset JSON</b> — export current Tuning as a JSON file
         </p>
         <button

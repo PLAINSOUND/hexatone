@@ -21,11 +21,11 @@ vi.mock("../hexatone/tuning-library.jsx", () => ({
         <label>
           <input
             type="checkbox"
-            aria-label="Restore on reload"
+            aria-label="Restore Tuning and Sequence on reload"
             checked={props.persistOnReload}
             onChange={(e) => props.setPersistOnReload(e.target.checked)}
           />
-          Restore on reload
+          Restore Tuning and Sequence on reload
         </label>
       )}
       <label>
@@ -194,7 +194,7 @@ describe("Settings MIDI Setup fieldset", () => {
     expect(activateAudioContext).toHaveBeenCalledTimes(1);
     expect(activatePendingPreset).not.toHaveBeenCalled();
     expect(setPersistOnReload).not.toHaveBeenCalled();
-    expect(screen.queryByLabelText("Restore on reload")).toBeNull();
+    expect(screen.queryByLabelText("Restore Tuning and Sequence on reload")).toBeNull();
   });
 
   it("requests sysex MIDI when Enable Sysex is clicked from basic state", () => {

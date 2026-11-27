@@ -1112,6 +1112,11 @@ describe("Keys MIDI input integration", () => {
       expect(keys.hexOn).not.toHaveBeenCalled();
       canvas.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       keys.onKeyDown(note);
+      keys.hexOn.mockImplementation(coords => ({ coords, cents: 0, noteOff: vi.fn() }));
+      keys.midinoteOn(makeMidiEvent(61));
+      const midiHex = keys.state.activeMidi.get(61);
+      keys._touchStartOnCoords(1, new Point(3, 0));
+      const touchHex = keys.state.activeTouch.get(1);
       control.dispatchEvent(new Event("pointerdown", { bubbles: true }));
       control.focus();
       expect(keys.state.canvasInputFocused).toBe(true);
@@ -1122,8 +1127,16 @@ describe("Keys MIDI input integration", () => {
         keys.onKeyDown(navigation);
         expect(navigation.defaultPrevented).toBe(false);
       }
+      if (kind === "select") {
+        for (const code of ["Escape", "KeyR"]) {
+          const navigation = new KeyboardEvent("keydown", { code, cancelable: true });
+          keys.onKeyDown(navigation);
+          expect(navigation.defaultPrevented).toBe(false);
+        }
+      }
       keys.onKeyUp(note);
       expect(hex.noteOff).toHaveBeenCalledOnce();
+      keys.hexOn.mockReturnValue(hex);
       const space = new KeyboardEvent("keydown", { code: "Space", cancelable: true });
       keys.onKeyDown(space);
       expect(space.defaultPrevented).toBe(true);
@@ -1137,6 +1150,10 @@ describe("Keys MIDI input integration", () => {
       expect(keys.state.spaceSustainHeld).toBe(false);
       expect(keys.state.sustainedNotes).toHaveLength(0);
       expect(hex.noteOff).toHaveBeenCalledTimes(2);
+      expect(keys.state.activeMidi.get(61)).toBe(midiHex);
+      expect(midiHex.noteOff).not.toHaveBeenCalled();
+      expect(keys.state.activeTouch.get(1)).toBe(touchHex);
+      expect(touchHex.noteOff).not.toHaveBeenCalled();
     } finally { unbind(); canvas.remove(); panel.remove(); }
   });
 
@@ -6704,6 +6721,25 @@ describe("Keys MIDI input integration", () => {
     expect(held.rejoinRecoveredSynths).toHaveBeenCalledWith([fluid], expect.any(Number));
   });
 
+  it.each(["preserve", "rearticulate"])("hands all sounding notes the same %s patch policy", policy => {
+    const oldGraph = { childSynths: () => [] };
+    const keys = createKeys({}, {}, oldGraph);
+    const voice = () => ({ release: false, reconcileSynths: vi.fn() });
+    const played = voice(), sustained = voice(), snapshot = voice(), sequence = voice();
+    const released = { ...voice(), release: true };
+    keys.state.activeMouse = played;
+    keys.state.sustainedNotes = [[sustained, 64]];
+    keys._snapshotHexes = [snapshot, sequence, released];
+    keys._soundingSnapshotHexes = new Set([sequence]);
+    const children = [{}];
+    keys.updateLiveOutputState(null, { childSynths: () => children }, policy);
+    const timestamp = played.reconcileSynths.mock.calls[0][1];
+    for (const note of [played, sustained, snapshot, sequence]) {
+      expect(note.reconcileSynths).toHaveBeenCalledExactlyOnceWith(children, timestamp, policy);
+    }
+    expect(released.reconcileSynths).not.toHaveBeenCalled();
+  });
+
   it("replays remembered controller state to a newly swapped synth", () => {
     const oldSynth = {
       rememberControllerState: vi.fn(),
@@ -7317,6 +7353,15 @@ describe("Keys MIDI input integration", () => {
     expect(applyZoneModwheel).toHaveBeenCalledWith(96);
     expect(keys.onModWheelChange).toHaveBeenCalledWith(96);
     expect(noteModwheel).not.toHaveBeenCalled();
+    const stored = sessionStorage.getItem("midiin_modwheel_value");
+    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 92] } });
+    listeners.controlchange({ message: { channel: 1, dataBytes: [1, 89] } });
+    expect(keys._getControllerState().ccValues[1]).toBe(89);
+    expect(sessionStorage.getItem("midiin_modwheel_value")).toBe(stored);
+    keys.settings.midiin_device = "replacement";
+    window.dispatchEvent(new Event("pagehide"));
+    expect(sessionStorage.getItem("midiin_modwheel_source")).toBe("input-1");
+    expect(sessionStorage.getItem("midiin_modwheel_value")).toBe("89");
     keys.onModWheelChange.mockClear();
     listeners.controlchange({ message: { channel: 2, dataBytes: [74, 30] } });
     listeners.controlchange({ message: { channel: 3, dataBytes: [74, 110] } });

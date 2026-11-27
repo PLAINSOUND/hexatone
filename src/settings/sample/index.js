@@ -24,7 +24,7 @@ const SampleSynth = (props) => (
         }}
       />
     </label>
-    {props.settings.output_sample && <Sample {...props} onVolumeChange={props.onVolumeChange} />}
+    {props.settings.output_sample && <Sample {...props} />}
     {/* Fixed velocity hard-coded to 72; midi_velocity UI hidden */}
     {props.showActivateAudioContext && props.activateAudioContext && (
       <div class="settings-form__reload-row settings-form__checkbox-row--sm">

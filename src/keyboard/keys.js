@@ -1898,14 +1898,14 @@ class Keys {
     });
   };
 
-  updateLiveOutputState = (nextSettings, synth) => {
+  updateLiveOutputState = (nextSettings, synth, patchTransition) => {
     if (nextSettings) Object.assign(this.settings, nextSettings);
     // Live output/runtime architecture update only. This is the boundary used
     // for output-family toggles and routing changes that should not reconstruct
     // Keys. Fine-grained runtime transport controls such as sustain, OCT,
     // modulation actions, or imperative volume changes should stay on their own
     // dedicated live paths instead of being funneled through this method.
-    if (synth && synth !== this.synth) {
+    if (synth && (synth !== this.synth || patchTransition)) {
       const nextChildSynths = synth.childSynths?.();
       if (Array.isArray(nextChildSynths)) {
         const previousChildren = new Set(this.synth?.childSynths?.() ?? []);
@@ -1937,7 +1937,8 @@ class Keys {
         withOutputTransaction(() => {
           for (const hex of activeHexes) {
             if (!hex || hex.release === true) continue;
-            hex.reconcileSynths?.(nextChildSynths, timestamp);
+            if (patchTransition) hex.reconcileSynths?.(nextChildSynths, timestamp, patchTransition);
+            else hex.reconcileSynths?.(nextChildSynths, timestamp);
           }
         });
       }

@@ -118,6 +118,20 @@ it.each([
     expect(engine.output.reverbSend).toBe(17);
     await loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
     expect(nodes[0].port.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "load-soundfont", reverbSend: 17 }), expect.any(Array));
+    const waitForSilence = vi.fn();
+    const readyToPlay = vi.fn();
+    nodes[0].deferNextLoad = true;
+    const quietRecall = loadFluidSynthSoundFont(source, {
+      preferredPreset: "2:7", retainSoundingVoices: true, onWaitingForSilence: waitForSilence,
+    }).then(readyToPlay);
+    await vi.waitFor(() => expect(waitForSilence).toHaveBeenCalledOnce());
+    expect(readyToPlay).not.toHaveBeenCalled();
+    const [request] = nodes[0].port.postMessage.mock.lastCall;
+    expect(request).toMatchObject({ type: "replace-soundfont", waitForSilence: true });
+    nodes[0].emit({ type: "soundfont-loaded", requestId: request.requestId, deferredCommit: true,
+      soundfontId: 1, presets: [{ bank: 2, program: 7 }] });
+    await quietRecall;
+    expect(readyToPlay).toHaveBeenCalledOnce();
     nodes[0].cacheHit = true;
     engine.soundfontCache = { keys: [source.url] };
     const beforeCachedLoad = source.arrayBuffer.mock.calls.length;
@@ -151,12 +165,13 @@ it.each([
     const sameSource = source.arrayBuffer.mock.calls.length;
     const resetClock = vi.spyOn(engine.output, "resetClock");
     nodes[0].deferNextLoad = true;
-    const staged = await loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
-    expect(staged.deferred).toBe(true);
+    const staged = loadFluidSynthSoundFont(source, { preferredPreset: "2:7" });
+    await vi.waitFor(() => expect(engine.pendingSoundfont).toBeTruthy());
     expect(engine.pendingSoundfont.source).toBe(source);
     nodes[0].emit({ type: "soundfont-loaded", requestId: engine.pendingSoundfont.requestId,
       deferredCommit: true, soundfontId: 1, presets: [{ bank: 0, program: 0 }, { bank: 2, program: 7 }],
       selectedPreset: { bank: 2, program: 7 } });
+    await staged;
     expect(engine.pendingSoundfont).toBeNull();
     expect(resetClock).not.toHaveBeenCalled();
     expect(held.sounding).toBe(true);
@@ -186,7 +201,7 @@ it.each([
     expect(engine.node).toBe(nodes[1]);
     expect(nodes[0].disconnect).toHaveBeenCalledOnce();
     expect(nodes[0].port.close).toHaveBeenCalledOnce();
-    expect(source.arrayBuffer).toHaveBeenCalledTimes(3);
+    expect(source.arrayBuffer).toHaveBeenCalledTimes(sameSource + 2);
     expect(engine.selectedPreset).toEqual({ bank: 2, program: 7 });
     expect(engine.volume).toBe(81);
     expect(getFluidSynthAudioDiagnostics().processorFailed).toBe(false);

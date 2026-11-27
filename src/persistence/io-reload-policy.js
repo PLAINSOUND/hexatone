@@ -10,6 +10,8 @@ import { SETTINGS_REGISTRY } from "./settings-registry.js";
 export const IO_RESTORE_KEY = "hexatone_restore_io_on_reload";
 export const SOUND_RESTORE_KEY = "hexatone_restore_sound_on_reload";
 export const MIDI_RESTORE_KEY = "hexatone_restore_midi_on_reload";
+export const PATCH_REARTICULATION_KEY = "hexatone_rearticulate_patch_changes";
+export const ACTIVE_SOUND_KEY = "hexatone_active_sound";
 
 // Saved controller profiles remain user preferences, not active connections.
 export const IO_SETTING_KEYS = new Set(
@@ -73,7 +75,8 @@ export function applyIOReloadPolicy({
     ]) session.removeItem(key);
   }
   if (resetSounds) {
-    // Clear active sound preferences, retaining sound libraries and cached bank files.
+    session.removeItem(ACTIVE_SOUND_KEY);
+    // Clear active sound preferences while retaining sound library references.
     for (const key of [
       "synth_volume", "synth_muted", "fluidsynth_internal_volume",
       "fluidsynth_internal_reverb", "fluidsynth_internal_smoothing",

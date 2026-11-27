@@ -29,9 +29,6 @@ processor.handleMessage({ type: "load-soundfont", reverbSend: 0,
   bytes: process.argv[2] ? readFileSync(process.argv[2]) : sineSoundfont() });
 assert.deepEqual(errors, []);
 const program = Number(process.argv[3] ?? 0);
-for (let channel = 0; channel < 128; channel++)
-  assert.equal(module._ps_select_program(processor.synth, channel, processor.soundfontId, 0, program), 0);
-const output = { reverbSend: 0, sendCommand: command => processor.dispatchCommand(command), send: bytes => processor.dispatchMidi(bytes) };
 
 function renderSettled() {
   const audio = new Float32Array(32768);
@@ -67,10 +64,20 @@ function frequency(audio, expected) {
 
 const results = [];
 for (const pitchBendRange of [48, 96]) {
+  let renderCommands = false;
+  const output = { reverbSend: 0, attackProgram: { soundfontId: processor.soundfontId, bank: 0, program },
+    sendCommand: command => { if (renderCommands) processor.dispatchCommand(command); },
+    send: bytes => { if (renderCommands) processor.dispatchMidi(bytes); } };
   const synth = createInternalVoiceSynth({ outputMode: { output, velocity: 100, pitchBendRange },
     tuningContext: { fundamental: 440 } });
+  const expectedChannel = pitchBendRange === 48 ? 0 : 128;
+  for (let channel = 0; channel < expectedChannel; channel++) {
+    synth.makeHex(null, 0, 0, 0, 12, -100, 100, null, 100, null, 1).noteOn();
+  }
+  renderCommands = true;
   const note = synth.makeHex(null, 0, 0, 0, 12, -100, 100, null, 100, null, 1);
   note.noteOn(); note.pressure(process.argv[2] ? 100 : 0);
+  assert.equal(note.channel, expectedChannel);
   for (const cents of [0, 100, 500, 1200, 2400, 0, -500, -1200]) {
     note.retune(cents);
     const expected = 440 * 2 ** (cents / 1200);
