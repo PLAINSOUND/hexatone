@@ -165,7 +165,7 @@ const ExquisSettings = ({
       {pendingOrientation !== null && <span role="status">Release keys to apply orientation.</span>}
       {versionResponseTooOld && (
         <span class="settings-form__status-value settings-form__status-value--missing settings-form__status-value--warning-tight">
-          Please update the firmware on your Exquis
+          Please update Exquis firmware to allow Hexatone to automatically generate layouts.
         </span>
       )}
       {portConnected && !appModeUnavailable && (

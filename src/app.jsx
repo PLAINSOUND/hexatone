@@ -4761,8 +4761,8 @@ const App = () => {
       new ExquisLEDs(
         exquisRawPorts.output,
         exquisRawPorts.input,
-        (ok, reason) => {
-          setExquisLedStatus(ok ? { ok: true } : { ok: false, reason });
+        (ok, reason, firmwareVersion) => {
+          setExquisLedStatus({ ok, reason, firmwareVersion });
           if (ok) exquisLedsRef.current?.setMPEMode(exquisMpeInputRef.current);
           if (ok && keysRef.current?.settings?.exquis_led_sync) {
             keysRef.current.syncExquisLEDs();

@@ -126,8 +126,8 @@ Buttons along the bottom of the app, also mapped to key commands:
   - press *SHIFT + up / down arrow* to change octaves
   - click the word `OCT` or press *SHIFT + left / right arrow* to toggle between two states: retune the next played note or (darker colour) retune all sounds immediately
 - `SUSTAIN` (*SHIFT+ESC* / *F8*): the on-screen control toggles hands-free sustain; playing a sustained note again turns it off rather than adding another voice
-  - after clicking the canvas, hold *SPACE* for momentary pedal sustain, even with the sidebar open; the on-screen control lights while pressed. Repeatedly playing a note adds new voices while its earlier voices keep sounding, allowing layers of the same pitch. Release SPACE to clear sustained notes, including individual Shift latches. Physically held notes continue until released. After clicking the canvas, non-typing controls in SOUNDS, MIDI, and Scale Settings in HEXATONE keep the playing keyboard and sustained notes active, so you can move faders, drag TuneCell pitch controls, compare tuning candidates, or change choices while playing. Fader and menu arrow keys keep their normal editing behavior. Focusing a text, number, or other typing field in these panels suspends the playing keyboard and releases sustained notes, including toggle sustain and individual Shift latches. Click the canvas to resume playing. Other sidebar panels retain their existing focus behavior.
-  - *SHIFT+note key* sustains one note independently; play it again or click its hex to release it
+    - after clicking the canvas, hold *SPACE* for momentary pedal sustain, even with the sidebar open; the on-screen control lights while pressed. Repeatedly playing a note adds new voices while its earlier voices keep sounding, allowing layers of the same pitch. Release SPACE to clear sustained notes, including individual Shift latches. Physically held notes continue until released. 
+   - *SHIFT+note key* sustains one note independently; play it again or click its hex to release it
 - `MOD` (*SHIFT+BACKQUOTE / °*): toggle to activate or deactivate modulation mode (see detailed description below)
     - a single played or already playing note is treated as the source degree
     - next overlapping note becomes target degree (no additional sound is triggered)
@@ -146,7 +146,7 @@ Hexatone supports various controllers and uses a 2D hexagonal layout to represen
 
 ### Mouse, Touch, Computer Keyboard
 
-Click or tap the on-screen hexes to play notes. Click the canvas to use the computer keyboard as a simple isomorphic controller, even while the sidebar is open. Clicking or moving keyboard focus into the sidebar releases physically held keys and disables the note bindings until you click the canvas again. Toggle-sustained notes remain held. The H key is mapped automatically to play the central degree at the centre of the canvas. Pressing *SHIFT* and a note-triggering key alternately latches and releases that particular note, allowing note-by-note sustains.
+Click or tap the on-screen hexes to play notes. Click the canvas to use the computer keyboard as a simple isomorphic controller, even while the sidebar is open. The H key is mapped automatically to play the central degree at the centre of the canvas. Pressing *SHIFT* and a note-triggering key alternately latches and releases that particular note, allowing note-by-note sustains. When a sidebar field requiring typing is clicked, the keybindings to canvas are automatically released. To resume playing, click again on the canvas.
 
 ### Presets
 
@@ -485,7 +485,7 @@ Choose **Default**, **Reed Organ**, **Hammond**, **Baroque Organ**, **Harpsichor
 - An **asterisk** after the sound name marks unsaved edits. **⟳** restores the selected sound's saved settings.
 - **Open File(s)** imports sound JSON; **Export .json** saves the current named sound.
 
-SoundFont files are stored separately. Recall uses an available browser copy or asks you to provide the bank; it never downloads a missing bank automatically. Baroque Organ prefers the full Organ bank on desktop and the smaller Principal bank on phones and tablets. Sound recall does not change tuning or MIDI connections.
+SoundFont files are stored separately. Recall uses an available browser copy or asks you to provide the bank. Baroque Organ prefers the full Organ bank on desktop and the smaller Principal bank on phones and tablets. Sound recall does not change tuning or MIDI connections.
 
 `Restore SOUND settings on reload` and `Restore MIDI settings on reload` work independently. Turning either off resets its active setup on the next reload, while keeping saved sounds, SoundFonts, and controller profiles. MIDI permissions must still be granted and the selected ports must be available.
 
@@ -524,7 +524,7 @@ A local file matching a supplied bank's filename can be reused through that bank
 
 Enable `Use SuperCollider Sounds` and select **SuperSonic** under `scsynth Server` to run **Pluck**, **Buzz**, **Formant**, and **Saw** in the browser. Each layer has its own level; 0 turns that layer off. **Brightness** also responds to the assigned wheel or pedal.
 
-The fieldset arrow reveals **Release Envelope**, **Release Time**, and **Apply release envelope to Rastered Glissando only**. These shorten or blend the release of Pluck, Buzz, and Formant. Uncheck the raster-only option to apply them to ordinary played notes. **Retrigger Buzz + Formant** creates repeating swells while notes are held.
+The fieldset toggle reveals **Release Envelope**, **Release Time**, and **Apply release envelope to Rastered Glissando only**. These shorten or blend the release of Pluck, Buzz, and Formant. Uncheck the raster-only option to apply them to ordinary played notes. **Retrigger Buzz + Formant** creates repeating swells while notes are held.
 
 ### OSC
 
@@ -610,7 +610,7 @@ In Exquis App Mode:
 - octave buttons shift by one equave; white marks the centre, with yellow-to-red shades below and green-to-violet above, and a brighter flash on press
 - the toggle button with a single dot controls `Bypass Bend` (CC32): green means bend on, red means bypassed
 - the button with round arrows is a momentary sustain (CC33 by default)
-- the four-circle button assigns the anchor to the last played key; held sounds continue without rearticulation
+- the four-circle button reassigns the anchor to the last played key; held sounds continue without rearticulation
 
 Button assignments and lighting are restored when App Mode resumes after losing browser focus.
 

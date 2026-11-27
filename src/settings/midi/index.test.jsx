@@ -694,6 +694,17 @@ describe("MIDIio LinnStrument controller selection", () => {
     expect(screen.getByRole("checkbox", { name: /Automatically Send Layout and Colours/ })).toBeTruthy();
   });
 
+  it.each(["2.9.9", "3.0.0"])("displays detected Exquis firmware %s instead of the manufacturer", (firmwareVersion) => {
+    const props = makeProps({ midiin_controller_override: "exquis", midi_passthrough: false });
+    props.midi = { inputs: new Map([["input-1", { id: "input-1", name: "Exquis" }]]), outputs: new Map() };
+    props.exquisLedStatus = { ok: firmwareVersion.startsWith("3"), firmwareVersion };
+    const { rerender } = render(<MIDIio {...props} />);
+    expect(screen.getByText(`Exquis (${firmwareVersion})`)).toBeTruthy();
+    expect(screen.queryByText("Exquis (Intuitive Instruments)")).toBeNull();
+    rerender(<MIDIio {...props} exquisLedStatus={null} />);
+    expect(screen.queryByText(`Exquis (${firmwareVersion})`)).toBeNull();
+  });
+
   it("renders Exquis LED controls from its dedicated controller module", () => {
     const props = makeProps({
       midiin_controller_override: "exquis",

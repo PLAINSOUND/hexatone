@@ -6,6 +6,19 @@ import { ExquisLEDs } from "./exquis-leds.js";
 afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("Exquis orientation", () => {
+  it.each([[2, 9, 9, false], [3, 0, 0, true], [3, 1, 2, true]])(
+    "reports firmware %s.%s.%s with App Mode availability",
+    (major, minor, patch, ok) => {
+      vi.useFakeTimers();
+      const onReady = vi.fn();
+      const driver = new ExquisLEDs({ send: vi.fn() }, null, onReady);
+      driver._onMessage({ data: [0xf0, 0, 0x21, 0x7e, 0, major, minor, patch, 0xf7] });
+      vi.advanceTimersByTime(200);
+      expect(onReady).toHaveBeenLastCalledWith(ok,
+        ok ? undefined : `firmware ${major}.${minor}.${patch}`, `${major}.${minor}.${patch}`);
+      driver.exit();
+    },
+  );
   it("explicitly restores App Mode despite recent heartbeats and defers mapping while held", () => {
     vi.useFakeTimers();
     vi.spyOn(performance, "now").mockReturnValue(100);

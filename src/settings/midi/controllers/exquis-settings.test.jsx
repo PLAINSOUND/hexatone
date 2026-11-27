@@ -86,7 +86,7 @@ describe("ExquisSettings", () => {
       />,
     );
 
-    expect(screen.getByText("Please update the firmware on your Exquis")).toBeTruthy();
+    expect(screen.getByText("Please update Exquis firmware to allow Hexatone to automatically generate layouts.")).toBeTruthy();
     expect(screen.queryByText("Auto Send Colours")).toBeNull();
   });
 
@@ -99,7 +99,7 @@ describe("ExquisSettings", () => {
       />,
     );
 
-    expect(screen.queryByText("Please update the firmware on your Exquis")).toBeNull();
+    expect(screen.queryByText(/Please update Exquis firmware/)).toBeNull();
   });
 
   it("hides App Mode status and LED controls in nearest-scale mode", () => {

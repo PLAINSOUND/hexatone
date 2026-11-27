@@ -331,7 +331,10 @@ const MIDIio = (props) => {
     ctrl && (ctrl.description || ctrl.descriptionScale)
       ? {
           name: ctrl.id === "lumatone" && props.lumatoneFirmwareVersion
-            ? `${ctrl.name} (${props.lumatoneFirmwareVersion})` : ctrl.name,
+            ? `${ctrl.name} (${props.lumatoneFirmwareVersion})`
+            : ctrl.id === "exquis"
+              ? `Exquis${props.exquisLedStatus?.firmwareVersion ? ` (${props.exquisLedStatus.firmwareVersion})` : ""}`
+              : ctrl.name,
           description:
             (useAlternateControllerDescription ? ctrl.descriptionScale : ctrl.description) ||
             ctrl.description ||

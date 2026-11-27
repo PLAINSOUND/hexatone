@@ -104,7 +104,8 @@ export class ExquisLEDs {
    * @param {MIDIOutput} outputPort
    * @param {MIDIInput}  inputPort
    * @param {function}   onReady   Called with (true) when App Mode is confirmed,
-   *                               or (false, reason) on failure.
+   *                               or (false, reason) on failure; the third argument
+   *                               is the firmware version when known.
    * @param {number}     luminosity  0–100, default 40.
    * @param {number}     saturation  okLab chroma multiplier, default 1.5.
    * @param {boolean}    mpeEnabled  Initial MPE mode state sent on App Mode entry.
@@ -453,6 +454,7 @@ export class ExquisLEDs {
     const major = d[5],
       minor = d[6],
       patch = d[7];
+    this.firmwareVersion = `${major}.${minor}.${patch}`;
     const ok =
       major > MIN_FIRMWARE.major ||
       (major === MIN_FIRMWARE.major && minor > MIN_FIRMWARE.minor) ||
@@ -460,7 +462,7 @@ export class ExquisLEDs {
 
     if (!ok) {
       warnLog(`[ExquisLEDs] Firmware ${major}.${minor}.${patch} < 3.0.0 — App Mode not entered.`);
-      if (this._onReady) this._onReady(false, `firmware ${major}.${minor}.${patch}`);
+      if (this._onReady) this._onReady(false, `firmware ${major}.${minor}.${patch}`, this.firmwareVersion);
       return;
     }
 
@@ -515,7 +517,7 @@ export class ExquisLEDs {
       // Reassert ownership and LEDs after that burst, bypassing LED deduplication.
       this.restoreControls();
 
-      if (this._onReady) this._onReady(true);
+      if (this._onReady) this._onReady(true, undefined, this.firmwareVersion);
     }, 200);
 
     // onReady is called inside the timeout above, after note map is sent.
