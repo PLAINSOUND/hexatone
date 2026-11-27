@@ -85,7 +85,7 @@ it("reloads the saved sound and its text drafts without saving current changes",
   expect(screen.getByLabelText("Sound name").value).toBe("Warm");
   expect(screen.getByLabelText("Sound description").value).toBe(saved.description);
   expect(loadUserSounds()).toEqual([saved]);
-  fireEvent.change(screen.getByLabelText("User sounds"), { target: { value: "builtin:4" } });
+  fireEvent.change(screen.getByLabelText("User sounds"), { target: { value: "builtin:5" } });
   fireEvent.click(reload);
   expect(onApply).toHaveBeenCalledTimes(3);
   expect(onApply.mock.calls[2][0].name).toBe("Test Tone");
@@ -136,9 +136,9 @@ it("always offers factory defaults and a fixed sine test tone above the user sou
   render(<UserSounds settings={{ dsf_timbre: 0.9 }} onApply={onApply} />);
   const menu = screen.getByLabelText("User sounds");
   expect([...menu.options].map(option => option.textContent)).toEqual([
-    "Choose a sound:", "Default", "Reed Organ", "Hammond", "Harpsichord", "Test Tone", "──────────",
+    "Choose a sound:", "Default", "Reed Organ", "Hammond", "Baroque Organ", "Harpsichord", "Test Tone", "──────────",
   ]);
-  fireEvent.change(menu, { target: { value: "builtin:4" } });
+  fireEvent.change(menu, { target: { value: "builtin:5" } });
   expect(onApply.mock.calls[0][0].settings).toMatchObject({
     output_dsf: true, output_sample: false, output_fluidsynth: false, output_osc: false,
     dsf_volume: 0.5, dsf_timbre: 0, dsf_volumeEnvelope: false, dsf_timbreEnvelope: false,

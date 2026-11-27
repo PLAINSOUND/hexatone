@@ -1,6 +1,22 @@
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { captureUserSound, normalizeUserSound, parseUserSounds, loadUserSounds, saveUserSounds } from "./user-sounds.js";
 beforeEach(() => localStorage.clear());
+
+it.each([
+  ["Windows NT", "PlainsoundOrgan.sf2", "PlainsoundOrganPrincipal.sf2"],
+  ["iPhone", "PlainsoundOrganPrincipal.sf2", "PlainsoundOrgan.sf2"],
+  ["Android", "PlainsoundOrganPrincipal.sf2", "PlainsoundOrgan.sf2"],
+])("prefers the appropriate Baroque Organ bank on %s", async (userAgent, primary, fallback) => {
+  vi.stubGlobal("navigator", { userAgent });
+  vi.resetModules();
+  try {
+    const { BUILTIN_USER_SOUNDS } = await import("./user-sounds.js");
+    const index = BUILTIN_USER_SOUNDS.findIndex(sound => sound.name === "Baroque Organ");
+    expect(BUILTIN_USER_SOUNDS[index - 1].name).toBe("Hammond");
+    expect(BUILTIN_USER_SOUNDS[index].soundfont).toMatchObject({ name: primary, preset: "0:3",
+      fallback: { name: fallback, preset: "0:3" } });
+  } finally { vi.unstubAllGlobals(); vi.resetModules(); }
+});
 
 it("round-trips all four sounds, live levels and SoundFont controls without unrelated settings", () => {
   localStorage.setItem("synth_volume", "0.31");

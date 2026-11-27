@@ -2,6 +2,7 @@
 import { SETTINGS_REGISTRY } from "./settings-registry.js";
 import { dsfControlsFromSettings } from "../dsf_synth/controls.js";
 import { readSampleVolume } from "../audio/sample-volume.js";
+import { needsMobileBackgroundRecovery } from "../audio/background-policy.js";
 import { normalizeFluidSynthSmoothing, readFluidSynthSmoothing } from "../fluidsynth_synth/smoothing.js";
 import { readFluidSynthReverb } from "../fluidsynth_synth/reverb.js";
 
@@ -89,6 +90,7 @@ export function saveUserSounds(records) {
 }
 
 // Factory defaults stay independent of saved browser preferences.
+const preferCompactSoundfont = needsMobileBackgroundRecovery();
 export const BUILTIN_USER_SOUNDS = [
   normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Default", settings: { output_sample: false },
     soundfont: { name: "PlainsoundOrgan.sf2", preset: "0:1",
@@ -109,6 +111,17 @@ export const BUILTIN_USER_SOUNDS = [
     dsf_timbreAmount: 1, dsf_timbreAttack: 0, dsf_timbreDecay: 5,
     dsf_timbreSustain: 0.3, dsf_timbreRelease: 14, dsf_timbreResponse: 1,
   } }),
+  normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Baroque Organ", settings: {
+    output_dsf: true, output_sample: false, output_fluidsynth: true, output_osc: true,
+    dsf_iso226: 0.5, dsf_attack: 60, dsf_decay: 1500, dsf_sustain: 1.5, dsf_release: 120,
+    dsf_partials: 1024, dsf_timbre: 0.25,
+    dsf_timbreAmount: 0.15, dsf_timbreAttack: 60, dsf_timbreDecay: 200,
+    dsf_timbreSustain: -0.5, dsf_timbreRelease: 30,
+    dsf_velocityVolume: 0, dsf_velocityTimbre: 0, dsf_velocityAttack: 0.5,
+    dsf_releaseVelocityRelease: 0.5, dsf_pressure: 0.35, dsf_timbreResponse: 0,
+    osc_volume_pluck: 0, osc_volume_buzz: 0, osc_volume_formant: 0.5, osc_volume_saw: 0.2,
+  }, soundfont: { name: preferCompactSoundfont ? "PlainsoundOrganPrincipal.sf2" : "PlainsoundOrgan.sf2", preset: "0:3",
+    fallback: { name: preferCompactSoundfont ? "PlainsoundOrgan.sf2" : "PlainsoundOrganPrincipal.sf2", preset: "0:3" } } }),
   normalizeUserSound({ format: "hexatone-user-sound", version: 1, name: "Harpsichord", settings: {
     output_dsf: false, output_sample: false, output_fluidsynth: true, output_osc: true,
     osc_volume_pluck: 0.65, osc_volume_buzz: 0, osc_volume_formant: 0, osc_volume_saw: 0,
