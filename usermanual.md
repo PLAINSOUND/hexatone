@@ -4,7 +4,7 @@ Updated: 2026-11-27
 
 ## About
 
-`HEXATONE` is a microtonal workspace based on a two-dimensional hexagonal pitch layout invented by Erv Wilson. `SEQUENCER` is for editing and performing chords captured in Hexatone. `SOUNDS` and `MIDI` have settings for built-in sounds and MIDI input/output. `CALCULATOR` is a tool for JI calculations (HEJI spelling, frequency, cents deviation, and rationalisation). `MANUAL` provides documentation.
+`HEXATONE` is a microtonal workspace based on a two-dimensional hexagonal pitch layout invented by Erv Wilson. `SEQUENCER` edits and plays chords progressions captured in Hexatone. `SOUNDS` and `MIDI` have settings for built-in sounds and MIDI input/output. `CALCULATOR` makes JI calculations (HEJI spelling, frequency, cents deviation, and rationalisation).
 
 ## Features
 
@@ -39,6 +39,7 @@ To explore scales, compare tunings, build and recall chords:
 - choose a built-in sequence, scroll down to `Edit & Play`
 - use `PLAY FROM` to step through sounds or the `TIMED PLAYBACK` transport for automation
 - change to the `SOUNDS` tab; try different sound combinations while the sequencer is playing
+    - under `Built-in DSF Synthesis` adjust envelopes for volume and timbre
     - under `Built-in Samples` change `Instrument`
     - under `Built-in SoundFont Player`, in the menu `Hexatone SoundFonts` choose a sound and download it by tapping `Load Hexatone SoundFont`
     - under `Built-in scsynth` try mixing the layers and adjusting `Brightness`
@@ -99,7 +100,7 @@ and system power-saving restrictions can still interrupt audio.
   - Built-in DSF Synthesis
   - Built-in Samples
   - Built-in SoundFont Player (based on FluidSynth)
-  - Built-in scsynth (SuperSonic / external OSC)
+  - Built-in scsynth (SuperSonic / OSC to external SuperCollider)
 `MIDI`
   - MIDI Setup
   - MIDI Input

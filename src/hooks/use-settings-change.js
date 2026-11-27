@@ -323,6 +323,8 @@ const useSettingsChange = (
         note_names: newNoteNames,
         rSteps,
         drSteps,
+        key_colors_mode: "spectrum",
+        auto_colors: false,
         spectrum_colors: true,
         fundamental_color: "#ffdbe8",
       }));

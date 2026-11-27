@@ -89,6 +89,21 @@ describe("resizeScaleWithEquavePadding", () => {
   });
 });
 
+it.each(["manual", "auto"])("switches %s colours to Spectrum when generating equal divisions", (mode) => {
+  let handlers;
+  const settings = { scale: ["2/1"], key_colors_mode: mode,
+    auto_colors: mode === "auto", spectrum_colors: false };
+  const setSettings = vi.fn();
+  render(<HookHarness settings={settings} setSettings={setSettings}
+    capture={(next) => { handlers = next; }} />);
+
+  act(() => handlers.onChange("scale_divide", ["600.0", "1200.0"]));
+
+  const next = setSettings.mock.calls.at(-1)[0](settings);
+  expect(next).toMatchObject({ scale: ["600.0", "1200.0"],
+    key_colors_mode: "spectrum", auto_colors: false, spectrum_colors: true });
+});
+
 it("keeps Exquis tracking attached across mode settings and applies a pending change only after release", () => {
   vi.useFakeTimers();
   try {
