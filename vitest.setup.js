@@ -4,6 +4,12 @@
  * of hardware MIDI, real audio processing or actual browser layout.
  */
 
+import { options } from "preact";
+
+// Schedule passive effects on the jsdom window. Its teardown cancels these
+// timers, including any remaining after a component has unmounted.
+options.requestAnimationFrame = callback => window.setTimeout(callback, 0);
+
 class MemoryStorage {
   constructor() {
     this.store = new Map();
