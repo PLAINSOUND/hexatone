@@ -108,7 +108,7 @@ it("waits for held notes then replaces the old bank and selects the local preset
   silent = true;
   expect(await ready).toBe(true);
   expect(phases).toEqual(["checking", "waiting", "loading", "complete"]);
-  expect(fluid.stop).toHaveBeenCalledWith({ naturalRelease: true });
+  expect(fluid.stop).not.toHaveBeenCalled();
   expect(recall.state.name).toBe(name);
   expect(updateBank).toHaveBeenCalledWith("0:0", true);
 });
@@ -186,6 +186,25 @@ it.each(["current", "cached", "suspended", "absent"])("recalls Baroque Organ fro
   expect(await ready).toBe(true);
   expect(beginPatch).toHaveBeenCalledTimes(1);
   expect(recall.state.phase).toBe("complete");
+});
+
+it("rearticulates sustained notes immediately with a resident non-current Organ bank", async () => {
+  localStorage.setItem(PATCH_REARTICULATION_KEY, "true");
+  const organ = sound("Baroque Organ");
+  const bank = organ.soundfont.fallback;
+  fluid.engine = { soundfontId: 1, node: {}, context: { state: "running" },
+    soundfontSource: { name: "Other.sf2" }, soundfontCache: { keys: [`https://soundfonts.plainsound.org/${bank.name}`] } };
+  fluid.load.mockResolvedValue({ presets: [] });
+  const beginPatch = vi.fn();
+  const recall = createSoundRecall(() => ({
+    fluidOutputEnabled: false, canLoadColdBank: () => false, discardEdits: vi.fn(), beginPatch, updateBank: vi.fn(),
+  }));
+  const phases = [];
+  recall.changes.addEventListener("change", () => phases.push(recall.state.phase));
+  expect(await recall.recall(organ)).toBe(true);
+  expect(beginPatch.mock.lastCall[1]).toBe("rearticulate");
+  expect(recall.state.name).toBe(bank.name);
+  expect(phases).not.toContain("waiting");
 });
 
 it("restarts a shut-down local SuperSonic server when the selected patch uses it", async () => {

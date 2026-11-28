@@ -172,3 +172,22 @@ it("keeps unrelated local names and third-party URLs separate", async () => {
   expect(await storage.readOfflineSoundfont("https://soundfonts.plainsound.org/PlainsoundOrgan.sf2")).toBeUndefined();
   expect(banks.size).toBe(2);
 });
+
+it("finishes an import before removing its copy and keeps the other bank", async () => {
+  mockDatabase();
+  const bytes = new Uint8Array([1]);
+  await storage.storeSoundfontCopy({ name: "Keep.sf2" }, bytes);
+  const importing = storage.storeSoundfontCopy({ name: "Remove.sf2" }, bytes);
+  await Promise.all([importing, storage.removeSoundfontCopy("local:Remove.sf2")]);
+  expect(await storage.workingSoundfontKeys()).toEqual(["local:Keep.sf2"]);
+});
+
+it("removes both browser copies of a hosted bank", async () => {
+  const { banks } = mockDatabase();
+  const name = "PlainsoundOrgan.sf2";
+  const key = "https://soundfonts.plainsound.org/" + name;
+  banks.set(key, { name });
+  banks.set("local:" + name, { name });
+  await storage.removeSoundfontCopy(key);
+  expect(await storage.workingSoundfontKeys()).toEqual([]);
+});

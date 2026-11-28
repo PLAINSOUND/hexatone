@@ -197,7 +197,7 @@ it("admits the 400, 400 and 80 MiB performance banks within the desktop budget",
   expect(p.port.postMessage).toHaveBeenLastCalledWith(expect.objectContaining({ type: "soundfont-loaded", cacheKey: "Srutibox" }));
 });
 
-it("makes room for an on-demand bank after silence while keeping the current bank until the new load succeeds", () => {
+it("makes room for an on-demand bank after silence when both existing banks must be evicted", () => {
   const { p, load, render } = setup(400);
   load("Playing");
   load("Prepared", { prepareOnly: true, waitForSilence: true });
@@ -239,4 +239,25 @@ it("unloads the current bank after release and keeps another prepared bank resid
   p.collectRetiredSoundfonts(true);
   expect(p.soundfontId).toBeNull();
   expect([...p.soundfontCache.keys()]).toEqual(["B"]);
+});
+
+it("evicts only the oldest sufficient bank and retains smaller and newer banks", () => {
+  const { p, load, render, module } = setup(700);
+  for (const [name, size] of [["Small", 30], ["Older", 130], ["Newer", 140]]) {
+    load(name, { prepareOnly: true, bytes: new ArrayBuffer(size) });
+  }
+  load("Next", { waitForSilence: true, bytes: new ArrayBuffer(170) });
+  render();
+  expect([...p.soundfontCache.keys()]).toEqual(["Small", "Newer", "Next"]);
+  expect(module._ps_unload_soundfont).toHaveBeenCalledExactlyOnceWith(1, 2);
+});
+
+it("rejects a bank larger than the entire budget without evicting anything", () => {
+  const { p, load, render, module } = setup(400);
+  load("Playing");
+  load("Prepared", { prepareOnly: true });
+  load("Too large", { waitForSilence: true, bytes: new ArrayBuffer(201) });
+  render();
+  expect([...p.soundfontCache.keys()]).toEqual(["Playing", "Prepared"]);
+  expect(module._ps_unload_soundfont).not.toHaveBeenCalled();
 });

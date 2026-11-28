@@ -3,6 +3,7 @@ export const HOSTED_SOUNDFONTS = Object.freeze([
   "PlainsoundOrganGedackt.sf2",
   "PlainsoundOrganSpielFl.sf2",
   "PlainsoundOrganPrincipal.sf2",
+  "PlainsoundOrganTrommeten.sf2",
   "PlainsoundHarpsichord.sf2",
   "PlainsoundHarpsichordLute.sf2",
   "PlainsoundSrutibox.sf2",

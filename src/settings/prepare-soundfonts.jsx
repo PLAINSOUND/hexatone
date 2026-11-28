@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
+import { soundfontCacheBudget } from "../fluidsynth_synth/cache-budget.js";
 import { soundfontErrorDetail } from "../fluidsynth_synth/load-error.js";
 import { HOSTED_SOUNDFONTS } from "../fluidsynth_synth/soundfont-catalog.js";
 import { clearPreparedSoundfonts, loadFluidSynthSoundFont, peekFluidSynthEngine } from "../fluidsynth_synth/index.js";
@@ -21,7 +22,7 @@ function loadFailures(failures, onReload = false) {
   return [...messages].join(" · ");
 }
 
-export default function PrepareSoundfonts({ name, onSelectName, request, cache, disabled, canLoadColdBank, banks, onRemember, onBankAvailableOrDownloading, onBanksLoaded, onManualSelection, playbackBanks, bankState, localFiles, onReplaceForMemory, bankLabel, feedbackOwner, restoreProgress, children }) {
+export default function PrepareSoundfonts({ onRemove, name, onSelectName, request, cache, disabled, canLoadColdBank, banks, onRemember, onBankAvailableOrDownloading, onBanksLoaded, onManualSelection, playbackBanks, bankState, localFiles, onReplaceForMemory, bankLabel, feedbackOwner, restoreProgress, children }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [download, setDownload] = useState(null);
@@ -41,11 +42,9 @@ export default function PrepareSoundfonts({ name, onSelectName, request, cache, 
   const reference = name => playbackBanks.get(name);
   const keyFor = name => soundfontStorageKey(reference(name));
   const state = name && bankState(reference(name));
-  const prepared = new Set(cache?.preparedKeys ?? []);
-  const preparedNames = [...prepared].map(key =>
-    names.find(candidate => keyFor(candidate) === key) ?? key);
+  const residentNames = names.filter(candidate => bankState(reference(candidate)) === "loaded");
   const deferredBanks = restoreProgress?.unavailable?.filter(({ name }) =>
-    references.get(name)?.preload && !prepared.has(keyFor(name))) ?? [];
+    references.get(name)?.preload && !residentNames.includes(name)) ?? [];
   const saveCopy = (source, bytes) => {
     return storeSoundfontCopy(source, bytes).then(() => {
       if (mounted.current) setUnsavedCopies(names => names.filter(name => name !== source.name));
@@ -53,7 +52,7 @@ export default function PrepareSoundfonts({ name, onSelectName, request, cache, 
       if (mounted.current) setUnsavedCopies(names => [...new Set([...names, source.name])]);
     });
   };
-  const prepare = async (banks, reload = false) => {
+  const prepare = async (banks) => {
     if (request.current) return;
     const controller = new AbortController();
     request.current = controller;
@@ -94,7 +93,7 @@ export default function PrepareSoundfonts({ name, onSelectName, request, cache, 
           }) : bank;
           if (typeof bank !== "string") saveCopy(bank, bank);
           await loadFluidSynthSoundFont(source, {
-            prepareOnly: true, forceReload: reload, signal, canLoadColdBank,
+            prepareOnly: true, signal, canLoadColdBank,
             onDownloadProgress: ({ loaded, total }) => {
               if (downloading && !signal.aborted)
                 setDownload({ name: bankName, percent: total ? Math.min(100, Math.floor(100 * loaded / total)) : undefined });
@@ -136,6 +135,8 @@ export default function PrepareSoundfonts({ name, onSelectName, request, cache, 
         }
       }
       if (loadedNames.length && !signal.aborted) await onBanksLoaded?.(loadedNames, signal);
+      const lastBank = banks.at(-1);
+      if (!signal.aborted && lastBank?.name) onSelectName(lastBank.name);
       show(loadFailures(errors));
     } catch (error) {
       show(error.name === "AbortError" ? "Loading cancelled." : error.message);
@@ -160,13 +161,31 @@ export default function PrepareSoundfonts({ name, onSelectName, request, cache, 
     </label>
     <div class="fluidsynth-settings__load-row">
       <div class="preset-actions preset-actions--end fluidsynth-settings__prepare-actions">
-        <button type="button" class="preset-action-btn"
+        {name && (state || (!HOSTED_SOUNDFONTS.includes(name) && references.has(name))) &&
+          <button type="button" class="preset-action-btn" disabled={disabled || busy}
+            onClick={async () => {
+              beginManual();
+              setBusy(true);
+              try {
+                await onRemove(reference(name));
+                setUnsavedCopies(previous => previous.filter(candidate => candidate !== name));
+              } catch (error) { setStatus(`Could not remove ${name}: ${soundfontErrorDetail(error)}`); }
+              finally { setBusy(false); }
+            }}>Remove</button>}
+        {(busy || state !== "loaded") && <button type="button" class="preset-action-btn"
           disabled={!busy && (disabled || !name || (!state && !HOSTED_SOUNDFONTS.includes(name)))}
-          onClick={() => busy ? request.current?.abort() : void prepare([name], state === "loaded")}>
-          {busy ? "Cancel Load" : state === "loaded" ? "Reload" : state === "available" ? "Load SoundFont" : "Download SoundFont"}
-        </button>
-        {!state && <button type="button" class="preset-action-btn" disabled={disabled || busy}
-          onClick={() => localInput.current?.click()}>Load Local File</button>}
+          onClick={() => busy ? request.current?.abort() : void prepare([name])}>
+          {busy ? "Cancel Load" : state === "available" ? "Load" : "Download SoundFont"}
+        </button>}
+        {state === "loaded" &&
+          <button type="button" class="preset-action-btn" disabled={disabled || busy} onClick={() => {
+            beginManual();
+            clearPreparedSoundfonts(keyFor(name));
+            onRemember([reference(name)], false);
+            setStatus(`${name} will unload when the player is silent.`);
+          }}>Unload</button>}
+        <button type="button" class="preset-action-btn" disabled={disabled || busy}
+          onClick={() => localInput.current?.click()}>Import a Local SoundFont</button>
         <input ref={localInput} type="file" multiple aria-label="Local SoundFonts to load"
           class="settings-form__hidden-file-input" disabled={disabled || busy} onChange={event => {
             const input = event.currentTarget;
@@ -178,13 +197,6 @@ export default function PrepareSoundfonts({ name, onSelectName, request, cache, 
               setStatus("Choose SoundFont files in .sf2 or .sf3 format.");
             } else void prepare(files);
           }} />
-        {state === "loaded" &&
-          <button type="button" class="preset-action-btn" disabled={disabled || busy} onClick={() => {
-            beginManual();
-            clearPreparedSoundfonts(keyFor(name));
-            onRemember([reference(name)], false);
-            setStatus(`${name} will unload when the player is silent.`);
-          }}>Unload</button>}
       </div>
     </div>
     {feedbackOwner === "restore" && restoreProgress && restoreProgress.phase !== "complete" &&
@@ -195,10 +207,14 @@ export default function PrepareSoundfonts({ name, onSelectName, request, cache, 
     {feedbackOwner === "restore" && !!deferredBanks.length && <p class="settings-form__feedback">
       {loadFailures(deferredBanks, true)}
     </p>}
-    {!!preparedNames.length && <p class="settings-form__feedback">Loaded: {preparedNames.join(", ")}</p>}
-    {Number.isFinite(cache?.estimatedBytes) && <p class="settings-form__feedback">
-      SoundFonts in memory: {formatMiB(cache.estimatedBytes)} estimated of {formatMiB(cache.budgetBytes)}.
-    </p>}
+    <div class="fluidsynth-settings__bank-summary">
+      <p class="settings-form__feedback">Loaded: {residentNames.join(", ") || "None"}</p>
+      <p class="settings-form__feedback">
+        {residentNames.length && !Number.isFinite(cache?.estimatedBytes)
+          ? "Checking SoundFont memory…"
+          : `SoundFonts in memory: ${formatMiB(cache?.estimatedBytes ?? 0)} estimated of ${formatMiB(cache?.budgetBytes ?? soundfontCacheBudget())}.`}
+      </p>
+    </div>
     {feedbackOwner === "preload" && status && <p role="status" class="settings-form__feedback">{status}
       {download && <> <progress aria-label={`Downloading ${download.name}`} max="100" value={download.percent} />
         {download.percent != null && ` ${download.percent}%`}</>}

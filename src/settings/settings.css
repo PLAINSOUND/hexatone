@@ -935,6 +935,16 @@ td.scale-color-col .color-input {
   margin-bottom: 0.25em;
 }
 
+.fluidsynth-settings__bank-summary {
+  display: grid;
+  gap: 0.125em;
+  padding-block: 0.25em;
+}
+
+.fluidsynth-settings__bank-summary > p {
+  margin: 0;
+}
+
 .fluidsynth-settings__prepare-actions {
   width: 100%;
   gap: 0.25rem;

@@ -248,4 +248,23 @@ it.each([
     await Promise.resolve();
     expect(freshNode.port.postMessage.mock.calls.filter(([message]) => message.type === "midi-batch")
       .flatMap(([message]) => message.events).some(event => event.command?.op === "on")).toBe(true);
+
+    // Both the checkbox (open first) and a new preset (load directly) must
+    // rebuild the old cache in usage order before selecting the requested bank.
+    const older = "local:Older.sf2", newer = "local:Newer.sf2";
+    freshNode.emit({ type: "soundfont-cache", keys: [newer, older], restartEntries: [[newer, 3], [older, 1]],
+      preparedKeys: [newer], estimatedBytes: 32 });
+    const storage = await import("./soundfont-storage.js");
+    const read = vi.spyOn(storage, "readWorkingSoundfont").mockImplementation(async key =>
+      ({ name: key.slice(6), blob: { size: 8, arrayBuffer: async () => new ArrayBuffer(8) } }));
+    await stopFluidSynthEngine({ rememberBank: true });
+    if (supplied) await getFluidSynthEngine();
+    await loadFluidSynthSoundFont({ name: "Next.sf2", arrayBuffer: async () => new ArrayBuffer(8) });
+    const loads = nodes[3].port.postMessage.mock.calls.map(([message]) => message)
+      .filter(message => message.bytes);
+    expect(loads.map(message => [message.cacheKey, message.prepareOnly, message.pinned])).toEqual([
+      [older, true, false], [newer, true, true], ["local:Next.sf2", false, false],
+    ]);
+    expect(peekFluidSynthEngine().soundfontSource.name).toBe("Next.sf2");
+    read.mockRestore();
   });

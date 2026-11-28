@@ -3,13 +3,14 @@ import { workingSoundfontKeys } from "../fluidsynth_synth/soundfont-storage.js";
 import { act, fireEvent, render, screen, within } from "@testing-library/preact";
 
 const fluidsynthMock = vi.hoisted(() => ({ engine: null, load: vi.fn(), stop: vi.fn(async () => {}), listeners: new Set() }));
-const storageMock = vi.hoisted(() => ({ read: vi.fn(), store: vi.fn(), save: vi.fn() }));
+const storageMock = vi.hoisted(() => ({ read: vi.fn(), store: vi.fn(), save: vi.fn(), remove: vi.fn() }));
 vi.mock("../fluidsynth_synth/soundfont-storage.js", async importOriginal => ({
   ...(await importOriginal()),
   workingSoundfontKeys: vi.fn(async () => []),
   readOfflineSoundfont: storageMock.read,
   readWorkingSoundfont: storageMock.read,
   storeSoundfontCopy: storageMock.store,
+  removeSoundfontCopy: storageMock.remove,
   saveSoundfontFile: storageMock.save,
 }));
 vi.mock("../fluidsynth_synth/index.js", async importOriginal => ({
@@ -106,6 +107,7 @@ describe("FluidSynth settings", () => {
       fluidsynthMock.listeners.forEach(listener => listener(fluidsynthMock.engine));
     });
     expect(await screen.findByText(`Loaded: ${files.map(file => file.name).join(", ")}`)).toBeTruthy();
+    expect(screen.getByLabelText("Load SoundFonts").value).toBe(files.at(-1).name);
     expect(screen.getByText("SoundFonts in memory: 15 MiB estimated of 512 MiB.")).toBeTruthy();
     expect(screen.queryByText(/Selected files:|ready for patch changes/)).toBeNull();
     expect(fluidsynthMock.load.mock.calls.map(([file]) => file)).toEqual(files);
@@ -117,6 +119,8 @@ describe("FluidSynth settings", () => {
   it("reports worklet memory alongside the preparation controls even with FluidSynth output off", () => {
     const onChange = vi.fn();
     render(<FluidSynthSettings settings={{ output_fluidsynth: false }} onChange={onChange} />);
+    expect(screen.getByText("Loaded: None")).toBeTruthy();
+    expect(screen.getByText(/SoundFonts in memory: 0 MiB estimated of/)).toBeTruthy();
     const mib = 1024 * 1024;
     act(() => {
       fluidsynthMock.engine = { soundfontCache: { estimatedBytes: 200 * mib, preparedBytes: 100 * mib, budgetBytes: 384 * mib,
@@ -128,6 +132,12 @@ describe("FluidSynth settings", () => {
     expect(screen.getByRole("button", { name: "Download SoundFont" }).closest(".fluidsynth-settings__load-row")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Prepare Organ, Harpsichord and Srutibox" })).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("offers the hosted Trommeten bank in both SoundFont menus", () => {
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    for (const label of ["Load SoundFonts", "Current SoundFont"])
+      expect(within(screen.getByLabelText(label)).getByRole("option", { name: "PlainsoundOrganTrommeten.sf2" })).toBeTruthy();
   });
 
   it("distinguishes saved references, banks waiting for silence and banks ready after restore", () => {
@@ -337,12 +347,28 @@ describe("FluidSynth settings", () => {
     const menu = screen.getByLabelText("Load SoundFonts");
     await within(menu).findByRole("option", { name: name + " (available)" });
     fireEvent.change(menu, { target: { value: name } });
-    fireEvent.click(screen.getByRole("button", { name: "Load SoundFont" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load" }));
     await vi.waitFor(() => expect(storageMock.store).toHaveBeenCalled());
     expect(fluidsynthMock.stop).not.toHaveBeenCalled();
     idle = true;
     await vi.waitFor(() => expect(screen.getByLabelText("Current SoundFont").value).toBe(name));
-    expect(fluidsynthMock.stop).toHaveBeenCalledExactlyOnceWith({ naturalRelease: true });
+    expect(fluidsynthMock.stop).not.toHaveBeenCalled();
+  });
+
+  it("removes an imported custom bank from both menus and its restore list", async () => {
+    fluidsynthMock.load.mockResolvedValue({ presets: [] });
+    const name = "Custom.sf2";
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Local SoundFonts to load"), {
+      target: { files: [new File(["font"], name)] },
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    await vi.waitFor(() => expect(screen.getByLabelText("Load SoundFonts").value).toBe(""));
+    expect(storageMock.remove).toHaveBeenCalledWith("local:" + name);
+    expect(fluidsynthMock.stop).toHaveBeenCalledWith("local:" + name);
+    expect(readPerformanceBanks().some(bank => bank.name === name)).toBe(false);
+    for (const label of ["Load SoundFonts", "Current SoundFont"])
+      expect(within(screen.getByLabelText(label)).queryByRole("option", { name: /Custom.sf2/ })).toBeNull();
   });
 
   it("unpins one bank without removing the library entry or changing playback", () => {
@@ -487,7 +513,7 @@ describe("FluidSynth settings", () => {
       fireEvent.change(screen.getByLabelText("Local SoundFonts to load"), {
         target: { files: [new File(["soundfont"], name)] },
       });
-      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Load Local File" }).disabled).toBe(false));
+      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Import a Local SoundFont" }).disabled).toBe(false));
       fireEvent.change(screen.getByLabelText("Current SoundFont"), { target: { value: name } });
       await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith("fluidsynth_preset", `0:${program}`));
       expect(fluidsynthMock.load).toHaveBeenCalledWith(expect.objectContaining({ name }),
@@ -627,7 +653,7 @@ describe("FluidSynth settings", () => {
     fluidsynthMock.engine = { soundfontId: 1, presets: [{ bank: 0, program: 0 }], soundfontSource: source };
     const onChange = vi.fn();
     render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
-    fireEvent.click(screen.getByRole("button", { name: "Save SoundFont File…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Current SoundFont" }));
     await vi.waitFor(() => expect(storageMock.save).toHaveBeenCalledWith(source.name, blob));
     expect(screen.queryByRole("button", { name: "Remove Offline Copy" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Keep for Offline Use" })).toBeNull();
@@ -703,7 +729,7 @@ describe("FluidSynth settings", () => {
     expect(screen.getByLabelText("Current SoundFont").value).toBe(
       "PlainsoundOrgan.sf2",
     );
-    expect(screen.queryByText("Loaded: PlainsoundOrgan.sf2")).toBeNull();
+    expect(screen.getByText("Loaded: PlainsoundOrgan.sf2")).toBeTruthy();
   });
 
   it("refreshes the preset controls when a recovered worklet reloads its SoundFont", async () => {

@@ -260,19 +260,21 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   notifySoundfontCache() {
     const keys = [];
     const preparedKeys = [];
+    const restartEntries = [];
     let estimatedBytes = 0;
     let preparedBytes = 0;
     for (const [id, bank] of this.soundfontFiles ?? []) {
       estimatedBytes += bank.bytes * 2;
       if (bank.cacheKey && this.soundfontCache?.get(bank.cacheKey) === id) {
         keys.push(bank.cacheKey);
+        if (!bank.evictOnIdle) restartEntries.push([bank.cacheKey, bank.lastUsed ?? 0]);
         if (bank.pinned) {
           preparedKeys.push(bank.cacheKey);
           preparedBytes += bank.bytes * 2;
         }
       }
     }
-    this.port?.postMessage({ type: "soundfont-cache", keys, preparedKeys, estimatedBytes, preparedBytes,
+    this.port?.postMessage({ type: "soundfont-cache", keys, preparedKeys, restartEntries, estimatedBytes, preparedBytes,
       budgetBytes: this.soundfontCacheBudget ?? SOUNDFONT_CACHE_BUDGET,
       stagedBytes: this.pendingSoundfont?.bytes.byteLength ?? 0, ...this.memorySizes() });
   }
@@ -311,14 +313,18 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     if (message.prepareOnly || allowEvictPrepared) {
       const extra = message.bytes.byteLength * 2;
       const budget = this.soundfontCacheBudget ?? SOUNDFONT_CACHE_BUDGET;
-      if (message.prepareOnly) this.collectRetiredSoundfonts(true, extra);
+      if (message.prepareOnly && extra <= budget) this.collectRetiredSoundfonts(true, extra);
       const required = extra + (message.prepareOnly ? (this.soundfontFileBytes ?? 0) * 2 : 0);
       if (required > budget) {
         const mib = 1024 * 1024;
         throw new Error(`SoundFont memory budget exceeded (${Math.ceil(required / mib)} MiB estimated, ` +
           `${Math.floor(budget / mib)} MiB allowed). Unload banks or choose a smaller bank.`);
       }
-      if (allowEvictPrepared) this.collectRetiredSoundfonts(true, extra, true);
+      if (allowEvictPrepared) {
+        this.collectRetiredSoundfonts(true, extra, true);
+        if ((this.soundfontFileBytes ?? 0) * 2 + extra > budget)
+          throw new Error("SoundFont memory budget exceeded: banks still in use.");
+      }
     }
     const previousId = this.soundfontId;
     const previousBytes = this.soundfontFileBytes ?? 0;
@@ -340,8 +346,8 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       const presets = this.readPresets(soundfontId);
       if (!presets.length) throw new Error("The selected SoundFont contains no presets");
       const bank = { path, bytes: message.bytes.byteLength, presets, cacheKey: message.cacheKey,
-        pinned: message.prepareOnly === true };
-      if (message.prepareOnly && !message.reloadCurrent) {
+        pinned: message.prepareOnly === true && message.pinned !== false };
+      if (message.prepareOnly) {
         this.retiredSoundfonts ??= new Set();
         this.retiredSoundfonts.add(soundfontId);
         bank.lastUsed = this.bankUseCounter = (this.bankUseCounter ?? 0) + 1;
@@ -381,16 +387,34 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
   }
 
   collectRetiredSoundfonts(force = false, extra = 0, allowEvictPrepared = false) {
-    if (!this.retiredSoundfonts?.size || (!force && currentFrame < (this.nextBankCleanupFrame ?? 0))) return;
+    const replacing = allowEvictPrepared && extra > 0;
+    if ((!this.retiredSoundfonts?.size && !replacing) || (!force && currentFrame < (this.nextBankCleanupFrame ?? 0))) return;
     this.nextBankCleanupFrame = currentFrame + Math.ceil(sampleRate / 4);
     // Wait for release tails too. This conservative test avoids the native
     // lazy-unload timer, which requires threads unavailable in this WASM build.
     if (this.lastOutputSounding || this.module._ps_active_voice_count(this.synth) !== 0) return;
     let estimate = this.soundfontFileBytes * 2 + extra;
     let changed = false;
-    const candidates = [...this.retiredSoundfonts].sort((a, b) =>
+    let candidates = [...(this.retiredSoundfonts ?? [])].sort((a, b) =>
       Number(Boolean(this.soundfontFiles?.get(a)?.pinned)) - Number(Boolean(this.soundfontFiles?.get(b)?.pinned)) ||
       (this.soundfontFiles?.get(a)?.lastUsed ?? 0) - (this.soundfontFiles?.get(b)?.lastUsed ?? 0));
+    const deficit = estimate - (this.soundfontCacheBudget ?? SOUNDFONT_CACHE_BUDGET);
+    if (replacing && deficit > 0) {
+      if (this.soundfontId != null && !candidates.includes(this.soundfontId)) candidates.push(this.soundfontId);
+      candidates = candidates.filter(id =>
+        !this.midiQueue?.some(event => event.command?.patchProgram?.soundfontId === id));
+      const bytes = id => (this.soundfontFiles.get(id)?.bytes ?? 0) * 2;
+      if (candidates.reduce((sum, id) => sum + bytes(id), 0) < deficit) return;
+      // Prefer a single bank. Among sufficient banks, take the least recently
+      // used. If several are needed, largest first minimizes the number lost.
+      candidates.sort((a, b) => {
+        const aFits = bytes(a) >= deficit;
+        const bFits = bytes(b) >= deficit;
+        if (aFits !== bFits) return aFits ? -1 : 1;
+        if (!aFits && bytes(a) !== bytes(b)) return bytes(b) - bytes(a);
+        return (this.soundfontFiles.get(a)?.lastUsed ?? 0) - (this.soundfontFiles.get(b)?.lastUsed ?? 0);
+      });
+    }
     for (const id of candidates) {
       const cached = this.soundfontFiles?.get(id);
       if (cached?.pinned && !allowEvictPrepared) continue;
@@ -398,7 +422,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
           estimate <= (this.soundfontCacheBudget ?? SOUNDFONT_CACHE_BUDGET)) continue;
       if (this.midiQueue?.some(event => event.command?.patchProgram?.soundfontId === id)) continue;
       if (this.module._ps_unload_soundfont(this.synth, id) !== 0) continue;
-      this.retiredSoundfonts.delete(id);
+      this.retiredSoundfonts?.delete(id);
       if (id === this.soundfontId) {
         this.soundfontId = null;
         this.selectedProgram = null;

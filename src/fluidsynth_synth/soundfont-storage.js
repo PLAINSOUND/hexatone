@@ -9,6 +9,18 @@ const sessionId = crypto.randomUUID();
 let cleanupPromise;
 let discardPreviousCopies = false;
 let memoryBank;
+const pendingChanges = new Map();
+
+async function changeCopy(key, operation) {
+  const previous = pendingChanges.get(key);
+  const next = previous ? previous.catch(() => {}).then(operation) : operation();
+  pendingChanges.set(key, next);
+  try { return await next; }
+  finally {
+    if (pendingChanges.get(key) === next) pendingChanges.delete(key);
+    soundfontCopiesChanged.dispatchEvent(new Event("change"));
+  }
+}
 export const soundfontCopiesChanged = new EventTarget();
 
 async function withDatabase(operation) {
@@ -97,6 +109,7 @@ export async function readOfflineSoundfont(key) {
 }
 export async function readWorkingSoundfont(key) {
   key = canonicalSoundfontKey(key);
+  await pendingChanges.get(key)?.catch(() => {});
   let bank;
   try { bank = await readBank(key); }
   catch (error) {
@@ -110,17 +123,31 @@ export async function storeSoundfontCopy(source, bytes) {
   const bank = { name: source.name, url: source.url || "", blob: new Blob([bytes]),
     offline: true, sessionId };
   const key = soundfontStorageKey(source);
-  try {
-    await writeBank(key, bank);
-    memoryBank = undefined;
-  } catch (error) {
-    // Blob construction above is the best-effort allocation; browsers expose no
-    // reliable available-memory probe. Keep only the most recent failed copy.
-    memoryBank = { key, bank: { ...bank, offline: false } };
-    throw error;
-  } finally {
-    soundfontCopiesChanged.dispatchEvent(new Event("change"));
-  }
+  return changeCopy(key, async () => {
+    try {
+      await writeBank(key, bank);
+      memoryBank = undefined;
+    } catch (error) {
+      memoryBank = { key, bank: { ...bank, offline: false } };
+      throw error;
+    }
+  });
+}
+
+export function removeSoundfontCopy(key) {
+  return changeCopy(key, async () => {
+    try {
+      await access("readwrite", store => {
+        const legacyKey = legacyLocalSoundfontKey(key);
+        if (legacyKey) store.delete(legacyKey);
+        return store.delete(key);
+      });
+    }
+    catch (error) {
+      if (memoryBank?.key !== key) throw error;
+    }
+    if (memoryBank?.key === key) memoryBank = undefined;
+  });
 }
 
 export function saveSoundfontFile(name, blob) {

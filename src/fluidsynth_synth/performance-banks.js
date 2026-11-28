@@ -27,6 +27,12 @@ export function rememberPerformanceBanks(previous, sources, preload) {
   return next;
 }
 
+export function forgetPerformanceBank(previous, key) {
+  const next = previous.filter(bank => soundfontStorageKey(bank) !== key);
+  localStorage.setItem(LIBRARY_KEY, JSON.stringify(next));
+  return next;
+}
+
 export function canLoadColdSoundfont(keys) {
   if (!keys) return true;
   const synth = keys.synth;

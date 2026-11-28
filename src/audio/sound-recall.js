@@ -1,6 +1,6 @@
 import { soundfontCacheBudget } from "../fluidsynth_synth/cache-budget.js";
 import { soundfontErrorDetail } from "../fluidsynth_synth/load-error.js";
-import { ensureFluidSynthEngineAwake, isFluidSynthEngineRunning, loadFluidSynthSoundFont, peekFluidSynthEngine, stopFluidSynthEngine, waitForColdBankGap } from "../fluidsynth_synth/index.js";
+import { ensureFluidSynthEngineAwake, isFluidSynthEngineRunning, loadFluidSynthSoundFont, peekFluidSynthEngine, waitForColdBankGap } from "../fluidsynth_synth/index.js";
 import { readySoundfontRecall, resolveSoundfontRecall } from "../fluidsynth_synth/soundfont-source.js";
 import { PATCH_REARTICULATION_KEY } from "../persistence/io-reload-policy.js";
 import { BUILTIN_USER_SOUNDS, normalizeUserSound, storeSoundSelection } from "../persistence/user-sounds.js";
@@ -84,9 +84,9 @@ export function createSoundRecall(getBindings) {
         return candidate ? { active: engine, candidate } : readySoundfontRecall(reference, engine);
       };
       const engine = peekFluidSynthEngine();
-      const readyToSwitch = needsBank && (enteringFluid
-        ? currentBank(engine) && isFluidSynthEngineRunning(engine)
-        : readyTarget(engine));
+      const residentTarget = needsBank && readyTarget(engine);
+      const readyToSwitch = residentTarget && (!enteringFluid ||
+        (isFluidSynthEngineRunning(engine) && (policy === "rearticulate" || residentTarget.active)));
       const deferPatch = needsBank && !readyToSwitch &&
         bindings.canLoadColdBank?.() === false;
       cancel({ quiet: true });
@@ -172,8 +172,6 @@ export function createSoundRecall(getBindings) {
           await waitForColdBankGap(bindings.canLoadColdBank, signal, () => progress("waiting"));
           if (!current()) return;
           progress("loading");
-          await stopFluidSynthEngine({ naturalRelease: true });
-          if (!current()) return;
         }
         let presets;
         let chosen;
