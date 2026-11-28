@@ -301,7 +301,7 @@ a:hover {
 
 .audio-recovery-alert {
   position: fixed;
-  line-height: 1.8em;
+  line-height: 1.55;
   align-content: center;
   bottom: 0.5rem;
   left: 0.5rem;

@@ -180,8 +180,9 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
         return;
       }
       if (message.type === "unpin-soundfonts") {
-        for (const bank of this.soundfontFiles?.values() ?? []) {
-          if ((!message.cacheKey || bank.cacheKey === message.cacheKey) && bank.pinned) {
+        for (const [id, bank] of this.soundfontFiles ?? []) {
+          if (message.cacheKey ? bank.cacheKey === message.cacheKey : bank.pinned) {
+            if (message.cacheKey) (this.retiredSoundfonts ??= new Set()).add(id);
             bank.pinned = false;
             bank.evictOnIdle = true;
           }
@@ -295,6 +296,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     if (!message) return;
     this.pendingSoundfont = null;
     try {
+      this.port.postMessage({ type: "soundfont-loading", requestId: message.requestId });
       this.loadSoundfont({ ...message, deferredCommit: true });
       this.collectRetiredSoundfonts(true);
     } catch (error) {
@@ -339,7 +341,7 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       if (!presets.length) throw new Error("The selected SoundFont contains no presets");
       const bank = { path, bytes: message.bytes.byteLength, presets, cacheKey: message.cacheKey,
         pinned: message.prepareOnly === true };
-      if (message.prepareOnly) {
+      if (message.prepareOnly && !message.reloadCurrent) {
         this.retiredSoundfonts ??= new Set();
         this.retiredSoundfonts.add(soundfontId);
         bank.lastUsed = this.bankUseCounter = (this.bankUseCounter ?? 0) + 1;
@@ -347,7 +349,11 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       this.soundfontFiles ??= new Map();
       this.soundfontFiles.set(soundfontId, bank);
       this.soundfontCache ??= new Map();
-      if (message.cacheKey) this.soundfontCache.set(message.cacheKey, soundfontId);
+      if (message.cacheKey) {
+        const previous = this.soundfontFiles.get(this.soundfontCache.get(message.cacheKey));
+        if (previous) { previous.pinned = false; previous.evictOnIdle = true; }
+        this.soundfontCache.set(message.cacheKey, soundfontId);
+      }
       // Publish residency and pin state before acknowledging this load. In
       // particular, restoring the next bank must see the bank just loaded.
       if (!message.cacheKey || !this.collectRetiredSoundfonts(true, 0, allowEvictPrepared)) this.notifySoundfontCache();
@@ -393,6 +399,11 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
       if (this.midiQueue?.some(event => event.command?.patchProgram?.soundfontId === id)) continue;
       if (this.module._ps_unload_soundfont(this.synth, id) !== 0) continue;
       this.retiredSoundfonts.delete(id);
+      if (id === this.soundfontId) {
+        this.soundfontId = null;
+        this.selectedProgram = null;
+        this.port.postMessage({ type: "soundfont-unloaded", soundfontId: id });
+      }
       changed = true;
       if (cached && this.soundfontCache?.get(cached.cacheKey) === id) this.soundfontCache.delete(cached.cacheKey);
       const file = this.soundfontFiles?.get(id);
@@ -534,6 +545,10 @@ class FluidSynthProcessor extends AudioWorkletProcessor {
     }
     if (pending && !attackDue && !this.lastOutputSounding &&
         this.module._ps_active_voice_count(this.synth) === 0) this.commitPendingBank();
+    else if (pending && !pending.waitReported) {
+      pending.waitReported = true;
+      this.port.postMessage({ type: "soundfont-waiting", requestId: pending.requestId });
+    }
     let consumed = 0;
     const touchTraces = [];
     while (consumed < this.midiQueue.length && this.midiQueue[consumed].frame <= currentFrame) {

@@ -9,7 +9,7 @@ import { useSoundRecallState } from "../hooks/use-sound-session.js";
 import DsfSettings from "./dsf-settings.jsx";
 import SampleSynth from "./sample";
 import { useState } from "preact/hooks";
-import { PATCH_REARTICULATION_KEY, SOUND_RESTORE_KEY, MIDI_RESTORE_KEY, restoreSoundOnReload, restoreMidiOnReload } from "../persistence/io-reload-policy.js";
+import { rememberSoundSession, PATCH_REARTICULATION_KEY, SOUND_RESTORE_KEY, MIDI_RESTORE_KEY, restoreSoundOnReload, restoreMidiOnReload } from "../persistence/io-reload-policy.js";
 import MidiOutputs from "./midi/midioutputs";
 import MIDIio from "./midi";
 import WebMIDISettings from "./midi/webmidi-settings.jsx";
@@ -28,6 +28,7 @@ const IOSettings = ({
   soundSession,
   soundRecall,
   soundfontRestoreProgress,
+  cancelStartupRestore,
   midi,
   midiAccess,
   midiAccessError,
@@ -78,7 +79,10 @@ const IOSettings = ({
               const enabled = event.currentTarget.checked;
               localStorage.setItem(midiPanel ? MIDI_RESTORE_KEY : SOUND_RESTORE_KEY, String(enabled));
               if (midiPanel) setRestoreMidi(enabled);
-              else setRestoreSounds(enabled);
+              else {
+                setRestoreSounds(enabled);
+                rememberSoundSession(settings);
+              }
             }}
           />
           <em class="settings-form__global-preference">{midiPanel ? "Restore MIDI settings on reload" : "Restore SOUND settings on reload"}</em>
@@ -115,7 +119,7 @@ const IOSettings = ({
         soundSession={soundSession}
       />
       <FluidSynthSettings soundSession={soundSession} settings={settings} onChange={onChange} soundRecall={soundRecall}
-        onWorkingChange={refreshWorkingSound} keysRef={keysRef} restoreProgress={soundfontRestoreProgress} />
+        onWorkingChange={refreshWorkingSound} keysRef={keysRef} cancelStartupRestore={cancelStartupRestore} restoreProgress={soundfontRestoreProgress} />
       <SuperColliderSettings key={`scsynth-${revision}`}
         settings={settings}
         onChange={onChange}

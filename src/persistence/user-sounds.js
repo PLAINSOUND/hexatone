@@ -1,5 +1,5 @@
 /** Versioned sound-only snapshots. No tuning, MIDI ports, bridge credentials or sample bytes. */
-import { ACTIVE_SOUND_KEY } from "./io-reload-policy.js";
+import { ACTIVE_SOUND_KEY, rememberSoundSession } from "./io-reload-policy.js";
 import { SETTINGS_REGISTRY } from "./settings-registry.js";
 import { dsfControlsFromSettings } from "../dsf_synth/controls.js";
 import { readSampleVolume } from "../audio/sample-volume.js";
@@ -166,6 +166,6 @@ export function storeSoundSelection({ selection, name, description }) {
   const record = selection.startsWith("builtin:")
     ? { builtinName: findSound(selection, [])?.name, name, description }
     : { selection, name, description };
-  try { sessionStorage.setItem(ACTIVE_SOUND_KEY, JSON.stringify(record)); }
+  try { sessionStorage.setItem(ACTIVE_SOUND_KEY, JSON.stringify(record)); rememberSoundSession(); }
   catch { /* The working sound is still available in this tab. */ }
 }

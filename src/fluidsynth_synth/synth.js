@@ -40,6 +40,15 @@ export async function createFluidSynth({ outputMode, tuningContext }) {
   fadeIn: () => {
     if (ownsEngine()) return fadeFluidSynthAfterRecovery({ fromCurrent: true, durationMs: 40 });
   }, keepWarm: true });
+  // Patch changes can retain this adapter without pausing it so old notes
+  // finish. A running worklet can still be routed to the silent recovery sink.
+  synth.rejoinOutput = async isCurrent => {
+    if (!ownsEngine() || !await ensureFluidSynthEngineAwake() || !ownsEngine())
+      throw new Error("FluidSynth output could not resume.");
+    if (!isCurrent()) return;
+    if (synth.isOutputPaused()) await synth.resumeOutput();
+    else await prepareFluidSynthOutput();
+  };
   const shutdown = synth.shutdown;
   synth.shutdown = (options) => {
     const pending = shutdown(options);

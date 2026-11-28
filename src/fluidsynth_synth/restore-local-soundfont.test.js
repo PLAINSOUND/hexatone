@@ -5,12 +5,14 @@ import { SOUND_RESTORE_KEY } from "../persistence/io-reload-policy.js";
 const mocks = vi.hoisted(() => ({ read: vi.fn(), load: vi.fn(), peek: vi.fn(), unpin: vi.fn() }));
 vi.mock("./soundfont-storage.js", async importOriginal => ({
   readOfflineSoundfont: mocks.read,
+  readWorkingSoundfont: mocks.read,
   soundfontStorageKey: (await importOriginal()).soundfontStorageKey,
 }));
 vi.mock("./index.js", () => ({ loadFluidSynthSoundFont: mocks.load, peekFluidSynthEngine: mocks.peek,
   clearPreparedSoundfonts: mocks.unpin }));
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   vi.resetAllMocks();
   localStorage.setItem(LAST_SOUNDFONT_KEY, JSON.stringify({ name: "Organ.sf2", url: "" }));
 });
@@ -75,9 +77,10 @@ it("finishes session restore only after the worklet confirms the saved banks", a
     }
     return { presets: [engine.selectedPreset] };
   });
-  const onProgress = vi.fn(), complete = vi.fn();
-  const restoring = restoreSoundfontSession({ onProgress }).then(complete);
+  const onProgress = vi.fn(), complete = vi.fn(), onActiveReady = vi.fn();
+  const restoring = restoreSoundfontSession({ onProgress, onActiveReady }).then(complete);
   await vi.waitFor(() => expect(finishLute).toBeTypeOf("function"));
+  expect(onActiveReady).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ selectedPreset: engine.selectedPreset }));
   expect(complete).not.toHaveBeenCalled();
   expect(onProgress).toHaveBeenLastCalledWith({ phase: "waiting", name: "Lute.sf2", index: 2, total: 3 });
   expect(mocks.read.mock.calls.map(([key]) => key)).toEqual(["local:Organ.sf2", "local:Lute.sf2"]);
@@ -121,4 +124,22 @@ it("lets an explicit recall supersede active-bank restore while completing saved
   expect(engine.setVolume).not.toHaveBeenCalled();
   expect(mocks.load.mock.calls.map(([source, options]) => [source.name, !!options.prepareOnly]))
     .toEqual([["Organ.sf2", false], ["Lute.sf2", true]]);
+});
+
+it("makes Default's available Gedackt current before preloading another window's remembered banks", async () => {
+  const name = "PlainsoundOrganGedackt.sf2";
+  rememberPerformanceBanks([], [{ name: "Organ.sf2" }], true);
+  mocks.read.mockResolvedValue({ blob: new Blob(["bank"]) });
+  mocks.load.mockResolvedValue({ presets: [] });
+  await restoreSoundfontSession({ restoreSelectedSound: true });
+  expect(mocks.load.mock.calls.map(([source, options]) => [source.name, options.preferredPreset, !!options.prepareOnly]))
+    .toEqual([[name, "0:1", false], ["Organ.sf2", undefined, true]]);
+});
+
+it("restores the edited current bank on same-window reload", async () => {
+  sessionStorage.setItem(LAST_SOUNDFONT_KEY, JSON.stringify({ name: "Edited.sf2" }));
+  mocks.read.mockResolvedValue({ blob: new Blob(["bank"]) });
+  await restoreSoundfontSession({ restoreSelectedSound: true, preferredPreset: "0:4" });
+  expect(mocks.load).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ name: "Edited.sf2" }),
+    expect.objectContaining({ preferredPreset: "0:4" }));
 });

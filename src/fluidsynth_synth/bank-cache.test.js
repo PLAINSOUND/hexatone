@@ -227,3 +227,16 @@ it("updates prepared memory immediately and releases unpinned resident bytes onc
   expect(module._ps_unload_soundfont).toHaveBeenCalledExactlyOnceWith(1, 2);
   expect(p.soundfontId).toBe(1);
 });
+
+it("unloads the current bank after release and keeps another prepared bank resident", () => {
+  const { p, load, setVoices } = setup();
+  load("A");
+  load("B", { prepareOnly: true });
+  setVoices(1);
+  p.handleMessage({ type: "unpin-soundfonts", cacheKey: "A" });
+  expect(p.soundfontId).toBe(1);
+  setVoices(0);
+  p.collectRetiredSoundfonts(true);
+  expect(p.soundfontId).toBeNull();
+  expect([...p.soundfontCache.keys()]).toEqual(["B"]);
+});

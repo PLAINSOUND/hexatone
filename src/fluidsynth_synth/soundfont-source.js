@@ -122,7 +122,7 @@ export async function resolveSoundfontRecall(reference, getEngine, isCurrent) {
     const cachedBank = await readWorkingSoundfont(key).catch(() => null);
     if (!isCurrent()) return null;
     if (cachedBank?.blob) {
-      return readySoundfontRecall(reference, getEngine()) ?? { candidate, source: createSoundfontSource({
+      return readySoundfontRecall(reference, getEngine()) ?? { candidate, fileBytes: cachedBank.blob.size, source: createSoundfontSource({
         name: candidate.name, url: key, cachedBank,
       }) };
     }

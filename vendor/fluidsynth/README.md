@@ -80,7 +80,7 @@ and queued MIDI releases. New attacks select their bank and program on the
 allocated channel. Four groups of 64 channels can lend unused channels to one
 another, with independent MTS tuning in banks 0 and 1.
 Recently used native banks and their virtual files share an estimated memory
-budget of 2 GiB on desktop and 256 MiB on phones and tablets (twice file bytes).
+budget of 2 GiB on desktop and 384 MiB on phones and tablets (twice file bytes).
 The selected bank is always retained;
 playing voices temporarily pin other banks. Eviction runs only when native
 voices and the audible reverb tail are idle. Cache state and staged-byte counts are exposed in diagnostics.

@@ -1,18 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { workingSoundfontKeys } from "../fluidsynth_synth/soundfont-storage.js";
 import { act, fireEvent, render, screen, within } from "@testing-library/preact";
 
 const fluidsynthMock = vi.hoisted(() => ({ engine: null, load: vi.fn(), stop: vi.fn(async () => {}), listeners: new Set() }));
 const storageMock = vi.hoisted(() => ({ read: vi.fn(), store: vi.fn(), save: vi.fn() }));
 vi.mock("../fluidsynth_synth/soundfont-storage.js", async importOriginal => ({
-  soundfontStorageKey: (await importOriginal()).soundfontStorageKey,
+  ...(await importOriginal()),
+  workingSoundfontKeys: vi.fn(async () => []),
   readOfflineSoundfont: storageMock.read,
   readWorkingSoundfont: storageMock.read,
   storeSoundfontCopy: storageMock.store,
   saveSoundfontFile: storageMock.save,
 }));
-vi.mock("../fluidsynth_synth/index.js", () => ({
+vi.mock("../fluidsynth_synth/index.js", async importOriginal => ({
+  waitForColdBankGap: (await importOriginal()).waitForColdBankGap,
+  getFluidSynthEngine: vi.fn(async () => (fluidsynthMock.engine ??= {})),
+  ensureFluidSynthEngineAwake: vi.fn(async () => true),
   loadFluidSynthSoundFont: fluidsynthMock.load,
   clearPreparedSoundfonts: fluidsynthMock.stop,
+  stopFluidSynthEngine: fluidsynthMock.stop,
   peekFluidSynthEngine: () => fluidsynthMock.engine,
   subscribeFluidSynthEngine: (listener) => {
     fluidsynthMock.listeners.add(listener);
@@ -52,6 +58,34 @@ function FluidSynthSettings({ soundRecall: reference, ...props }) {
 }
 
 describe("FluidSynth settings", () => {
+  it.each(["Download SoundFont", "local file"])("selects Default's newly resident bank and program after %s", async action => {
+    const name = "PlainsoundOrganGedackt.sf2";
+    const engine = { soundfontCache: { keys: [], preparedKeys: [] } };
+    fluidsynthMock.engine = engine;
+    const preset = { name: "Gedackt", bank: 0, program: 1 };
+    fluidsynthMock.load.mockImplementation(async (source, options) => {
+      if (options.prepareOnly) {
+        engine.soundfontCache.keys = ["https://soundfonts.plainsound.org/" + name];
+      } else {
+        Object.assign(engine, { soundfontId: 1, soundfontSource: source, selectedPreset: preset, presets: [preset] });
+      }
+      return { presets: [preset], selectedPreset: preset };
+    });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    if (action === "Download SoundFont") {
+      fireEvent.change(screen.getByLabelText("Load SoundFonts"), { target: { value: name } });
+      fireEvent.click(screen.getByRole("button", { name: "Download SoundFont" }));
+    } else {
+      fireEvent.change(screen.getByLabelText("Local SoundFonts to load"), {
+        target: { files: [new File(["bank"], name)] },
+      });
+    }
+    await vi.waitFor(() => expect(screen.getByLabelText("Current SoundFont").value).toBe(name));
+    expect(fluidsynthMock.load).toHaveBeenLastCalledWith(expect.objectContaining({ name }),
+      expect.objectContaining({ preferredPreset: "0:1" }));
+    expect(screen.getByLabelText("FluidSynth preset").value).toBe("0:1");
+  });
+
   it("accepts multiple local files and finishes preparing them while offline storage is pending", async () => {
     const files = ["PlainsoundOrgan.sf2", "PlainsoundHarpsichord.sf2", "PlainsoundSrutibox.sf2"]
       .map(name => new File(["test bank"], name));
@@ -85,13 +119,13 @@ describe("FluidSynth settings", () => {
     render(<FluidSynthSettings settings={{ output_fluidsynth: false }} onChange={onChange} />);
     const mib = 1024 * 1024;
     act(() => {
-      fluidsynthMock.engine = { soundfontCache: { estimatedBytes: 200 * mib, preparedBytes: 100 * mib, budgetBytes: 256 * mib,
+      fluidsynthMock.engine = { soundfontCache: { estimatedBytes: 200 * mib, preparedBytes: 100 * mib, budgetBytes: 384 * mib,
         wasmHeapCapacityBytes: 120 * mib, preparedKeys: [] } };
       fluidsynthMock.listeners.forEach(listener => listener(fluidsynthMock.engine));
     });
-    expect(screen.getByText("SoundFonts in memory: 200 MiB estimated of 256 MiB.")).toBeTruthy();
+    expect(screen.getByText("SoundFonts in memory: 200 MiB estimated of 384 MiB.")).toBeTruthy();
     expect(screen.queryByText(/WASM heap capacity/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Load Bank" }).closest(".fluidsynth-settings__load-row")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download SoundFont" }).closest(".fluidsynth-settings__load-row")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Prepare Organ, Harpsichord and Srutibox" })).toBeNull();
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -104,16 +138,31 @@ describe("FluidSynth settings", () => {
     const menu = screen.getByLabelText("Current SoundFont");
     const loadMenu = screen.getByLabelText("Load SoundFonts");
     expect(screen.getByRole("status").textContent).toContain("Waiting for silence to load Organ.sf2");
-    expect(within(menu).getByRole("option", { name: "Organ.sf2 (load on selection)" })).toBeTruthy();
+    expect(within(menu).getByRole("option", { name: "Organ.sf2" })).toBeTruthy();
     expect(within(loadMenu).getByRole("option", { name: "Organ.sf2" })).toBeTruthy();
     fluidsynthMock.engine = { soundfontCache: { keys: ["local:Organ.sf2"], preparedKeys: ["local:Organ.sf2"] } };
     act(() => fluidsynthMock.listeners.forEach(listener => listener(fluidsynthMock.engine)));
     view.rerender(<FluidSynthSettings {...props} restoreProgress={{ phase: "complete", prepared: 1,
       unavailable: [{ name: "Missing.sf2", reason: "No saved browser copy" }] }} />);
-    expect(within(menu).getByRole("option", { name: "Organ.sf2" })).toBeTruthy();
+    expect(within(menu).getByRole("option", { name: "Organ.sf2 (loaded)" })).toBeTruthy();
     expect(within(loadMenu).getByRole("option", { name: "Organ.sf2 (loaded)" })).toBeTruthy();
     expect(screen.getByText("Loaded: Organ.sf2")).toBeTruthy();
     expect(screen.getByText(/Missing.sf2 \(No saved browser copy\)/)).toBeTruthy();
+  });
+
+  it("discovers an unlisted browser copy and consolidates phone allocation failures across both menus", async () => {
+    const names = Array.from({ length: 5 }, (_, i) => `Bank${i}.sf2`);
+    rememberPerformanceBanks([], names.slice(0, 4).map(name => ({ name })), true);
+    workingSoundfontKeys.mockResolvedValueOnce(names.map(name => `local:${name}`));
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      restoreProgress={{ phase: "complete", unavailable: names.slice(0, 4).map(name =>
+        ({ name, reason: "RangeError: Out of memory" })) }} />);
+    for (const label of ["Load SoundFonts", "Current SoundFont"]) {
+      const menu = within(screen.getByLabelText(label));
+      for (const name of names) expect(await menu.findByRole("option", { name: name + " (available)" })).toBeTruthy();
+    }
+    expect(screen.getAllByText(/Preload memory full/)).toHaveLength(1);
+    expect(screen.queryByText(/RangeError/)).toBeNull();
   });
 
   it("can prepare a bank with the default collapsed player settings without changing the active patch", async () => {
@@ -127,15 +176,15 @@ describe("FluidSynth settings", () => {
     fireEvent.change(screen.getByLabelText("Load SoundFonts"), {
       target: { value: "PlainsoundHarpsichord.sf2" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Load Bank" }));
-    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Load Bank" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Download SoundFont" }));
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Download SoundFont" })).toBeTruthy());
     expect(fluidsynthMock.load).toHaveBeenCalledWith(expect.objectContaining({ name: "PlainsoundHarpsichord.sf2" }),
       expect.objectContaining({ prepareOnly: true }));
     expect(screen.getByLabelText("Current SoundFont").value).toBe("PlainsoundOrgan.sf2");
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it("lists only added playback banks and switches to a resident bank directly", async () => {
+  it("lists the same banks and labels in both menus and switches to a resident bank directly", async () => {
     const name = "PlainsoundHarpsichord.sf2";
     const url = `https://soundfonts.plainsound.org/${name}`;
     rememberPerformanceBanks([], [{ name, url }], true);
@@ -144,14 +193,111 @@ describe("FluidSynth settings", () => {
     const onChange = vi.fn();
     render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
     const playback = screen.getByLabelText("Current SoundFont");
-    expect(within(playback).queryByRole("option", { name: /Srutibox/ })).toBeNull();
-    expect(within(playback).getByRole("option", { name })).toBeTruthy();
+    const options = menu => [...menu.options].slice(1).map(option => [option.value, option.textContent]);
+    expect(options(playback)).toEqual(options(screen.getByLabelText("Load SoundFonts")));
+    expect(within(playback).getByRole("option", { name: "PlainsoundSrutibox.sf2" })).toBeTruthy();
+    expect(within(playback).getByRole("option", { name: name + " (loaded)" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Load Hexatone SoundFont" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Choose Local File" })).toBeNull();
     fireEvent.change(playback, { target: { value: name } });
     await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith("fluidsynth_preset", "0:3"));
     expect(fluidsynthMock.load).toHaveBeenCalledOnce();
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("shows Lute download progress and only its own budget warning after a failed Principal restore", async () => {
+    const principal = "PlainsoundOrganPrincipal.sf2";
+    const lute = "PlainsoundHarpsichordLute.sf2";
+    const reason = "SoundFont memory budget exceeded";
+    rememberPerformanceBanks([], [{ name: principal }], true);
+    let finish;
+    const release = new Promise(resolve => { finish = resolve; });
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true, headers: { get: () => "4" },
+      body: { getReader: () => {
+        let first = true;
+        return { releaseLock() {}, async read() {
+          if (first) { first = false; return { value: new Uint8Array(2) }; }
+          await release;
+          return { done: true };
+        } };
+      } },
+    })));
+    fluidsynthMock.load.mockImplementation(async (source, options) => {
+      await source.arrayBuffer(options.onDownloadProgress).catch(() => {});
+      throw new Error(reason);
+    });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      restoreProgress={{ phase: "complete", unavailable: [{ name: principal, reason }] }} />);
+    fireEvent.change(screen.getByLabelText("Load SoundFonts"), { target: { value: lute } });
+    fireEvent.click(screen.getByRole("button", { name: "Download SoundFont" }));
+    await vi.waitFor(() => expect(screen.getByRole("progressbar").value).toBe(50));
+    expect(screen.queryByText(/Principal.sf2 exceeds/)).toBeNull();
+    finish();
+    await screen.findByText(/Preload memory full/);
+    expect(screen.getAllByText(/Preload memory full/)).toHaveLength(1);
+  });
+
+  it("hides an earlier missing Principal recall when a manual Lute preload fails", async () => {
+    const principal = "PlainsoundOrganPrincipal.sf2";
+    const lute = "PlainsoundHarpsichordLute.sf2";
+    fluidsynthMock.load.mockRejectedValue(new Error("SoundFont memory budget exceeded"));
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      soundRecall={{ name: principal, preset: "0:3" }} />);
+    await screen.findByText(`Add ${principal} in Load SoundFonts.`);
+    fireEvent.change(screen.getByLabelText("Load SoundFonts"), { target: { value: lute } });
+    fireEvent.click(screen.getByRole("button", { name: "Download SoundFont" }));
+    await screen.findByText(/Preload memory full/);
+    expect(screen.queryByText(`Add ${principal} in Load SoundFonts.`)).toBeNull();
+  });
+
+  it("replaces a restore warning with one readable failure when the same bank is retried", async () => {
+    const name = "Extra.sf2";
+    const reason = "RuntimeError: Aborted(RangeError: allocation failed)";
+    rememberPerformanceBanks([], [{ name, url: "" }], true);
+    fluidsynthMock.load.mockRejectedValueOnce(new Error(reason));
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      restoreProgress={{ phase: "complete", unavailable: [{ name, reason }] }} />);
+    const message = /Preload memory full/;
+    expect(screen.getAllByText(message)).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("Local SoundFonts to load"), {
+      target: { files: [new File(["bank"], name)] },
+    });
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalled());
+    await screen.findByText(message);
+    expect(screen.getAllByText(message)).toHaveLength(1);
+    expect(screen.queryByText(/RuntimeError/i)).toBeNull();
+  });
+
+  it("starts the shut-down player with the remembered bank and preset from the collapsed fieldset", async () => {
+    sessionStorage.setItem("hexatone_fluidsynth_collapsed", "true");
+    const name = "Extra.sf2";
+    sessionStorage.setItem("fluidsynth_last_soundfont_source", JSON.stringify({ name }));
+    localStorage.setItem("fluidsynth_bank_presets", JSON.stringify({ "local:Extra.sf2": "0:4" }));
+    storageMock.read.mockResolvedValue({ blob: new Blob(["bank"]) });
+    fluidsynthMock.load.mockResolvedValue({ presets: [{ bank: 0, program: 4 }] });
+    const onChange = vi.fn();
+    render(<FluidSynthSettings settings={{ output_fluidsynth: false }} onChange={onChange} />);
+    expect(screen.getByRole("button", { name: "Shut Down FluidSynth" })).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Use FluidSynth output"));
+    expect(onChange).toHaveBeenCalledWith("output_fluidsynth", true);
+    await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalledWith(expect.objectContaining({ name }),
+      expect.objectContaining({ preferredPreset: "0:4" })));
+  });
+
+  it("clears the playing bank and keeps its library entry selectable", async () => {
+    const name = "Organ.sf2";
+    fluidsynthMock.engine = { soundfontId: 1, soundfontSource: { name }, presets: [{ bank: 0, program: 0 }] };
+    fluidsynthMock.stop.mockImplementationOnce(async () => {
+      fluidsynthMock.engine = null;
+      for (const notify of fluidsynthMock.listeners) notify(null);
+    });
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()} />);
+    const picker = screen.getByLabelText("Current SoundFont");
+    expect(picker.value).toBe(name);
+    fireEvent.click(screen.getByRole("button", { name: "Shut Down FluidSynth" }));
+    await vi.waitFor(() => expect(picker.value).toBe(""));
+    expect(within(picker).getByRole("option", { name: name + "" })).toBeTruthy();
   });
 
   it("keeps an oversized local bank in the library and loads it on playback selection", async () => {
@@ -162,26 +308,50 @@ describe("FluidSynth settings", () => {
     const onChange = vi.fn();
     const view = render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Local SoundFonts to load"), { target: { files: [file] } });
-    expect(await screen.findByText(/Could not load Extra.sf2/)).toBeTruthy();
+    expect(await screen.findByText('Preload memory full. Please select the desired soundfont manually in "Current SoundFont".')).toBeTruthy();
     expect(storageMock.store).toHaveBeenCalledWith(file, file);
     expect(readPerformanceBanks()).toEqual([{ name, url: "", preload: true }]);
     expect(onChange).not.toHaveBeenCalled();
     view.unmount();
     render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
     const playback = screen.getByLabelText("Current SoundFont");
-    expect(within(playback).getByRole("option", { name: `${name} (load on selection)` })).toBeTruthy();
+    expect(within(playback).getByRole("option", { name: `${name}` })).toBeTruthy();
     fireEvent.change(playback, { target: { value: name } });
     await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith("fluidsynth_preset", "0:2"));
     expect(fluidsynthMock.load.mock.lastCall[0].url).toBe(`local:${name}`);
     expect(fluidsynthMock.load.mock.lastCall[1].prepareOnly).toBeUndefined();
   });
 
+  it("switches an available bank to Current after held notes release when preloading exceeds memory", async () => {
+    const name = "PlainsoundHarpsichordLute.sf2";
+    const url = "https://soundfonts.plainsound.org/" + name;
+    workingSoundfontKeys.mockResolvedValueOnce([url]);
+    fluidsynthMock.engine = { soundfontCache: { estimatedBytes: 80, budgetBytes: 100 } };
+    fluidsynthMock.load.mockImplementation(async (source, options) => {
+      if (options.prepareOnly) await options.onBytesReady(source, new ArrayBuffer(20));
+      return { presets: [{ bank: 0, program: 0 }] };
+    });
+    let idle = false;
+    render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
+      keysRef={{ current: { isSoundInteractionIdle: () => idle } }} />);
+    const menu = screen.getByLabelText("Load SoundFonts");
+    await within(menu).findByRole("option", { name: name + " (available)" });
+    fireEvent.change(menu, { target: { value: name } });
+    fireEvent.click(screen.getByRole("button", { name: "Load SoundFont" }));
+    await vi.waitFor(() => expect(storageMock.store).toHaveBeenCalled());
+    expect(fluidsynthMock.stop).not.toHaveBeenCalled();
+    idle = true;
+    await vi.waitFor(() => expect(screen.getByLabelText("Current SoundFont").value).toBe(name));
+    expect(fluidsynthMock.stop).toHaveBeenCalledExactlyOnceWith({ naturalRelease: true });
+  });
+
   it("unpins one bank without removing the library entry or changing playback", () => {
     rememberPerformanceBanks([], [{ name: "Local.sf2" }, { name: "Other.sf2" }], true);
+    fluidsynthMock.engine = { soundfontCache: { preparedKeys: ["local:Local.sf2"] } };
     const onChange = vi.fn();
     render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
     fireEvent.change(screen.getByLabelText("Load SoundFonts"), { target: { value: "Local.sf2" } });
-    fireEvent.click(screen.getByRole("button", { name: "Unload Bank" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unload" }));
     expect(fluidsynthMock.stop).toHaveBeenCalledWith("local:Local.sf2");
     expect(readPerformanceBanks().map(({ preload }) => preload)).toEqual([false, true]);
     expect(within(screen.getByLabelText("Current SoundFont"))
@@ -288,6 +458,7 @@ describe("FluidSynth settings", () => {
     render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={vi.fn()}
       soundRecall={BUILTIN_USER_SOUNDS[0].soundfont} />);
     await vi.waitFor(() => expect(fluidsynthMock.load).toHaveBeenCalled());
+    await vi.waitFor(() => expect(screen.getByLabelText("Load SoundFonts").value).toBe("PlainsoundOrgan.sf2"));
     expect(fluidsynthMock.load.mock.calls[0][0].name).toBe("PlainsoundOrgan.sf2");
     expect(fluidsynthMock.load.mock.calls[0][1].preferredPreset).toBe("0:1");
     expect(fetch).not.toHaveBeenCalled();
@@ -316,7 +487,7 @@ describe("FluidSynth settings", () => {
       fireEvent.change(screen.getByLabelText("Local SoundFonts to load"), {
         target: { files: [new File(["soundfont"], name)] },
       });
-      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Load Local Files…" }).disabled).toBe(false));
+      await vi.waitFor(() => expect(screen.getByRole("button", { name: "Load Local File" }).disabled).toBe(false));
       fireEvent.change(screen.getByLabelText("Current SoundFont"), { target: { value: name } });
       await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith("fluidsynth_preset", `0:${program}`));
       expect(fluidsynthMock.load).toHaveBeenCalledWith(expect.objectContaining({ name }),
@@ -465,20 +636,18 @@ describe("FluidSynth settings", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it.each(["OFF", "disable", "unmount"])("cancels pending automatic loading on %s", async action => {
-    let finish;
-    const pending = new Promise(resolve => { finish = resolve; });
-    storageMock.read.mockReturnValue(pending);
+  it.each(["clear", "disable", "unmount"])("cancels pending playback loading on %s", async action => {
+    fluidsynthMock.load.mockImplementation((_source, { signal }) => new Promise((_, reject) =>
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true })));
     const onChange = vi.fn();
     const view = render(<FluidSynthSettings settings={{ output_fluidsynth: true }} onChange={onChange} />);
-    const menu = screen.getByLabelText("Current SoundFont");
-    fireEvent.change(menu, { target: { value: "PlainsoundOrgan.sf2" } });
-    if (action === "OFF") fireEvent.change(menu, { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Current SoundFont"), { target: { value: "PlainsoundOrgan.sf2" } });
+    const signal = fluidsynthMock.load.mock.lastCall[1].signal;
+    if (action === "clear") fireEvent.click(screen.getByRole("button", { name: "Shut Down FluidSynth" }));
     else if (action === "disable") view.rerender(<FluidSynthSettings settings={{ output_fluidsynth: false }} onChange={onChange} />);
     else view.unmount();
-    await act(async () => { finish({ offline: true, blob: new Blob(["font"]) }); });
-    expect(fluidsynthMock.load).not.toHaveBeenCalled();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(signal.aborted).toBe(true);
+    expect(onChange).not.toHaveBeenCalledWith("fluidsynth_preset", expect.anything());
   });
 
   it("enables preset, output, and volume controls once a bank is loaded", async () => {

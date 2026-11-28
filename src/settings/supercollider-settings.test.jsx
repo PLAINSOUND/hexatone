@@ -83,6 +83,18 @@ describe("SuperCollider scsynth settings", () => {
     expect(description.closest("em")).toBeTruthy();
   });
 
+  it("shuts down the local server while collapsed and restarts it from the output checkbox", () => {
+    const onChange = vi.fn();
+    const settings = { osc_local: true, output_osc: false };
+    const view = render(<SuperColliderSettings settings={settings} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Shut Down SuperSonic" }));
+    expect(onChange).toHaveBeenCalledWith("osc_server_off", true);
+    view.rerender(<SuperColliderSettings settings={{ ...settings, osc_server_off: true }} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText("Use SuperCollider Sounds"));
+    expect(onChange).toHaveBeenCalledWith("osc_server_off", false);
+    expect(onChange).toHaveBeenCalledWith("output_osc", true);
+  });
+
   it("offers server OFF independently of the warm output toggle", () => {
     const onChange = vi.fn();
     const view = render(<SuperColliderSettings settings={{ output_osc: true, osc_local: true }} onChange={onChange} />);

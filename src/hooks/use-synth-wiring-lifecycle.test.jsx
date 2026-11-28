@@ -31,8 +31,8 @@ let current;
 const keysRef = { current: { updateLiveOutputState: vi.fn(), disconnectMidiInput: vi.fn() } };
 const synthRef = { current: null };
 const setSettings = vi.fn();
-function Harness({ settings = base, userHasInteracted = true }) {
-  current = useSynthWiring(settings, setSettings, { ready: true, userHasInteracted, keysRef, synthRef });
+function Harness({ settings = base, userHasInteracted = true, patchTransitionRef }) {
+  current = useSynthWiring(settings, setSettings, { ready: true, userHasInteracted, keysRef, synthRef, patchTransitionRef });
   return null;
 }
 it("does not reload Exquis mode preferences when only MPE processing changes", async () => {
@@ -65,6 +65,31 @@ it("server OFF disposes a parked SuperSonic engine and creates no bridge", async
   expect(factories.osc).not.toHaveBeenCalled();
   expect(factories.local).toHaveBeenCalledOnce();
 });
+it("shows startup for a cold SuperSonic patch and reuses its engine across warm patch changes", async () => {
+  const start = deferred();
+  const local = { ...engine(), local: true, resumeOutput: vi.fn() };
+  factories.local.mockReturnValue(start.promise);
+  const off = { ...base, output_sample: false, output_osc: false, osc_local: true };
+  const on = { ...off, output_osc: true };
+  const transition = { current: null };
+  const view = render(<Harness settings={off} patchTransitionRef={transition} />);
+  const select = settings => {
+    transition.current = { policy: "preserve" };
+    view.rerender(<Harness settings={settings} patchTransitionRef={transition} />);
+  };
+  select(on);
+  await waitFor(() => expect(current.startingPatchAudio).toBe(true));
+  start.resolve(local);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  expect(current.startingPatchAudio).toBe(false);
+  select(off);
+  await waitFor(() => expect(current.synth?.children).toEqual([]));
+  select(on);
+  await waitFor(() => expect(current.synth?.children).toEqual([local]));
+  expect(factories.local).toHaveBeenCalledTimes(1);
+  expect(local.shutdown).not.toHaveBeenCalled();
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
@@ -218,6 +243,31 @@ it("keeps the FluidSynth child and held notes when selecting a sound on the same
   expect(factories.fluid).toHaveBeenCalledTimes(1);
   expect(first.shutdown).not.toHaveBeenCalled();
   expect(first.allSoundOff).not.toHaveBeenCalled();
+});
+
+it("reconnects a retained FluidSynth output before publishing the patch after Hammond", async () => {
+  const wake = deferred();
+  const retained = { ...engine(), pauseOutput: vi.fn(), rejoinOutput: vi.fn(() => wake.promise) };
+  const sample = engine();
+  factories.sample.mockResolvedValue(sample);
+  factories.fluid.mockResolvedValue(retained);
+  fluid.engine = { soundfontId: 1, output: { id: "internal-fluid" } };
+  const organ = { ...base, output_sample: false, output_fluidsynth: true };
+  const patchTransitionRef = { current: null };
+  const view = render(<Harness settings={organ} patchTransitionRef={patchTransitionRef} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([retained]));
+  patchTransitionRef.current = { policy: "preserve" };
+  view.rerender(<Harness settings={{ ...base, instrument: "hammond", output_fluidsynth: false }}
+    patchTransitionRef={patchTransitionRef} />);
+  await waitFor(() => expect(current.synth?.children).toEqual([sample]));
+  expect(retained.pauseOutput).not.toHaveBeenCalled();
+  patchTransitionRef.current = { policy: "preserve", bankReady: Promise.resolve(true) };
+  view.rerender(<Harness settings={organ} patchTransitionRef={patchTransitionRef} />);
+  await waitFor(() => expect(retained.rejoinOutput).toHaveBeenCalled());
+  expect(current.synth.children).toEqual([sample]);
+  wake.resolve();
+  await waitFor(() => expect(current.synth?.children).toEqual([retained]));
+  expect(factories.fluid).toHaveBeenCalledTimes(1);
 });
 
 it("keeps built-in FluidSynth when MIDI access closes and releases both maps on unmount", async () => {

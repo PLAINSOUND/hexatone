@@ -516,6 +516,7 @@ const useSynthWiring = (
   // Counter so multiple overlapping async operations don't prematurely hide
   // the loading spinner (see wait / signal helpers above).
   const [loading, setLoading] = useState(0);
+  const [startingPatchAudio, setStartingPatchAudio] = useState(false);
   const [enginesLoading, setEnginesLoading] = useState(0);
   const [engineStartupErrors, setEngineStartupErrors] = useState([]);
   const [audioRetryRevision, setAudioRetryRevision] = useState(0);
@@ -966,8 +967,9 @@ const useSynthWiring = (
     let cancelled = false;
     const permissionGeneration = midiPermissionGenerationRef.current;
     const retryGeneration = audioRetryGenerationRef.current;
+    const patch = patchTransitionRef?.current;
     const isCurrentBuild = () =>
-      !cancelled && permissionGeneration === midiPermissionGenerationRef.current &&
+      !patch?.signal?.aborted && patchTransitionRef?.current === patch && !cancelled && permissionGeneration === midiPermissionGenerationRef.current &&
       retryGeneration === audioRetryGenerationRef.current;
 
     // Match the sequence-only keyboard's neutral pitch reference. Absolute
@@ -978,7 +980,6 @@ const useSynthWiring = (
       fundamental: Number.isFinite(playbackFundamental) && playbackFundamental > 0
         ? playbackFundamental : 440,
     };
-    const patch = patchTransitionRef?.current;
     const preservePatch = patch?.policy === "preserve";
     const wantDsf = !!settings.output_dsf;
     if (patch && !patch.prepared) {
@@ -987,7 +988,13 @@ const useSynthWiring = (
       dsfControlsRef.current = dsfControlsFromSettings(settings);
       oscRuntimeControlsRef.current = readOscRuntimeControls(settings);
       if ((preservePatch || !settings.output_sample) && sampleSynthRef.current.synth?.hasVoices?.()) retirePatchOutput(sampleSynthRef);
-      if (!settings.output_osc) retirePatchOutput(oscSynthRef);
+      if (!settings.output_osc && !settings.osc_server_off && oscSynthRef.current.synth) {
+        if (oscSynthRef.current.synth.local) {
+          clearOutputRef(warmOscSynthRef, { panic: true });
+          warmOscSynthRef.current = oscSynthRef.current;
+          oscSynthRef.current = { key: null, synth: null };
+        } else retirePatchOutput(oscSynthRef);
+      }
     }
     if (!wantDsf) {
       dsfRequestsRef.current.cancelAll();
@@ -1156,6 +1163,13 @@ const useSynthWiring = (
     }
     const showLoading = userHasInteracted && !(wantSample && sampleSynthRef.current.synth) &&
       !oscSynthRef.current.synth;
+    const startingAudio = !!patch && (
+      (patch.bankReady && (!fluidSynthEngine?.node || fluidSynthEngine.context?.state !== "running")) ||
+      (wantOsc && settings.osc_local && !oscSynthRef.current.synth) ||
+      (wantDsf && !dsfSynthRef.current.synth) ||
+      (wantSample && !sampleSynthRef.current.synth && !warmSampleSynthRef.current.synth)
+    );
+    if (startingAudio) setStartingPatchAudio(true);
     setEnginesLoading(wait);
     if (showLoading) setLoading(wait);
     let loadingFinished = false;
@@ -1163,7 +1177,10 @@ const useSynthWiring = (
       if (loadingFinished) return;
       loadingFinished = true;
       if (showLoading && mountedRef.current) setLoading(signal);
-      if (mountedRef.current) setEnginesLoading(signal);
+      if (mountedRef.current) {
+        setEnginesLoading(signal);
+        if (startingAudio) setStartingPatchAudio(false);
+      }
     };
     const promises = [];
     if (wantDsf) {
@@ -1296,9 +1313,15 @@ const useSynthWiring = (
       pruneOutputMap(fluidSynthsRef, new Set([fluidKey]));
       if (warmFluidSynthRef.current.synth) {
         if (warmFluidSynthRef.current.key === fluidKey) {
-          fluidSynthsRef.current.set(fluidKey, warmFluidSynthRef.current.synth);
-          warmFluidSynthRef.current = { key: null, synth: null };
-        } else clearOutputRef(warmFluidSynthRef);
+          const retained = warmFluidSynthRef.current.synth;
+          return retained.rejoinOutput(isCurrentBuild).then(() => {
+            if (!isCurrentBuild()) return null;
+            fluidSynthsRef.current.set(fluidKey, retained);
+            warmFluidSynthRef.current = { key: null, synth: null };
+            return retained;
+          });
+        }
+        clearOutputRef(warmFluidSynthRef);
       }
       if (!fluidSynthsRef.current.has(fluidKey)) {
         const fading = reclaimFadingOutput(fluidSynthsRef, fluidKey);
@@ -2049,6 +2072,7 @@ const useSynthWiring = (
     synth,
     retryAudioOutputs,
     enginesLoading,
+    startingPatchAudio,
     engineStartupErrors,
     readySampleInstrument,
     midi,

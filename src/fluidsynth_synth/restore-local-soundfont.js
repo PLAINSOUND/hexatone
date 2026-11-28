@@ -1,9 +1,11 @@
+import { soundfontCacheBudget } from "./cache-budget.js";
 import { readOfflineSoundfont, soundfontStorageKey } from "./soundfont-storage.js";
 import { BANK_PRESETS_KEY, readRememberedSoundfont, legacyLocalSoundfontKey } from "./soundfont-catalog.js";
 import { clearPreparedSoundfonts, loadFluidSynthSoundFont, peekFluidSynthEngine } from "./index.js";
 import { readPerformanceBanks } from "./performance-banks.js";
 import { restoreSoundOnReload } from "../persistence/io-reload-policy.js";
-import { createSoundfontSource } from "./soundfont-source.js";
+import { findSound, loadUserSounds, restoreSelection } from "../persistence/user-sounds.js";
+import { createSoundfontSource, resolveSoundfontRecall } from "./soundfont-source.js";
 
 export { LAST_SOUNDFONT_KEY } from "./soundfont-catalog.js";
 
@@ -34,6 +36,11 @@ export async function restorePerformanceSoundfonts({ signal, canLoadColdBank, on
         unavailable.push({ name: bank.name, reason: "No saved browser copy" });
         continue;
       }
+      if (!resident && (cache?.estimatedBytes ?? 0) + 2 * cached.blob.size >
+          (cache?.budgetBytes ?? soundfontCacheBudget())) {
+        unavailable.push({ name: bank.name, reason: "SoundFont memory budget exceeded" });
+        continue;
+      }
       await loadFluidSynthSoundFont(createSoundfontSource({ name: bank.name, url: key, cachedBank: cached, signal }), {
         signal, canLoadColdBank, prepareOnly: true,
         onWaitingForSilence: () => onProgress?.({ ...progress, phase: "waiting" }),
@@ -43,6 +50,7 @@ export async function restorePerformanceSoundfonts({ signal, canLoadColdBank, on
     } catch (error) {
       if (signal?.aborted) return;
       unavailable.push({ name: bank.name, reason: error.message });
+      if (/out of memory|allocation failed/i.test(error.message)) break;
     }
   }
   const report = { phase: "complete", prepared, unavailable };
@@ -51,26 +59,37 @@ export async function restorePerformanceSoundfonts({ signal, canLoadColdBank, on
 }
 
 // No network fallback: a missing/denied browser copy remains a manual choice.
-export async function restoreLocalSoundfont({ signal, preferredPreset, canLoadColdBank, readMixer } = {}) {
+export async function restoreLocalSoundfont({ signal, preferredPreset, canLoadColdBank, readMixer, restoreSelectedSound } = {}) {
   if (!restoreSoundOnReload()) return null;
   if (peekFluidSynthEngine()?.soundfontId != null) return null;
-  const source = readRememberedSoundfont();
-  if (!source?.name) return null;
-  const key = soundfontStorageKey(source);
-  let bank;
-  try { bank = await readOfflineSoundfont(key); }
-  catch { return null; }
-  signal?.throwIfAborted();
-  if (!bank?.blob || peekFluidSynthEngine()?.soundfontId != null) return null;
-  let savedPreset;
-  try {
-    const saved = JSON.parse(localStorage.getItem(BANK_PRESETS_KEY) || "{}");
-    savedPreset = saved[key] ?? saved[legacyLocalSoundfontKey(key)];
+  const working = readRememberedSoundfont(sessionStorage);
+  let source;
+  let preset;
+  if (restoreSelectedSound && !working) {
+    const sounds = loadUserSounds();
+    const reference = findSound(restoreSelection(sounds).selection, sounds)?.soundfont;
+    if (!reference?.name) return null;
+    const target = await resolveSoundfontRecall(reference, peekFluidSynthEngine, () => !signal?.aborted);
+    if (!target?.source) return null;
+    source = target.source;
+    preset = target.candidate.preset;
+  } else {
+    const remembered = working ?? readRememberedSoundfont();
+    if (!remembered?.name) return null;
+    const key = soundfontStorageKey(remembered);
+    let bank;
+    try { bank = await readOfflineSoundfont(key); }
+    catch { return null; }
+    if (!bank?.blob) return null;
+    source = createSoundfontSource({ name: remembered.name, url: key, cachedBank: bank, signal });
+    try {
+      const saved = JSON.parse(localStorage.getItem(BANK_PRESETS_KEY) || "{}");
+      preset = saved[key] ?? saved[legacyLocalSoundfontKey(key)];
+    } catch { /* Use the current preset preference. */ }
   }
-  catch { /* Use the current preset preference. */ }
-  const result = await loadFluidSynthSoundFont({
-    name: source.name, url: source.url || "", arrayBuffer: () => bank.blob.arrayBuffer(),
-  }, { signal, canLoadColdBank, preferredPreset: savedPreset ?? preferredPreset });
+  signal?.throwIfAborted();
+  if (peekFluidSynthEngine()?.soundfontId != null) return null;
+  const result = await loadFluidSynthSoundFont(source, { signal, canLoadColdBank, preferredPreset: preset ?? preferredPreset });
   signal?.throwIfAborted();
   const engine = peekFluidSynthEngine();
   engine?.setVolume(readMixer?.("fluidsynth_internal_volume") ?? Number(localStorage.getItem("fluidsynth_internal_volume") ?? 100));
@@ -85,6 +104,7 @@ export async function restoreSoundfontSession(options = {}) {
   if (!activeSignal?.aborted) {
     try {
       active = await restoreLocalSoundfont({ ...options, signal: activeSignal });
+      if (!activeSignal?.aborted) options.onActiveReady?.(active);
     } catch (error) {
       if (!activeSignal?.aborted) options.onActiveError?.(error);
     }

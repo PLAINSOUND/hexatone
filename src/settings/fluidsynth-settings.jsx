@@ -1,3 +1,4 @@
+import { soundfontErrorDetail } from "../fluidsynth_synth/load-error.js";
 /** FluidSynth browser backend controls: local SoundFont, enumerated preset and level. */
 
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -5,16 +6,21 @@ import PropTypes from "prop-types";
 import PrepareSoundfonts from "./prepare-soundfonts.jsx";
 import { useSoundRecallState } from "../hooks/use-sound-session.js";
 import CustomRangeSlider from "./shared/range-slider.jsx";
-import { createSoundfontSource } from "../fluidsynth_synth/soundfont-source.js";
-import { soundfontStorageKey, readWorkingSoundfont, storeSoundfontCopy, saveSoundfontFile } from "../fluidsynth_synth/soundfont-storage.js";
+import { findSound, loadUserSounds, restoreSelection } from "../persistence/user-sounds.js";
+import { createSoundfontSource, readySoundfontRecall, resolveSoundfontRecall } from "../fluidsynth_synth/soundfont-source.js";
+import { soundfontCopiesChanged, workingSoundfontKeys, soundfontStorageKey, readWorkingSoundfont, storeSoundfontCopy, saveSoundfontFile } from "../fluidsynth_synth/soundfont-storage.js";
 import { restoreSoundOnReload } from "../persistence/io-reload-policy.js";
 import {
   loadFluidSynthSoundFont,
+  getFluidSynthEngine,
+  ensureFluidSynthEngineAwake,
   peekFluidSynthEngine,
   subscribeFluidSynthEngine,
+  stopFluidSynthEngine,
+  waitForColdBankGap,
 } from "../fluidsynth_synth/index.js";
 
-import { BANK_PRESETS_KEY, HOSTED_SOUNDFONTS, LAST_BANK_KEY, legacyLocalSoundfontKey, readRememberedSoundfont, rememberBankPreset } from "../fluidsynth_synth/soundfont-catalog.js";
+import { BANK_PRESETS_KEY, HOSTED_SOUNDFONTS, hostedSoundfontUrl, LAST_BANK_KEY, legacyLocalSoundfontKey, readRememberedSoundfont, rememberBankPreset } from "../fluidsynth_synth/soundfont-catalog.js";
 import { canLoadColdSoundfont, readPerformanceBanks, rememberPerformanceBanks } from "../fluidsynth_synth/performance-banks.js";
 import MixerFader from "./mixer-fader.jsx";
 import { FLUID_VOLUME_KEY } from "../audio/sound-mixer.js";
@@ -28,17 +34,24 @@ const readSavedPreset = (key) => {
   }
   catch { return undefined; }
 };
-const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onWorkingChange, keysRef, restoreProgress }) => {
+const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onWorkingChange, keysRef, restoreProgress, cancelStartupRestore }) => {
   const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem("hexatone_fluidsynth_collapsed") !== "false");
   const [presets, setPresets] = useState(() => peekFluidSynthEngine()?.presets ?? []);
   const [cache, setCache] = useState(() => peekFluidSynthEngine()?.soundfontCache);
   const [banks, setBanks] = useState(readPerformanceBanks);
-  const rememberBanks = (sources, preload) => setBanks(previous => rememberPerformanceBanks(previous, sources, preload));
+  const preparationRequest = useRef(null);
+  const localFiles = useRef(new Map());
+  const rememberBanks = (sources, preload) => {
+    for (const file of sources) if (file instanceof File) localFiles.current.set(file.name, file);
+    setBanks(previous => rememberPerformanceBanks(previous, sources, preload));
+  };
+  const [libraryBankName, setLibraryBankName] = useState("");
   const [selectedBankName, setSelectedBankName] = useState(() =>
     peekFluidSynthEngine()?.soundfontSource?.name ?? "");
   const [smoothing, setSmoothing] = useState(readFluidSynthSmoothing);
   const smoothingRef = useRef(smoothing);
   const [busy, setBusy] = useState(false);
+  const [feedbackOwner, setFeedbackOwner] = useState("restore");
   const [status, setStatus] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(null);
   const [presetValue, setPresetValue] = useState(settings.fluidsynth_preset || "0:0");
@@ -50,17 +63,61 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
     ++loadGenerationRef.current;
     downloadControllerRef.current?.abort();
   }, []);
+  useEffect(() => {
+    if (settings.output_fluidsynth || !downloadControllerRef.current) return;
+    ++loadGenerationRef.current;
+    downloadControllerRef.current.abort();
+    downloadControllerRef.current = null;
+    setBusy(false);
+    setLoadingProgress(null);
+    setSelectedBankName(peekFluidSynthEngine()?.soundfontSource?.name ?? "");
+  }, [settings.output_fluidsynth]);
   const recalled = useSoundRecallState(soundRecall);
+  const noticeRevision = recalled?.revision ?? 0;
+  const dismissBankNotice = () => soundRecall?.dismissBankNotice(noticeRevision);
   const recallReference = recalled?.reference;
-  const recallPending = recalled?.phase === "checking" || recalled?.phase === "waiting";
+  const recallPending = ["checking", "waiting", "loading"].includes(recalled?.phase);
   const activeEngine = peekFluidSynthEngine();
   const source = activeEngine?.soundfontSource;
+  const [storedKeys, setStoredKeys] = useState([]);
+  useEffect(() => {
+    let revision = 0;
+    const update = () => {
+      const current = ++revision;
+      workingSoundfontKeys().then(keys => { if (current === revision) setStoredKeys(keys); });
+    };
+    soundfontCopiesChanged.addEventListener("change", update);
+    update();
+    return () => { revision++; soundfontCopiesChanged.removeEventListener("change", update); };
+  }, []);
+  const residentKeys = new Set([...(cache?.keys ?? []), ...(cache?.preparedKeys ?? [])]);
+  if (activeEngine?.soundfontId != null && source) residentKeys.add(soundfontStorageKey(source));
+  const availableKeys = new Set([...storedKeys, ...Array.from(localFiles.current.values(), soundfontStorageKey)]);
   const playbackBanks = new Map(banks.map(bank => [bank.name, bank]));
-  const remembered = readRememberedSoundfont();
-  for (const bank of [remembered, source]) {
-    if (bank && !playbackBanks.has(bank.name)) playbackBanks.set(bank.name, bank);
+  for (const bank of [readRememberedSoundfont(sessionStorage), readRememberedSoundfont(), source, recalled?.phase === "over-budget" && recalled]) {
+    if (bank?.name && !playbackBanks.has(bank.name)) playbackBanks.set(bank.name, bank);
   }
-  const residentKeys = cache?.keys ?? [];
+  for (const key of [...availableKeys, ...residentKeys]) {
+    let name = key.slice(key.lastIndexOf("/") + 1);
+    if (key.startsWith("local:")) name = key.slice(6);
+    else { try { name = decodeURIComponent(name); } catch { /* Preserve the stored filename. */ } }
+    if (name && !playbackBanks.has(name)) playbackBanks.set(name, { name, url: key });
+  }
+  for (const name of HOSTED_SOUNDFONTS) {
+    if (!playbackBanks.has(name)) playbackBanks.set(name, { name, url: hostedSoundfontUrl(name) });
+  }
+  for (const sound of loadUserSounds()) {
+    for (const bank of [sound.soundfont, sound.soundfont.fallback]) {
+      if (bank?.name && !playbackBanks.has(bank.name)) playbackBanks.set(bank.name, bank);
+    }
+  }
+  const bankState = bank => {
+    const key = soundfontStorageKey(bank);
+    if (residentKeys.has(key)) return "loaded";
+    if (availableKeys.has(key)) return "available";
+    return "";
+  };
+  const bankLabel = bank => bank.name + (bankState(bank) ? ` (${bankState(bank)})` : "");
   useEffect(() => {
     if (source) setBanks(previous => rememberPerformanceBanks(previous, [source]));
   }, [source]);
@@ -68,12 +125,11 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
     const syncEngineState = (nextEngine = peekFluidSynthEngine()) => {
       setPresets(nextEngine?.presets ?? []);
       setCache(nextEngine?.soundfontCache);
-      if (!nextEngine?.pendingSoundfont) setStatus("");
       if (nextEngine?.selectedPreset) {
         setPresetValue(`${nextEngine.selectedPreset.bank}:${nextEngine.selectedPreset.program}`);
       }
-      if (nextEngine?.soundfontSource?.name && !downloadControllerRef.current) {
-        setSelectedBankName(nextEngine.soundfontSource.name);
+      if (!downloadControllerRef.current) {
+        setSelectedBankName(nextEngine?.soundfontSource?.name ?? "");
       }
     };
     syncEngineState();
@@ -84,7 +140,7 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
   const loaded = activeEngine?.soundfontId != null && presets.length > 0;
   const presetControlsReady = loaded && !busy && !recallPending && !activeEngine?.pendingSoundfont;
   const selectedPreset = presetControlsReady ? presetValue : "";
-  const quietOfflineLoad = busy && loadingProgress?.quiet;
+  const canShutdown = activeEngine || busy || selectedBankName || preparationRequest.current || settings.output_fluidsynth;
   const storageActionsReady = loaded && !!source && !activeEngine?.pendingSoundfont;
   const waitingForSilence = loadingProgress?.phase === "Waiting for silence to load";
   const canCancelLoad = recalled?.phase === "waiting" ||
@@ -121,15 +177,16 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
 
   const canLoadColdBank = () => canLoadColdSoundfont(keysRef?.current);
 
-  const loadSoundFont = async (source, signal) => {
+  const loadSoundFont = async (source, signal, requestedPreset) => {
     if (!source) return;
+    setFeedbackOwner("current");
     const generation = ++loadGenerationRef.current;
     const current = () => generation === loadGenerationRef.current;
-    const useRecallPreset = recalled?.phase === "missing" || recallPending;
+    const useRecallPreset = recalled?.phase === "missing" || recalled?.phase === "over-budget" || recallPending;
     const recalledPreset = useRecallPreset
       ? [recallReference, recallReference.fallback].find(bank => bank?.name === source.name)?.preset
       : undefined;
-    const preferredPreset = recalledPreset ?? readSavedPreset(soundfontStorageKey(source)) ??
+    const preferredPreset = requestedPreset ?? recalledPreset ?? readSavedPreset(soundfontStorageKey(source)) ??
       (source.name === localStorage.getItem(LAST_BANK_KEY) ? settings.fluidsynth_preset : undefined);
     setBusy(true);
     setStatus(source.url ? "" : `${loaded ? "Replacing" : "Loading"} ${source.name}…`);
@@ -139,7 +196,6 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
       url: source.url ?? "",
       percent: 0,
       phase: source.url ? "Checking stored copy" : "Reading local file",
-      quiet: !!source.url,
     });
     try {
       const result = await loadFluidSynthSoundFont(source, {
@@ -148,7 +204,7 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
         canLoadColdBank,
         onWaitingForSilence: () => {
           if (current()) setLoadingProgress(progress => ({ ...progress, url: "",
-            phase: "Waiting for silence to load", quiet: false }));
+            phase: "Waiting for silence to load" }));
         },
         onDownloadProgress: ({ loaded: bytesLoaded, total }) => {
           if (!current()) return;
@@ -174,9 +230,11 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
         },
       });
       if (!current()) return;
+      dismissBankNotice();
       const nextPresets = result.presets || [];
       setPresets(nextPresets);
       setSelectedBankName(source.name);
+      setLibraryBankName(source.name);
       if (nextPresets.length) {
         const chosen = result.selectedPreset ??
           nextPresets.find(preset => `${preset.bank}:${preset.program}` === preferredPreset) ?? nextPresets[0];
@@ -194,7 +252,7 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
       return true;
     } catch (error) {
       if (!current() || error.name === "AbortError") return;
-      setStatus(`SoundFont load failed: ${error.message}`);
+      setStatus(`SoundFont load failed: ${soundfontErrorDetail(error)}`);
       const previousEngine = peekFluidSynthEngine();
       if (previousEngine?.soundfontId != null) {
         setPresets(previousEngine.presets || []);
@@ -218,9 +276,112 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
     }
   };
 
+  const replaceForMemory = async (bank, signal) => {
+    const report = phase => soundRecall?.setManualLoadProgress(phase, bank.name);
+    try {
+      const released = () => keysRef?.current?.isSoundInteractionIdle?.() !== false && canLoadColdBank();
+      await waitForColdBankGap(released, signal, () => report("waiting"));
+      signal.throwIfAborted();
+      report("loading");
+      await stopFluidSynthEngine({ naturalRelease: true });
+      signal.throwIfAborted();
+      const sounds = loadUserSounds();
+      const reference = findSound(restoreSelection(sounds).selection, sounds)?.soundfont;
+      const preset = [reference, reference?.fallback].find(candidate => candidate?.name === bank.name)?.preset;
+      return await loadSoundFont(bank, signal, preset);
+    } finally {
+      report(null);
+    }
+  };
+
+  const selectPreparedSoundBank = async (names, signal) => {
+    if (signal.aborted || (soundRecall?.state?.revision ?? 0) !== noticeRevision) return;
+    const sounds = loadUserSounds();
+    const sound = findSound(restoreSelection(sounds).selection, sounds);
+    const reference = sound?.soundfont ?? soundRecall?.state?.reference;
+    if (!reference?.name || !names.some(name => name === reference.name || name === reference.fallback?.name)) return;
+    const engine = peekFluidSynthEngine();
+    const target = readySoundfontRecall(reference, engine);
+    if (!target) return;
+    if (target.active && soundRecall?.state?.phase !== "missing" &&
+        (soundRecall?.state?.phase === "manual" ||
+          target.candidate.preset === `${engine.selectedPreset?.bank}:${engine.selectedPreset?.program}`)) return;
+    const source = target.source ?? createSoundfontSource({
+      name: target.candidate.name, url: soundfontStorageKey(target.candidate),
+    });
+    const controller = new AbortController();
+    downloadControllerRef.current = controller;
+    const abort = () => controller.abort();
+    signal.addEventListener("abort", abort, { once: true });
+    try {
+      await loadSoundFont(source, controller.signal, target.candidate.preset);
+    } finally {
+      signal.removeEventListener("abort", abort);
+    }
+  };
+
+  const shutdownPlayer = async () => {
+    cancelStartupRestore?.();
+    onChange("output_fluidsynth", false);
+    preparationRequest.current?.abort();
+    soundRecall?.cancel({ quiet: true });
+    setFeedbackOwner("current");
+    const generation = ++loadGenerationRef.current;
+    downloadControllerRef.current?.abort();
+    downloadControllerRef.current = null;
+    setBusy(true);
+    setLoadingProgress(null);
+    try {
+      await stopFluidSynthEngine({ rememberBank: true });
+      if (generation !== loadGenerationRef.current) return;
+      setSelectedBankName("");
+      setPresets([]);
+      setCache(null);
+      setStatus("");
+      soundRecall?.markManualBankSelection();
+      onChange("fluidsynth_runtime_revision", (Number(settings.fluidsynth_runtime_revision) || 0) + 1);
+    } catch (error) {
+      if (generation === loadGenerationRef.current) setStatus(soundfontErrorDetail(error));
+    } finally {
+      if (generation === loadGenerationRef.current) setBusy(false);
+    }
+  };
+
+  const enablePlayer = async () => {
+    onChange("output_fluidsynth", true);
+    const controller = new AbortController();
+    downloadControllerRef.current = controller;
+    const { signal } = controller;
+    try {
+      const engine = peekFluidSynthEngine() ?? await getFluidSynthEngine();
+      signal.throwIfAborted();
+      if (engine.soundfontId != null) {
+        await ensureFluidSynthEngineAwake();
+        return;
+      }
+      const sounds = loadUserSounds();
+      const selected = findSound(restoreSelection(sounds).selection, sounds);
+      const reference = readRememberedSoundfont(sessionStorage) ??
+        (selected?.soundfont.name ? selected.soundfont : readRememberedSoundfont());
+      if (!reference?.name) return;
+      const target = await resolveSoundfontRecall(reference, peekFluidSynthEngine, () => !signal.aborted);
+      if (target?.source && !signal.aborted)
+        await loadSoundFont(target.source, signal, target.candidate.preset);
+    } catch (error) {
+      if (!signal.aborted) {
+        setFeedbackOwner("current");
+        setStatus(soundfontErrorDetail(error));
+      }
+    } finally {
+      if (downloadControllerRef.current === controller) downloadControllerRef.current = null;
+    }
+  };
+
   const selectSoundfont = event => {
     const bank = playbackBanks.get(event.currentTarget.value);
     if (!bank) return;
+    setFeedbackOwner("current");
+    setStatus("");
     soundRecall?.cancel({ quiet: true });
     if (busy) {
       downloadControllerRef.current?.abort();
@@ -230,17 +391,20 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
       setLoadingProgress(null);
     }
     setSelectedBankName(bank.name);
-    if (source && soundfontStorageKey(source) === soundfontStorageKey(bank)) return;
+    if (loaded && source && soundfontStorageKey(source) === soundfontStorageKey(bank)) return;
     const controller = new AbortController();
     downloadControllerRef.current = controller;
+    const cachedFile = localFiles.current.get(bank.name);
     const bankSource = createSoundfontSource({
+      cachedBank: cachedFile ? { blob: cachedFile } : undefined,
       name: bank.name,
       url: soundfontStorageKey(bank),
-      allowDownload: Boolean(bank.url) && HOSTED_SOUNDFONTS.includes(bank.name),
+      allowDownload: HOSTED_SOUNDFONTS.includes(bank.name),
       signal: controller.signal,
       onPhase: phase => {
-        if (downloadControllerRef.current === controller)
-          setLoadingProgress(progress => ({ ...progress, phase, quiet: phase !== "Downloading" }));
+        if (downloadControllerRef.current !== controller) return;
+        if (phase === "Downloading") dismissBankNotice();
+        setLoadingProgress(progress => ({ ...progress, phase }));
       },
     });
     void loadSoundFont(bankSource, controller.signal);
@@ -255,6 +419,8 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
       const state = soundRecall.state;
       if (!state || revision === state.revision) return;
       revision = state.revision;
+      preparationRequest.current?.abort();
+      setFeedbackOwner("recall");
       ++loadGenerationRef.current;
       downloadControllerRef.current?.abort();
       downloadControllerRef.current = null;
@@ -273,6 +439,7 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
     if (recalled?.phase !== "complete" || !recalled.name) return;
     if (recalled.presets) setPresets(recalled.presets);
     setSelectedBankName(recalled.name);
+    setLibraryBankName(recalled.name);
     setPresetValue(recalled.preset);
   }, [recalled]);
 
@@ -288,6 +455,7 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
     onChange("fluidsynth_runtime_revision", (Number(settings.fluidsynth_runtime_revision) || 0) + 1);
   };
 
+  const currentMessage = feedbackOwner === "recall" ? (recalled?.phase === "over-budget" ? "" : recalled?.message) : feedbackOwner === "current" ? status : "";
   return (
     <fieldset class="output-routing-fieldset">
       <legend>
@@ -310,12 +478,19 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
           type="checkbox"
           aria-label="Use FluidSynth output"
           checked={!!settings.output_fluidsynth}
-          onChange={(event) => onChange("output_fluidsynth", event.currentTarget.checked)}
+          onChange={(event) => event.currentTarget.checked ? void enablePlayer() : onChange("output_fluidsynth", false)}
         />
       </label>
 
-      <PrepareSoundfonts engine={activeEngine} cache={cache} disabled={busy || recallPending} canLoadColdBank={canLoadColdBank}
-        banks={banks} onRemember={rememberBanks} restoreProgress={restoreProgress}>
+      <div class="preset-actions preset-actions--end">
+        <button type="button" class="preset-utility-btn" disabled={!canShutdown}
+          onClick={shutdownPlayer}>Shut Down FluidSynth</button>
+      </div>
+
+      {!settings.output_fluidsynth && currentMessage && <p role="status" class="settings-form__feedback">{currentMessage}</p>}
+
+      <PrepareSoundfonts name={libraryBankName} onSelectName={setLibraryBankName} feedbackOwner={feedbackOwner} onManualSelection={() => { setFeedbackOwner("preload"); setStatus(""); setStorageStatus(""); }} request={preparationRequest} onBanksLoaded={selectPreparedSoundBank} onBankAvailableOrDownloading={dismissBankNotice} cache={cache} disabled={busy || recallPending} canLoadColdBank={canLoadColdBank}
+        onReplaceForMemory={replaceForMemory} localFiles={localFiles.current} bankState={bankState} playbackBanks={playbackBanks} bankLabel={bankLabel} banks={banks} onRemember={rememberBanks} restoreProgress={restoreProgress}>
       {storageActionsReady ? (
         <div class="fluidsynth-settings__load-row">
           <div class="preset-actions preset-actions--end fluidsynth-settings__prepare-actions">
@@ -344,10 +519,8 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
           value={playbackBanks.has(selectedBankName) ? selectedBankName : ""}
           disabled={busy && !canCancelLoad} onChange={selectSoundfont}>
           <option value="" disabled>{playbackBanks.size ? "Choose a SoundFont…" : "Add a bank in Load SoundFonts…"}</option>
-          {[...playbackBanks.values()].map(bank => {
-            const ready = (loaded && source?.name === bank.name) || residentKeys.includes(soundfontStorageKey(bank));
-            return <option key={bank.name} value={bank.name}>{bank.name}{ready ? "" : " (load on selection)"}</option>;
-          })}
+          {[...playbackBanks.values()].map(bank =>
+            <option key={bank.name} value={bank.name}>{bankLabel(bank)}</option>)}
         </select>
       </label>
       {canCancelLoad && <div class="fluidsynth-settings__load-row">
@@ -367,7 +540,7 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
               disabled={!presetControlsReady}
               onChange={selectPreset}
             >
-              {!presetControlsReady ? <option value="">{busy && !quietOfflineLoad ? "Loading instrument…" : "Load the selected SoundFont first"}</option> : null}
+              {!presetControlsReady ? <option value="">{busy ? "Loading instrument…" : "Load the selected SoundFont first"}</option> : null}
               {(presetControlsReady ? presets : []).map((preset) => (
                 <option
                   key={`${preset.bank}:${preset.program}`}
@@ -415,7 +588,7 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
       {recalled?.phase === "waiting" && <p class="settings-form__feedback" role="status">
         Waiting for silence to load {recalled.name}…
       </p>}
-      {busy && loadingProgress && !quietOfflineLoad ? (
+      {busy && loadingProgress ? (
         <div
           class="settings-form__feedback fluidsynth-settings__download-status"
           role="status"
@@ -445,9 +618,9 @@ const FluidSynthSettings = ({ settings, onChange, soundSession, soundRecall, onW
             </p>
           )}
         </div>
-      ) : (status || recalled?.message) && !quietOfflineLoad ? (
+      ) : currentMessage ? (
         <p class="settings-form__feedback" role="status">
-          {status || recalled?.message}
+          {currentMessage}
         </p>
       ) : null}
         </>

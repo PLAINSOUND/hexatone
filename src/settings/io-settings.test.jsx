@@ -71,7 +71,7 @@ it("delegates menu recalls to the shared runtime and stores the patch", () => {
   render(<IOSettings settings={{}} onChange={vi.fn()} soundRecall={soundRecall} />);
   fireEvent.change(screen.getByLabelText("User sounds"), { target: { value: "user:Quiet" } });
   expect(beginPatch).toHaveBeenCalledExactlyOnceWith(
-    { ...sound.settings, fluidsynth_preset: "0:0" }, "preserve", null, sound.soundfont,
+    { ...sound.settings, fluidsynth_preset: "0:0" }, "preserve", null, sound.soundfont, expect.any(AbortSignal),
   );
   expect(localStorage.getItem("dsf_attack")).toBe("46");
   expect(localStorage.getItem("synth_volume")).toBe("0.2");

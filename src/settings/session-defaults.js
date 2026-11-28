@@ -16,11 +16,12 @@
  */
 
 import { SETTINGS_REGISTRY, CROSS_CONTROLLER_ENTRIES } from "../persistence/settings-registry.js";
-import { applyIOReloadPolicy } from "../persistence/io-reload-policy.js";
+import { applyIOReloadPolicy, restoreSoundSession } from "../persistence/io-reload-policy.js";
 import { initializeSoundfontStorage } from "../fluidsynth_synth/soundfont-storage.js";
 
 // Run before reading any persisted defaults, not after App imports this module.
 applyIOReloadPolicy();
+restoreSoundSession();
 // Copy disposal is best effort. A later storage operation retries the cleanup.
 void initializeSoundfontStorage().catch(() => {});
 import {
@@ -109,7 +110,7 @@ function restoreLocal(entry) {
 const sessionDefaults = {
   // Session-scoped keys (sessionStorage) — device/output choices.
   ...Object.fromEntries(
-    SETTINGS_REGISTRY.filter((e) => e.tier === "session").map((e) => [e.key, restoreSession(e)]),
+    SETTINGS_REGISTRY.filter((e) => e.tier === "session" || e.key === "instrument" || e.key === "output_sample").map((e) => [e.key, restoreSession(e)]),
   ),
   // Cross-controller local keys (localStorage, not per-controller) — restored
   // here so they are available immediately on page load without waiting for the

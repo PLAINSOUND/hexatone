@@ -43,6 +43,39 @@ const restorePreference = (storage, key) =>
 export const restoreSoundOnReload = (storage = localStorage) => restorePreference(storage, SOUND_RESTORE_KEY);
 export const restoreMidiOnReload = (storage = localStorage) => restorePreference(storage, MIDI_RESTORE_KEY);
 
+const SOUND_SESSION_KEY = "hexatone_sound_session";
+const soundSessionKeys = [
+  ACTIVE_SOUND_KEY, "fluidsynth_last_soundfont_source", "instrument", "output_sample",
+  ...SETTINGS_REGISTRY.filter(entry => entry.tier === "session" && SOUND_SETTING_KEYS.has(entry.key) &&
+    entry.key !== "fluidsynth_runtime_revision").map(entry => entry.key),
+];
+
+export function rememberSoundSession(settings) {
+  try {
+    if (!restoreSoundOnReload()) {
+      localStorage.removeItem(SOUND_SESSION_KEY);
+      return;
+    }
+    const snapshot = {};
+    for (const key of soundSessionKeys) {
+      const value = settings?.[key] ?? sessionStorage.getItem(key);
+      if (value != null) snapshot[key] = String(value);
+    }
+    localStorage.setItem(SOUND_SESSION_KEY, JSON.stringify(snapshot));
+  } catch { /* Keep playback usable when browser storage is unavailable. */ }
+}
+
+export function restoreSoundSession() {
+  if (!restoreSoundOnReload() || sessionStorage.getItem(ACTIVE_SOUND_KEY) !== null) return;
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(SOUND_SESSION_KEY));
+    for (const key of soundSessionKeys) {
+      if (typeof snapshot?.[key] === "string" && sessionStorage.getItem(key) === null)
+        sessionStorage.setItem(key, snapshot[key]);
+    }
+  } catch { /* A missing or unreadable working sound uses the startup defaults. */ }
+}
+
 // Compatibility for callers asking whether the entire old I/O setup is restored.
 export function restoreIOOnReload(storage = localStorage) {
   return restoreSoundOnReload(storage) && restoreMidiOnReload(storage);
@@ -75,6 +108,7 @@ export function applyIOReloadPolicy({
     ]) session.removeItem(key);
   }
   if (resetSounds) {
+    local.removeItem(SOUND_SESSION_KEY);
     session.removeItem(ACTIVE_SOUND_KEY);
     // Clear active sound preferences while retaining sound library references.
     for (const key of [

@@ -9,6 +9,7 @@ const sessionId = crypto.randomUUID();
 let cleanupPromise;
 let discardPreviousCopies = false;
 let memoryBank;
+export const soundfontCopiesChanged = new EventTarget();
 
 async function withDatabase(operation) {
   if (!globalThis.indexedDB) throw new Error("Offline storage is unavailable in this browser.");
@@ -65,6 +66,14 @@ function access(mode, operation) {
 }
 
 export const soundfontStorageKey = (source) => canonicalSoundfontKey(source.url || `local:${source.name}`);
+// Enumerate keys only. Reading all bank records would materialize large Blobs on phones.
+export async function workingSoundfontKeys() {
+  let keys = [];
+  try { keys = await access("readonly", store => store.getAllKeys()); }
+  catch { /* Storage can be disabled; the session fallback still works. */ }
+  if (memoryBank) keys.push(memoryBank.key);
+  return [...new Set(keys.map(canonicalSoundfontKey))];
+}
 async function readBank(key) {
   key = canonicalSoundfontKey(key);
   const bank = await access("readonly", (store) => store.get(key));
@@ -109,6 +118,8 @@ export async function storeSoundfontCopy(source, bytes) {
     // reliable available-memory probe. Keep only the most recent failed copy.
     memoryBank = { key, bank: { ...bank, offline: false } };
     throw error;
+  } finally {
+    soundfontCopiesChanged.dispatchEvent(new Event("change"));
   }
 }
 

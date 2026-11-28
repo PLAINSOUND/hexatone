@@ -110,9 +110,20 @@ const SuperColliderSettings = ({
           name="output_osc"
           type="checkbox"
           checked={!!settings.output_osc}
-          onChange={(event) => save(event.target.name, event.target.checked, onChange)}
+          onChange={(event) => {
+            if (event.target.checked && settings.osc_server_off) save("osc_server_off", false, onChange);
+            save(event.target.name, event.target.checked, onChange);
+          }}
         />
       </label>
+
+      {settings.osc_local && <div class="preset-actions preset-actions--end">
+        <button type="button" class="preset-utility-btn" disabled={settings.osc_server_off}
+          onClick={() => {
+            save("output_osc", false, onChange);
+            save("osc_server_off", true, onChange);
+          }}>Shut Down SuperSonic</button>
+      </div>}
 
       <label>
         Server

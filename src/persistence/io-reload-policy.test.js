@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { applyIOReloadPolicy, IO_RESTORE_KEY, SOUND_RESTORE_KEY, MIDI_RESTORE_KEY, restoreIOOnReload, restoreSoundOnReload, restoreMidiOnReload } from "./io-reload-policy.js";
+import { rememberSoundSession, restoreSoundSession, applyIOReloadPolicy, IO_RESTORE_KEY, SOUND_RESTORE_KEY, MIDI_RESTORE_KEY, restoreIOOnReload, restoreSoundOnReload, restoreMidiOnReload } from "./io-reload-policy.js";
 import { SETTINGS_REGISTRY } from "./settings-registry.js";
 
 describe("independent I/O reload policy", () => {
@@ -95,4 +95,21 @@ describe("independent I/O reload policy", () => {
     expect(restoreMidiOnReload()).toBe(false);
   });
 
+});
+
+
+it.each([true, false])("reopens the last sound according to Restore SOUND settings (%s)", async enabled => {
+  const { BUILTIN_USER_SOUNDS, restoreSelection, storeSoundSelection } = await import("./user-sounds.js");
+  const index = BUILTIN_USER_SOUNDS.findIndex(sound => sound.name === "Hammond");
+  localStorage.clear();
+  sessionStorage.clear();
+  localStorage.setItem(SOUND_RESTORE_KEY, String(enabled));
+  storeSoundSelection({ selection: `builtin:${index}`, name: "Hammond", description: "" });
+  rememberSoundSession({ ...BUILTIN_USER_SOUNDS[index].settings, output_sample: false });
+  sessionStorage.clear();
+  restoreSoundSession();
+  expect(restoreSelection([]).name).toBe(enabled ? "Hammond" : "Default");
+  expect(sessionStorage.getItem("instrument")).toBe(enabled ? "hammond" : null);
+  expect(sessionStorage.getItem("output_fluidsynth")).toBe(enabled ? "false" : null);
+  expect(sessionStorage.getItem("output_sample")).toBe(enabled ? "false" : null);
 });

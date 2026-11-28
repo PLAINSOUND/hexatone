@@ -13,7 +13,7 @@ import { isAppleTouchDevice } from "./ui/device.js";
 import { Suspense, lazy } from "preact/compat";
 import { useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from "preact/hooks";
 import { canLoadColdSoundfont, readPerformanceBanks } from "./fluidsynth_synth/performance-banks.js";
-import { restoreSoundOnReload } from "./persistence/io-reload-policy.js";
+import { rememberSoundSession, restoreSoundOnReload } from "./persistence/io-reload-policy.js";
 
 import Keyboard from "./keyboard";
 import { createExquisAppModeLifecycle, releaseExpiredExquisInput } from "./controllers/exquis-app-mode-lifecycle.js";
@@ -49,6 +49,7 @@ import { createTransportClock } from "./sequencer/transport-clock.js";
 import useAudioRecovery from "./hooks/use-audio-recovery.js";
 import { needsMobileBackgroundRecovery } from "./audio/background-policy.js";
 import useScreenWakeLock from "./hooks/use-screen-wake-lock.js";
+import MissingSoundfontAlert from "./audio/missing-soundfont-alert.jsx";
 import AudioRecoveryAlert from "./audio/recovery-alert.jsx";
 import { useMidiGuardian } from "./hooks/use-midi-guardian.js";
 import useDeferredModulationHistory from "./tuning/use-deferred-modulation-history.js";
@@ -1013,8 +1014,22 @@ const App = () => {
   }, [noteRotationEvent]);
 
   const [settings, setSettings] = useQuery(APP_QUERY_SPEC, APP_SETTINGS_DEFAULTS, [], PRESET_SKIP_KEYS);
+  const soundSettingsAtClose = useRef(settings);
+  soundSettingsAtClose.current = settings;
+  useEffect(() => {
+    const save = () => rememberSoundSession(soundSettingsAtClose.current);
+    const onVisibility = () => { if (document.visibilityState === "hidden") save(); };
+    window.addEventListener("pagehide", save);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", save);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
   const initialiseAudioRef = useRef(null);
   const engineLifecycleRef = useRef({ loading: true });
+  const [soundfontLookupComplete, setSoundfontLookupComplete] = useState(false);
   const [restoringLocalSoundfont, setRestoringLocalSoundfont] = useState(false);
   const [soundfontRestoreProgress, setSoundfontRestoreProgress] = useState(null);
   const audioRecovery = useAudioRecovery(synthRef, keysRef, settings, initialiseAudioRef, engineLifecycleRef);
@@ -1079,6 +1094,7 @@ const App = () => {
     synth,
     retryAudioOutputs,
     enginesLoading,
+    startingPatchAudio,
     engineStartupErrors,
     midi,
     midiAccess,
@@ -1137,24 +1153,29 @@ const App = () => {
     if (restoreSoundOnReload() && readPerformanceBanks().some(bank => bank.preload)) {
       setSoundfontRestoreProgress({ phase: "starting" });
     }
-    const restoreOptions = { readMixer: key => soundSessionRef.current?.readMixer(key),
+    const restoreOptions = { restoreSelectedSound: !!settings.output_fluidsynth, readMixer: key => soundSessionRef.current?.readMixer(key),
       signal: controller.signal, activeSignal: activeSoundfontRestore.signal, preferredPreset: settings.fluidsynth_preset,
       canLoadColdBank: () => canLoadColdSoundfont(keysRef.current),
-      onActiveError: error => audioRecovery.startupFailed("FluidSynth", error),
+      onActiveReady: result => {
+        if (controller.signal.aborted) return;
+        if (!activeSoundfontRestore.signal.aborted) setSoundfontLookupComplete(true);
+        if (!result) return;
+        setSettings((current) => ({ ...current,
+          fluidsynth_preset: result.selectedPreset
+            ? `${result.selectedPreset.bank}:${result.selectedPreset.program}` : current.fluidsynth_preset,
+          fluidsynth_runtime_revision: (Number(current.fluidsynth_runtime_revision) || 0) + 1,
+        }));
+      },
+      onActiveError: error => {
+        setSoundfontLookupComplete(true);
+        audioRecovery.startupFailed("FluidSynth", error);
+      },
       onProgress: progress => { if (!controller.signal.aborted) setSoundfontRestoreProgress(progress); } };
     // The gesture sets userHasInteracted before context recovery has finished.
     // Prepare against the worklet that survives that wake-up.
     localSoundfontRestorePromiseRef.current = Promise.resolve(audioWakePromiseRef.current)
       .then(() => import("./fluidsynth_synth/restore-local-soundfont.js"))
       .then(({ restoreSoundfontSession }) => restoreSoundfontSession(restoreOptions))
-      .then((result) => {
-        if (controller.signal.aborted || !result) return;
-        setSettings((current) => ({ ...current,
-          fluidsynth_preset: result.selectedPreset
-            ? `${result.selectedPreset.bank}:${result.selectedPreset.program}` : current.fluidsynth_preset,
-          fluidsynth_runtime_revision: (Number(current.fluidsynth_runtime_revision) || 0) + 1,
-        }));
-      })
       .catch((error) => {
         if (!controller.signal.aborted) {
           localSoundfontAttemptedRef.current = false;
@@ -4348,10 +4369,12 @@ const App = () => {
     soundSession.setParameter("osc_brightness", value);
   }, [soundSession]);
   const soundRecall = useSoundRecall({
+    fluidOutputEnabled: !!settings.output_fluidsynth,
+    localServerOff: settings.osc_local && settings.osc_server_off,
     discardEdits: soundSession.discardEdits,
-    beginPatch(updates, policy, bankReady, bankMix) {
+    beginPatch(updates, policy, bankReady, bankMix, signal) {
       activeSoundfontRestore.abort();
-      patchTransitionRef.current = { policy, bankReady, bankMix };
+      patchTransitionRef.current = { policy, bankReady, bankMix, signal };
       onAtomicChange(updates);
       setPatchRevision(previous => previous + 1);
     },
@@ -4361,7 +4384,9 @@ const App = () => {
         ...(replaced ? { fluidsynth_runtime_revision: (Number(settings.fluidsynth_runtime_revision) || 0) + 1 } : {}),
       });
     },
-    canLoadColdBank: () => canLoadColdSoundfont(keysRef.current),
+    canLoadColdBank: () => keysRef.current?.isSoundInteractionIdle?.() !== false &&
+      ![...(keysRef.current?._soundingSnapshotHexes ?? [])].some(note => !note.release) &&
+      canLoadColdSoundfont(keysRef.current),
   }, settings.output_fluidsynth);
 
   // Validate that all required settings are present and consistent.
@@ -5550,6 +5575,14 @@ const App = () => {
         onRecreateAudioContexts={() => audioRecovery.restore({ forceRecreate: true })}
         onCycleAudioContexts={audioRecovery.cycleContexts}
         onRestartFluidSynthWorklet={audioRecovery.restartFluidSynthWorklet}
+        cancelStartupRestore={() => {
+          localSoundfontAttemptedRef.current = true;
+          localSoundfontRestoreControllerRef.current?.abort();
+          activeSoundfontRestore.abort();
+          setRestoringLocalSoundfont(false);
+          setSoundfontRestoreProgress(null);
+          setSoundfontLookupComplete(true);
+        }}
         soundfontRestoreProgress={soundfontRestoreProgress}
         onChange={onChange}
         soundSession={soundSession}
@@ -5596,16 +5629,10 @@ const App = () => {
     />
   );
 
-  return (
-    <div
-      className={[active ? "hide" : "show", controlsHiddenForKeyboard ? "text-entry-active" : ""]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      {((ready && !initialAudioPromptDismissed &&
+  const recoveryAlert = ((ready && !initialAudioPromptDismissed &&
           audioRecovery.needsStart()) ||
         (audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored"))) && (
-        <AudioRecoveryAlert
+    <AudioRecoveryAlert
           message={audioRecovery.status && !audioRecovery.status.startsWith("Audio engines restored")
             ? audioRecovery.status : "Audio is not ready. Tap Retry to prepare built-in sounds."}
           onActivate={() => { void restoreBuiltInAudio(); }}
@@ -5615,7 +5642,21 @@ const App = () => {
             audioRecovery.dismiss();
           }}
         />
-      )}
+  );
+
+  return (
+    <div
+      className={[active ? "hide" : "show", controlsHiddenForKeyboard ? "text-entry-active" : ""]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <MissingSoundfontAlert startingAudio={startingPatchAudio} enabled={settings.output_fluidsynth} lookupComplete={soundfontLookupComplete} recall={soundRecall}
+        onReleaseSustain={latch ? () => {
+          const keys = keysRef.current;
+          if (keys?.state.latch) keys.latchToggle();
+        } : undefined}>
+        {recoveryAlert}
+      </MissingSoundfontAlert>
       {ready && (isValid || sequenceOnlyPlaybackSurface) && (
         <Keyboard
           synth={synth || nullSynth}

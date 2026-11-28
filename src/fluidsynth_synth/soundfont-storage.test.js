@@ -31,6 +31,7 @@ function mockDatabase() {
             };
             transaction.objectStore = () => ({
               put: (bank, key) => { banks.set(key, bank); return result(key); },
+              getAllKeys: () => result([...banks.keys()]),
               get: (key) => result(banks.get(key)),
               delete: (key) => { banks.delete(key); return result(undefined); },
               openCursor: () => {
@@ -62,6 +63,15 @@ function mockDatabase() {
   });
   return { banks, close };
 }
+
+it("discovers a legacy local bank and deduplicates its hosted key", async () => {
+  const { banks } = mockDatabase();
+  const name = "PlainsoundHarpsichordLute.sf2";
+  const hosted = "https://soundfonts.plainsound.org/" + name;
+  banks.set("local:" + name, { name });
+  banks.set(hosted, { name });
+  expect(await storage.workingSoundfontKeys()).toEqual([hosted]);
+});
 
 it("keeps browser copies across reloads with Restore enabled", async () => {
   const { banks, close } = mockDatabase();
